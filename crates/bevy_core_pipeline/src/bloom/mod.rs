@@ -23,8 +23,6 @@ use bevy_render::{
     view::ViewTarget,
     Render, RenderApp, RenderSet,
 };
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
     BloomUniforms,
@@ -85,7 +83,7 @@ impl Plugin for BloomPlugin {
             draw_3d_graph.add_node(core_3d::graph::node::BLOOM, bloom_node);
             // MAIN_PASS -> BLOOM -> TONEMAPPING
             draw_3d_graph.add_node_edge(
-                crate::core_3d::graph::node::MAIN_PASS,
+                crate::core_3d::graph::node::END_MAIN_PASS,
                 core_3d::graph::node::BLOOM,
             );
             draw_3d_graph.add_node_edge(
@@ -150,9 +148,6 @@ impl Node for BloomNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        #[cfg(feature = "trace")]
-        let _bloom_span = info_span!("bloom").entered();
-
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let uniforms = world.resource::<ComponentUniforms<BloomUniforms>>();

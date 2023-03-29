@@ -1,12 +1,9 @@
 //! Bevy has an optional prepass that is controlled per-material. A prepass is a rendering pass that runs before the main pass.
-//! It will optionally generate various view textures. Currently it supports depth and normal textures.
+//! It will optionally generate various view textures. Currently it supports depth, normal, and motion vector textures.
 //! The textures are not generated for any material using alpha blending.
-//!
-//! # WARNING
-//! The prepass currently doesn't work on `WebGL`.
 
 use bevy::{
-    core_pipeline::prepass::{DepthPrepass, NormalPrepass},
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
     pbr::{NotShadowCaster, PbrPlugin},
     prelude::*,
     reflect::TypeUuid,
@@ -18,6 +15,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(PbrPlugin {
             // The prepass is enabled by default on the StandardMaterial,
             // but you can disable it if you need to.
+            //
             // prepass_enabled: false,
             ..default()
         }))
@@ -53,6 +51,8 @@ fn setup(
         DepthPrepass,
         // This will generate a texture containing world normals (with normal maps applied)
         NormalPrepass,
+        // This will generate a texture containing screen space pixel motion vectors
+        MotionVectorPrepass,
     ));
 
     // plane
@@ -192,6 +192,7 @@ fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
 struct ShowPrepassSettings {
     show_depth: u32,
     show_normals: u32,
+    show_motion_vectors: u32,
     padding_1: u32,
     padding_2: u32,
 }
@@ -217,30 +218,38 @@ impl Material for PrepassOutputMaterial {
 
 /// Every time you press space, it will cycle between transparent, depth and normals view
 fn toggle_prepass_view(
+    mut prepass_view: Local<u32>,
     keycode: Res<Input<KeyCode>>,
     material_handle: Query<&Handle<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
     mut text: Query<&mut Text>,
 ) {
     if keycode.just_pressed(KeyCode::Space) {
-        let handle = material_handle.single();
-        let mat = materials.get_mut(handle).unwrap();
-        let out_text;
-        if mat.settings.show_depth == 1 {
-            out_text = "normal";
-            mat.settings.show_depth = 0;
-            mat.settings.show_normals = 1;
-        } else if mat.settings.show_normals == 1 {
-            out_text = "transparent";
-            mat.settings.show_depth = 0;
-            mat.settings.show_normals = 0;
+        *prepass_view = (*prepass_view + 1) % 4;
+
+        let label = match *prepass_view {
+            0 => "transparent",
+            1 => "depth",
+            2 => "normals",
+            3 => "motion vectors",
+            _ => unreachable!(),
+        };
+        let text_color = if *prepass_view == 3 {
+            Color::BLACK
         } else {
-            out_text = "depth";
-            mat.settings.show_depth = 1;
-            mat.settings.show_normals = 0;
-        }
+            Color::WHITE
+        };
 
         let mut text = text.single_mut();
-        text.sections[0].value = format!("Prepass Output: {out_text}\n");
+        text.sections[0].value = format!("Prepass Output: {label}\n");
+        for section in &mut text.sections {
+            section.style.color = text_color;
+        }
+
+        let handle = material_handle.single();
+        let mat = materials.get_mut(handle).unwrap();
+        mat.settings.show_depth = (*prepass_view == 1) as u32;
+        mat.settings.show_normals = (*prepass_view == 2) as u32;
+        mat.settings.show_motion_vectors = (*prepass_view == 3) as u32;
     }
 }

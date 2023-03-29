@@ -55,6 +55,8 @@ fn register_rust_types(app: &mut App) {
         .register_type::<OsString>()
         .register_type::<HashSet<String>>()
         .register_type::<Option<String>>()
+        .register_type::<Option<bool>>()
+        .register_type::<Option<f64>>()
         .register_type::<Cow<'static, str>>()
         .register_type::<Duration>()
         .register_type::<Instant>();
@@ -68,6 +70,7 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::UVec3>()
         .register_type::<bevy_math::UVec4>()
         .register_type::<bevy_math::DVec2>()
+        .register_type::<Option<bevy_math::DVec2>>()
         .register_type::<bevy_math::DVec3>()
         .register_type::<bevy_math::DVec4>()
         .register_type::<bevy_math::BVec2>()
