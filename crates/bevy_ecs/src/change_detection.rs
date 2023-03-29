@@ -138,7 +138,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # // System that checks if scores have changed since the last time it ran
     /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>());
     /// # score_changed.initialize(&mut world);
-    /// # score_changed.run(&mut world);
+    /// # score_changed.run((), &mut world);
     /// #
     /// # assert!(score_changed.run(&mut world));
     /// #
@@ -147,10 +147,10 @@ pub trait DetectChangesMut: DetectChanges {
     /// #
     /// # // first time `reset_scores` runs, the score is changed.
     /// # schedule.run(&mut world);
-    /// # assert!(score_changed.run(&mut world));
+    /// # assert!(score_changed.run((), &mut world));
     /// # // second time `reset_scores` runs, the score is not changed.
     /// # schedule.run(&mut world);
-    /// # assert!(!score_changed.run(&mut world));
+    /// # assert!(!score_changed.run((), &mut world));
     /// ```
     #[inline]
     fn set_if_neq(&mut self, value: Self::Inner)
