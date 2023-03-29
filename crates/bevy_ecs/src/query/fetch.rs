@@ -382,7 +382,7 @@ pub unsafe trait WorldQuery {
     /// `table_row` must be in the range of the current table and archetype.
     ///
     /// If this type does not implement [`ReadOnlyWorldQuery`], then the caller must ensure that
-    /// no two `Self::Item`s may exist for the same entity at any given time.
+    /// it is impossible for more than one `Self::Item`s to exist for the same entity at any given time.
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
