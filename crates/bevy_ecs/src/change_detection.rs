@@ -135,7 +135,6 @@ pub trait DetectChangesMut: DetectChanges {
     /// }
     /// # let mut world = World::new();
     /// # world.insert_resource(Score(1));
-    /// # // System that checks if scores have changed since the last time it ran
     /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>());
     /// # score_changed.initialize(&mut world);
     /// # score_changed.run((), &mut world);
