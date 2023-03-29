@@ -260,6 +260,7 @@ struct SystemParamFieldAttributes {
 static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 
 /// Implement `SystemParam` to use a struct as a parameter in a system
+#[doc = include_str!("../../doc/system_param.md")]
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let token_stream = input.clone();
