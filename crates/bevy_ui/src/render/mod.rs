@@ -13,7 +13,7 @@ use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiIm
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, UVec4, Vec2, Affine2};
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
@@ -148,7 +148,7 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 
 pub struct ExtractedUiNode {
     pub stack_index: usize,
-    pub transform: Mat4,
+    pub transform: Affine2,
     pub color: Color,
     pub rect: Rect,
     pub image: Handle<Image>,
@@ -200,7 +200,7 @@ pub fn extract_uinodes(
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
-                transform: uinode_transform.matrix,
+                transform: uinode_transform.0,
                 color: color.0,
                 rect: Rect {
                     min: Vec2::ZERO,
@@ -297,7 +297,7 @@ pub fn extract_text_uinodes(
         .map(|window| window.resolution.scale_factor() as f32)
         .unwrap_or(1.0);
 
-    let scaling = Mat4::from_scale(Vec3::splat(scale_factor.recip()));
+    let scaling = Affine2::from_scale(Vec2::splat(scale_factor.recip()));
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, node_transform, text, text_layout_info, visibility, clip)) =
@@ -308,8 +308,8 @@ pub fn extract_text_uinodes(
                 continue;
             }
 
-            let transform = node_transform.matrix
-                * Mat4::from_translation(-0.5 * uinode.size().extend(0.))
+            let transform = node_transform.0
+                * Affine2::from_translation(-0.5 * uinode.size())
                 * scaling;
 
             let mut color = Color::WHITE;
@@ -329,7 +329,7 @@ pub fn extract_text_uinodes(
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
-                    transform: transform * Mat4::from_translation(position.extend(0.)),
+                    transform: transform * Affine2::from_translation(*position),
                     color,
                     rect: atlas.textures[atlas_info.glyph_index],
                     image: atlas.texture.clone_weak(),
@@ -366,11 +366,11 @@ impl Default for UiMeta {
     }
 }
 
-const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
-    Vec3::new(-0.5, -0.5, 0.0),
-    Vec3::new(0.5, -0.5, 0.0),
-    Vec3::new(0.5, 0.5, 0.0),
-    Vec3::new(-0.5, 0.5, 0.0),
+const QUAD_VERTEX_POSITIONS: [Vec2; 4] = [
+    Vec2::new(-0.5, -0.5),
+    Vec2::new(0.5, -0.5),
+    Vec2::new(0.5, 0.5),
+    Vec2::new(-0.5, 0.5),
 ];
 
 const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
@@ -414,11 +414,11 @@ pub fn prepare_uinodes(
         }
 
         let uinode_rect = extracted_uinode.rect;
-        let rect_size = uinode_rect.size().extend(1.0);
+        let rect_size = uinode_rect.size();
 
         // Specify the corners of the node
         let positions = QUAD_VERTEX_POSITIONS
-            .map(|pos| (extracted_uinode.transform * (pos * rect_size).extend(1.)).xyz());
+            .map(|pos| (extracted_uinode.transform.transform_point2(pos * rect_size)));
 
         // Calculate the effect of clipping
         // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
@@ -446,13 +446,13 @@ pub fn prepare_uinodes(
         };
 
         let positions_clipped = [
-            positions[0] + positions_diff[0].extend(0.),
-            positions[1] + positions_diff[1].extend(0.),
-            positions[2] + positions_diff[2].extend(0.),
-            positions[3] + positions_diff[3].extend(0.),
+            (positions[0] + positions_diff[0]).extend(0.),
+            (positions[1] + positions_diff[1]).extend(0.),
+            (positions[2] + positions_diff[2]).extend(0.),
+            (positions[3] + positions_diff[3]).extend(0.),
         ];
 
-        let transformed_rect_size = extracted_uinode.transform.transform_vector3(rect_size);
+        let transformed_rect_size = extracted_uinode.transform.transform_vector2(rect_size);
 
         // Don't try to cull nodes that have a rotation
         // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -510,7 +510,7 @@ pub fn prepare_uinodes(
             });
         }
 
-        last_z = extracted_uinode.transform.w_axis[2];
+        last_z = 0.;
         end += QUAD_INDICES.len() as u32;
     }
 

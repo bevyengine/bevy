@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
-use bevy_math::{Mat4, Vec2};
+use bevy_math::{Vec2, Affine2};
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
@@ -355,7 +355,7 @@ pub fn flex_node_system(
 
     fn update_node_geometry_recursively(
         flex_surface: &FlexSurface,
-        inherited_transform: Mat4,
+        inherited_transform: Affine2,
         node_id: Entity,
         node_geometry_query: &mut Query<(
             &mut Node,
@@ -376,20 +376,18 @@ pub fn flex_node_system(
             let new_position =
                 Vec2::new(layout.location.x, layout.location.y) * physical_to_logical_factor;
 
-            let size_displacement = 0.5 * new_size.extend(0.);
-            let new_transform = Mat4::from_translation(new_position.extend(0.) + size_displacement);
+            let half_size = 0.5 * new_size;
+            
+            let mut calculated_transform = inherited_transform;
+            calculated_transform = calculated_transform * Affine2::from_translation(new_position + half_size);
 
-            let mut calculated_transform = inherited_transform * new_transform;
+            let other = Affine2::from_scale_angle_translation(
+                maybe_scale.map_or(Vec2::ONE, |scale| scale.0),
+                maybe_rotation.map_or(0., |rotation| rotation.0),
+                maybe_translation.map_or(Vec2::ZERO, |translation| translation.0),
+            );
 
-            if let Some(translation) = maybe_translation {
-                calculated_transform *= Mat4::from_translation(translation.0.extend(0.));
-            }
-            if let Some(rotation) = maybe_rotation {
-                calculated_transform *= Mat4::from_rotation_z(rotation.0);
-            }
-            if let Some(scale) = maybe_scale {
-                calculated_transform *= Mat4::from_scale(scale.0.extend(1.));
-            }
+            calculated_transform = calculated_transform * other;
 
             // only trigger change detection when the new value is different
             if node.calculated_size != new_size {
@@ -397,15 +395,16 @@ pub fn flex_node_system(
             }
 
             // only trigger change detection when the new value is different
-            if transform.matrix != calculated_transform {
-                transform.matrix = calculated_transform;
+            if transform.0 != calculated_transform {
+                transform.0 = calculated_transform;
             }
 
             if let Ok(children) = children_query.get(node_id) {
+                calculated_transform = calculated_transform * Affine2::from_translation(-half_size);
                 for child in children.iter() {
                     update_node_geometry_recursively(
                         flex_surface,
-                        calculated_transform * Mat4::from_translation(-size_displacement),
+                        calculated_transform,
                         *child,
                         node_geometry_query,
                         children_query,
@@ -419,7 +418,7 @@ pub fn flex_node_system(
     for node_id in root_node_query.iter() {
         update_node_geometry_recursively(
             &flex_surface,
-            Mat4::IDENTITY,
+            Affine2::IDENTITY,
             node_id,
             &mut node_geometry_query,
             &children_query,
