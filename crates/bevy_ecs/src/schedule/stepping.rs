@@ -5,11 +5,49 @@ use std::any::TypeId;
 use std::collections::HashMap;
 
 use crate::{
-    schedule::{BoxedScheduleLabel, IntoSystemConfigs, NodeId, Schedule, ScheduleLabel},
+    schedule::{BoxedScheduleLabel, NodeId, Schedule, ScheduleLabel},
     system::{IntoSystem, ResMut, Resource, System},
 };
 
 use crate as bevy_ecs;
+
+#[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
+enum StepAction {
+    /// Stepping is disabled; run all systems
+    #[default]
+    RunAll,
+
+    /// Stepping is enabled, but we're only running required systems this frame
+    Waiting,
+
+    /// Stepping is enabled; run all systems until the end of the frame, or
+    /// until we encounter a system marked with [`SystemBehavior::Break`].
+    Continue,
+
+    /// stepping is enabled; only run the next system in our step list
+    Step,
+}
+
+#[derive(Debug, Copy, Clone)]
+enum StepBehavior {
+    AlwaysRun,
+    NeverRun,
+    Continue,
+    Break,
+}
+
+enum SystemIdentifier {
+    Type(TypeId),
+    Node(NodeId),
+}
+
+enum Update {
+    Action(StepAction),
+    AddSchedule(BoxedScheduleLabel),
+    RemoveSchedule(BoxedScheduleLabel),
+    SetBehavior(BoxedScheduleLabel, SystemIdentifier, StepBehavior),
+    ClearBehavior(BoxedScheduleLabel, SystemIdentifier),
+}
 
 #[derive(Resource, Default)]
 pub struct Stepping {
@@ -19,11 +57,8 @@ pub struct Stepping {
     /// Action to perform during this frame
     action: StepAction,
 
-    /// pending action to be applied at the start of the next frame
-    pending_action: Option<StepAction>,
-
-    /// changes to apply to systems at the start of the next frame
-    system_behavior_updates: Vec<SystemBehaviorUpdate>,
+    /// Updates to stepping state to be applied at the start of the next frame
+    updates: Vec<Update>,
 }
 
 impl Stepping {
@@ -36,31 +71,38 @@ impl Stepping {
     where
         Label: ScheduleLabel + Clone,
     {
-        self.schedule_states
-            .insert(Box::new(schedule), ScheduleState::default());
+        self.updates.push(Update::AddSchedule(Box::new(schedule)));
         self
     }
 
     /// disable stepping for the provided schedule
     pub fn remove_schedule(&mut self, schedule: impl ScheduleLabel) -> &mut Self {
+        self.updates
+            .push(Update::RemoveSchedule(Box::new(schedule)));
         self
     }
 
     /// Begin stepping at the start of the next frame
     pub fn enable(&mut self) -> &mut Self {
-        #[cfg(debug_assertions)]
-        for (_, state) in self.schedule_states.iter() {
-            assert_eq!(state.next, 0);
-        }
-
-        self.pending_action = Some(StepAction::Waiting);
+        self.updates.push(Update::Action(StepAction::Waiting));
         self
     }
 
     /// Disable stepping, resume normal systems execution
     pub fn disable(&mut self) -> &mut Self {
-        self.clear_schedule_progress();
-        self.pending_action = Some(StepAction::RunAll);
+        self.updates.push(Update::Action(StepAction::RunAll));
+        self
+    }
+
+    /// continue stepping until the end of the frame or a breakpoint is hit
+    pub fn r#continue(&mut self) -> &mut Self {
+        self.updates.push(Update::Action(StepAction::Continue));
+        self
+    }
+
+    /// run the next system
+    pub fn step(&mut self) -> &mut Self {
+        self.updates.push(Update::Action(StepAction::Step));
         self
     }
 
@@ -70,11 +112,12 @@ impl Stepping {
         schedule: impl ScheduleLabel,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
-        self.system_behavior_updates.push(SystemBehaviorUpdate {
-            schedule: Box::new(schedule),
-            system_type: IntoSystem::into_system(system).type_id(),
-            behavior: StepBehavior::AlwaysRun,
-        });
+        let type_id = IntoSystem::into_system(system).type_id();
+        self.updates.push(Update::SetBehavior(
+            Box::new(schedule),
+            SystemIdentifier::Type(type_id),
+            StepBehavior::AlwaysRun,
+        ));
 
         self
     }
@@ -85,11 +128,12 @@ impl Stepping {
         schedule: impl ScheduleLabel,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
-        self.system_behavior_updates.push(SystemBehaviorUpdate {
-            schedule: Box::new(schedule),
-            system_type: IntoSystem::into_system(system).type_id(),
-            behavior: StepBehavior::NeverRun,
-        });
+        let type_id = IntoSystem::into_system(system).type_id();
+        self.updates.push(Update::SetBehavior(
+            Box::new(schedule),
+            SystemIdentifier::Type(type_id),
+            StepBehavior::NeverRun,
+        ));
 
         self
     }
@@ -100,21 +144,28 @@ impl Stepping {
         schedule: impl ScheduleLabel,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
-        self.system_behavior_updates.push(SystemBehaviorUpdate {
-            schedule: Box::new(schedule),
-            system_type: IntoSystem::into_system(system).type_id(),
-            behavior: StepBehavior::Break,
-        });
+        let type_id = IntoSystem::into_system(system).type_id();
+        self.updates.push(Update::SetBehavior(
+            Box::new(schedule),
+            SystemIdentifier::Type(type_id),
+            StepBehavior::Break,
+        ));
 
         self
     }
 
     /// Clear a breakpoint for the system
-    pub fn clear_breakpoint<M>(
+    pub fn clear_breakpoint<Marker>(
         &mut self,
         schedule: impl ScheduleLabel,
-        system: impl IntoSystemConfigs<M>,
+        system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
+        let type_id = IntoSystem::into_system(system).type_id();
+        self.updates.push(Update::ClearBehavior(
+            Box::new(schedule),
+            SystemIdentifier::Type(type_id),
+        ));
+
         self
     }
 
@@ -140,44 +191,62 @@ impl Stepping {
         Some(list)
     }
 
-    /// continue stepping until the end of the frame or a breakpoint is hit
-    pub fn r#continue(&mut self) {}
-
-    /// run the next system
-    pub fn step(&mut self) -> &mut Self {
-        self.pending_action = Some(StepAction::Step);
-        self
-    }
-
     pub(crate) fn next_frame(&mut self) {
-        match self.action {
-            StepAction::RunAll => {
-                if self.pending_action.is_none() {
-                    return;
+        // If we were stepping, and nothing ran, the action will remain Step.
+        // This happens when we've already run everything in the "stepping"
+        // frame.  Now, the user requested a step, let's reset our schedule
+        // state to the beginning and start a new "stepping" frame.
+        if self.action == StepAction::Step {
+            self.clear_schedule_progress();
+
+            // This return here is to ensure that the step is executed.  We
+            // don't want to process updates from the previous frame because
+            // they may overwrite the action, resulting in Step doing nothing.
+            return;
+        }
+
+        if self.updates.is_empty() {
+            return;
+        }
+
+        let mut clear_schedule = false;
+        for update in self.updates.drain(..) {
+            match update {
+                Update::Action(StepAction::RunAll) => {
+                    self.action = StepAction::RunAll;
+                    clear_schedule = true;
+                }
+                Update::Action(a) => self.action = a,
+                Update::AddSchedule(l) => {
+                    self.schedule_states.insert(l, ScheduleState::default());
+                }
+                Update::RemoveSchedule(l) => {
+                    self.schedule_states.remove(&l);
+                }
+                Update::SetBehavior(label, system, behavior) => {
+                    let state = self.schedule_states.get_mut(&label).unwrap_or_else(|| {
+                        panic!(
+                            "stepping is not enabled for schedule {:?}; use
+                `.add_stepping({:?})` to enable stepping",
+                            label, label
+                        )
+                    });
+                    state.set_behavior(system, behavior);
+                }
+                Update::ClearBehavior(label, system) => {
+                    let state = self.schedule_states.get_mut(&label).unwrap_or_else(|| {
+                        panic!(
+                            "stepping is not enabled for schedule {:?}; use
+                `.add_stepping({:?})` to enable stepping",
+                            label, label
+                        )
+                    });
+                    state.clear_behavior(system);
                 }
             }
-            StepAction::Step => self.clear_schedule_progress(),
-            StepAction::Continue => (),
-            StepAction::Waiting => (),
         }
-        if let Some(action) = self.pending_action {
-            println!("next_frame(): state {:?} -> {:?}", self.action, action);
-            self.action = action;
-            self.pending_action = None;
-        }
-
-        for update in self.system_behavior_updates.drain(..) {
-            let state = self
-                .schedule_states
-                .get_mut(&update.schedule)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "stepping is not enabled for schedule {:?}; use
-                `.add_stepping({:?})` to enable stepping",
-                        update.schedule, update.schedule
-                    )
-                });
-            state.set_behavior(update.system_type, update.behavior);
+        if clear_schedule {
+            self.clear_schedule_progress();
         }
     }
 
@@ -197,12 +266,6 @@ impl Stepping {
     }
 }
 
-struct SystemBehaviorUpdate {
-    schedule: BoxedScheduleLabel,
-    system_type: TypeId,
-    behavior: StepBehavior,
-}
-
 #[derive(Default)]
 struct ScheduleState {
     /// Index of the next system to run in the system schedule; if set to
@@ -216,32 +279,52 @@ struct ScheduleState {
 
     /// changes to system behavior that should be applied the next time
     /// [`ScheduleState::progress()`] is called
-    system_updates: HashMap<TypeId, StepBehavior>,
+    updates: HashMap<TypeId, Option<StepBehavior>>,
 }
 
 impl ScheduleState {
     // set the stepping behavior for a system in this schedule
-    fn set_behavior(&mut self, system_type: TypeId, behavior: StepBehavior) {
-        self.system_updates.insert(system_type, behavior);
+    fn set_behavior(&mut self, system: SystemIdentifier, behavior: StepBehavior) {
+        match system {
+            SystemIdentifier::Node(node_id) => {
+                self.systems.insert(node_id, behavior);
+            }
+            SystemIdentifier::Type(type_id) => {
+                self.updates.insert(type_id, Some(behavior));
+            }
+        }
+    }
+
+    // clear the stepping behavior for a system in this schedule
+    fn clear_behavior(&mut self, system: SystemIdentifier) {
+        match system {
+            SystemIdentifier::Node(node_id) => {
+                self.systems.remove(&node_id);
+            }
+            SystemIdentifier::Type(type_id) => {
+                self.updates.insert(type_id, None);
+            }
+        }
     }
 
     // apply system behavior updates by looking up the node id of the system in
     // the schedule, and updating `systems`
-    fn update_behaviors(&mut self, schedule: &Schedule) {
+    fn apply_updates(&mut self, schedule: &Schedule) {
         for (node_id, system) in schedule.systems().unwrap() {
-            if let Some(behavior) = self.system_updates.get(&system.type_id()) {
-                println!(
-                    "update_behaviors(): {} ({:?}) -- {:?}",
-                    system.name(),
-                    node_id,
-                    behavior
-                );
-                self.systems.insert(node_id, *behavior);
+            let behavior = self.updates.get(&system.type_id());
+            match behavior {
+                None => continue,
+                Some(None) => {
+                    self.systems.remove(&node_id);
+                }
+                Some(Some(behavior)) => {
+                    self.systems.insert(node_id, *behavior);
+                }
             }
         }
-        self.system_updates.clear();
+        self.updates.clear();
 
-        println!("update_behaviors(): {:?}", self.systems);
+        println!("apply_updates(): {:?}", self.systems);
     }
 
     // progress the schedule for the given action type, returning a skip list,
@@ -250,8 +333,8 @@ impl ScheduleState {
         // Now that we have the schedule, apply any pending system behavior
         // updates.  The schedule is required to map from system `TypeId` to
         // `NodeId`.
-        if !self.system_updates.is_empty() {
-            self.update_behaviors(schedule);
+        if !self.updates.is_empty() {
+            self.apply_updates(schedule);
         }
 
         let systems_schedule = schedule.executable();
@@ -352,31 +435,6 @@ impl ScheduleState {
         }
         (skip, false)
     }
-}
-
-#[derive(Debug, Copy, Clone)]
-enum StepBehavior {
-    AlwaysRun,
-    NeverRun,
-    Continue,
-    Break,
-}
-
-#[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
-enum StepAction {
-    /// Stepping is disabled; run all systems
-    #[default]
-    RunAll,
-
-    /// Stepping is enabled, but we're only running required systems this frame
-    Waiting,
-
-    /// Stepping is enabled; run all systems until the end of the frame, or
-    /// until we encounter a system marked with [`SystemBehavior::Break`].
-    Continue,
-
-    /// stepping is enabled; only run the next system in our step list
-    Step,
 }
 
 #[cfg(test)]
