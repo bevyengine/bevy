@@ -950,7 +950,8 @@ where
 }
 
 impl<T> Remove<T> {
-    fn new(entity: Entity) -> Self {
+    /// Creates a [`Command`] which will remove the specified [`Entity`] when flushed
+    pub const fn new(entity: Entity) -> Self {
         Self {
             entity,
             _phantom: PhantomData::<T>,
@@ -969,7 +970,8 @@ impl<R: Resource + FromWorld> Command for InitResource<R> {
 }
 
 impl<R: Resource + FromWorld> InitResource<R> {
-    fn new() -> Self {
+    /// Creates a [`Command`] which will insert a default created [`Resource`] into the [`World`]
+    pub const fn new() -> Self {
         Self {
             _phantom: PhantomData::<R>,
         }
@@ -997,6 +999,7 @@ impl<R: Resource> Command for RemoveResource<R> {
 }
 
 impl<R: Resource> RemoveResource<R> {
+    /// Creates a [`Command`] which will remove a [`Resource`] from the [`World`]
     fn new() -> Self {
         Self {
             _phantom: PhantomData::<R>,
