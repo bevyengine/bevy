@@ -1,7 +1,7 @@
 //! Demonstrates how to work with Cubic curves.
 //!
 
-use bevy::{math::cubic_splines::CubicCurve, prelude::*};
+use bevy::{math::{cubic_splines::CubicCurve, vec3}, prelude::*};
 
 #[derive(Component)]
 pub struct Curve(CubicCurve<Vec3>);
@@ -38,7 +38,7 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(shape::Cube::default().into()),
             material: materials.add(Color::ORANGE.into()),
-            transform: Transform::from_translation(control_point1),
+            transform: Transform::from_translation(points[0][0]),
             ..default()
         },
         Curve(bezier),
