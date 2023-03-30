@@ -396,6 +396,8 @@ pub fn queue_material_meshes<M: Material>(
         tonemapping,
         dither,
         environment_map,
+        shadow_smoothing_mode,
+        normal_prepass,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transparent_phase,
@@ -418,6 +420,18 @@ pub fn queue_material_meshes<M: Material>(
         };
         if environment_map_loaded {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        match shadow_smoothing_mode {
+            Some(ShadowSmoothingMode::NoSmoothing) => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_SIMPLE
+            }
+            None | Some(ShadowSmoothingMode::Smooth) => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_THE_WITNESS
+            }
+            Some(ShadowSmoothingMode::Stochastic) => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_STOCHASTIC
+            }
         }
 
         if !view.hdr {
@@ -469,17 +483,6 @@ pub fn queue_material_meshes<M: Material>(
                         }
                         _ => (),
                     }
-                    match shadow_smoothing_mode {
-                        Some(ShadowSmoothingMode::NoSmoothing) => {
-                            mesh_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_SIMPLE
-                        }
-                        None | Some(ShadowSmoothingMode::Smooth) => {
-                            mesh_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_THE_WITNESS
-                        }
-                        Some(ShadowSmoothingMode::Stochastic) => {
-                            mesh_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_STOCHASTIC
-                        }
-                    };
 
                     let pipeline_id = pipelines.specialize(
                         &pipeline_cache,
