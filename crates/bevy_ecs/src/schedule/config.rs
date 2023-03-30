@@ -79,7 +79,7 @@ impl SystemConfigs {
         })
     }
 
-    fn in_set_inner(&mut self, set: BoxedSystemSet) {
+    pub(crate) fn in_set_inner(&mut self, set: BoxedSystemSet) {
         match self {
             SystemConfigs::SystemConfig(config) => {
                 config.graph_info.sets.push(set);
@@ -163,7 +163,7 @@ impl SystemConfigs {
         }
     }
 
-    fn run_if_inner(&mut self, condition: BoxedCondition) {
+    pub(crate) fn run_if_inner(&mut self, condition: BoxedCondition) {
         match self {
             SystemConfigs::SystemConfig(config) => {
                 config.conditions.push(condition);
@@ -243,7 +243,7 @@ where
     /// the first time a system in this set prepares to run.
     ///
     /// If this set contains more than one system, calling `run_if` is equivalent to adding each
-    /// system to an common set and configuring the run condition on that set, as shown below:
+    /// system to a common set and configuring the run condition on that set, as shown below:
     ///
     /// # Examples
     ///

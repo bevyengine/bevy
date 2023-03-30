@@ -530,10 +530,26 @@ impl ScheduleGraph {
                 }
             }
             SystemConfigs::Configs {
-                configs,
+                mut configs,
                 collective_conditions,
                 chained,
             } => {
+                let more_than_one_entry = configs.len() > 1;
+                if !collective_conditions.is_empty() {
+                    if more_than_one_entry {
+                        let set = AnonymousSet::new();
+                        for config in configs.iter_mut() {
+                            config.in_set_inner(set.dyn_clone());
+                        }
+                        let mut set_config = set.into_config();
+                        set_config.conditions.extend(collective_conditions);
+                        self.configure_set(set_config);
+                    } else {
+                        for condition in collective_conditions {
+                            configs[0].run_if_inner(condition);
+                        }
+                    }
+                }
                 let mut config_iter = configs.into_iter();
                 let mut nodes_in_scope = Vec::new();
                 let mut densely_chained = true;
@@ -544,26 +560,9 @@ impl ScheduleGraph {
                             densely_chained: true
                         }
                     };
-                    let more_than_one_entry = config_iter.len() > 0;
-                    let anonymous_set = if more_than_one_entry && !collective_conditions.is_empty()
-                    {
-                        Some(AnonymousSet::new())
-                    } else {
-                        None
-                    };
-                    let prev = if let Some(anonymous_set) = anonymous_set {
-                        prev.in_set(anonymous_set)
-                    } else {
-                        prev
-                    };
                     let mut previous_result = self.add_systems_inner(prev, true);
                     densely_chained = previous_result.densely_chained;
                     for current in config_iter {
-                        let current = if let Some(anonymous_set) = anonymous_set {
-                            current.in_set(anonymous_set)
-                        } else {
-                            current
-                        };
                         let current_result = self.add_systems_inner(current, true);
                         densely_chained = densely_chained && current_result.densely_chained;
                         match (
@@ -632,19 +631,7 @@ impl ScheduleGraph {
                         nodes_in_scope.append(&mut previous_result.nodes);
                     }
                 } else {
-                    let more_than_one_entry = config_iter.len() > 1;
-                    let anonymous_set = if more_than_one_entry && !collective_conditions.is_empty()
-                    {
-                        Some(AnonymousSet::new())
-                    } else {
-                        None
-                    };
                     for config in config_iter {
-                        let config = if let Some(anonymous_set) = anonymous_set {
-                            config.in_set(anonymous_set)
-                        } else {
-                            config
-                        };
                         let result = self.add_systems_inner(config, ancestor_chained);
                         densely_chained = densely_chained && result.densely_chained;
                         if ancestor_chained {
