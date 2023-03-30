@@ -91,23 +91,26 @@ fn setup(
         }),
     );
 
-    commands.spawn(TextBundle {
-        text: Text::from_section(
-            "M\ne\nt\na\nl\nl\ni\nc",
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 36.0,
-                color: Color::WHITE,
+    commands.spawn((
+        TextBundle {
+            text: Text::from_section(
+                "Metallic",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font_size: 36.0,
+                    color: Color::WHITE,
+                },
+            ),
+            style: Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(130.0),
+                right: Val::Px(0.0),
+                ..default()
             },
-        ),
-        style: Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(100.0),
-            right: Val::Px(40.0),
             ..default()
         },
-        ..default()
-    });
+        NodeRotation(std::f32::consts::PI / 2.),
+    ));
 
     commands.spawn((
         TextBundle::from_section(
