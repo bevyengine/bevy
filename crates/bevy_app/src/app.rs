@@ -383,7 +383,7 @@ impl App {
     /// # fn should_run() -> bool { true }
     /// #
     /// app.add_systems(Update, (system_a, system_b, system_c));
-    /// app.add_systems(Update, (system_a, system_b).collective_run_if(should_run));
+    /// app.add_systems(Update, (system_a, system_b).run_if(should_run));
     /// ```
     pub fn add_systems<M>(
         &mut self,

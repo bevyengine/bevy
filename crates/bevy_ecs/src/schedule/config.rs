@@ -124,20 +124,6 @@ impl SystemConfigs {
         }
     }
 
-    fn collective_run_if_inner(&mut self, condition: BoxedCondition) {
-        match self {
-            SystemConfigs::SystemConfig(config) => {
-                config.conditions.push(condition);
-            }
-            SystemConfigs::Configs {
-                collective_conditions,
-                ..
-            } => {
-                collective_conditions.push(condition);
-            }
-        }
-    }
-
     fn distributive_run_if_inner<M>(&mut self, condition: impl Condition<M> + Clone) {
         match self {
             SystemConfigs::SystemConfig(config) => {
@@ -182,8 +168,11 @@ impl SystemConfigs {
             SystemConfigs::SystemConfig(config) => {
                 config.conditions.push(condition);
             }
-            SystemConfigs::Configs { .. } => {
-                todo!("run_if is not implemented for groups of systems yet")
+            SystemConfigs::Configs {
+                collective_conditions,
+                ..
+            } => {
+                collective_conditions.push(condition);
             }
         }
     }
@@ -214,40 +203,6 @@ where
         self.into_configs().after(set)
     }
 
-    /// Add a single run condition for all contained systems.
-    ///
-    /// The [`Condition`] will be evaluated at most once (per schedule run),
-    /// when one of the contained systems is first run.
-    ///
-    /// This is equivalent to adding each system to an common set and configuring
-    /// the run condition on that set, as shown below:
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut app = Schedule::new();
-    /// # fn a() {}
-    /// # fn b() {}
-    /// # fn condition() -> bool { true }
-    /// # #[derive(SystemSet, Debug, Eq, PartialEq, Hash, Clone, Copy)]
-    /// # struct C;
-    /// app.add_systems((a, b).collective_run_if(condition));
-    /// app.add_systems((a, b).in_set(C)).configure_set(C.run_if(condition));
-    /// ```
-    ///
-    /// # Note
-    ///
-    /// Because the condition will only be evaluated once, there is no guarantee that the condition
-    /// is upheld after the first system has run. You need to make sure that no other systems that
-    /// could invalidate the condition are scheduled inbetween the first and last run system.
-    ///
-    /// Use [`distributive_run_if`](IntoSystemConfigs::distributive_run_if) if you want the
-    /// condition to be evaluated for each individual system, right before one is run.
-    fn collective_run_if<P>(self, condition: impl Condition<P>) -> SystemConfigs {
-        self.into_configs().collective_run_if(condition)
-    }
-
     /// Add a run condition to each contained system.
     ///
     /// Each system will receive its own clone of the [`Condition`] and will only run
@@ -265,8 +220,8 @@ where
     /// # fn a() {}
     /// # fn b() {}
     /// # fn condition() -> bool { true }
-    /// app.add_systems((a, b).distributive_run_if(condition));
-    /// app.add_systems((a.run_if(condition), b.run_if(condition)));
+    /// app.add_systems(Update, (a, b).distributive_run_if(condition));
+    /// app.add_systems(Update, (a.run_if(condition), b.run_if(condition)));
     /// ```
     ///
     /// # Note
@@ -286,6 +241,32 @@ where
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
     /// the first time a system in this set prepares to run.
+    ///
+    /// If this set contains more than one system, calling `run_if` is equivalent to adding each
+    /// system to an common set and configuring the run condition on that set, as shown below:
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut app = Schedule::new();
+    /// # fn a() {}
+    /// # fn b() {}
+    /// # fn condition() -> bool { true }
+    /// # #[derive(SystemSet, Debug, Eq, PartialEq, Hash, Clone, Copy)]
+    /// # struct C;
+    /// app.add_systems(Update, (a, b).run_if(condition));
+    /// app.add_systems(Update, (a, b).in_set(C)).configure_set(C.run_if(condition));
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// Because the condition will only be evaluated once, there is no guarantee that the condition
+    /// is upheld after the first system has run. You need to make sure that no other systems that
+    /// could invalidate the condition are scheduled inbetween the first and last run system.
+    ///
+    /// Use [`distributive_run_if`](IntoSystemConfigs::distributive_run_if) if you want the
+    /// condition to be evaluated for each individual system, right before one is run.
     fn run_if<M>(self, condition: impl Condition<M>) -> SystemConfigs {
         self.into_configs().run_if(condition)
     }
@@ -365,11 +346,6 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
         self.after_inner(set.dyn_clone());
-        self
-    }
-
-    fn collective_run_if<M>(mut self, condition: impl Condition<M>) -> Self {
-        self.collective_run_if_inner(new_condition(condition));
         self
     }
 
