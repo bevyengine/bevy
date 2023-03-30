@@ -24,8 +24,8 @@ use bevy_render::{
         TextureFormat, TextureSampleType, TextureViewDimension, VertexBufferLayout, VertexState,
     },
     renderer::RenderDevice,
-    texture::Image,
-    view::{Msaa, ViewTarget, ViewUniform, ViewUniforms},
+    texture::{BevyDefault, Image},
+    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
 
@@ -123,7 +123,7 @@ impl SkyboxPipeline {
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 struct SkyboxPipelineKey {
-    texture_format: TextureFormat,
+    hdr: bool,
     samples: u32,
 }
 
@@ -168,7 +168,11 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                 shader_defs: Vec::new(),
                 entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: if key.hdr {
+                        ViewTarget::TEXTURE_FORMAT_HDR
+                    } else {
+                        TextureFormat::bevy_default()
+                    },
                     blend: Some(BlendState::REPLACE),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -186,14 +190,14 @@ fn prepare_skybox_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
     msaa: Res<Msaa>,
-    views: Query<(Entity, &ViewTarget), With<Skybox>>,
+    views: Query<(Entity, &ExtractedView), With<Skybox>>,
 ) {
-    for (entity, view_target) in &views {
+    for (entity, view) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             SkyboxPipelineKey {
-                texture_format: view_target.main_texture_format(),
+                hdr: view.hdr,
                 samples: msaa.samples(),
             },
         );
