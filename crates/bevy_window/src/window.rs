@@ -10,7 +10,6 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use bevy_utils::tracing::warn;
 
-use crate::raw_handle::AbstractHandlePlaceholder;
 use crate::CursorIcon;
 
 /// Marker component for the window considered the primary window.
@@ -116,26 +115,6 @@ pub struct Window {
     /// Note: This does not stop the program from fullscreening/setting
     /// the size programmatically.
     pub resizable: bool,
-    /// Determines with which rendering context window should be associated.
-    ///
-    /// ## Platform-specific
-    ///
-    /// For non-web platforms there exists only one enum variant that indicates
-    /// that `winit` should use `RawWindowHandle`.
-    /// Note that this field doesn't hold handle value itself,
-    /// i.e. you don't need to create the window yourself.
-    /// Instead it is generated when winit creates a new window for you.
-    /// You can safely pass `Default::default()`.
-    ///
-    /// For web the enum offers two more enum variants: one for html canvas and offscreen canvas.
-    /// Those are later piped through to `wgpu`.
-    ///
-    /// ## Reflection
-    ///
-    /// On `wasm32` this field contains `js-sys` objects which are neither `Send` nor `Sync`
-    /// nor implement `Reflect`.
-    #[reflect(ignore)]
-    pub handle: AbstractHandlePlaceholder,
     /// Should the window have decorations enabled?
     ///
     /// (Decorations are the minimize, maximize, and close buttons on desktop apps)
@@ -163,14 +142,37 @@ pub struct Window {
     ///
     /// - iOS / Android / Web / Wayland: Unsupported.
     pub window_level: WindowLevel,
-    /// The "html canvas" element selector.
+    /// Instructs which web element window should be associated with.
     ///
-    /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
-    /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
+    /// ## Platform-specific
     ///
-    /// This value has no effect on non-web platforms.
-    pub canvas: Option<String>,
+    /// This field is ignored for non-web platforms.
+    /// You can safely initialize it to `Default::default()`.
+    ///
+    /// For web platform the enum determines how `WinitPlugin` is going to discover
+    /// which web element the window should be associated with.
+    ///
+    /// ## Panic safety
+    ///
+    /// On `wasm32` it is important to know *how* Bevy is going to be run.
+    /// Wasm can be run either as **main** (e.g. on main JS event loop) or as web **worker**.
+    ///
+    /// * When run as **main**, all web APIs are available so all variants for `WebElement` will work.
+    /// * When run as **worker** only `WebElement::OffscreenCanvas` is safe, other variants will panic.
+    ///
+    /// This happens because:
+    /// * `WebElement::Generate` and `WebElement::CssSelector` require access to DOM which worker doesn't have.
+    /// * Worker cannot directly interact with WebGL context of `HtmlCanvasElement`.
+    ///
+    /// For more details on web-worker APIs see [MDN docs](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API).
+    ///
+    /// Note that by default the field is initialized to `Generate` and it will panic for web workers!
+    ///
+    /// ## Reflection
+    ///
+    /// On `wasm32` this field contains `js-sys` objects which don't implement `Reflect`.
+    #[reflect(ignore)]
+    pub web_element: WebElement,
     /// Whether or not to fit the canvas element's size to its parent element's size.
     ///
     /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
@@ -220,7 +222,6 @@ impl Default for Window {
             internal: Default::default(),
             composite_alpha_mode: Default::default(),
             resize_constraints: Default::default(),
-            handle: Default::default(),
             ime_enabled: Default::default(),
             ime_position: Default::default(),
             resizable: true,
@@ -228,9 +229,9 @@ impl Default for Window {
             transparent: false,
             focused: true,
             window_level: Default::default(),
+            web_element: Default::default(),
             fit_canvas_to_parent: false,
             prevent_default_event_handling: true,
-            canvas: None,
         }
     }
 }
@@ -852,3 +853,35 @@ pub enum WindowLevel {
     /// The window will always be on top of normal windows.
     AlwaysOnTop,
 }
+
+/// Instructs which web element window should be associated with.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum WebElement {
+    /// Generate a new `HtmlCanvasElement` and attach it to body.
+    ///
+    /// This option is good for quick testing/setup,
+    /// but consider choosing more controllable behavior.
+    #[default]
+    Generate,
+
+    /// Discover `HtmlCanvasElement` via a css selector.
+    ///
+    /// # Panic
+    ///
+    /// This option will panic if the discovered element is not a canvas.
+    #[cfg(target_arch = "wasm32")]
+    CssSelector(String),
+
+    /// Use specified `HtmlCanvasElement`.
+    #[cfg(target_arch = "wasm32")]
+    HtmlCanvas(web_sys::HtmlCanvasElement),
+
+    /// Use specified `OffscreenCanvas`.
+    #[cfg(target_arch = "wasm32")]
+    OffscreenCanvas(web_sys::OffscreenCanvas),
+}
+
+#[cfg(target_arch = "wasm32")]
+unsafe impl Send for WebElement {}
+#[cfg(target_arch = "wasm32")]
+unsafe impl Sync for WebElement {}

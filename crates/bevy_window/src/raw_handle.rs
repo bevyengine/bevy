@@ -79,35 +79,61 @@ unsafe impl HasRawDisplayHandle for ThreadLockedRawWindowHandleWrapper {
 
 /// Handle used for creating surfaces in the render plugin
 ///
-/// Either a raw handle to an OS window or some canvas flavor when compiling on wasm.
-#[derive(Clone, Debug, Component)]
-pub enum AbstractHandle<T> {
+/// Either a raw handle to an OS window or some canvas flavor on wasm.
+/// For non-web platforms it essentially compiles down to newtype wrapper around `RawHandleWrapper`.
+///
+/// # Details
+///
+/// `RawHandleWrapper` is not particularly useful on wasm.
+///
+/// *   `RawDisplayHandle` is entirely ignored as Bevy has no control over
+///     where the element is going to be displayed.
+/// *   `RawWindowHandle::Web` contains a single `u32` as payload.
+///     `wgpu` uses that in a css selector to discover canvas element.
+///
+/// This system is overly rigid and fragile.
+/// Regardless of how we specify the target element `wgpu` have to land on `WebGl2RenderingContext`
+/// in order to render anything.
+/// However that prevents us from directly specifying which element it should use.
+/// This is especially bad when Bevy is run from web-worker context:
+/// workers don't have access to DOM, so it inevitably leads to panic!
+///
+/// It is understandable why `RawWindowHandle` doesn't include JS objects,
+/// so instead we use `AbstractHandleWrapper` to provide a workaround.
+///
+/// # Note
+///
+/// While workable it might be possible to remove this abstraction.
+/// At the end of the day interpretation of `RawWindowHandle::Web` payload is up to us.
+/// We can intercept it before it makes to `wgpu::Instance` and use it to look up
+/// `HtmlCanvasElement` or `OffscreenCanvas` from global memory
+/// (which will be different on whether Bevy runs as main or worker)
+/// and pass that to `wgpu`.
+/// This will require a bunch of extra machinery and will be confusing to users
+/// which don't rely on `bevy_winit` but can be an option in case this abstraction is undesirable.
+#[derive(Debug, Clone, Component)]
+pub enum AbstractHandleWrapper {
     /// The window corresponds to an operator system window.
-    RawHandle(T),
+    RawHandle(RawHandleWrapper),
+
+    /// A handle to JS object containing rendering surface.
     #[cfg(target_arch = "wasm32")]
+    WebHandle(WebHandle),
+}
+
+/// A `Send + Sync` wrapper around `HtmlCanvasElement` or `OffscreenCanvas`.
+///
+/// # Safety
+///
+/// Only safe to use from the main thread.
+#[cfg(target_arch = "wasm32")]
+#[derive(Debug, Clone, Component)]
+pub enum WebHandle {
     HtmlCanvas(HtmlCanvasElement),
-    #[cfg(target_arch = "wasm32")]
     OffscreenCanvas(OffscreenCanvas),
 }
 
-impl<T> Default for AbstractHandle<T>
-where
-    T: Default,
-{
-    fn default() -> Self {
-        Self::RawHandle(Default::default())
-    }
-}
-
-pub type AbstractHandlePlaceholder = AbstractHandle<()>;
-pub type AbstractHandleWrapper = AbstractHandle<RawHandleWrapper>;
-
 #[cfg(target_arch = "wasm32")]
-unsafe impl Send for AbstractHandleWrapper {}
+unsafe impl Send for WebHandle {}
 #[cfg(target_arch = "wasm32")]
-unsafe impl Sync for AbstractHandleWrapper {}
-
-#[cfg(target_arch = "wasm32")]
-unsafe impl Send for AbstractHandlePlaceholder {}
-#[cfg(target_arch = "wasm32")]
-unsafe impl Sync for AbstractHandlePlaceholder {}
+unsafe impl Sync for WebHandle {}

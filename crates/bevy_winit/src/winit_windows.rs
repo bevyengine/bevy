@@ -120,16 +120,34 @@ impl WinitWindows {
 
         #[cfg(target_arch = "wasm32")]
         {
-            use bevy_window::AbstractHandlePlaceholder;
+            use bevy_window::WebElement;
             use winit::platform::web::WindowBuilderExtWebSys;
 
-            match &window.handle {
-                AbstractHandlePlaceholder::RawHandle(_) => todo!(),
-                AbstractHandlePlaceholder::HtmlCanvas(canvas) => {
-                    winit_window_builder = winit_window_builder.with_canvas(Some(canvas.clone()));
+            let canvas = match &window.web_element {
+                // We let winit create canvas element for us.
+                // We will attach it to DOM later.
+                WebElement::Generate => None,
+                WebElement::CssSelector(selector) => {
+                    use wasm_bindgen::JsCast;
+
+                    let win = web_sys::window()
+                        .expect("bevy must run from main loop to use css selector");
+                    let doc = win.document().unwrap();
+                    let element = doc
+                        .query_selector(selector)
+                        .unwrap()
+                        .expect("no element is fitting the selector query");
+                    let canvas = element
+                        .dyn_into::<web_sys::HtmlCanvasElement>()
+                        .expect("selector must point to a canvas element");
+
+                    Some(canvas)
                 }
-                AbstractHandlePlaceholder::OffscreenCanvas(_) => todo!(),
-            }
+                WebElement::HtmlCanvas(canvas) => Some(canvas.clone()),
+                WebElement::OffscreenCanvas(_) => todo!(),
+            };
+
+            winit_window_builder = winit_window_builder.with_canvas(canvas);
 
             winit_window_builder =
                 winit_window_builder.with_prevent_default(window.prevent_default_event_handling)
@@ -184,9 +202,10 @@ impl WinitWindows {
 
         #[cfg(target_arch = "wasm32")]
         {
+            use bevy_window::WebElement;
             use winit::platform::web::WindowExtWebSys;
 
-            if window.canvas.is_none() {
+            if let &WebElement::Generate = &window.web_element {
                 let canvas = winit_window.canvas();
 
                 let window = web_sys::window().unwrap();

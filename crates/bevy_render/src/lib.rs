@@ -212,13 +212,18 @@ impl Plugin for RenderPlugin {
                         .create_surface(&handle.get_handle())
                         .expect("Failed to create wgpu surface"),
                     #[cfg(target_arch = "wasm32")]
-                    AbstractHandleWrapper::HtmlCanvas(canvas) => {
-                        instance.create_surface_from_canvas(canvas).unwrap()
+                    AbstractHandleWrapper::WebHandle(web_handle) => {
+                        use bevy_window::WebHandle;
+
+                        match web_handle {
+                            WebHandle::HtmlCanvas(canvas) => {
+                                instance.create_surface_from_canvas(canvas).unwrap()
+                            }
+                            WebHandle::OffscreenCanvas(offscreen_canvas) => instance
+                                .create_surface_from_offscreen_canvas(offscreen_canvas)
+                                .unwrap(),
+                        }
                     }
-                    #[cfg(target_arch = "wasm32")]
-                    AbstractHandleWrapper::OffscreenCanvas(offscreen_canvas) => instance
-                        .create_surface_from_offscreen_canvas(offscreen_canvas)
-                        .unwrap(),
                 }
             });
 

@@ -11,8 +11,7 @@ use bevy_utils::{
     tracing::{error, info, warn},
     HashMap,
 };
-use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use bevy_window::{Window, WindowClosed, WindowCreated};
 
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
@@ -44,6 +43,8 @@ pub(crate) fn create_window<'a>(
     #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
 ) {
     for (entity, mut window) in created_windows {
+        use bevy_window::AbstractHandleWrapper;
+
         if winit_windows.get_window(entity).is_some() {
             continue;
         }
@@ -66,48 +67,52 @@ pub(crate) fn create_window<'a>(
             .resolution
             .set_scale_factor(winit_window.scale_factor());
 
-        let handle = {
-            use bevy_window::{AbstractHandlePlaceholder, AbstractHandleWrapper};
+        let handle: AbstractHandleWrapper = {
+            // Cannot apply attributes to expressions yet :(
+            #[allow(unused_mut)]
+            let mut handle;
 
-            match &window.handle {
-                AbstractHandlePlaceholder::RawHandle(()) => {
-                    AbstractHandleWrapper::RawHandle(RawHandleWrapper {
-                        window_handle: winit_window.raw_window_handle(),
-                        display_handle: winit_window.raw_display_handle(),
-                    })
-                }
-                #[cfg(target_arch = "wasm32")]
-                AbstractHandlePlaceholder::HtmlCanvas(canvas) => {
-                    AbstractHandleWrapper::HtmlCanvas(canvas.clone())
-                }
-                #[cfg(target_arch = "wasm32")]
-                AbstractHandlePlaceholder::OffscreenCanvas(canvas) => {
-                    AbstractHandleWrapper::OffscreenCanvas(canvas.clone())
-                }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                handle = AbstractHandleWrapper::RawHandle(RawHandleWrapper {
+                    window_handle: winit_window.raw_window_handle(),
+                    display_handle: winit_window.raw_display_handle(),
+                });
             }
+
+            #[cfg(target_arch = "wasm32")]
+            {
+                use bevy_window::{WebElement, WebHandle};
+
+                let web_handle = match &window.web_element {
+                    WebElement::Generate => todo!(),
+                    WebElement::CssSelector(_) => todo!(),
+                    WebElement::HtmlCanvas(canvas) => WebHandle::HtmlCanvas(canvas.clone()),
+                    WebElement::OffscreenCanvas(canvas) => {
+                        WebHandle::OffscreenCanvas(canvas.clone())
+                    }
+                };
+
+                if window.fit_canvas_to_parent {
+                    match &web_handle {
+                        WebHandle::HtmlCanvas(canvas) => {
+                            event_channel.listen_to_element(entity, canvas.clone());
+                        }
+                        WebHandle::OffscreenCanvas(_) => {
+                            todo!()
+                        }
+                    }
+                }
+
+                handle = AbstractHandleWrapper::WebHandle(web_handle);
+            }
+
+            handle
         };
 
         commands.entity(entity).insert(handle).insert(CachedWindow {
             window: window.clone(),
         });
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            use bevy_window::AbstractHandlePlaceholder;
-
-            if window.fit_canvas_to_parent {
-                // We ignore other two variants.
-                match &window.handle {
-                    AbstractHandlePlaceholder::RawHandle(_) => (),
-                    AbstractHandlePlaceholder::HtmlCanvas(canvas) => {
-                        event_channel.listen_to_element(entity, canvas.clone());
-                    }
-                    AbstractHandlePlaceholder::OffscreenCanvas(_) => {
-                        todo!()
-                    }
-                }
-            }
-        }
 
         event_writer.send(WindowCreated { window: entity });
     }
@@ -300,8 +305,8 @@ pub(crate) fn changed_window(
             }
 
             #[cfg(target_arch = "wasm32")]
-            if window.canvas != cache.window.canvas {
-                window.canvas = cache.window.canvas.clone();
+            if window.web_element != cache.window.web_element {
+                window.web_element = cache.window.web_element.clone();
                 warn!(
                     "Bevy currently doesn't support modifying the window canvas after initialization."
                 );

@@ -200,13 +200,18 @@ pub fn prepare_windows(
                         .create_surface(&handle.get_handle())
                         .expect("Failed to create wgpu surface"),
                     #[cfg(target_arch = "wasm32")]
-                    AbstractHandleWrapper::HtmlCanvas(canvas) => render_instance
-                        .create_surface_from_canvas(canvas)
-                        .expect("Failed to create wgpu surface"),
-                    #[cfg(target_arch = "wasm32")]
-                    AbstractHandleWrapper::OffscreenCanvas(canvas) => render_instance
-                        .create_surface_from_offscreen_canvas(canvas)
-                        .expect("Failed to create wgpu surface"),
+                    AbstractHandleWrapper::WebHandle(web_handle) => {
+                        use bevy_window::WebHandle;
+
+                        match web_handle {
+                            WebHandle::HtmlCanvas(canvas) => render_instance
+                                .create_surface_from_canvas(canvas)
+                                .expect("Failed to create wgpu surface"),
+                            WebHandle::OffscreenCanvas(canvas) => render_instance
+                                .create_surface_from_offscreen_canvas(canvas)
+                                .expect("Failed to create wgpu surface"),
+                        }
+                    }
                 };
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
