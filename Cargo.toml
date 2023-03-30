@@ -1750,7 +1750,7 @@ wasm = true
 name = "node_transform"
 path = "examples/ui/node_transform.rs"
 
-[package.metadata.example.node_rotation]
+[package.metadata.example.node_transform]
 name = "Node Transform"
 description = "An example demonstrating how to translate, rotate and scale UI elements."
 category = "UI (User Interface)"
