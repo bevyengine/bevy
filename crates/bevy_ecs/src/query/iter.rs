@@ -457,7 +457,6 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     current_len: usize,
     // either table row or archetype index, depending on whether both `Q`'s and `F`'s fetches are dense
     current_row: usize,
-    phantom: PhantomData<Q>,
 }
 
 impl<Q: WorldQuery, F: ReadOnlyWorldQuery> Clone for QueryIterationCursor<'_, '_, Q, F> {
@@ -471,7 +470,6 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> Clone for QueryIterationCursor<'_, '_
             filter: self.filter.clone(),
             current_len: self.current_len,
             current_row: self.current_row,
-            phantom: PhantomData,
         }
     }
 }
@@ -509,7 +507,6 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
             archetype_id_iter: query_state.matched_archetype_ids.iter(),
             current_len: 0,
             current_row: 0,
-            phantom: PhantomData,
         }
     }
 
