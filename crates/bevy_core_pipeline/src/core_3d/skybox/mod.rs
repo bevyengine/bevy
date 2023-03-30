@@ -36,29 +36,22 @@ pub struct SkyboxPlugin;
 
 impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            SKYBOX_SHADER_HANDLE,
-            "skybox/skybox.wgsl",
-            Shader::from_wgsl
-        );
+        load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
+
+        let mesh = Mesh::from(Cube::new(1.0));
+        let vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout().layout().clone();
+        let handle = app.world.resource_mut::<Assets<Mesh>>().add(mesh);
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
             Err(_) => return,
         };
 
-        let mesh = Mesh::from(Cube::new(1.0));
-        let vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout().layout().clone();
+        let render_device = render_app.world.resource::<RenderDevice>().clone();
 
         render_app
-            .insert_resource(SkyboxMesh {
-                handle: app.world.resource_mut::<Assets<Mesh>>().add(mesh),
-            })
-            .insert_resource(SkyboxPipeline::new(
-                vertex_buffer_layout,
-                app.world.resource::<RenderDevice>(),
-            ))
+            .insert_resource(SkyboxMesh { handle })
+            .insert_resource(SkyboxPipeline::new(vertex_buffer_layout, &render_device))
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .add_systems(
                 Render,
@@ -140,7 +133,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("skybox_pipeline".into()),
-            layout: vec![self.bind_group_layout],
+            layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: Vec::new(),
             vertex: VertexState {
                 shader: SKYBOX_SHADER_HANDLE.typed(),
