@@ -6,7 +6,7 @@ use crate::{
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, WorldQuery},
     storage::{TableId, TableRow, Tables},
 };
-use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
+use std::{borrow::Borrow, iter::FusedIterator, mem::MaybeUninit};
 
 use super::ReadOnlyWorldQuery;
 
