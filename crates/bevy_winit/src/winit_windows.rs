@@ -144,7 +144,9 @@ impl WinitWindows {
                     Some(canvas)
                 }
                 WebElement::HtmlCanvas(canvas) => Some(canvas.clone()),
-                WebElement::OffscreenCanvas(_) => todo!(),
+                WebElement::OffscreenCanvas(_) => {
+                    panic!("winit cannot manage windows backed by OffscreenCanvas")
+                }
             };
 
             winit_window_builder = winit_window_builder.with_canvas(canvas);
