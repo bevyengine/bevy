@@ -18,15 +18,19 @@ const NORMAL_BUTTON: Color = Color::WHITE;
 const HOVERED_BUTTON: Color = Color::YELLOW;
 const PRESSED_BUTTON: Color = Color::RED;
 
+/// A button that rotates the target node
 #[derive(Component)]
 pub struct RotateButton(pub f32);
 
+/// A button that scales the target node
 #[derive(Component)]
 pub struct ScaleButton(pub f32);
 
+/// Marker component so the systems know which entities to translate, rotate and scale
 #[derive(Component)]
-pub struct RotatingPanel;
+pub struct TargetNode;
 
+/// Handles button interactions
 fn button_system(
     mut interaction_query: Query<
         (
@@ -37,7 +41,7 @@ fn button_system(
         ),
         (Changed<Interaction>, With<Button>),
     >,
-    mut rotator_query: Query<(&mut NodeRotation, &mut NodeScale), With<RotatingPanel>>,
+    mut rotator_query: Query<(&mut NodeRotation, &mut NodeScale), With<TargetNode>>,
 ) {
     for (interaction, mut color, maybe_rotate, maybe_scale) in &mut interaction_query {
         match *interaction {
@@ -65,10 +69,11 @@ fn button_system(
     }
 }
 
+// move the rotating panel when the arrow keys are pressed
 fn translation_system(
     time: Res<Time>,
     input: Res<Input<KeyCode>>,
-    mut translation_query: Query<&mut NodeTranslation, With<RotatingPanel>>,
+    mut translation_query: Query<&mut NodeTranslation, With<TargetNode>>,
 ) {
     let controls = [
         (KeyCode::Left, -Vec2::X),
@@ -76,10 +81,10 @@ fn translation_system(
         (KeyCode::Up, -Vec2::Y),
         (KeyCode::Down, Vec2::Y),
     ];
-    for (key, direction) in controls.iter() {
-        if input.pressed(*key) {
+    for &(key_code, direction) in &controls {
+        if input.pressed(key_code) {
             for mut translation in translation_query.iter_mut() {
-                translation.0 += *direction * 50.0 * time.delta_seconds();
+                translation.0 += direction * 50.0 * time.delta_seconds();
                 translation.0 = translation.0.clamp(Vec2::splat(-150.), Vec2::splat(150.));
             }
         }
@@ -191,7 +196,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             background_color: Color::DARK_GRAY.into(),
                             ..default()
                         })
-                        .insert(RotatingPanel)
+                        .insert(TargetNode)
                         .insert(NodeRotation::default())
                         .insert(NodeScale::default())
                         .insert(NodeTranslation::default())
