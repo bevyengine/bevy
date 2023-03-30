@@ -1691,12 +1691,18 @@ mod tests {
     }
 
     // Regression test for https://github.com/bevyengine/bevy/issues/7103.
-    #[derive(SystemParam)]
-    pub struct WhereParam<'w, 's, Q>
-    where
-        Q: 'static + WorldQuery,
-    {
-        _q: Query<'w, 's, Q, ()>,
+    #[test]
+    fn system_param_where_clause() {
+        #[derive(SystemParam)]
+        pub struct WhereParam<'w, 's, Q>
+        where
+            Q: 'static + WorldQuery,
+        {
+            _q: Query<'w, 's, Q, ()>,
+        }
+
+        fn my_system(_: WhereParam<()>) {}
+        assert_is_system(my_system);
     }
 
     // Regression test for https://github.com/bevyengine/bevy/issues/1727.
