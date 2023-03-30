@@ -68,9 +68,7 @@ pub(crate) fn create_window<'a>(
             .set_scale_factor(winit_window.scale_factor());
 
         let handle: AbstractHandleWrapper = {
-            // Cannot apply attributes to expressions yet :(
-            #[allow(unused_mut)]
-            let mut handle;
+            let handle;
 
             #[cfg(not(target_arch = "wasm32"))]
             {
@@ -85,8 +83,12 @@ pub(crate) fn create_window<'a>(
                 use bevy_window::{WebElement, WebHandle};
 
                 let web_handle = match &window.web_element {
-                    WebElement::Generate => todo!(),
-                    WebElement::CssSelector(_) => todo!(),
+                    // Canvas is already created/discovered by winit.
+                    WebElement::Generate | WebElement::CssSelector(_) => {
+                        use winit::platform::web::WindowExtWebSys;
+
+                        WebHandle::HtmlCanvas(winit_window.canvas())
+                    }
                     WebElement::HtmlCanvas(canvas) => WebHandle::HtmlCanvas(canvas.clone()),
                     WebElement::OffscreenCanvas(canvas) => {
                         WebHandle::OffscreenCanvas(canvas.clone())
@@ -98,9 +100,8 @@ pub(crate) fn create_window<'a>(
                         WebHandle::HtmlCanvas(canvas) => {
                             event_channel.listen_to_element(entity, canvas.clone());
                         }
-                        WebHandle::OffscreenCanvas(_) => {
-                            todo!()
-                        }
+                        // OffscreenCanvas exists outside DOM tree.
+                        WebHandle::OffscreenCanvas(_) => (),
                     }
                 }
 
