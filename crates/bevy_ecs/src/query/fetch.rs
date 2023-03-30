@@ -278,6 +278,24 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
+/// # Generic Queries
+///
+/// When writing generic code, it is often necessary to use [`PhantomData`]
+/// to constrain type parameters. Since `WorldQuery` is implemented for all
+/// `PhantomData<T>` types, this pattern can be used with this macro.
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, query::WorldQuery};
+/// # use std::marker::PhantomData;
+/// #[derive(WorldQuery)]
+/// pub struct GenericQuery<T> {
+///     id: Entity,
+///     marker: PhantomData<T>,
+/// }
+/// # fn my_system(q: Query<GenericQuery<()>>) {}
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+///
 /// # Safety
 ///
 /// Component access of `Self::ReadOnly` must be a subset of `Self`
@@ -1315,7 +1333,6 @@ macro_rules! impl_anytuple_fetch {
 
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyWorldQuery),*> ReadOnlyWorldQuery for AnyOf<($($name,)*)> {}
-
     };
 }
 
@@ -1389,6 +1406,71 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
 /// SAFETY: `NopFetch` never accesses any data
 unsafe impl<Q: WorldQuery> ReadOnlyWorldQuery for NopWorldQuery<Q> {}
 
+/// SAFETY: `PhantomData` never accesses any world data.
+unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
+    type Item<'a> = ();
+    type Fetch<'a> = ();
+    type ReadOnly = Self;
+    type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
+
+    unsafe fn init_fetch<'w>(
+        _world: &'w World,
+        _state: &Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> Self::Fetch<'w> {
+    }
+
+    unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
+
+    // `PhantomData` does not match any components, so all components it matches
+    // are stored in a Table (vacuous truth).
+    const IS_DENSE: bool = true;
+    // `PhantomData` matches every entity in each archetype.
+    const IS_ARCHETYPAL: bool = true;
+
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _archetype: &'w Archetype,
+        _table: &'w Table,
+    ) {
+    }
+
+    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    }
+
+    unsafe fn fetch<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+    }
+
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+
+    fn update_archetype_component_access(
+        _state: &Self::State,
+        _archetype: &Archetype,
+        _access: &mut Access<ArchetypeComponentId>,
+    ) {
+    }
+
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+}
+
+/// SAFETY: `PhantomData` never accesses any world data.
+unsafe impl<T: ?Sized> ReadOnlyWorldQuery for PhantomData<T> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1396,6 +1478,22 @@ mod tests {
 
     #[derive(Component)]
     pub struct A;
+
+    // Compile test for https://github.com/bevyengine/bevy/pull/8030.
+    #[test]
+    fn world_query_phantom_data() {
+        #[derive(WorldQuery)]
+        pub struct IgnoredQuery<Marker> {
+            id: Entity,
+            #[world_query(ignore)]
+            _marker: PhantomData<Marker>,
+            _marker2: PhantomData<Marker>,
+        }
+
+        fn ignored_system(_: Query<IgnoredQuery<()>>) {}
+
+        crate::system::assert_is_system(ignored_system);
+    }
 
     // Ensures that each field of a `WorldQuery` struct's read-only variant
     // has the same visibility as its corresponding mutable field.

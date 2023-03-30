@@ -19,6 +19,7 @@ use bevy_utils::{all_tuples, synccell::SyncCell};
 use std::{
     borrow::Cow,
     fmt::Debug,
+    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
@@ -64,6 +65,11 @@ use std::{
 ///
 /// # bevy_ecs::system::assert_is_system(my_system::<()>);
 /// ```
+///
+/// ## `PhantomData`
+///
+/// [`PhantomData`] is a special type of `SystemParam` that does nothing.
+/// This is useful for constraining generic types or lifetimes.
 ///
 /// # Generic `SystemParam`s
 ///
@@ -767,7 +773,8 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
 }
 
-/// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] at the end of a stage.
+/// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
+/// [`apply_system_buffers`](crate::schedule::apply_system_buffers).
 /// This is used internally by [`Commands`] to defer `World` mutations.
 ///
 /// [`Commands`]: crate::system::Commands
@@ -810,7 +817,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// struct AlarmFlag(bool);
 ///
 /// impl AlarmFlag {
-///     /// Sounds the alarm at the end of the current stage.
+///     /// Sounds the alarm the next time buffers are applied via apply_system_buffers.
 ///     pub fn flag(&mut self) {
 ///         self.0 = true;
 ///     }
@@ -818,7 +825,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// impl SystemBuffer for AlarmFlag {
 ///     // When `AlarmFlag` is used in a system, this function will get
-///     // called at the end of the system's stage.
+///     // called the next time buffers are applied via apply_system_buffers.
 ///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
 ///         if self.0 {
 ///             world.resource_mut::<Alarm>().0 = true;
@@ -1466,7 +1473,6 @@ pub mod lifetimeless {
 /// #[derive(SystemParam)]
 /// struct GenericParam<'w, 's, T: SystemParam> {
 ///     field: T,
-///     #[system_param(ignore)]
 ///     // Use the lifetimes in this type, or they will be unbound.
 ///     phantom: core::marker::PhantomData<&'w &'s ()>
 /// }
@@ -1531,6 +1537,26 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         StaticSystemParam(P::get_param(state, system_meta, world, change_tick))
     }
 }
+
+// SAFETY: No world access.
+unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
+    type State = ();
+    type Item<'world, 'state> = Self;
+
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: &'world World,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        PhantomData
+    }
+}
+
+// SAFETY: No world access.
+unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 
 #[cfg(test)]
 mod tests {
@@ -1606,6 +1632,7 @@ mod tests {
         _foo: Res<'w, T>,
         #[system_param(ignore)]
         marker: PhantomData<&'w Marker>,
+        marker2: PhantomData<&'w Marker>,
     }
 
     // Compile tests for https://github.com/bevyengine/bevy/pull/6957.
@@ -1643,4 +1670,10 @@ mod tests {
 
     #[derive(Resource)]
     pub struct FetchState;
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/8192.
+    #[derive(SystemParam)]
+    pub struct InvariantParam<'w, 's> {
+        _set: ParamSet<'w, 's, (Query<'w, 's, ()>,)>,
+    }
 }

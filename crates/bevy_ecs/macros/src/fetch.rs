@@ -396,7 +396,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
             #[automatically_derived]
             #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
                 #(#field_idents: <#field_types as #path::query::WorldQuery>::State,)*
-                #(#ignored_field_idents: #ignored_field_types,)*
+                #(#ignored_field_idents: ::std::marker::PhantomData<fn() -> #ignored_field_types>,)*
             }
 
             #mutable_impl
@@ -437,7 +437,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
 }
 
 struct WorldQueryFieldInfo {
-    /// Has `#[fetch(ignore)]` or `#[filter_fetch(ignore)]` attribute.
+    /// Has the `#[world_query(ignore)]` attribute.
     is_ignored: bool,
     /// All field attributes except for `world_query` ones.
     attrs: Vec<Attribute>,

@@ -844,7 +844,7 @@ pub mod common_conditions {
     ///
     /// world.resource_mut::<Events<MyEvent>>().send(MyEvent);
     ///
-    /// // A `MyEvent` event has been push so `my_system` will run
+    /// // A `MyEvent` event has been pushed so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
