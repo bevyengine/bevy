@@ -59,6 +59,7 @@ pub enum SystemConfigs {
     SystemConfig(SystemConfig),
     Configs {
         configs: Vec<SystemConfigs>,
+        collective_conditions: Vec<BoxedCondition>,
         /// If `true`, adds `before -> after` ordering constraints between the successive elements.
         chained: bool,
     },
@@ -119,6 +120,20 @@ impl SystemConfigs {
                 for config in configs {
                     config.after_inner(set.dyn_clone());
                 }
+            }
+        }
+    }
+
+    fn collective_run_if_inner(&mut self, condition: BoxedCondition) {
+        match self {
+            SystemConfigs::SystemConfig(config) => {
+                config.conditions.push(condition);
+            }
+            SystemConfigs::Configs {
+                collective_conditions,
+                ..
+            } => {
+                collective_conditions.push(condition);
             }
         }
     }
@@ -197,6 +212,40 @@ where
     /// Run after all systems in `set`.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
+    }
+
+    /// Add a single run condition for all contained systems.
+    ///
+    /// The [`Condition`] will be evaluated at most once (per schedule run),
+    /// when one of the contained systems is first run.
+    ///
+    /// This is equivalent to adding each system to an common set and configuring
+    /// the run condition on that set, as shown below:
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut app = Schedule::new();
+    /// # fn a() {}
+    /// # fn b() {}
+    /// # fn condition() -> bool { true }
+    /// # #[derive(SystemSet, Debug, Eq, PartialEq, Hash, Clone, Copy)]
+    /// # struct C;
+    /// app.add_systems((a, b).collective_run_if(condition));
+    /// app.add_systems((a, b).in_set(C)).configure_set(C.run_if(condition));
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// Because the condition will only be evaluated once, there is no guarantee that the condition
+    /// is upheld after the first system has run. You need to make sure that no other systems that
+    /// could invalidate the condition are scheduled inbetween the first and last run system.
+    ///
+    /// Use [`distributive_run_if`](IntoSystemConfigs::distributive_run_if) if you want the
+    /// condition to be evaluated for each individual system, right before one is run.
+    fn collective_run_if<P>(self, condition: impl Condition<P>) -> SystemConfigs {
+        self.into_configs().collective_run_if(condition)
     }
 
     /// Add a run condition to each contained system.
@@ -319,6 +368,11 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         self
     }
 
+    fn collective_run_if<M>(mut self, condition: impl Condition<M>) -> Self {
+        self.collective_run_if_inner(new_condition(condition));
+        self
+    }
+
     fn distributive_run_if<M>(mut self, condition: impl Condition<M> + Clone) -> SystemConfigs {
         self.distributive_run_if_inner(condition);
         self
@@ -364,6 +418,7 @@ macro_rules! impl_system_collection {
                 let ($($sys,)*) = self;
                 SystemConfigs::Configs {
                     configs: vec![$($sys.into_configs(),)*],
+                    collective_conditions: Vec::new(),
                     chained: false,
                 }
             }

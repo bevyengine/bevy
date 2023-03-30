@@ -349,6 +349,10 @@ impl SystemSetNode {
     pub fn is_system_type(&self) -> bool {
         self.inner.system_type().is_some()
     }
+
+    pub fn is_anonymous(&self) -> bool {
+        self.inner.is_anonymous()
+    }
 }
 
 /// A [`BoxedSystem`] with metadata, stored in a [`ScheduleGraph`].
@@ -525,7 +529,11 @@ impl ScheduleGraph {
                     }
                 }
             }
-            SystemConfigs::Configs { configs, chained } => {
+            SystemConfigs::Configs {
+                configs,
+                collective_conditions,
+                chained,
+            } => {
                 let mut config_iter = configs.into_iter();
                 let mut nodes_in_scope = Vec::new();
                 let mut densely_chained = true;
@@ -536,9 +544,26 @@ impl ScheduleGraph {
                             densely_chained: true
                         }
                     };
+                    let more_than_one_entry = config_iter.len() > 0;
+                    let anonymous_set = if more_than_one_entry && !collective_conditions.is_empty()
+                    {
+                        Some(AnonymousSet::new())
+                    } else {
+                        None
+                    };
+                    let prev = if let Some(anonymous_set) = anonymous_set {
+                        prev.in_set(anonymous_set)
+                    } else {
+                        prev
+                    };
                     let mut previous_result = self.add_systems_inner(prev, true);
                     densely_chained = previous_result.densely_chained;
                     for current in config_iter {
+                        let current = if let Some(anonymous_set) = anonymous_set {
+                            current.in_set(anonymous_set)
+                        } else {
+                            current
+                        };
                         let current_result = self.add_systems_inner(current, true);
                         densely_chained = densely_chained && current_result.densely_chained;
                         match (
@@ -608,7 +633,18 @@ impl ScheduleGraph {
                     }
                 } else {
                     let more_than_one_entry = config_iter.len() > 1;
+                    let anonymous_set = if more_than_one_entry && !collective_conditions.is_empty()
+                    {
+                        Some(AnonymousSet::new())
+                    } else {
+                        None
+                    };
                     for config in config_iter {
+                        let config = if let Some(anonymous_set) = anonymous_set {
+                            config.in_set(anonymous_set)
+                        } else {
+                            config
+                        };
                         let result = self.add_systems_inner(config, ancestor_chained);
                         densely_chained = densely_chained && result.densely_chained;
                         if ancestor_chained {
@@ -705,8 +741,7 @@ impl ScheduleGraph {
         match self.system_set_ids.get(set) {
             Some(set_id) => {
                 if id == set_id {
-                    let string = format!("{:?}", &set);
-                    return Err(ScheduleBuildError::HierarchyLoop(string));
+                    return Err(ScheduleBuildError::HierarchyLoop(self.get_node_name(id)));
                 }
             }
             None => {
@@ -742,8 +777,7 @@ impl ScheduleGraph {
             match self.system_set_ids.get(set) {
                 Some(set_id) => {
                     if id == set_id {
-                        let string = format!("{:?}", &set);
-                        return Err(ScheduleBuildError::DependencyLoop(string));
+                        return Err(ScheduleBuildError::DependencyLoop(self.get_node_name(id)));
                     }
                 }
                 None => {
@@ -1257,12 +1291,31 @@ impl ScheduleGraph {
                     name
                 }
             }
-            NodeId::Set(_) => self.system_sets[id.index()].name(),
+            NodeId::Set(_) => {
+                let set = &self.system_sets[id.index()];
+                if set.is_anonymous() {
+                    self.anonymous_set_name(id)
+                } else {
+                    set.name()
+                }
+            }
         };
         if self.settings.use_shortnames {
             name = bevy_utils::get_short_name(&name);
         }
         name
+    }
+
+    fn anonymous_set_name(&self, id: &NodeId) -> String {
+        format!(
+            "({})",
+            self.hierarchy
+                .graph
+                .edges_directed(*id, Direction::Outgoing)
+                .map(|(_, member_id, _)| self.get_node_name(&member_id))
+                .reduce(|a, b| format!("{a}, {b}"))
+                .unwrap_or_default()
+        )
     }
 
     fn get_node_kind(&self, id: &NodeId) -> &'static str {
