@@ -576,13 +576,13 @@ impl FromWorld for SSAOPipelines {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
-struct AmbientOcclusionPipelineKey {
+struct SSAOPipelineKey {
     ssao_quality: ScreenSpaceAmbientOcclusionSettings,
     temporal_noise: bool,
 }
 
 impl SpecializedComputePipeline for SSAOPipelines {
-    type Key = AmbientOcclusionPipelineKey;
+    type Key = SSAOPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
         let (slice_count, samples_per_slice_side) = key.ssao_quality.sample_counts();
@@ -746,7 +746,7 @@ fn prepare_ssao_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            AmbientOcclusionPipelineKey {
+            SSAOPipelineKey {
                 ssao_quality: ssao_settings.clone(),
                 temporal_noise: temporal_jitter.is_some(),
             },
