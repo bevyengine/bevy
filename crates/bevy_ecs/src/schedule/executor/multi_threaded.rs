@@ -201,32 +201,14 @@ impl SystemExecutor for MultiThreadedExecutor {
 
                         if self.num_running_systems > 0 {
                             // wait for systems to complete
-                            if let Ok(SystemResult {
-                                system_index,
-                                success,
-                            }) = self.receiver.recv().await
-                            {
-                                self.finish_system(system_index);
-                                if success {
-                                    self.signal_dependents(system_index);
-                                } else {
-                                    self.skip_dependents(system_index);
-                                }
+                            if let Ok(result) = self.receiver.recv().await {
+                                self.finish_system_and_handle_dependents(result);
                             } else {
                                 panic!("Channel closed unexpectedly!");
                             }
 
-                            while let Ok(SystemResult {
-                                system_index,
-                                success,
-                            }) = self.receiver.try_recv()
-                            {
-                                self.finish_system(system_index);
-                                if success {
-                                    self.signal_dependents(system_index);
-                                } else {
-                                    self.skip_dependents(system_index);
-                                }
+                            while let Ok(result) = self.receiver.try_recv() {
+                                self.finish_system_and_handle_dependents(result);
                             }
 
                             self.rebuild_active_access();
@@ -603,13 +585,12 @@ impl MultiThreadedExecutor {
         self.local_thread_running = true;
     }
 
-    fn skip_system_and_signal_dependents(&mut self, system_index: usize) {
-        self.num_completed_systems += 1;
-        self.completed_systems.insert(system_index);
-        self.signal_dependents(system_index);
-    }
+    fn finish_system_and_handle_dependents(&mut self, result: SystemResult) {
+        let SystemResult {
+            system_index,
+            success,
+        } = result;
 
-    fn finish_system(&mut self, system_index: usize) {
         if self.system_task_metadata[system_index].is_exclusive {
             self.exclusive_running = false;
         }
@@ -624,6 +605,18 @@ impl MultiThreadedExecutor {
         self.running_systems.set(system_index, false);
         self.completed_systems.insert(system_index);
         self.unapplied_systems.insert(system_index);
+
+        if success {
+            self.signal_dependents(system_index);
+        } else {
+            self.skip_dependents(system_index);
+        }
+    }
+
+    fn skip_system_and_signal_dependents(&mut self, system_index: usize) {
+        self.num_completed_systems += 1;
+        self.completed_systems.insert(system_index);
+        self.signal_dependents(system_index);
     }
 
     fn signal_dependents(&mut self, system_index: usize) {
