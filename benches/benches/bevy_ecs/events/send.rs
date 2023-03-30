@@ -8,7 +8,7 @@ impl Benchmark {
     pub fn new(count: usize) -> Self {
         let mut events = Events::default();
         
-        // Force the internal buffers to be allocated
+        // Force both internal buffers to be allocated.
         for _ in 0..2 {
             for _ in 0..count {
                 events.send(A(0.0));
@@ -21,7 +21,7 @@ impl Benchmark {
 
     pub fn run(&mut self) {
         for _ in 0..self.1 {
-            self.0.send(A(0.0));
+            self.0.send(std::hint::black_box(A(0.0)));
         }
         self.0.update();
     }
