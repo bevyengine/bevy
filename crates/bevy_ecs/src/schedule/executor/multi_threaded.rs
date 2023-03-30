@@ -201,7 +201,11 @@ impl SystemExecutor for MultiThreadedExecutor {
 
                         if self.num_running_systems > 0 {
                             // wait for systems to complete
-                            if let Ok(SystemResult { system_index, success }) = self.receiver.recv().await {
+                            if let Ok(SystemResult {
+                                system_index,
+                                success,
+                            }) = self.receiver.recv().await
+                            {
                                 self.finish_system(system_index);
                                 if success {
                                     self.signal_dependents(system_index);
@@ -212,7 +216,11 @@ impl SystemExecutor for MultiThreadedExecutor {
                                 panic!("Channel closed unexpectedly!");
                             }
 
-                            while let Ok(SystemResult { system_index, success }) = self.receiver.try_recv() {
+                            while let Ok(SystemResult {
+                                system_index,
+                                success,
+                            }) = self.receiver.try_recv()
+                            {
                                 self.finish_system(system_index);
                                 if success {
                                     self.signal_dependents(system_index);
