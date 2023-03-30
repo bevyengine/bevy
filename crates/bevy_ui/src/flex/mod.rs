@@ -5,7 +5,7 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     event::EventReader,
-    query::{Changed, ReadOnlyWorldQuery, With, Without},
+    query::{Changed, Or, ReadOnlyWorldQuery, With, Without},
     removal_detection::RemovedComponents,
     system::{Query, Res, ResMut, Resource},
 };
@@ -250,11 +250,14 @@ pub fn flex_node_system(
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
     full_node_query: Query<(Entity, &Style, Option<&CalculatedSize>), With<Node>>,
+    changed_style_query: Query<
+        (Entity, &Style),
+        (With<Node>, Without<CalculatedSize>, Changed<Style>),
+    >,
     changed_size_query: Query<
         (Entity, &Style, &CalculatedSize),
-        (With<Node>, Changed<CalculatedSize>),
+        (With<Node>, Or<(Changed<CalculatedSize>, Changed<Style>)>),
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
@@ -288,33 +291,28 @@ pub fn flex_node_system(
 
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
-    let viewport_values = LayoutContext::new(scale_factor, physical_size);
-
-    fn update_changed<F: ReadOnlyWorldQuery>(
-        flex_surface: &mut FlexSurface,
-        viewport_values: &LayoutContext,
-        query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
-    ) {
-        // update changed nodes
-        for (entity, style, calculated_size) in &query {
-            // TODO: remove node from old hierarchy if its root has changed
-            if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, style, *calculated_size, viewport_values);
-            } else {
-                flex_surface.upsert_node(entity, style, viewport_values);
-            }
-        }
-    }
+    let layout_context = LayoutContext::new(scale_factor, physical_size);
 
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
         scale_factor_events.clear();
-        update_changed(&mut flex_surface, &viewport_values, full_node_query);
+        // update all nodes
+        for (entity, style, calculated_size) in &full_node_query {
+            if let Some(calculated_size) = calculated_size {
+                flex_surface.upsert_leaf(entity, style, *calculated_size, &layout_context);
+            } else {
+                flex_surface.upsert_node(entity, style, &layout_context);
+            }
+        }
     } else {
-        update_changed(&mut flex_surface, &viewport_values, node_query);
-    }
+        // update changed nodes without a calculated size
+        for (entity, style) in changed_style_query.iter() {
+            flex_surface.upsert_node(entity, style, &layout_context);
+        }
 
-    for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, &viewport_values);
+        // update changed nodes with a calculated size
+        for (entity, style, calculated_size) in changed_size_query.iter() {
+            flex_surface.upsert_leaf(entity, style, *calculated_size, &layout_context);
+        }
     }
 
     // clean up removed nodes
