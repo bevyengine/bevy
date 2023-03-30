@@ -72,6 +72,9 @@ pub(crate) fn create_window<'a>(
 
             #[cfg(not(target_arch = "wasm32"))]
             {
+                use bevy_window::RawHandleWrapper;
+                use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+
                 handle = AbstractHandleWrapper::RawHandle(RawHandleWrapper {
                     window_handle: winit_window.raw_window_handle(),
                     display_handle: winit_window.raw_display_handle(),
