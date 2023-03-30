@@ -20,7 +20,6 @@ pub use bevy_ecs_macros::States;
 ///
 /// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T:Variant>`] schedules,
 /// which can be run via the [`apply_state_transition::<T>`] system.
-/// Systems that run each frame in various states are typically stored in the main schedule.
 ///
 /// # Example
 ///
