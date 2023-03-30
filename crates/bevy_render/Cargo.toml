@@ -15,6 +15,7 @@ hdr = ["image/hdr"]
 tga = ["image/tga"]
 jpeg = ["image/jpeg"]
 bmp = ["image/bmp"]
+webp = ["image/webp"]
 dds = ["ddsfile"]
 
 # For ktx2 supercompression

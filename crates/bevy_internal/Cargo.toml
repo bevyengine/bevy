@@ -17,7 +17,7 @@ trace = [
     "bevy_log/trace",
     "bevy_render?/trace",
     "bevy_hierarchy/trace",
-    "bevy_winit/trace"
+    "bevy_winit?/trace"
 ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy" ]
@@ -32,6 +32,7 @@ png = ["bevy_render/png"]
 tga = ["bevy_render/tga"]
 jpeg = ["bevy_render/jpeg"]
 bmp = ["bevy_render/bmp"]
+webp = ["bevy_render/webp"]
 basis-universal = ["bevy_render/basis-universal"]
 dds = ["bevy_render/dds"]
 ktx2 = ["bevy_render/ktx2"]
@@ -90,6 +91,9 @@ android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
 accesskit_unix = ["bevy_winit/accesskit_unix"]
 
 bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
+
+# Enable assertions to check the validity of parameters passed to glam
+glam_assert = ["bevy_math/glam_assert"]
 
 [dependencies]
 # bevy
