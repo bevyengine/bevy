@@ -19,7 +19,7 @@ use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
 pub struct NodeBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// The logical coordinates transform of the node.
+    /// The node's position, rotation, and scaling.
     pub node_transform: NodeTransform,
     /// Describes the style including flexbox settings
     pub style: Style,
@@ -56,7 +56,7 @@ impl Default for NodeBundle {
 pub struct ImageBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// The logical coordinates transform of the node.
+    /// The node's position, rotation, and scaling.
     pub node_transform: NodeTransform,
     /// Describes the style including flexbox settings
     pub style: Style,
@@ -84,7 +84,7 @@ pub struct ImageBundle {
 pub struct TextBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// The logical coordinates transform of the node.
+    /// The node's position, rotation, and scaling.
     pub node_transform: NodeTransform,
     /// Describes the style including flexbox settings
     pub style: Style,
@@ -169,7 +169,7 @@ impl TextBundle {
 pub struct ButtonBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// The logical coordinates transform of the node.
+    /// The node's position, rotation, and scaling.
     pub node_transform: NodeTransform,
     /// Marker component that signals this node is a button
     pub button: Button,

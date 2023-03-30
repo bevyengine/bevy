@@ -31,8 +31,7 @@ impl Node {
     /// Returns the logical pixel coordinates of the UI node.
     #[inline]
     pub fn logical_rect(&self, node_transform: &NodeTransform) -> Rect {
-        let size = node_transform.transform_vector2(self.size());
-        Rect::from_center_size(node_transform.translation, size)
+        Rect::from_center_size(node_transform.translation, self.size())
     }
 
     /// Returns the physical pixel coordinates of the UI node.
@@ -72,7 +71,7 @@ impl Default for Node {
     }
 }
 
-/// Describes the logical position of the center of a UI node
+/// The node's position, rotation, and scaling.
 #[derive(Component, Debug, Clone, Deref, Reflect)]
 #[reflect(Component, Default)]
 pub struct NodeTransform(pub(crate) Affine2);
@@ -87,7 +86,7 @@ impl Default for NodeTransform {
     }
 }
 
-/// Translation in logical pixels that is applied to the UI node and it's children
+/// Translation in logical pixels (before scaling) that is applied to the UI node and it's children
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component)]
 pub struct NodeTranslation(pub Vec2);
@@ -114,17 +113,25 @@ impl NodeRotation {
 }
 
 /// Scaling that is applied to the UI node and it's children
-#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
+#[derive(Component, Debug, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component)]
 pub struct NodeScale(pub Vec2);
 
 impl NodeScale {
+    pub const DEFAULT: Self = Self(Vec2::ONE);
+
     pub fn all(scalar: f32) -> Self {
         Self(Vec2::splat(scalar))
     }
 
     pub fn new(x: f32, y: f32) -> Self {
         Self(Vec2::new(x, y))
+    }
+}
+
+impl Default for NodeScale {
+    fn default() -> Self {
+        Self::DEFAULT
     }
 }
 
@@ -1023,73 +1030,4 @@ mod tests {
     fn default_val_equals_const_default_val() {
         assert_eq!(Val::default(), Val::DEFAULT);
     }
-
-    // #[test]
-    // fn relative_position_translated() {
-    //     let n1 = Node {
-    //         calculated_size: Vec2::new(10., 10.),
-    //     };
-    //     let n2 = Node {
-    //         calculated_size: Vec2::new(30., 20.),
-    //     };
-
-    //     let t1 = NodeTransform {
-    //         affine: Mat4::from_translation(Vec3::new(0., 0., 0.))
-    //             * Mat4::from_scale(Vec3::new(1., 1., 1.)),
-    //     };
-
-    //     let t2 = NodeTransform {
-    //         affine: Mat4::from_translation(Vec3::new(5., 5., 0.))
-    //             * Mat4::from_scale(Vec3::new(1., 1., 1.)),
-    //     };
-
-    //     assert_eq!(n1.relative_position(&t1, Vec2::ZERO), Vec2::splat(0.5));
-    //     assert_eq!(
-    //         n1.relative_position(&t1, Vec2::new(2.5, 5.)),
-    //         Vec2::new(0.75, 1.)
-    //     );
-    //     assert_eq!(n2.relative_position(&t1, Vec2::ZERO), Vec2::splat(0.5));
-    //     assert_eq!(
-    //         n2.relative_position(&t1, Vec2::new(7.5, 10.)),
-    //         Vec2::new(0.75, 1.)
-    //     );
-
-    //     assert_eq!(n1.relative_position(&t2, Vec2::ZERO), Vec2::ZERO);
-    //     assert_eq!(
-    //         n1.relative_position(&t2, Vec2::new(2.5, 5.)),
-    //         Vec2::new(0.25, 0.5)
-    //     );
-    //     assert!(n2
-    //         .relative_position(&t2, Vec2::ZERO)
-    //         .abs_diff_eq(Vec2::new(1. / 3., 0.25), 0.001));
-    //     println!("n2: {:}", (n2.relative_position(&t2, Vec2::new(7.5, 10.))));
-    //     assert!(n2
-    //         .relative_position(&t2, Vec2::new(7.5, 10.))
-    //         .abs_diff_eq(Vec2::new(17.5 / 30., 0.75), 0.001));
-    // }
-
-    // #[test]
-    // fn relative_position_scaled() {
-    //     let n1 = Node {
-    //         calculated_size: Vec2::new(10., 10.),
-    //     };
-
-    //     let t1 = NodeTransform {
-    //         affine: Mat4::from_translation(Vec3::new(10., 10., 0.))
-    //             * Mat4::from_scale(Vec3::new(2., 2., 1.)),
-    //     };
-
-    //     assert_eq!(
-    //         n1.relative_position(&t1, Vec2::new(10., 10.)),
-    //         Vec2::splat(0.5)
-    //     );
-    //     assert_eq!(
-    //         n1.relative_position(&t1, Vec2::new(20., 20.)),
-    //         Vec2::new(1., 1.)
-    //     );
-    //     assert_eq!(
-    //         n1.relative_position(&t1, Vec2::new(0., 0.)),
-    //         Vec2::new(0., 0.)
-    //     );
-    // }
 }

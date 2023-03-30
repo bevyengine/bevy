@@ -1747,12 +1747,12 @@ wasm = true
 
 
 [[example]]
-name = "node_rotation"
-path = "examples/ui/node_rotation.rs"
+name = "node_transform"
+path = "examples/ui/node_transform.rs"
 
 [package.metadata.example.node_rotation]
-name = "Node Rotation"
-description = "An example demonstrating how to rotate a UI element."
+name = "Node Transform"
+description = "An example demonstrating how to translate, rotate and scale UI elements."
 category = "UI (User Interface)"
 wasm = true
 
