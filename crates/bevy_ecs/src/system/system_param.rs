@@ -1622,6 +1622,8 @@ mod tests {
     fn system_param_field_limit() {
         #[derive(SystemParam)]
         pub struct LongParam<'w> {
+            // Each field should be a distinct type so there will
+            // be an error if the derive messes up the field order.
             _r0: Res<'w, R<0>>,
             _r1: Res<'w, R<1>>,
             _r2: Res<'w, R<2>>,
