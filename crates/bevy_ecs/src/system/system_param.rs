@@ -36,12 +36,10 @@ use std::{
 /// Derived `SystemParam` structs may have two lifetimes: `'w` for data stored in the [`World`],
 /// and `'s` for data stored in the parameter's state.
 ///
-/// ## Attributes
+/// ## `PhantomData`
 ///
-/// `#[system_param(ignore)]`:
-/// Can be added to any field in the struct. Fields decorated with this attribute
-/// will be created with the default value upon realisation.
-/// This is most useful for `PhantomData` fields, such as markers for generic types.
+/// [`PhantomData`] is a special type of `SystemParam` that does nothing.
+/// This is useful for constraining generic types or lifetimes.
 ///
 /// # Example
 ///
@@ -55,7 +53,6 @@ use std::{
 /// #[derive(SystemParam)]
 /// struct MyParam<'w, Marker: 'static> {
 ///     foo: Res<'w, SomeResource>,
-///     #[system_param(ignore)]
 ///     marker: PhantomData<Marker>,
 /// }
 ///
@@ -65,11 +62,6 @@ use std::{
 ///
 /// # bevy_ecs::system::assert_is_system(my_system::<()>);
 /// ```
-///
-/// ## `PhantomData`
-///
-/// [`PhantomData`] is a special type of `SystemParam` that does nothing.
-/// This is useful for constraining generic types or lifetimes.
 ///
 /// # Generic `SystemParam`s
 ///
@@ -1629,9 +1621,7 @@ mod tests {
     #[derive(SystemParam)]
     struct IgnoredParam<'w, T: Resource, Marker: 'static> {
         _foo: Res<'w, T>,
-        #[system_param(ignore)]
         marker: PhantomData<&'w Marker>,
-        marker2: PhantomData<&'w Marker>,
     }
 
     // Compile tests for https://github.com/bevyengine/bevy/pull/6957.
