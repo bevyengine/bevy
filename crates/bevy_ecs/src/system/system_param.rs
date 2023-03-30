@@ -19,6 +19,7 @@ use bevy_utils::{all_tuples, synccell::SyncCell};
 use std::{
     borrow::Cow,
     fmt::Debug,
+    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
@@ -64,6 +65,11 @@ use std::{
 ///
 /// # bevy_ecs::system::assert_is_system(my_system::<()>);
 /// ```
+///
+/// ## `PhantomData`
+///
+/// [`PhantomData`] is a special type of `SystemParam` that does nothing.
+/// This is useful for constraining generic types or lifetimes.
 ///
 /// # Generic `SystemParam`s
 ///
@@ -1466,7 +1472,6 @@ pub mod lifetimeless {
 /// #[derive(SystemParam)]
 /// struct GenericParam<'w, 's, T: SystemParam> {
 ///     field: T,
-///     #[system_param(ignore)]
 ///     // Use the lifetimes in this type, or they will be unbound.
 ///     phantom: core::marker::PhantomData<&'w &'s ()>
 /// }
@@ -1531,6 +1536,26 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         StaticSystemParam(P::get_param(state, system_meta, world, change_tick))
     }
 }
+
+// SAFETY: No world access.
+unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
+    type State = ();
+    type Item<'world, 'state> = Self;
+
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: &'world World,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        PhantomData
+    }
+}
+
+// SAFETY: No world access.
+unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 
 #[cfg(test)]
 mod tests {
@@ -1606,6 +1631,7 @@ mod tests {
         _foo: Res<'w, T>,
         #[system_param(ignore)]
         marker: PhantomData<&'w Marker>,
+        marker2: PhantomData<&'w Marker>,
     }
 
     // Compile tests for https://github.com/bevyengine/bevy/pull/6957.
@@ -1643,4 +1669,10 @@ mod tests {
 
     #[derive(Resource)]
     pub struct FetchState;
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/8192.
+    #[derive(SystemParam)]
+    pub struct InvariantParam<'w, 's> {
+        _set: ParamSet<'w, 's, (Query<'w, 's, ()>,)>,
+    }
 }
