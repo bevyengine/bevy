@@ -41,8 +41,7 @@ fn setup(
     // Spawn the quad with vertex colors
     commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle.clone(),
-        transform: Transform::from_translation(Vec3::new(-96., 0., 0.))
-            .with_scale(Vec3::splat(128.)),
+        transform: Transform2d::from_translation(Vec2::new(-96., 0.)).with_scale(Vec2::splat(128.)),
         material: materials.add(ColorMaterial::default()),
         ..default()
     });
@@ -50,8 +49,7 @@ fn setup(
     // Spawning the quad with vertex colors and a texture results in tinting
     commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle,
-        transform: Transform::from_translation(Vec3::new(96., 0., 0.))
-            .with_scale(Vec3::splat(128.)),
+        transform: Transform2d::from_translation(Vec2::new(96., 0.)).with_scale(Vec2::splat(128.)),
         material: materials.add(ColorMaterial::from(texture_handle)),
         ..default()
     });

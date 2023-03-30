@@ -20,7 +20,7 @@ fn setup(
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(shape::Circle::new(50.).into()).into(),
         material: materials.add(ColorMaterial::from(Color::PURPLE)),
-        transform: Transform::from_translation(Vec3::new(-150., 0., 0.)),
+        transform: Transform2d::from_translation(Vec2::new(-150., 0.)),
         ..default()
     });
 
@@ -31,7 +31,7 @@ fn setup(
             custom_size: Some(Vec2::new(50.0, 100.0)),
             ..default()
         },
-        transform: Transform::from_translation(Vec3::new(-50., 0., 0.)),
+        transform: Transform2d::from_translation(Vec2::new(-50., 0.)),
         ..default()
     });
 
@@ -41,7 +41,7 @@ fn setup(
             .add(shape::Quad::new(Vec2::new(50., 100.)).into())
             .into(),
         material: materials.add(ColorMaterial::from(Color::LIME_GREEN)),
-        transform: Transform::from_translation(Vec3::new(50., 0., 0.)),
+        transform: Transform2d::from_translation(Vec2::new(50., 0.)),
         ..default()
     });
 
@@ -49,7 +49,7 @@ fn setup(
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(shape::RegularPolygon::new(50., 6).into()).into(),
         material: materials.add(ColorMaterial::from(Color::TURQUOISE)),
-        transform: Transform::from_translation(Vec3::new(150., 0., 0.)),
+        transform: Transform2d::from_translation(Vec2::new(150., 0.)),
         ..default()
     });
 }

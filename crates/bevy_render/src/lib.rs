@@ -32,7 +32,7 @@ pub mod prelude {
         color::Color,
         mesh::{shape, Mesh},
         render_resource::Shader,
-        spatial_bundle::SpatialBundle,
+        spatial_bundle::{SpatialBundle, SpatialBundle2d},
         texture::{Image, ImagePlugin},
         view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
         ExtractSchedule,

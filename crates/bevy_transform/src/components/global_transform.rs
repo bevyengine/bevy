@@ -1,5 +1,7 @@
 use std::ops::Mul;
 
+use crate::prelude::GlobalTransform2d;
+
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat4, Quat, Vec3, Vec3A};
@@ -220,6 +222,12 @@ impl From<Affine3A> for GlobalTransform {
 impl From<Mat4> for GlobalTransform {
     fn from(matrix: Mat4) -> Self {
         Self(Affine3A::from_mat4(matrix))
+    }
+}
+
+impl From<GlobalTransform2d> for GlobalTransform {
+    fn from(transform: GlobalTransform2d) -> Self {
+        Self::from(transform.compute_matrix())
     }
 }
 

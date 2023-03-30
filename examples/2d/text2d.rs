@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 custom_size: Some(Vec2::new(box_size.x, box_size.y)),
                 ..default()
             },
-            transform: Transform::from_translation(box_position.extend(0.0)),
+            transform: Transform2d::from_translation(box_position),
             ..default()
         })
         .with_children(|builder| {
@@ -113,7 +113,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 custom_size: Some(Vec2::new(other_box_size.x, other_box_size.y)),
                 ..default()
             },
-            transform: Transform::from_translation(other_box_position.extend(0.0)),
+            transform: Transform2d::from_translation(other_box_position),
             ..default()
         })
         .with_children(|builder| {

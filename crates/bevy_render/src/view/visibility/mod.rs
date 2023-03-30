@@ -8,8 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::Reflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
-use bevy_transform::components::GlobalTransform;
-use bevy_transform::TransformSystem;
+use bevy_transform::{TransformSystem, components::{GlobalTransform, GlobalTransform2d}};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -271,9 +270,18 @@ pub fn calculate_bounds(
 }
 
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
-    mut views: Query<(&GlobalTransform, &T, &mut Frustum)>,
+    mut views: Query<(
+        AnyOf<(&GlobalTransform, &GlobalTransform2d)>,
+        &T,
+        &mut Frustum,
+    )>,
 ) {
     for (transform, projection, mut frustum) in &mut views {
+        let transform = if let Some(transform) = transform.0 {
+            *transform
+        } else {
+            GlobalTransform::from(*transform.1.unwrap())
+        };
         let view_projection =
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
         *frustum = Frustum::from_view_projection_custom_far(

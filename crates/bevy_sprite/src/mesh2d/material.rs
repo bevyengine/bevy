@@ -34,7 +34,7 @@ use bevy_render::{
     view::{ComputedVisibility, ExtractedView, Msaa, Visibility, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::components::{GlobalTransform2d, Transform2d};
 use bevy_utils::{FloatOrd, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -574,8 +574,8 @@ fn prepare_material2d<M: Material2d>(
 pub struct MaterialMesh2dBundle<M: Material2d> {
     pub mesh: Mesh2dHandle,
     pub material: Handle<M>,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    pub transform: Transform2d,
+    pub global_transform: GlobalTransform2d,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering

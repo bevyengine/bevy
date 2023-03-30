@@ -81,11 +81,8 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
     // draw a sprite from the atlas
     commands.spawn(SpriteSheetBundle {
-        transform: Transform {
-            translation: Vec3::new(150.0, 0.0, 0.0),
-            scale: Vec3::splat(4.0),
-            ..default()
-        },
+        transform: Transform2d::from_translation(Vec2::new(150.0, 0.0))
+            .with_scale(Vec2::splat(4.0)),
         sprite: TextureAtlasSprite::new(vendor_index),
         texture_atlas: atlas_handle,
         ..default()
@@ -93,7 +90,7 @@ fn setup(
     // draw the atlas itself
     commands.spawn(SpriteBundle {
         texture: texture_atlas_texture,
-        transform: Transform::from_xyz(-300.0, 0.0, 0.0),
+        transform: Transform2d::from_xy(-300.0, 0.0),
         ..default()
     });
 }

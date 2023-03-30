@@ -60,7 +60,7 @@ struct Contributor {
 
 #[derive(Component)]
 struct Velocity {
-    translation: Vec3,
+    translation: Vec2,
     rotation: f32,
 }
 
@@ -99,13 +99,13 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
     for name in contribs {
         let pos = (rng.gen_range(-400.0..400.0), rng.gen_range(0.0..400.0));
         let dir = rng.gen_range(-1.0..1.0);
-        let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
+        let velocity = Vec2::new(dir * 500.0, 0.0);
         let hue = rng.gen_range(0.0..=360.0);
 
         // some sprites should be flipped
         let flipped = rng.gen_bool(0.5);
 
-        let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
+        let transform = Transform2d::from_xy(pos.0, pos.1);
 
         let entity = commands
             .spawn((
@@ -116,7 +116,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
                 },
                 SpriteBundle {
                     sprite: Sprite {
-                        custom_size: Some(Vec2::new(1.0, 1.0) * SPRITE_SIZE),
+                        custom_size: Some(Vec2::splat(SPRITE_SIZE)),
                         color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
                         flip_x: flipped,
                         ..default()
@@ -250,7 +250,7 @@ fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// force.
 fn collision_system(
     windows: Query<&Window>,
-    mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
+    mut query: Query<(&mut Velocity, &mut Transform2d), With<Contributor>>,
 ) {
     let window = windows.single();
 
@@ -300,12 +300,12 @@ fn collision_system(
 }
 
 /// Apply velocity to positions and rotations.
-fn move_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
+fn move_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform2d)>) {
     let delta = time.delta_seconds();
 
     for (velocity, mut transform) in &mut query {
-        transform.translation += delta * velocity.translation;
-        transform.rotate_z(velocity.rotation * delta);
+        transform.translation += velocity.translation * delta;
+        transform.rotation += velocity.rotation * delta;
     }
 }
 

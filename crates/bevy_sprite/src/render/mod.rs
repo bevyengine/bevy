@@ -33,7 +33,7 @@ use bevy_render::{
     },
     Extract,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::GlobalTransform2d;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
@@ -303,7 +303,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
 #[derive(Component, Clone, Copy)]
 pub struct ExtractedSprite {
     pub entity: Entity,
-    pub transform: GlobalTransform,
+    pub transform: GlobalTransform2d,
     pub color: Color,
     /// Select an area of the texture
     pub rect: Option<Rect>,
@@ -358,7 +358,7 @@ pub fn extract_sprites(
             Entity,
             &ComputedVisibility,
             &Sprite,
-            &GlobalTransform,
+            &GlobalTransform2d,
             &Handle<Image>,
         )>,
     >,
@@ -367,7 +367,7 @@ pub fn extract_sprites(
             Entity,
             &ComputedVisibility,
             &TextureAtlasSprite,
-            &GlobalTransform,
+            &GlobalTransform2d,
             &Handle<TextureAtlas>,
         )>,
     >,

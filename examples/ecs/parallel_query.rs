@@ -14,7 +14,7 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((
             SpriteBundle {
                 texture: texture.clone(),
-                transform: Transform::from_scale(Vec3::splat(0.1)),
+                transform: Transform2d::from_scale(Vec2::splat(0.1)),
                 ..default()
             },
             Velocity(20.0 * Vec2::new(random::<f32>() - 0.5, random::<f32>() - 0.5)),

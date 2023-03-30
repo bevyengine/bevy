@@ -108,7 +108,7 @@ impl GamepadButtonBundle {
             mesh_bundle: MaterialMesh2dBundle {
                 mesh,
                 material,
-                transform: Transform::from_xyz(x, y, 0.),
+                transform: Transform2d::from_xy(x, y),
                 ..default()
             },
             react_to: ReactTo(button_type),
@@ -116,7 +116,7 @@ impl GamepadButtonBundle {
     }
 
     pub fn with_rotation(mut self, angle: f32) -> Self {
-        self.mesh_bundle.transform.rotation = Quat::from_rotation_z(angle);
+        self.mesh_bundle.transform.rotation = angle;
         self
     }
 }
@@ -307,7 +307,7 @@ fn setup_sticks(
                 });
                 // live zone
                 parent.spawn(SpriteBundle {
-                    transform: Transform::from_xyz(live_mid, live_mid, 2.),
+                    transform: Transform2d::from_xyz(live_mid, live_mid, 2.),
                     sprite: Sprite {
                         custom_size: Some(Vec2::new(live_size, live_size)),
                         color: LIVE_COLOR,
@@ -317,7 +317,7 @@ fn setup_sticks(
                 });
                 // dead zone
                 parent.spawn(SpriteBundle {
-                    transform: Transform::from_xyz(dead_mid, dead_mid, 3.),
+                    transform: Transform2d::from_xyz(dead_mid, dead_mid, 3.),
                     sprite: Sprite {
                         custom_size: Some(Vec2::new(dead_size, dead_size)),
                         color: DEAD_COLOR,
@@ -358,8 +358,7 @@ fn setup_sticks(
                     MaterialMesh2dBundle {
                         mesh: meshes.circle.clone(),
                         material: materials.normal.clone(),
-                        transform: Transform::from_xyz(0., 0., 5.)
-                            .with_scale(Vec2::splat(0.2).extend(1.)),
+                        transform: Transform2d::from_xyz(0., 0., 5.).with_scale(Vec2::splat(0.2)),
                         ..default()
                     },
                     MoveWithAxes {
@@ -488,7 +487,7 @@ fn update_button_values(
 
 fn update_axes(
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
-    mut query: Query<(&mut Transform, &MoveWithAxes)>,
+    mut query: Query<(&mut Transform2d, &MoveWithAxes)>,
     mut text_query: Query<(&mut Text, &TextWithAxes)>,
 ) {
     for axis_event in axis_events.iter() {

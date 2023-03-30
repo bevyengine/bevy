@@ -6,7 +6,7 @@
 //! Having sprites out of the camera's field of view should also help stress
 //! test any future potential 2d frustum culling implementation.
 
-use std::time::Duration;
+use std::{f32::consts::TAU, time::Duration};
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -71,20 +71,17 @@ fn setup(
     // Builds and spawns the sprites
     for y in -half_y..half_y {
         for x in -half_x..half_x {
-            let position = Vec2::new(x as f32, y as f32);
-            let translation = (position * tile_size).extend(rng.gen::<f32>());
-            let rotation = Quat::from_rotation_z(rng.gen::<f32>());
-            let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
             let mut timer = Timer::from_seconds(0.1, TimerMode::Repeating);
             timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
 
             commands.spawn((
                 SpriteSheetBundle {
                     texture_atlas: texture_atlas_handle.clone(),
-                    transform: Transform {
-                        translation,
-                        rotation,
-                        scale,
+                    transform: Transform2d {
+                        translation: Vec2::new(x as f32, y as f32) * tile_size,
+                        rotation: rng.gen::<f32>() * TAU,
+                        scale: Vec2::splat(rng.gen::<f32>() * 2.),
+                        z_translation: rng.gen::<f32>(),
                     },
                     sprite: TextureAtlasSprite {
                         custom_size: Some(tile_size),

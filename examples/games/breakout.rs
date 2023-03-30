@@ -8,7 +8,7 @@ use bevy::{
 
 // These constants are defined in `Transform` units.
 // Using the default 2D camera they correspond 1:1 with screen pixels.
-const PADDLE_SIZE: Vec3 = Vec3::new(120.0, 20.0, 0.0);
+const PADDLE_SIZE: Vec2 = Vec2::new(120.0, 20.0);
 const GAP_BETWEEN_PADDLE_AND_FLOOR: f32 = 60.0;
 const PADDLE_SPEED: f32 = 500.0;
 // How close can the paddle get to the wall
@@ -16,7 +16,7 @@ const PADDLE_PADDING: f32 = 10.0;
 
 // We set the z-value of the ball to 1 so it renders on top in the case of overlapping sprites.
 const BALL_STARTING_POSITION: Vec3 = Vec3::new(0.0, -50.0, 1.0);
-const BALL_SIZE: Vec3 = Vec3::new(30.0, 30.0, 0.0);
+const BALL_SIZE: Vec2 = Vec2::new(30.0, 30.0);
 const BALL_SPEED: f32 = 400.0;
 const INITIAL_BALL_DIRECTION: Vec2 = Vec2::new(0.5, -0.5);
 
@@ -144,14 +144,9 @@ impl WallBundle {
     fn new(location: WallLocation) -> WallBundle {
         WallBundle {
             sprite_bundle: SpriteBundle {
-                transform: Transform {
-                    // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
-                    // This is used to determine the order of our sprites
-                    translation: location.position().extend(0.0),
-                    // The z-scale of 2D objects must always be 1.0,
-                    // or their ordering will be affected in surprising ways.
-                    // See https://github.com/bevyengine/bevy/issues/4149
-                    scale: location.size().extend(1.0),
+                transform: Transform2d {
+                    translation: location.position(),
+                    scale: location.size(),
                     ..default()
                 },
                 sprite: Sprite {
@@ -190,8 +185,8 @@ fn setup(
 
     commands.spawn((
         SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(0.0, paddle_y, 0.0),
+            transform: Transform2d {
+                translation: Vec2::new(0.0, paddle_y),
                 scale: PADDLE_SIZE,
                 ..default()
             },
@@ -210,7 +205,8 @@ fn setup(
         MaterialMesh2dBundle {
             mesh: meshes.add(shape::Circle::default().into()).into(),
             material: materials.add(ColorMaterial::from(BALL_COLOR)),
-            transform: Transform::from_translation(BALL_STARTING_POSITION).with_scale(BALL_SIZE),
+            transform: Transform2d::from_translation_3d(BALL_STARTING_POSITION)
+                .with_scale(BALL_SIZE),
             ..default()
         },
         Ball,
@@ -294,9 +290,9 @@ fn setup(
                         color: BRICK_COLOR,
                         ..default()
                     },
-                    transform: Transform {
-                        translation: brick_position.extend(0.0),
-                        scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
+                    transform: Transform2d {
+                        translation: brick_position,
+                        scale: BRICK_SIZE,
                         ..default()
                     },
                     ..default()
@@ -310,7 +306,7 @@ fn setup(
 
 fn move_paddle(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<&mut Transform, With<Paddle>>,
+    mut query: Query<&mut Transform2d, With<Paddle>>,
     time_step: Res<FixedTime>,
 ) {
     let mut paddle_transform = query.single_mut();
@@ -336,10 +332,9 @@ fn move_paddle(
     paddle_transform.translation.x = new_paddle_position.clamp(left_bound, right_bound);
 }
 
-fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time_step: Res<FixedTime>) {
+fn apply_velocity(mut query: Query<(&mut Transform2d, &Velocity)>, time_step: Res<FixedTime>) {
     for (mut transform, velocity) in &mut query {
-        transform.translation.x += velocity.x * time_step.period.as_secs_f32();
-        transform.translation.y += velocity.y * time_step.period.as_secs_f32();
+        transform.translation += velocity.0 * time_step.period.as_secs_f32();
     }
 }
 
@@ -351,12 +346,12 @@ fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
 fn check_for_collisions(
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboard>,
-    mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
-    collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
+    mut ball_query: Query<(&mut Velocity, &Transform2d), With<Ball>>,
+    collider_query: Query<(Entity, &Transform2d, Option<&Brick>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
 ) {
     let (mut ball_velocity, ball_transform) = ball_query.single_mut();
-    let ball_size = ball_transform.scale.truncate();
+    let ball_size = ball_transform.scale;
 
     // check collision with walls
     for (collider_entity, transform, maybe_brick) in &collider_query {
@@ -364,7 +359,7 @@ fn check_for_collisions(
             ball_transform.translation,
             ball_size,
             transform.translation,
-            transform.scale.truncate(),
+            transform.scale,
         );
         if let Some(collision) = collision {
             // Sends a collision event so that other systems can react to the collision

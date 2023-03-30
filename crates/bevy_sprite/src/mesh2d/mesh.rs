@@ -24,7 +24,7 @@ use bevy_render::{
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::GlobalTransform2d;
 
 /// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
 ///
@@ -134,7 +134,14 @@ bitflags::bitflags! {
 pub fn extract_mesh2d(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &ComputedVisibility, &GlobalTransform, &Mesh2dHandle)>>,
+    query: Extract<
+        Query<(
+            Entity,
+            &ComputedVisibility,
+            &GlobalTransform2d,
+            &Mesh2dHandle,
+        )>,
+    >,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility, transform, handle) in &query {

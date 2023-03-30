@@ -3,6 +3,7 @@ use crate::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
+use bevy_math::Vec3;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, CameraProjection, CameraRenderGraph, OrthographicProjection},
@@ -10,7 +11,7 @@ use bevy_render::{
     primitives::Frustum,
     view::VisibleEntities,
 };
-use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_transform::components::{GlobalTransform2d, Transform2d};
 
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
@@ -26,8 +27,8 @@ pub struct Camera2dBundle {
     pub projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
     pub frustum: Frustum,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    pub transform: Transform2d,
+    pub global_transform: GlobalTransform2d,
     pub camera_2d: Camera2d,
     pub tonemapping: Tonemapping,
     pub deband_dither: DebandDither,
@@ -53,14 +54,16 @@ impl Camera2dBundle {
             far,
             ..Default::default()
         };
-        let transform = Transform::from_xyz(0.0, 0.0, far - 0.1);
-        let view_projection =
-            projection.get_projection_matrix() * transform.compute_matrix().inverse();
+        let transform = Transform2d::from_xyz(0.0, 0.0, far - 0.1);
+        let view_projection = projection.get_projection_matrix()
+            * GlobalTransform2d::from(transform)
+                .compute_matrix()
+                .inverse();
         let frustum = Frustum::from_view_projection_custom_far(
             &view_projection,
-            &transform.translation,
-            &transform.back(),
-            projection.far(),
+            &transform.translation.extend(transform.z_translation),
+            &Vec3::Z,
+            far,
         );
         Self {
             camera_render_graph: CameraRenderGraph::new(crate::core_2d::graph::NAME),

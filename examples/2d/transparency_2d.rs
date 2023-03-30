@@ -26,7 +26,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         texture: sprite_handle.clone(),
-        transform: Transform::from_xyz(100.0, 0.0, 0.0),
+        transform: Transform2d::from_xy(100.0, 0.0),
         ..default()
     });
     commands.spawn(SpriteBundle {
@@ -35,7 +35,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         texture: sprite_handle,
-        transform: Transform::from_xyz(200.0, 0.0, 0.0),
+        transform: Transform2d::from_xy(200.0, 0.0),
         ..default()
     });
 }

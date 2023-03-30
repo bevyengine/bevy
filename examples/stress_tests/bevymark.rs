@@ -23,7 +23,7 @@ struct BevyCounter {
 
 #[derive(Component)]
 struct Bird {
-    velocity: Vec3,
+    velocity: Vec2,
 }
 
 fn main() {
@@ -192,16 +192,13 @@ fn spawn_birds(
         (
             SpriteBundle {
                 texture: texture.clone(),
-                transform: Transform {
-                    translation: Vec3::new(bird_x, bird_y, bird_z),
-                    scale: Vec3::splat(BIRD_SCALE),
-                    ..default()
-                },
+                transform: Transform2d::from_translation_3d(Vec3::new(bird_x, bird_y, bird_z))
+                    .with_scale(Vec2::splat(BIRD_SCALE)),
                 sprite: Sprite { color, ..default() },
                 ..default()
             },
             Bird {
-                velocity: Vec3::new(velocity_x, 0., 0.),
+                velocity: Vec2::new(velocity_x, 0.),
             },
         )
     }));
@@ -209,15 +206,14 @@ fn spawn_birds(
     counter.count += spawn_count;
 }
 
-fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Transform)>) {
+fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Transform2d)>) {
     for (mut bird, mut transform) in &mut bird_query {
-        transform.translation.x += bird.velocity.x * time.delta_seconds();
-        transform.translation.y += bird.velocity.y * time.delta_seconds();
+        transform.translation += bird.velocity * time.delta_seconds();
         bird.velocity.y += GRAVITY * time.delta_seconds();
     }
 }
 
-fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
+fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform2d)>) {
     let window = windows.single();
 
     let half_width = window.width() * 0.5;

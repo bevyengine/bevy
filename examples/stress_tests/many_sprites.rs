@@ -10,6 +10,8 @@
 //! Add the `--colored` arg to run with color tinted sprites. This will cause the sprites to be rendered
 //! in multiple batches, reducing performance but useful for testing.
 
+use std::f32::consts::TAU;
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
@@ -69,17 +71,13 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
     let mut sprites = vec![];
     for y in -half_y..half_y {
         for x in -half_x..half_x {
-            let position = Vec2::new(x as f32, y as f32);
-            let translation = (position * tile_size).extend(rng.gen::<f32>());
-            let rotation = Quat::from_rotation_z(rng.gen::<f32>());
-            let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
-
             sprites.push(SpriteBundle {
                 texture: sprite_handle.clone(),
-                transform: Transform {
-                    translation,
-                    rotation,
-                    scale,
+                transform: Transform2d {
+                    translation: Vec2::new(x as f32, y as f32) * tile_size,
+                    rotation: rng.gen::<f32>() * TAU,
+                    scale: Vec2::splat(rng.gen::<f32>() * 2.),
+                    z_translation: rng.gen::<f32>(),
                 },
                 sprite: Sprite {
                     custom_size: Some(tile_size),

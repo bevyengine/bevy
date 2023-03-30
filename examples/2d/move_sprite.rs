@@ -21,7 +21,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
-            transform: Transform::from_xyz(100., 0., 0.),
+            transform: Transform2d::from_xy(100., 0.),
             ..default()
         },
         Direction::Up,

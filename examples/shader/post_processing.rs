@@ -135,10 +135,7 @@ fn setup(
         MaterialMesh2dBundle {
             mesh: quad_handle.into(),
             material: material_handle,
-            transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 1.5),
-                ..default()
-            },
+            transform: Transform2d::from_xyz(0.0, 0.0, 1.5),
             ..default()
         },
         post_processing_pass_layer,
@@ -152,7 +149,7 @@ fn setup(
                 order: 1,
                 ..default()
             },
-            ..Camera2dBundle::default()
+            ..default()
         },
         post_processing_pass_layer,
     ));

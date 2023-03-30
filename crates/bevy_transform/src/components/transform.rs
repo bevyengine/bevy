@@ -67,9 +67,7 @@ impl Transform {
         scale: Vec3::ONE,
     };
 
-    /// Creates a new [`Transform`] at the position `(x, y, z)`. In 2d, the `z` component
-    /// is used for z-ordering elements: higher `z`-value will be in front of lower
-    /// `z`-value.
+    /// Creates a new [`Transform`] at the position `(x, y, z)`.
     #[inline]
     pub const fn from_xyz(x: f32, y: f32, z: f32) -> Self {
         Self::from_translation(Vec3::new(x, y, z))

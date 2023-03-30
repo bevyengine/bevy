@@ -19,7 +19,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn a root entity with no parent
     let parent = commands
         .spawn(SpriteBundle {
-            transform: Transform::from_scale(Vec3::splat(0.75)),
+            transform: Transform2d::from_scale(Vec2::splat(0.75)),
             texture: texture.clone(),
             ..default()
         })
@@ -27,7 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             // parent is a ChildBuilder, which has a similar API to Commands
             parent.spawn(SpriteBundle {
-                transform: Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
+                transform: Transform2d::from_xy(250.0, 0.0).with_scale(Vec2::splat(0.75)),
                 texture: texture.clone(),
                 sprite: Sprite {
                     color: Color::BLUE,
@@ -43,7 +43,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // entity has already been spawned.
     let child = commands
         .spawn(SpriteBundle {
-            transform: Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75)),
+            transform: Transform2d::from_xy(0.0, 250.0).with_scale(Vec2::splat(0.75)),
             texture,
             sprite: Sprite {
                 color: Color::GREEN,
@@ -62,18 +62,18 @@ fn rotate(
     mut commands: Commands,
     time: Res<Time>,
     mut parents_query: Query<(Entity, &Children), With<Sprite>>,
-    mut transform_query: Query<&mut Transform, With<Sprite>>,
+    mut transform_query: Query<&mut Transform2d, With<Sprite>>,
 ) {
     for (parent, children) in &mut parents_query {
         if let Ok(mut transform) = transform_query.get_mut(parent) {
-            transform.rotate_z(-PI / 2. * time.delta_seconds());
+            transform.rotation += -PI / 2. * time.delta_seconds();
         }
 
         // To iterate through the entities children, just treat the Children component as a Vec
         // Alternatively, you could query entities that have a Parent component
         for child in children {
             if let Ok(mut transform) = transform_query.get_mut(*child) {
-                transform.rotate_z(PI * time.delta_seconds());
+                transform.rotation += PI * time.delta_seconds();
             }
         }
 
