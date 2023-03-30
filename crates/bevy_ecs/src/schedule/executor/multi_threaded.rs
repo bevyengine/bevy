@@ -66,12 +66,18 @@ struct SystemTaskMetadata {
     is_exclusive: bool,
 }
 
+/// The result of running a system that is sent across a channel.
+struct SystemResult {
+    system_index: usize,
+    success: bool,
+}
+
 /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
 pub struct MultiThreadedExecutor {
     /// Sends system completion events.
-    sender: Sender<usize>,
+    sender: Sender<SystemResult>,
     /// Receives system completion events.
-    receiver: Receiver<usize>,
+    receiver: Receiver<SystemResult>,
     /// Metadata for scheduling and running system tasks.
     system_task_metadata: Vec<SystemTaskMetadata>,
     /// Union of the accesses of all currently running systems.
@@ -195,16 +201,24 @@ impl SystemExecutor for MultiThreadedExecutor {
 
                         if self.num_running_systems > 0 {
                             // wait for systems to complete
-                            let Ok(index) =
-                                self.receiver.recv().await else {
-                                    // the thread panicked, so stop running
-                                    return;
-                                };
+                            if let Ok(SystemResult { system_index, success }) = self.receiver.recv().await {
+                                self.finish_system(system_index);
+                                if success {
+                                    self.signal_dependents(system_index);
+                                } else {
+                                    self.skip_dependents(system_index);
+                                }
+                            } else {
+                                panic!("Channel closed unexpectedly!");
+                            }
 
-                            self.finish_system_and_signal_dependents(index);
-
-                            while let Ok(index) = self.receiver.try_recv() {
-                                self.finish_system_and_signal_dependents(index);
+                            while let Ok(SystemResult { system_index, success }) = self.receiver.try_recv() {
+                                self.finish_system(system_index);
+                                if success {
+                                    self.signal_dependents(system_index);
+                                } else {
+                                    self.skip_dependents(system_index);
+                                }
                             }
 
                             self.rebuild_active_access();
@@ -467,19 +481,20 @@ impl MultiThreadedExecutor {
             }));
             #[cfg(feature = "trace")]
             drop(system_guard);
+            // tell the executor that the system finished
+            sender
+                .try_send(SystemResult {
+                    system_index,
+                    success: res.is_ok(),
+                })
+                .unwrap_or_else(|error| unreachable!("{}", error));
             if let Err(payload) = res {
                 println!("Encountered a panic in system `{}`!", &*system.name());
-                // close the channel to propagate the error to the
-                // multithreaded executor
-                sender.close();
+                // set the payload to propagate the error
                 {
                     let mut panic_payload = panic_payload.lock().unwrap();
                     *panic_payload = Some(payload);
                 }
-            } else {
-                sender
-                    .try_send(system_index)
-                    .unwrap_or_else(|error| unreachable!("{}", error));
             }
         };
 
@@ -527,16 +542,17 @@ impl MultiThreadedExecutor {
                 let res = apply_system_buffers(&unapplied_systems, systems, world);
                 #[cfg(feature = "trace")]
                 drop(system_guard);
+                // tell the executor that the system finished
+                sender
+                    .try_send(SystemResult {
+                        system_index,
+                        success: res.is_ok(),
+                    })
+                    .unwrap_or_else(|error| unreachable!("{}", error));
                 if let Err(payload) = res {
-                    // close the channel to propagate the error to the
-                    // multithreaded executor
-                    sender.close();
+                    // set the payload to propagate the error
                     let mut panic_payload = panic_payload.lock().unwrap();
                     *panic_payload = Some(payload);
-                } else {
-                    sender
-                        .try_send(system_index)
-                        .unwrap_or_else(|error| unreachable!("{}", error));
                 }
             };
 
@@ -552,20 +568,21 @@ impl MultiThreadedExecutor {
                 }));
                 #[cfg(feature = "trace")]
                 drop(system_guard);
+                // tell the executor that the system finished
+                sender
+                    .try_send(SystemResult {
+                        system_index,
+                        success: res.is_ok(),
+                    })
+                    .unwrap_or_else(|error| unreachable!("{}", error));
                 if let Err(payload) = res {
                     println!(
                         "Encountered a panic in exclusive system `{}`!",
                         &*system.name()
                     );
-                    // close the channel to propagate the error to the
-                    // multithreaded executor
-                    sender.close();
+                    // set the payload to propagate the error
                     let mut panic_payload = panic_payload.lock().unwrap();
                     *panic_payload = Some(payload);
-                } else {
-                    sender
-                        .try_send(system_index)
-                        .unwrap_or_else(|error| unreachable!("{}", error));
                 }
             };
 
@@ -578,7 +595,13 @@ impl MultiThreadedExecutor {
         self.local_thread_running = true;
     }
 
-    fn finish_system_and_signal_dependents(&mut self, system_index: usize) {
+    fn skip_system_and_signal_dependents(&mut self, system_index: usize) {
+        self.num_completed_systems += 1;
+        self.completed_systems.insert(system_index);
+        self.signal_dependents(system_index);
+    }
+
+    fn finish_system(&mut self, system_index: usize) {
         if self.system_task_metadata[system_index].is_exclusive {
             self.exclusive_running = false;
         }
@@ -593,13 +616,6 @@ impl MultiThreadedExecutor {
         self.running_systems.set(system_index, false);
         self.completed_systems.insert(system_index);
         self.unapplied_systems.insert(system_index);
-        self.signal_dependents(system_index);
-    }
-
-    fn skip_system_and_signal_dependents(&mut self, system_index: usize) {
-        self.num_completed_systems += 1;
-        self.completed_systems.insert(system_index);
-        self.signal_dependents(system_index);
     }
 
     fn signal_dependents(&mut self, system_index: usize) {
@@ -610,6 +626,13 @@ impl MultiThreadedExecutor {
             if *remaining == 0 && !self.completed_systems.contains(dep_idx) {
                 self.ready_systems.insert(dep_idx);
             }
+        }
+    }
+
+    fn skip_dependents(&mut self, system_index: usize) {
+        for &dep_idx in &self.system_task_metadata[system_index].dependents {
+            self.num_completed_systems += 1;
+            self.completed_systems.insert(dep_idx);
         }
     }
 
