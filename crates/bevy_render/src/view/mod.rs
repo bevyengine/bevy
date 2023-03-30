@@ -163,6 +163,7 @@ pub struct ViewUniform {
     view_proj: Mat4,
     unjittered_view_proj: Mat4,
     inverse_view_proj: Mat4,
+    no_translation_view_proj: Mat4,
     view: Mat4,
     inverse_view: Mat4,
     projection: Mat4,
@@ -330,6 +331,10 @@ pub fn prepare_view_uniforms(
         let view = camera.transform.compute_matrix();
         let inverse_view = view.inverse();
 
+        let mut no_translation_inverse_view = view;
+        *no_translation_inverse_view.col_mut(3) = Vec4::new(0.0, 0.0, 0.0, 1.0);
+        no_translation_inverse_view = no_translation_inverse_view.inverse();
+
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
                 view_proj: camera
@@ -337,6 +342,7 @@ pub fn prepare_view_uniforms(
                     .unwrap_or_else(|| projection * inverse_view),
                 unjittered_view_proj: unjittered_projection * inverse_view,
                 inverse_view_proj: view * inverse_projection,
+                no_translation_view_proj: projection * no_translation_inverse_view,
                 view,
                 inverse_view,
                 projection,
