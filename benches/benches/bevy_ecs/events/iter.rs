@@ -7,7 +7,7 @@ pub struct Benchmark(Events<A>);
 impl Benchmark {
     pub fn new(count: usize) -> Self {
         let mut events = Events::default();
-        
+
         for _ in 0..count {
             events.send(A(0.0));
         }

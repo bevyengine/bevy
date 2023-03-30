@@ -1,9 +1,9 @@
 use criterion::criterion_main;
 
 mod components;
+mod events;
 mod iteration;
 mod scheduling;
-mod events;
 mod world;
 
 criterion_main!(

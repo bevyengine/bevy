@@ -2,7 +2,10 @@ use bevy_ecs::prelude::*;
 
 struct A(f32);
 
-pub struct Benchmark(Events<A>, usize);
+pub struct Benchmark {
+    events: Events<A>,
+    count: usize,
+}
 
 impl Benchmark {
     pub fn new(count: usize) -> Self {
@@ -16,13 +19,13 @@ impl Benchmark {
             events.update();
         }
 
-        Self(events, count)
+        Self { events, count }
     }
 
     pub fn run(&mut self) {
-        for _ in 0..self.1 {
-            self.0.send(std::hint::black_box(A(0.0)));
+        for _ in 0..self.count {
+            self.events.send(std::hint::black_box(A(0.0)));
         }
-        self.0.update();
+        self.events.update();
     }
 }
