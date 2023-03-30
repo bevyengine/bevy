@@ -4,7 +4,7 @@ use std::mem;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
-use crate::schedule::{ScheduleLabel, SystemSet};
+use crate::schedule::ScheduleLabel;
 use crate::system::Resource;
 use crate::world::World;
 
@@ -20,8 +20,7 @@ pub use bevy_ecs_macros::States;
 ///
 /// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T:Variant>`] schedules,
 /// which can be run via the [`apply_state_transition::<T>`] system.
-/// Systems that run each frame in various states are typically stored in the main schedule,
-/// and are conventionally part of the [`OnUpdate(T::Variant)`] system set.
+/// Systems that run each frame in various states are typically stored in the main schedule.
 ///
 /// # Example
 ///
@@ -65,14 +64,6 @@ pub struct OnTransition<S: States> {
     /// The state being entered.
     pub to: S,
 }
-
-/// A [`SystemSet`] that will run within `CoreSet::Update` when this state is active.
-///
-/// This set, when created via `App::add_state`, is configured with both a base set and a run condition.
-/// If all you want is the run condition, use the [`in_state`](crate::schedule::common_conditions::in_state)
-/// [condition](super::Condition) directly.
-#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OnUpdate<S: States>(pub S);
 
 /// A finite-state machine whose transitions have associated schedules
 /// ([`OnEnter(state)`] and [`OnExit(state)`]).
