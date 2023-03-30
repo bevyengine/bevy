@@ -632,7 +632,7 @@ impl MultiThreadedExecutor {
 
     fn skip_dependents(&mut self, system_index: usize) {
         let dependents = self.system_task_metadata[system_index].dependents.clone();
-        for dep_idx in depedents {
+        for dep_idx in dependents {
             self.num_completed_systems += 1;
             self.completed_systems.insert(dep_idx);
             self.skip_dependents(dep_idx);
