@@ -1548,7 +1548,7 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
     unsafe fn get_param<'world, 'state>(
         _state: &'state mut Self::State,
         _system_meta: &SystemMeta,
-        _world: &'world World,
+        _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         PhantomData
