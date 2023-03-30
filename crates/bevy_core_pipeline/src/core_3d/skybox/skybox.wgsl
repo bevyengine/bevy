@@ -9,8 +9,8 @@ var<uniform> view: View;
 
 @vertex
 fn skybox_vertex(@location(0) position: vec3<f32>) -> @builtin(position) vec4<f32> {
-    var out = view.view_proj * vec4(position, 1.0);
-    out.z = out.w;
+    var out = view.projection * vec4(position, 1.0);
+    out.z = 0.0;
     return out;
 }
 
