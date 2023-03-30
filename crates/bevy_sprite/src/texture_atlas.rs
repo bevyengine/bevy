@@ -152,4 +152,16 @@ impl TextureAtlas {
             .as_ref()
             .and_then(|texture_handles| texture_handles.get(texture).cloned())
     }
+
+    /// Returns the image handle of the texture corresponding to the given index in the [`TextureAtlas`]
+    ///
+    /// This runs in `O(n)` time.
+    pub fn get_texture_handle(&self, index: usize) -> Option<&Handle<Image>> {
+        self.texture_handles.as_ref().and_then(|texture_handles| {
+            texture_handles
+                .iter()
+                .find(|(_, i)| **i == index)
+                .map(|(handle, _)| handle)
+        })
+    }
 }
