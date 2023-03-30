@@ -6,7 +6,6 @@ use std::{
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
-use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Instrument};
 use std::panic::AssertUnwindSafe;
@@ -480,7 +479,7 @@ impl MultiThreadedExecutor {
                 })
                 .unwrap_or_else(|error| unreachable!("{}", error));
             if let Err(payload) = res {
-                error!("Encountered a panic in system `{}`!", &*system.name());
+                eprintln!("Encountered a panic in system `{}`!", &*system.name());
                 // set the payload to propagate the error
                 {
                     let mut panic_payload = panic_payload.lock().unwrap();
@@ -567,7 +566,7 @@ impl MultiThreadedExecutor {
                     })
                     .unwrap_or_else(|error| unreachable!("{}", error));
                 if let Err(payload) = res {
-                    error!(
+                    eprintln!(
                         "Encountered a panic in exclusive system `{}`!",
                         &*system.name()
                     );
@@ -662,7 +661,7 @@ fn apply_system_buffers(
             system.apply_buffers(world);
         }));
         if let Err(payload) = res {
-            error!(
+            eprintln!(
                 "Encountered a panic when applying buffers for system `{}`!",
                 &*system.name()
             );

@@ -1,4 +1,3 @@
-use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
@@ -103,7 +102,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                 #[cfg(feature = "trace")]
                 system_span.exit();
                 if let Err(payload) = res {
-                    error!("Encountered a panic in system `{}`!", &*system.name());
+                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
                     std::panic::resume_unwind(payload);
                 }
                 self.unapplied_systems.insert(system_index);
