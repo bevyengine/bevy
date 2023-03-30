@@ -81,7 +81,7 @@ impl Plugin for TemporalAntiAliasPlugin {
         draw_3d_graph.add_node(draw_3d_graph::node::TAA, taa_node);
         // MAIN_PASS -> TAA -> BLOOM -> TONEMAPPING
         draw_3d_graph.add_node_edge(
-            crate::core_3d::graph::node::MAIN_PASS,
+            crate::core_3d::graph::node::END_MAIN_PASS,
             draw_3d_graph::node::TAA,
         );
         draw_3d_graph.add_node_edge(draw_3d_graph::node::TAA, crate::core_3d::graph::node::BLOOM);

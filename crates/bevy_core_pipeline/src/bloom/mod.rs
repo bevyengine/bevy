@@ -83,7 +83,7 @@ impl Plugin for BloomPlugin {
             draw_3d_graph.add_node(core_3d::graph::node::BLOOM, bloom_node);
             // MAIN_PASS -> BLOOM -> TONEMAPPING
             draw_3d_graph.add_node_edge(
-                crate::core_3d::graph::node::MAIN_PASS,
+                crate::core_3d::graph::node::END_MAIN_PASS,
                 core_3d::graph::node::BLOOM,
             );
             draw_3d_graph.add_node_edge(
