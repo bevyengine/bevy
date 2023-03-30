@@ -9,7 +9,7 @@ use bevy::{
         },
         fxaa::{Fxaa, Sensitivity},
     },
-    pbr::CascadeShadowConfigBuilder,
+    pbr::{CascadeShadowConfigBuilder, ShadowSmoothMode},
     prelude::*,
     render::{
         render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
@@ -48,6 +48,7 @@ fn modify_aa(
         *msaa = Msaa::Off;
         camera.remove::<Fxaa>();
         camera.remove::<TemporalAntiAliasBundle>();
+        camera.insert(ShadowSmoothMode::Smooth);
     }
 
     // MSAA
@@ -56,6 +57,7 @@ fn modify_aa(
         camera.remove::<TemporalAntiAliasBundle>();
 
         *msaa = Msaa::Sample4;
+        camera.insert(ShadowSmoothMode::Smooth);
     }
 
     // MSAA Sample Count
@@ -76,7 +78,7 @@ fn modify_aa(
         *msaa = Msaa::Off;
         camera.remove::<TemporalAntiAliasBundle>();
 
-        camera.insert(Fxaa::default());
+        camera.insert((Fxaa::default(), ShadowSmoothMode::Smooth));
     }
 
     // FXAA Settings
@@ -108,7 +110,10 @@ fn modify_aa(
         *msaa = Msaa::Off;
         camera.remove::<Fxaa>();
 
-        camera.insert(TemporalAntiAliasBundle::default());
+        camera.insert((
+            TemporalAntiAliasBundle::default(),
+            ShadowSmoothMode::Stochastic,
+        ));
     }
 }
 

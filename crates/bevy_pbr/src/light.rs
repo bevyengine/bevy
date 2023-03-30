@@ -6,6 +6,7 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::Camera,
     color::Color,
+    extract_component::ExtractComponent,
     extract_resource::ExtractResource,
     prelude::Projection,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Plane, Sphere},
@@ -605,6 +606,21 @@ pub struct NotShadowCaster;
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
+
+/// Add this component to a [`Camera3d`](bevy_core_pipeline::core_3d::Camera3d)
+/// to control how to smooth the edges of shadows.
+#[derive(Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
+#[reflect(Component, Default)]
+pub enum ShadowSmoothMode {
+    /// No smoothing (fastest, but jagged edges).
+    NoSmoothing,
+    /// Smooth shadows using the default algorithm.
+    #[default]
+    Smooth,
+    /// Smooth shadows meant to be used in conjunction with
+    /// [`TemporalAntiAliasSettings`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings).
+    Stochastic,
+}
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
