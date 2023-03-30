@@ -23,7 +23,7 @@ fn main() {
         .add_systems(OnEnter(AppState::InGame), setup_game)
         .add_systems(
             Update,
-            (movement, change_color).run_if(in_state(AppState::InGame)),
+            (movement, change_color).distributive_run_if(in_state(AppState::InGame)),
         )
         .run();
 }
