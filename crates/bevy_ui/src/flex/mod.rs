@@ -5,7 +5,7 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     event::EventReader,
-    query::{Changed, Or, ReadOnlyWorldQuery, With, Without},
+    query::{Changed, Or, With, Without},
     removal_detection::RemovedComponents,
     system::{Query, Res, ResMut, Resource},
 };
