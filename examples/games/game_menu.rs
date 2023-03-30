@@ -304,7 +304,7 @@ mod menu {
                 // Common systems to all screens that handles buttons behaviour
                 .add_systems(
                     Update,
-                    (menu_action, button_system).distributive_run_if(in_state(GameState::Menu)),
+                    (menu_action, button_system).run_if(in_state(GameState::Menu)),
                 );
         }
     }

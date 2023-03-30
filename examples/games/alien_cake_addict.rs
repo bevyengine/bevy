@@ -35,7 +35,7 @@ fn main() {
                 scoreboard_system,
                 spawn_bonus,
             )
-                .distributive_run_if(in_state(GameState::Playing)),
+                .run_if(in_state(GameState::Playing)),
         )
         .add_systems(OnExit(GameState::Playing), teardown)
         .add_systems(OnEnter(GameState::GameOver), display_score)
