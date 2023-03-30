@@ -1,5 +1,4 @@
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::mesh_functions
+#import bevy_pbr::mesh_view_types
 
 @group(0) @binding(0)
 var skybox: texture_cube<f32>;
@@ -10,7 +9,7 @@ var<uniform> view: View;
 
 @vertex
 fn skybox_vertex(@location(0) position: vec3<f32>) -> @builtin(position) vec4<f32> {
-    var out = mesh_position_world_to_clip(position);
+    var out = view.view_proj * vec4(position, 1.0);
     out.z = out.w;
     return out;
 }
