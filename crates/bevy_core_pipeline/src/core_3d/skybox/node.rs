@@ -10,13 +10,14 @@ use bevy_render::{
         LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
     },
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget},
+    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 
 pub struct SkyboxNode {
     view_query: QueryState<(
         &'static SkyboxPipelineId,
         &'static SkyboxBindGroup,
+        &'static ViewUniformOffset,
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static ViewDepthTexture,
@@ -30,9 +31,8 @@ impl Node for SkyboxNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let Ok((pipeline_id, bind_group, camera, target, depth)) = self.view_query.get_manual(world, graph.view_entity()) else {
-            return Ok(());
-        };
+        let Ok((pipeline_id, bind_group, view_uniform_offset, camera, target, depth))
+            = self.view_query.get_manual(world, graph.view_entity()) else { return Ok(()) };
         let skybox_mesh = world.resource::<SkyboxMesh>();
         let meshes = world.resource::<RenderAssets<Mesh>>();
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -58,7 +58,7 @@ impl Node for SkyboxNode {
         });
 
         render_pass.set_render_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group.0, &[todo!()]);
+        render_pass.set_bind_group(0, &bind_group.0, &[view_uniform_offset.offset]);
 
         if let Some(viewport) = camera.viewport.as_ref() {
             render_pass.set_camera_viewport(viewport);
