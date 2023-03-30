@@ -1,6 +1,7 @@
 mod camera_3d;
 mod main_opaque_pass_3d_node;
 mod main_transparent_pass_3d_node;
+mod skybox;
 
 pub mod graph {
     pub const NAME: &str = "core_3d";
@@ -12,6 +13,7 @@ pub mod graph {
         pub const PREPASS: &str = "prepass";
         pub const START_MAIN_PASS: &str = "start_main_pass";
         pub const MAIN_OPAQUE_PASS: &str = "main_opaque_pass";
+        pub const SKYBOX: &str = "skybox";
         pub const MAIN_TRANSPARENT_PASS: &str = "main_transparent_pass";
         pub const END_MAIN_PASS: &str = "end_main_pass";
         pub const BLOOM: &str = "bloom";
@@ -27,6 +29,7 @@ use std::cmp::Reverse;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
+pub use skybox::*;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -62,6 +65,7 @@ impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera3d>()
             .register_type::<Camera3dDepthLoadOp>()
+            .add_plugin(SkyboxPlugin)
             .add_plugin(ExtractComponentPlugin::<Camera3d>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
@@ -88,6 +92,7 @@ impl Plugin for Core3dPlugin {
 
         let prepass_node = PrepassNode::new(&mut render_app.world);
         let opaque_node_3d = MainOpaquePass3dNode::new(&mut render_app.world);
+        let skybox = SkyboxNode::new(&mut render_app.world);
         let transparent_node_3d = MainTransparentPass3dNode::new(&mut render_app.world);
         let tonemapping = TonemappingNode::new(&mut render_app.world);
         let upscaling = UpscalingNode::new(&mut render_app.world);
@@ -97,6 +102,7 @@ impl Plugin for Core3dPlugin {
         draw_3d_graph.add_node(graph::node::PREPASS, prepass_node);
         draw_3d_graph.add_node(graph::node::START_MAIN_PASS, EmptyNode);
         draw_3d_graph.add_node(graph::node::MAIN_OPAQUE_PASS, opaque_node_3d);
+        draw_3d_graph.add_node(graph::node::SKYBOX, skybox);
         draw_3d_graph.add_node(graph::node::MAIN_TRANSPARENT_PASS, transparent_node_3d);
         draw_3d_graph.add_node(graph::node::END_MAIN_PASS, EmptyNode);
         draw_3d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
@@ -105,10 +111,8 @@ impl Plugin for Core3dPlugin {
 
         draw_3d_graph.add_node_edge(graph::node::PREPASS, graph::node::START_MAIN_PASS);
         draw_3d_graph.add_node_edge(graph::node::START_MAIN_PASS, graph::node::MAIN_OPAQUE_PASS);
-        draw_3d_graph.add_node_edge(
-            graph::node::MAIN_OPAQUE_PASS,
-            graph::node::MAIN_TRANSPARENT_PASS,
-        );
+        draw_3d_graph.add_node_edge(graph::node::MAIN_OPAQUE_PASS, graph::node::SKYBOX);
+        draw_3d_graph.add_node_edge(graph::node::SKYBOX, graph::node::MAIN_TRANSPARENT_PASS);
         draw_3d_graph.add_node_edge(
             graph::node::MAIN_TRANSPARENT_PASS,
             graph::node::END_MAIN_PASS,
