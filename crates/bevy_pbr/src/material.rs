@@ -424,13 +424,13 @@ pub fn queue_material_meshes<M: Material>(
 
         match shadow_smoothing_mode {
             Some(ShadowSmoothingMode::NoSmoothing) => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_SIMPLE
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_SIMPLE;
             }
             None | Some(ShadowSmoothingMode::Smooth) => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_THE_WITNESS
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_THE_WITNESS;
             }
             Some(ShadowSmoothingMode::Stochastic) => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_STOCHASTIC
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_STOCHASTIC;
             }
         }
 
