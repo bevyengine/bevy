@@ -1537,8 +1537,10 @@ mod tests {
     use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
+        component::Component,
         query::{ReadOnlyWorldQuery, WorldQuery},
         system::Query,
+        system::SystemParam,
     };
     use std::marker::PhantomData;
 
@@ -1643,4 +1645,40 @@ mod tests {
 
     #[derive(Resource)]
     pub struct FetchState;
+
+    // Testing of lifetime synonyms
+
+    #[derive(Component)]
+    struct Companion;
+
+    #[allow(dead_code)]
+    #[derive(SystemParam)]
+    struct UsualLifetime<'w> {
+        private_resource: Res<'w, PrivateResource>,
+    }
+
+    #[allow(dead_code)]
+    #[derive(SystemParam)]
+    struct UsualLifetimes<'w, 's> {
+        companions: Query<'w, 's, &'static Companion>,
+    }
+
+    #[allow(dead_code)]
+    #[derive(SystemParam)]
+    struct UnusualLifetime<'world> {
+        private_resource: Res<'world, PrivateResource>,
+    }
+
+    #[allow(dead_code)]
+    #[derive(SystemParam)]
+    struct UnusualLifetimes<'world, 'state> {
+        companions: Query<'world, 'state, &'static Companion>,
+    }
+
+    #[allow(dead_code)]
+    #[derive(SystemParam)]
+    struct MixLifetimes<'w, 'state> {
+        private_resource: Res<'w, PrivateResource>,
+        companions: Query<'w, 'state, &'static Companion>,
+    }
 }
