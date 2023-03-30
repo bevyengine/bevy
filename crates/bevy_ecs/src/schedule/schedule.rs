@@ -1495,20 +1495,6 @@ pub enum ScheduleBuildError {
     /// Tried to run a schedule before all of its systems have been initialized.
     #[error("Systems in schedule have not been initialized.")]
     Uninitialized,
-    /// Tried to add a system to multiple base sets.
-    #[error("System `{system:?}` is in the base sets {first_set:?} and {second_set:?}, but systems can only belong to one base set.")]
-    SystemInMultipleBaseSets {
-        system: String,
-        first_set: String,
-        second_set: String,
-    },
-    /// Tried to add a set to multiple base sets.
-    #[error("Set `{set:?}` is in the base sets {first_set:?} and {second_set:?}, but sets can only belong to one base set.")]
-    SetInMultipleBaseSets {
-        set: String,
-        first_set: String,
-        second_set: String,
-    },
 }
 
 /// Specifies how schedule construction should respond to detecting a certain kind of issue.
