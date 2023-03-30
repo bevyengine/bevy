@@ -611,7 +611,7 @@ pub struct NotShadowReceiver;
 /// to control how to smooth the edges of shadows.
 #[derive(Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
 #[reflect(Component, Default)]
-pub enum ShadowSmoothMode {
+pub enum ShadowSmoothingMode {
     /// No smoothing (fastest, but jagged edges).
     NoSmoothing,
     /// Smooth shadows using the default algorithm.

@@ -1,7 +1,7 @@
 use crate::{
     render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
     MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems, SetMeshBindGroup,
-    SetMeshViewBindGroup, Shadow, ShadowSmoothMode,
+    SetMeshViewBindGroup, Shadow, ShadowSmoothingMode,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -380,7 +380,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Tonemapping>,
         Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
-        Option<&ShadowSmoothMode>,
+        Option<&ShadowSmoothingMode>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
@@ -394,7 +394,7 @@ pub fn queue_material_meshes<M: Material>(
         tonemapping,
         dither,
         environment_map,
-        shadow_smooth_mode,
+        shadow_smoothing_mode,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transparent_phase,
@@ -464,14 +464,14 @@ pub fn queue_material_meshes<M: Material>(
                         }
                         _ => (),
                     }
-                    match shadow_smooth_mode {
-                        Some(ShadowSmoothMode::NoSmoothing) => {
+                    match shadow_smoothing_mode {
+                        Some(ShadowSmoothingMode::NoSmoothing) => {
                             mesh_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_SIMPLE
                         }
-                        None | Some(ShadowSmoothMode::Smooth) => {
+                        None | Some(ShadowSmoothingMode::Smooth) => {
                             mesh_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_THE_WITNESS
                         }
-                        Some(ShadowSmoothMode::Stochastic) => {
+                        Some(ShadowSmoothingMode::Stochastic) => {
                             mesh_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_STOCHASTIC
                         }
                     };

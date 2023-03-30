@@ -173,7 +173,7 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
-            .register_type::<ShadowSmoothMode>()
+            .register_type::<ShadowSmoothingMode>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial> {
                 prepass_enabled: self.prepass_enabled,
@@ -185,7 +185,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
-            .add_plugin(ExtractComponentPlugin::<ShadowSmoothMode>::default())
+            .add_plugin(ExtractComponentPlugin::<ShadowSmoothingMode>::default())
             .configure_sets(
                 PostUpdate,
                 (
