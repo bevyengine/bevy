@@ -15,7 +15,9 @@ struct VertexOutput {
 }
 
 struct FragmentOutput {
+#ifdef GIZMO_LINES_3D
     @builtin(frag_depth) depth: f32,
+#endif
     @location(0) color: vec4<f32>,
 }
 
@@ -33,10 +35,12 @@ fn vertex(in: VertexInput) -> VertexOutput {
 fn fragment(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
+#ifdef GIZMO_LINES_3D
 #ifdef DEPTH_TEST
     out.depth = in.pos.z;
 #else
     out.depth = 1.0;
+#endif
 #endif
 
     out.color = in.color;
