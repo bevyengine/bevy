@@ -12,6 +12,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::{shape::Cube, Mesh},
     render_asset::RenderAssets,
     render_resource::{
@@ -38,6 +39,8 @@ impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
 
+        app.add_plugin(ExtractComponentPlugin::<Skybox>::default());
+
         let mesh = Mesh::from(Cube::new(1.0));
         let vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout().layout().clone();
         let handle = app.world.resource_mut::<Assets<Mesh>>().add(mesh);
@@ -63,7 +66,7 @@ impl Plugin for SkyboxPlugin {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, ExtractComponent, Clone)]
 pub struct Skybox(pub Handle<Image>);
 
 // ----------------------------------------------------------------------------
