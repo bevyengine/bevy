@@ -216,12 +216,12 @@ where
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # let mut app = Schedule::new();
+    /// # let mut schedule = Schedule::new();
     /// # fn a() {}
     /// # fn b() {}
     /// # fn condition() -> bool { true }
-    /// app.add_systems(Update, (a, b).distributive_run_if(condition));
-    /// app.add_systems(Update, (a.run_if(condition), b.run_if(condition)));
+    /// schedule.add_systems((a, b).distributive_run_if(condition));
+    /// schedule.add_systems((a.run_if(condition), b.run_if(condition)));
     /// ```
     ///
     /// # Note
@@ -249,14 +249,14 @@ where
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # let mut app = Schedule::new();
+    /// # let mut schedule = Schedule::new();
     /// # fn a() {}
     /// # fn b() {}
     /// # fn condition() -> bool { true }
     /// # #[derive(SystemSet, Debug, Eq, PartialEq, Hash, Clone, Copy)]
     /// # struct C;
-    /// app.add_systems(Update, (a, b).run_if(condition));
-    /// app.add_systems(Update, (a, b).in_set(C)).configure_set(C.run_if(condition));
+    /// schedule.add_systems((a, b).run_if(condition));
+    /// schedule.add_systems((a, b).in_set(C)).configure_set(C.run_if(condition));
     /// ```
     ///
     /// # Note
