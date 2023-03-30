@@ -1745,7 +1745,6 @@ description = "Illustrates how FontAtlases are populated (used to optimize text 
 category = "UI (User Interface)"
 wasm = true
 
-
 [[example]]
 name = "node_transform"
 path = "examples/ui/node_transform.rs"
@@ -1755,7 +1754,6 @@ name = "Node Transform"
 description = "An example demonstrating how to translate, rotate and scale UI elements."
 category = "UI (User Interface)"
 wasm = true
-
 
 [[example]]
 name = "relative_cursor_position"
