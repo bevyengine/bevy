@@ -2,7 +2,7 @@ use crate::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{Camera3d, Opaque3d},
     prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    skybox::{SkyboxBindGroup, SkyboxMesh, SkyboxPipelineId},
+    skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -136,25 +136,15 @@ impl Node for MainOpaquePass3dNode {
             alpha_mask_phase.render(&mut render_pass, world, view_entity);
         }
 
-        // Skybox draw
+        // Draw the skybox using a fullscreen triangle
         if let (Some(skybox_pipeline), Some(skybox_bind_group)) =
             (skybox_pipeline, skybox_bind_group)
         {
-            let skybox_mesh = world.resource::<SkyboxMesh>();
-            let meshes = world.resource::<RenderAssets<Mesh>>();
             let pipeline_cache = world.resource::<PipelineCache>();
-
-            if let (Some(skybox_pipeline), Some(skybox_gpu_mesh)) = (
-                pipeline_cache.get_render_pipeline(skybox_pipeline.0),
-                meshes.get(&skybox_mesh.handle),
-            ) {
-                let GpuBufferInfo::Indexed { buffer, index_format, count } = &skybox_gpu_mesh.buffer_info else { unreachable!() };
-
-                render_pass.set_render_pipeline(skybox_pipeline);
+            if let Some(pipeline) = pipeline_cache.get_render_pipeline(skybox_pipeline.0) {
+                render_pass.set_render_pipeline(pipeline);
                 render_pass.set_bind_group(0, &skybox_bind_group.0, &[view_uniform_offset.offset]);
-                render_pass.set_vertex_buffer(0, skybox_gpu_mesh.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                render_pass.draw_indexed(0..*count, 0, 0..1);
+                render_pass.draw(0..3, 0..1);
             }
         }
 
