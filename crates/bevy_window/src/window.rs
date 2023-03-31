@@ -473,10 +473,6 @@ impl WindowPosition {
     }
 }
 
-/// An operating system or virtual window that can present content and receive user input.
-///
-/// To create a window, use a [`EventWriter<CreateWindow>`](`crate::CreateWindow`).
-///
 /// ## Window Sizes
 ///
 /// There are three sizes associated with a window. The physical size which is

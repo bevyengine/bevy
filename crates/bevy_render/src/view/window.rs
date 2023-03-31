@@ -155,8 +155,6 @@ pub struct WindowSurfaces {
 
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
-/// This will not handle [virtual windows](bevy_window::AbstractWindowHandle::Virtual).
-///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
 /// the performance bottleneck. This can be seen in profiles as multiple prepare-set systems all
 /// taking an unusually long time to complete, and all finishing at about the same time as the
