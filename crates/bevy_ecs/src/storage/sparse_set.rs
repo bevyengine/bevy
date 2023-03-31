@@ -626,6 +626,9 @@ impl SparseSets {
     }
 }
 
+/// A view into a [`ComponentSparseSet`] from [`UnsafeStorages`].
+///
+/// [`UnsafeStorages`]: super::UnsafeStorages
 #[derive(Clone, Copy)]
 pub struct UnsafeComponentSparseSet<'a> {
     pub(super) sparse_set: &'a ComponentSparseSet,

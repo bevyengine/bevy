@@ -287,6 +287,9 @@ impl<const SEND: bool> Resources<SEND> {
     }
 }
 
+/// A view into a [`Resources`] collection of [`UnsafeStorages`].
+///
+/// [`UnsafeStorages`]: super::UnsafeStorages
 #[derive(Clone, Copy)]
 pub struct UnsafeResources<'a, const SEND: bool> {
     pub(super) resources: &'a Resources<SEND>,

@@ -909,6 +909,9 @@ impl IndexMut<TableId> for Tables {
     }
 }
 
+/// A view into a [`Table`] from [`UnsafeStorages`].
+///
+/// [`UnsafeStorages`]: super::UnsafeStorages
 #[derive(Clone, Copy)]
 pub struct UnsafeTable<'a> {
     pub(super) table: &'a Table,

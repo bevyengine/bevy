@@ -84,6 +84,7 @@ impl<'a> UnsafeStorages<'a> {
     }
 }
 
+/// A view into the [`ComponentSparseSet`] collection of [`UnsafeStorages`].
 #[derive(Clone, Copy)]
 pub struct UnsafeSparseSets<'a> {
     sparse_sets: &'a SparseSets,
@@ -97,6 +98,7 @@ impl<'a> UnsafeSparseSets<'a> {
     }
 }
 
+/// A view into the [`Table`] collection of [`UnsafeStorages`].
 #[derive(Clone, Copy)]
 pub struct UnsafeTables<'a> {
     tables: &'a Tables,
