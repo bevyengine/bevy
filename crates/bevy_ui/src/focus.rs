@@ -56,11 +56,10 @@ impl Pressed {
 /// Describes whether the [`Pressed`] component should remain in the pressed state after
 /// the cursor stops hovering over the node.
 ///
-/// If the `InteractionPolicy` is set to `Hold`, the `Pressed` component will remain in the clicked state
-/// after the cursor leaves the node (the default behaviour).
+/// When the user clicks this node and the `PressPolicy` is set to `Hold`, the `Pressed` component will remain in the clicked state after the cursor leaves the node, until the user releases the interaction button. (the default behaviour)
 ///
-/// If the `InteractionPolicy` is set to `Release`, the Pressed component will be set to reset to not clicked state
-/// when the cursor leaves the node.
+/// If instead the `PressPolicy` is set to `Release`, the `Pressed` component will be considered not clicked
+/// as soon as the cursor leaves the node, even if the user still is pressing down the interaction button.
 #[derive(Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, PartialEq)]
 pub enum PressPolicy {
