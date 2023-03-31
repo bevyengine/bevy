@@ -251,7 +251,14 @@ mod game {
 }
 
 mod menu {
-    use bevy::{app::AppExit, prelude::*};
+    use bevy::{
+        app::AppExit,
+        prelude::*,
+        ui::{
+            InteractionState, InteractionStateChangedFilter, InteractionStateHandler,
+            RelativeCursorPosition,
+        },
+    };
 
     use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
 
@@ -349,16 +356,27 @@ mod menu {
     // This system handles changing all buttons color based on mouse interaction
     fn button_system(
         mut interaction_query: Query<
-            (&Interaction, &mut BackgroundColor, Option<&SelectedOption>),
-            (Changed<Interaction>, With<Button>),
+            (
+                &Pressed,
+                &RelativeCursorPosition,
+                &mut BackgroundColor,
+                Option<&SelectedOption>,
+            ),
+            (InteractionStateChangedFilter, With<Button>),
         >,
     ) {
-        for (interaction, mut color, selected) in &mut interaction_query {
-            *color = match (*interaction, selected) {
-                (Interaction::Clicked, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
-                (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
-                (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
-                (Interaction::None, None) => NORMAL_BUTTON.into(),
+        for (pressed_state, relative_cursor_position, mut color, selected) in &mut interaction_query
+        {
+            *color = match (
+                (pressed_state, relative_cursor_position).interaction_state(),
+                selected,
+            ) {
+                (InteractionState::Pressed, _) | (InteractionState::None, Some(_)) => {
+                    PRESSED_BUTTON.into()
+                }
+                (InteractionState::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
+                (InteractionState::Hovered, None) => HOVERED_BUTTON.into(),
+                (InteractionState::None, None) => NORMAL_BUTTON.into(),
             }
         }
     }
@@ -366,13 +384,13 @@ mod menu {
     // This system updates the settings when a new value for a setting is selected, and marks
     // the button as the one currently selected
     fn setting_button<T: Resource + Component + PartialEq + Copy>(
-        interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
+        interaction_query: Query<(&Pressed, &T, Entity), (Changed<Pressed>, With<Button>)>,
         mut selected_query: Query<(Entity, &mut BackgroundColor), With<SelectedOption>>,
         mut commands: Commands,
         mut setting: ResMut<T>,
     ) {
-        for (interaction, button_setting, entity) in &interaction_query {
-            if *interaction == Interaction::Clicked && *setting != *button_setting {
+        for (pressed_state, button_setting, entity) in &interaction_query {
+            if pressed_state.pressed && *setting != *button_setting {
                 let (previous_button, mut previous_color) = selected_query.single_mut();
                 *previous_color = NORMAL_BUTTON.into();
                 commands.entity(previous_button).remove::<SelectedOption>();
@@ -776,16 +794,13 @@ mod menu {
     }
 
     fn menu_action(
-        interaction_query: Query<
-            (&Interaction, &MenuButtonAction),
-            (Changed<Interaction>, With<Button>),
-        >,
+        interaction_query: Query<(&Pressed, &MenuButtonAction), (Changed<Pressed>, With<Button>)>,
         mut app_exit_events: EventWriter<AppExit>,
         mut menu_state: ResMut<NextState<MenuState>>,
         mut game_state: ResMut<NextState<GameState>>,
     ) {
-        for (interaction, menu_button_action) in &interaction_query {
-            if *interaction == Interaction::Clicked {
+        for (pressed_state, menu_button_action) in &interaction_query {
+            if pressed_state.pressed {
                 match menu_button_action {
                     MenuButtonAction::Quit => app_exit_events.send(AppExit),
                     MenuButtonAction::Play => {

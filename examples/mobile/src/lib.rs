@@ -1,4 +1,12 @@
-use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
+use bevy::{
+    input::touch::TouchPhase,
+    prelude::*,
+    ui::{
+        InteractionState, InteractionStateChangedFilter, InteractionStateHandler,
+        RelativeCursorPosition,
+    },
+    window::WindowMode,
+};
 
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
 #[bevy_main]
@@ -125,19 +133,19 @@ fn setup_scene(
 
 fn button_handler(
     mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
+        (&Pressed, &RelativeCursorPosition, &mut BackgroundColor),
+        (InteractionStateChangedFilter, With<Button>),
     >,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Clicked => {
+    for (interaction, relative_cursor_position, mut color) in &mut interaction_query {
+        match (interaction, relative_cursor_position).interaction_state() {
+            InteractionState::Pressed => {
                 *color = Color::BLUE.into();
             }
-            Interaction::Hovered => {
+            InteractionState::Hovered => {
                 *color = Color::GRAY.into();
             }
-            Interaction::None => {
+            InteractionState::None => {
                 *color = Color::WHITE.into();
             }
         }

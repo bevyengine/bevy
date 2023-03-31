@@ -1716,12 +1716,12 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "interaction_policy"
-path = "examples/ui/interaction_policy.rs"
+name = "press_policy"
+path = "examples/ui/press_policy.rs"
 
-[package.metadata.example.interaction_policy]
-name = "Interaction Policy"
-description = "Illustrates how the InteractionPolicy component works. Adds two buttons to the scene, one having a `Hold` interaction policy, and the other having a `Release` interaction policy."
+[package.metadata.example.press_policy]
+name = "Press Policy"
+description = "Illustrates how the PressPolicy works with the Pressed component. Adds two buttons to the scene, one having a `Hold` press policy, and the other having a `Release` press policy."
 category = "UI (User Interface)"
 wasm = true
 

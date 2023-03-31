@@ -1,6 +1,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
+    ui::RelativeCursorPosition,
     window::{PresentMode, WindowPlugin},
 };
 
@@ -30,12 +31,14 @@ struct IdleColor(BackgroundColor);
 
 fn button_system(
     mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &IdleColor),
-        Changed<Interaction>,
+        (&RelativeCursorPosition, &mut BackgroundColor, &IdleColor),
+        Changed<RelativeCursorPosition>,
     >,
 ) {
-    for (interaction, mut material, IdleColor(idle_color)) in interaction_query.iter_mut() {
-        if matches!(interaction, Interaction::Hovered) {
+    for (relative_cursor_position, mut material, IdleColor(idle_color)) in
+        interaction_query.iter_mut()
+    {
+        if relative_cursor_position.mouse_over() {
             *material = Color::ORANGE_RED.into();
         } else {
             *material = *idle_color;

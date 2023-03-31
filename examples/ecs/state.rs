@@ -5,7 +5,13 @@
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state.
 
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    ui::{
+        InteractionState, InteractionStateChangedFilter, InteractionStateHandler,
+        RelativeCursorPosition,
+    },
+};
 
 fn main() {
     App::new()
@@ -91,20 +97,20 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn menu(
     mut next_state: ResMut<NextState<AppState>>,
     mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
+        (&Pressed, &RelativeCursorPosition, &mut BackgroundColor),
+        (InteractionStateChangedFilter, With<Button>),
     >,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Clicked => {
+    for (interaction, relative_cursor_position, mut color) in &mut interaction_query {
+        match (interaction, relative_cursor_position).interaction_state() {
+            InteractionState::Pressed => {
                 *color = PRESSED_BUTTON.into();
                 next_state.set(AppState::InGame);
             }
-            Interaction::Hovered => {
+            InteractionState::Hovered => {
                 *color = HOVERED_BUTTON.into();
             }
-            Interaction::None => {
+            InteractionState::None => {
                 *color = NORMAL_BUTTON.into();
             }
         }

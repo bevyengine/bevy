@@ -4,7 +4,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     prelude::{Component, With},
-    query::WorldQuery,
+    query::{Changed, Or, WorldQuery},
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
@@ -32,40 +32,38 @@ use smallvec::SmallVec;
 ///
 /// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
 /// which fully collapses it during layout calculations.
-#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[derive(
+    Component, Copy, Clone, Eq, PartialEq, Debug, Default, Reflect, Serialize, Deserialize,
+)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
-pub enum Interaction {
-    /// The node has been clicked
-    Clicked,
-    /// The node has been hovered over
-    Hovered,
-    /// Nothing has happened
-    None,
+pub struct Pressed {
+    /// Is the node currently pressed
+    pub pressed: bool,
+    /// Describes whether the component should remain in the pressed state after
+    /// the cursor stops hovering over the node.
+    pub press_policy: PressPolicy,
 }
 
-impl Interaction {
-    const DEFAULT: Self = Self::None;
-}
-
-impl Default for Interaction {
-    fn default() -> Self {
-        Self::DEFAULT
+impl Pressed {
+    pub fn new(press_policy: PressPolicy) -> Self {
+        Self {
+            pressed: false,
+            press_policy,
+        }
     }
 }
 
-/// Describes whether the [`Interaction`] component should remain in the `Clicked` state after
+/// Describes whether the [`Pressed`] component should remain in the pressed state after
 /// the cursor stops hovering over the node.
 ///
-/// If the `InteractionPolicy` is set to `Hold`, the `Interaction` component will remain in the `Clicked` state
+/// If the `InteractionPolicy` is set to `Hold`, the `Pressed` component will remain in the clicked state
 /// after the cursor leaves the node (the default behaviour).
 ///
-/// If the `InteractionPolicy` is set to `Release`, the `Interaction` component will be set to `None`
+/// If the `InteractionPolicy` is set to `Release`, the Pressed component will be set to reset to not clicked state
 /// when the cursor leaves the node.
-#[derive(
-    Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
-)]
-#[reflect(Component, Serialize, Deserialize, PartialEq)]
-pub enum InteractionPolicy {
+#[derive(Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, PartialEq)]
+pub enum PressPolicy {
     /// Keep the node clicked after it stopped being hovered
     #[default]
     Hold,
@@ -106,6 +104,33 @@ impl RelativeCursorPosition {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Reflect)]
+pub enum InteractionState {
+    None,
+    Hovered,
+    Pressed,
+}
+
+pub trait InteractionStateHandler {
+    fn interaction_state(&self) -> InteractionState;
+}
+
+impl InteractionStateHandler for (&Pressed, &RelativeCursorPosition) {
+    fn interaction_state(&self) -> InteractionState {
+        if self.0.pressed {
+            return InteractionState::Pressed;
+        }
+
+        if self.1.mouse_over() {
+            return InteractionState::Hovered;
+        }
+
+        InteractionState::None
+    }
+}
+
+pub type InteractionStateChangedFilter = Or<(Changed<Pressed>, Changed<RelativeCursorPosition>)>;
+
 /// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
@@ -139,8 +164,7 @@ pub struct NodeQuery {
     entity: Entity,
     node: &'static Node,
     global_transform: &'static GlobalTransform,
-    interaction: Option<&'static mut Interaction>,
-    interaction_policy: Option<&'static InteractionPolicy>,
+    pressed_state: Option<&'static mut Pressed>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
@@ -165,8 +189,8 @@ pub fn ui_focus_system(
 
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
-        if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
-            *interaction = Interaction::None;
+        if let Ok(mut pressed_state) = node_query.get_component_mut::<Pressed>(entity) {
+            pressed_state.pressed = false;
         }
     }
 
@@ -174,9 +198,9 @@ pub fn ui_focus_system(
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
     if mouse_released {
         for node in node_query.iter_mut() {
-            if let Some(mut interaction) = node.interaction {
-                if *interaction == Interaction::Clicked {
-                    *interaction = Interaction::None;
+            if let Some(mut pressed_state) = node.pressed_state {
+                if pressed_state.pressed {
+                    pressed_state.pressed = false;
                 }
             }
         }
@@ -224,9 +248,12 @@ pub fn ui_focus_system(
                 if let Some(computed_visibility) = node.computed_visibility {
                     if !computed_visibility.is_visible() {
                         // Reset their interaction to None to avoid strange stuck state
-                        if let Some(mut interaction) = node.interaction {
+                        if let Some(mut pressed_state) = node.pressed_state {
                             // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
-                            interaction.set_if_neq(Interaction::None);
+                            pressed_state.set_if_neq(Pressed {
+                                pressed: false,
+                                ..*pressed_state
+                            });
                         }
 
                         return None;
@@ -268,18 +295,17 @@ pub fn ui_focus_system(
                 if contains_cursor {
                     Some(*entity)
                 } else {
-                    if let Some(mut interaction) = node.interaction {
+                    if let Some(mut pressed_state) = node.pressed_state {
                         // If the InteractionPolicy is Release, we should set the interaction to None
                         // The entity might just as well not have the InteractionPolicy component
                         // in which case we should use the default behaviour
-                        let interaction_policy =
-                            node.interaction_policy.copied().unwrap_or_default();
+                        let interaction_policy = pressed_state.press_policy;
 
-                        if *interaction == Interaction::Hovered
-                            || (cursor_position.is_none())
-                            || interaction_policy == InteractionPolicy::Release
-                        {
-                            interaction.set_if_neq(Interaction::None);
+                        if cursor_position.is_none() || interaction_policy == PressPolicy::Release {
+                            pressed_state.set_if_neq(Pressed {
+                                pressed: false,
+                                ..*pressed_state
+                            });
                         }
                     }
                     None
@@ -295,19 +321,16 @@ pub fn ui_focus_system(
     // the iteration will stop on it because it "captures" the interaction.
     let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
-        if let Some(mut interaction) = node.interaction {
+        if let Some(mut pressed_state) = node.pressed_state {
             if mouse_clicked {
-                // only consider nodes with Interaction "clickable"
-                if *interaction != Interaction::Clicked {
-                    *interaction = Interaction::Clicked;
+                if !pressed_state.pressed {
+                    pressed_state.pressed = true;
                     // if the mouse was simultaneously released, reset this Interaction in the next
                     // frame
                     if mouse_released {
                         state.entities_to_reset.push(node.entity);
                     }
                 }
-            } else if *interaction == Interaction::None {
-                *interaction = Interaction::Hovered;
             }
         }
 
@@ -322,10 +345,13 @@ pub fn ui_focus_system(
     // `moused_over_nodes` after the previous loop is exited.
     let mut iter = node_query.iter_many_mut(hovered_nodes);
     while let Some(node) = iter.fetch_next() {
-        if let Some(mut interaction) = node.interaction {
+        if let Some(mut pressed_state) = node.pressed_state {
             // don't reset clicked nodes because they're handled separately
-            if *interaction != Interaction::Clicked {
-                interaction.set_if_neq(Interaction::None);
+            if !pressed_state.pressed {
+                pressed_state.set_if_neq(Pressed {
+                    pressed: false,
+                    ..*pressed_state
+                });
             }
         }
     }

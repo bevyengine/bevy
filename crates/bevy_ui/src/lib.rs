@@ -29,7 +29,7 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::*, Interaction, UiScale,
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::*, Pressed, UiScale,
     };
 }
 
@@ -89,7 +89,8 @@ impl Plugin for UiPlugin {
             .register_type::<FlexDirection>()
             .register_type::<FlexWrap>()
             .register_type::<FocusPolicy>()
-            .register_type::<Interaction>()
+            .register_type::<Pressed>()
+            .register_type::<PressPolicy>()
             .register_type::<JustifyContent>()
             .register_type::<Node>()
             // NOTE: used by Style::aspect_ratio

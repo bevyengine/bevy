@@ -1,8 +1,8 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, InteractionPolicy,
-    Node, Style, UiImage, ZIndex,
+    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Node, Pressed,
+    RelativeCursorPosition, Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -200,10 +200,12 @@ pub struct ButtonBundle {
     pub button: Button,
     /// Describes the style including flexbox settings
     pub style: Style,
-    /// Describes whether and how the button has been interacted with by the input
-    pub interaction: Interaction,
-    /// Describes whether the button should be pressed after the cursor stops hovering over it
-    pub interaction_policy: InteractionPolicy,
+    /// Describes whether the button is pressed
+    pub pressed: Pressed,
+    /// The position of the cursor relative to the node
+    ///
+    /// Used for checking if the cursor is hovering over the node
+    pub relative_cursor_position: RelativeCursorPosition,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The background color, which serves as a "fill" for this node
@@ -237,8 +239,8 @@ impl Default for ButtonBundle {
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
-            interaction: Default::default(),
-            interaction_policy: Default::default(),
+            pressed: Default::default(),
+            relative_cursor_position: Default::default(),
             background_color: Default::default(),
             image: Default::default(),
             transform: Default::default(),
