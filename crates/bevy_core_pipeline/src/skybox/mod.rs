@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::With,
@@ -9,17 +9,15 @@ use bevy_ecs::{
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    prelude::{shape::Cube, Mesh},
     render_asset::RenderAssets,
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
         DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
-        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderDefVal, ShaderStages,
-        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState,
-        StencilState, TextureFormat, TextureSampleType, TextureViewDimension, VertexBufferLayout,
-        VertexState,
+        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
+        TextureFormat, TextureSampleType, TextureViewDimension, VertexState,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, Image},
@@ -38,10 +36,6 @@ impl Plugin for SkyboxPlugin {
 
         app.add_plugin(ExtractComponentPlugin::<Skybox>::default());
 
-        let mesh = Mesh::from(Cube::new(1.0));
-        let vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout().layout().clone();
-        let handle = app.world.resource_mut::<Assets<Mesh>>().add(mesh);
-
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
             Err(_) => return,
@@ -50,8 +44,7 @@ impl Plugin for SkyboxPlugin {
         let render_device = render_app.world.resource::<RenderDevice>().clone();
 
         render_app
-            .insert_resource(SkyboxMesh { handle })
-            .insert_resource(SkyboxPipeline::new(vertex_buffer_layout, &render_device))
+            .insert_resource(SkyboxPipeline::new(&render_device))
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .add_systems(
                 Render,
@@ -75,18 +68,12 @@ pub struct Skybox(pub Handle<Image>);
 // ----------------------------------------------------------------------------
 
 #[derive(Resource)]
-pub struct SkyboxMesh {
-    pub handle: Handle<Mesh>,
-}
-
-#[derive(Resource)]
 struct SkyboxPipeline {
     bind_group_layout: BindGroupLayout,
-    vertex_buffer_layout: VertexBufferLayout,
 }
 
 impl SkyboxPipeline {
-    fn new(vertex_buffer_layout: VertexBufferLayout, render_device: &RenderDevice) -> Self {
+    fn new(render_device: &RenderDevice) -> Self {
         let bind_group_layout_descriptor = BindGroupLayoutDescriptor {
             label: Some("skybox_bind_group_layout"),
             entries: &[
@@ -108,7 +95,7 @@ impl SkyboxPipeline {
                 },
                 BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: ShaderStages::VERTEX,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
@@ -122,7 +109,6 @@ impl SkyboxPipeline {
         Self {
             bind_group_layout: render_device
                 .create_bind_group_layout(&bind_group_layout_descriptor),
-            vertex_buffer_layout,
         }
     }
 }
@@ -137,20 +123,15 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
     type Key = SkyboxPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let shader_defs = vec![
-            ShaderDefVal::UInt("MAX_DIRECTIONAL_LIGHTS".to_string(), 1),
-            ShaderDefVal::UInt("MAX_CASCADES_PER_LIGHT".to_string(), 1),
-        ];
-
         RenderPipelineDescriptor {
             label: Some("skybox_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: Vec::new(),
             vertex: VertexState {
                 shader: SKYBOX_SHADER_HANDLE.typed(),
-                shader_defs: shader_defs.clone(),
+                shader_defs: Vec::new(),
                 entry_point: "skybox_vertex".into(),
-                buffers: vec![self.vertex_buffer_layout.clone()],
+                buffers: Vec::new(),
             },
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
@@ -176,7 +157,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             },
             fragment: Some(FragmentState {
                 shader: SKYBOX_SHADER_HANDLE.typed(),
-                shader_defs,
+                shader_defs: Vec::new(),
                 entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
