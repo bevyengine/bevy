@@ -18,8 +18,8 @@ pub trait Measure: Send + Sync + 'static {
     /// Calculate the size of the node given the constraints.
     fn measure(
         &self,
-        max_width: Option<f32>,
-        max_height: Option<f32>,
+        width: Option<f32>,
+        height: Option<f32>,
         available_width: AvailableSpace,
         available_height: AvailableSpace,
     ) -> Vec2;
