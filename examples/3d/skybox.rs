@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     asset::LoadState,
-    core_pipeline::skybox::Skybox,
+    core_pipeline::Skybox,
     input::mouse::MouseMotion,
     prelude::*,
     render::{
