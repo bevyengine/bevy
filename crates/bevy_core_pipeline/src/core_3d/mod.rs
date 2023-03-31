@@ -53,7 +53,7 @@ use bevy_utils::{FloatOrd, HashMap};
 
 use crate::{
     prepass::{node::PrepassNode, DepthPrepass},
-    skybox::{SkyboxNode, SkyboxPlugin},
+    skybox::{node::SkyboxNode, SkyboxPlugin},
     tonemapping::TonemappingNode,
     upscaling::UpscalingNode,
 };

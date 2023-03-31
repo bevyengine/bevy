@@ -1,4 +1,4 @@
-mod node;
+pub(crate) mod node;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
