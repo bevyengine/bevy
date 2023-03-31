@@ -81,6 +81,14 @@ pub enum Val {
     /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent node's width.
     /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
     Percent(f32),
+    /// Set this value in percent of the viewport width
+    Vw(f32),
+    /// Set this value in percent of the viewport height
+    Vh(f32),
+    /// Set this value in percent of the viewport's smaller dimension.
+    VMin(f32),
+    /// Set this value in percent of the viewport's larger dimension.
+    VMax(f32),
 }
 
 impl Val {
@@ -101,6 +109,10 @@ impl Mul<f32> for Val {
             Val::Auto => Val::Auto,
             Val::Px(value) => Val::Px(value * rhs),
             Val::Percent(value) => Val::Percent(value * rhs),
+            Val::Vw(value) => Val::Vw(value * rhs),
+            Val::Vh(value) => Val::Vh(value * rhs),
+            Val::VMin(value) => Val::VMin(value * rhs),
+            Val::VMax(value) => Val::VMax(value * rhs),
         }
     }
 }
@@ -109,7 +121,12 @@ impl MulAssign<f32> for Val {
     fn mul_assign(&mut self, rhs: f32) {
         match self {
             Val::Auto => {}
-            Val::Px(value) | Val::Percent(value) => *value *= rhs,
+            Val::Px(value)
+            | Val::Percent(value)
+            | Val::Vw(value)
+            | Val::Vh(value)
+            | Val::VMin(value)
+            | Val::VMax(value) => *value *= rhs,
         }
     }
 }
@@ -122,6 +139,10 @@ impl Div<f32> for Val {
             Val::Auto => Val::Auto,
             Val::Px(value) => Val::Px(value / rhs),
             Val::Percent(value) => Val::Percent(value / rhs),
+            Val::Vw(value) => Val::Vw(value / rhs),
+            Val::Vh(value) => Val::Vh(value / rhs),
+            Val::VMin(value) => Val::VMin(value / rhs),
+            Val::VMax(value) => Val::VMax(value / rhs),
         }
     }
 }
@@ -130,7 +151,12 @@ impl DivAssign<f32> for Val {
     fn div_assign(&mut self, rhs: f32) {
         match self {
             Val::Auto => {}
-            Val::Px(value) | Val::Percent(value) => *value /= rhs,
+            Val::Px(value)
+            | Val::Percent(value)
+            | Val::Vw(value)
+            | Val::Vh(value)
+            | Val::VMin(value)
+            | Val::VMax(value) => *value /= rhs,
         }
     }
 }

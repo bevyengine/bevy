@@ -132,6 +132,9 @@ jpeg = ["bevy_internal/jpeg"]
 # BMP image format support
 bmp = ["bevy_internal/bmp"]
 
+# WebP image format support
+webp = ["bevy_internal/webp"]
+
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
 
@@ -215,6 +218,9 @@ tonemapping_luts = ["bevy_internal/tonemapping_luts"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
+
+# Enable assertions to check the validity of parameters passed to glam
+glam_assert = ["bevy_internal/glam_assert"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.0-dev", default-features = false, optional = true }
@@ -415,6 +421,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "anti_aliasing"
+path = "examples/3d/anti_aliasing.rs"
+
+[package.metadata.example.anti_aliasing]
+name = "Anti-aliasing"
+description = "Compares different anti-aliasing methods"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "3d_gizmos"
 path = "examples/3d/3d_gizmos.rs"
 
@@ -512,26 +528,6 @@ required-features = ["ktx2", "zstd"]
 [package.metadata.example.tonemapping]
 name = "Tonemapping"
 description = "Compares tonemapping options"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "fxaa"
-path = "examples/3d/fxaa.rs"
-
-[package.metadata.example.fxaa]
-name = "FXAA"
-description = "Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "msaa"
-path = "examples/3d/msaa.rs"
-
-[package.metadata.example.msaa]
-name = "MSAA"
-description = "Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges"
 category = "3D Rendering"
 wasm = true
 
@@ -1780,12 +1776,12 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "text_layout"
-path = "examples/ui/text_layout.rs"
+name = "flex_layout"
+path = "examples/ui/flex_layout.rs"
 
-[package.metadata.example.text_layout]
-name = "Text Layout"
-description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text"
+[package.metadata.example.flex_layout]
+name = "Flex Layout"
+description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text"
 category = "UI (User Interface)"
 wasm = false
 

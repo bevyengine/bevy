@@ -1,3 +1,11 @@
+#![warn(missing_docs)]
+//! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
+//!
+//! Most commonly, the [`WinitPlugin`] is used as part of
+//! [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
+//! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`](winit::event_loop::EventLoop).
+//! See `winit_runner` for details.
+
 pub mod accessibility;
 mod converters;
 mod system;
@@ -49,6 +57,7 @@ use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin
 #[cfg(target_os = "android")]
 pub static ANDROID_APP: once_cell::sync::OnceCell<AndroidApp> = once_cell::sync::OnceCell::new();
 
+/// A [`Plugin`] that utilizes [`winit`] for window creation and event loop management.
 #[derive(Default)]
 pub struct WinitPlugin;
 
@@ -144,7 +153,7 @@ impl Plugin for WinitPlugin {
             ) = create_window_system_state.get_mut(&mut app.world);
 
             // Here we need to create a winit-window and give it a WindowHandle which the renderer can use.
-            // It needs to be spawned before the start of the startup-stage, so we cannot use a regular system.
+            // It needs to be spawned before the start of the startup schedule, so we cannot use a regular system.
             // Instead we need to create the window and spawn it using direct world access
             create_window(
                 commands,
@@ -270,6 +279,9 @@ impl Default for WinitPersistentState {
     }
 }
 
+/// The default [`App::runner`] for the [`WinitPlugin`] plugin.
+///
+/// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the `EventLoop`.
 pub fn winit_runner(mut app: App) {
     // We remove this so that we have ownership over it.
     let mut event_loop = app
