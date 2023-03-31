@@ -19,10 +19,8 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::ValidParentCheckPlugin;
-use prelude::{GlobalTransform, Transform};
+use components::{GlobalTransform, GlobalTransform2d, Transform, Transform2d};
 use systems::{propagate_transforms, sync_simple_transforms};
-
-use crate::systems::{propagate_transforms_2d, sync_simple_transforms_2d};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
 /// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
@@ -108,17 +106,19 @@ impl Plugin for TransformPlugin {
             .add_systems(
                 PostStartup,
                 (
-                    sync_simple_transforms
+                    sync_simple_transforms::<Transform, GlobalTransform>
                         .in_set(TransformSystem::TransformPropagate)
                         // FIXME: https://github.com/bevyengine/bevy/issues/4381
                         // These systems cannot access the same entities,
                         // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
                         .ambiguous_with(PropagateTransformsSet),
-                    propagate_transforms.in_set(PropagateTransformsSet),
-                    sync_simple_transforms_2d
+                    propagate_transforms::<Transform, GlobalTransform>
+                        .in_set(PropagateTransformsSet),
+                    sync_simple_transforms::<Transform2d, GlobalTransform2d>
                         .in_set(TransformSystem::TransformPropagate)
                         .ambiguous_with(PropagateTransformsSet),
-                    propagate_transforms_2d.in_set(PropagateTransformsSet),
+                    propagate_transforms::<Transform2d, GlobalTransform2d>
+                        .in_set(PropagateTransformsSet),
                 ),
             )
             .configure_set(
@@ -128,14 +128,16 @@ impl Plugin for TransformPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    sync_simple_transforms
+                    sync_simple_transforms::<Transform, GlobalTransform>
                         .in_set(TransformSystem::TransformPropagate)
                         .ambiguous_with(PropagateTransformsSet),
-                    propagate_transforms.in_set(PropagateTransformsSet),
-                    sync_simple_transforms_2d
+                    propagate_transforms::<Transform, GlobalTransform>
+                        .in_set(PropagateTransformsSet),
+                    sync_simple_transforms::<Transform2d, GlobalTransform2d>
                         .in_set(TransformSystem::TransformPropagate)
                         .ambiguous_with(PropagateTransformsSet),
-                    propagate_transforms_2d.in_set(PropagateTransformsSet),
+                    propagate_transforms::<Transform2d, GlobalTransform2d>
+                        .in_set(PropagateTransformsSet),
                 ),
             );
     }
