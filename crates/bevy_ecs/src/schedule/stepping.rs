@@ -66,6 +66,14 @@ impl Stepping {
         Stepping::default()
     }
 
+    /// System that notifies the [`Stepping`] resource that a new frame has
+    /// begun.
+    pub fn begin_frame(stepping: Option<ResMut<Self>>) {
+        if let Some(mut stepping) = stepping {
+            stepping.next_frame();
+        }
+    }
+
     /// Enable stepping for the provided schedule
     pub fn add_schedule<Label>(&mut self, schedule: Label) -> &mut Self
     where
@@ -94,15 +102,15 @@ impl Stepping {
         self
     }
 
-    /// continue stepping until the end of the frame or a breakpoint is hit
-    pub fn r#continue(&mut self) -> &mut Self {
-        self.updates.push(Update::Action(StepAction::Continue));
+    /// run the next system
+    pub fn step_frame(&mut self) -> &mut Self {
+        self.updates.push(Update::Action(StepAction::Step));
         self
     }
 
-    /// run the next system
-    pub fn step(&mut self) -> &mut Self {
-        self.updates.push(Update::Action(StepAction::Step));
+    /// continue stepping until the end of the frame or a breakpoint is hit
+    pub fn continue_frame(&mut self) -> &mut Self {
+        self.updates.push(Update::Action(StepAction::Continue));
         self
     }
 
@@ -169,40 +177,28 @@ impl Stepping {
         self
     }
 
-    pub fn build_skip_list(&mut self, schedule: &Schedule) -> Option<FixedBitSet> {
-        if self.action == StepAction::RunAll {
-            return None;
-        }
-        let state = match schedule.label() {
-            Some(label) => self.schedule_states.get_mut(label)?,
-            None => return None,
-        };
-
-        let (list, wait) = state.progress(schedule, self.action);
-        if wait {
-            println!(
-                "build_skip_list({:?}): state {:?} -> {:?}",
-                schedule.label(),
-                self.action,
-                StepAction::Waiting
-            );
-            self.action = StepAction::Waiting;
-        }
-        Some(list)
-    }
-
-    pub(crate) fn next_frame(&mut self) {
+    /// Advance schedule states for the next render frame
+    fn next_frame(&mut self) {
         // If we were stepping, and nothing ran, the action will remain Step.
         // This happens when we've already run everything in the "stepping"
         // frame.  Now, the user requested a step, let's reset our schedule
         // state to the beginning and start a new "stepping" frame.
-        if self.action == StepAction::Step {
-            self.clear_schedule_progress();
+        match self.action {
+            StepAction::Step => {
+                println!("wrapping state");
+                self.next_stepping_frame();
 
-            // This return here is to ensure that the step is executed.  We
-            // don't want to process updates from the previous frame because
-            // they may overwrite the action, resulting in Step doing nothing.
-            return;
+                // This return here is to ensure that the step is executed.  We
+                // don't want to process updates from the previous frame
+                // because they may overwrite the action, resulting in Step
+                // doing nothing.
+                return;
+            }
+            StepAction::Continue => {
+                self.next_stepping_frame();
+                self.action = StepAction::Waiting;
+            }
+            _ => (),
         }
 
         if self.updates.is_empty() {
@@ -245,24 +241,43 @@ impl Stepping {
                 }
             }
         }
+
         if clear_schedule {
-            self.clear_schedule_progress();
+            self.next_stepping_frame();
         }
     }
 
-    pub fn begin_frame(stepping: Option<ResMut<Self>>) {
-        if let Some(mut stepping) = stepping {
-            stepping.next_frame();
-        }
-    }
-
-    /// clears all schedule progress, starting a new stepping frame.
-    fn clear_schedule_progress(&mut self) {
-        println!("clearing schedule progress");
+    /// Advance schedule states for a new stepping frame
+    fn next_stepping_frame(&mut self) {
+        println!("next_stepping_frame(): resetting schedule states");
         // clear any progress we've made in the stepping frame
         for (_, state) in self.schedule_states.iter_mut() {
             state.next = 0;
         }
+    }
+
+    /// Build the list of systems the supplied schedule should skip this render
+    /// frame
+    pub fn build_skip_list(&mut self, schedule: &Schedule) -> Option<FixedBitSet> {
+        if self.action == StepAction::RunAll {
+            return None;
+        }
+        let state = match schedule.label() {
+            Some(label) => self.schedule_states.get_mut(label)?,
+            None => return None,
+        };
+
+        let (list, wait) = state.progress(schedule, self.action);
+        if wait {
+            println!(
+                "build_skip_list({:?}): state {:?} -> {:?}",
+                schedule.label(),
+                self.action,
+                StepAction::Waiting
+            );
+            self.action = StepAction::Waiting;
+        }
+        Some(list)
     }
 }
 
@@ -424,16 +439,52 @@ impl ScheduleState {
 
     fn skip_list_continue(&mut self, schedule: &Schedule) -> (FixedBitSet, bool) {
         let mut skip = FixedBitSet::with_capacity(schedule.systems_len());
-        for (pos, node_id) in schedule.executable().system_ids.iter().enumerate() {
-            use StepBehavior::*;
-            match self.systems.get(node_id).unwrap_or(&Continue) {
-                AlwaysRun => (),
-                NeverRun => (),
-                Continue => (),
-                Break => (),
+        let mut hit_breakpoint = false;
+        let mut pos = self.next;
+
+        for (i, (node_id, system)) in schedule.systems().unwrap().enumerate() {
+            println!(
+                "skip_list_continue(): {} ({:?}) -- {:?}; i {}, pos {}, break {}",
+                system.name(),
+                node_id,
+                self.systems.get(&node_id),
+                i,
+                pos,
+                hit_breakpoint,
+            );
+
+            match self
+                .systems
+                .get(&node_id)
+                .unwrap_or(&StepBehavior::Continue)
+            {
+                StepBehavior::AlwaysRun => (),
+                StepBehavior::NeverRun => skip.insert(i),
+                StepBehavior::Continue => {
+                    if i != pos {
+                        skip.insert(i);
+                    }
+                }
+                StepBehavior::Break => {
+                    if i == self.next {
+                        println!("resuming from breakpoint");
+                    } else if i < pos {
+                        println!("skipping already run system");
+                        skip.insert(i);
+                    } else if i == pos {
+                        println!("hit breakpoint");
+                        hit_breakpoint = true;
+                        skip.insert(i);
+                    }
+                }
+            }
+
+            if !hit_breakpoint && i == pos {
+                pos = i + 1;
             }
         }
-        (skip, false)
+        self.next = pos;
+        (skip, hit_breakpoint)
     }
 }
 
@@ -461,31 +512,267 @@ mod tests {
         (schedule, world)
     }
 
+    // Helper for verifying the expected systems will be run by the schedule
+    //
+    // This macro will construct an expected FixedBitSet for the systems that
+    // should be skipped, and compare it with the results from stepping the
+    // provided schedule.  If they don't match, it generates a human-readable
+    // error message and asserts.
+    macro_rules! assert_schedule_runs {
+        ($schedule:expr, $stepping:expr, $($system:expr),*) => {
+            // pull an ordered list of systems in the schedule, and save the
+            // system TypeId, and name.
+            let systems: Vec<(TypeId, std::borrow::Cow<'static, str>)> = $schedule.systems().unwrap().enumerate()
+                .map(|(i, (_, system))| {
+                    (system.type_id(), system.name())
+                })
+            .collect();
+
+            // construct a list of systems that are expected to run
+            let mut expected = FixedBitSet::with_capacity(systems.len());
+            $(
+                let sys = IntoSystem::into_system($system);
+                for (i, (type_id, _)) in systems.iter().enumerate() {
+                    if sys.type_id() == *type_id {
+                        expected.insert(i);
+                    }
+                }
+            )*
+
+            // flip the run list to get our skip list
+            expected.toggle_range(..);
+
+            // advance stepping to the next frame, and build the skip list for
+            // this schedule
+            $stepping.next_frame();
+            let actual = match $stepping.build_skip_list($schedule) {
+                None => FixedBitSet::with_capacity(systems.len()),
+                Some(b) => b,
+            };
+
+            if (actual != expected) {
+                use std::fmt::Write as _;
+
+                // mismatch, let's construct a human-readable message of what
+                // was returned
+                let mut msg = format!("Schedule:\n    {:9} {:16}{:6} {:6} {:6}\n",
+                    "index", "name", "expect", "actual", "result");
+                for (i, (_, full_name)) in systems.iter().enumerate() {
+                    let (_, name) = full_name.rsplit_once("::").unwrap();
+                    let _ = write!(msg, "    system[{:1}] {:16}", i, name);
+                    match (expected.contains(i), actual.contains(i)) {
+                        (true, true) => msg.push_str("skip   skip   pass\n"),
+                        (true, false) =>
+                            msg.push_str("skip   run    FAILED; system should not have run\n"),
+                        (false, true) =>
+                            msg.push_str("run    skip   FAILED; system should have run\n"),
+                        (false, false) => msg.push_str("run    run    pass\n"),
+                    }
+                }
+                assert_eq!(actual, expected, "{}", msg);
+            }
+        };
+    }
+
     #[test]
     fn stepping_disabled() {
         let (schedule, _world) = setup();
 
         let mut stepping = Stepping::new();
-        stepping.disable().add_schedule(TestSchedule);
+        stepping.add_schedule(TestSchedule).disable().next_frame();
 
-        // returns None when stepping isn't enabled
-        stepping.disable();
-        stepping.next_frame();
-        let skip = stepping.build_skip_list(&schedule);
-        assert!(skip.is_none());
+        assert!(stepping.build_skip_list(&schedule).is_none());
     }
 
-    // if build_skip_list is caled with an unknown schedule, it will return none
     #[test]
     fn unknown_schedule() {
         let (schedule, _world) = setup();
 
         let mut stepping = Stepping::new();
-        stepping.enable();
+        stepping.enable().next_frame();
 
-        stepping.next_frame();
-        let skip = stepping.build_skip_list(&schedule);
-        assert!(skip.is_none());
+        assert!(stepping.build_skip_list(&schedule).is_none());
+    }
+
+    #[test]
+    fn disabled_always_run() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .disable()
+            .always_run(TestSchedule, first_system);
+
+        assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
+    }
+
+    #[test]
+    fn waiting_always_run() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .always_run(TestSchedule, first_system);
+
+        assert_schedule_runs!(&schedule, &mut stepping, first_system);
+    }
+
+    #[test]
+    fn step_always_run() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .always_run(TestSchedule, first_system)
+            .step_frame();
+
+        assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
+    }
+
+    #[test]
+    fn continue_always_run() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .always_run(TestSchedule, first_system)
+            .continue_frame();
+
+        assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
+    }
+
+    #[test]
+    fn disabled_never_run() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .never_run(TestSchedule, first_system)
+            .disable();
+        assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
+    }
+
+    #[test]
+    fn waiting_never_run() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .never_run(TestSchedule, first_system);
+
+        assert_schedule_runs!(&schedule, &mut stepping,);
+    }
+
+    #[test]
+    fn step_never_run() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .never_run(TestSchedule, first_system)
+            .step_frame();
+
+        assert_schedule_runs!(&schedule, &mut stepping, second_system);
+    }
+
+    #[test]
+    fn continue_never_run() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .never_run(TestSchedule, first_system)
+            .continue_frame();
+
+        assert_schedule_runs!(&schedule, &mut stepping, second_system);
+    }
+
+    #[test]
+    fn disabled_breakpoint() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .disable()
+            .set_breakpoint(TestSchedule, second_system);
+
+        assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
+    }
+
+    #[test]
+    fn waiting_breakpoint() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .set_breakpoint(TestSchedule, second_system);
+
+        assert_schedule_runs!(&schedule, &mut stepping,);
+    }
+
+    #[test]
+    fn step_breakpoint() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .set_breakpoint(TestSchedule, second_system)
+            .step_frame();
+
+        // since stepping stops at every system, breakpoints are ignored during
+        // stepping
+        assert_schedule_runs!(&schedule, &mut stepping, first_system);
+        stepping.step_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, second_system);
+
+        // when stepping, we take one render frame to detect that the stepping
+        // frame has completed.  This looks like nothing runs for the first
+        // render frame, then the second render-frame resets the stepping frame
+        // and we run the first system again.
+        //
+        // XXX this is weird from the UI standpoint; how does UI display what
+        // is the next system to be run, esp when transitioning between
+        // schedules.
+        stepping.step_frame();
+        assert_schedule_runs!(&schedule, &mut stepping,);
+        assert_schedule_runs!(&schedule, &mut stepping, first_system);
+    }
+
+    #[test]
+    fn continue_breakpoint() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .set_breakpoint(TestSchedule, second_system)
+            .continue_frame();
+
+        assert_schedule_runs!(&schedule, &mut stepping, first_system);
+        stepping.continue_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, second_system);
+        stepping.continue_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, first_system);
     }
 
     #[test]
@@ -502,7 +789,7 @@ mod tests {
 
         // single stepping should result in only running the first system
         println!("step 1");
-        stepping.step();
+        stepping.step_frame();
         stepping.next_frame();
         let skip = stepping.build_skip_list(&schedule).unwrap();
         assert_eq!(skip.len(), schedule.executable().systems.len());
@@ -518,7 +805,7 @@ mod tests {
 
         // doing it again should step the second system
         println!("step 2");
-        stepping.step();
+        stepping.step_frame();
         stepping.next_frame();
         let skip = stepping.build_skip_list(&schedule).unwrap();
         assert_eq!(skip.len(), schedule.executable().systems.len());
@@ -533,7 +820,7 @@ mod tests {
         // Let's verify that behavior now first by trying to step again, to see
         // that all systems are skipped.
         println!("step 3 -- wrap detect");
-        stepping.step();
+        stepping.step_frame();
         stepping.next_frame();
         let skip = stepping.build_skip_list(&schedule).unwrap();
         assert_eq!(skip.count_ones(..), schedule.executable().systems.len());
@@ -549,52 +836,7 @@ mod tests {
     }
 
     #[test]
-    fn step_always_run() {
-        let (schedule, _world) = setup();
-
-        let mut stepping = Stepping::new();
-        stepping.enable().add_schedule(TestSchedule);
-
-        // Let's make it so the first system always runs
-        stepping.always_run(TestSchedule, first_system);
-
-        // when we're stopped/waiting, only the second system should be in the
-        // skip list, as the first system should always run.
-        println!("next frame; waiting");
-        stepping.next_frame();
-        let skip = stepping.build_skip_list(&schedule).unwrap();
-        assert_eq!(skip.len(), schedule.executable().systems.len());
-        assert!(!skip.contains(0));
-        assert!(skip.contains(1));
-
-        // let's step and verify neither system is skipped
-        println!("next frame; step");
-        stepping.step();
-        stepping.next_frame();
-        let skip = stepping.build_skip_list(&schedule).unwrap();
-        assert_eq!(skip.len(), schedule.executable().systems.len());
-        assert!(!skip.contains(0));
-        assert!(!skip.contains(1));
-
-        // verify wrapping occurrs properly
-        println!("next frame; step, detect wrapping");
-        stepping.step();
-        stepping.next_frame();
-        let skip = stepping.build_skip_list(&schedule).unwrap();
-        assert_eq!(skip.len(), schedule.executable().systems.len());
-        assert!(!skip.contains(0));
-        assert!(skip.contains(1));
-
-        println!("next frame; wrapped step");
-        stepping.next_frame();
-        let skip = stepping.build_skip_list(&schedule).unwrap();
-        assert_eq!(skip.len(), schedule.executable().systems.len());
-        assert!(!skip.contains(0));
-        assert!(!skip.contains(1));
-    }
-
-    #[test]
-    fn step_never_run() {
+    fn step_never_run2() {
         let (schedule, _world) = setup();
 
         let mut stepping = Stepping::new();
@@ -610,7 +852,7 @@ mod tests {
         assert!(skip.contains(1));
 
         println!("next frame; step");
-        stepping.step();
+        stepping.step_frame();
         stepping.next_frame();
         let skip = stepping.build_skip_list(&schedule).unwrap();
         assert_eq!(skip.len(), schedule.executable().systems.len());
@@ -618,7 +860,7 @@ mod tests {
         assert!(!skip.contains(1));
 
         println!("next frame; step, detect wrapping");
-        stepping.step();
+        stepping.step_frame();
         stepping.next_frame();
         let skip = stepping.build_skip_list(&schedule).unwrap();
         assert_eq!(skip.len(), schedule.executable().systems.len());
@@ -636,7 +878,7 @@ mod tests {
     // This test just verifies that stepping stops on breakpoint systems, then
     // steps past them
     #[test]
-    fn step_breakpoint() {
+    fn step_breakpoint2() {
         let (schedule, _world) = setup();
 
         let mut stepping = Stepping::new();
@@ -651,7 +893,7 @@ mod tests {
 
         // single stepping should result in only running the first system
         println!("step 1");
-        stepping.step();
+        stepping.step_frame();
         stepping.next_frame();
         let skip = stepping.build_skip_list(&schedule).unwrap();
         assert_eq!(skip.len(), schedule.executable().systems.len());
@@ -660,7 +902,81 @@ mod tests {
 
         // now the second system should run
         println!("next frame: step");
-        stepping.step();
+        stepping.step_frame();
+        stepping.next_frame();
+        let skip = stepping.build_skip_list(&schedule).unwrap();
+        assert_eq!(skip.len(), schedule.executable().systems.len());
+        assert!(skip.contains(0));
+        assert!(!skip.contains(1));
+    }
+
+    // verify continue_frame behavior
+    #[test]
+    fn continue_frame() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping.enable().add_schedule(TestSchedule);
+
+        // starting from a fresh frame, continue should run every system in the
+        // frame
+        println!("continue frame");
+        stepping.continue_frame();
+        stepping.next_frame();
+        let skip = stepping.build_skip_list(&schedule).unwrap();
+        assert_eq!(skip.len(), schedule.executable().systems.len());
+        assert!(!skip.contains(0));
+        assert!(!skip.contains(1));
+
+        // if we render the next frame, we should be in a waiting state, and
+        // nothing should run
+        stepping.next_frame();
+        assert_eq!(stepping.action, StepAction::Waiting);
+        let skip = stepping.build_skip_list(&schedule).unwrap();
+        assert_eq!(skip.count_ones(..), schedule.executable().systems.len());
+
+        // step to only run the first frame
+        println!("next frame: step");
+        stepping.step_frame();
+        stepping.next_frame();
+        let skip = stepping.build_skip_list(&schedule).unwrap();
+        assert_eq!(skip.len(), schedule.executable().systems.len());
+        assert!(!skip.contains(0));
+        assert!(skip.contains(1));
+
+        // continue the frame, and we should see only the second system running
+        println!("continue frame");
+        stepping.continue_frame();
+        stepping.next_frame();
+        let skip = stepping.build_skip_list(&schedule).unwrap();
+        assert_eq!(skip.len(), schedule.executable().systems.len());
+        assert!(skip.contains(0));
+        assert!(!skip.contains(1));
+
+        // if we continue again, we should run all systems
+        println!("continue frame");
+        stepping.continue_frame();
+        stepping.next_frame();
+        let skip = stepping.build_skip_list(&schedule).unwrap();
+        assert_eq!(skip.len(), schedule.executable().systems.len());
+        assert!(!skip.contains(0));
+        assert!(!skip.contains(1));
+
+        // if we throw in a breakpoint for the second system only the first
+        // sytem should run
+        println!("continue frame; with breakpoint on second system");
+        stepping.set_breakpoint(TestSchedule, second_system);
+        stepping.continue_frame();
+        stepping.next_frame();
+        let skip = stepping.build_skip_list(&schedule).unwrap();
+        assert_eq!(skip.len(), schedule.executable().systems.len());
+        assert!(!skip.contains(0));
+        assert!(skip.contains(1));
+
+        // now resume the frame we hit the breakpoint on, and only the second
+        // system should run
+        println!("continue frame; resume at second system");
+        stepping.continue_frame();
         stepping.next_frame();
         let skip = stepping.build_skip_list(&schedule).unwrap();
         assert_eq!(skip.len(), schedule.executable().systems.len());

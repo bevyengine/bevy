@@ -712,6 +712,7 @@ mod tests {
 
     mod stepping {
         use super::*;
+        use bevy_ecs::system::SystemState;
 
         #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
         pub struct TestSchedule;
@@ -729,11 +730,17 @@ mod tests {
             // Add our schedule to stepping & and enable stepping; this should
             // prevent any systems in the schedule from running
             let mut stepping = Stepping::default();
-            stepping.add_schedule(TestSchedule).enable().next_frame();
+            stepping.add_schedule(TestSchedule).enable();
 
             // create a world, and add the stepping resource
             let mut world = World::default();
             world.insert_resource(stepping);
+
+            // start a new frame by running ihe begin_frame() system
+            let mut system_state: SystemState<Option<ResMut<Stepping>>> =
+                SystemState::new(&mut world);
+            let res = system_state.get_mut(&mut world);
+            Stepping::begin_frame(res);
 
             // now run the schedule; this will panic if the executor doesn't
             // handle stepping
@@ -753,11 +760,17 @@ mod tests {
             // Add our schedule to stepping & and enable stepping; this should
             // prevent any systems in the schedule from running
             let mut stepping = Stepping::default();
-            stepping.add_schedule(TestSchedule).enable().next_frame();
+            stepping.add_schedule(TestSchedule).enable();
 
             // create a world, and add the stepping resource
             let mut world = World::default();
             world.insert_resource(stepping);
+
+            // start a new frame by running ihe begin_frame() system
+            let mut system_state: SystemState<Option<ResMut<Stepping>>> =
+                SystemState::new(&mut world);
+            let res = system_state.get_mut(&mut world);
+            Stepping::begin_frame(res);
 
             // now run the schedule; this will panic if the executor doesn't
             // handle stepping
@@ -777,11 +790,17 @@ mod tests {
             // Add our schedule to stepping & and enable stepping; this should
             // prevent any systems in the schedule from running
             let mut stepping = Stepping::default();
-            stepping.add_schedule(TestSchedule).enable().next_frame();
+            stepping.add_schedule(TestSchedule).enable();
 
             // create a world, and add the stepping resource
             let mut world = World::default();
             world.insert_resource(stepping);
+
+            // start a new frame by running ihe begin_frame() system
+            let mut system_state: SystemState<Option<ResMut<Stepping>>> =
+                SystemState::new(&mut world);
+            let res = system_state.get_mut(&mut world);
+            Stepping::begin_frame(res);
 
             // now run the schedule; this will panic if the executor doesn't
             // handle stepping
