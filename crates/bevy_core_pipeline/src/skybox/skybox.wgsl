@@ -1,4 +1,4 @@
-#import bevy_pbr::mesh_view_types
+#import bevy_render::view
 
 @group(0) @binding(0)
 var skybox: texture_cube<f32>;

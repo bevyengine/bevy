@@ -137,18 +137,13 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
     type Key = SkyboxPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let shader_defs = vec![
-            ShaderDefVal::UInt("MAX_DIRECTIONAL_LIGHTS".to_string(), 1),
-            ShaderDefVal::UInt("MAX_CASCADES_PER_LIGHT".to_string(), 1),
-        ];
-
         RenderPipelineDescriptor {
             label: Some("skybox_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: Vec::new(),
             vertex: VertexState {
                 shader: SKYBOX_SHADER_HANDLE.typed(),
-                shader_defs: shader_defs.clone(),
+                shader_defs: Vec::new(),
                 entry_point: "skybox_vertex".into(),
                 buffers: vec![self.vertex_buffer_layout.clone()],
             },
@@ -176,7 +171,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             },
             fragment: Some(FragmentState {
                 shader: SKYBOX_SHADER_HANDLE.typed(),
-                shader_defs,
+                shader_defs: Vec::new(),
                 entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
