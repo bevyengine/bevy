@@ -1,15 +1,13 @@
 use bevy_ecs::prelude::*;
 
-struct A(f32);
+pub struct Benchmark<const SIZE: usize>(Events<[u8; SIZE]>);
 
-pub struct Benchmark(Events<A>);
-
-impl Benchmark {
+impl<const SIZE: usize> Benchmark<SIZE> {
     pub fn new(count: usize) -> Self {
         let mut events = Events::default();
 
         for _ in 0..count {
-            events.send(A(0.0));
+            events.send([0u8; SIZE]);
         }
 
         Self(events)
