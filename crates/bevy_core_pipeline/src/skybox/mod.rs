@@ -69,6 +69,9 @@ impl Plugin for SkyboxPlugin {
 
 /// Adds a skybox to a 3D camera.
 ///
+/// Note that this component does not (currently) affect the scene's lighting.
+/// To do so, use `EnvironmentMapLight` alongside this component.
+///
 /// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
 #[derive(Component, ExtractComponent, Clone)]
 pub struct Skybox(pub Handle<Image>);
