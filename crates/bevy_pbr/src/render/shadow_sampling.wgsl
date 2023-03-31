@@ -24,15 +24,15 @@ fn sample_shadow_map_simple(light_local: vec2<f32>, depth: f32, array_index: i32
 
 // https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1
 fn sample_shadow_map_the_witness(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
-    let cascade_size = vec2<f32>(textureDimensions(directional_shadow_textures));
-    let inv_cascade_size = 1.0 / cascade_size;
+    let shadow_map_size = vec2<f32>(textureDimensions(directional_shadow_textures));
+    let inv_shadow_map_size = 1.0 / shadow_map_size;
 
-    let uv = light_local * cascade_size;
+    let uv = light_local * shadow_map_size;
     var base_uv = floor(uv + 0.5);
     let s = (uv.x + 0.5 - base_uv.x);
     let t = (uv.y + 0.5 - base_uv.y);
     base_uv -= 0.5;
-    base_uv *= inv_cascade_size;
+    base_uv *= inv_shadow_map_size;
 
     let uw0 = (4.0 - 3.0 * s);
     let uw1 = 7.0;
@@ -52,17 +52,17 @@ fn sample_shadow_map_the_witness(light_local: vec2<f32>, depth: f32, array_index
 
     var sum = 0.0;
 
-    sum += uw0 * vw0 * sample_shadow_map_simple(base_uv + (vec2(u0, v0) * inv_cascade_size), depth, array_index);
-    sum += uw1 * vw0 * sample_shadow_map_simple(base_uv + (vec2(u1, v0) * inv_cascade_size), depth, array_index);
-    sum += uw2 * vw0 * sample_shadow_map_simple(base_uv + (vec2(u2, v0) * inv_cascade_size), depth, array_index);
+    sum += uw0 * vw0 * sample_shadow_map_simple(base_uv + (vec2(u0, v0) * inv_shadow_map_size), depth, array_index);
+    sum += uw1 * vw0 * sample_shadow_map_simple(base_uv + (vec2(u1, v0) * inv_shadow_map_size), depth, array_index);
+    sum += uw2 * vw0 * sample_shadow_map_simple(base_uv + (vec2(u2, v0) * inv_shadow_map_size), depth, array_index);
 
-    sum += uw0 * vw1 * sample_shadow_map_simple(base_uv + (vec2(u0, v1) * inv_cascade_size), depth, array_index);
-    sum += uw1 * vw1 * sample_shadow_map_simple(base_uv + (vec2(u1, v1) * inv_cascade_size), depth, array_index);
-    sum += uw2 * vw1 * sample_shadow_map_simple(base_uv + (vec2(u2, v1) * inv_cascade_size), depth, array_index);
+    sum += uw0 * vw1 * sample_shadow_map_simple(base_uv + (vec2(u0, v1) * inv_shadow_map_size), depth, array_index);
+    sum += uw1 * vw1 * sample_shadow_map_simple(base_uv + (vec2(u1, v1) * inv_shadow_map_size), depth, array_index);
+    sum += uw2 * vw1 * sample_shadow_map_simple(base_uv + (vec2(u2, v1) * inv_shadow_map_size), depth, array_index);
 
-    sum += uw0 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u0, v2) * inv_cascade_size), depth, array_index);
-    sum += uw1 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u1, v2) * inv_cascade_size), depth, array_index);
-    sum += uw2 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u2, v2) * inv_cascade_size), depth, array_index);
+    sum += uw0 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u0, v2) * inv_shadow_map_size), depth, array_index);
+    sum += uw1 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u1, v2) * inv_shadow_map_size), depth, array_index);
+    sum += uw2 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u2, v2) * inv_shadow_map_size), depth, array_index);
 
     return sum / 144.0;
 }
@@ -76,7 +76,7 @@ fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
 
 // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
 fn sample_shadow_map_stochastic(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
-    let cascade_size = vec2<f32>(textureDimensions(directional_shadow_textures));
+    let shadow_map_size = vec2<f32>(textureDimensions(directional_shadow_textures));
     let sample_offsets = array(
         vec2(-0.7071,  0.7071),
         vec2(-0.0000, -0.8750),
@@ -88,10 +88,10 @@ fn sample_shadow_map_stochastic(light_local: vec2<f32>, depth: f32, array_index:
         vec2( 0.1250,  0.0000),
     );
 
-    let random_angle = 2.0 * PI * interleaved_gradient_noise(light_local * cascade_size);
+    let random_angle = 2.0 * PI * interleaved_gradient_noise(light_local * shadow_map_size);
     let m = vec2(sin(random_angle), cos(random_angle));
     let rotation_matrix = mat2x2(m.y, -m.x, m.x, m.y);
-    let scale = 4.0 / cascade_size;
+    let scale = 4.0 / shadow_map_size;
 
     let sample_offset1 = (rotation_matrix * sample_offsets[0]) * scale;
     let sample_offset2 = (rotation_matrix * sample_offsets[1]) * scale;
