@@ -12,7 +12,6 @@ pub mod graph {
         pub const PREPASS: &str = "prepass";
         pub const START_MAIN_PASS: &str = "start_main_pass";
         pub const MAIN_OPAQUE_PASS: &str = "main_opaque_pass";
-        pub const SKYBOX: &str = "skybox";
         pub const MAIN_TRANSPARENT_PASS: &str = "main_transparent_pass";
         pub const END_MAIN_PASS: &str = "end_main_pass";
         pub const BLOOM: &str = "bloom";
