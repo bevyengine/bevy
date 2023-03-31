@@ -9,7 +9,7 @@ use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    AutoTextInfo, Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo,
+    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextMeasureInfo,
     TextPipeline, TextSettings, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
@@ -20,32 +20,43 @@ fn scale_value(value: f32, factor: f64) -> f32 {
 }
 
 #[derive(Clone)]
-pub struct AutoTextMeasure {
-    pub auto_text_info: AutoTextInfo,
+pub struct TextMeasure {
+    pub info: TextMeasureInfo,
 }
 
-impl Measure for AutoTextMeasure {
+impl Measure for TextMeasure {
     fn measure(
         &self,
-        max_width: Option<f32>,
-        max_height: Option<f32>,
+        width: Option<f32>,
+        height: Option<f32>,
         available_width: AvailableSpace,
         available_height: AvailableSpace,
     ) -> Vec2 {
-        let bounds = Vec2::new(
-            max_width.unwrap_or_else(|| match available_width {
-                AvailableSpace::Definite(x) => x,
-                AvailableSpace::MaxContent => f32::INFINITY,
-                AvailableSpace::MinContent => f32::INFINITY,
-            }),
-            max_height.unwrap_or_else(|| match available_height {
-                AvailableSpace::Definite(y) => y,
-                AvailableSpace::MaxContent => f32::INFINITY,
-                AvailableSpace::MinContent => f32::INFINITY,
-            }),
-        );
-        let size = self.auto_text_info.compute_size(bounds);
-        size
+        let x = width.unwrap_or_else(|| match available_width {
+            AvailableSpace::Definite(x) => x.clamp(
+                self.info.min_width_content_size.x,
+                self.info.max_width_content_size.x,
+            ),
+            AvailableSpace::MinContent => self.info.min_width_content_size.x,
+            AvailableSpace::MaxContent => self.info.max_width_content_size.x,
+        });
+
+        height
+            .map_or_else(
+                || match available_height {
+                    AvailableSpace::Definite(y) => {
+                        let y = y.clamp(
+                            self.info.max_width_content_size.y,
+                            self.info.min_width_content_size.y,
+                        );
+                        self.info.compute_size(Vec2::new(x, y))
+                    }
+                    AvailableSpace::MinContent => Vec2::new(x, self.info.max_width_content_size.y),
+                    AvailableSpace::MaxContent => Vec2::new(x, self.info.min_width_content_size.y),
+                },
+                |y| Vec2::new(x, y),
+            )
+            .ceil()
     }
 
     fn dyn_clone(&self) -> Box<dyn Measure> {
@@ -107,9 +118,7 @@ pub fn measure_text_system(
                 text.linebreak_behaviour,
             ) {
                 Ok(measure) => {
-                    calculated_size.measure = Box::new(AutoTextMeasure {
-                        auto_text_info: measure,
-                    });
+                    calculated_size.measure = Box::new(TextMeasure { info: measure });
                 }
                 Err(TextError::NoSuchFont) => {
                     new_queue.push(entity);
@@ -146,7 +155,7 @@ pub fn text_system(
     mut text_queries: ParamSet<(
         Query<Entity, Or<(Changed<Text>, Changed<Node>)>>,
         Query<Entity, (With<Text>, With<Node>)>,
-        Query<(&Node, &Text, &mut CalculatedSize, &mut TextLayoutInfo)>,
+        Query<(&Node, &Text, &mut TextLayoutInfo)>,
     )>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -176,9 +185,7 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut text_query = text_queries.p2();
     for entity in queued_text.drain(..) {
-        if let Ok((node, text, mut calculated_size, mut text_layout_info)) =
-            text_query.get_mut(entity)
-        {
+        if let Ok((node, text, mut text_layout_info)) = text_query.get_mut(entity) {
             let node_size = Vec2::new(
                 scale_value(node.size().x, scale_factor),
                 scale_value(node.size().y, scale_factor),

@@ -14,9 +14,7 @@ use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
-use bevy_window::{
-    PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged,
-};
+use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{
     prelude::{AvailableSpace, Size},

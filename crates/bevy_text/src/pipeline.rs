@@ -185,7 +185,7 @@ impl TextPipeline {
         scale_factor: f64,
         text_alignment: TextAlignment,
         linebreak_behaviour: BreakLineOn,
-    ) -> Result<AutoTextInfo, TextError> {
+    ) -> Result<TextMeasureInfo, TextError> {
         let mut auto_fonts = vec![];
         let mut scaled_fonts = Vec::new();
         let sections = sections
@@ -201,7 +201,7 @@ impl TextPipeline {
                 let px_scale_font = ab_glyph::Font::into_scaled(font.font.clone(), font_size);
                 scaled_fonts.push(px_scale_font);
 
-                let section = AutoTextSection {
+                let section = TextMeasureSection {
                     font_id: FontId(i),
                     scale: PxScale::from(font_size),
                     text: section.value.clone(),
@@ -211,33 +211,40 @@ impl TextPipeline {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(AutoTextInfo {
+        let mut info = TextMeasureInfo {
             fonts: auto_fonts,
             scaled_fonts,
             sections,
             text_alignment,
             linebreak_behaviour: linebreak_behaviour.into(),
-        })
+            min_width_content_size: Vec2::ZERO,
+            max_width_content_size: Vec2::ZERO,
+        };
+        info.min_width_content_size = info.compute_size(Vec2::new(0.0, f32::INFINITY));
+        info.max_width_content_size = info.compute_size(Vec2::new(f32::INFINITY, f32::INFINITY));
+        Ok(info)
     }
 }
 
 #[derive(Clone)]
-pub struct AutoTextSection {
+pub struct TextMeasureSection {
     pub text: String,
     pub scale: PxScale,
     pub font_id: FontId,
 }
 
 #[derive(Clone)]
-pub struct AutoTextInfo {
+pub struct TextMeasureInfo {
     pub fonts: Vec<ab_glyph::FontArc>,
     pub scaled_fonts: Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>,
-    pub sections: Vec<AutoTextSection>,
+    pub sections: Vec<TextMeasureSection>,
     pub text_alignment: TextAlignment,
     pub linebreak_behaviour: glyph_brush_layout::BuiltInLineBreaker,
+    pub min_width_content_size: Vec2,
+    pub max_width_content_size: Vec2,
 }
 
-impl AutoTextInfo {
+impl TextMeasureInfo {
     pub fn compute_size(&self, bounds: Vec2) -> Vec2 {
         let geom = SectionGeometry {
             bounds: (bounds.x, bounds.y),
