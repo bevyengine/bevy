@@ -111,14 +111,13 @@ Example | Description
 [3D Gizmos](../examples/3d/3d_gizmos.rs) | A scene showcasing 3D gizmos
 [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
+[Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
-[FXAA](../examples/3d/fxaa.rs) | Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
-[MSAA](../examples/3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties

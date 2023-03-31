@@ -107,6 +107,9 @@ Plugins are very welcome to extend Bevy's features. [Guidelines][plugin_guidelin
 
 Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), [Fyrox](https://github.com/FyroxEngine/Fyrox), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a Rust game engine, it is worth considering all of your options. Each engine has different design goals, and some will likely resonate with you more than others.
 
+<!-- This next line need to stay exactly as is. It is required for BrowserStack sponsorship. -->
+This project is tested with BrowserStack.
+
 ## License
 
 Bevy is free, open source and permissively licensed!

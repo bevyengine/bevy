@@ -476,11 +476,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         .filter(|g| !matches!(g, GenericParam::Lifetime(_)))
         .collect();
 
-    let mut shadowed_lifetimes: Vec<_> = generics.lifetimes().map(|x| x.lifetime.clone()).collect();
-    for lifetime in &mut shadowed_lifetimes {
-        let shadowed_ident = format_ident!("_{}", lifetime.ident);
-        lifetime.ident = shadowed_ident;
-    }
+    let shadowed_lifetimes: Vec<_> = generics.lifetimes().map(|_| quote!('_)).collect();
 
     let mut punctuated_generics = Punctuated::<_, Token![,]>::new();
     punctuated_generics.extend(lifetimeless_generics.iter().map(|g| match g {
@@ -502,6 +498,17 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => unreachable!(),
     }));
 
+    let punctuated_generics_no_bounds: Punctuated<_, Token![,]> = lifetimeless_generics
+        .iter()
+        .map(|&g| match g.clone() {
+            GenericParam::Type(mut g) => {
+                g.bounds.clear();
+                GenericParam::Type(g)
+            }
+            g => g,
+        })
+        .collect();
+
     let mut tuple_types: Vec<_> = field_types.iter().map(|x| quote! { #x }).collect();
     let mut tuple_patterns: Vec<_> = field_locals.iter().map(|x| quote! { #x }).collect();
 
@@ -515,6 +522,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         let end = Vec::from_iter(tuple_patterns.drain(..LIMIT));
         tuple_patterns.push(parse_quote!( (#(#end,)*) ));
     }
+
     // Create a where clause for the `ReadOnlySystemParam` impl.
     // Ensure that each field implements `ReadOnlySystemParam`.
     let mut read_only_generics = generics.clone();
@@ -525,6 +533,9 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             .push(syn::parse_quote!(#field_type: #path::system::ReadOnlySystemParam));
     }
 
+    let fields_alias =
+        ensure_no_collision(format_ident!("__StructFieldsAlias"), token_stream.clone());
+
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
     let state_struct_name = ensure_no_collision(format_ident!("FetchState"), token_stream);
@@ -533,7 +544,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         Some(err) => (
             quote! { type Error = #err; },
             quote! { #path::system::FallibleSystemParam },
-            quote! { Result<Self::Item<'w2, 's2>, <Self::Item<'w2, 's2> as #path::system::FallibleSystemParam>::Error> },
+            quote! { Result<Self::Item<'w, 's>, <Self::Item<'w, 's> as #path::system::FallibleSystemParam>::Error> },
             quote! {
                 Ok(#struct_name {
                     #(#field_names: #field_getters,)*
@@ -544,7 +555,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         None => (
             quote! {},
             quote! { #path::system::SystemParam },
-            quote! { Self::Item<'w2, 's2> },
+            quote! { Self::Item<'w, 's> },
             quote! {
                 #struct_name {
                     #(#field_names: #field_getters,)*
@@ -559,40 +570,40 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
+            // Allows rebinding the lifetimes of each field type.
+            type #fields_alias <'w, 's, #punctuated_generics_no_bounds> = (#(#tuple_types,)*);
+
             #[doc(hidden)]
-            #state_struct_visibility struct #state_struct_name <'w, 's, #(#lifetimeless_generics,)*>
+            #state_struct_visibility struct #state_struct_name <#(#lifetimeless_generics,)*>
             #where_clause {
-                state: (#(<#tuple_types as #path::system::SystemParam>::State,)*),
-                marker: std::marker::PhantomData<(
-                    <#path::prelude::Query<'w, 's, ()> as #path::system::SystemParam>::State,
-                    #(fn() -> #ignored_field_types,)*
-                )>,
+                state: <#fields_alias::<'static, 'static, #punctuated_generic_idents> as #path::system::SystemParam>::State,
             }
 
-            unsafe impl<'w, 's, #punctuated_generics> #trait_ty for #struct_name #ty_generics #where_clause {
-                type State = #state_struct_name<'static, 'static, #punctuated_generic_idents>;
-                type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
+            unsafe impl<#punctuated_generics> #trait_ty for
+                #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents> #where_clause
+            {
+                type State = #state_struct_name<#punctuated_generic_idents>;
+                type Item<'w, 's> = #struct_name #ty_generics;
                 #error_ty
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
                     #state_struct_name {
-                        state: <(#(#tuple_types,)*) as #path::system::SystemParam>::init_state(world, system_meta),
-                        marker: std::marker::PhantomData,
+                        state: <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world, system_meta),
                     }
                 }
 
                 fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    <(#(#tuple_types,)*) as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta)
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta)
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
-                    <(#(#tuple_types,)*) as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
 
-                unsafe fn get_param<'w2, 's2>(
-                    state: &'s2 mut Self::State,
+                unsafe fn get_param<'w, 's>(
+                    state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
-                    world: &'w2 #path::world::World,
+                    world: &'w #path::world::World,
                     change_tick: #path::component::Tick,
                 ) -> #get_param_return_ty {
                     let (#(#tuple_patterns,)*) = <
