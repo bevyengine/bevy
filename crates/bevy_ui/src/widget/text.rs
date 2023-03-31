@@ -110,7 +110,7 @@ pub fn measure_text_system(
     let mut query = text_queries.p2();
     for entity in queued_text.drain(..) {
         if let Ok((text, mut calculated_size)) = query.get_mut(entity) {
-            match text_pipeline.compute_auto_text_measure(
+            match text_pipeline.create_text_measure(
                 &fonts,
                 &text.sections,
                 scale_factor,

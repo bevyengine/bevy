@@ -115,7 +115,7 @@ impl TextPipeline {
         Ok(TextLayoutInfo { glyphs, size })
     }
 
-    pub fn compute_auto_text_measure(
+    pub fn create_text_measure(
         &mut self,
         fonts: &Assets<Font>,
         sections: &[TextSection],
@@ -156,8 +156,13 @@ impl TextPipeline {
             min_width_content_size: Vec2::ZERO,
             max_width_content_size: Vec2::ZERO,
         };
-        info.min_width_content_size = info.compute_size(Vec2::new(0.0, f32::INFINITY));
-        info.max_width_content_size = info.compute_size(Vec2::new(f32::INFINITY, f32::INFINITY));
+
+        let section_texts = info.prepare_section_texts();
+        let min = info.compute_size_from_section_texts(&section_texts, Vec2::new(0.0, f32::INFINITY));
+        let max = info.compute_size_from_section_texts(&section_texts, Vec2::new(f32::INFINITY, f32::INFINITY));
+        info.min_width_content_size = min;
+        info.max_width_content_size = max;
+
         Ok(info)
     }
 }
@@ -181,22 +186,22 @@ pub struct TextMeasureInfo {
 }
 
 impl TextMeasureInfo {
-    pub fn compute_size(&self, bounds: Vec2) -> Vec2 {
-        let geom = SectionGeometry {
-            bounds: (bounds.x, bounds.y),
-            ..Default::default()
-        };
-
-        let sections = self
-            .sections
+    fn prepare_section_texts(&self) -> Vec<SectionText> {
+        self.sections
             .iter()
             .map(|section| SectionText {
                 font_id: section.font_id,
                 scale: section.scale,
                 text: &section.text,
             })
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+    }
 
+    fn compute_size_from_section_texts(&self, sections: &[SectionText], bounds: Vec2) -> Vec2 {
+        let geom = SectionGeometry {
+            bounds: (bounds.x, bounds.y),
+            ..Default::default()
+        };
         let section_glyphs = glyph_brush_layout::Layout::default()
             .h_align(self.text_alignment.into())
             .line_breaker(self.linebreak_behaviour)
@@ -215,6 +220,12 @@ impl TextMeasureInfo {
             max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
             max_y = max_y.max(glyph.position.y - scaled_font.descent());
         }
+
         Vec2::new(max_x - min_x, max_y - min_y)
+    }
+
+    pub fn compute_size(&self, bounds: Vec2) -> Vec2 {
+        let sections = self.prepare_section_texts();
+        self.compute_size_from_section_texts(&sections, bounds)
     }
 }
