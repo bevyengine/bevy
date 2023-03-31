@@ -331,7 +331,7 @@ Example | Description
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
-[Interaction Policy](../examples/ui/interaction_policy.rs) | Illustrates how the InteractionPolicy component works. Adds two buttons to the scene, one having a `Hold` interaction policy, and the other having a `Release` interaction policy.
+[Press Policy](../examples/ui/press_policy.rs) | Illustrates how the PressPolicy works with the Pressed component. Adds two buttons to the scene, one having a `Hold` press policy, and the other having a `Release` press policy.
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
