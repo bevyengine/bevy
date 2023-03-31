@@ -21,18 +21,21 @@ If you cannot get Bevy to build or run on your machine, please include:
 - the operating system or browser used, including its version
   - e.g. Windows 10, Ubuntu 18.04, iOS 14
 
-## What's running slowly?
+## What's performing poorly?
 
 Describe how you arrived at the problem. If you can, consider providing a code snippet or link
-to help reproduce the regression. For more information on how to get these traces, please see
-https://github.com/bevyengine/bevy/blob/main/docs/profiling.md.
+to help reproduce the regression. 
 
 If the exact scenario is not immediately reproducible, please include a set list of steps
 
 ## Before and After Traces
 
-To best help us investigate the regression, it's best to provide profiler traces before and after
-the change.
+To best help us investigate the regression, it's best to provide as much detailed profiling 
+data as possible.
+
+If your app is running slowly, please show profiler traces before and after the change. 
+For more information on how to get these traces, see
+https://github.com/bevyengine/bevy/blob/main/docs/profiling.md.
 
 If this is about a compile-time regression, please provide the full output of `cargo build --timings`,
 for more information see https://doc.rust-lang.org/cargo/reference/timings.html.
