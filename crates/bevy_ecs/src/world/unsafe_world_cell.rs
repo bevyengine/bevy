@@ -10,7 +10,7 @@ use crate::{
     },
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
-    storage::{Column, ComponentSparseSet},
+    storage::{Column, ComponentSparseSet, UnsafeStorages},
     system::Resource,
 };
 use bevy_ptr::Ptr;
@@ -149,6 +149,16 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures that the returned `&World` is not used in a way that would conflict
         //   with any existing mutable borrows of world data
         unsafe { &*self.0 }
+    }
+
+    /// Returns interior-mutable access to the world's internal data stores.
+    /// The returned [`UnsafeStorages`] can only be used to access data
+    /// that this `UnsafeWorldCell` has permission to access.
+    pub fn storages(self) -> UnsafeStorages<'w> {
+        // SAFETY: Interior mutable access to the world is hidden behind
+        // `UnsafeStorages`, which will require any data access to be valid.
+        let storages = unsafe { self.unsafe_world().storages() };
+        UnsafeStorages::new(storages)
     }
 
     /// Retrieves this world's [Entities] collection

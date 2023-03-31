@@ -29,6 +29,8 @@ pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;
 
+use crate::component::ComponentId;
+
 /// The raw data stores of a [World](crate::world::World)
 #[derive(Default)]
 pub struct Storages {
@@ -40,4 +42,59 @@ pub struct Storages {
     pub resources: Resources<true>,
     /// Backing storage for `!Send` resources.
     pub non_send_resources: Resources<false>,
+}
+
+/// Provides interior-mutable access to a world's internal data storages.
+///
+/// Any instance of this type is associated with a set of world data that
+/// it is allowed to access. This should be described in the documentation
+/// of wherever you obtained the `UnsafeStorages`.
+///
+/// For instance, if you originally obtained it from a system running on
+/// a multi-threaded executor, then you are only allowed to access data
+/// that has been registered in the system's `archetype_component_access`.
+/// If you originally obtained an `UnsafeStorages` from an `&World`,
+/// then you have read-only access to the entire world.
+///
+/// Accessing world data that do not have access to, or mutably accessing
+/// data that you only have read-access to, is considered undefined behavior.
+pub struct UnsafeStorages<'a> {
+    pub sparse_sets: UnsafeSparseSets<'a>,
+    pub tables: UnsafeTables<'a>,
+    pub resources: UnsafeResources<'a, true>,
+    pub non_send_resources: UnsafeResources<'a, false>,
+}
+
+impl<'a> UnsafeStorages<'a> {
+    pub(crate) fn new(storages: &'a Storages) -> Self {
+        Self {
+            sparse_sets: UnsafeSparseSets {
+                sparse_sets: &storages.sparse_sets,
+            },
+            tables: UnsafeTables {
+                tables: &storages.tables,
+            },
+            resources: UnsafeResources {
+                resources: &storages.resources,
+            },
+            non_send_resources: UnsafeResources {
+                resources: &storages.non_send_resources,
+            },
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct UnsafeSparseSets<'a> {
+    sparse_sets: &'a SparseSets,
+}
+
+#[derive(Clone, Copy)]
+pub struct UnsafeTables<'a> {
+    tables: &'a Tables,
+}
+
+#[derive(Clone, Copy)]
+pub struct UnsafeResources<'a, const SEND: bool> {
+    resources: &'a Resources<SEND>,
 }
