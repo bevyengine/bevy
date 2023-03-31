@@ -53,7 +53,7 @@ use bevy_utils::{FloatOrd, HashMap};
 
 use crate::{
     prepass::{node::PrepassNode, DepthPrepass},
-    skybox::{node::SkyboxNode, SkyboxPlugin},
+    skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
     upscaling::UpscalingNode,
 };
@@ -91,7 +91,6 @@ impl Plugin for Core3dPlugin {
 
         let prepass_node = PrepassNode::new(&mut render_app.world);
         let opaque_node_3d = MainOpaquePass3dNode::new(&mut render_app.world);
-        let skybox = SkyboxNode::new(&mut render_app.world);
         let transparent_node_3d = MainTransparentPass3dNode::new(&mut render_app.world);
         let tonemapping = TonemappingNode::new(&mut render_app.world);
         let upscaling = UpscalingNode::new(&mut render_app.world);
@@ -101,7 +100,6 @@ impl Plugin for Core3dPlugin {
         draw_3d_graph.add_node(graph::node::PREPASS, prepass_node);
         draw_3d_graph.add_node(graph::node::START_MAIN_PASS, EmptyNode);
         draw_3d_graph.add_node(graph::node::MAIN_OPAQUE_PASS, opaque_node_3d);
-        draw_3d_graph.add_node(graph::node::SKYBOX, skybox);
         draw_3d_graph.add_node(graph::node::MAIN_TRANSPARENT_PASS, transparent_node_3d);
         draw_3d_graph.add_node(graph::node::END_MAIN_PASS, EmptyNode);
         draw_3d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
@@ -110,8 +108,10 @@ impl Plugin for Core3dPlugin {
 
         draw_3d_graph.add_node_edge(graph::node::PREPASS, graph::node::START_MAIN_PASS);
         draw_3d_graph.add_node_edge(graph::node::START_MAIN_PASS, graph::node::MAIN_OPAQUE_PASS);
-        draw_3d_graph.add_node_edge(graph::node::MAIN_OPAQUE_PASS, graph::node::SKYBOX);
-        draw_3d_graph.add_node_edge(graph::node::SKYBOX, graph::node::MAIN_TRANSPARENT_PASS);
+        draw_3d_graph.add_node_edge(
+            graph::node::MAIN_OPAQUE_PASS,
+            graph::node::MAIN_TRANSPARENT_PASS,
+        );
         draw_3d_graph.add_node_edge(
             graph::node::MAIN_TRANSPARENT_PASS,
             graph::node::END_MAIN_PASS,

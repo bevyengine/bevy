@@ -1,5 +1,3 @@
-pub(crate) mod node;
-
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
@@ -32,7 +30,7 @@ use bevy_render::{
 const SKYBOX_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 55594763423201);
 
-pub(crate) struct SkyboxPlugin;
+pub struct SkyboxPlugin;
 
 impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
@@ -77,8 +75,8 @@ pub struct Skybox(pub Handle<Image>);
 // ----------------------------------------------------------------------------
 
 #[derive(Resource)]
-struct SkyboxMesh {
-    handle: Handle<Mesh>,
+pub struct SkyboxMesh {
+    pub handle: Handle<Mesh>,
 }
 
 #[derive(Resource)]
@@ -195,7 +193,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
 }
 
 #[derive(Component)]
-struct SkyboxPipelineId(CachedRenderPipelineId);
+pub struct SkyboxPipelineId(pub CachedRenderPipelineId);
 
 fn prepare_skybox_pipelines(
     mut commands: Commands,
@@ -222,7 +220,7 @@ fn prepare_skybox_pipelines(
 }
 
 #[derive(Component)]
-struct SkyboxBindGroup(BindGroup);
+pub struct SkyboxBindGroup(pub BindGroup);
 
 fn queue_skybox_bind_groups(
     mut commands: Commands,
