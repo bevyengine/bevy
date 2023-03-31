@@ -67,6 +67,9 @@ impl Plugin for SkyboxPlugin {
     }
 }
 
+/// Adds a skybox to a 3D camera.
+///
+/// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
 #[derive(Component, ExtractComponent, Clone)]
 pub struct Skybox(pub Handle<Image>);
 
