@@ -13,7 +13,7 @@ use bevy_render::{
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 
-pub struct SkyboxNode {
+pub(crate) struct SkyboxNode {
     view_query: QueryState<(
         &'static SkyboxPipelineId,
         &'static SkyboxBindGroup,

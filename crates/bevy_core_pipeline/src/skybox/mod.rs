@@ -34,7 +34,7 @@ use bevy_render::{
 const SKYBOX_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 55594763423201);
 
-pub struct SkyboxPlugin;
+pub(crate) struct SkyboxPlugin;
 
 impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
