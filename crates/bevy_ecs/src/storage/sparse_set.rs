@@ -626,6 +626,25 @@ impl SparseSets {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct UnsafeComponentSparseSet<'a> {
+    pub(super) sparse_set: &'a ComponentSparseSet,
+}
+
+impl<'a> UnsafeComponentSparseSet<'a> {
+    /// Returns the entity's component and associated ticks.
+    ///
+    /// # Safety
+    ///
+    /// The [`UnsafeStorages`]) that this instance was obtained from
+    /// must be allowed to read `entity`'s component from this sparse set.
+    ///
+    /// [`UnsafeStorages`]: super::UnsafeStorages
+    pub unsafe fn get(self, entity: Entity) -> Option<(Ptr<'a>, TickCells<'a>)> {
+        self.sparse_set.get_with_ticks(entity)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::SparseSets;

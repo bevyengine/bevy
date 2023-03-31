@@ -89,12 +89,21 @@ pub struct UnsafeSparseSets<'a> {
     sparse_sets: &'a SparseSets,
 }
 
+impl<'a> UnsafeSparseSets<'a> {
+    pub fn get(self, component_id: ComponentId) -> Option<UnsafeComponentSparseSet<'a>> {
+        self.sparse_sets
+            .get(component_id)
+            .map(|sparse_set| UnsafeComponentSparseSet { sparse_set })
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct UnsafeTables<'a> {
     tables: &'a Tables,
 }
 
-#[derive(Clone, Copy)]
-pub struct UnsafeResources<'a, const SEND: bool> {
-    resources: &'a Resources<SEND>,
+impl<'a> UnsafeTables<'a> {
+    pub fn get(self, id: TableId) -> Option<UnsafeTable<'a>> {
+        self.tables.get(id).map(|table| UnsafeTable { table })
+    }
 }

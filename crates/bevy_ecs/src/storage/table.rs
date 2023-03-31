@@ -909,6 +909,26 @@ impl IndexMut<TableId> for Tables {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct UnsafeTable<'a> {
+    pub(super) table: &'a Table,
+}
+
+impl<'a> UnsafeTable<'a> {
+    /// Gets access to the data for a specific component in this table.
+    ///
+    /// # Safety
+    ///
+    /// The [`UnsafeStorages`]) that this instance was obtained from
+    /// must be allowed to access the data associated with `component_id`
+    /// in this table's archetype.
+    ///
+    /// [`UnsafeStorages`]: super::UnsafeStorages
+    pub unsafe fn get_column(self, component_id: ComponentId) -> Option<&'a Column> {
+        self.table.get_column(component_id)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;

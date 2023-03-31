@@ -286,3 +286,20 @@ impl<const SEND: bool> Resources<SEND> {
         }
     }
 }
+
+#[derive(Clone, Copy)]
+pub struct UnsafeResources<'a, const SEND: bool> {
+    pub(super) resources: &'a Resources<SEND>,
+}
+
+impl<'a, const SEND: bool> UnsafeResources<'a, SEND> {
+    /// Returns the entity's component and associated ticks.
+    ///
+    /// # Safety
+    ///
+    /// The [`UnsafeWorldCell`] that this instance was obtained from
+    /// must be allowed to read the resource associated with `component_id`.
+    pub unsafe fn get(self, component_id: ComponentId) -> Option<&'a ResourceData<SEND>> {
+        self.resources.get(component_id)
+    }
+}
