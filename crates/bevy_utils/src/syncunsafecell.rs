@@ -78,9 +78,10 @@ impl<T: ?Sized> SyncUnsafeCell<T> {
     #[inline]
     /// Returns a `&mut SyncUnsafeCell<T>` from a `&mut T`.
     pub fn from_mut(t: &mut T) -> &mut SyncUnsafeCell<T> {
+        let ptr = t as *mut T as *mut SyncUnsafeCell<T>;
         // SAFETY: `&mut` ensures unique access, and `UnsafeCell<T>` and `SyncUnsafeCell<T>`
         // have #[repr(transparent)]
-        unsafe { &mut *(t as *mut T as *mut SyncUnsafeCell<T>) }
+        unsafe { &mut *ptr }
     }
 }
 
