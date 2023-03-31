@@ -1,7 +1,6 @@
 mod camera_3d;
 mod main_opaque_pass_3d_node;
 mod main_transparent_pass_3d_node;
-mod skybox;
 
 pub mod graph {
     pub const NAME: &str = "core_3d";
@@ -29,7 +28,6 @@ use std::cmp::Reverse;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
-pub use skybox::*;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -55,6 +53,7 @@ use bevy_utils::{FloatOrd, HashMap};
 
 use crate::{
     prepass::{node::PrepassNode, DepthPrepass},
+    skybox::{SkyboxNode, SkyboxPlugin},
     tonemapping::TonemappingNode,
     upscaling::UpscalingNode,
 };

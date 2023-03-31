@@ -7,6 +7,7 @@ pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod msaa_writeback;
 pub mod prepass;
+pub mod skybox;
 mod taa;
 pub mod tonemapping;
 pub mod upscaling;
