@@ -3,7 +3,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_render::camera::{CameraOutputMode, ExtractedCamera};
 use bevy_render::view::ViewTarget;
-use bevy_render::{render_resource::*, RenderApp, RenderSet};
+use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 
 mod node;
 
@@ -14,7 +14,10 @@ pub struct UpscalingPlugin;
 impl Plugin for UpscalingPlugin {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system(queue_view_upscaling_pipelines.in_set(RenderSet::Queue));
+            render_app.add_systems(
+                Render,
+                queue_view_upscaling_pipelines.in_set(RenderSet::Queue),
+            );
         }
     }
 }

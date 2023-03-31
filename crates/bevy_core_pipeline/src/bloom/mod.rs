@@ -7,13 +7,7 @@ pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 use crate::{core_2d, core_3d};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
-use bevy_ecs::{
-    prelude::{Component, Entity},
-    query::{QueryState, With},
-    schedule::IntoSystemConfig,
-    system::{Commands, Query, Res, ResMut},
-    world::World,
-};
+use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -22,15 +16,13 @@ use bevy_render::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
     prelude::Color,
-    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    RenderApp, RenderSet,
+    Render, RenderApp, RenderSet,
 };
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
     BloomUniforms,
@@ -71,12 +63,15 @@ impl Plugin for BloomPlugin {
             .init_resource::<BloomUpsamplingPipeline>()
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
-            .add_systems((
-                prepare_bloom_textures.in_set(RenderSet::Prepare),
-                prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
-                prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
-                queue_bloom_bind_groups.in_set(RenderSet::Queue),
-            ));
+            .add_systems(
+                Render,
+                (
+                    prepare_bloom_textures.in_set(RenderSet::Prepare),
+                    prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
+                    prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
+                    queue_bloom_bind_groups.in_set(RenderSet::Queue),
+                ),
+            );
 
         // Add bloom to the 3d render graph
         {
@@ -86,15 +81,9 @@ impl Plugin for BloomPlugin {
                 .get_sub_graph_mut(crate::core_3d::graph::NAME)
                 .unwrap();
             draw_3d_graph.add_node(core_3d::graph::node::BLOOM, bloom_node);
-            draw_3d_graph.add_slot_edge(
-                draw_3d_graph.input_node().id,
-                crate::core_3d::graph::input::VIEW_ENTITY,
-                core_3d::graph::node::BLOOM,
-                BloomNode::IN_VIEW,
-            );
             // MAIN_PASS -> BLOOM -> TONEMAPPING
             draw_3d_graph.add_node_edge(
-                crate::core_3d::graph::node::MAIN_PASS,
+                crate::core_3d::graph::node::END_MAIN_PASS,
                 core_3d::graph::node::BLOOM,
             );
             draw_3d_graph.add_node_edge(
@@ -111,12 +100,6 @@ impl Plugin for BloomPlugin {
                 .get_sub_graph_mut(crate::core_2d::graph::NAME)
                 .unwrap();
             draw_2d_graph.add_node(core_2d::graph::node::BLOOM, bloom_node);
-            draw_2d_graph.add_slot_edge(
-                draw_2d_graph.input_node().id,
-                crate::core_2d::graph::input::VIEW_ENTITY,
-                core_2d::graph::node::BLOOM,
-                BloomNode::IN_VIEW,
-            );
             // MAIN_PASS -> BLOOM -> TONEMAPPING
             draw_2d_graph.add_node_edge(
                 crate::core_2d::graph::node::MAIN_PASS,
@@ -144,8 +127,6 @@ pub struct BloomNode {
 }
 
 impl BloomNode {
-    pub const IN_VIEW: &'static str = "view";
-
     pub fn new(world: &mut World) -> Self {
         Self {
             view_query: QueryState::new(world),
@@ -154,10 +135,6 @@ impl BloomNode {
 }
 
 impl Node for BloomNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.view_query.update_archetypes(world);
     }
@@ -171,13 +148,10 @@ impl Node for BloomNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        #[cfg(feature = "trace")]
-        let _bloom_span = info_span!("bloom").entered();
-
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let uniforms = world.resource::<ComponentUniforms<BloomUniforms>>();
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let view_entity = graph.view_entity();
         let Ok((
             camera,
             view_target,

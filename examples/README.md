@@ -88,6 +88,7 @@ Example | Description
 Example | Description
 --- | ---
 [2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d
+[2D Gizmos](../examples/2d/2d_gizmos.rs) | A scene showcasing 2D gizmos
 [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders a rectangle, circle, and hexagon
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
@@ -107,16 +108,16 @@ Example | Description
 Example | Description
 --- | ---
 [3D Bloom](../examples/3d/bloom_3d.rs) | Illustrates bloom configuration using HDR and emissive materials
+[3D Gizmos](../examples/3d/3d_gizmos.rs) | A scene showcasing 3D gizmos
 [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
+[Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
-[FXAA](../examples/3d/fxaa.rs) | Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
-[MSAA](../examples/3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
@@ -300,6 +301,7 @@ Example | Description
 [Many Buttons](../examples/stress_tests/many_buttons.rs) | Test rendering of many UI elements
 [Many Cubes](../examples/stress_tests/many_cubes.rs) | Simple benchmark to test per-entity draw overhead. Run with the `sphere` argument to test frustum culling
 [Many Foxes](../examples/stress_tests/many_foxes.rs) | Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000
+[Many Gizmos](../examples/stress_tests/many_gizmos.rs) | Test rendering of many gizmos
 [Many Glyphs](../examples/stress_tests/many_glyphs.rs) | Simple benchmark to test text rendering.
 [Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
@@ -327,12 +329,12 @@ Example | Description
 Example | Description
 --- | ---
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
+[Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 [Interaction Policy](../examples/ui/interaction_policy.rs) | Illustrates how the InteractionPolicy component works. Adds two buttons to the scene, one having a `Hold` interaction policy, and the other having a `Release` interaction policy.
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
-[Text Layout](../examples/ui/text_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI

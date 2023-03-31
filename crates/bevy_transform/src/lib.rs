@@ -40,8 +40,8 @@ use systems::{propagate_transforms, sync_simple_transforms};
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs during [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate). If you
-/// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
+/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
+/// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Bundle, Clone, Copy, Debug, Default)]
 pub struct TransformBundle {
@@ -61,7 +61,7 @@ impl TransformBundle {
     /// Creates a new [`TransformBundle`] from a [`Transform`].
     ///
     /// This initializes [`GlobalTransform`] as identity, to be updated later by the
-    /// [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate) stage.
+    /// [`PostUpdate`](bevy_app::PostUpdate) schedule.
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
         TransformBundle {
@@ -98,28 +98,35 @@ impl Plugin for TransformPlugin {
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
             .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
+            .configure_set(
+                PostStartup,
+                PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
+            )
             // add transform systems to startup so the first update is "correct"
-            .configure_set(TransformSystem::TransformPropagate.in_base_set(CoreSet::PostUpdate))
-            .configure_set(PropagateTransformsSet.in_set(TransformSystem::TransformPropagate))
-            .edit_schedule(CoreSchedule::Startup, |schedule| {
-                schedule.configure_set(
-                    TransformSystem::TransformPropagate.in_base_set(StartupSet::PostStartup),
-                );
-            })
-            .add_startup_systems((
-                sync_simple_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    // FIXME: https://github.com/bevyengine/bevy/issues/4381
-                    // These systems cannot access the same entities,
-                    // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
-                    .ambiguous_with(PropagateTransformsSet),
-                propagate_transforms.in_set(PropagateTransformsSet),
-            ))
-            .add_systems((
-                sync_simple_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(PropagateTransformsSet),
-                propagate_transforms.in_set(PropagateTransformsSet),
-            ));
+            .add_systems(
+                PostStartup,
+                (
+                    sync_simple_transforms
+                        .in_set(TransformSystem::TransformPropagate)
+                        // FIXME: https://github.com/bevyengine/bevy/issues/4381
+                        // These systems cannot access the same entities,
+                        // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
+                        .ambiguous_with(PropagateTransformsSet),
+                    propagate_transforms.in_set(PropagateTransformsSet),
+                ),
+            )
+            .configure_set(
+                PostUpdate,
+                PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
+            )
+            .add_systems(
+                PostUpdate,
+                (
+                    sync_simple_transforms
+                        .in_set(TransformSystem::TransformPropagate)
+                        .ambiguous_with(PropagateTransformsSet),
+                    propagate_transforms.in_set(PropagateTransformsSet),
+                ),
+            );
     }
 }

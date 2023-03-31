@@ -11,6 +11,7 @@ use thiserror::Error;
 pub struct RunSubGraph {
     pub name: Cow<'static, str>,
     pub inputs: Vec<SlotValue>,
+    pub view_entity: Option<Entity>,
 }
 
 /// The context with all graph information required to run a [`Node`](super::Node).
@@ -27,6 +28,11 @@ pub struct RenderGraphContext<'a> {
     inputs: &'a [SlotValue],
     outputs: &'a mut [Option<SlotValue>],
     run_sub_graphs: Vec<RunSubGraph>,
+    /// The view_entity associated with the render graph being executed
+    /// This is optional because you aren't required to have a view_entity for a node.
+    /// For example, compute shader nodes don't have one.
+    /// It should always be set when the RenderGraph is running on a View.
+    view_entity: Option<Entity>,
 }
 
 impl<'a> RenderGraphContext<'a> {
@@ -43,6 +49,7 @@ impl<'a> RenderGraphContext<'a> {
             inputs,
             outputs,
             run_sub_graphs: Vec::new(),
+            view_entity: None,
         }
     }
 
@@ -158,11 +165,24 @@ impl<'a> RenderGraphContext<'a> {
         Ok(())
     }
 
+    pub fn view_entity(&self) -> Entity {
+        self.view_entity.unwrap()
+    }
+
+    pub fn get_view_entity(&self) -> Option<Entity> {
+        self.view_entity
+    }
+
+    pub fn set_view_entity(&mut self, view_entity: Entity) {
+        self.view_entity = Some(view_entity);
+    }
+
     /// Queues up a sub graph for execution after the node has finished running.
     pub fn run_sub_graph(
         &mut self,
         name: impl Into<Cow<'static, str>>,
         inputs: Vec<SlotValue>,
+        view_entity: Option<Entity>,
     ) -> Result<(), RunSubGraphError> {
         let name = name.into();
         let sub_graph = self
@@ -193,7 +213,11 @@ impl<'a> RenderGraphContext<'a> {
             return Err(RunSubGraphError::SubGraphHasNoInputs(name));
         }
 
-        self.run_sub_graphs.push(RunSubGraph { name, inputs });
+        self.run_sub_graphs.push(RunSubGraph {
+            name,
+            inputs,
+            view_entity,
+        });
 
         Ok(())
     }

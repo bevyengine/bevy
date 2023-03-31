@@ -25,7 +25,8 @@ impl Movable {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), move_cube))
+        .add_systems(Startup, setup)
+        .add_systems(Update, move_cube)
         .run();
 }
 

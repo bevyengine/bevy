@@ -1,6 +1,11 @@
+use std::any::TypeId;
 use std::borrow::Cow;
+use std::ops::Not;
 
+use crate::component::{self, ComponentId};
+use crate::query::Access;
 use crate::system::{CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System};
+use crate::world::World;
 
 pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
 
@@ -26,7 +31,7 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # fn my_system() {}
-    /// app.add_system(
+    /// app.add_systems(
     ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
     ///     // just like if we used `Res<R>` in a system.
     ///     my_system.run_if(resource_equals(R(0))),
@@ -43,7 +48,7 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # fn my_system() {}
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_equals` will only get run if the resource `R` exists.
     ///     my_system.run_if(resource_exists::<R>().and_then(resource_equals(R(0)))),
     /// );
@@ -81,7 +86,7 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// # let mut world = World::new();
     /// # #[derive(Resource)] struct C(bool);
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
-    /// app.add_system(
+    /// app.add_systems(
     ///     // Only run the system if either `A` or `B` exist.
     ///     my_system.run_if(resource_exists::<A>().or_else(resource_exists::<B>())),
     /// );
@@ -131,13 +136,15 @@ mod sealed {
 }
 
 pub mod common_conditions {
-    use super::Condition;
+    use std::borrow::Cow;
+
+    use super::NotSystem;
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         schedule::{State, States},
-        system::{In, IntoPipeSystem, Res, Resource},
+        system::{IntoSystem, Res, Resource, System},
     };
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -152,7 +159,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `run_once` will only return true the first time it's evaluated
     ///     my_system.run_if(run_once()),
     /// );
@@ -192,7 +199,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_exsists` will only return true if the given resource exsists in the world
     ///     my_system.run_if(resource_exists::<Counter>()),
     /// );
@@ -232,7 +239,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_equals` will only return true if the given resource equals the given value
     ///     my_system.run_if(resource_equals(Counter(0))),
     /// );
@@ -269,7 +276,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_exists_and_equals` will only return true
     ///     // if the given resource exsists and equals the given value
     ///     my_system.run_if(resource_exists_and_equals(Counter(0))),
@@ -312,7 +319,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_added` will only return true if the
     ///     // given resource was just added
     ///     my_system.run_if(resource_added::<Counter>()),
@@ -363,7 +370,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_changed` will only return true if the
     ///     // given resource was just changed (or added)
     ///     my_system.run_if(
@@ -416,7 +423,7 @@ pub mod common_conditions {
     /// # struct Counter(u8);
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_exists_and_changed` will only return true if the
     ///     // given resource exsists and was just changed (or added)
     ///     my_system.run_if(
@@ -478,7 +485,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_changed_or_removed` will only return true if the
     ///     // given resource was just changed or removed (or added)
     ///     my_system.run_if(
@@ -548,7 +555,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `resource_removed` will only return true if the
     ///     // given resource was just removed
     ///     my_system.run_if(resource_removed::<MyResource>()),
@@ -610,7 +617,7 @@ pub mod common_conditions {
     ///     Paused,
     /// }
     ///
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `state_exists` will only return true if the
     ///     // given state exsists
     ///     my_system.run_if(state_exists::<GameState>()),
@@ -777,7 +784,7 @@ pub mod common_conditions {
     ///
     /// world.init_resource::<State<GameState>>();
     ///
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `state_changed` will only return true if the
     ///     // given states value has just been updated or
     ///     // the state has just been added
@@ -819,9 +826,9 @@ pub mod common_conditions {
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// # world.init_resource::<Events<MyEvent>>();
-    /// # app.add_system(Events::<MyEvent>::update_system.before(my_system));
+    /// # app.add_systems(Events::<MyEvent>::update_system.before(my_system));
     ///
-    /// app.add_system(
+    /// app.add_systems(
     ///     my_system.run_if(on_event::<MyEvent>()),
     /// );
     ///
@@ -837,7 +844,7 @@ pub mod common_conditions {
     ///
     /// world.resource_mut::<Events<MyEvent>>().send(MyEvent);
     ///
-    /// // A `MyEvent` event has been push so `my_system` will run
+    /// // A `MyEvent` event has been pushed so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
@@ -861,7 +868,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     my_system.run_if(any_with_component::<MyComponent>()),
     /// );
     ///
@@ -897,7 +904,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_system(
+    /// app.add_systems(
     ///     // `not` will inverse any condition you pass in.
     ///     // Since the condition we choose always returns true
     ///     // this system will never run
@@ -915,12 +922,103 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn not<Marker, T>(condition: T) -> impl Condition<()>
+    pub fn not<Marker, TOut, T>(condition: T) -> NotSystem<T::System>
     where
-        T: Condition<Marker>,
+        TOut: std::ops::Not,
+        T: IntoSystem<(), TOut, Marker>,
     {
-        condition.pipe(|In(val): In<bool>| !val)
+        let condition = IntoSystem::into_system(condition);
+        let name = format!("!{}", condition.name());
+        NotSystem::<T::System> {
+            condition,
+            name: Cow::Owned(name),
+        }
     }
+}
+
+/// Invokes [`Not`] with the output of another system.
+///
+/// See [`common_conditions::not`] for examples.
+#[derive(Clone)]
+pub struct NotSystem<T: System>
+where
+    T::Out: Not,
+{
+    condition: T,
+    name: Cow<'static, str>,
+}
+impl<T: System> System for NotSystem<T>
+where
+    T::Out: Not,
+{
+    type In = T::In;
+    type Out = <T::Out as Not>::Output;
+
+    fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
+    }
+
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<T>()
+    }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        self.condition.component_access()
+    }
+
+    fn archetype_component_access(&self) -> &Access<crate::archetype::ArchetypeComponentId> {
+        self.condition.archetype_component_access()
+    }
+
+    fn is_send(&self) -> bool {
+        self.condition.is_send()
+    }
+
+    fn is_exclusive(&self) -> bool {
+        self.condition.is_exclusive()
+    }
+
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+        // SAFETY: The inner condition system asserts its own safety.
+        !self.condition.run_unsafe(input, world)
+    }
+
+    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        !self.condition.run(input, world)
+    }
+
+    fn apply_buffers(&mut self, world: &mut World) {
+        self.condition.apply_buffers(world);
+    }
+
+    fn initialize(&mut self, world: &mut World) {
+        self.condition.initialize(world);
+    }
+
+    fn update_archetype_component_access(&mut self, world: &World) {
+        self.condition.update_archetype_component_access(world);
+    }
+
+    fn check_change_tick(&mut self, change_tick: component::Tick) {
+        self.condition.check_change_tick(change_tick);
+    }
+
+    fn get_last_run(&self) -> component::Tick {
+        self.condition.get_last_run()
+    }
+
+    fn set_last_run(&mut self, last_run: component::Tick) {
+        self.condition.set_last_run(last_run);
+    }
+}
+
+// SAFETY: This trait is only implemented when the inner system is read-only.
+// The `Not` condition does not modify access, and thus cannot transform a read-only system into one that is not.
+unsafe impl<T> ReadOnlySystem for NotSystem<T>
+where
+    T: ReadOnlySystem,
+    T::Out: Not,
+{
 }
 
 /// Combines the outputs of two systems using the `&&` operator.
@@ -973,10 +1071,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::Condition;
+    use super::{common_conditions::*, Condition};
     use crate as bevy_ecs;
-    use crate::schedule::common_conditions::not;
-    use crate::schedule::IntoSystemConfig;
+    use crate::component::Component;
+    use crate::schedule::IntoSystemConfigs;
+    use crate::schedule::{common_conditions::not, State, States};
     use crate::system::Local;
     use crate::{change_detection::ResMut, schedule::Schedule, world::World};
     use bevy_ecs_macros::Resource;
@@ -1000,7 +1099,7 @@ mod tests {
         let mut schedule = Schedule::new();
 
         // Run every other cycle
-        schedule.add_system(increment_counter.run_if(every_other_time));
+        schedule.add_systems(increment_counter.run_if(every_other_time));
 
         schedule.run(&mut world);
         schedule.run(&mut world);
@@ -1010,7 +1109,7 @@ mod tests {
         assert_eq!(world.resource::<Counter>().0, 2);
 
         // Run every other cycle oppsite to the last one
-        schedule.add_system(increment_counter.run_if(not(every_other_time)));
+        schedule.add_systems(increment_counter.run_if(not(every_other_time)));
 
         schedule.run(&mut world);
         schedule.run(&mut world);
@@ -1027,9 +1126,9 @@ mod tests {
         let mut schedule = Schedule::new();
 
         // Always run
-        schedule.add_system(increment_counter.run_if(every_other_time.or_else(|| true)));
+        schedule.add_systems(increment_counter.run_if(every_other_time.or_else(|| true)));
         // Run every other cycle
-        schedule.add_system(increment_counter.run_if(every_other_time.and_then(|| true)));
+        schedule.add_systems(increment_counter.run_if(every_other_time.and_then(|| true)));
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 2);
@@ -1044,9 +1143,9 @@ mod tests {
         let mut schedule = Schedule::new();
 
         // Run every other cycle
-        schedule.add_system(increment_counter.run_if(every_other_time).run_if(|| true));
+        schedule.add_systems(increment_counter.run_if(every_other_time).run_if(|| true));
         // Never run
-        schedule.add_system(increment_counter.run_if(every_other_time).run_if(|| false));
+        schedule.add_systems(increment_counter.run_if(every_other_time).run_if(|| false));
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 1);
@@ -1063,7 +1162,7 @@ mod tests {
 
         // This should never run, if multiple run conditions worked
         // like an OR condition then it would always run
-        schedule.add_system(
+        schedule.add_systems(
             increment_counter
                 .run_if(every_other_time)
                 .run_if(not(every_other_time)),
@@ -1073,5 +1172,38 @@ mod tests {
         assert_eq!(world.resource::<Counter>().0, 0);
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 0);
+    }
+
+    #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
+    enum TestState {
+        #[default]
+        A,
+        B,
+    }
+
+    #[derive(Component)]
+    struct TestComponent;
+
+    fn test_system() {}
+
+    // Ensure distributive_run_if compiles with the common conditions.
+    #[test]
+    fn distributive_run_if_compiles() {
+        Schedule::default().add_systems(
+            (test_system, test_system)
+                .distributive_run_if(run_once())
+                .distributive_run_if(resource_exists::<State<TestState>>())
+                .distributive_run_if(resource_added::<State<TestState>>())
+                .distributive_run_if(resource_changed::<State<TestState>>())
+                .distributive_run_if(resource_exists_and_changed::<State<TestState>>())
+                .distributive_run_if(resource_changed_or_removed::<State<TestState>>())
+                .distributive_run_if(resource_removed::<State<TestState>>())
+                .distributive_run_if(state_exists::<TestState>())
+                .distributive_run_if(in_state(TestState::A))
+                .distributive_run_if(state_changed::<TestState>())
+                .distributive_run_if(on_event::<u8>())
+                .distributive_run_if(any_with_component::<TestComponent>())
+                .distributive_run_if(not(run_once())),
+        );
     }
 }

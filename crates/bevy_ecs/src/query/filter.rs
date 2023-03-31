@@ -237,7 +237,7 @@ unsafe impl<T: Component> ReadOnlyWorldQuery for Without<T> {}
 /// }
 /// # bevy_ecs::system::assert_is_system(print_cool_entity_system);
 /// ```
-pub struct Or<T>(pub T);
+pub struct Or<T>(PhantomData<T>);
 
 #[doc(hidden)]
 pub struct OrFetch<'w, T: WorldQuery> {
