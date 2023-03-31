@@ -559,7 +559,7 @@ pub struct Table {
 }
 
 impl Table {
-    /// Fetches a read-only slice of the entities stored within the [`Table`].
+    /// Returns the entities stored in this table.
     #[inline]
     pub fn entities(&self) -> &[Entity] {
         &self.entities
@@ -926,6 +926,17 @@ impl<'a> UnsafeTable<'a> {
     /// [`UnsafeStorages`]: super::UnsafeStorages
     pub unsafe fn get_column(self, component_id: ComponentId) -> Option<&'a Column> {
         self.table.get_column(component_id)
+    }
+
+    /// Returns `true` if this table has a column associated with `component_id`.
+    /// Otherwise, this returns `false`.
+    pub fn has_column(self, component_id: ComponentId) -> bool {
+        self.table.has_column(component_id)
+    }
+
+    /// Returns the entities stored in this table.
+    pub fn entities(self) -> &'a [Entity] {
+        self.table.entities()
     }
 }
 
