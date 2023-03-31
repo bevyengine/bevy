@@ -155,10 +155,10 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
             .ident
             .as_ref()
             .map_or(quote! { #i }, |i| quote! { #i });
-        field_attrs.push(attrs);
-        field_visibilities.push(field.vis.clone());
         field_idents.push(field_ident);
         named_field_idents.push(named_field_ident);
+        field_attrs.push(attrs);
+        field_visibilities.push(field.vis.clone());
         let field_ty = field.ty.clone();
         field_types.push(quote!(#field_ty));
         read_only_field_types.push(quote!(<#field_ty as #path::query::WorldQuery>::ReadOnly));
