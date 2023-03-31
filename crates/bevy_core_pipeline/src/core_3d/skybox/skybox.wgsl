@@ -15,8 +15,7 @@ struct VertexOutput {
 @vertex
 fn skybox_vertex(@location(0) position: vec3<f32>) -> VertexOutput {
     var out: VertexOutput;
-    out.clip_position = view.no_translation_view_proj * vec4(position, 1.0);
-    out.clip_position.z = 0.0;
+    out.clip_position = view.view_proj * vec4(position, 0.0);
     out.position = position;
     return out;
 }
