@@ -643,6 +643,26 @@ impl<'a> UnsafeComponentSparseSet<'a> {
     pub unsafe fn get(self, entity: Entity) -> Option<(Ptr<'a>, TickCells<'a>)> {
         self.sparse_set.get_with_ticks(entity)
     }
+
+    /// If `entity` has a component in this sparse set, returns the tick
+    /// indicating when it was added.
+    ///
+    /// Before dereferencing this, take care to ensure that the instance
+    /// of [`UnsafeStorages`] that this `UnsafeComponentSparseSet` was
+    /// obtained from has permission to access this component's data.
+    pub fn get_added_tick(self, entity: Entity) -> Option<&'a UnsafeCell<Tick>> {
+        self.sparse_set.get_added_ticks(entity)
+    }
+
+    /// If `entity` has a component in this sparse set, returns the tick
+    /// indicating when it was last changed.
+    ///
+    /// Before dereferencing this, take care to ensure that the instance
+    /// of [`UnsafeStorages`] that this `UnsafeComponentSparseSet` was
+    /// obtained from has permission to access this component's data.
+    pub fn get_changed_tick(self, entity: Entity) -> Option<&'a UnsafeCell<Tick>> {
+        self.sparse_set.get_changed_ticks(entity)
+    }
 }
 
 #[cfg(test)]
