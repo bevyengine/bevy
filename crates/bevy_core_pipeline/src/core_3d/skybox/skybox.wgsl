@@ -7,14 +7,21 @@ var skybox_sampler: sampler;
 @group(0) @binding(2)
 var<uniform> view: View;
 
+struct VertexOutput {
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) position: vec3<f32>,
+};
+
 @vertex
-fn skybox_vertex(@location(0) position: vec3<f32>) -> @builtin(position) vec4<f32> {
-    var out = view.no_translation_view_proj * vec4(position, 1.0);
-    out.z = 0.0;
+fn skybox_vertex(@location(0) position: vec3<f32>) -> VertexOutput {
+    var out: VertexOutput;
+    out.clip_position = view.no_translation_view_proj * vec4(position, 1.0);
+    out.clip_position.z = 0.0;
+    out.position = position;
     return out;
 }
 
 @fragment
-fn skybox_fragment(@builtin(position) clip_position: vec4<f32>) -> @location(0) vec4<f32> {
-    return textureSample(skybox, skybox_sampler, clip_position.xyz);
+fn skybox_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+    return textureSample(skybox, skybox_sampler, in.position);
 }
