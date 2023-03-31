@@ -19,6 +19,7 @@ use bevy_utils::{all_tuples, synccell::SyncCell};
 use std::{
     borrow::Cow,
     fmt::Debug,
+    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
@@ -35,12 +36,10 @@ use std::{
 /// Derived `SystemParam` structs may have two lifetimes: `'w` for data stored in the [`World`],
 /// and `'s` for data stored in the parameter's state.
 ///
-/// ## Attributes
+/// ## `PhantomData`
 ///
-/// `#[system_param(ignore)]`:
-/// Can be added to any field in the struct. Fields decorated with this attribute
-/// will be created with the default value upon realisation.
-/// This is most useful for `PhantomData` fields, such as markers for generic types.
+/// [`PhantomData`] is a special type of `SystemParam` that does nothing.
+/// This is useful for constraining generic types or lifetimes.
 ///
 /// # Example
 ///
@@ -54,7 +53,6 @@ use std::{
 /// #[derive(SystemParam)]
 /// struct MyParam<'w, Marker: 'static> {
 ///     foo: Res<'w, SomeResource>,
-///     #[system_param(ignore)]
 ///     marker: PhantomData<Marker>,
 /// }
 ///
@@ -1466,7 +1464,6 @@ pub mod lifetimeless {
 /// #[derive(SystemParam)]
 /// struct GenericParam<'w, 's, T: SystemParam> {
 ///     field: T,
-///     #[system_param(ignore)]
 ///     // Use the lifetimes in this type, or they will be unbound.
 ///     phantom: core::marker::PhantomData<&'w &'s ()>
 /// }
@@ -1532,115 +1529,198 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     }
 }
 
+// SAFETY: No world access.
+unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
+    type State = ();
+    type Item<'world, 'state> = Self;
+
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: &'world World,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        PhantomData
+    }
+}
+
+// SAFETY: No world access.
+unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
         query::{ReadOnlyWorldQuery, WorldQuery},
-        system::Query,
+        system::{assert_is_system, Query},
     };
     use std::marker::PhantomData;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
-    #[derive(SystemParam)]
-    pub struct SpecialQuery<
-        'w,
-        's,
-        Q: WorldQuery + Send + Sync + 'static,
-        F: ReadOnlyWorldQuery + Send + Sync + 'static = (),
-    > {
-        _query: Query<'w, 's, Q, F>,
+    #[test]
+    fn system_param_generic_bounds() {
+        #[derive(SystemParam)]
+        pub struct SpecialQuery<
+            'w,
+            's,
+            Q: WorldQuery + Send + Sync + 'static,
+            F: ReadOnlyWorldQuery + Send + Sync + 'static = (),
+        > {
+            _query: Query<'w, 's, Q, F>,
+        }
+
+        fn my_system(_: SpecialQuery<(), ()>) {}
+        assert_is_system(my_system);
     }
 
     // Compile tests for https://github.com/bevyengine/bevy/pull/6694.
+    #[test]
+    fn system_param_flexibility() {
+        #[derive(SystemParam)]
+        pub struct SpecialRes<'w, T: Resource> {
+            _res: Res<'w, T>,
+        }
 
-    #[derive(SystemParam)]
-    pub struct SpecialRes<'w, T: Resource> {
-        _res: Res<'w, T>,
-    }
+        #[derive(SystemParam)]
+        pub struct SpecialLocal<'s, T: FromWorld + Send + 'static> {
+            _local: Local<'s, T>,
+        }
 
-    #[derive(SystemParam)]
-    pub struct SpecialLocal<'s, T: FromWorld + Send + 'static> {
-        _local: Local<'s, T>,
+        #[derive(Resource)]
+        struct R;
+
+        fn my_system(_: SpecialRes<R>, _: SpecialLocal<u32>) {}
+        assert_is_system(my_system);
     }
 
     #[derive(Resource)]
     pub struct R<const I: usize>;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/7001.
-    #[derive(SystemParam)]
-    pub struct ConstGenericParam<'w, const I: usize>(Res<'w, R<I>>);
+    #[test]
+    fn system_param_const_generics() {
+        #[derive(SystemParam)]
+        pub struct ConstGenericParam<'w, const I: usize>(Res<'w, R<I>>);
 
-    // Compile test for https://github.com/bevyengine/bevy/pull/6867.
-    #[derive(SystemParam)]
-    pub struct LongParam<'w> {
-        _r0: Res<'w, R<0>>,
-        _r1: Res<'w, R<1>>,
-        _r2: Res<'w, R<2>>,
-        _r3: Res<'w, R<3>>,
-        _r4: Res<'w, R<4>>,
-        _r5: Res<'w, R<5>>,
-        _r6: Res<'w, R<6>>,
-        _r7: Res<'w, R<7>>,
-        _r8: Res<'w, R<8>>,
-        _r9: Res<'w, R<9>>,
-        _r10: Res<'w, R<10>>,
-        _r11: Res<'w, R<11>>,
-        _r12: Res<'w, R<12>>,
-        _r13: Res<'w, R<13>>,
-        _r14: Res<'w, R<14>>,
-        _r15: Res<'w, R<15>>,
-        _r16: Res<'w, R<16>>,
+        fn my_system(_: ConstGenericParam<0>, _: ConstGenericParam<1000>) {}
+        assert_is_system(my_system);
     }
 
-    #[allow(dead_code)]
-    fn long_system(_param: LongParam) {
-        crate::system::assert_is_system(long_system);
+    // Compile test for https://github.com/bevyengine/bevy/pull/6867.
+    #[test]
+    fn system_param_field_limit() {
+        #[derive(SystemParam)]
+        pub struct LongParam<'w> {
+            // Each field should be a distinct type so there will
+            // be an error if the derive messes up the field order.
+            _r0: Res<'w, R<0>>,
+            _r1: Res<'w, R<1>>,
+            _r2: Res<'w, R<2>>,
+            _r3: Res<'w, R<3>>,
+            _r4: Res<'w, R<4>>,
+            _r5: Res<'w, R<5>>,
+            _r6: Res<'w, R<6>>,
+            _r7: Res<'w, R<7>>,
+            _r8: Res<'w, R<8>>,
+            _r9: Res<'w, R<9>>,
+            _r10: Res<'w, R<10>>,
+            _r11: Res<'w, R<11>>,
+            _r12: Res<'w, R<12>>,
+            _r13: Res<'w, R<13>>,
+            _r14: Res<'w, R<14>>,
+            _r15: Res<'w, R<15>>,
+            _r16: Res<'w, R<16>>,
+        }
+
+        fn long_system(_: LongParam) {}
+        assert_is_system(long_system);
     }
 
     // Compile test for https://github.com/bevyengine/bevy/pull/6919.
     // Regression test for https://github.com/bevyengine/bevy/issues/7447.
-    #[derive(SystemParam)]
-    struct IgnoredParam<'w, T: Resource, Marker: 'static> {
-        _foo: Res<'w, T>,
-        #[system_param(ignore)]
-        marker: PhantomData<&'w Marker>,
+    #[test]
+    fn system_param_phantom_data() {
+        #[derive(SystemParam)]
+        struct PhantomParam<'w, T: Resource, Marker: 'static> {
+            _foo: Res<'w, T>,
+            marker: PhantomData<&'w Marker>,
+        }
+
+        fn my_system(_: PhantomParam<R<0>, ()>) {}
+        assert_is_system(my_system);
     }
 
     // Compile tests for https://github.com/bevyengine/bevy/pull/6957.
+    #[test]
+    fn system_param_struct_variants() {
+        #[derive(SystemParam)]
+        pub struct UnitParam;
 
-    #[derive(SystemParam)]
-    pub struct UnitParam;
+        #[derive(SystemParam)]
+        pub struct TupleParam<'w, 's, R: Resource, L: FromWorld + Send + 'static>(
+            Res<'w, R>,
+            Local<'s, L>,
+        );
 
-    #[derive(SystemParam)]
-    pub struct TupleParam<'w, 's, R: Resource, L: FromWorld + Send + 'static>(
-        Res<'w, R>,
-        Local<'s, L>,
-    );
-
-    #[derive(Resource)]
-    struct PrivateResource;
+        fn my_system(_: UnitParam, _: TupleParam<R<0>, u32>) {}
+        assert_is_system(my_system);
+    }
 
     // Regression test for https://github.com/bevyengine/bevy/issues/4200.
-    #[derive(SystemParam)]
-    pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
+    #[test]
+    fn system_param_private_fields() {
+        #[derive(Resource)]
+        struct PrivateResource;
+
+        #[derive(SystemParam)]
+        pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
+
+        fn my_system(_: EncapsulatedParam) {}
+        assert_is_system(my_system);
+    }
 
     // Regression test for https://github.com/bevyengine/bevy/issues/7103.
-    #[derive(SystemParam)]
-    pub struct WhereParam<'w, 's, Q>
-    where
-        Q: 'static + WorldQuery,
-    {
-        _q: Query<'w, 's, Q, ()>,
+    #[test]
+    fn system_param_where_clause() {
+        #[derive(SystemParam)]
+        pub struct WhereParam<'w, 's, Q>
+        where
+            Q: 'static + WorldQuery,
+        {
+            _q: Query<'w, 's, Q, ()>,
+        }
+
+        fn my_system(_: WhereParam<()>) {}
+        assert_is_system(my_system);
     }
 
     // Regression test for https://github.com/bevyengine/bevy/issues/1727.
-    #[derive(SystemParam)]
-    pub struct Collide<'w> {
-        _x: Res<'w, FetchState>,
+    #[test]
+    fn system_param_name_collision() {
+        #[derive(Resource)]
+        pub struct FetchState;
+
+        #[derive(SystemParam)]
+        pub struct Collide<'w> {
+            _x: Res<'w, FetchState>,
+        }
+
+        fn my_system(_: Collide) {}
+        assert_is_system(my_system);
     }
 
-    #[derive(Resource)]
-    pub struct FetchState;
+    // Regression test for https://github.com/bevyengine/bevy/issues/8192.
+    #[test]
+    fn system_param_invariant_lifetime() {
+        #[derive(SystemParam)]
+        pub struct InvariantParam<'w, 's> {
+            _set: ParamSet<'w, 's, (Query<'w, 's, ()>,)>,
+        }
+
+        fn my_system(_: InvariantParam) {}
+        assert_is_system(my_system);
+    }
 }
