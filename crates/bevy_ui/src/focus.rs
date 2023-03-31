@@ -321,14 +321,12 @@ pub fn ui_focus_system(
     let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
         if let Some(mut pressed_state) = node.pressed_state {
-            if mouse_clicked {
-                if !pressed_state.pressed {
-                    pressed_state.pressed = true;
-                    // if the mouse was simultaneously released, reset this Interaction in the next
-                    // frame
-                    if mouse_released {
-                        state.entities_to_reset.push(node.entity);
-                    }
+            if mouse_clicked && !pressed_state.pressed {
+                pressed_state.pressed = true;
+                // if the mouse was simultaneously released, reset this Interaction in the next
+                // frame
+                if mouse_released {
+                    state.entities_to_reset.push(node.entity);
                 }
             }
         }
