@@ -124,11 +124,11 @@ fn modify_sharpening(
         if cas.enabled {
             if keys.just_pressed(KeyCode::Minus) {
                 cas.sharpening_strength -= 0.1;
-                cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 4.0);
+                cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 1.0);
             }
             if keys.just_pressed(KeyCode::Equals) {
                 cas.sharpening_strength += 0.1;
-                cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 4.0);
+                cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 1.0);
             }
             if keys.just_pressed(KeyCode::D) {
                 cas.denoise = !cas.denoise;

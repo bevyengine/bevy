@@ -56,7 +56,7 @@ const peakC = vec2<f32>(10.0, -40.0);
 //  0.25  -1  0.25
 //       0.25
 // This is used as a noise detection filter, to reduce the effect of RCAS on grain, and focus on real edges.
-// The CAS node runs after tonemapping, so the input should be in the range of 0 to 1.
+// The CAS node runs after tonemapping, so the input will be in the range of 0 to 1.
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
      // Algorithm uses minimal 3x3 pixel neighborhood.

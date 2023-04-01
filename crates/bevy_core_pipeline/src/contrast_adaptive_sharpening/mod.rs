@@ -18,10 +18,6 @@ mod node;
 
 pub use node::CASNode;
 
-const SHARPEN_MIN: f32 = 0.0;
-// I didn't really notice a difference after 2.0, but it might just be the scene I tested it on.
-const SHARPEN_MAX: f32 = 4.0;
-
 /// Applies a contrast adaptive sharpening (CAS) filter to the camera.
 ///
 /// CAS is usually used in combination with shader based anti-aliasing methods
@@ -37,12 +33,11 @@ const SHARPEN_MAX: f32 = 4.0;
 pub struct ContrastAdaptiveSharpeningSettings {
     /// Enable or disable sharpening.
     pub enabled: bool,
-    /// Adjusts sharpening strength. Higher values reduce the amount of sharpening.
+    /// Adjusts sharpening strength. Higher values increase the amount of sharpening.
     ///
-    /// 0.0 is full strength, 1.0 is half strength, 2.0 is quarter strength, etc.
-    /// Clamped between 0.0 and 4.0.
+    /// Clamped between 0.0 and 1.0.
     ///
-    /// The default value is 0.2.
+    /// The default value is 0.6.
     pub sharpening_strength: f32,
     /// Whether to try and avoid sharpening areas that are already noisy.
     ///
@@ -56,7 +51,7 @@ impl Default for ContrastAdaptiveSharpeningSettings {
     fn default() -> Self {
         ContrastAdaptiveSharpeningSettings {
             enabled: true,
-            sharpening_strength: 0.2,
+            sharpening_strength: 0.6,
             denoise: false,
         }
     }
@@ -86,7 +81,8 @@ impl ExtractComponent for ContrastAdaptiveSharpeningSettings {
         Some((
             DenoiseCAS(item.denoise),
             CASUniform {
-                sharpness: (-(item.sharpening_strength.clamp(SHARPEN_MIN, SHARPEN_MAX))).exp2(),
+                // above 1.0 causes extreme artifacts and fireflies
+                sharpness: item.sharpening_strength.clamp(0.0, 1.0),
             },
         ))
     }
