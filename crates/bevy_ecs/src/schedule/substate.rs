@@ -57,11 +57,10 @@ macro_rules! impl_args_tuple {
 
 all_tuples!(impl_args_tuple, 0, 16, A);
 all_tuples!(impl_substate_tuple, 0, 16, S);
+pub trait SubstateLabel {}
 
-define_boxed_label!(SubstateLabel);
-
-#[derive(SubstateLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnEnter;
 
-#[derive(SubstateLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit;
