@@ -182,10 +182,10 @@ fn draw_gpu_time_overlay(
             .div(20.0)
             .sqrt();
 
-        write!(labels, "{}: \n", timer.label).unwrap();
-        write!(
+        writeln!(labels, "{}: ", timer.label).unwrap();
+        writeln!(
             durations,
-            "{:.3} (±{:.2})\n",
+            "{:.3} (±{:.2})",
             timer.mean_duration * 1000.0,
             std_dev * 1000.0
         )
