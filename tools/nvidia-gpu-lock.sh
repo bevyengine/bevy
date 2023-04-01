@@ -6,8 +6,11 @@ memory=$(nvidia-smi --query-supported-clocks=memory --format=csv | sed -n 2p | t
 nvidia-smi --lock-gpu-clocks=$graphics
 nvidia-smi --lock-memory-clocks=$memory
 
+function reset {
+    nvidia-smi --reset-gpu-clocks
+    nvidia-smi --reset-memory-clocks
+}
+trap reset EXIT
+
 export GPU_LOCKED=magic
 $@
-
-nvidia-smi --reset-gpu-clocks
-nvidia-smi --reset-memory-clocks
