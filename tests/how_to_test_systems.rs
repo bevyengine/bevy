@@ -206,5 +206,6 @@ fn substate() {
     }
     app.add_systems(OnEnter(ParentState::Unit), enter_unit);
     fn enter_bar() {}
-    app.add_systems(substate_in_fn(&ParentState::Child), enter_bar);
+    app.add_systems(SubstateInFn::<OnEnter<ParentState>>::new(&ParentState::Child), enter_bar);
+    app.update();
 }

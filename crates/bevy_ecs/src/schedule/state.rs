@@ -77,13 +77,14 @@ pub struct OnExit<S: States>(pub S);
 /// foo = MyState::Bar;
 ///
 /// ```
-pub struct SubstateInFn<Ret, Args, L: ScheduleLabel>(PhantomData<(L, Ret, Args)>);
+pub struct SubstateLabelInFn<Ret, Args, L: ScheduleLabel>(PhantomData<(L, Ret, Args)>);
 
-/// from the type of F from the value passed into the function
-pub fn substate_in_fn<F: VariadicFn<Ret2, Args2>, Ret2, Args2, L2: ScheduleLabel>(
-        _f: &F,
-) -> SubstateInFn<Ret2, Args2, L2> {
-        SubstateInFn(PhantomData)
+pub struct SubstateInFn<L: ScheduleLabel>(PhantomData<L>);
+impl<L: ScheduleLabel> SubstateInFn<L> {
+    /// from the type of F from the value passed into the function
+    pub fn new<F: VariadicFn<Ret, Args>, Ret, Args>(_f: &F) -> SubstateLabelInFn<Ret, Args, L> {
+        SubstateLabelInFn(PhantomData)
+    }
 }
 
 /*

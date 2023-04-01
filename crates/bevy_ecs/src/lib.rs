@@ -40,7 +40,8 @@ pub mod prelude {
         schedule::{
             apply_state_transition, apply_system_buffers, common_conditions::*, Condition,
             IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
-            OnEnter, SubstateInFn, OnExit, OnTransition, OnUpdate, Schedule, Schedules, State, States, SystemSet,
+            OnEnter, OnExit, OnTransition, OnUpdate, Schedule, Schedules, State, States,
+            SubstateInFn, SubstateLabelInFn, SystemSet,
         },
         system::{
             adapter as system_adapter,
