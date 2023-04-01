@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use bevy::{ecs::event::Events, prelude::*};
 
 #[derive(Component, Default)]
@@ -205,7 +207,17 @@ fn substate() {
         next.set(ParentState::Child(ChildState::Bar));
     }
     app.add_systems(OnEnter(ParentState::Unit), enter_unit);
-    fn enter_bar() {}
-    app.add_systems(SubstateInFn::<OnEnter<ParentState>>::new(&ParentState::Child), enter_bar);
+    let has_runned = Arc::new(Mutex::new(false));
+    let has_runned2 = has_runned.clone();
+    let enter_bar = move |state: Res<State<ParentState>>| {
+        assert_eq!(state.0, ParentState::Child(ChildState::Bar));
+        *has_runned2.lock().unwrap() = true;
+    };
+    app.add_systems(
+        SubstateInFn::<OnEnter<ParentState>>::new(&ParentState::Child),
+        enter_bar,
+    );
     app.update();
+    app.update();
+    assert_eq!(*has_runned.lock().unwrap(), true);
 }
