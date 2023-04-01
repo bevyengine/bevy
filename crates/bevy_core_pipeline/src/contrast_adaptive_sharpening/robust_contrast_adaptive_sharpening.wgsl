@@ -36,6 +36,8 @@ const FSR_RCAS_LIMIT = 0.1875;
 const peakC = vec2<f32>(10.0, -40.0);
 
 // Robust Contrast Adaptive Sharpening (RCAS)
+// Based on the following implementation:
+// https://github.com/GPUOpen-Effects/FidelityFX-FSR2/blob/ea97a113b0f9cadf519fbcff315cc539915a3acd/src/ffx-fsr2-api/shaders/ffx_fsr1.h#L672
 // RCAS is based on the following logic.
 // RCAS uses a 5 tap filter in a cross pattern (same as CAS),
 //    W                b
@@ -59,16 +61,16 @@ const peakC = vec2<f32>(10.0, -40.0);
 // The CAS node runs after tonemapping, so the input will be in the range of 0 to 1.
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-     // Algorithm uses minimal 3x3 pixel neighborhood.
-     //    b
-     //  d e f
-     //    h
-	let b = textureSample(screenTexture, samp, in.uv, vec2<i32>(0, -1)).rgb;
-	let d = textureSample(screenTexture, samp, in.uv, vec2<i32>(-1, 0)).rgb;
-	// We need the alpha value of the pixel we're working on for the output
-	let e = textureSample(screenTexture, samp, in.uv).rgbw;
-	let f = textureSample(screenTexture, samp, in.uv, vec2<i32>(1, 0)).rgb;
-	let h = textureSample(screenTexture, samp, in.uv, vec2<i32>(0, 1)).rgb;
+    // Algorithm uses minimal 3x3 pixel neighborhood.
+    //    b
+    //  d e f
+    //    h
+    let b = textureSample(screenTexture, samp, in.uv, vec2<i32>(0, -1)).rgb;
+    let d = textureSample(screenTexture, samp, in.uv, vec2<i32>(-1, 0)).rgb;
+    // We need the alpha value of the pixel we're working on for the output
+    let e = textureSample(screenTexture, samp, in.uv).rgbw;
+    let f = textureSample(screenTexture, samp, in.uv, vec2<i32>(1, 0)).rgb;
+    let h = textureSample(screenTexture, samp, in.uv, vec2<i32>(0, 1)).rgb;
     // Min and max of ring.
     let mn4 = min(min(b, d), min(f, h));
     let mx4 = max(max(b, d), max(f, h));
@@ -80,17 +82,17 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var lobe = max(-FSR_RCAS_LIMIT, min(0.0, max(lobeRGB.r, max(lobeRGB.g, lobeRGB.b)))) * uniforms.sharpness;
 #ifdef RCAS_DENOISE
     // Luma times 2.
-    let bL = b.g + 0.5 * (b.b + b.r);
-    let dL = d.g + 0.5 * (d.b + d.r);
-    let eL = e.g + 0.5 * (e.b + e.r);
-    let fL = f.g + 0.5 * (f.b + f.r);
-    let hL = h.g + 0.5 * (h.b + h.r);
+    let bL = b.b * 0.5 + (b.r * 0.5 + b.g);
+    let dL = d.b * 0.5 + (d.r * 0.5 + d.g);
+    let eL = e.b * 0.5 + (e.r * 0.5 + e.g);
+    let fL = f.b * 0.5 + (f.r * 0.5 + f.g);
+    let hL = h.b * 0.5 + (h.r * 0.5 + h.g);
     // Noise detection.
-    var noise = 0.25 * (bL + dL + fL + hL) - eL;
+    var noise = 0.25 * bL + 0.25 * dL + 0.25 * fL + 0.25 * hL - eL;;
     noise = saturate(abs(noise) / (max(max(bL, dL), max(fL, hL)) - min(min(bL, dL), min(fL, hL))));
     noise = 1.0 - 0.5 * noise;
     // Apply noise removal.
     lobe *= noise;
 #endif
-    return vec4<f32>((lobe * (b + d + f + h) + e.rgb) / (4.0 * lobe + 1.0), e.w);
+    return vec4<f32>((lobe * b + lobe * d + lobe * f + lobe * h + e.rgb) / (4.0 * lobe + 1.0), e.w);
 }
