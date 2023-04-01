@@ -70,6 +70,8 @@ impl Node for MainOpaquePass3dNode {
             return Ok(());
         };
 
+        render_context.begin_debug_scope("Opaque3d");
+
         // Run the opaque pass, sorted front-to-back
         // NOTE: Scoped to drop the mutable borrow of render_context
         #[cfg(feature = "trace")]
@@ -120,6 +122,9 @@ impl Node for MainOpaquePass3dNode {
         if !alpha_mask_phase.items.is_empty() {
             alpha_mask_phase.render(&mut render_pass, world, view_entity);
         }
+
+        drop(render_pass);
+        render_context.end_debug_scope();
 
         Ok(())
     }

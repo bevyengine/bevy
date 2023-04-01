@@ -54,6 +54,8 @@ impl Node for MainTransparentPass3dNode {
             return Ok(());
         };
 
+        render_context.begin_debug_scope("Transparent3d");
+
         if !transparent_phase.items.is_empty() {
             // Run the transparent pass, sorted back-to-front
             // NOTE: Scoped to drop the mutable borrow of render_context
@@ -109,6 +111,8 @@ impl Node for MainTransparentPass3dNode {
                 .command_encoder()
                 .begin_render_pass(&pass_descriptor);
         }
+
+        render_context.end_debug_scope();
 
         Ok(())
     }
