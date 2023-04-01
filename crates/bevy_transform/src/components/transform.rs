@@ -1,4 +1,4 @@
-use super::GlobalTransform;
+use super::{GlobalTransform, Transform2d};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::prelude::*;
@@ -29,12 +29,8 @@ use std::ops::Mul;
 ///
 /// # Examples
 ///
-/// - [`transform`]
-/// - [`global_vs_local_translation`]
-///
-/// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
-/// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-/// [`Transform`]: super::Transform
+/// - [`transform`](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs)
+/// - [`global_vs_local_translation`](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs)
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq)]
@@ -407,6 +403,16 @@ impl Default for Transform {
 impl From<GlobalTransform> for Transform {
     fn from(transform: GlobalTransform) -> Self {
         transform.compute_transform()
+    }
+}
+
+impl From<Transform2d> for Transform {
+    fn from(transform: Transform2d) -> Self {
+        Transform {
+            translation: transform.translation.extend(transform.z_translation),
+            rotation: Quat::from_rotation_z(transform.rotation),
+            scale: transform.scale.extend(1.),
+        }
     }
 }
 

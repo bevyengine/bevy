@@ -4,8 +4,30 @@ use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Affine2, Affine3A, Mat3, Mat4, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 
-use crate::prelude::Transform2d;
+use crate::components::Transform2d;
 
+/// Describe the position of an entity relative to the reference frame.
+///
+/// * To place or move an entity, you should set its [`Transform2d`].
+/// * [`GlobalTransform2d`] is fully managed by bevy, you cannot mutate it, use
+///   [`Transform2d`] instead.
+/// * To get the global transform of an entity, you should get its [`GlobalTransform2d`].
+/// * For transform hierarchies to work correctly, you must have both a [`Transform2d`] and a [`GlobalTransform2d`].
+///   * You may use the [`TransformBundle`](crate::TransformBundle) to guarantee this.
+///
+/// ## [`Transform2d`] and [`GlobalTransform2d`]
+///
+/// [`Transform2d`] is the position of an entity relative to its parent position, or the reference
+/// frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+///
+/// [`GlobalTransform2d`] is the position of an entity relative to the reference frame.
+///
+/// [`GlobalTransform2d`] is updated from [`Transform2d`] by systems in the system set
+/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
+///
+/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
+/// update the [`Transform2d`] of an entity in this schedule or after, you will notice a 1 frame lag
+/// before the [`GlobalTransform2d`] is updated.
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq)]
@@ -21,6 +43,7 @@ impl Default for GlobalTransform2d {
 }
 
 impl GlobalTransform2d {
+    /// An identity [`GlobalTransform2d`] that maps all points in space to themselves.
     pub const IDENTITY: Self = GlobalTransform2d {
         affine: Affine2::IDENTITY,
         z_translation: 0.0,

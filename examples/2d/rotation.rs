@@ -166,7 +166,7 @@ fn snap_to_player_system(
         let to_player = (player_transform.translation - enemy_transform.translation).normalize();
 
         // rotate the enemy to face the player
-        enemy_transform.rotate_to(Vec2::Y, to_player);
+        enemy_transform.point_to(Vec2::Y, to_player);
     }
 }
 

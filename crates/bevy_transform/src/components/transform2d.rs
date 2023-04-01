@@ -2,12 +2,29 @@ use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Affine2, Mat2, Mat3, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 
-/// Describes the position of an [`Entity`] in 2d space.
+/// Describe the position of an entity. If the entity has a parent, the position is relative
+/// to its parent position.
 ///
-/// This component acts as a proxy to the [`Transform`] component,
-/// and thus *requires* that both a [`Transform`] and [`GlobalTransform`] are present to function.
+/// * To place or move an entity, you should set its [`Transform2d`].
+/// * To get the global transform of an entity, you should get its [`GlobalTransform2d`].
+/// * To be displayed, an entity must have both a [`Transform2d`] and a [`GlobalTransform2d`].
+///   * You may use the [`TransformBundle`](crate::TransformBundle) to guarantee this.
 ///
-/// If this [`Transform2d`] has a [`Parent`], then it's relative to the [`Transform2d`] of the [`Parent`].
+/// ## [`Transform2d`] and [`GlobalTransform2d`]
+///
+/// [`Transform2d`] is the position of an entity relative to its parent position, or the reference
+/// frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+///
+/// [`GlobalTransform2d`] is the position of an entity relative to the reference frame.
+///
+/// [`GlobalTransform2d`] is updated from [`Transform2d`] by systems in the system set
+/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
+///
+/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
+/// update the [`Transform2d`] of an entity during this set or after, you will notice a 1 frame lag
+/// before the [`GlobalTransform2d`] is updated.
+///
+/// [`GlobalTransform2d`]: super::GlobalTransform2d
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
 #[reflect(Component, PartialEq, Default)]
 pub struct Transform2d {
@@ -37,7 +54,7 @@ impl Default for Transform2d {
 impl Transform2d {
     /// Creates a new identity [`Transform2d`], with no translation, rotation, and a scale of 1 on all axes.
     ///
-    /// Translation is `Vec2::ZERO`, rotation is `0.`, and scale is `Vec2::ONE`
+    /// Translation is `Vec2::ZERO`, rotation is `0.`, scale is `Vec2::ONE` and `z_translation` is `0.`.
     pub const IDENTITY: Self = Transform2d {
         translation: Vec2::ZERO,
         rotation: 0.,
@@ -47,13 +64,13 @@ impl Transform2d {
 
     /// Creates a new [`Transform2d`] at the position `(x, y)`.
     ///
-    /// Rotation will be `0.` and scale will be `Vec2::ONE`
+    /// Rotation will be `0.`, scale will be `Vec2::ONE` and `z_translation` will be `0.`.
     #[inline]
     pub const fn from_xy(x: f32, y: f32) -> Self {
         Transform2d::from_translation(Vec2::new(x, y))
     }
 
-    /// Creates a new [`Transform`] at the position `(x, y, z)`. In 2d, the `z` component
+    /// Creates a new [`Transform2d`] at the position `(x, y, z)`. The `z` component
     /// is used for z-ordering elements: higher `z`-value will be in front of lower
     /// `z`-value.
     #[inline]
@@ -99,9 +116,9 @@ impl Transform2d {
     ///
     /// Translation will be `Vec2::ZERO`, rotation will be `0.` and `z_translation` will be `0.`
     #[inline] // Hmm const
-    pub fn from_scale(scale: impl IntoScale2d) -> Self {
+    pub const fn from_scale(scale: Vec2) -> Self {
         Transform2d {
-            scale: scale.into_scale(),
+            scale,
             ..Self::IDENTITY
         }
     }
@@ -125,8 +142,8 @@ impl Transform2d {
     /// Returns this [`Transform2d`] with a new scale.
     #[must_use]
     #[inline]
-    pub fn with_scale(mut self, scale: impl IntoScale2d) -> Self {
-        self.scale = scale.into_scale();
+    pub const fn with_scale(mut self, scale: Vec2) -> Self {
+        self.scale = scale;
         self
     }
 
@@ -136,6 +153,85 @@ impl Transform2d {
     pub const fn with_z_translation(mut self, z_translation: f32) -> Self {
         self.z_translation = z_translation;
         self
+    }
+
+    /// Returns this [`Transform2d`] rotated so the local `direction` points in the given `target_direction`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_transform::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// // Create a transform rotated so that up(Vec2::Y) points to the right.
+    /// let transform = Transform2d::IDENTITY.pointed_to(Vec2::Y, Vec2::X);
+    ///
+    /// approx::assert_abs_diff_eq!(transform.up(), Vec2::X);
+    /// ```
+    ///
+    /// If this [`Transform2d`] has a parent, the `point` is relative to the [`Transform2d`] of the parent.
+    #[inline]
+    pub fn pointed_to(mut self, direction: Vec2, target_direction: Vec2) -> Self {
+        self.point_to(direction, target_direction);
+        self
+    }
+
+    /// Returns this [`Transform2d`] rotated so the local `direction` points at the given `target_position`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_transform::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// // Create a transform that is translated to Vec2::ONE and then rotated so that up(Vec2::Y) points to the origin.
+    /// let transform = Transform2d::from_translation(Vec2::ONE)
+    ///     .pointed_at(Vec2::Y, Vec2::ZERO);
+    ///
+    /// approx::assert_abs_diff_eq!(transform.up(), Vec2::NEG_ONE.normalize());
+    /// ```
+    ///
+    /// If this [`Transform2d`] has a parent, the `point` is relative to the [`Transform2d`] of the parent.
+    #[inline]
+    pub fn pointed_at(mut self, direction: Vec2, target_position: Vec2) -> Self {
+        self.point_at(direction, target_position);
+        self
+    }
+
+    /// Rotates this [`Transform2d`] so the local `direction` points in the given `target_direction`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_transform::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// let mut transform = Transform2d::IDENTITY;
+    ///
+    /// // Rotate the transform so that up(Vec2::Y) points to the right.
+    /// transform.point_to(Vec2::Y, Vec2::X);
+    ///
+    /// approx::assert_abs_diff_eq!(transform.up(), Vec2::X);
+    /// ```
+    ///
+    /// If this [`Transform2d`] has a parent, the `point` is relative to the [`Transform2d`] of the parent.
+    #[inline]
+    pub fn point_to(&mut self, direction: Vec2, target_direction: Vec2) {
+        self.rotation = Vec2::angle_between(direction, target_direction);
+    }
+
+    /// Rotates this [`Transform2d`] so the local `direction` points at the given `target_position`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_transform::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// let mut transform = Transform2d::from_translation(Vec2::ONE);
+    ///
+    /// // Rotate the transform so that `up`/local_y points to the origin.
+    /// transform.point_at(Vec2::Y, Vec2::ZERO);
+    ///
+    /// approx::assert_abs_diff_eq!(transform.up(), Vec2::NEG_ONE.normalize());
+    /// ```
+    ///
+    /// If this [`Transform2d`] has a parent, the `point` is relative to the [`Transform2d`] of the parent.
+    #[inline]
+    pub fn point_at(&mut self, direction: Vec2, target_position: Vec2) {
+        self.point_to(direction, target_position - self.translation);
     }
 
     /// Get the unit vector in the local `X` direction.
@@ -209,43 +305,25 @@ impl Transform2d {
     pub fn rotate_around(&mut self, point: Vec2, angle: f32) {
         self.translate_around(point, angle);
         self.rotation += angle;
-
     }
 
-    /// Rotates this [`Transform2d`] so the local `direction` points in the given `target_direction`.
+    /// Transforms the given `point`, applying scale, rotation and translation.
+    /// `z_translation` is ignored.
     ///
-    /// # Example
-    /// ```
-    /// # use bevy_transform::prelude::*;
-    /// # use bevy_math::prelude::*;
-    /// let mut transform = Transform2d::IDENTITY;
-    /// 
-    /// // Rotate the transform so that up(Vec2::Y) points to the right.
-    /// transform.rotate_to(Vec2::Y, Vec2::X);
-    /// 
-    /// approx::abs_diff_eq!(transform.up(), Vec2::X);
-    /// ```
+    /// If this [`Transform2d`] has a parent, this will transform a `point` that is
+    /// relative to the parent's [`Transform2d`] into one relative to this [`Transform2d`].
     ///
-    /// If this [`Transform2d`] has a parent, the `point` is relative to the [`Transform2d`] of the parent.
+    /// If this [`Transform2d`] does not have a parent, this will transform a `point`
+    /// that is in global space into one relative to this [`Transform2d`].
+    ///
+    /// If you want to transform a `point` in global space to the local space of this [`Transform2d`],
+    /// consider using [`GlobalTransform2d::transform_point()`] instead.
     #[inline]
-    pub fn rotate_to(&mut self, direction: Vec2, target_direction: Vec2) {
-        self.rotation = Vec2::angle_between(direction, target_direction);
-    }
-}
-
-pub trait IntoScale2d {
-    fn into_scale(self) -> Vec2;
-}
-
-impl IntoScale2d for Vec2 {
-    fn into_scale(self) -> Vec2 {
-        self
-    }
-}
-
-impl IntoScale2d for f32 {
-    fn into_scale(self) -> Vec2 {
-        Vec2::splat(self)
+    pub fn transform_point(&self, mut point: Vec2) -> Vec2 {
+        point *= self.scale;
+        point = self.rotation_matrix() * point;
+        point += self.translation;
+        point
     }
 }
 

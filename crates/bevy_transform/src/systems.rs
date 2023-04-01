@@ -31,8 +31,8 @@ pub fn propagate_transforms<A, B>(
     transform_query: Query<(Ref<A>, &mut B, Option<&Children>), With<Parent>>,
     parent_query: Query<(Entity, Ref<Parent>)>,
 ) where
-    A: Component + Copy + Into<B>,
-    B: Component + Copy + Mul<B, Output = B>,
+    A: Component + Copy,
+    B: Component + Copy + From<A> + Mul<B, Output = B>,
 {
     root_query.par_iter_mut().for_each_mut(
         |(entity, children, transform, mut global_transform)| {
@@ -88,8 +88,8 @@ unsafe fn propagate_recursive<A, B>(
     entity: Entity,
     mut changed: bool,
 ) where
-    A: Component + Copy + Into<B>,
-    B: Component + Copy + Mul<B, Output = B>,
+    A: Component + Copy,
+    B: Component + Copy + From<A> + Mul<B, Output = B>,
 {
     let (global_matrix, children) = {
         let Ok((transform, mut global_transform, children)) =
@@ -125,8 +125,7 @@ unsafe fn propagate_recursive<A, B>(
 
         changed |= transform.is_changed();
         if changed {
-            let gt: B = (*transform).into();
-            *global_transform = *parent * gt;
+            *global_transform = *parent * B::from(*transform);
         }
         (*global_transform, children)
     };

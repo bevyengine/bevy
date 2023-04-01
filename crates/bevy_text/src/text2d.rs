@@ -9,7 +9,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_math::{Vec2, Vec3};
+use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
     prelude::Color,
@@ -105,8 +105,7 @@ pub fn extract_text2d_sprite(
 
         let text_anchor = -(anchor.as_vec() + 0.5);
         let alignment_translation = text_layout_info.size * text_anchor;
-        let transform = *global_transform
-            * scaling;
+        let transform = *global_transform * scaling;
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
         for PositionedGlyph {
@@ -124,7 +123,8 @@ pub fn extract_text2d_sprite(
 
             extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
-                transform: transform * GlobalTransform2d::from_translation(*position + alignment_translation),
+                transform: transform
+                    * GlobalTransform2d::from_translation(*position + alignment_translation),
                 color,
                 rect: Some(atlas.textures[atlas_info.glyph_index]),
                 custom_size: None,

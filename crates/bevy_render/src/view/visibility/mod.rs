@@ -8,7 +8,10 @@ use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::Reflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
-use bevy_transform::{TransformSystem, components::{GlobalTransform, GlobalTransform2d}};
+use bevy_transform::{
+    components::{GlobalTransform, GlobalTransform2d},
+    TransformSystem,
+};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
