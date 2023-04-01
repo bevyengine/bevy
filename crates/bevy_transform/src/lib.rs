@@ -108,13 +108,13 @@ pub struct Transform2dBundle {
 }
 
 impl Transform2dBundle {
-    /// An identity [`TransformBundle2d`] with no translation, rotation, and a scale of 1 on all axes.
+    /// An identity [`Transform2dBundle`] with no translation, rotation, and a scale of 1 on all axes.
     pub const IDENTITY: Self = Transform2dBundle {
         local: Transform2d::IDENTITY,
         global: GlobalTransform2d::IDENTITY,
     };
 
-    /// Creates a new [`TransformBundle2d`] from a [`Transform2d`].
+    /// Creates a new [`Transform2dBundle`] from a [`Transform2d`].
     ///
     /// This initializes [`GlobalTransform2d`] as identity, to be updated later by the
     /// [`PostUpdate`](bevy_app::PostUpdate) schedule.

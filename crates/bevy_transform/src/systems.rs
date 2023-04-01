@@ -6,7 +6,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 
-/// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
+/// Update [`GlobalTransform`](super::GlobalTransform) component of entities that aren't in the hierarchy
 ///
 /// Third party plugins should ensure that this is used in concert with [`propagate_transforms`].
 pub fn sync_simple_transforms<A, B>(
@@ -22,8 +22,8 @@ pub fn sync_simple_transforms<A, B>(
         });
 }
 
-/// Update [`GlobalTransform`] component of entities based on entity hierarchy and
-/// [`Transform`] component.
+/// Update [`GlobalTransform`](super::GlobalTransform) component of entities based on entity hierarchy and
+/// [`Transform`](super::Transform) component.
 ///
 /// Third party plugins should ensure that this is used in concert with [`sync_simple_transforms`].
 pub fn propagate_transforms<A, B>(

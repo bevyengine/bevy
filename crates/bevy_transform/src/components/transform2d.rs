@@ -40,7 +40,7 @@ pub struct Transform2d {
     /// but this third dimension is used when rendering to decide what should appear in front or behind.
     /// A higher translation on the Z axis puts the entity closer to the camera, and thus in front of entities with a lower Z translation.
     ///
-    /// Keep in mind that this is relative to the [`Parent`]'s `z_translation`.
+    /// Keep in mind that this is relative to the [`Parent`](bevy_hierarchy::Parent)'s `z_translation`.
     /// The other fields on [`Transform2d`] don't affect this because they are strictly 2D.
     pub z_translation: f32,
 }
@@ -317,7 +317,7 @@ impl Transform2d {
     /// that is in global space into one relative to this [`Transform2d`].
     ///
     /// If you want to transform a `point` in global space to the local space of this [`Transform2d`],
-    /// consider using [`GlobalTransform2d::transform_point()`] instead.
+    /// consider using [`GlobalTransform2d::transform_point()`](super::GlobalTransform2d::transform_point) instead.
     #[inline]
     pub fn transform_point(&self, mut point: Vec2) -> Vec2 {
         point *= self.scale;

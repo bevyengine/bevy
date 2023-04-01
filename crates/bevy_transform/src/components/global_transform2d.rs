@@ -93,7 +93,7 @@ impl GlobalTransform2d {
 
     /// Transforms the given `point`, applying shear, scale, rotation and translation.
     ///
-    /// This moves `point` into the local space of this [`GlobalTransform`].
+    /// This moves `point` into the local space of this [`GlobalTransform2d`].
     #[inline]
     pub fn transform_point(&self, point: Vec3) -> Vec3 {
         let xy = point.truncate();
