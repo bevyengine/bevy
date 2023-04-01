@@ -262,7 +262,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
 }
 
 enum SystemParamStructAttribute {
-    ErrorType(syn::Ident),
+    ErrorType(syn::Type),
 }
 
 impl Parse for SystemParamStructAttribute {
