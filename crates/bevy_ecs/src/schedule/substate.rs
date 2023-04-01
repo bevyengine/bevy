@@ -1,7 +1,7 @@
 use crate::schedule::ScheduleLabel;
 
 use crate as bevy_ecs;
-use bevy_utils::{all_tuples, define_boxed_label};
+use bevy_utils::{all_tuples};
 use std::marker::PhantomData;
 
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
