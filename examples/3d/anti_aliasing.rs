@@ -122,11 +122,11 @@ fn modify_sharpening(
             cas.enabled = !cas.enabled;
         }
         if cas.enabled {
-            if keys.just_pressed(KeyCode::A) {
+            if keys.just_pressed(KeyCode::Minus) {
                 cas.sharpening_strength -= 0.1;
                 cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 4.0);
             }
-            if keys.just_pressed(KeyCode::S) {
+            if keys.just_pressed(KeyCode::Equals) {
                 cas.sharpening_strength += 0.1;
                 cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 4.0);
             }
@@ -235,20 +235,18 @@ fn update_ui(
     }
 
     if cas_settings.enabled {
-        ui.push_str("\n\n----------\n\n(0) Sharpening Enabled\n");
+        ui.push_str("\n\n----------\n\n(0) Sharpening (Enabled)\n");
         ui.push_str(&format!(
-            "Sharpening Strength: {}\n",
+            "(-/+) Strength: {:.1}\n",
             cas_settings.sharpening_strength
         ));
-        ui.push_str("(A) Increase Strength\n");
-        ui.push_str("(S) Decrease Strength\n");
         if cas_settings.denoise {
-            ui.push_str("(D) Denoising Enabled\n");
+            ui.push_str("(D) Denoising (Enabled)\n");
         } else {
-            ui.push_str("(D) Denoising Disabled\n");
+            ui.push_str("(D) Denoising (Disabled)\n");
         }
     } else {
-        ui.push_str("\n\n----------\n\n(0) Sharpening Disabled\n");
+        ui.push_str("\n\n----------\n\n(0) Sharpening (Disabled)\n");
     }
 }
 
@@ -320,7 +318,10 @@ fn setup(
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },
-        ContrastAdaptiveSharpeningSettings::default(),
+        ContrastAdaptiveSharpeningSettings {
+            enabled: false,
+            ..default()
+        },
     ));
 
     // UI
