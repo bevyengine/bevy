@@ -918,7 +918,7 @@ pub struct UnsafeTable<'a> {
 }
 
 impl<'a> UnsafeTable<'a> {
-    /// Gets access to the data for a specific component in this table.
+    /// Gets access to the data for a specific component type in this table.
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
