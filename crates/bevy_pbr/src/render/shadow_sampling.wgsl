@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::shadow_sampling
 
-fn sample_shadow_map_simple(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+fn sample_shadow_map_hardware_2x2(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     // Do the lookup, using HW PCF and comparison
     // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
     // sampler to avoid use of implicit derivatives causing possible undefined behavior.
