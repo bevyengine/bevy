@@ -56,6 +56,55 @@ pub struct OnEnter<S: States>(pub S);
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
 
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+/// Like [AnySubstate], however this one only matches functions that return
+///
+/// This should be able to be used on some unnamed fields in enums. However, please beware that fields that have the same substate might pass the type checking, as they really match type-wise. (
+/// So
+/// ```rs
+/// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
+/// pub enum MyState {
+///     Foo(AliceOrBob)
+///     Bar(AliceOrBob)
+/// }
+///
+/// pub AliceOrBob {
+///     Alice,
+///     Bob
+/// }
+/// // these should compile
+/// let mut foo: Fn(AliceOrBob) -> MyState = MyState::Foo;
+/// foo = MyState::Bar;
+///
+/// ```
+pub struct SubstateInFn<F, Ret, Args>(PhantomData<(F, Ret, Args)>)
+where
+    F: VariadicFn<Ret, Args>,
+    Ret: States;
+
+impl<F, Ret, Args> SubstateInFn<F, Ret, Args>
+where
+    F: VariadicFn<Ret, Args>,
+    Ret: States
+{
+    /// get the type of F from the value passed into the function
+    pub fn of(_f: &F) -> Self {
+        Self(PhantomData)
+    }
+
+    pub fn manual() -> Self {
+        Self(PhantomData)
+    }
+}
+
+/*
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, ScheduleLabel)]
+///
+/// Schedule label that matches all substates in the enum tree that got changed too.
+///
+pub struct SubstateFromAny<L: ScheduleLabel>(pub L);
+*/
+
 /// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
 /// exits the `from` state, AND enters the `to` state.
 ///
@@ -135,23 +184,12 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
     }
 }
 
-#[derive(ScheduleLabel)]
-pub struct SubstateLabel<Func, Ret, Args>(pub Func, PhantomData<(Ret, Args)>)
-where
-    Func: VariadicFn<Ret, Args>;
 ///
 /// A trait which most variadic functions should technically implement?
 /// The issue with Fn trait types is that it doesn't support variadic functions.  This one should
 pub trait VariadicFn<Ret, Args> {}
 
-impl<Func, Ret, Args> Into<SubstateLabel<Func, Ret, Args>> for (Func,)
-where
-    Func: VariadicFn<Ret, Args>,
-{
-    fn into(self) -> SubstateLabel<Func, Ret, Args> {
-        SubstateLabel(self.0, PhantomData)
-    }
-}
+
 macro_rules! impl_substate_tuple {
     ($($name: tt),*)  => {
         impl<Function, Ret, $( $name, )* >  VariadicFn<Ret, ($($name,)*)> for Function where Function: Fn($($name,)*) -> Ret {}
