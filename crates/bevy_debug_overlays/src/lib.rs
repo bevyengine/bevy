@@ -19,7 +19,7 @@ use bevy_ui::{
     AlignItems, FlexDirection, Size, Style, UiRect, Val,
 };
 use bevy_utils::{default, Duration};
-use std::{fmt::Write, ops::Div};
+use std::{env, fmt::Write, ops::Div};
 
 /// Displays an overlay showing how long GPU operations take.
 ///
@@ -28,6 +28,9 @@ use std::{fmt::Write, ops::Div};
 /// Ensure you add [`WgpuFeatures`]`::TIMESTAMP_QUERY` to `RenderPlugin::wgpu_settings`.
 ///
 /// Ensure you add this plugin after `DefaultPlugins`.
+///
+/// To ensure you get stable results, run your program through the appropriate GPU locking script.
+/// Example: `./tools/nvidia-gpu-lock.sh cargo run --example 3d_scene`.
 pub struct DebugOverlaysPlugin {
     pub ui_update_frequency: Duration,
 }
@@ -37,6 +40,10 @@ impl Plugin for DebugOverlaysPlugin {
         let wgpu_features = app.world.resource::<RenderDevice>().features();
         if !wgpu_features.contains(WgpuFeatures::TIMESTAMP_QUERY) {
             panic!("DebugOverlaysPlugin added but RenderPlugin::wgpu_settings did not contain WgpuFeatures::TIMESTAMP_QUERY.");
+        }
+
+        if env::var("GPU_LOCKED").unwrap_or_default() != "magic" {
+            panic!("GPU clocks were not locked. Unable to get stable profiling results. Please rerun via the locking script.")
         }
 
         app.add_systems(Startup, setup_gpu_time_overlay)
