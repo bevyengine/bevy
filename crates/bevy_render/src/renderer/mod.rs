@@ -311,7 +311,7 @@ impl RenderContext {
                 4,
                 render_queue.get_timestamp_period(),
                 usable_features,
-            ))
+            ));
         }
 
         Self {
