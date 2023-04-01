@@ -638,11 +638,12 @@ impl<'a> UnsafeComponentSparseSet<'a> {
     /// Returns the entity's component and associated ticks.
     ///
     /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] self was obtianed from has permission
+    ///   to access the component.
+    /// - no other mutable references to the component exist at the same time.
     ///
-    /// The [`UnsafeStorages`]) that this instance was obtained from
-    /// must be allowed to read `entity`'s component from this sparse set.
-    ///
-    /// [`UnsafeStorages`]: super::UnsafeStorages
+    /// [`UnsafeWorldCell`]: crate::world::unsafe_world_cell::UnsafeWorldCell
     pub unsafe fn get(self, entity: Entity) -> Option<(Ptr<'a>, TickCells<'a>)> {
         self.sparse_set.get_with_ticks(entity)
     }

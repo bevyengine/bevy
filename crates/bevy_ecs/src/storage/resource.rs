@@ -299,9 +299,11 @@ impl<'a, const SEND: bool> UnsafeResources<'a, SEND> {
     /// Returns the entity's component and associated ticks.
     ///
     /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] self as obtained from has permission to access the resource mutably
+    /// - no mutable reference to the resource exists at the same time
     ///
-    /// The [`UnsafeWorldCell`] that this instance was obtained from
-    /// must be allowed to read the resource associated with `component_id`.
+    /// [`UnsafeWorldCell`]: crate::world::unsafe_world_cell::UnsafeWorldCell
     pub unsafe fn get(self, component_id: ComponentId) -> Option<&'a ResourceData<SEND>> {
         self.resources.get(component_id)
     }

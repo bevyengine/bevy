@@ -921,12 +921,13 @@ impl<'a> UnsafeTable<'a> {
     /// Gets access to the data for a specific component in this table.
     ///
     /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] self was obtained from has permission
+    ///   to access the component in this table's archetype.
+    /// - no other mutable references to components of this type
+    ///   exist in this table at the same time.
     ///
-    /// The [`UnsafeStorages`]) that this instance was obtained from
-    /// must be allowed to access the data associated with `component_id`
-    /// in this table's archetype.
-    ///
-    /// [`UnsafeStorages`]: super::UnsafeStorages
+    /// [`UnsafeWorldCell`]: crate::world::unsafe_world_cell::UnsafeWorldCell
     pub unsafe fn get_column(self, component_id: ComponentId) -> Option<&'a Column> {
         self.table.get_column(component_id)
     }
