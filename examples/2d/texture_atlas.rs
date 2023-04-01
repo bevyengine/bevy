@@ -14,20 +14,14 @@ fn main() {
         .run();
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, States)]
 enum AppState {
     #[default]
     Setup,
     Finished,
 }
 
-impl States for AppState {
-    type Iter = std::array::IntoIter<AppState, 2>;
 
-    fn variants() -> Self::Iter {
-        [AppState::Setup, AppState::Finished].into_iter()
-    }
-}
 
 #[derive(Resource, Default)]
 struct RpgSpriteHandles {
