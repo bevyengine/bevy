@@ -103,6 +103,9 @@ impl RelativeCursorPosition {
     }
 }
 
+/// A simplified interaction state calculated using the [`Pressed`] and [`RelativeCursorPosition`] components.
+///
+/// To see how to use this, see the [`InteractionStateHandler`] trait.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Reflect)]
 pub enum InteractionState {
     None,
@@ -110,11 +113,35 @@ pub enum InteractionState {
     Pressed,
 }
 
+/// Simplified way to get the [`InteractionState`] of the node.
+///
+/// Example usage:
+/// ```
+/// use bevy_ui::InteractionStateHandler;
+/// use bevy_ui::InteractionState;
+/// use bevy_ui::Pressed;
+/// use bevy_ui::RelativeCursorPosition;
+///
+/// fn button_system(button_query: Query<(&Pressed, &RelativeCursorComponent)>) {
+///     let button = button_query.single();
+///
+///     match button.interaction_state() {
+///         InteractionState::None => (),
+///         InteractionState::Hovered => {
+///             println!("The button is being hovered over");
+///         },
+///         InteractionState::Pressed => {
+///             println!("The button is being pressed");
+///         },
+///    }
+/// }
+/// ```
 pub trait InteractionStateHandler {
     fn interaction_state(&self) -> InteractionState;
 }
 
 impl InteractionStateHandler for (&Pressed, &RelativeCursorPosition) {
+    /// Get the [`InteractionState`] of the node
     fn interaction_state(&self) -> InteractionState {
         if self.0.pressed {
             return InteractionState::Pressed;
