@@ -654,6 +654,8 @@ impl<'a> UnsafeComponentSparseSet<'a> {
     /// Before dereferencing this, take care to ensure that the instance
     /// of [`UnsafeStorages`] that this `UnsafeComponentSparseSet` was
     /// obtained from has permission to access this component's data.
+    ///
+    /// [`UnsafeStorages`]: super::UnsafeStorages
     pub fn get_added_tick(self, entity: Entity) -> Option<&'a UnsafeCell<Tick>> {
         self.sparse_set.get_added_ticks(entity)
     }
@@ -664,6 +666,8 @@ impl<'a> UnsafeComponentSparseSet<'a> {
     /// Before dereferencing this, take care to ensure that the instance
     /// of [`UnsafeStorages`] that this `UnsafeComponentSparseSet` was
     /// obtained from has permission to access this component's data.
+    ///
+    /// [`UnsafeStorages`]: super::UnsafeStorages
     pub fn get_changed_tick(self, entity: Entity) -> Option<&'a UnsafeCell<Tick>> {
         self.sparse_set.get_changed_ticks(entity)
     }
