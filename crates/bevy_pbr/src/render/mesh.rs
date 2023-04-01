@@ -804,11 +804,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
-        if key.contains(MeshPipelineKey::SHADOW_FILTER_METHOD_THE_WITNESS) {
-            shader_defs.push("SHADOW_FILTER_METHOD_THE_WITNESS".into());
+        if key.contains(MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13) {
+            shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
         }
-        if key.contains(MeshPipelineKey::SHADOW_FILTER_METHOD_STOCHASTIC) {
-            shader_defs.push("SHADOW_FILTER_METHOD_STOCHASTIC".into());
+        if key.contains(MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14) {
+            shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
         }
 
         if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
