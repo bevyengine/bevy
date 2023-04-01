@@ -168,3 +168,43 @@ fn update_score_on_event() {
     // Check resulting changes
     assert_eq!(app.world.resource::<Score>().0, 3);
 }
+
+#[test]
+fn substate() {
+    #[derive(Clone, Default, Debug, Hash, Eq, PartialEq /* States */)]
+    enum ParentState {
+        #[default]
+        Unit,
+        Child(ChildState),
+    }
+    // Manual implementation first as https://github.com/bevyengine/bevy/pull/8188 is blocked for now.
+    impl States for ParentState {
+        type Iter = std::array::IntoIter<Self, 3>;
+
+        fn variants() -> Self::Iter {
+            [
+                Self::Unit,
+                Self::Child(ChildState::Bar),
+                Self::Child(ChildState::Foo),
+            ]
+            .into_iter()
+        }
+    }
+
+    #[derive(Clone, Default, Debug, Hash, Eq, PartialEq, States)]
+    enum ChildState {
+        Foo,
+        #[default]
+        Bar,
+    }
+
+    // Setup app
+    let mut app = App::new();
+    app.add_state::<ParentState>();
+    fn enter_unit(mut next: ResMut<NextState<ParentState>>) {
+        next.set(ParentState::Child(ChildState::Bar));
+    }
+    app.add_systems(OnEnter(ParentState::Unit), enter_unit);
+    fn enter_bar() {}
+    app.add_systems(OnEnter(SubstateInFn::of(&ParentState::Child)), enter_bar);
+}
