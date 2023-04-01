@@ -728,6 +728,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         QueryParIter {
             world: self.world,
             state: self.state.as_readonly(),
+            last_run: self.last_run,
+            this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
         }
     }
@@ -742,6 +744,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         QueryParIter {
             world: self.world,
             state: self.state,
+            last_run: self.last_run,
+            this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
         }
     }
@@ -793,6 +797,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns the read-only query items for the given array of [`Entity`].
     ///
+    /// The returned query items are in the same order as the input.
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     /// The elements of the array do not need to be unique, unlike `get_many_mut`.
     ///
@@ -897,6 +902,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns the query items for the given array of [`Entity`].
     ///
+    /// The returned query items are in the same order as the input.
     /// In case of a nonexisting entity, duplicate entities or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
     /// # See also

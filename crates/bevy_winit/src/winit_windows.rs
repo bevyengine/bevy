@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 use std::sync::atomic::Ordering;
 
 use accesskit_winit::Adapter;
@@ -20,11 +21,16 @@ use crate::{
     converters::convert_window_level,
 };
 
+/// A resource which maps window entities to [`winit`] library windows.
 #[derive(Debug, Default)]
 pub struct WinitWindows {
+    /// Stores [`winit`] windows by window identifier.
     pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
+    /// Maps entities to `winit` window identifiers.
     pub entity_to_winit: HashMap<Entity, winit::window::WindowId>,
+    /// Maps `winit` window identifiers to entities.
     pub winit_to_entity: HashMap<winit::window::WindowId, Entity>,
+
     // Some winit functions, such as `set_window_icon` can only be used from the main thread. If
     // they are used in another thread, the app will hang. This marker ensures `WinitWindows` is
     // only ever accessed with bevy's non-send functions and in NonSend systems.
@@ -32,6 +38,7 @@ pub struct WinitWindows {
 }
 
 impl WinitWindows {
+    /// Creates a `winit` window and associates it with our entity.
     pub fn create_window(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
@@ -166,11 +173,16 @@ impl WinitWindows {
         }
 
         winit_window.set_cursor_visible(window.cursor.visible);
-        if let Err(err) = winit_window.set_cursor_hittest(window.cursor.hit_test) {
-            warn!(
-                "Could not set cursor hit test for window {:?}: {:?}",
-                window.title, err
-            );
+
+        // Do not set the cursor hittest on window creation if it's false, as it will always fail on some
+        // platforms and log an unfixable warning.
+        if !window.cursor.hit_test {
+            if let Err(err) = winit_window.set_cursor_hittest(window.cursor.hit_test) {
+                warn!(
+                    "Could not set cursor hit test for window {:?}: {:?}",
+                    window.title, err
+                );
+            }
         }
 
         self.entity_to_winit.insert(entity, winit_window.id());
@@ -222,6 +234,9 @@ impl WinitWindows {
     }
 }
 
+/// Gets the "best" video mode which fits the given dimensions.
+///
+/// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
 pub fn get_fitting_videomode(
     monitor: &winit::monitor::MonitorHandle,
     width: u32,
@@ -254,6 +269,9 @@ pub fn get_fitting_videomode(
     modes.first().unwrap().clone()
 }
 
+/// Gets the "best" videomode from a monitor.
+///
+/// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
 pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::monitor::VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
     modes.sort_by(|a, b| {
@@ -295,6 +313,7 @@ pub(crate) fn attempt_grab(winit_window: &winit::window::Window, grab_mode: Curs
     }
 }
 
+/// Compute the physical window position for a given [`WindowPosition`].
 // Ideally we could generify this across window backends, but we only really have winit atm
 // so whatever.
 pub fn winit_window_position(

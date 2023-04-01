@@ -6,7 +6,7 @@ mod stopwatch;
 mod time;
 mod timer;
 
-use fixed_timestep::{run_fixed_update_schedule, FixedTime};
+use fixed_timestep::FixedTime;
 pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
@@ -21,8 +21,10 @@ pub mod prelude {
     pub use crate::{fixed_timestep::FixedTime, Time, Timer, TimerMode};
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, RunFixedUpdateLoop};
 use bevy_ecs::prelude::*;
+
+use crate::fixed_timestep::run_fixed_update_schedule;
 
 /// Adds time functionality to Apps.
 #[derive(Default)]
@@ -41,9 +43,8 @@ impl Plugin for TimePlugin {
             .register_type::<Time>()
             .register_type::<Stopwatch>()
             .init_resource::<FixedTime>()
-            .configure_set(TimeSystem.in_base_set(CoreSet::First))
-            .add_system(time_system.in_set(TimeSystem))
-            .add_system(run_fixed_update_schedule.in_base_set(CoreSet::FixedUpdate));
+            .add_systems(First, time_system.in_set(TimeSystem))
+            .add_systems(RunFixedUpdateLoop, run_fixed_update_schedule);
     }
 }
 

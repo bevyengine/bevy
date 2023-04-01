@@ -2,7 +2,7 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_render::ExtractSchedule;
+use bevy_render::{ExtractSchedule, Render};
 #[cfg(feature = "bevy_text")]
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
@@ -19,7 +19,7 @@ use bevy_render::{
     camera::Camera,
     color::Color,
     render_asset::RenderAssets,
-    render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
+    render_graph::{RenderGraph, RunGraphOnViewNode},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -31,7 +31,7 @@ use bevy_sprite::SpriteAssetEvents;
 #[cfg(feature = "bevy_text")]
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{Text, TextLayoutInfo};
+use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
@@ -44,9 +44,6 @@ pub mod node {
 
 pub mod draw_ui_graph {
     pub const NAME: &str = "draw_ui";
-    pub mod input {
-        pub const VIEW_ENTITY: &str = "view_entity";
-    }
     pub mod node {
         pub const UI_PASS: &str = "ui_pass";
     }
@@ -77,20 +74,23 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
         .add_systems(
+            ExtractSchedule,
             (
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
                 #[cfg(feature = "bevy_text")]
                 extract_text_uinodes.after(RenderUiSystem::ExtractNode),
-            )
-                .in_schedule(ExtractSchedule),
+            ),
         )
-        .add_systems((
-            prepare_uinodes.in_set(RenderSet::Prepare),
-            queue_uinodes.in_set(RenderSet::Queue),
-            sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
-        ));
+        .add_systems(
+            Render,
+            (
+                prepare_uinodes.in_set(RenderSet::Prepare),
+                queue_uinodes.in_set(RenderSet::Queue),
+                sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
+            ),
+        );
 
     // Render graph
     let ui_graph_2d = get_ui_graph(render_app);
@@ -106,12 +106,6 @@ pub fn build_ui_render(app: &mut App) {
         graph_2d.add_node_edge(
             bevy_core_pipeline::core_2d::graph::node::MAIN_PASS,
             draw_ui_graph::node::UI_PASS,
-        );
-        graph_2d.add_slot_edge(
-            graph_2d.input_node().id,
-            bevy_core_pipeline::core_2d::graph::input::VIEW_ENTITY,
-            draw_ui_graph::node::UI_PASS,
-            RunGraphOnViewNode::IN_VIEW,
         );
         graph_2d.add_node_edge(
             bevy_core_pipeline::core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
@@ -130,7 +124,7 @@ pub fn build_ui_render(app: &mut App) {
             RunGraphOnViewNode::new(draw_ui_graph::NAME),
         );
         graph_3d.add_node_edge(
-            bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+            bevy_core_pipeline::core_3d::graph::node::END_MAIN_PASS,
             draw_ui_graph::node::UI_PASS,
         );
         graph_3d.add_node_edge(
@@ -141,12 +135,6 @@ pub fn build_ui_render(app: &mut App) {
             draw_ui_graph::node::UI_PASS,
             bevy_core_pipeline::core_3d::graph::node::UPSCALING,
         );
-        graph_3d.add_slot_edge(
-            graph_3d.input_node().id,
-            bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-            draw_ui_graph::node::UI_PASS,
-            RunGraphOnViewNode::IN_VIEW,
-        );
     }
 }
 
@@ -154,16 +142,6 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
     let ui_pass_node = UiPassNode::new(&mut render_app.world);
     let mut ui_graph = RenderGraph::default();
     ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
-    let input_node_id = ui_graph.set_input(vec![SlotInfo::new(
-        draw_ui_graph::input::VIEW_ENTITY,
-        SlotType::Entity,
-    )]);
-    ui_graph.add_slot_edge(
-        input_node_id,
-        draw_ui_graph::input::VIEW_ENTITY,
-        draw_ui_graph::node::UI_PASS,
-        UiPassNode::IN_VIEW,
-    );
     ui_graph
 }
 
@@ -318,52 +296,43 @@ pub fn extract_text_uinodes(
         .map(|window| window.resolution.scale_factor() as f32)
         .unwrap_or(1.0);
 
+    let scaling = Mat4::from_scale(Vec3::splat(scale_factor.recip()));
+
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
             uinode_query.get(*entity)
         {
-            if !visibility.is_visible() {
+            // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+            if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {
                 continue;
             }
-            // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
-            if uinode.size() == Vec2::ZERO {
-                continue;
-            }
-            let text_glyphs = &text_layout_info.glyphs;
-            let alignment_offset = (uinode.size() / -2.0).extend(0.0);
+
+            let transform = global_transform.compute_matrix()
+                * Mat4::from_translation(-0.5 * uinode.size().extend(0.))
+                * scaling;
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
-            for text_glyph in text_glyphs {
-                if text_glyph.section_index != current_section {
-                    color = text.sections[text_glyph.section_index]
-                        .style
-                        .color
-                        .as_rgba_linear();
-                    current_section = text_glyph.section_index;
+            for PositionedGlyph {
+                position,
+                atlas_info,
+                section_index,
+                ..
+            } in &text_layout_info.glyphs
+            {
+                if *section_index != current_section {
+                    color = text.sections[*section_index].style.color.as_rgba_linear();
+                    current_section = *section_index;
                 }
-                let atlas = texture_atlases
-                    .get(&text_glyph.atlas_info.texture_atlas)
-                    .unwrap();
-                let texture = atlas.texture.clone_weak();
-                let index = text_glyph.atlas_info.glyph_index;
-                let rect = atlas.textures[index];
-                let atlas_size = Some(atlas.size);
-
-                // NOTE: Should match `bevy_text::text2d::extract_text2d_sprite`
-                let extracted_transform = global_transform.compute_matrix()
-                    * Mat4::from_scale(Vec3::splat(scale_factor.recip()))
-                    * Mat4::from_translation(
-                        alignment_offset * scale_factor + text_glyph.position.extend(0.),
-                    );
+                let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
-                    transform: extracted_transform,
+                    transform: transform * Mat4::from_translation(position.extend(0.)),
                     color,
-                    rect,
-                    image: texture,
-                    atlas_size,
+                    rect: atlas.textures[atlas_info.glyph_index],
+                    image: atlas.texture.clone_weak(),
+                    atlas_size: Some(atlas.size),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
@@ -498,34 +467,38 @@ pub fn prepare_uinodes(
                 continue;
             }
         }
+        let uvs = if current_batch_handle.id() == DEFAULT_IMAGE_HANDLE.id() {
+            [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
+        } else {
+            let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
+            let mut uvs = [
+                Vec2::new(
+                    uinode_rect.min.x + positions_diff[0].x,
+                    uinode_rect.min.y + positions_diff[0].y,
+                ),
+                Vec2::new(
+                    uinode_rect.max.x + positions_diff[1].x,
+                    uinode_rect.min.y + positions_diff[1].y,
+                ),
+                Vec2::new(
+                    uinode_rect.max.x + positions_diff[2].x,
+                    uinode_rect.max.y + positions_diff[2].y,
+                ),
+                Vec2::new(
+                    uinode_rect.min.x + positions_diff[3].x,
+                    uinode_rect.max.y + positions_diff[3].y,
+                ),
+            ]
+            .map(|pos| pos / atlas_extent);
 
-        let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
-        let mut uvs = [
-            Vec2::new(
-                uinode_rect.min.x + positions_diff[0].x,
-                uinode_rect.min.y + positions_diff[0].y,
-            ),
-            Vec2::new(
-                uinode_rect.max.x + positions_diff[1].x,
-                uinode_rect.min.y + positions_diff[1].y,
-            ),
-            Vec2::new(
-                uinode_rect.max.x + positions_diff[2].x,
-                uinode_rect.max.y + positions_diff[2].y,
-            ),
-            Vec2::new(
-                uinode_rect.min.x + positions_diff[3].x,
-                uinode_rect.max.y + positions_diff[3].y,
-            ),
-        ]
-        .map(|pos| pos / atlas_extent);
-
-        if extracted_uinode.flip_x {
-            uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
-        }
-        if extracted_uinode.flip_y {
-            uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
-        }
+            if extracted_uinode.flip_x {
+                uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
+            }
+            if extracted_uinode.flip_y {
+                uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
+            }
+            uvs
+        };
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
         for i in QUAD_INDICES {

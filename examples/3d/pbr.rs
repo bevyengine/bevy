@@ -5,7 +5,8 @@ use bevy::{asset::LoadState, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), environment_map_load_finish))
+        .add_systems(Startup, setup)
+        .add_systems(Update, environment_map_load_finish)
         .run();
 }
 
@@ -84,11 +85,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(20.0),
-                left: Val::Px(100.0),
-                ..default()
-            },
+            top: Val::Px(20.0),
+            left: Val::Px(100.0),
             ..default()
         }),
     );
@@ -104,11 +102,8 @@ fn setup(
         ),
         style: Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(130.0),
-                right: Val::Px(0.0),
-                ..default()
-            },
+            top: Val::Px(130.0),
+            right: Val::Px(0.0),
             ..default()
         },
         transform: Transform {
@@ -129,11 +124,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(20.0),
-                right: Val::Px(20.0),
-                ..default()
-            },
+            bottom: Val::Px(20.0),
+            right: Val::Px(20.0),
             ..default()
         }),
         EnvironmentMapLabel,

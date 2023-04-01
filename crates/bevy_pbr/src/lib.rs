@@ -55,7 +55,7 @@ use bevy_render::{
     render_phase::sort_phase_system,
     render_resource::Shader,
     view::{ViewSet, VisibilitySystems},
-    ExtractSchedule, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
@@ -151,6 +151,7 @@ impl Plugin for PbrPlugin {
 
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
+            .register_type::<Cascade>()
             .register_type::<CascadeShadowConfig>()
             .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
@@ -175,59 +176,58 @@ impl Plugin for PbrPlugin {
             .init_resource::<PointLightShadowMap>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
             .configure_sets(
+                PostUpdate,
                 (
                     SimulationLightSystems::AddClusters,
-                    SimulationLightSystems::AddClustersFlush
-                        .after(SimulationLightSystems::AddClusters)
-                        .before(SimulationLightSystems::AssignLightsToClusters),
+                    SimulationLightSystems::AddClustersFlush,
                     SimulationLightSystems::AssignLightsToClusters,
-                    SimulationLightSystems::CheckLightVisibility,
-                    SimulationLightSystems::UpdateDirectionalLightCascades,
-                    SimulationLightSystems::UpdateLightFrusta,
                 )
-                    .in_base_set(CoreSet::PostUpdate),
+                    .chain(),
             )
             .add_plugin(FogPlugin)
-            .add_systems((
-                add_clusters.in_set(SimulationLightSystems::AddClusters),
-                apply_system_buffers.in_set(SimulationLightSystems::AddClustersFlush),
-                assign_lights_to_clusters
-                    .in_set(SimulationLightSystems::AssignLightsToClusters)
-                    .after(TransformSystem::TransformPropagate)
-                    .after(VisibilitySystems::CheckVisibility)
-                    .after(CameraUpdateSystem),
-                update_directional_light_cascades
-                    .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
-                    .after(TransformSystem::TransformPropagate)
-                    .after(CameraUpdateSystem),
-                update_directional_light_frusta
-                    .in_set(SimulationLightSystems::UpdateLightFrusta)
-                    // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
-                    .after(VisibilitySystems::CheckVisibility)
-                    .after(TransformSystem::TransformPropagate)
-                    .after(SimulationLightSystems::UpdateDirectionalLightCascades)
-                    // We assume that no entity will be both a directional light and a spot light,
-                    // so these systems will run independently of one another.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(update_spot_light_frusta),
-                update_point_light_frusta
-                    .in_set(SimulationLightSystems::UpdateLightFrusta)
-                    .after(TransformSystem::TransformPropagate)
-                    .after(SimulationLightSystems::AssignLightsToClusters),
-                update_spot_light_frusta
-                    .in_set(SimulationLightSystems::UpdateLightFrusta)
-                    .after(TransformSystem::TransformPropagate)
-                    .after(SimulationLightSystems::AssignLightsToClusters),
-                check_light_mesh_visibility
-                    .in_set(SimulationLightSystems::CheckLightVisibility)
-                    .after(VisibilitySystems::CalculateBoundsFlush)
-                    .after(TransformSystem::TransformPropagate)
-                    .after(SimulationLightSystems::UpdateLightFrusta)
-                    // NOTE: This MUST be scheduled AFTER the core renderer visibility check
-                    // because that resets entity ComputedVisibility for the first view
-                    // which would override any results from this otherwise
-                    .after(VisibilitySystems::CheckVisibility),
-            ));
+            .add_systems(
+                PostUpdate,
+                (
+                    add_clusters.in_set(SimulationLightSystems::AddClusters),
+                    apply_system_buffers.in_set(SimulationLightSystems::AddClustersFlush),
+                    assign_lights_to_clusters
+                        .in_set(SimulationLightSystems::AssignLightsToClusters)
+                        .after(TransformSystem::TransformPropagate)
+                        .after(VisibilitySystems::CheckVisibility)
+                        .after(CameraUpdateSystem),
+                    update_directional_light_cascades
+                        .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
+                        .after(TransformSystem::TransformPropagate)
+                        .after(CameraUpdateSystem),
+                    update_directional_light_frusta
+                        .in_set(SimulationLightSystems::UpdateLightFrusta)
+                        // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
+                        .after(VisibilitySystems::CheckVisibility)
+                        .after(TransformSystem::TransformPropagate)
+                        .after(SimulationLightSystems::UpdateDirectionalLightCascades)
+                        // We assume that no entity will be both a directional light and a spot light,
+                        // so these systems will run independently of one another.
+                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                        .ambiguous_with(update_spot_light_frusta),
+                    update_point_light_frusta
+                        .in_set(SimulationLightSystems::UpdateLightFrusta)
+                        .after(TransformSystem::TransformPropagate)
+                        .after(SimulationLightSystems::AssignLightsToClusters),
+                    update_spot_light_frusta
+                        .in_set(SimulationLightSystems::UpdateLightFrusta)
+                        .after(TransformSystem::TransformPropagate)
+                        .after(SimulationLightSystems::AssignLightsToClusters),
+                    check_light_mesh_visibility
+                        .in_set(SimulationLightSystems::CheckLightVisibility)
+                        .after(VisibilitySystems::CalculateBoundsFlush)
+                        .after(TransformSystem::TransformPropagate)
+                        .after(SimulationLightSystems::UpdateLightFrusta)
+                        // NOTE: This MUST be scheduled AFTER the core renderer visibility check
+                        // because that resets entity ComputedVisibility for the first view
+                        // which would override any results from this otherwise
+                        .after(VisibilitySystems::CheckVisibility),
+                ),
+            );
 
         app.world
             .resource_mut::<Assets<StandardMaterial>>()
@@ -247,31 +247,39 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .configure_set(RenderLightSystems::PrepareLights.in_set(RenderSet::Prepare))
-            .configure_set(RenderLightSystems::PrepareClusters.in_set(RenderSet::Prepare))
-            .configure_set(RenderLightSystems::QueueShadows.in_set(RenderSet::Queue))
+            .configure_sets(
+                Render,
+                (
+                    RenderLightSystems::PrepareLights.in_set(RenderSet::Prepare),
+                    RenderLightSystems::PrepareClusters.in_set(RenderSet::Prepare),
+                    RenderLightSystems::QueueShadows.in_set(RenderSet::Queue),
+                ),
+            )
             .add_systems(
+                ExtractSchedule,
                 (
                     render::extract_clusters.in_set(RenderLightSystems::ExtractClusters),
                     render::extract_lights.in_set(RenderLightSystems::ExtractLights),
-                )
-                    .in_schedule(ExtractSchedule),
+                ),
             )
-            .add_systems((
-                render::prepare_lights
-                    .before(ViewSet::PrepareUniforms)
-                    .in_set(RenderLightSystems::PrepareLights),
-                // A sync is needed after prepare_lights, before prepare_view_uniforms,
-                // because prepare_lights creates new views for shadow mapping
-                apply_system_buffers
-                    .in_set(RenderSet::Prepare)
-                    .after(RenderLightSystems::PrepareLights)
-                    .before(ViewSet::PrepareUniforms),
-                render::prepare_clusters
-                    .after(render::prepare_lights)
-                    .in_set(RenderLightSystems::PrepareClusters),
-                sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
-            ))
+            .add_systems(
+                Render,
+                (
+                    render::prepare_lights
+                        .before(ViewSet::PrepareUniforms)
+                        .in_set(RenderLightSystems::PrepareLights),
+                    // A sync is needed after prepare_lights, before prepare_view_uniforms,
+                    // because prepare_lights creates new views for shadow mapping
+                    apply_system_buffers
+                        .in_set(RenderSet::Prepare)
+                        .after(RenderLightSystems::PrepareLights)
+                        .before(ViewSet::PrepareUniforms),
+                    render::prepare_clusters
+                        .after(render::prepare_lights)
+                        .in_set(RenderLightSystems::PrepareClusters),
+                    sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
+                ),
+            )
             .init_resource::<ShadowSamplers>()
             .init_resource::<LightMeta>()
             .init_resource::<GlobalLightMeta>();
@@ -284,13 +292,7 @@ impl Plugin for PbrPlugin {
         draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
         draw_3d_graph.add_node_edge(
             draw_3d_graph::node::SHADOW_PASS,
-            bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
-        );
-        draw_3d_graph.add_slot_edge(
-            draw_3d_graph.input_node().id,
-            bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-            draw_3d_graph::node::SHADOW_PASS,
-            ShadowPassNode::IN_VIEW,
+            bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
         );
     }
 }

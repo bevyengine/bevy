@@ -6,7 +6,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, BufferId, LoadOp,
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
@@ -34,8 +34,6 @@ pub struct TonemappingNode {
 }
 
 impl TonemappingNode {
-    pub const IN_VIEW: &'static str = "view";
-
     pub fn new(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),
@@ -46,10 +44,6 @@ impl TonemappingNode {
 }
 
 impl Node for TonemappingNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(TonemappingNode::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
@@ -60,7 +54,7 @@ impl Node for TonemappingNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let view_entity = graph.view_entity();
         let pipeline_cache = world.resource::<PipelineCache>();
         let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
         let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
