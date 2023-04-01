@@ -296,7 +296,7 @@ pub struct UnsafeResources<'a, const SEND: bool> {
 }
 
 impl<'a, const SEND: bool> UnsafeResources<'a, SEND> {
-    /// Returns the entity's component and associated ticks.
+    /// Gets access to the resource's data store, if it is registered.
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
