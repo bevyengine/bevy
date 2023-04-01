@@ -424,13 +424,13 @@ pub fn queue_material_meshes<M: Material>(
 
         match shadow_filtering_mode.unwrap_or(&ShadowFilteringMethod::default()) {
             ShadowFilteringMethod::Hardware2x2 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_SIMPLE;
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
             }
             ShadowFilteringMethod::Castano13 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_THE_WITNESS;
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
             }
             ShadowFilteringMethod::Jimenez14 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_STOCHASTIC;
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
             }
         }
 
