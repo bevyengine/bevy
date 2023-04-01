@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 use std::hash::Hash;
+
 use std::mem;
 
 use crate as bevy_ecs;
@@ -53,6 +54,15 @@ pub struct OnEnter<S: States>(pub S);
 /// exits this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
+
+
+/*
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, ScheduleLabel)]
+///
+/// Schedule label that matches all substates in the enum tree that got changed too.
+///
+pub struct SubstateFromAny<L: ScheduleLabel>(pub L);
+*/
 
 /// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
 /// exits the `from` state, AND enters the `to` state.
@@ -132,3 +142,4 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         world.try_run_schedule(OnEnter(entered)).ok();
     }
 }
+
