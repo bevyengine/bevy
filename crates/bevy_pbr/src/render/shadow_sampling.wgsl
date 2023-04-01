@@ -90,7 +90,10 @@ fn sample_shadow_map_stochastic(light_local: vec2<f32>, depth: f32, array_index:
 
     let random_angle = 2.0 * PI * interleaved_gradient_noise(light_local * shadow_map_size);
     let m = vec2(sin(random_angle), cos(random_angle));
-    let rotation_matrix = mat2x2(m.y, -m.x, m.x, m.y);
+    let rotation_matrix = mat2x2(
+        m.y, -m.x,
+        m.x, m.y
+    );
     let scale = 4.0 / shadow_map_size;
 
     let sample_offset1 = (rotation_matrix * sample_offsets[0]) * scale;
