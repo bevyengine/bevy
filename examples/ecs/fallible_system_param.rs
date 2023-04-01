@@ -109,7 +109,8 @@ pub struct GameState {
     mode_id: ComponentId,
 }
 
-// SAFETY: The resource state is initialized.
+// SAFETY: System params must register all world accesses used and ensure accesses don't conflict with other accesses.
+// This param fulfills these requirements by deferring `init_state` and `get_param` to `Res<CurrentGameMode>`'s implementation.
 unsafe impl<T: GameMode> FallibleSystemParam for Game<'_, T> {
     type State = GameState;
     type Item<'world, 'state> = Game<'world, T>;
