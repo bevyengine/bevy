@@ -1,9 +1,9 @@
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Startup, Update};
 use bevy_asset::AssetServer;
 use bevy_ecs::{
     prelude::Component,
     query::{With, Without},
-    schedule::IntoSystemConfig,
+    schedule::IntoSystemConfigs,
     system::{Commands, Query, Res},
 };
 use bevy_hierarchy::BuildChildren;
@@ -39,8 +39,11 @@ impl Plugin for DebugOverlaysPlugin {
             panic!("DebugOverlaysPlugin added but RenderPlugin::wgpu_settings did not contain WgpuFeatures::TIMESTAMP_QUERY.");
         }
 
-        app.add_startup_system(setup_gpu_time_overlay)
-            .add_system(draw_gpu_time_overlay.run_if(on_timer(self.ui_update_frequency)));
+        app.add_systems(Startup, setup_gpu_time_overlay)
+            .add_systems(
+                Update,
+                draw_gpu_time_overlay.run_if(on_timer(self.ui_update_frequency)),
+            );
     }
 }
 
