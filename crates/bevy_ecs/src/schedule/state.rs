@@ -77,18 +77,16 @@ pub struct OnExit<S: States>(pub S);
 /// foo = MyState::Bar;
 ///
 /// ```
-pub struct SubstateInFn<F, Ret, Args>(PhantomData<(F, Ret, Args)>)
+pub struct SubstateInFn<Ret, Args>(PhantomData<(Ret, Args)>)
 where
-    F: VariadicFn<Ret, Args>,
     Ret: States;
 
-impl<F, Ret, Args> SubstateInFn<F, Ret, Args>
+impl<Ret, Args> SubstateInFn<Ret, Args>
 where
-    F: VariadicFn<Ret, Args>,
-    Ret: States
+    Ret: States,
 {
     /// get the type of F from the value passed into the function
-    pub fn of(_f: &F) -> Self {
+    pub fn of<F: VariadicFn<Ret, Args>>(_f: &F) -> Self {
         Self(PhantomData)
     }
 
@@ -188,7 +186,6 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
 /// A trait which most variadic functions should technically implement?
 /// The issue with Fn trait types is that it doesn't support variadic functions.  This one should
 pub trait VariadicFn<Ret, Args> {}
-
 
 macro_rules! impl_substate_tuple {
     ($($name: tt),*)  => {
