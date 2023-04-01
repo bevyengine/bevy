@@ -182,7 +182,7 @@ fn draw_gpu_time_overlay(
             .div(20.0)
             .sqrt();
 
-        writeln!(labels, "{}: ", timer.label).unwrap();
+        writeln!(labels, "{}  ", timer.label).unwrap();
         writeln!(
             durations,
             "{:.3} (±{:.2})",
