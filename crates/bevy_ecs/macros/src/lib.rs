@@ -13,9 +13,19 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, ConstParam,
-    DeriveInput, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Token, TypeParam,
+    parse::{Parse, ParseStream},
+    parse_macro_input, parse_quote,
+    punctuated::Punctuated,
+    spanned::Spanned,
+    ConstParam, DeriveInput, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Token,
+    TypeParam,
 };
+
+mod kw {
+    syn::custom_keyword!(error_type);
+    syn::custom_keyword!(ignore);
+    syn::custom_keyword!(infallible);
+}
 
 enum BundleFieldKind {
     Component,
@@ -251,32 +261,192 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     tokens
 }
 
+enum SystemParamStructAttribute {
+    ErrorType(syn::Type),
+}
+
+impl Parse for SystemParamStructAttribute {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.parse::<kw::error_type>().is_ok() {
+            input.parse::<syn::Token!(=)>()?;
+            return Ok(Self::ErrorType(input.parse()?));
+        }
+
+        Err(syn::Error::new(
+            input.span(),
+            "Invalid struct-level attribute",
+        ))
+    }
+}
+
+#[derive(Default, PartialEq)]
+enum SystemParamFieldAttribute {
+    #[default]
+    None,
+    Ignore,
+    Infallible,
+}
+
+impl Parse for SystemParamFieldAttribute {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.parse::<kw::ignore>().is_ok() {
+            return Ok(Self::Ignore);
+        }
+
+        if input.parse::<kw::infallible>().is_ok() {
+            return Ok(Self::Infallible);
+        }
+
+        Ok(Self::None)
+    }
+}
+
+static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
+
 /// Implement `SystemParam` to use a struct as a parameter in a system
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let token_stream = input.clone();
     let ast = parse_macro_input!(input as DeriveInput);
-    let syn::Data::Struct(syn::DataStruct { fields: field_definitions, .. }) = ast.data else {
+    let syn::Data::Struct(syn::DataStruct { fields, ..}) = ast.data else {
         return syn::Error::new(ast.span(), "Invalid `SystemParam` type: expected a `struct`")
             .into_compile_error()
             .into();
     };
     let path = bevy_ecs_path();
 
+    let mut error_ty = None;
+    for attr in &ast.attrs {
+        let Some(attr_ident) = attr.path.get_ident() else { continue };
+        if attr_ident == SYSTEM_PARAM_ATTRIBUTE_NAME {
+            if error_ty.is_none() {
+                match attr.parse_args_with(SystemParamStructAttribute::parse) {
+                    Ok(v) => match v {
+                        SystemParamStructAttribute::ErrorType(ty) => {
+                            error_ty = Some(ty);
+                        }
+                    },
+                    Err(err) => {
+                        return err.to_compile_error().into();
+                    }
+                };
+            } else {
+                return syn::Error::new(attr.span(), "Attribute `error_type` is already set")
+                    .into_compile_error()
+                    .into();
+            }
+        }
+    }
+
     let mut field_locals = Vec::new();
-    let mut fields = Vec::new();
+    let mut field_getters = Vec::new();
+    let mut field_names = Vec::new();
     let mut field_types = Vec::new();
-    for (i, field) in field_definitions.iter().enumerate() {
-        field_locals.push(format_ident!("f{i}"));
-        let i = Index::from(i);
-        fields.push(
-            field
-                .ident
-                .as_ref()
-                .map(|f| quote! { #f })
-                .unwrap_or_else(|| quote! { #i }),
-        );
-        field_types.push(&field.ty);
+    let mut ignored_fields = Vec::new();
+    let mut ignored_field_types = Vec::new();
+    for (i, field) in fields.iter().enumerate() {
+        let mut attr_state = SystemParamFieldAttribute::default();
+        for attr in &field.attrs {
+            let Some(attr_ident) = attr.path.get_ident() else { continue; };
+            if attr_ident == SYSTEM_PARAM_ATTRIBUTE_NAME {
+                if attr_state == SystemParamFieldAttribute::None {
+                    attr_state = match attr.parse_args_with(SystemParamFieldAttribute::parse) {
+                        Ok(v) => v,
+                        Err(err) => {
+                            return err.to_compile_error().into();
+                        }
+                    }
+                } else {
+                    return syn::Error::new(
+                        attr.span(),
+                        "Multiple `system_param` field attributes found.",
+                    )
+                    .into_compile_error()
+                    .into();
+                }
+            }
+        }
+
+        let construct_infallible =
+            |fls: &mut Vec<Ident>,
+             fgs: &mut Vec<proc_macro2::TokenStream>,
+             fns: &mut Vec<proc_macro2::TokenStream>,
+             fts: &mut Vec<proc_macro2::TokenStream>| {
+                let ident = format_ident!("f{i}");
+                fls.push(ident.clone());
+                fgs.push(quote! {
+                    #ident
+                });
+                let i = Index::from(i);
+                let ty = &field.ty;
+                fns.push(
+                    field
+                        .ident
+                        .as_ref()
+                        .map(|f| quote! { #f })
+                        .unwrap_or_else(|| quote! { #i }),
+                );
+                fts.push(quote! { #ty });
+            };
+
+        let construct_fallible =
+            |fls: &mut Vec<Ident>,
+             fgs: &mut Vec<proc_macro2::TokenStream>,
+             fns: &mut Vec<proc_macro2::TokenStream>,
+             fts: &mut Vec<proc_macro2::TokenStream>| {
+                let ident = format_ident!("f{i}");
+                fls.push(ident.clone());
+                fgs.push(quote! {
+                    match #ident {
+                        Ok(o) => o,
+                        Err(e) => return Err(e.into()),
+                    }
+                });
+                let i = Index::from(i);
+                let ty = &field.ty;
+                fns.push(
+                    field
+                        .ident
+                        .as_ref()
+                        .map(|f| quote! { #f })
+                        .unwrap_or_else(|| quote! { #i }),
+                );
+                fts.push(
+                    quote! { Result<#ty, <#ty as #path::system::FallibleSystemParam>::Error> },
+                );
+            };
+
+        match attr_state {
+            SystemParamFieldAttribute::None => {
+                if error_ty.is_none() {
+                    construct_infallible(
+                        &mut field_locals,
+                        &mut field_getters,
+                        &mut field_names,
+                        &mut field_types,
+                    );
+                } else {
+                    construct_fallible(
+                        &mut field_locals,
+                        &mut field_getters,
+                        &mut field_names,
+                        &mut field_types,
+                    );
+                }
+            }
+            SystemParamFieldAttribute::Ignore => {
+                ignored_fields.push(field.ident.as_ref().unwrap());
+                ignored_field_types.push(&field.ty);
+            }
+            SystemParamFieldAttribute::Infallible => {
+                construct_infallible(
+                    &mut field_locals,
+                    &mut field_getters,
+                    &mut field_names,
+                    &mut field_types,
+                );
+            }
+        }
     }
 
     let generics = ast.generics;
@@ -370,6 +540,31 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let state_struct_visibility = &ast.vis;
     let state_struct_name = ensure_no_collision(format_ident!("FetchState"), token_stream);
 
+    let (error_ty, trait_ty, get_param_return_ty, get_param_output) = match error_ty {
+        Some(err) => (
+            quote! { type Error = #err; },
+            quote! { #path::system::FallibleSystemParam },
+            quote! { Result<Self::Item<'w, 's>, <Self::Item<'w, 's> as #path::system::FallibleSystemParam>::Error> },
+            quote! {
+                Ok(#struct_name {
+                    #(#field_names: #field_getters,)*
+                    #(#ignored_fields: std::default::Default::default(),)*
+                })
+            },
+        ),
+        None => (
+            quote! {},
+            quote! { #path::system::SystemParam },
+            quote! { Self::Item<'w, 's> },
+            quote! {
+                #struct_name {
+                    #(#field_names: #field_getters,)*
+                    #(#ignored_fields: std::default::Default::default(),)*
+                }
+            },
+        ),
+    };
+
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
@@ -384,11 +579,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 state: <#fields_alias::<'static, 'static, #punctuated_generic_idents> as #path::system::SystemParam>::State,
             }
 
-            unsafe impl<#punctuated_generics> #path::system::SystemParam for
+            unsafe impl<#punctuated_generics> #trait_ty for
                 #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents> #where_clause
             {
                 type State = #state_struct_name<#punctuated_generic_idents>;
                 type Item<'w, 's> = #struct_name #ty_generics;
+                #error_ty
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
                     #state_struct_name {
@@ -409,13 +605,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     system_meta: &#path::system::SystemMeta,
                     world: &'w #path::world::World,
                     change_tick: #path::component::Tick,
-                ) -> Self::Item<'w, 's> {
+                ) -> #get_param_return_ty {
                     let (#(#tuple_patterns,)*) = <
                         (#(#tuple_types,)*) as #path::system::SystemParam
                     >::get_param(&mut state.state, system_meta, world, change_tick);
-                    #struct_name {
-                        #(#fields: #field_locals,)*
-                    }
+                    #get_param_output
                 }
             }
 
