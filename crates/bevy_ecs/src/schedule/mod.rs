@@ -6,7 +6,7 @@ mod graph_utils;
 mod schedule;
 mod set;
 mod state;
-mod substate;
+pub mod substate;
 pub use self::condition::*;
 pub use self::config::*;
 pub use self::executor::*;
@@ -14,7 +14,6 @@ use self::graph_utils::*;
 pub use self::schedule::*;
 pub use self::set::*;
 pub use self::state::*;
-pub use self::substate::*;
 
 pub use self::graph_utils::NodeId;
 

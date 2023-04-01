@@ -461,17 +461,33 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
     derive_world_query_impl(input)
 }
 
-/// Derive macro generating an impl of the trait `ScheduleLabel`.
-#[proc_macro_derive(ScheduleLabel)]
-pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("ScheduleLabel").into());
-    derive_boxed_label(input, &trait_path)
+macro_rules! schedule_label {
+    ($name:ident, $fn:ident, $($path:tt),* ) => {
+        /// Derive macro generating an impl of the trait `ScheduleLabel`.
+        #[proc_macro_derive($name)]
+        pub fn $fn(input: TokenStream) -> TokenStream {
+            let input = parse_macro_input!(input as DeriveInput);
+            let mut trait_path = bevy_ecs_path();
+            $(trait_path.segments.push(format_ident!($path).into());)*
+
+            derive_boxed_label(input, &trait_path)
+        }
+    };
 }
+
+schedule_label!(
+    ScheduleLabel,
+    derive_schedule_label,
+    "schedule",
+    "ScheduleLabel"
+);
+schedule_label!(
+    SubstateLabel,
+    derive_substate_schedule_label,
+    "schedule",
+    "substate",
+    "SubstateLabel"
+);
 
 /// Derive macro generating an impl of the trait `SystemSet`.
 #[proc_macro_derive(SystemSet)]

@@ -1,8 +1,10 @@
 use crate::schedule::ScheduleLabel;
 
 use crate as bevy_ecs;
+pub use bevy_ecs_macros::SubstateLabel;
 use bevy_utils::{all_tuples, define_boxed_label};
 use std::marker::PhantomData;
+
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 ///
 ///
@@ -24,11 +26,10 @@ use std::marker::PhantomData;
 /// foo = MyState::Bar;
 ///
 /// ```
-pub struct SubstateLabelInFn<Ret, Args, L: ScheduleLabel>(PhantomData<(L, Ret, Args)>);
+pub struct SubstateLabelInFn<Ret, Args, L: SubstateLabel>(PhantomData<(L, Ret, Args)>);
 
-
-pub struct SubstateInFn<L: ScheduleLabel>(PhantomData<L>);
-impl<L: ScheduleLabel> SubstateInFn<L> {
+pub struct SubstateInFn<L: SubstateLabel>(PhantomData<L>);
+impl<L: SubstateLabel> SubstateInFn<L> {
     /// from the type of F from the value passed into the function
     pub fn new<F: VariadicFn<Ret, Args>, Ret, Args>(_f: &F) -> SubstateLabelInFn<Ret, Args, L> {
         SubstateLabelInFn(PhantomData)
@@ -57,4 +58,10 @@ macro_rules! impl_args_tuple {
 all_tuples!(impl_args_tuple, 0, 16, A);
 all_tuples!(impl_substate_tuple, 0, 16, S);
 
-define_boxed_label!(SubstateScheduleLabel);
+define_boxed_label!(SubstateLabel);
+
+#[derive(SubstateLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct OnEnter;
+
+#[derive(SubstateLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct OnExit;
