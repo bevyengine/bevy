@@ -11,9 +11,9 @@ assignees: ''
 * Original: The release number or commit hash of the version you last tested your app against.
 * Current: The release number or commit hash of the version you're currently using.
 
-## \[Optional\] Relevant system information
+## Relevant system information
 
-If you cannot get Bevy to build or run on your machine, please include:
+Please include:
 
 - the Rust version you're using (you can get this by running `cargo --version`)
   - Bevy relies on the "latest stable release" of Rust
