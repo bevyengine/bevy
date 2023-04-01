@@ -75,7 +75,7 @@ impl ExtractComponent for ContrastAdaptiveSharpeningSettings {
     type Out = (DenoiseCAS, CASUniform);
 
     fn extract_component(item: QueryItem<Self::Query>) -> Option<Self::Out> {
-        if !item.enabled {
+        if !item.enabled || item.sharpening_strength == 0.0 {
             return None;
         }
         Some((
