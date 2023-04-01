@@ -96,14 +96,14 @@ fn sample_shadow_map_stochastic(light_local: vec2<f32>, depth: f32, array_index:
     let sample_offset8 = (rotation_matrix * sample_offsets[7]) * scale;
 
     var sum = 0.0;
-    sum += sample_shadow_map_simple(light_local + sample_offset1, depth, array_index);
-    sum += sample_shadow_map_simple(light_local + sample_offset2, depth, array_index);
-    sum += sample_shadow_map_simple(light_local + sample_offset3, depth, array_index);
-    sum += sample_shadow_map_simple(light_local + sample_offset4, depth, array_index);
-    sum += sample_shadow_map_simple(light_local + sample_offset5, depth, array_index);
-    sum += sample_shadow_map_simple(light_local + sample_offset6, depth, array_index);
-    sum += sample_shadow_map_simple(light_local + sample_offset7, depth, array_index);
-    sum += sample_shadow_map_simple(light_local + sample_offset8, depth, array_index);
+    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset1, depth, array_index);
+    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset2, depth, array_index);
+    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset3, depth, array_index);
+    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset4, depth, array_index);
+    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset5, depth, array_index);
+    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset6, depth, array_index);
+    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset7, depth, array_index);
+    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset8, depth, array_index);
     return sum / 8.0;
 }
 
