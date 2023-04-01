@@ -43,7 +43,7 @@ pub mod prelude {
             substate::{self, SubstateLabel, SubstateLabelInFn},
             Condition, IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs,
             NextState, OnEnter, OnExit, OnTransition, OnUpdate, Schedule, Schedules, State, States,
-            SystemSet,
+            SystemSet, ShadowStates
         },
         system::{
             adapter as system_adapter,

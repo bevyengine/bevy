@@ -26,7 +26,12 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
+    let mut shadow_trait_path = trait_path.clone();
+    shadow_trait_path
+        .segments
+        .push(format_ident!("ShadowStates").into());
     trait_path.segments.push(format_ident!("States").into());
+
     let struct_name = &ast.ident;
     let idents = enumeration.variants.iter().map(|v| &v.ident);
     let len = idents.len();
@@ -37,6 +42,11 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 
             fn variants() -> Self::Iter {
                 [#(Self::#idents,)*].into_iter()
+            }
+
+            fn dispatch_run_schedule_to_substate(&self) {}
+            fn get_substate(&self) -> Option<Vec<Box<dyn #shadow_trait_path>>> {
+                None
             }
         }
     }

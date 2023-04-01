@@ -191,6 +191,15 @@ fn substate() {
             ]
             .into_iter()
         }
+
+        fn get_substate(&self) -> Option<Vec<Box<dyn ShadowStates>>> {
+            match self {
+                ParentState::Unit => None,
+                ParentState::Child(some) => Some(vec![Box::new(some.clone())]),
+            }
+        }
+
+        fn dispatch_run_schedule_to_substate(&self) {}
     }
 
     #[derive(Clone, Default, Debug, Hash, Eq, PartialEq, States)]
@@ -213,10 +222,7 @@ fn substate() {
         assert_eq!(state.0, ParentState::Child(ChildState::Bar));
         *has_runned2.lock().unwrap() = true;
     };
-    app.add_systems(
-        substate::OnEnter::with(&ParentState::Child),
-        enter_bar,
-    );
+    app.add_systems(substate::OnEnter::with(&ParentState::Child), enter_bar);
     app.update();
     app.update();
     assert_eq!(*has_runned.lock().unwrap(), true);
