@@ -23,7 +23,7 @@ fn sample_shadow_map_simple(light_local: vec2<f32>, depth: f32, array_index: i32
 }
 
 // https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1
-fn sample_shadow_map_the_witness(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+fn sample_shadow_map_castano_13(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     let shadow_map_size = vec2<f32>(textureDimensions(directional_shadow_textures));
     let inv_shadow_map_size = 1.0 / shadow_map_size;
 
