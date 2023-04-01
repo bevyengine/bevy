@@ -26,7 +26,7 @@ Please include:
 Describe how you arrived at the problem. If you can, consider providing a code snippet or link
 to help reproduce the regression. 
 
-If the exact scenario is not immediately reproducible, please include a set list of steps
+If the exact scenario is not immediately reproducible on `cargo run`, please include a set list of steps to produce the correct setup.
 
 ## Before and After Traces
 
