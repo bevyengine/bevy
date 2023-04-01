@@ -75,6 +75,16 @@ fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
 }
 
 // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
+const sample_offsets: array<vec2<f32>, 8> = array<vec2<f32>, 8>(
+    vec2<f32>(-0.7071,  0.7071),
+    vec2<f32>(-0.0000, -0.8750),
+    vec2<f32>( 0.5303,  0.5303),
+    vec2<f32>(-0.6250, -0.0000),
+    vec2<f32>( 0.3536, -0.3536),
+    vec2<f32>(-0.0000,  0.3750),
+    vec2<f32>(-0.1768, -0.1768),
+    vec2<f32>( 0.1250,  0.0000),
+);
 fn sample_shadow_map_stochastic(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     let shadow_map_size = vec2<f32>(textureDimensions(directional_shadow_textures));
 
