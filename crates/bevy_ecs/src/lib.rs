@@ -40,7 +40,7 @@ pub mod prelude {
         schedule::{
             apply_state_transition, apply_system_buffers,
             common_conditions::*,
-            substate::{self, SubstateInFn, SubstateLabel, SubstateLabelInFn},
+            substate::{self, SubstateLabel, SubstateLabelInFn},
             Condition, IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs,
             NextState, OnEnter, OnExit, OnTransition, OnUpdate, Schedule, Schedules, State, States,
             SystemSet,

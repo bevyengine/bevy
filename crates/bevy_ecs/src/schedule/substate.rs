@@ -1,7 +1,6 @@
 use crate::schedule::ScheduleLabel;
 
 use crate as bevy_ecs;
-pub use bevy_ecs_macros::SubstateLabel;
 use bevy_utils::{all_tuples, define_boxed_label};
 use std::marker::PhantomData;
 
@@ -28,14 +27,6 @@ use std::marker::PhantomData;
 /// ```
 pub struct SubstateLabelInFn<Ret, Args, L: SubstateLabel>(PhantomData<(L, Ret, Args)>);
 
-pub struct SubstateInFn<L: SubstateLabel>(PhantomData<L>);
-impl<L: SubstateLabel> SubstateInFn<L> {
-    /// from the type of F from the value passed into the function
-    pub fn new<F: VariadicFn<Ret, Args>, Ret, Args>(_f: &F) -> SubstateLabelInFn<Ret, Args, L> {
-        SubstateLabelInFn(PhantomData)
-    }
-}
-
 /// A trait which most variadic functions should technically implement?
 /// The issue with Fn trait types is that it doesn't support variadic functions.  This one should
 pub trait VariadicFn<Ret, Args> {}
@@ -57,10 +48,20 @@ macro_rules! impl_args_tuple {
 
 all_tuples!(impl_args_tuple, 0, 16, A);
 all_tuples!(impl_substate_tuple, 0, 16, S);
-pub trait SubstateLabel {}
+pub trait SubstateLabel
+where
+    Self: Sized,
+{
+    fn with<F: VariadicFn<Ret, Args>, Ret, Args>(_f: &F) -> SubstateLabelInFn<Ret, Args, Self> {
+        SubstateLabelInFn(PhantomData)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnEnter;
+impl SubstateLabel for OnEnter {}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit;
+
+impl SubstateLabel for OnExit {}

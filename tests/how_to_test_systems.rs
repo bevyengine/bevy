@@ -214,7 +214,7 @@ fn substate() {
         *has_runned2.lock().unwrap() = true;
     };
     app.add_systems(
-        SubstateInFn::<substate::OnEnter>::new(&ParentState::Child),
+        substate::OnEnter::with(&ParentState::Child),
         enter_bar,
     );
     app.update();
