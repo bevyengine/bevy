@@ -559,7 +559,7 @@ pub struct Table {
 }
 
 impl Table {
-    /// Returns the entities stored in this table.
+    /// Returns the entities with components stored in this table.
     #[inline]
     pub fn entities(&self) -> &[Entity] {
         &self.entities
@@ -938,7 +938,7 @@ impl<'a> UnsafeTable<'a> {
         self.table.has_column(component_id)
     }
 
-    /// Returns the entities stored in this table.
+    /// Returns the entities with components stored in this table.
     pub fn entities(self) -> &'a [Entity] {
         self.table.entities()
     }
