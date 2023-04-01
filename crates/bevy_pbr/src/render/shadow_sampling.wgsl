@@ -64,7 +64,7 @@ fn sample_shadow_map_the_witness(light_local: vec2<f32>, depth: f32, array_index
     sum += uw1 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u1, v2) * inv_shadow_map_size), depth, array_index);
     sum += uw2 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u2, v2) * inv_shadow_map_size), depth, array_index);
 
-    return sum / 144.0;
+    return sum * (1.0 / 144.0);
 }
 
 // https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
