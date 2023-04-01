@@ -25,15 +25,19 @@ use std::{
 };
 
 macro_rules! system_param_common {
-    () => {
+    ($ty:ty) => {
         /// Used to store data which persists across invocations of a system.
         type State: Send + Sync + 'static;
 
-        /// Registers any [`World`] access used by this [`SystemParam`]
+        /// Registers any [`World`] access used by this [`
+        #[doc = stringify!($ty)]
+        /// `]
         /// and creates a new instance of this param's [`State`](Self::State).
         fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
 
-        /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).
+        /// For the specified [`Archetype`], registers the components accessed by this [`
+        #[doc = stringify!($ty)]
+        /// `] (if applicable).
         #[inline]
         fn new_archetype(
             _state: &mut Self::State,
@@ -42,7 +46,9 @@ macro_rules! system_param_common {
         ) {
         }
 
-        /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
+        /// Applies any deferred mutations stored in this [`
+        #[doc = stringify!($ty)]
+        /// `]'s state.
         /// This is used to apply [`Commands`] during [`apply_system_buffers`](crate::prelude::apply_system_buffers).
         ///
         /// [`Commands`]: crate::prelude::Commands
@@ -148,7 +154,7 @@ pub unsafe trait SystemParam: Sized {
     /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to `Self`.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
 
-    system_param_common!();
+    system_param_common!(SystemParam);
 
     /// # Safety
     ///
@@ -232,7 +238,7 @@ pub unsafe trait FallibleSystemParam: Sized {
     /// The error type returned when constructing this system param fails.
     type Error: Error;
 
-    system_param_common!();
+    system_param_common!(FallibleSystemParam);
 
     /// # Safety
     ///
