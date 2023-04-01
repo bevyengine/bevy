@@ -85,7 +85,7 @@ const sample_offsets: array<vec2<f32>, 8> = array<vec2<f32>, 8>(
     vec2<f32>(-0.1768, -0.1768),
     vec2<f32>( 0.1250,  0.0000),
 );
-fn sample_shadow_map_stochastic(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+fn sample_shadow_map_jimenez_14(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     let shadow_map_size = vec2<f32>(textureDimensions(directional_shadow_textures));
 
     let random_angle = 2.0 * PI * interleaved_gradient_noise(light_local * shadow_map_size);
