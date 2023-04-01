@@ -608,18 +608,33 @@ pub struct NotShadowCaster;
 pub struct NotShadowReceiver;
 
 /// Add this component to a [`Camera3d`](bevy_core_pipeline::core_3d::Camera3d)
-/// to control how to smooth the edges of shadows.
+/// to control how to anti-alias shadow edges.
+///
+/// The different modes use different approaches to
+/// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
+///
+/// Currently does not affect point lights.
 #[derive(Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
 #[reflect(Component, Default)]
-pub enum ShadowSmoothingMode {
-    /// No smoothing (fastest, but jagged edges).
-    NoSmoothing,
-    /// Smooth shadows using the default algorithm.
+pub enum ShadowFilteringMethod {
+    /// Hardware 2x2.
+    ///
+    /// Fast but poor quality.
+    Hardware2x2,
+    /// Method by Ignacio Castaño for The Witness using 9 samples and smart
+    /// filtering to achieve the same as a regular 5x5 filter kernel.
+    ///
+    /// Good quality, good performance.
     #[default]
-    Smooth,
-    /// Smooth shadows meant to be used in conjunction with
-    /// [`TemporalAntiAliasSettings`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings).
-    Stochastic,
+    Castano13,
+    /// Method  by Jorge Jimenez for Call of Duty: Advanced Warfare using 8
+    /// samples in spiral pattern, randomly-rotated by interleaved gradient
+    /// noise with spatial variation.
+    ///
+    /// Good quality when used with
+    /// [`TemporalAntiAliasSettings`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings)
+    /// and good performance.
+    Jimenez14,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]

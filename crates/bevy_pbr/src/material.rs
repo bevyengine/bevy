@@ -1,7 +1,7 @@
 use crate::{
     render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
     MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems, SetMeshBindGroup,
-    SetMeshViewBindGroup, Shadow, ShadowSmoothingMode,
+    SetMeshViewBindGroup, Shadow, ShadowFilteringMethod,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -381,7 +381,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Tonemapping>,
         Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
-        Option<&ShadowSmoothingMode>,
+        Option<&ShadowFilteringMethod>,
         Option<&NormalPrepass>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
@@ -396,7 +396,7 @@ pub fn queue_material_meshes<M: Material>(
         tonemapping,
         dither,
         environment_map,
-        shadow_smoothing_mode,
+        shadow_filtering_mode,
         normal_prepass,
         mut opaque_phase,
         mut alpha_mask_phase,
@@ -422,14 +422,14 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
 
-        match shadow_smoothing_mode.unwrap_or(&ShadowSmoothingMode::default()) {
-            ShadowSmoothingMode::NoSmoothing => {
+        match shadow_filtering_mode.unwrap_or(&ShadowFilteringMethod::default()) {
+            ShadowFilteringMethod::Hardware2x2 => {
                 view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_SIMPLE;
             }
-            ShadowSmoothingMode::Smooth => {
+            ShadowFilteringMethod::Castano13 => {
                 view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_THE_WITNESS;
             }
-            ShadowSmoothingMode::Stochastic => {
+            ShadowFilteringMethod::Jimenez14 => {
                 view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_STOCHASTIC;
             }
         }
