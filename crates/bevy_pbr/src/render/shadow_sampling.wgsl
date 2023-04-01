@@ -52,17 +52,17 @@ fn sample_shadow_map_castano_13(light_local: vec2<f32>, depth: f32, array_index:
 
     var sum = 0.0;
 
-    sum += uw0 * vw0 * sample_shadow_map_simple(base_uv + (vec2(u0, v0) * inv_shadow_map_size), depth, array_index);
-    sum += uw1 * vw0 * sample_shadow_map_simple(base_uv + (vec2(u1, v0) * inv_shadow_map_size), depth, array_index);
-    sum += uw2 * vw0 * sample_shadow_map_simple(base_uv + (vec2(u2, v0) * inv_shadow_map_size), depth, array_index);
+    sum += uw0 * vw0 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u0, v0) * inv_shadow_map_size), depth, array_index);
+    sum += uw1 * vw0 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u1, v0) * inv_shadow_map_size), depth, array_index);
+    sum += uw2 * vw0 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u2, v0) * inv_shadow_map_size), depth, array_index);
 
-    sum += uw0 * vw1 * sample_shadow_map_simple(base_uv + (vec2(u0, v1) * inv_shadow_map_size), depth, array_index);
-    sum += uw1 * vw1 * sample_shadow_map_simple(base_uv + (vec2(u1, v1) * inv_shadow_map_size), depth, array_index);
-    sum += uw2 * vw1 * sample_shadow_map_simple(base_uv + (vec2(u2, v1) * inv_shadow_map_size), depth, array_index);
+    sum += uw0 * vw1 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u0, v1) * inv_shadow_map_size), depth, array_index);
+    sum += uw1 * vw1 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u1, v1) * inv_shadow_map_size), depth, array_index);
+    sum += uw2 * vw1 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u2, v1) * inv_shadow_map_size), depth, array_index);
 
-    sum += uw0 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u0, v2) * inv_shadow_map_size), depth, array_index);
-    sum += uw1 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u1, v2) * inv_shadow_map_size), depth, array_index);
-    sum += uw2 * vw2 * sample_shadow_map_simple(base_uv + (vec2(u2, v2) * inv_shadow_map_size), depth, array_index);
+    sum += uw0 * vw2 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u0, v2) * inv_shadow_map_size), depth, array_index);
+    sum += uw1 * vw2 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u1, v2) * inv_shadow_map_size), depth, array_index);
+    sum += uw2 * vw2 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u2, v2) * inv_shadow_map_size), depth, array_index);
 
     return sum * (1.0 / 144.0);
 }
