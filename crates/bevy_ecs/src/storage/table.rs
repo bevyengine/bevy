@@ -918,7 +918,8 @@ pub struct UnsafeTable<'a> {
 }
 
 impl<'a> UnsafeTable<'a> {
-    /// Gets access to the data for a specific component type in this table.
+    /// If this table stores components of type `component_id`,
+    /// gets access to the [`Column`] storing those components.
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that

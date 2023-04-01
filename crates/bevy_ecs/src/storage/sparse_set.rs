@@ -635,7 +635,8 @@ pub struct UnsafeComponentSparseSet<'a> {
 }
 
 impl<'a> UnsafeComponentSparseSet<'a> {
-    /// Returns the entity's component and associated ticks.
+    /// If `entity` has a component stored in this sparse set,
+    /// returns the component's value and associated change [`Tick`]s.
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that

@@ -91,7 +91,8 @@ pub struct UnsafeSparseSets<'a> {
 }
 
 impl<'a> UnsafeSparseSets<'a> {
-    /// Gets a view into the [`ComponentSparseSet`] associated with `component_id`.
+    /// Gets a view into the [`ComponentSparseSet`] associated with `component_id`,
+    /// if one exists.
     pub fn get(self, component_id: ComponentId) -> Option<UnsafeComponentSparseSet<'a>> {
         self.sparse_sets
             .get(component_id)
@@ -106,7 +107,7 @@ pub struct UnsafeTables<'a> {
 }
 
 impl<'a> UnsafeTables<'a> {
-    /// Gets a view into the [`Table`] associated with `id`.
+    /// Gets a view into the [`Table`] associated with `id`, if one exists.
     pub fn get(self, id: TableId) -> Option<UnsafeTable<'a>> {
         self.tables.get(id).map(|table| UnsafeTable { table })
     }
