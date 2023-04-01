@@ -23,11 +23,17 @@ use std::{env, fmt::Write, ops::Div};
 
 /// Displays an overlay showing how long GPU operations take.
 ///
+/// # Setup
+///
 /// To time GPU operation(s), wrap them in [`bevy_render::renderer::RenderContext`]`::begin_debug_scope()` and `end_debug_scope()`.
 ///
 /// Ensure you add [`WgpuFeatures`]`::TIMESTAMP_QUERY` to `RenderPlugin::wgpu_settings`.
 ///
 /// Ensure you add this plugin after `DefaultPlugins`.
+///
+/// # Stability
+///
+/// To ensure you get accurate results, try to close all unnecessary programs and background tasks.
 ///
 /// To ensure you get stable results, run your program through the appropriate GPU locking script.
 /// Example: `./tools/nvidia-gpu-lock.sh cargo run --example 3d_scene`.
