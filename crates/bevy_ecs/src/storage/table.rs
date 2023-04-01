@@ -932,8 +932,11 @@ impl<'a> UnsafeTable<'a> {
         self.table.get_column(component_id)
     }
 
-    /// Returns `true` if this table has a column associated with `component_id`.
-    /// Otherwise, this returns `false`.
+    /// Checks if the table contains a [`Column`] for a given [`Component`].
+    ///
+    /// Returns `true` if the column is present, `false` otherwise.
+    ///
+    /// [`Component`]: crate::component::Component
     pub fn has_column(self, component_id: ComponentId) -> bool {
         self.table.has_column(component_id)
     }
