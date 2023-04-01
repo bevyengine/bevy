@@ -118,12 +118,12 @@ fn sample_shadow_map_stochastic(light_local: vec2<f32>, depth: f32, array_index:
 }
 
 fn sample_shadow_map(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
-#ifdef SHADOW_FILTER_METHOD_THE_WITNESS
-    return sample_shadow_map_the_witness(light_local, depth, array_index);
-#else ifdef SHADOW_FILTER_METHOD_STOCHASTIC
-    return sample_shadow_map_stochastic(light_local, depth, array_index);
+#ifdef SHADOW_FILTER_METHOD_CASTANO_13
+    return sample_shadow_map_castano_13(light_local, depth, array_index);
+#else ifdef SHADOW_FILTER_METHOD_JIMENEZ_14
+    return sample_shadow_map_jimenez_14(light_local, depth, array_index);
 #else
-    return sample_shadow_map_simple(light_local, depth, array_index);
+    return sample_shadow_map_hardware_2x2(light_local, depth, array_index);
 #endif
 }
 
