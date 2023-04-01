@@ -173,6 +173,10 @@ impl RenderGraphRunner {
                 smallvec![None; node_state.output_slots.len()];
             {
                 let mut context = RenderGraphContext::new(graph, node_state, &inputs, &mut outputs);
+                if let Some(view_entity) = view_entity {
+                    context.set_view_entity(view_entity);
+                }
+
                 {
                     #[cfg(feature = "trace")]
                     let _span = info_span!("node", name = node_state.type_name).entered();
