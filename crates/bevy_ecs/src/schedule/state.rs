@@ -77,22 +77,13 @@ pub struct OnExit<S: States>(pub S);
 /// foo = MyState::Bar;
 ///
 /// ```
-pub struct SubstateInFn<Ret, Args>(PhantomData<(Ret, Args)>)
-where
-    Ret: States;
+pub struct SubstateInFn<Ret, Args, L: ScheduleLabel>(PhantomData<(L, Ret, Args)>);
 
-impl<Ret, Args> SubstateInFn<Ret, Args>
-where
-    Ret: States,
-{
-    /// get the type of F from the value passed into the function
-    pub fn of<F: VariadicFn<Ret, Args>>(_f: &F) -> Self {
-        Self(PhantomData)
-    }
-
-    pub fn manual() -> Self {
-        Self(PhantomData)
-    }
+/// from the type of F from the value passed into the function
+pub fn substate_in_fn<F: VariadicFn<Ret2, Args2>, Ret2, Args2, L2: ScheduleLabel>(
+        _f: &F,
+) -> SubstateInFn<Ret2, Args2, L2> {
+        SubstateInFn(PhantomData)
 }
 
 /*
@@ -201,5 +192,6 @@ macro_rules! impl_args_tuple {
         }
     }
 }
+
 all_tuples!(impl_args_tuple, 0, 16, A);
 all_tuples!(impl_substate_tuple, 0, 16, S);
