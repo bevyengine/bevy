@@ -52,6 +52,7 @@ use bevy_utils::{FloatOrd, HashMap};
 
 use crate::{
     prepass::{node::PrepassNode, DepthPrepass},
+    skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
     upscaling::UpscalingNode,
 };
@@ -62,6 +63,7 @@ impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera3d>()
             .register_type::<Camera3dDepthLoadOp>()
+            .add_plugin(SkyboxPlugin)
             .add_plugin(ExtractComponentPlugin::<Camera3d>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {

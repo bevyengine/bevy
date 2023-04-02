@@ -7,9 +7,12 @@ pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod msaa_writeback;
 pub mod prepass;
+mod skybox;
 mod taa;
 pub mod tonemapping;
 pub mod upscaling;
+
+pub use skybox::Skybox;
 
 /// Experimental features that are not yet finished. Please report any issues you encounter!
 pub mod experimental {
