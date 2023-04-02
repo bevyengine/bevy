@@ -7,7 +7,8 @@
 
 #import bevy_pbr::gtao_utils
 #import bevy_pbr::utils
-#import bevy_pbr::mesh_view_types
+#import bevy_render::view
+#import bevy_render::globals
 
 @group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
 @group(0) @binding(1) var normals: texture_2d<f32>;

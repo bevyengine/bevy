@@ -1,4 +1,3 @@
-use crate::{MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core_pipeline::{
@@ -523,17 +522,7 @@ impl FromWorld for SSAOPipelines {
                 ],
                 push_constant_ranges: vec![],
                 shader: PREPROCESS_DEPTH_SHADER_HANDLE.typed(),
-                shader_defs: vec![
-                    // TODO: Remove this hack
-                    ShaderDefVal::Int(
-                        "MAX_DIRECTIONAL_LIGHTS".to_string(),
-                        MAX_DIRECTIONAL_LIGHTS as i32,
-                    ),
-                    ShaderDefVal::UInt(
-                        "MAX_CASCADES_PER_LIGHT".to_string(),
-                        MAX_CASCADES_PER_LIGHT as u32,
-                    ),
-                ],
+                shader_defs: Vec::new(),
                 entry_point: "preprocess_depth".into(),
             });
 
@@ -546,17 +535,7 @@ impl FromWorld for SSAOPipelines {
                 ],
                 push_constant_ranges: vec![],
                 shader: SPATIAL_DENOISE_SHADER_HANDLE.typed(),
-                shader_defs: vec![
-                    // TODO: Remove this hack
-                    ShaderDefVal::Int(
-                        "MAX_DIRECTIONAL_LIGHTS".to_string(),
-                        MAX_DIRECTIONAL_LIGHTS as i32,
-                    ),
-                    ShaderDefVal::UInt(
-                        "MAX_CASCADES_PER_LIGHT".to_string(),
-                        MAX_CASCADES_PER_LIGHT as u32,
-                    ),
-                ],
+                shader_defs: Vec::new(),
                 entry_point: "spatial_denoise".into(),
             });
 
@@ -592,15 +571,6 @@ impl SpecializedComputePipeline for SSAOPipelines {
             ShaderDefVal::Int(
                 "SAMPLES_PER_SLICE_SIDE".to_string(),
                 samples_per_slice_side as i32,
-            ),
-            // TODO: Remove this hack
-            ShaderDefVal::Int(
-                "MAX_DIRECTIONAL_LIGHTS".to_string(),
-                MAX_DIRECTIONAL_LIGHTS as i32,
-            ),
-            ShaderDefVal::UInt(
-                "MAX_CASCADES_PER_LIGHT".to_string(),
-                MAX_CASCADES_PER_LIGHT as u32,
             ),
         ];
 
