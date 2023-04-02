@@ -95,7 +95,10 @@ impl IRect {
     /// ```
     #[inline]
     pub fn from_center_half_size(origin: IVec2, half_size: IVec2) -> Self {
-        assert!(half_size.cmpge(IVec2::ZERO).all(), "IRect half_size must be positive");
+        assert!(
+            half_size.cmpge(IVec2::ZERO).all(),
+            "IRect half_size must be positive"
+        );
         Self {
             min: origin - half_size,
             max: origin + half_size,

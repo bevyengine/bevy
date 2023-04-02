@@ -95,7 +95,10 @@ impl Rect {
     /// ```
     #[inline]
     pub fn from_center_half_size(origin: Vec2, half_size: Vec2) -> Self {
-        assert!(half_size.cmpge(Vec2::ZERO).all(), "Rect half_size must be positive");
+        assert!(
+            half_size.cmpge(Vec2::ZERO).all(),
+            "Rect half_size must be positive"
+        );
         Self {
             min: origin - half_size,
             max: origin + half_size,
