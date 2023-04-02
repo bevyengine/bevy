@@ -611,7 +611,9 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World
         .map(|condition| {
             #[cfg(feature = "trace")]
             let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-            condition.run_read_only((), world)
+            // SAFETY: `&World` gives us immutable access to the entire world.
+            // Since `condition` is `ReadOnlySystem`, it will never mutably access the world.
+            unsafe { condition.run_unsafe((), world.as_unsafe_world_cell_readonly()) }
         })
         .fold(true, |acc, res| acc && res)
 }

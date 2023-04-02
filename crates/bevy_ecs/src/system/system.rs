@@ -84,21 +84,7 @@ pub trait System: Send + Sync + 'static {
 /// # Safety
 ///
 /// This must only be implemented for system types which do not mutate the `World`.
-pub unsafe trait ReadOnlySystem: System {
-    /// Runs this system with the given input in the World.
-    ///
-    /// Unlike [`System::run`], this method can be run with a shared reference to the world.
-    fn run_read_only(&mut self, input: Self::In, world: &World) -> Self::Out {
-        self.update_archetype_component_access(world);
-        // SAFETY:
-        // -`&World` gives us immutable access to the entire world.
-        //   The implementor of `Self` guarantees that the system will not
-        //   mutate the world.
-        // - We have just called `update_archetype_component_access`, which will
-        //   panic if the world is not valid.
-        unsafe { self.run_unsafe(world.as_unsafe_world_cell_readonly()) }
-    }
-}
+pub unsafe trait ReadOnlySystem: System {}
 
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
