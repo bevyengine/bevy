@@ -566,7 +566,7 @@ pub fn winit_runner(mut app: App) {
                             path_buf,
                         });
                     }
-                    WindowEvent::HoveredFileCanceled => {
+                    WindowEvent::HoveredFileCancelled => {
                         file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCanceled {
                             window: window_entity,
                         });
