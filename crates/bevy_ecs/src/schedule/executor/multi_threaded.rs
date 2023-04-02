@@ -258,12 +258,12 @@ impl MultiThreadedExecutor {
     /// # Safety
     /// Caller must ensure that `self.ready_systems` does not contain any systems that
     /// have been mutably borrowed (such as the systems currently running).
-    unsafe fn spawn_system_tasks<'scope>(
+    unsafe fn spawn_system_tasks(
         &mut self,
-        scope: &Scope<'_, 'scope, ()>,
-        systems: &'scope [SyncUnsafeCell<BoxedSystem>],
+        scope: &Scope<()>,
+        systems: &[SyncUnsafeCell<BoxedSystem>],
         conditions: &mut Conditions,
-        world_cell: UnsafeWorldCell<'scope>,
+        world_cell: UnsafeWorldCell,
     ) {
         if self.exclusive_running {
             return;
@@ -422,12 +422,12 @@ impl MultiThreadedExecutor {
 
     /// # Safety
     /// Caller must not alias systems that are running.
-    unsafe fn spawn_system_task<'scope>(
+    unsafe fn spawn_system_task(
         &mut self,
-        scope: &Scope<'_, 'scope, ()>,
+        scope: &Scope<()>,
         system_index: usize,
-        systems: &'scope [SyncUnsafeCell<BoxedSystem>],
-        world: UnsafeWorldCell<'scope>,
+        systems: &[SyncUnsafeCell<BoxedSystem>],
+        world: UnsafeWorldCell,
     ) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *systems[system_index].get() };
@@ -475,12 +475,12 @@ impl MultiThreadedExecutor {
 
     /// # Safety
     /// Caller must ensure no systems are currently borrowed.
-    unsafe fn spawn_exclusive_system_task<'scope>(
+    unsafe fn spawn_exclusive_system_task(
         &mut self,
-        scope: &Scope<'_, 'scope, ()>,
+        scope: &Scope<()>,
         system_index: usize,
-        systems: &'scope [SyncUnsafeCell<BoxedSystem>],
-        world: &'scope mut World,
+        systems: &[SyncUnsafeCell<BoxedSystem>],
+        world: &mut World,
     ) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *systems[system_index].get() };
