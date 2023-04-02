@@ -74,7 +74,6 @@ impl URect {
     /// ```
     #[inline]
     pub fn from_center_size(origin: UVec2, size: UVec2) -> Self {
-        assert!(size.cmpge(UVec2::ZERO).all());
         assert!(origin.cmpge(size / 2).all(), "Origin must always be greater than or equal to (size / 2) otherwise you end up subtracting with overflow! Origin was {origin} and size was {size}");
         let half_size = size / 2;
         Self::from_center_half_size(origin, half_size)
@@ -96,7 +95,6 @@ impl URect {
     /// ```
     #[inline]
     pub fn from_center_half_size(origin: UVec2, half_size: UVec2) -> Self {
-        assert!(half_size.cmpge(UVec2::ZERO).all());
         assert!(origin.cmpge(half_size).all(), "Origin must always be greater than or equal to half_size otherwise you end up subtracting with overflow! Origin was {origin} and half_size was {half_size}");
         Self {
             min: origin - half_size,
