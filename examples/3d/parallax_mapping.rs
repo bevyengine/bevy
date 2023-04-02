@@ -90,7 +90,7 @@ fn switch_algo(
     if input.just_pressed(KeyCode::Space) {
         *current = match *current {
             ReliefMapping { .. } => ParallaxOcclusionMapping,
-            ParallaxOcclusionMapping => ReliefMapping { n_steps: 5 },
+            ParallaxOcclusionMapping => ReliefMapping { max_steps: 5 },
         }
     } else {
         return;
@@ -258,7 +258,7 @@ fn setup(
         // white the lowest.
         depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.jpg")),
         parallax_depth,
-        parallax_mapping_method: ParallaxMappingMethod::ReliefMapping { n_steps: 5 },
+        parallax_mapping_method: ParallaxMappingMethod::DEFAULT_RELIEF_MAPPING,
         max_parallax_layer_count,
         ..default()
     });

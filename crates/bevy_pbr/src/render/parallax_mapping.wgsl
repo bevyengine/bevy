@@ -9,6 +9,7 @@ fn sample_depth_map(uv: vec2<f32>) -> f32 {
 fn parallaxed_uv(
     depth: f32,
     max_layer_count: f32,
+    max_steps: u32,
     // The original uv
     uv: vec2<f32>,
     // The vector from camera to the surface of material
@@ -42,7 +43,7 @@ fn parallaxed_uv(
     var current_height = sample_depth_map(uv);
 
     // This at most runs layer_count times
-    for (var i: i32 = 0; current_height > current_layer_height && i < i32(layer_count); i++) {
+    for (var i: i32 = 0; current_height > current_layer_height && i <= i32(layer_count); i++) {
         current_layer_height += layer_height;
         uv -= delta_uv;
         current_height = sample_depth_map(uv);
@@ -55,13 +56,12 @@ fn parallaxed_uv(
     // with a binary search between the layer selected by steep parallax
     // and the next one to find a point closer to the depth map surface.
     // This reduces the jaggy step artifacts from steep parallax mapping.
-    let MAX_STEPS: i32 = 5;
 
     delta_uv *= 0.5;
     var delta_height = 0.5 * layer_height;
     uv += delta_uv;
     current_layer_height -= delta_height;
-    for (var i: i32 = 0; i < MAX_STEPS; i++) {
+    for (var i: u32 = 0u; i < max_steps; i++) {
         // Sample depth at current offset
         current_height = sample_depth_map(uv);
 

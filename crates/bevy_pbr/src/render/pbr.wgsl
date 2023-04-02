@@ -32,7 +32,13 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             dot(V, -cross(in.world_normal, in.world_tangent.xyz) * sign(in.world_tangent.w)),
             dot(V, in.world_normal),
         );
-        uv = parallaxed_uv(material.parallax_depth, material.max_parallax_layer_count, uv, tangent_V);
+        uv = parallaxed_uv(
+            material.parallax_depth,
+            material.max_parallax_layer_count,
+            material.max_relief_mapping_search_steps,
+            uv,
+            tangent_V,
+        );
     }
 #endif
 #endif

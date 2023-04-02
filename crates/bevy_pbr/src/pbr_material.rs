@@ -431,6 +431,9 @@ pub struct StandardMaterialUniform {
     /// If your `parallax_depth` is >0.1 and you are seeing jaggy edges,
     /// increase this value. However, this incurs a performance cost.
     pub max_parallax_layer_count: f32,
+    /// Using [`ParallaxMappingMethod::ReliefMapping`], how many additional
+    /// steps to use at most to find the depth value.
+    pub max_relief_mapping_search_steps: u32,
 }
 
 impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
@@ -502,6 +505,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             alpha_cutoff,
             parallax_depth: self.parallax_depth,
             max_parallax_layer_count: self.max_parallax_layer_count,
+            max_relief_mapping_search_steps: self.parallax_mapping_method.max_steps(),
         }
     }
 }

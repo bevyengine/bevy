@@ -11,6 +11,7 @@ struct StandardMaterial {
     alpha_cutoff: f32,
     parallax_depth: f32,
     max_parallax_layer_count: f32,
+    max_relief_mapping_search_steps: u32,
 };
 
 const STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT: u32         = 1u;
@@ -47,6 +48,7 @@ fn standard_material_new() -> StandardMaterial {
     material.alpha_cutoff = 0.5;
     material.parallax_depth = 0.1;
     material.max_parallax_layer_count = 16.0;
+    material.max_relief_mapping_search_steps = 5u;
 
     return material;
 }
