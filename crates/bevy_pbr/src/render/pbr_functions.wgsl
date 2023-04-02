@@ -133,6 +133,7 @@ struct PbrInput {
     // Normalized view vector in world space, pointing from the fragment world position toward the
     // view world position
     V: vec3<f32>,
+    bent_N: vec3<f32>,
     is_orthographic: bool,
     flags: u32,
 };
@@ -152,6 +153,7 @@ fn pbr_input_new() -> PbrInput {
 
     pbr_input.N = vec3<f32>(0.0, 0.0, 1.0);
     pbr_input.V = vec3<f32>(1.0, 0.0, 0.0);
+    pbr_input.bent_N = vec3<f32>(0.0);
 
     pbr_input.flags = 0u;
 
@@ -178,6 +180,11 @@ fn pbr(
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
     let NdotV = max(dot(in.N, in.V), 0.0001);
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+    let bent_NdotV = max(dot(in.bent_N, in.V), 0.0001);
+#else
+    let bent_NdotV = NdotV;
+#endif
 
     // Remapping [0,1] reflectance to F0
     // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
@@ -242,11 +249,11 @@ fn pbr(
     }
 
     // Ambient light (indirect)
-    var indirect_light = ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
+    var indirect_light = ambient_light(in.world_position, in.bent_N, in.V, bent_NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
-    let environment_light = environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
+    let environment_light = environment_map_light(perceptual_roughness, roughness, diffuse_color, bent_NdotV, f_ab, in.bent_N, R, F0);
     indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
 #endif
 
