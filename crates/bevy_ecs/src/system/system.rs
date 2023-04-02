@@ -91,9 +91,13 @@ pub unsafe trait ReadOnlySystem: System {
     /// This this system is known not to modify the world, it can run
     /// with a shared reference to the world (`&World`).
     fn run_read_only(&mut self, input: Self::In, world: &World) -> Self::Out {
-        // SAFETY: `&World` gives us immutable access to the entire world.
-        // The implementor of `Self` guarantees that the system will not
-        // mutate the world.
+        self.update_archetype_component_access(world);
+        // SAFETY:
+        // -`&World` gives us immutable access to the entire world.
+        //   The implementor of `Self` guarantees that the system will not
+        //   mutate the world.
+        // - We have just called `update_archetype_component_access`, which will
+        //   panic if the world is not valid.
         unsafe { self.run_unsafe(world.as_unsafe_world_cell_readonly()) }
     }
 }
