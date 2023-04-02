@@ -269,9 +269,9 @@ pub enum FileDragAndDrop {
         path_buf: PathBuf,
     },
 
-    /// File hovering was cancelled.
+    /// File hovering was canceled.
     HoveredFileCanceled {
-        /// Window that had a cancelled file drop.
+        /// Window that had a canceled file drop.
         window: Entity,
     },
 }

@@ -96,8 +96,8 @@ pub enum ForceTouch {
 ///
 /// It is used to describe the phase of the touch input that is currently active.
 /// This includes a phase that indicates that a touch input has started or ended,
-/// or that a finger has moved. There is also a cancelled phase that indicates that
-/// the system cancelled the tracking of the finger.
+/// or that a finger has moved. There is also a canceled phase that indicates that
+/// the system canceled the tracking of the finger.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
@@ -112,7 +112,7 @@ pub enum TouchPhase {
     Moved,
     /// A finger stopped touching the touchscreen.
     Ended,
-    /// The system cancelled the tracking of the finger.
+    /// The system canceled the tracking of the finger.
     ///
     /// This occurs when the window loses focus, or on iOS if the user moves the
     /// device against their face.
@@ -230,7 +230,7 @@ pub struct Touches {
     just_pressed: HashMap<u64, Touch>,
     /// A collection of every [`Touch`] that just got released.
     just_released: HashMap<u64, Touch>,
-    /// A collection of every [`Touch`] that just got cancelled.
+    /// A collection of every [`Touch`] that just got canceled.
     just_canceled: HashMap<u64, Touch>,
 }
 
@@ -280,17 +280,17 @@ impl Touches {
         self.just_released.values()
     }
 
-    /// Checks if any touch input was just cancelled.
+    /// Checks if any touch input was just canceled.
     pub fn any_just_canceled(&self) -> bool {
         !self.just_canceled.is_empty()
     }
 
-    /// Returns `true` if the input corresponding to the `id` has just been cancelled.
+    /// Returns `true` if the input corresponding to the `id` has just been canceled.
     pub fn just_canceled(&self, id: u64) -> bool {
         self.just_canceled.contains_key(&id)
     }
 
-    /// An iterator visiting every just cancelled [`Touch`] input in arbitrary order.
+    /// An iterator visiting every just canceled [`Touch`] input in arbitrary order.
     pub fn iter_just_canceled(&self) -> impl Iterator<Item = &Touch> {
         self.just_canceled.values()
     }
@@ -389,7 +389,7 @@ mod test {
             force: None,
         };
 
-        // Add a touch to `just_pressed`, 'just_released', and 'just cancelled'
+        // Add a touch to `just_pressed`, 'just_released', and 'just canceled'
 
         touches.just_pressed.insert(4, touch_event);
         touches.just_released.insert(4, touch_event);
