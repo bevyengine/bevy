@@ -270,7 +270,7 @@ pub enum FileDragAndDrop {
     },
 
     /// File hovering was cancelled.
-    HoveredFileCancelled {
+    HoveredFileCanceled {
         /// Window that had a cancelled file drop.
         window: Entity,
     },

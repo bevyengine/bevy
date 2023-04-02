@@ -22,7 +22,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// should assume that a new [`TouchPhase::Started`] event received with the same id has nothing
 /// to do with the old finger and is a new finger.
 ///
-/// A [`TouchPhase::Cancelled`] event is emitted when the system has canceled tracking this
+/// A [`TouchPhase::Canceled`] event is emitted when the system has canceled tracking this
 /// touch, such as when the window loses focus, or on iOS if the user moves the
 /// device against their face.
 ///
@@ -116,7 +116,7 @@ pub enum TouchPhase {
     ///
     /// This occurs when the window loses focus, or on iOS if the user moves the
     /// device against their face.
-    Cancelled,
+    Canceled,
 }
 
 /// A touch input.
@@ -326,7 +326,7 @@ impl Touches {
                     self.just_released.insert(event.id, event.into());
                 }
             }
-            TouchPhase::Cancelled => {
+            TouchPhase::Canceled => {
                 // if touch `just_cancelled`, add related event to it
                 // the event position info is inside `pressed`, so use it unless not found
                 if let Some((_, v)) = self.pressed.remove_entry(&event.id) {
@@ -449,7 +449,7 @@ mod test {
         // Test cancelling an event
 
         let cancel_touch_event = TouchInput {
-            phase: TouchPhase::Cancelled,
+            phase: TouchPhase::Canceled,
             position: Vec2::ONE,
             force: None,
             id: touch_event.id,
@@ -534,7 +534,7 @@ mod test {
         let mut touches = Touches::default();
 
         let touch_event = TouchInput {
-            phase: TouchPhase::Cancelled,
+            phase: TouchPhase::Canceled,
             position: Vec2::splat(4.0),
             force: None,
             id: 4,
