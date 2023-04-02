@@ -1,12 +1,16 @@
 use bevy_reflect::{FromReflect, Reflect};
 
-/// The parallax mapping method to use to compute depth based on the
+/// The [parallax mapping] method to use to compute depth based on the
 /// material's [`depth_map`].
+///
+/// Parallax Mapping uses a depth map texture to give the illusion of depth
+/// variation on a mesh surface that is geometrically flat.
 ///
 /// See the `parallax_mapping.wgsl` shader code for implementation details
 /// and explanation of the methods used.
 ///
 /// [`depth_map`]: crate::StandardMaterial::depth_map
+/// [parallax mapping]: https://en.wikipedia.org/wiki/Parallax_mapping
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Reflect, FromReflect)]
 pub enum ParallaxMappingMethod {
     /// A simple linear interpolation, using a single texture sample.
