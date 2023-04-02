@@ -38,6 +38,7 @@ enum StepBehavior {
 
 enum SystemIdentifier {
     Type(TypeId),
+    #[allow(dead_code)]
     Node(NodeId),
 }
 
@@ -416,143 +417,89 @@ impl ScheduleState {
 
     // progress the schedule for the given action type, returning a skip list,
     // and if the caller should update state to waiting
-    fn progress(&mut self, schedule: &Schedule, action: StepAction) -> (FixedBitSet, bool) {
+    fn progress(&mut self, schedule: &Schedule, mut action: StepAction) -> (FixedBitSet, bool) {
+        use std::cmp::Ordering;
+
         // Now that we have the schedule, apply any pending system behavior
         // updates.  The schedule is required to map from system `TypeId` to
         // `NodeId`.
         if !self.updates.is_empty() {
             self.apply_updates(schedule);
         }
-
-        match action {
-            StepAction::RunAll => unreachable!(),
-            StepAction::Waiting => self.skip_list_waiting(schedule),
-            StepAction::Continue => self.skip_list_continue(schedule),
-            StepAction::Step => self.skip_list_step(schedule),
-        }
-    }
-
-    fn skip_list_waiting(&mut self, schedule: &Schedule) -> (FixedBitSet, bool) {
         let mut skip = FixedBitSet::with_capacity(schedule.systems_len());
 
-        for (i, (node_id, system)) in schedule.systems().unwrap().enumerate() {
-            println!(
-                "skip_list_waiting(): {} ({:?}) -- {:?}",
-                system.name(),
-                node_id,
-                self.systems.get(&node_id),
-            );
-
-            let mut advance = false;
-            match self
-                .systems
-                .get(&node_id)
-                .unwrap_or(&StepBehavior::Continue)
-            {
-                StepBehavior::AlwaysRun => advance = true,
-                StepBehavior::NeverRun => {
-                    advance = true;
-                    skip.insert(i);
-                }
-                StepBehavior::Continue | StepBehavior::Break => skip.insert(i),
-            }
-
-            if advance && self.next == i {
-                self.next += 1;
-            }
-        }
-
-        (skip, false)
-    }
-
-    fn skip_list_step(&mut self, schedule: &Schedule) -> (FixedBitSet, bool) {
-        let mut skip = FixedBitSet::with_capacity(schedule.systems_len());
-        let mut stepped = false;
-        for (i, (node_id, system)) in schedule.systems().unwrap().enumerate() {
-            println!(
-                "skip_list_step(): {} ({:?}) -- {:?}",
-                system.name(),
-                node_id,
-                self.systems.get(&node_id),
-            );
-
-            let mut advance = false;
-            match self
-                .systems
-                .get(&node_id)
-                .unwrap_or(&StepBehavior::Continue)
-            {
-                StepBehavior::AlwaysRun => advance = true,
-                StepBehavior::NeverRun => {
-                    advance = true;
-                    skip.insert(i);
-                }
-                StepBehavior::Continue | StepBehavior::Break => {
-                    if i < self.next || stepped {
-                        skip.insert(i);
-                    } else {
-                        advance = true;
-                        stepped = true;
-                    }
-                }
-            }
-
-            if advance && self.next == i {
-                self.next += 1;
-            }
-        }
-
-        (skip, stepped)
-    }
-
-    fn skip_list_continue(&mut self, schedule: &Schedule) -> (FixedBitSet, bool) {
-        let mut skip = FixedBitSet::with_capacity(schedule.systems_len());
-        let mut hit_breakpoint = false;
         let mut pos = self.next;
-
+        let start_pos = pos;
         for (i, (node_id, system)) in schedule.systems().unwrap().enumerate() {
+            let behavior = self
+                .systems
+                .get(&node_id)
+                .unwrap_or(&StepBehavior::Continue);
             println!(
-                "skip_list_continue(): {} ({:?}) -- {:?}; i {}, pos {}, break {}",
-                system.name(),
-                node_id,
-                self.systems.get(&node_id),
+                "progress(): systems[{}], cursor {}, Action::{:?}, Behavior::{:?}, {}",
                 i,
                 pos,
-                hit_breakpoint,
+                action,
+                behavior,
+                system.name()
             );
-
-            match self
-                .systems
-                .get(&node_id)
-                .unwrap_or(&StepBehavior::Continue)
-            {
-                StepBehavior::AlwaysRun => (),
-                StepBehavior::NeverRun => skip.insert(i),
-                StepBehavior::Continue => {
-                    if i != pos {
+            match (action, behavior) {
+                // regardless of which action we're performing, if the system
+                // is marked as NeverRun, add it to the skip list
+                (_, StepBehavior::NeverRun) => skip.insert(i),
+                // similarly, ignore any system marked as AlwaysRun; they should
+                // never be added to the skip list
+                (_, StepBehavior::AlwaysRun) => (),
+                // if we're waiting, no other systems besides AlwaysRun should
+                // be run, so add systems to the skip list
+                (StepAction::Waiting, _) => skip.insert(i),
+                // If we're stepping, the remaining behaviors don't matter,
+                // we're only going to run the system at our cursor.  Any system
+                // not at our cursor is skipped.  Once we encounter the system
+                // at the cursor, we'll move the cursor up, and switch to
+                // Waiting, to skip remaining systems.
+                (StepAction::Step, _) => match i.cmp(&pos) {
+                    Ordering::Less => skip.insert(i),
+                    Ordering::Equal => {
+                        pos += 1;
+                        action = StepAction::Waiting;
+                    }
+                    Ordering::Greater => unreachable!(),
+                },
+                // If we're continuing, and the step behavior is continue, we
+                // want to skip any systems prior to our start position.  That's
+                // where the stepping frame left off last time we ran anything.
+                (StepAction::Continue, StepBehavior::Continue) => {
+                    if i < start_pos {
                         skip.insert(i);
                     }
                 }
-                StepBehavior::Break => {
-                    if i == self.next {
-                        println!("resuming from breakpoint");
-                    } else if i < pos {
-                        println!("skipping already run system");
+                // If we're continuing, and we encounter a breakpoint we want
+                // to stop before executing the system.  So we skip this system,
+                // and set the action to waiting.  Note that we do not move the
+                // cursor.  As a result, the next time we continue, if the
+                // first system is a Break we run it anyway.  This allows the
+                // user to continue, hit a breakpoint to stop before running
+                // the system, then continue again to run the system with the
+                // breakpoint.
+                (StepAction::Continue, StepBehavior::Break) => {
+                    if i != start_pos {
+                        debug_assert!(pos == i);
                         skip.insert(i);
-                    } else if i == pos {
-                        println!("hit breakpoint");
-                        hit_breakpoint = true;
-                        skip.insert(i);
+                        action = StepAction::Waiting;
                     }
                 }
+                // should have never gotten into this method if stepping is
+                // disabled
+                (StepAction::RunAll, _) => unreachable!(),
             }
 
-            if !hit_breakpoint && i == pos {
-                pos = i + 1;
+            if i == pos && action != StepAction::Waiting {
+                pos += 1;
             }
         }
         self.next = pos;
-        (skip, hit_breakpoint)
+        (skip, action == StepAction::Waiting)
     }
 }
 
