@@ -27,9 +27,12 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef VERTEX_UVS
 #ifdef VERTEX_TANGENTS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
-        let tangent_V = vec3<f32>(
+        // Transform the view vector from world space to tangent space by
+        // multiplying it by the inverse of the TBN matrix. Given the TBN
+        // matrix is orthonormal, its inverse is its transpose.
+        let Vt = vec3<f32>(
             dot(V, in.world_tangent.xyz),
-            dot(V, -cross(in.world_normal, in.world_tangent.xyz) * sign(in.world_tangent.w)),
+            dot(V, -in.world_tangent.w * cross(in.world_normal, in.world_tangent.xyz)),
             dot(V, in.world_normal),
         );
         uv = parallaxed_uv(
@@ -37,7 +40,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             material.max_parallax_layer_count,
             material.max_relief_mapping_search_steps,
             uv,
-            tangent_V,
+            Vt,
         );
     }
 #endif
