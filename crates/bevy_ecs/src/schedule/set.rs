@@ -2,6 +2,7 @@ use std::any::TypeId;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::define_boxed_label;
@@ -23,6 +24,10 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
         None
     }
 
+    /// Returns `true` if this system set is an [`AnonymousSet`].
+    fn is_anonymous(&self) -> bool {
+        false
+    }
     /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 }
@@ -95,6 +100,29 @@ impl<T> Eq for SystemTypeSet<T> {}
 impl<T> SystemSet for SystemTypeSet<T> {
     fn system_type(&self) -> Option<TypeId> {
         Some(TypeId::of::<T>())
+    }
+
+    fn dyn_clone(&self) -> Box<dyn SystemSet> {
+        Box::new(*self)
+    }
+}
+
+/// A [`SystemSet`] implicitly created when using
+/// [`Schedule::add_systems`](super::Schedule::add_systems).
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct AnonymousSet(usize);
+
+static NEXT_ANONYMOUS_SET_ID: AtomicUsize = AtomicUsize::new(0);
+
+impl AnonymousSet {
+    pub(crate) fn new() -> Self {
+        Self(NEXT_ANONYMOUS_SET_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
+impl SystemSet for AnonymousSet {
+    fn is_anonymous(&self) -> bool {
+        true
     }
 
     fn dyn_clone(&self) -> Box<dyn SystemSet> {

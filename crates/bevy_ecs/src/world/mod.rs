@@ -1263,7 +1263,8 @@ impl World {
         }
     }
 
-    /// Temporarily removes the requested resource from this [`World`], then re-adds it before returning.
+    /// Temporarily removes the requested resource from this [`World`], runs custom user code,
+    /// then re-adds the resource before returning.
     ///
     /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
     /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
@@ -1293,7 +1294,6 @@ impl World {
             .components
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
-        // If the resource isn't send and sync, validate that we are on the main thread, so that we can access it.
         let (ptr, mut ticks) = self
             .storages
             .resources
@@ -1301,7 +1301,7 @@ impl World {
             .and_then(|info| info.remove())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // Read the value onto the stack to avoid potential mut aliasing.
-        // SAFETY: pointer is of type R
+        // SAFETY: `ptr` was obtained from the TypeId of `R`.
         let mut value = unsafe { ptr.read::<R>() };
         let value_mut = Mut {
             value: &mut value,
@@ -1315,7 +1315,7 @@ impl World {
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
-            This is not allowed as the original resource is reinserted to the world after the FnOnce param is invoked.",
+            This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
             std::any::type_name::<R>());
 
         OwningPtr::make(value, |ptr| {
