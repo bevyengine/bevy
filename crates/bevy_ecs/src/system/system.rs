@@ -40,7 +40,7 @@ pub trait System: Send + Sync + 'static {
     fn is_exclusive(&self) -> bool;
 
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
-    /// takes a shared reference to [`World`] and may therefore break Rust's aliasing rules, making
+    /// takes [`UnsafeWorldCell`] and may therefore break Rust's aliasing rules, making
     /// it unsafe to call.
     ///
     /// # Safety
@@ -86,7 +86,17 @@ pub trait System: Send + Sync + 'static {
 /// # Safety
 ///
 /// This must only be implemented for system types which do not mutate the `World`.
-pub unsafe trait ReadOnlySystem: System {}
+pub unsafe trait ReadOnlySystem: System {
+    /// Runs this system with the given input in the World.
+    /// This this system is known not to modify the world, it can run
+    /// with a shared reference to the world (`&World`).
+    fn run_read_only(&mut self, input: Self::In, world: &World) -> Self::Out {
+        // SAFETY: `&World` gives us immutable access to the entire world.
+        // The implementor of `Self` guarantees that the system will not
+        // mutate the world.
+        unsafe { self.run_unsafe(world.as_unsafe_world_cell_readonly()) }
+    }
+}
 
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
