@@ -123,7 +123,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         );
         draw_3d_graph.add_node_edge(
             draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
-            bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+            bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
         );
     }
 }
