@@ -65,8 +65,6 @@ impl Plugin for SkyboxPlugin {
 #[derive(Component, ExtractComponent, Clone)]
 pub struct Skybox(pub Handle<Image>);
 
-// ----------------------------------------------------------------------------
-
 #[derive(Resource)]
 struct SkyboxPipeline {
     bind_group_layout: BindGroupLayout,
