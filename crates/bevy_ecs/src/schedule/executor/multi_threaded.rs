@@ -169,7 +169,6 @@ impl SystemExecutor for MultiThreadedExecutor {
             .map(|e| e.0.clone());
         let thread_executor = thread_executor.as_deref();
 
-        let world_cell = world.as_unsafe_world_cell();
         let SyncUnsafeSchedule {
             systems,
             mut conditions,
@@ -183,7 +182,10 @@ impl SystemExecutor for MultiThreadedExecutor {
                 // alongside systems that claim the local thread
                 let executor = async {
                     while self.num_completed_systems < num_systems {
-                        // SAFETY: self.ready_systems does not contain running systems
+                        let world_cell = world.as_unsafe_world_cell();
+                        // SAFETY:
+                        // - self.ready_systems does not contain running systems.
+                        // - `world_cell` has mutable access to the entire world.
                         unsafe {
                             self.spawn_system_tasks(scope, systems, &mut conditions, world_cell);
                         }
@@ -256,8 +258,10 @@ impl MultiThreadedExecutor {
     }
 
     /// # Safety
-    /// Caller must ensure that `self.ready_systems` does not contain any systems that
-    /// have been mutably borrowed (such as the systems currently running).
+    /// - Caller must ensure that `self.ready_systems` does not contain any systems that
+    ///   have been mutably borrowed (such as the systems currently running).
+    /// - `world_cell` must have permission to access all world data (not counting
+    ///   any world data that is claimed by systems currently running on this executor).
     unsafe fn spawn_system_tasks(
         &mut self,
         scope: &Scope<()>,
@@ -311,7 +315,10 @@ impl MultiThreadedExecutor {
                 break;
             }
 
-            // SAFETY: No other reference to this system exists.
+            // SAFETY:
+            // - No other reference to this system exists.
+            // - `can_run` returned true, so no systems with conflicing world access
+            //   are running.
             unsafe {
                 self.spawn_system_task(scope, system_index, systems, world_cell);
             }
@@ -421,7 +428,9 @@ impl MultiThreadedExecutor {
     }
 
     /// # Safety
-    /// Caller must not alias systems that are running.
+    /// - Caller must not alias systems that are running.
+    /// - `world` must have permission to access the world data
+    ///   used by the specified system.
     unsafe fn spawn_system_task(
         &mut self,
         scope: &Scope<()>,
@@ -442,7 +451,8 @@ impl MultiThreadedExecutor {
             #[cfg(feature = "trace")]
             let system_guard = system_span.enter();
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                // SAFETY: access is compatible
+                // SAFETY: The caller ensures that we have permission to
+                // access the world data used by the system.
                 unsafe { system.run_unsafe((), world) };
             }));
             #[cfg(feature = "trace")]
