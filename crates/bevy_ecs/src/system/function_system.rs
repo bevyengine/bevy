@@ -481,7 +481,7 @@ where
 
         // SAFETY:
         // - We have registered all world accesses used by `F::Param`, so the caller
-        //   will ensure that `world` has permission to use those accesses.
+        //   will ensure that `world` has permission to access those data.
         // - World validation: FIXME (see https://github.com/bevyengine/bevy/pull/7778).
         let params = F::Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
