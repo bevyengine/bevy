@@ -10,6 +10,8 @@
 #import bevy_pbr::fog
 #import bevy_pbr::pbr_functions
 
+#import bevy_pbr::prepass_utils
+
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
 #import bevy_pbr::gtao_utils
 #endif
@@ -81,11 +83,16 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 
         pbr_input.frag_coord = in.frag_coord;
         pbr_input.world_position = in.world_position;
+
+#ifdef LOAD_PREPASS_NORMALS
+        pbr_input.world_normal = prepass_normal(in.frag_coord, 0u);
+#else // LOAD_PREPASS_NORMALS
         pbr_input.world_normal = prepare_world_normal(
             in.world_normal,
             (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
             in.is_front,
         );
+#endif // LOAD_PREPASS_NORMALS
 
         pbr_input.is_orthographic = view.projection[3].w == 1.0;
 
