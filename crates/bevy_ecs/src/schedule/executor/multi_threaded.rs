@@ -18,7 +18,7 @@ use crate::{
         is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
     system::BoxedSystem,
-    world::World,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
 use crate as bevy_ecs;
@@ -169,7 +169,7 @@ impl SystemExecutor for MultiThreadedExecutor {
             .map(|e| e.0.clone());
         let thread_executor = thread_executor.as_deref();
 
-        let world = SyncUnsafeCell::from_mut(world);
+        let world_cell = world.as_unsafe_world_cell();
         let SyncUnsafeSchedule {
             systems,
             mut conditions,
@@ -185,7 +185,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                     while self.num_completed_systems < num_systems {
                         // SAFETY: self.ready_systems does not contain running systems
                         unsafe {
-                            self.spawn_system_tasks(scope, systems, &mut conditions, world);
+                            self.spawn_system_tasks(scope, systems, &mut conditions, world_cell);
                         }
 
                         if self.num_running_systems > 0 {
@@ -217,7 +217,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         if self.apply_final_buffers {
             // Do one final apply buffers after all systems have completed
             // Commands should be applied while on the scope's thread, not the executor's thread
-            apply_system_buffers(&self.unapplied_systems, systems, world.get_mut());
+            apply_system_buffers(&self.unapplied_systems, systems, world);
             self.unapplied_systems.clear();
             debug_assert!(self.unapplied_systems.is_clear());
         }
@@ -263,7 +263,7 @@ impl MultiThreadedExecutor {
         scope: &Scope<'_, 'scope, ()>,
         systems: &'scope [SyncUnsafeCell<BoxedSystem>],
         conditions: &mut Conditions,
-        cell: &'scope SyncUnsafeCell<World>,
+        world_cell: UnsafeWorldCell<'scope>,
     ) {
         if self.exclusive_running {
             return;
@@ -282,7 +282,7 @@ impl MultiThreadedExecutor {
 
             // SAFETY: No exclusive system is running.
             // Therefore, there is no existing mutable reference to the world.
-            let world = unsafe { &*cell.get() };
+            let world = unsafe { world_cell.world() };
             if !self.can_run(system_index, system, conditions, world) {
                 // NOTE: exclusive systems with ambiguities are susceptible to
                 // being significantly displaced here (compared to single-threaded order)
@@ -305,7 +305,7 @@ impl MultiThreadedExecutor {
                 // SAFETY: `can_run` confirmed that no systems are running.
                 // Therefore, there is no existing reference to the world.
                 unsafe {
-                    let world = &mut *cell.get();
+                    let world = world_cell.world_mut();
                     self.spawn_exclusive_system_task(scope, system_index, systems, world);
                 }
                 break;
@@ -313,7 +313,7 @@ impl MultiThreadedExecutor {
 
             // SAFETY: No other reference to this system exists.
             unsafe {
-                self.spawn_system_task(scope, system_index, systems, world);
+                self.spawn_system_task(scope, system_index, systems, world_cell);
             }
         }
 
@@ -427,7 +427,7 @@ impl MultiThreadedExecutor {
         scope: &Scope<'_, 'scope, ()>,
         system_index: usize,
         systems: &'scope [SyncUnsafeCell<BoxedSystem>],
-        world: &'scope World,
+        world: UnsafeWorldCell<'scope>,
     ) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *systems[system_index].get() };
@@ -611,8 +611,7 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World
         .map(|condition| {
             #[cfg(feature = "trace")]
             let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-            // SAFETY: caller ensures system access is compatible
-            unsafe { condition.run_unsafe((), world) }
+            unsafe { condition.run_read_only((), world) }
         })
         .fold(true, |acc, res| acc && res)
 }
