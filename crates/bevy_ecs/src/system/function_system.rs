@@ -4,7 +4,7 @@ use crate::{
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
-    world::{World, WorldId},
+    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 
 use bevy_utils::all_tuples;
@@ -476,17 +476,17 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         let change_tick = world.increment_change_tick();
 
-        // Safety:
-        // We update the archetype component access correctly based on `Param`'s requirements
-        // in `update_archetype_component_access`.
-        // Our caller upholds the requirements.
+        // SAFETY:
+        // - We have registered all world accesses used by `F::Param`, so the caller
+        //   will ensure that `world` has permission to use those accesses.
+        // - World validation: FIXME (see https://github.com/bevyengine/bevy/pull/7778).
         let params = F::Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
-            world.as_unsafe_world_cell_migration_internal(),
+            world,
             change_tick,
         );
         let out = self.func.run(input, params);

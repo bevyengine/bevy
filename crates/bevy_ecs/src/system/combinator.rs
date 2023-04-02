@@ -7,6 +7,7 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::World,
     query::Access,
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 
 use super::{ReadOnlySystem, System};
@@ -157,7 +158,7 @@ where
         self.a.is_exclusive() || self.b.is_exclusive()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         Func::combine(
             input,
             // SAFETY: The world accesses for both underlying systems have been registered,

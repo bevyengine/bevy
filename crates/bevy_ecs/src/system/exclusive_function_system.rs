@@ -6,7 +6,7 @@ use crate::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, In, IntoSystem,
         System, SystemMeta,
     },
-    world::{World, WorldId},
+    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 
 use bevy_utils::all_tuples;
@@ -88,7 +88,7 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, _input: Self::In, _world: &World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, _input: Self::In, _world: UnsafeWorldCell) -> Self::Out {
         panic!("Cannot run exclusive systems with a shared World reference");
     }
 

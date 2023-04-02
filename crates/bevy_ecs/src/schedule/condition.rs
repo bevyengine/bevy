@@ -5,6 +5,7 @@ use std::ops::Not;
 use crate::component::{self, ComponentId};
 use crate::query::Access;
 use crate::system::{CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System};
+use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::world::World;
 
 pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
@@ -978,7 +979,7 @@ where
         self.condition.is_exclusive()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         // SAFETY: The inner condition system asserts its own safety.
         !self.condition.run_unsafe(input, world)
     }
