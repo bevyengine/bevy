@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 use std::hash::Hash;
+
 use std::mem;
 
 use crate as bevy_ecs;
@@ -9,6 +10,9 @@ use crate::system::Resource;
 use crate::world::World;
 
 pub use bevy_ecs_macros::States;
+use downcast_rs::DowncastSync;
+
+use super::substate::{SubstateLabelInFn, self, SubstateLabel};
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -42,8 +46,33 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
 
     /// Returns an iterator over all the state variants.
     fn variants() -> Self::Iter;
+
+    fn dispatch_run_schedule_to_substate(&self);
+    // Try to get the current substate
+    fn get_substate(&self) -> Option<Vec<Box<dyn ShadowStates>>>;
+}
+/// A workaround to pass States as a trait object.
+/// 
+/// This is a way to be able to get the current substates inside a state (from the trait), and then downcast it!
+/// 
+/// ```rs
+/// 
+/// let states = 
+/// ```
+///
+/// Everything that implements States will automatically implement ShadowStates too, so there shouldn't be any reasons to implement it.
+///
+pub trait ShadowStates: DowncastSync {
+    fn get_substate(&self) -> Option<Vec<Box<dyn ShadowStates>>>;
 }
 
+impl<A: States> ShadowStates for A {
+    fn get_substate(&self) -> Option<Vec<Box<dyn ShadowStates>>> {
+        self.get_substate()
+    }
+}
+
+downcast_rs::impl_downcast!(sync ShadowStates);
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// enters this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
@@ -53,6 +82,14 @@ pub struct OnEnter<S: States>(pub S);
 /// exits this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
+
+/*
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, ScheduleLabel)]
+///
+/// Schedule label that matches all substates in the enum tree that got changed too.
+///
+pub struct SubstateFromAny<L: ScheduleLabel>(pub L);
+*/
 
 /// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
 /// exits the `from` state, AND enters the `to` state.
@@ -123,6 +160,7 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
 
         // Try to run the schedules if they exist.
         world.try_run_schedule(OnExit(exited.clone())).ok();
+      // world: &mut Worlds 
         world
             .try_run_schedule(OnTransition {
                 from: exited,
@@ -132,3 +170,4 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         world.try_run_schedule(OnEnter(entered)).ok();
     }
 }
+

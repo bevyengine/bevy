@@ -27,6 +27,12 @@ impl States for AppState {
     fn variants() -> Self::Iter {
         [AppState::Setup, AppState::Finished].into_iter()
     }
+
+    fn get_substate(&self) -> Option<Vec<Box<dyn ShadowStates>>> {
+        None
+    }
+
+    fn dispatch_run_schedule_to_substate(&self) {}
 }
 
 #[derive(Resource, Default)]

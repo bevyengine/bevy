@@ -38,9 +38,12 @@ pub mod prelude {
         query::{Added, AnyOf, Changed, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_state_transition, apply_system_buffers, common_conditions::*, Condition,
-            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
-            OnEnter, OnExit, OnTransition, OnUpdate, Schedule, Schedules, State, States, SystemSet,
+            apply_state_transition, apply_system_buffers,
+            common_conditions::*,
+            substate::{self, SubstateLabel, SubstateLabelInFn},
+            Condition, IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs,
+            NextState, OnEnter, OnExit, OnTransition, OnUpdate, Schedule, Schedules, State, States,
+            SystemSet, ShadowStates
         },
         system::{
             adapter as system_adapter,
@@ -61,6 +64,7 @@ type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::schedule::States;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -1705,6 +1709,33 @@ mod tests {
             world.get::<C>(e1),
             Some(&C),
             "new entity was spawned and received C component"
+        );
+    }
+
+    #[test]
+    fn fieldful_and_fieldless_states() {
+        use bevy_ecs_macros::States;
+        #[derive(Hash, Default, Eq, PartialEq, Clone, Debug, States)]
+        pub enum Foo {
+            #[default]
+            Fieldless,
+
+            Fieldful(Bar),
+        }
+        #[derive(Hash, Eq, Default, PartialEq, Clone, Debug, States)]
+        pub enum Bar {
+            #[default]
+            Alice,
+            Bob,
+        }
+
+        assert_eq!(
+            Foo::variants().collect::<Vec<Foo>>(),
+            vec![
+                Foo::Fieldless,
+                Foo::Fieldful(Bar::Alice),
+                Foo::Fieldful(Bar::Bob)
+            ]
         );
     }
 }

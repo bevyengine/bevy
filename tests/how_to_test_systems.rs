@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use bevy::{ecs::event::Events, prelude::*};
 
 #[derive(Component, Default)]
@@ -167,4 +169,65 @@ fn update_score_on_event() {
 
     // Check resulting changes
     assert_eq!(app.world.resource::<Score>().0, 3);
+}
+
+#[test]
+fn substate() {
+    #[derive(Clone, Default, Debug, Hash, Eq, PartialEq /* States */)]
+    enum ParentState {
+        #[default]
+        Unit,
+        Child(ChildState),
+    }
+    // Manual implementation first as https://github.com/bevyengine/bevy/pull/8188 is blocked for now.
+    impl States for ParentState {
+        type Iter = std::array::IntoIter<Self, 3>;
+
+        fn variants() -> Self::Iter {
+            [
+                Self::Unit,
+                Self::Child(ChildState::Bar),
+                Self::Child(ChildState::Foo),
+            ]
+            .into_iter()
+        }
+
+        fn get_substate(&self) -> Option<Vec<Box<dyn ShadowStates>>> {
+            match self {
+                ParentState::Unit => None,
+                ParentState::Child(some) => Some(vec![Box::new(some.clone())]),
+            }
+        }
+
+        fn dispatch_run_schedule_to_substate(&self) {}
+    }
+
+    #[derive(Clone, Default, Debug, Hash, Eq, PartialEq, States)]
+    enum ChildState {
+        Foo,
+        #[default]
+        Bar,
+    }
+
+    // Setup app
+    let mut app = App::new();
+    app.add_state::<ParentState>();
+    fn enter_unit(mut next: ResMut<NextState<ParentState>>) {
+        next.set(ParentState::Child(ChildState::Bar));
+    }
+    app.add_systems(OnEnter(ParentState::Unit), enter_unit);
+    let has_runned = Arc::new(Mutex::new(false));
+    let has_runned2 = has_runned.clone();
+    let enter_bar = move |state: Res<State<ParentState>>| {
+        assert_eq!(state.0, ParentState::Child(ChildState::Bar));
+        *has_runned2.lock().unwrap() = true;
+    };
+
+    app.add_systems(
+        substate::OnEnter::with(&ParentState::Child),
+        enter_bar,
+    );
+    app.update();
+    app.update();
+    assert_eq!(*has_runned.lock().unwrap(), true);
 }
