@@ -47,5 +47,6 @@ fn skybox_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // The skybox cubemap is sampled along the direction from the camera world
     // position, to the fragment world position on the near clipping plane
     let ray_direction = in.world_position - view.world_position;
+    // cube maps are left-handed so we negate the z coordinate
     return textureSample(skybox, skybox_sampler, ray_direction * vec3(1.0, 1.0, -1.0));
 }
