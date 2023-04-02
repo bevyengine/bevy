@@ -202,12 +202,10 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     #[inline]
-    pub fn increment_change_tick(self) -> u32 {
+    pub fn increment_change_tick(self) -> Tick {
         // SAFETY:
         // - we only access world metadata
-        unsafe { self.world_metadata() }
-            .change_tick
-            .fetch_add(1, Ordering::AcqRel)
+        unsafe { self.world_metadata() }.increment_change_tick()
     }
 
     /// Shorthand helper function for getting the [`ArchetypeComponentId`] for a resource.
