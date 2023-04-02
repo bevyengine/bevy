@@ -611,7 +611,7 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World
         .map(|condition| {
             #[cfg(feature = "trace")]
             let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-            unsafe { condition.run_read_only((), world) }
+            condition.run_read_only((), world)
         })
         .fold(true, |acc, res| acc && res)
 }
