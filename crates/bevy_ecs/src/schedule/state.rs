@@ -170,3 +170,4 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         world.try_run_schedule(OnEnter(entered)).ok();
     }
 }
+

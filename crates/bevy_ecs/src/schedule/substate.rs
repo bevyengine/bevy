@@ -1,10 +1,32 @@
 use crate::schedule::ScheduleLabel;
 
 use crate as bevy_ecs;
+
 use bevy_utils::all_tuples;
 use std::marker::PhantomData;
 
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+///
+///
+/// This should be able to be used on some unnamed fields in enums. However, please beware that fields that have the same substate might pass the type checking, as they really match type-wise. (
+/// So
+/// ```rs
+/// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
+/// pub enum MyState {
+///     Foo(AliceOrBob)
+///     Bar(AliceOrBob)
+/// }
+///
+/// pub AliceOrBob {
+///     Alice,
+///     Bob
+/// }
+/// // these should compile
+/// let mut foo: Fn(AliceOrBob) -> MyState = MyState::Foo;
+/// foo = MyState::Bar;
+///
+/// ```
+
 pub struct SubstateLabelInFn<Ret, Args, L: SubstateLabel>(PhantomData<(L, Ret, Args)>);
 
 /// A trait which most variadic functions should technically implement?
@@ -32,6 +54,7 @@ pub trait SubstateLabel
 where
     Self: Sized,
 {
+
     /// Create [SubstateLabelInFn] from the type of a function.
     ///
     /// This should be able to be used on some unnamed fields in enums. However, please beware that fields that have the same substate might pass the type checking, as they really match type-wise. (
@@ -63,6 +86,7 @@ where
     fn new_fn<F: VariadicFn<Ret, Args>, Ret, Args>() -> SubstateLabelInFn<Ret, Args, Self> {
         SubstateLabelInFn(PhantomData)
     }
+
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
