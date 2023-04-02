@@ -88,8 +88,8 @@ pub trait System: Send + Sync + 'static {
 /// This must only be implemented for system types which do not mutate the `World`.
 pub unsafe trait ReadOnlySystem: System {
     /// Runs this system with the given input in the World.
-    /// This this system is known not to modify the world, it can run
-    /// with a shared reference to the world (`&World`).
+    ///
+    /// Unlike [`System::run`], this method can be run with a shared reference to the world.
     fn run_read_only(&mut self, input: Self::In, world: &World) -> Self::Out {
         self.update_archetype_component_access(world);
         // SAFETY:
