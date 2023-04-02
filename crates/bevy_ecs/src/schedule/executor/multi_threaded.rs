@@ -181,8 +181,8 @@ impl SystemExecutor for MultiThreadedExecutor {
                 // the executor itself is a `Send` future so that it can run
                 // alongside systems that claim the local thread
                 let executor = async {
+                    let world_cell = world.as_unsafe_world_cell();
                     while self.num_completed_systems < num_systems {
-                        let world_cell = world.as_unsafe_world_cell();
                         // SAFETY:
                         // - self.ready_systems does not contain running systems.
                         // - `world_cell` has mutable access to the entire world.
@@ -262,12 +262,12 @@ impl MultiThreadedExecutor {
     ///   have been mutably borrowed (such as the systems currently running).
     /// - `world_cell` must have permission to access all world data (not counting
     ///   any world data that is claimed by systems currently running on this executor).
-    unsafe fn spawn_system_tasks(
+    unsafe fn spawn_system_tasks<'scope>(
         &mut self,
-        scope: &Scope<()>,
-        systems: &[SyncUnsafeCell<BoxedSystem>],
+        scope: &Scope<'_, 'scope, ()>,
+        systems: &'scope [SyncUnsafeCell<BoxedSystem>],
         conditions: &mut Conditions,
-        world_cell: UnsafeWorldCell,
+        world_cell: UnsafeWorldCell<'scope>,
     ) {
         if self.exclusive_running {
             return;
@@ -431,12 +431,12 @@ impl MultiThreadedExecutor {
     /// - Caller must not alias systems that are running.
     /// - `world` must have permission to access the world data
     ///   used by the specified system.
-    unsafe fn spawn_system_task(
+    unsafe fn spawn_system_task<'scope>(
         &mut self,
-        scope: &Scope<()>,
+        scope: &Scope<'_, 'scope, ()>,
         system_index: usize,
-        systems: &[SyncUnsafeCell<BoxedSystem>],
-        world: UnsafeWorldCell,
+        systems: &'scope [SyncUnsafeCell<BoxedSystem>],
+        world: UnsafeWorldCell<'scope>,
     ) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *systems[system_index].get() };
@@ -485,12 +485,12 @@ impl MultiThreadedExecutor {
 
     /// # Safety
     /// Caller must ensure no systems are currently borrowed.
-    unsafe fn spawn_exclusive_system_task(
+    unsafe fn spawn_exclusive_system_task<'scope>(
         &mut self,
-        scope: &Scope<()>,
+        scope: &Scope<'_, 'scope, ()>,
         system_index: usize,
-        systems: &[SyncUnsafeCell<BoxedSystem>],
-        world: &mut World,
+        systems: &'scope [SyncUnsafeCell<BoxedSystem>],
+        world: &'scope mut World,
     ) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *systems[system_index].get() };
