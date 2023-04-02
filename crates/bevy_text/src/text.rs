@@ -180,10 +180,10 @@ impl Default for TextStyle {
 pub enum BreakLineOn {
     /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).
     /// Lines will be broken up at the nearest suitable word boundary, usually a space.
-    /// This behaviour suits most cases, as it keeps words intact across linebreaks.
+    /// This behavior suits most cases, as it keeps words intact across linebreaks.
     WordBoundary,
     /// Lines will be broken without discrimination on any character that would leave bounds.
-    /// This is closer to the behaviour one might expect from text in a terminal.
+    /// This is closer to the behavior one might expect from text in a terminal.
     /// However it may lead to words being broken up across linebreaks.
     AnyCharacter,
 }

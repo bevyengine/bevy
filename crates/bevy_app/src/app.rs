@@ -268,7 +268,7 @@ impl App {
     ///
     /// Windowed apps are typically driven by an *event loop* or *message loop* and
     /// some window-manager APIs expect programs to terminate when their primary
-    /// window is closed and that event loop terminates – behaviour of processes that
+    /// window is closed and that event loop terminates – behavior of processes that
     /// do not is often platform dependent or undocumented.
     ///
     /// By default, *Bevy* uses the `winit` crate for window creation. See

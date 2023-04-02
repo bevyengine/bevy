@@ -56,7 +56,7 @@ pub struct WindowCreated {
 ///
 /// If the default [`WindowPlugin`] is used, these events are handled
 /// by closing the corresponding [`Window`].  
-/// To disable this behaviour, set `close_when_requested` on the [`WindowPlugin`]
+/// To disable this behavior, set `close_when_requested` on the [`WindowPlugin`]
 /// to `false`.
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
