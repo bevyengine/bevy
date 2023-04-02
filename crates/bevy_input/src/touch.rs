@@ -527,7 +527,7 @@ mod test {
     }
 
     #[test]
-    fn touch_cancelled() {
+    fn touch_canceled() {
         use crate::{touch::TouchPhase, TouchInput, Touches};
         use bevy_math::Vec2;
 
