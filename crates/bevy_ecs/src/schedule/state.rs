@@ -12,6 +12,8 @@ use crate::world::World;
 pub use bevy_ecs_macros::States;
 use downcast_rs::DowncastSync;
 
+use super::substate::{SubstateLabelInFn, self, SubstateLabel};
+
 /// Types that can define world-wide states in a finite-state machine.
 ///
 /// The [`Default`] trait defines the starting state.
@@ -158,7 +160,7 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
 
         // Try to run the schedules if they exist.
         world.try_run_schedule(OnExit(exited.clone())).ok();
-
+      // world: &mut Worlds 
         world
             .try_run_schedule(OnTransition {
                 from: exited,

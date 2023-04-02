@@ -33,7 +33,7 @@ where
     Self: Sized,
 {
     /// Create [SubstateLabelInFn] from the type of a function.
-    /// 
+    ///
     /// This should be able to be used on some unnamed fields in enums. However, please beware that fields that have the same substate might pass the type checking, as they really match type-wise. (
     /// So
     /// ```rs
@@ -53,6 +53,14 @@ where
     ///
     /// ```
     fn with<F: VariadicFn<Ret, Args>, Ret, Args>(_f: &F) -> SubstateLabelInFn<Ret, Args, Self> {
+        SubstateLabelInFn(PhantomData)
+    }
+
+    fn new<Ret, Args>() -> SubstateLabelInFn<Ret, Args, Self>  {
+        SubstateLabelInFn(PhantomData)
+    }
+
+    fn new_fn<F: VariadicFn<Ret, Args>, Ret, Args>() -> SubstateLabelInFn<Ret, Args, Self> {
         SubstateLabelInFn(PhantomData)
     }
 }
