@@ -286,7 +286,7 @@ impl MultiThreadedExecutor {
 
             // SAFETY: No exclusive system is running.
             // Therefore, there is no existing mutable reference to the world.
-            let world = unsafe { world_cell.world() };
+            let world = unsafe { world_cell.world_metadata() };
             if !self.can_run(system_index, system, conditions, world) {
                 // NOTE: exclusive systems with ambiguities are susceptible to
                 // being significantly displaced here (compared to single-threaded order)
