@@ -3,7 +3,7 @@ use bevy_ecs::{
     change_detection::Ref,
     prelude::{Changed, DetectChanges, Entity, Query, With, Without},
     removal_detection::RemovedComponents,
-    system::ParamSet,
+    system::{Local, ParamSet},
 };
 use bevy_hierarchy::{Children, Parent};
 
@@ -48,12 +48,14 @@ pub fn propagate_transforms(
     mut orphaned: RemovedComponents<Parent>,
     transform_query: Query<(Ref<Transform>, &mut GlobalTransform, Option<&Children>), With<Parent>>,
     parent_query: Query<(Entity, Ref<Parent>)>,
+    mut orphaned_entities: Local<Vec<Entity>>,
 ) {
-    let mut orphaned = orphaned.iter().collect::<Vec<_>>();
-    orphaned.sort_unstable();
+    orphaned_entities.clear();
+    orphaned_entities.extend(orphaned.iter());
+    orphaned_entities.sort_unstable();
     root_query.par_iter_mut().for_each_mut(
         |(entity, children, transform, mut global_transform)| {
-            let changed = transform.is_changed() || orphaned.binary_search(&entity).is_ok();
+            let changed = transform.is_changed() || orphaned_entities.binary_search(&entity).is_ok();
             if changed {
                 *global_transform = GlobalTransform::from(*transform);
             }
@@ -205,9 +207,10 @@ mod test {
         command_queue.apply(&mut world);
         schedule.run(&mut world);
 
-        assert_ne!(
+        assert_eq!(
             world.get::<GlobalTransform>(parent).unwrap(),
-            &GlobalTransform::from(Transform::IDENTITY)
+            &offset_global_transform(4.4 + 3.3),
+            "The transform systems didn't run, ie: `GlobalTransform` wasn't updated",
         );
 
         // Remove parent of `parent`
@@ -219,7 +222,8 @@ mod test {
 
         assert_eq!(
             world.get::<GlobalTransform>(parent).unwrap(),
-            &offset_global_transform(4.4)
+            &offset_global_transform(4.4),
+            "The global transform of an orphaned entity wasn't updated properly",
         );
 
         // Remove parent of `child`
@@ -231,7 +235,8 @@ mod test {
 
         assert_eq!(
             world.get::<GlobalTransform>(child).unwrap(),
-            &offset_global_transform(5.5)
+            &offset_global_transform(5.5),
+            "The global transform of an orphaned entity wasn't updated properly",
         );
     }
 
