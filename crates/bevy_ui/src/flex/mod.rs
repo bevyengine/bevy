@@ -27,11 +27,7 @@ use taffy::{
 #[derive(Component, Copy, Clone)]
 pub struct TaffyNode {
     key: taffy::node::Node,
-}
-
-#[derive(Component, Copy, Clone)]
-pub struct TaffyParent {
-    key: taffy::node::Node,
+    parent: taffy::node::Node,
 }
 
 pub struct LayoutContext {
@@ -57,7 +53,6 @@ impl LayoutContext {
 pub struct FlexSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
     window_nodes: HashMap<Entity, taffy::node::Node>,
-    primary_node: taffy::node::Node,
     taffy: Taffy,
     physical_to_logical_factor: f64,
 }
@@ -87,7 +82,6 @@ impl Default for FlexSurface {
             entity_to_taffy: Default::default(),
             window_nodes: Default::default(),
             taffy: Taffy::new(),
-            primary_node: taffy::node::Node::default(),
             physical_to_logical_factor: 1.0,
         }
     }
@@ -147,9 +141,10 @@ impl FlexSurface {
         for child in children {
             if let Some(taffy_node) = self.entity_to_taffy.get(child) {
                 taffy_children.push(*taffy_node);
-                commands
-                    .entity(*child)
-                    .insert(TaffyParent { key: *taffy_parent });
+                commands.entity(*child).insert(TaffyNode {
+                    key: *taffy_node,
+                    parent: *taffy_parent,
+                });
             } else {
                 warn!(
                     "Unstyled child in a UI entity hierarchy. You are using an entity \
@@ -201,14 +196,18 @@ without UI components as a child of an entity with UI components, results may be
         children: impl Iterator<Item = Entity>,
         commands: &mut Commands,
     ) {
-        self.primary_node = *self.window_nodes.get(&parent_window).unwrap();
+        let window_node = *self.window_nodes.get(&parent_window).unwrap();
         let child_nodes = children
             .map(|e| {
-                commands.entity(e).insert(TaffyParent { key: self.primary_node });
-                *self.entity_to_taffy.get(&e).unwrap()
+                let taffy_node = *self.entity_to_taffy.get(&e).unwrap();
+                commands.entity(e).insert(TaffyNode {
+                    key: taffy_node,
+                    parent: window_node,
+                });
+                taffy_node
             })
             .collect::<Vec<taffy::node::Node>>();
-        self.taffy.set_children(self.primary_node, &child_nodes).unwrap();
+        self.taffy.set_children(window_node, &child_nodes).unwrap();
     }
 
     pub fn compute_window_layouts(&mut self) {
@@ -231,7 +230,7 @@ without UI components as a child of an entity with UI components, results may be
             }
 
             if let Some(mut entity_commands) = commands.get_entity(entity) {
-                entity_commands.remove::<(TaffyNode, TaffyParent)>();
+                entity_commands.remove::<TaffyNode>();
             }
         }
     }
@@ -274,7 +273,6 @@ pub fn flex_node_system(
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
-    mut node_transform_query: Query<(&TaffyNode, &mut Node, &mut Transform, &TaffyParent)>,
     mut removed_nodes: RemovedComponents<Node>,
     new_node_query: Query<
         (Entity, &Style, Option<&CalculatedSize>),
@@ -313,8 +311,7 @@ pub fn flex_node_system(
     flex_surface.physical_to_logical_factor = 1. / logical_to_physical_factor;
 
     for (entity, style, calculated_size) in new_node_query.iter() {
-        let node_key = flex_surface.insert_node(entity, style, calculated_size, &viewport_values);
-        commands.entity(entity).insert(TaffyNode { key: node_key });
+        flex_surface.insert_node(entity, style, calculated_size, &viewport_values);
     }
 
     fn update_changed<F: ReadOnlyWorldQuery>(
@@ -348,11 +345,7 @@ pub fn flex_node_system(
     flex_surface.remove_entities(removed_nodes.iter(), &mut commands);
 
     // update window children (for now assuming all Nodes live in the primary window)
-    flex_surface.set_window_children(
-        primary_window_entity,
-        root_node_query.iter(),
-        &mut commands,
-    );
+    flex_surface.set_window_children(primary_window_entity, root_node_query.iter(), &mut commands);
 
     // update and remove children
     for entity in removed_children.iter() {
@@ -368,33 +361,35 @@ pub fn flex_node_system(
 
 pub fn update_ui_node_transforms(
     flex_surface: Res<FlexSurface>,
-    mut node_transform_query: Query<(&TaffyNode, &mut Node, &mut Transform, &TaffyParent)>,
+    mut node_transform_query: Query<(&TaffyNode, &mut Node, &mut Transform)>,
 ) {
     let to_logical = |v| (flex_surface.physical_to_logical_factor * v as f64) as f32;
 
     // PERF: try doing this incrementally
-    for (taffy_node, mut node, mut transform, taffy_parent) in &mut node_transform_query {
-        let layout = flex_surface.taffy.layout(taffy_node.key).unwrap();
-        let new_size = Vec2::new(
-            to_logical(layout.size.width),
-            to_logical(layout.size.height),
-        );
-        // only trigger change detection when the new value is different
-        if node.calculated_size != new_size {
-            node.calculated_size = new_size;
-        }
-        let mut new_position = transform.translation;
-        new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-        new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
-        if taffy_parent.key != flex_surface.primary_node {
-            let parent_layout = flex_surface.taffy.layout(taffy_parent.key).unwrap();
-            new_position.x -= to_logical(parent_layout.size.width / 2.0);
-            new_position.y -= to_logical(parent_layout.size.height / 2.0);
-        }
+    for &primary_node in flex_surface.window_nodes.values() {
+        for (taffy_node, mut node, mut transform) in &mut node_transform_query {
+            let layout = flex_surface.taffy.layout(taffy_node.key).unwrap();
+            let new_size = Vec2::new(
+                to_logical(layout.size.width),
+                to_logical(layout.size.height),
+            );
+            // only trigger change detection when the new value is different
+            if node.calculated_size != new_size {
+                node.calculated_size = new_size;
+            }
+            let mut new_position = transform.translation;
+            new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
+            new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
+            if taffy_node.parent != primary_node {
+                let parent_layout = flex_surface.taffy.layout(taffy_node.parent).unwrap();
+                new_position.x -= to_logical(parent_layout.size.width / 2.0);
+                new_position.y -= to_logical(parent_layout.size.height / 2.0);
+            }
 
-        // only trigger change detection when the new value is different
-        if transform.translation != new_position {
-            transform.translation = new_position;
+            // only trigger change detection when the new value is different
+            if transform.translation != new_position {
+                transform.translation = new_position;
+            }
         }
     }
 }
