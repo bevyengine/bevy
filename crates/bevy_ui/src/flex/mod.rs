@@ -57,7 +57,9 @@ impl LayoutContext {
 pub struct FlexSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
     window_nodes: HashMap<Entity, taffy::node::Node>,
+    primary_node: taffy::node::Node,
     taffy: Taffy,
+    physical_to_logical_factor: f64,
 }
 
 // SAFETY: as long as MeasureFunc is Send + Sync. https://github.com/DioxusLabs/taffy/issues/146
@@ -85,6 +87,8 @@ impl Default for FlexSurface {
             entity_to_taffy: Default::default(),
             window_nodes: Default::default(),
             taffy: Taffy::new(),
+            primary_node: taffy::node::Node::default(),
+            physical_to_logical_factor: 1.0,
         }
     }
 }
@@ -196,16 +200,15 @@ without UI components as a child of an entity with UI components, results may be
         parent_window: Entity,
         children: impl Iterator<Item = Entity>,
         commands: &mut Commands,
-    ) -> taffy::node::Node {
-        let window_node = *self.window_nodes.get(&parent_window).unwrap();
+    ) {
+        self.primary_node = *self.window_nodes.get(&parent_window).unwrap();
         let child_nodes = children
             .map(|e| {
-                commands.entity(e).insert(TaffyParent { key: window_node });
+                commands.entity(e).insert(TaffyParent { key: self.primary_node });
                 *self.entity_to_taffy.get(&e).unwrap()
             })
             .collect::<Vec<taffy::node::Node>>();
-        self.taffy.set_children(window_node, &child_nodes).unwrap();
-        window_node
+        self.taffy.set_children(self.primary_node, &child_nodes).unwrap();
     }
 
     pub fn compute_window_layouts(&mut self) {
@@ -307,6 +310,7 @@ pub fn flex_node_system(
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
     let viewport_values = LayoutContext::new(scale_factor, physical_size);
+    flex_surface.physical_to_logical_factor = 1. / logical_to_physical_factor;
 
     for (entity, style, calculated_size) in new_node_query.iter() {
         let node_key = flex_surface.insert_node(entity, style, calculated_size, &viewport_values);
@@ -344,7 +348,7 @@ pub fn flex_node_system(
     flex_surface.remove_entities(removed_nodes.iter(), &mut commands);
 
     // update window children (for now assuming all Nodes live in the primary window)
-    let primary_node = flex_surface.set_window_children(
+    flex_surface.set_window_children(
         primary_window_entity,
         root_node_query.iter(),
         &mut commands,
@@ -360,10 +364,13 @@ pub fn flex_node_system(
 
     // compute layouts
     flex_surface.compute_window_layouts();
+}
 
-    let physical_to_logical_factor = 1. / logical_to_physical_factor;
-
-    let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
+pub fn update_ui_node_transforms(
+    flex_surface: Res<FlexSurface>,
+    mut node_transform_query: Query<(&TaffyNode, &mut Node, &mut Transform, &TaffyParent)>,
+) {
+    let to_logical = |v| (flex_surface.physical_to_logical_factor * v as f64) as f32;
 
     // PERF: try doing this incrementally
     for (taffy_node, mut node, mut transform, taffy_parent) in &mut node_transform_query {
@@ -379,7 +386,7 @@ pub fn flex_node_system(
         let mut new_position = transform.translation;
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
-        if taffy_parent.key != primary_node {
+        if taffy_parent.key != flex_surface.primary_node {
             let parent_layout = flex_surface.taffy.layout(taffy_parent.key).unwrap();
             new_position.x -= to_logical(parent_layout.size.width / 2.0);
             new_position.y -= to_logical(parent_layout.size.height / 2.0);

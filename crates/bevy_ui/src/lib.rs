@@ -52,6 +52,8 @@ pub struct UiPlugin;
 pub enum UiSystem {
     /// After this label, the ui flex state has been updated
     Flex,
+    /// After this label, the ui node transforms have been updated
+    Transforms,
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
     /// After this label, the [`UiStack`] resource has been updated
@@ -144,6 +146,10 @@ impl Plugin for UiPlugin {
             (
                 flex_node_system
                     .in_set(UiSystem::Flex)
+                    .before(UiSystem::Transforms),
+                update_ui_node_transforms
+                    .in_set(UiSystem::Transforms)
+                    .after(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
