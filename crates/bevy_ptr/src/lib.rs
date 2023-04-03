@@ -368,12 +368,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
 
 impl<'a, T> Clone for ThinSlicePtr<'a, T> {
     fn clone(&self) -> Self {
-        Self {
-            ptr: self.ptr,
-            #[cfg(debug_assertions)]
-            len: self.len,
-            _marker: PhantomData,
-        }
+        *self
     }
 }
 

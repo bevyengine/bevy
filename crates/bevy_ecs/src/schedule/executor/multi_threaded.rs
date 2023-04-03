@@ -216,10 +216,8 @@ impl SystemExecutor for MultiThreadedExecutor {
 
         if self.apply_final_buffers {
             // Do one final apply buffers after all systems have completed
-            // SAFETY: all systems have completed, and so no outstanding accesses remain
-            let world = unsafe { &mut *world.get() };
             // Commands should be applied while on the scope's thread, not the executor's thread
-            apply_system_buffers(&self.unapplied_systems, systems, world);
+            apply_system_buffers(&self.unapplied_systems, systems, world.get_mut());
             self.unapplied_systems.clear();
             debug_assert!(self.unapplied_systems.is_clear());
         }

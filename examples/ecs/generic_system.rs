@@ -11,19 +11,11 @@
 
 use bevy::prelude::*;
 
-#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, States)]
 enum AppState {
     #[default]
     MainMenu,
     InGame,
-}
-
-impl States for AppState {
-    type Iter = std::array::IntoIter<AppState, 2>;
-
-    fn variants() -> Self::Iter {
-        [AppState::MainMenu, AppState::InGame].into_iter()
-    }
 }
 
 #[derive(Component)]
