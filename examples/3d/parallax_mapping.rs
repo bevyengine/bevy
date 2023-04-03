@@ -16,7 +16,7 @@ fn main() {
                 move_camera,
                 update_parallax_depth,
                 update_parallax_layers,
-                switch_algo,
+                switch_method,
                 close_on_esc,
             ),
         )
@@ -80,24 +80,23 @@ fn update_parallax_depth(
     }
 }
 
-fn switch_algo(
+fn switch_method(
     input: Res<Input<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut text: Query<&mut Text>,
     mut current: Local<ParallaxMappingMethod>,
 ) {
-    use ParallaxMappingMethod::*;
     if input.just_pressed(KeyCode::Space) {
         *current = match *current {
-            ReliefMapping { .. } => ParallaxOcclusionMapping,
-            ParallaxOcclusionMapping => ReliefMapping { max_steps: 5 },
+            ParallaxMappingMethod::Relief { .. } => ParallaxMappingMethod::Occlusion,
+            ParallaxMappingMethod::Occlusion => ParallaxMappingMethod::Relief { max_steps: 5 },
         }
     } else {
         return;
     }
     let method_name = match *current {
-        ReliefMapping { .. } => "Relief Mapping",
-        ParallaxOcclusionMapping => "Parallax Occlusion Mapping",
+        ParallaxMappingMethod::Relief { .. } => "Relief Mapping",
+        ParallaxMappingMethod::Occlusion => "Parallax Occlusion Mapping",
     };
     let mut text = text.single_mut();
     text.sections[2].value = format!("Method: {method_name}\n");

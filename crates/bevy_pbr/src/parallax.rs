@@ -14,27 +14,29 @@ use bevy_reflect::{FromReflect, Reflect};
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Reflect, FromReflect)]
 pub enum ParallaxMappingMethod {
     /// A simple linear interpolation, using a single texture sample.
+    ///
+    /// This method is named "Parallax Occlusion Mapping".
     #[default]
-    ParallaxOcclusionMapping,
+    Occlusion,
     /// Discovers the best depth value based on binary search.
     ///
     /// Each iteration incurs a texture sample.
-    /// The result has fewer visual artifacts than `ParallaxOcclusionMapping`.
-    ReliefMapping {
+    /// The result has fewer visual artifacts than [`ParallaxMappingMethod::Occlusion`].
+    ///
+    /// This method is named "Relief Mapping".
+    Relief {
         /// How many additional steps to use at most to find the depth value.
         max_steps: u32,
     },
 }
 impl ParallaxMappingMethod {
-    /// [`ReliefMapping`] with a 5 steps, a reasonable default.
-    ///
-    /// [`ReliefMapping`]: Self::ReliefMapping
-    pub const DEFAULT_RELIEF_MAPPING: Self = ParallaxMappingMethod::ReliefMapping { max_steps: 5 };
+    /// [`ParallaxMappingMethod::Relief`] with a 5 steps, a reasonable default.
+    pub const DEFAULT_RELIEF_MAPPING: Self = ParallaxMappingMethod::Relief { max_steps: 5 };
 
     pub(crate) fn max_steps(&self) -> u32 {
         match self {
-            ParallaxMappingMethod::ParallaxOcclusionMapping => 0,
-            ParallaxMappingMethod::ReliefMapping { max_steps } => *max_steps,
+            ParallaxMappingMethod::Occlusion => 0,
+            ParallaxMappingMethod::Relief { max_steps } => *max_steps,
         }
     }
 }

@@ -341,7 +341,7 @@ impl Default for StandardMaterial {
             depth_map: None,
             parallax_depth: 0.1,
             max_parallax_layer_count: 16.0,
-            parallax_mapping_method: ParallaxMappingMethod::ParallaxOcclusionMapping,
+            parallax_mapping_method: ParallaxMappingMethod::Occlusion,
         }
     }
 }
@@ -527,7 +527,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
             depth_bias: material.depth_bias as i32,
             relief_mapping: matches!(
                 material.parallax_mapping_method,
-                ParallaxMappingMethod::ReliefMapping { .. }
+                ParallaxMappingMethod::Relief { .. }
             ),
         }
     }
