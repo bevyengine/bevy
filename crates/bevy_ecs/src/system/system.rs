@@ -40,8 +40,8 @@ pub trait System: Send + Sync + 'static {
     fn is_exclusive(&self) -> bool;
 
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
-    /// takes [`UnsafeWorldCell`] and may therefore break Rust's aliasing rules, making
-    /// it unsafe to call.
+    /// can be called in parallel with other systems and may break Rust's aliasing rules
+    /// if used incorrectly, making it unsafe to call.
     ///
     /// # Safety
     ///
