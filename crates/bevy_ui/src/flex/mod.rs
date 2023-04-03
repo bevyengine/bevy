@@ -217,10 +217,18 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Removes each entity from the internal map and then removes their associated node from taffy
-    pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
+    pub fn remove_entities(
+        &mut self,
+        entities: impl IntoIterator<Item = Entity>,
+        commands: &mut Commands,
+    ) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
                 self.taffy.remove(node).unwrap();
+            }
+
+            if let Some(mut entity_commands) = commands.get_entity(entity) {
+                entity_commands.remove::<(TaffyNode, TaffyParent)>();
             }
         }
     }
@@ -333,7 +341,7 @@ pub fn flex_node_system(
     }
 
     // clean up removed nodes
-    flex_surface.remove_entities(removed_nodes.iter());
+    flex_surface.remove_entities(removed_nodes.iter(), &mut commands);
 
     // update window children (for now assuming all Nodes live in the primary window)
     let primary_node = flex_surface.set_window_children(
