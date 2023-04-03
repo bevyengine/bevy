@@ -6,6 +6,8 @@ use crate::{
 };
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use super::unsafe_world_cell::UnsafeWorldCell;
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 // We use usize here because that is the largest `Atomic` we want to require
 /// A unique identifier for a [`World`].
@@ -56,10 +58,10 @@ unsafe impl SystemParam for WorldId {
     unsafe fn get_param<'world, 'state>(
         _: &'state mut Self::State,
         _: &crate::system::SystemMeta,
-        world: &'world super::World,
+        world: UnsafeWorldCell<'world>,
         _: Tick,
     ) -> Self::Item<'world, 'state> {
-        world.id
+        world.world_metadata().id()
     }
 }
 

@@ -419,7 +419,7 @@ pub enum AlignItems {
     /// then they are packed towards the end of the axis.
     FlexStart,
     /// Items are packed towards the end of the axis, unless the flex direction is reversed;
-    /// then they are packed towards the end of the axis.
+    /// then they are packed towards the start of the axis.
     FlexEnd,
     /// Items are aligned at the center.
     Center,
@@ -453,8 +453,8 @@ pub enum AlignSelf {
     /// This item will be aligned with the start of the axis, unless the flex direction is reversed;
     /// then it will be aligned with the end of the axis.
     FlexStart,
-    /// This item will be aligned with the start of the axis, unless the flex direction is reversed;
-    /// then it will be aligned with the end of the axis.
+    /// This item will be aligned with the end of the axis, unless the flex direction is reversed;
+    /// then it will be aligned with the start of the axis.
     FlexEnd,
     /// This item will be aligned at the center.
     Center,
