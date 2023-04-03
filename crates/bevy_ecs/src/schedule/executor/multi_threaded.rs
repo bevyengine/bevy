@@ -284,10 +284,7 @@ impl MultiThreadedExecutor {
             // Therefore, no other reference to this system exists and there is no aliasing.
             let system = unsafe { &mut *systems[system_index].get() };
 
-            // SAFETY: No exclusive system is running.
-            // Therefore, there is no existing mutable reference to the world.
-            let world = unsafe { world_cell.world_metadata() };
-            if !self.can_run(system_index, system, conditions, world) {
+            if !self.can_run(system_index, system, conditions, world_cell) {
                 // NOTE: exclusive systems with ambiguities are susceptible to
                 // being significantly displaced here (compared to single-threaded order)
                 // if systems after them in topological order can run
@@ -297,7 +294,9 @@ impl MultiThreadedExecutor {
 
             self.ready_systems.set(system_index, false);
 
-            if !self.should_run(system_index, system, conditions, world) {
+            // SAFETY: `can_run` returned true, so there can be no systems
+            // running whose accesses would conflict with any conditions.
+            if !self.should_run(system_index, system, conditions, world_cell) {
                 self.skip_system_and_signal_dependents(system_index);
                 continue;
             }
@@ -333,7 +332,7 @@ impl MultiThreadedExecutor {
         system_index: usize,
         system: &mut BoxedSystem,
         conditions: &mut Conditions,
-        world: &World,
+        world: UnsafeWorldCell,
     ) -> bool {
         let system_meta = &self.system_task_metadata[system_index];
         if system_meta.is_exclusive && self.num_running_systems > 0 {
@@ -343,6 +342,10 @@ impl MultiThreadedExecutor {
         if !system_meta.is_send && self.local_thread_running {
             return false;
         }
+
+        // SAFETY: We only use the world to update system archetype
+        // component accesses, which only accesses metadata.
+        let world = unsafe { world.world_metadata() };
 
         // TODO: an earlier out if world's archetypes did not change
         for set_idx in conditions.sets_with_conditions_of_systems[system_index]
@@ -388,12 +391,16 @@ impl MultiThreadedExecutor {
         true
     }
 
-    fn should_run(
+    /// # Safety
+    /// `world` must have permission to read any world data required by
+    /// the system's conditions: this includes conditions for the system
+    /// itself, and conditions for any of the system's sets.
+    unsafe fn should_run(
         &mut self,
         system_index: usize,
         _system: &BoxedSystem,
         conditions: &mut Conditions,
-        world: &World,
+        world: UnsafeWorldCell,
     ) -> bool {
         let mut should_run = !self.skipped_systems.contains(system_index);
         for set_idx in conditions.sets_with_conditions_of_systems[system_index].ones() {
@@ -401,7 +408,9 @@ impl MultiThreadedExecutor {
                 continue;
             }
 
-            // evaluate system set's conditions
+            // Evaluate the system set's conditions.
+            // SAFETY: The caller ensures that `world` has permission to read
+            // any data required by the conditions.
             let set_conditions_met =
                 evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world);
 
@@ -414,7 +423,9 @@ impl MultiThreadedExecutor {
             self.evaluated_sets.insert(set_idx);
         }
 
-        // evaluate system's conditions
+        // Evaluate the system's conditions.
+        // SAFETY: The caller ensures that `world` has permission to read
+        // any data required by the conditions.
         let system_conditions_met =
             evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world);
 
@@ -613,7 +624,13 @@ fn apply_system_buffers(
     }
 }
 
-fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World) -> bool {
+/// # Safety
+/// `world` must have permission to read any world data
+/// required by `conditions`.
+unsafe fn evaluate_and_fold_conditions(
+    conditions: &mut [BoxedCondition],
+    world: UnsafeWorldCell,
+) -> bool {
     // not short-circuiting is intentional
     #[allow(clippy::unnecessary_fold)]
     conditions
@@ -621,9 +638,9 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World
         .map(|condition| {
             #[cfg(feature = "trace")]
             let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-            // SAFETY: `&World` gives us immutable access to the entire world.
-            // Since `condition` is `ReadOnlySystem`, it will never mutably access the world.
-            unsafe { condition.run_unsafe((), world.as_unsafe_world_cell_readonly()) }
+            // SAFETY: The caller ensures that `world` has permission to
+            // access any data required by the condition.
+            unsafe { condition.run_unsafe((), world) }
         })
         .fold(true, |acc, res| acc && res)
 }
