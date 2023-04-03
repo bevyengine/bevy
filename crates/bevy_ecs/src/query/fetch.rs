@@ -1384,15 +1384,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
-    unsafe fn init_fetch<'w>(
-        _world: &'w World,
-        _state: &Self::State,
-        _last_run: Tick,
-        _this_run: Tick,
-    ) -> Self::Fetch<'w> {
-    }
-
-    unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
+    unsafe fn init_fetch(_world: &World, _state: &Self::State, _last_run: Tick, _this_run: Tick) {}
 
     // `PhantomData` does not match any components, so all components it matches
     // are stored in a Table (vacuous truth).
