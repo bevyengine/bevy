@@ -28,19 +28,24 @@ impl RenderGraphApp for App {
         node_name: &'static str,
     ) -> &mut Self {
         let node = T::from_world(&mut self.world);
-        let mut render_graph = self.world.resource_mut::<RenderGraph>();
+        let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
+            "RenderGraph not found. Make sure you are using add_render_graph_node on the RenderApp",
+        );
 
-        let graph = render_graph.get_sub_graph_mut(sub_graph_name).unwrap();
+        let graph = render_graph.sub_graph_mut(sub_graph_name);
         graph.add_node(node_name, node);
         self
     }
+
     fn add_render_graph_edges(
         &mut self,
         sub_graph_name: &'static str,
         edges: &[&'static str],
     ) -> &mut Self {
-        let mut render_graph = self.world.resource_mut::<RenderGraph>();
-        let graph = render_graph.get_sub_graph_mut(sub_graph_name).unwrap();
+        let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
+            "RenderGraph not found. Make sure you are using add_render_graph_node on the RenderApp",
+        );
+        let graph = render_graph.sub_graph_mut(sub_graph_name);
         graph.add_node_edges(edges);
         self
     }
