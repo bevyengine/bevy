@@ -86,6 +86,8 @@ pub struct MultiThreadedExecutor {
     local_thread_running: bool,
     /// Returns `true` if an exclusive system is running.
     exclusive_running: bool,
+    /// The number of systems expected to run.
+    num_systems: usize,
     /// The number of systems that are running.
     num_running_systems: usize,
     /// The number of systems that have completed.
@@ -110,6 +112,8 @@ pub struct MultiThreadedExecutor {
     apply_final_buffers: bool,
     /// When set, tells the executor that a thread has panicked.
     panic_payload: Arc<Mutex<Option<Box<dyn Any + Send>>>>,
+    /// When set, stops the executor from running any more systems.
+    stop_spawning: bool,
 }
 
 impl Default for MultiThreadedExecutor {
@@ -159,8 +163,8 @@ impl SystemExecutor for MultiThreadedExecutor {
 
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         // reset counts
-        let num_systems = schedule.systems.len();
-        if num_systems == 0 {
+        self.num_systems = schedule.systems.len();
+        if self.num_systems == 0 {
             return;
         }
         self.num_running_systems = 0;
@@ -193,7 +197,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 // the executor itself is a `Send` future so that it can run
                 // alongside systems that claim the local thread
                 let executor = async {
-                    while self.num_completed_systems < num_systems {
+                    while self.num_completed_systems < self.num_systems {
                         // SAFETY: self.ready_systems does not contain running systems
                         unsafe {
                             self.spawn_system_tasks(scope, systems, &mut conditions, world);
@@ -258,6 +262,7 @@ impl MultiThreadedExecutor {
             sender,
             receiver,
             system_task_metadata: Vec::new(),
+            num_systems: 0,
             num_running_systems: 0,
             num_completed_systems: 0,
             num_dependencies_remaining: Vec::new(),
@@ -273,6 +278,7 @@ impl MultiThreadedExecutor {
             unapplied_systems: FixedBitSet::new(),
             apply_final_buffers: true,
             panic_payload: Arc::new(Mutex::new(None)),
+            stop_spawning: false,
         }
     }
 
@@ -604,10 +610,10 @@ impl MultiThreadedExecutor {
         self.completed_systems.insert(system_index);
         self.unapplied_systems.insert(system_index);
 
-        if success {
-            self.signal_dependents(system_index);
-        } else {
-            self.skip_dependents(system_index);
+        self.signal_dependents(system_index);
+
+        if !success {
+            self.stop_spawning_systems();
         }
     }
 
@@ -628,12 +634,10 @@ impl MultiThreadedExecutor {
         }
     }
 
-    fn skip_dependents(&mut self, system_index: usize) {
-        let dependents = self.system_task_metadata[system_index].dependents.clone();
-        for dep_idx in dependents {
-            self.num_completed_systems += 1;
-            self.completed_systems.insert(dep_idx);
-            self.skip_dependents(dep_idx);
+    fn stop_spawning_systems(&mut self) {
+        if !self.stop_spawning {
+            self.num_systems = self.num_completed_systems + self.num_running_systems;
+            self.stop_spawning = true;
         }
     }
 
