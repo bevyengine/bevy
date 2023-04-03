@@ -19,7 +19,7 @@ use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     prelude::{Camera, Projection},
-    render_graph::{add_node, Node, NodeRunError, RenderGraphContext},
+    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::{
         BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
@@ -72,19 +72,17 @@ impl Plugin for TemporalAntiAliasPlugin {
                     prepare_taa_history_textures.in_set(RenderSet::Prepare),
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
                 ),
+            )
+            .add_render_graph_node::<TAANode>(core_3d::graph::NAME, draw_3d_graph::node::TAA)
+            .add_render_graph_edges(
+                core_3d::graph::NAME,
+                &[
+                    core_3d::graph::node::END_MAIN_PASS,
+                    draw_3d_graph::node::TAA,
+                    core_3d::graph::node::BLOOM,
+                    core_3d::graph::node::TONEMAPPING,
+                ],
             );
-
-        add_node::<TAANode>(
-            render_app,
-            core_3d::graph::NAME,
-            draw_3d_graph::node::TAA,
-            &[
-                core_3d::graph::node::END_MAIN_PASS,
-                draw_3d_graph::node::TAA,
-                core_3d::graph::node::BLOOM,
-                core_3d::graph::node::TONEMAPPING,
-            ],
-        );
     }
 }
 

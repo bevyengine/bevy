@@ -15,7 +15,7 @@ use bevy::{
         extract_component::{
             ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
         },
-        render_graph::{add_node, Node, NodeRunError, RenderGraphContext},
+        render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
         render_resource::{
             BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
             BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
@@ -66,34 +66,35 @@ impl Plugin for PostProcessPlugin {
             return;
         };
 
-        // Initialize the pipeline
-        render_app.init_resource::<PostProcessPipeline>();
-
-        // Bevy's renderer uses a render graph which is a collection of nodes in a directed acyclic graph.
-        // It currently runs on each view/camera and executes each node in the specified order.
-        // It will make sure that any node that needs a dependency from another node
-        // only runs when that dependency is done.
-        //
-        // Each node can execute arbitrary work, but it generally runs at least one render pass.
-        // A node only has access to the render world, so if you need data from the main world
-        // you need to extract it manually or with the plugin like above.
-
-        // Utility function to add a [`Node`] to the [`RenderGraph`]
-        // The Node needs to impl FromWorld
-        add_node::<PostProcessNode>(
-            render_app,
-            // Specifiy the name of the graph, in this case we want the graph for 3d
-            core_3d::graph::NAME,
-            // It also needs the name of the node
-            PostProcessNode::NAME,
-            // Specify the node ordering.
-            // This will automatically create all required node edges to enforce the given ordering.
-            &[
-                core_3d::graph::node::TONEMAPPING,
+        render_app
+            // Initialize the pipeline
+            .init_resource::<PostProcessPipeline>()
+            // Bevy's renderer uses a render graph which is a collection of nodes in a directed acyclic graph.
+            // It currently runs on each view/camera and executes each node in the specified order.
+            // It will make sure that any node that needs a dependency from another node
+            // only runs when that dependency is done.
+            //
+            // Each node can execute arbitrary work, but it generally runs at least one render pass.
+            // A node only has access to the render world, so if you need data from the main world
+            // you need to extract it manually or with the plugin like above.
+            // Add a [`Node`] to the [`RenderGraph`]
+            // The Node needs to impl FromWorld
+            .add_render_graph_node::<PostProcessNode>(
+                // Specifiy the name of the graph, in this case we want the graph for 3d
+                core_3d::graph::NAME,
+                // It also needs the name of the node
                 PostProcessNode::NAME,
-                core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-            ],
-        );
+            )
+            .add_render_graph_edges(
+                core_3d::graph::NAME,
+                // Specify the node ordering.
+                // This will automatically create all required node edges to enforce the given ordering.
+                &[
+                    core_3d::graph::node::TONEMAPPING,
+                    PostProcessNode::NAME,
+                    core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+                ],
+            );
     }
 }
 
