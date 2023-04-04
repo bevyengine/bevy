@@ -197,7 +197,7 @@ where
         self.component_access.extend(self.b.component_access());
     }
 
-    fn update_archetype_component_access(&mut self, world: &World) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         self.a.update_archetype_component_access(world);
         self.b.update_archetype_component_access(world);
 

@@ -51,15 +51,20 @@ pub trait System: Send + Sync + 'static {
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out;
     /// Runs the system with the given input in the world.
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        let world = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world);
-        // SAFETY: world and resources are exclusively borrowed
-        unsafe { self.run_unsafe(input, world.as_unsafe_world_cell()) }
+        // SAFETY: We have exclusive access to the entire world.
+        unsafe { self.run_unsafe(input, world) }
     }
     fn apply_buffers(&mut self, world: &mut World);
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
     /// Update the system's archetype component [`Access`].
-    fn update_archetype_component_access(&mut self, world: &World);
+    ///
+    /// ## Note for implementors
+    /// `world` may only be used to access metadata. This can be done in safe code
+    /// via functions such as [`UnsafeWorldCell::archetypes`].
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell);
     fn check_change_tick(&mut self, change_tick: Tick);
     /// Returns the system's default [system sets](crate::schedule::SystemSet).
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {

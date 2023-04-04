@@ -343,10 +343,6 @@ impl MultiThreadedExecutor {
             return false;
         }
 
-        // SAFETY: We only use the world to update system archetype
-        // component accesses, which only accesses metadata.
-        let world = unsafe { world.world_metadata() };
-
         // TODO: an earlier out if world's archetypes did not change
         for set_idx in conditions.sets_with_conditions_of_systems[system_index]
             .difference(&self.evaluated_sets)

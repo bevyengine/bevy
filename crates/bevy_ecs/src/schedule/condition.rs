@@ -996,7 +996,7 @@ where
         self.condition.initialize(world);
     }
 
-    fn update_archetype_component_access(&mut self, world: &World) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         self.condition.update_archetype_component_access(world);
     }
 

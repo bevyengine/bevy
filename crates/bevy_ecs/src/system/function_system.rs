@@ -515,7 +515,7 @@ where
         self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
     }
 
-    fn update_archetype_component_access(&mut self, world: &World) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
