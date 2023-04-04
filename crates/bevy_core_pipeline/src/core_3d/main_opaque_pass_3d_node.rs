@@ -2,15 +2,18 @@ use crate::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{Camera3d, Opaque3d},
     prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
-    render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
+    render_resource::{
+        LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
+    },
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -30,6 +33,9 @@ pub struct MainOpaquePass3dNode {
             Option<&'static DepthPrepass>,
             Option<&'static NormalPrepass>,
             Option<&'static MotionVectorPrepass>,
+            Option<&'static SkyboxPipelineId>,
+            Option<&'static SkyboxBindGroup>,
+            &'static ViewUniformOffset,
         ),
         With<ExtractedView>,
     >,
@@ -64,7 +70,10 @@ impl Node for MainOpaquePass3dNode {
             depth,
             depth_prepass,
             normal_prepass,
-            motion_vector_prepass
+            motion_vector_prepass,
+            skybox_pipeline,
+            skybox_bind_group,
+            view_uniform_offset,
         )) = self.query.get_manual(world, view_entity) else {
             // No window
             return Ok(());
@@ -75,6 +84,7 @@ impl Node for MainOpaquePass3dNode {
         #[cfg(feature = "trace")]
         let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
 
+        // Setup render pass
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("main_opaque_pass_3d"),
             // NOTE: The opaque pass loads the color
@@ -115,10 +125,24 @@ impl Node for MainOpaquePass3dNode {
             render_pass.set_camera_viewport(viewport);
         }
 
+        // Opaque draws
         opaque_phase.render(&mut render_pass, world, view_entity);
 
+        // Alpha draws
         if !alpha_mask_phase.items.is_empty() {
             alpha_mask_phase.render(&mut render_pass, world, view_entity);
+        }
+
+        // Draw the skybox using a fullscreen triangle
+        if let (Some(skybox_pipeline), Some(skybox_bind_group)) =
+            (skybox_pipeline, skybox_bind_group)
+        {
+            let pipeline_cache = world.resource::<PipelineCache>();
+            if let Some(pipeline) = pipeline_cache.get_render_pipeline(skybox_pipeline.0) {
+                render_pass.set_render_pipeline(pipeline);
+                render_pass.set_bind_group(0, &skybox_bind_group.0, &[view_uniform_offset.offset]);
+                render_pass.draw(0..3, 0..1);
+            }
         }
 
         Ok(())
