@@ -38,7 +38,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, DeriveInput, Generics};
+use syn::{parse_macro_input, DeriveInput};
 use type_path::NamedTypePathDef;
 use type_uuid::TypeUuidDef;
 use utility::WhereClauseOptions;
@@ -302,10 +302,11 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
         ReflectTypePath::External {
             path: &def.type_path,
             custom_path: def.custom_path.map(|path| path.into_path(default_name)),
+            generics: &def.generics,
         }
     };
 
-    let meta = ReflectMeta::new(type_path, &def.generics, def.traits.unwrap_or_default());
+    let meta = ReflectMeta::new(type_path, def.traits.unwrap_or_default());
 
     #[cfg(feature = "documentation")]
     let meta = meta.with_docs(documentation::Documentation::from_attributes(&def.attrs));
@@ -409,47 +410,44 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as ReflectValueDef);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
-    let type_path = if def.type_path.leading_colon.is_none() && def.custom_path.is_none() {
+    let type_path = if def.type_path.leading_colon.is_none()
+        && def.custom_path.is_none()
+        && def.generics.params.is_empty()
+    {
         ReflectTypePath::Primitive(default_name)
     } else {
         ReflectTypePath::External {
             path: &def.type_path,
             custom_path: def.custom_path.map(|alias| alias.into_path(default_name)),
+            generics: &def.generics,
         }
     };
 
-    from_reflect::impl_value(&ReflectMeta::new(
-        type_path,
-        &def.generics,
-        def.traits.unwrap_or_default(),
-    ))
+    from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()))
 }
 
 #[proc_macro]
 pub fn impl_type_path(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as NamedTypePathDef);
 
-    let (type_path, generics) = match def {
+    let type_path = match def {
         NamedTypePathDef::External {
             ref path,
             custom_path,
-            generics,
+            ref generics,
         } => {
             let default_name = &path.segments.last().unwrap().ident;
-            (
-                ReflectTypePath::External {
-                    path,
-                    custom_path: custom_path.map(|path| path.into_path(default_name)),
-                },
+
+            ReflectTypePath::External {
+                path,
+                custom_path: custom_path.map(|path| path.into_path(default_name)),
                 generics,
-            )
+            }
         }
-        NamedTypePathDef::Primtive(ref ident) => {
-            (ReflectTypePath::Primitive(ident), Generics::default())
-        }
+        NamedTypePathDef::Primtive(ref ident) => ReflectTypePath::Primitive(ident),
     };
 
-    let meta = ReflectMeta::new(type_path, &generics, ReflectTraits::default());
+    let meta = ReflectMeta::new(type_path, ReflectTraits::default());
 
     impls::impl_type_path(&meta, &WhereClauseOptions::type_path_bounds(&meta)).into()
 }

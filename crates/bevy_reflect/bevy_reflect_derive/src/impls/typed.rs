@@ -39,7 +39,7 @@ fn combine_generics(
 /// [short path]: ReflectTypePath::non_generic_short_path
 fn type_path_generator(long_path: bool, meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let type_path = meta.type_path();
-    let generics = meta.generics();
+    let generics = type_path.generics();
     let bevy_reflect_path = meta.bevy_reflect_path();
 
     if let ReflectTypePath::Primitive(name) = type_path {
@@ -178,7 +178,7 @@ pub(crate) fn impl_type_path(
         None
     };
 
-    let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
 
     // Add Typed bound for each active field
     let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
@@ -220,7 +220,7 @@ pub(crate) fn impl_typed(
 
     let type_info_cell = static_typed_cell(meta, TypedProperty::TypeInfo, type_info_generator);
 
-    let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
 
     let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
 

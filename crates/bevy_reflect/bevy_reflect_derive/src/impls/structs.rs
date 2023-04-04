@@ -96,8 +96,11 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
     let get_type_registration_impl = reflect_struct.get_type_registration(&where_clause_options);
 
-    let (impl_generics, ty_generics, where_clause) =
-        reflect_struct.meta().generics().split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = reflect_struct
+        .meta()
+        .type_path()
+        .generics()
+        .split_for_impl();
 
     let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 

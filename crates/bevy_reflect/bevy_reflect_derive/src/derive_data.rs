@@ -43,8 +43,6 @@ pub(crate) struct ReflectMeta<'a> {
     traits: ReflectTraits,
     /// The name of this type.
     type_path: ReflectTypePath<'a>,
-    /// The generics defined on this type.
-    generics: &'a Generics,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
     /// The documentation for this type, if any
@@ -228,9 +226,10 @@ impl<'a> ReflectDerive<'a> {
         let type_path = ReflectTypePath::Internal {
             ident: &input.ident,
             custom_path,
+            generics: &input.generics,
         };
 
-        let meta = ReflectMeta::new(type_path, &input.generics, traits);
+        let meta = ReflectMeta::new(type_path, traits);
 
         #[cfg(feature = "documentation")]
         let meta = meta.with_docs(doc);
@@ -337,15 +336,10 @@ impl<'a> ReflectDerive<'a> {
 }
 
 impl<'a> ReflectMeta<'a> {
-    pub fn new(
-        type_path: ReflectTypePath<'a>,
-        generics: &'a Generics,
-        traits: ReflectTraits,
-    ) -> Self {
+    pub fn new(type_path: ReflectTypePath<'a>, traits: ReflectTraits) -> Self {
         Self {
             traits,
             type_path,
-            generics,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
             #[cfg(feature = "documentation")]
             docs: Default::default(),
@@ -364,13 +358,8 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// The name of this struct.
-    pub fn type_path(&self) -> &'a ReflectTypePath {
+    pub fn type_path(&self) -> &ReflectTypePath<'a> {
         &self.type_path
-    }
-
-    /// The generics associated with this struct.
-    pub fn generics(&self) -> &'a Generics {
-        self.generics
     }
 
     /// The cached `bevy_reflect` path.
@@ -383,7 +372,8 @@ impl<'a> ReflectMeta<'a> {
         // Whether to use `GenericTypeCell` is not dependent on lifetimes
         // (which all have to be 'static anyway).
         !self
-            .generics
+            .type_path()
+            .generics()
             .params
             .iter()
             .all(|param| matches!(param, GenericParam::Lifetime(_)))
@@ -610,6 +600,7 @@ pub(crate) enum ReflectTypePath<'a> {
     External {
         path: &'a Path,
         custom_path: Option<Path>,
+        generics: &'a Generics,
     },
     /// The name of a type relative to its scope.
     ///
@@ -622,6 +613,7 @@ pub(crate) enum ReflectTypePath<'a> {
     Internal {
         ident: &'a Ident,
         custom_path: Option<Path>,
+        generics: &'a Generics,
     },
     /// Any [`syn::Type`] with only a defined `type_path` and `short_type_path`.
     #[allow(dead_code)]
@@ -641,13 +633,17 @@ impl<'a> ReflectTypePath<'a> {
     /// [anonymous]: ReflectTypePath::Anonymous
     pub fn get_ident(&self) -> Option<&Ident> {
         match self {
-            Self::Internal { ident, custom_path } => Some(
+            Self::Internal {
+                ident, custom_path, ..
+            } => Some(
                 custom_path
                     .as_ref()
                     .map(|path| &path.segments.last().unwrap().ident)
                     .unwrap_or(ident),
             ),
-            Self::External { path, custom_path } => Some(
+            Self::External {
+                path, custom_path, ..
+            } => Some(
                 &custom_path
                     .as_ref()
                     .unwrap_or(path)
@@ -661,6 +657,26 @@ impl<'a> ReflectTypePath<'a> {
         }
     }
 
+    /// The generics associated with the type.
+    ///
+    /// Empty if [anonymous] or [primitive].
+    ///
+    /// [primitive]: ReflectTypePath::Primitive
+    /// [anonymous]: ReflectTypePath::Anonymous
+    pub fn generics(&self) -> &'a Generics {
+        // Use a constant because we need to return a reference of at least 'a.
+        const EMPTY_GENERICS: &Generics = &Generics {
+            gt_token: None,
+            lt_token: None,
+            where_clause: None,
+            params: Punctuated::new(),
+        };
+        match self {
+            Self::Internal { generics, .. } | Self::External { generics, .. } => generics,
+            _ => EMPTY_GENERICS,
+        }
+    }
+
     /// Returns the path interpreted as a [`Path`].
     ///
     /// Returns [`None`] if [anonymous], [primitive],
@@ -671,7 +687,9 @@ impl<'a> ReflectTypePath<'a> {
     pub fn get_path(&self) -> Option<&Path> {
         match self {
             Self::Internal { custom_path, .. } => custom_path.as_ref(),
-            Self::External { path, custom_path } => Some(custom_path.as_ref().unwrap_or(path)),
+            Self::External {
+                path, custom_path, ..
+            } => Some(custom_path.as_ref().unwrap_or(path)),
             _ => None,
         }
     }

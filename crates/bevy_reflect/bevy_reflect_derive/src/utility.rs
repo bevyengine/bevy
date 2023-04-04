@@ -80,6 +80,7 @@ impl WhereClauseOptions {
         let bevy_reflect_path = meta.bevy_reflect_path();
         Self {
             parameter_types: meta
+                .type_path()
                 .generics()
                 .type_params()
                 .map(|ty| ty.ident.clone())

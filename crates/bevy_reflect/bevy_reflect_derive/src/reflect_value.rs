@@ -19,6 +19,9 @@ use syn::{parenthesized, Attribute, Generics, Path};
 ///
 /// // With generics and where clause
 /// ::my_crate::foo::Bar<T1, T2> where T1: Bar (TraitA, TraitB)
+///
+/// // With a custom path (not with impl_from_reflect_value)
+/// (in my_crate::bar) Bar(TraitA, TraitB)
 /// ```
 pub(crate) struct ReflectValueDef {
     #[allow(dead_code)]
@@ -32,6 +35,9 @@ pub(crate) struct ReflectValueDef {
 impl Parse for ReflectValueDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let attrs = input.call(Attribute::parse_outer)?;
+
+        let custom_path = CustomPathDef::parse_parenthesized(input)?;
+
         let type_path = Path::parse_mod_style(input)?;
         let mut generics = input.parse::<Generics>()?;
         generics.where_clause = input.parse()?;
@@ -42,13 +48,10 @@ impl Parse for ReflectValueDef {
             parenthesized!(content in input);
             traits = Some(content.parse::<ReflectTraits>()?);
         }
-
-        let custom_path = CustomPathDef::parse_parenthesized(input)?;
-
         Ok(ReflectValueDef {
             attrs,
             type_path,
-            generics: Generics { ..generics },
+            generics,
             traits,
             custom_path,
         })
