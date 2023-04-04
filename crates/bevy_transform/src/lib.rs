@@ -12,7 +12,8 @@ pub mod systems;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        commands::BuildChildrenTransformExt, components::*, TransformBundle, TransformPlugin,
+        commands::BuildChildrenTransformExt, components::*, Transform2dBundle, TransformBundle,
+        TransformPlugin,
     };
 }
 
