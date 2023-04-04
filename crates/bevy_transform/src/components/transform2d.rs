@@ -329,7 +329,7 @@ impl Transform2d {
     }
 
     /// Multiplies `self` with `transform` component by component, returning the
-    /// resulting [`Transform`]
+    /// resulting [`Transform2d`]
     #[inline]
     #[must_use]
     pub fn mul_transform(&self, transform: Transform2d) -> Self {
