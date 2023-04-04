@@ -35,10 +35,10 @@ data as possible.
 
 If your app is running slowly, please show profiler traces before and after the change.
 For more information on how to get these traces, see
-https://github.com/bevyengine/bevy/blob/main/docs/profiling.md.
+<https://github.com/bevyengine/bevy/blob/main/docs/profiling.md>.
 
 If this is about a compile-time regression, please provide the full output of `cargo build --timings`,
-for more information see https://doc.rust-lang.org/cargo/reference/timings.html.
+for more information see <https://doc.rust-lang.org/cargo/reference/timings.html>.
 
 * Before:
 * After:
