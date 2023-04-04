@@ -157,7 +157,6 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 pub struct DynamicUniformBuffer<T: ShaderType> {
     scratch: DynamicUniformBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
-    capacity: usize,
     label: Option<String>,
     changed: bool,
     buffer_usage: BufferUsages,
@@ -169,7 +168,6 @@ impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
         Self {
             scratch: DynamicUniformBufferWrapper::new(Vec::new()),
             buffer: None,
-            capacity: 0,
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
@@ -235,15 +233,15 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     /// allocated does not have enough capacity, a new GPU-side buffer is created.
     #[inline]
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
-        let size = self.scratch.as_ref().len();
+        let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
+        let size = self.scratch.as_ref().len() as u64;
 
-        if self.capacity < size || self.changed {
+        if capacity < size || self.changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
-            self.capacity = size;
             self.changed = false;
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
