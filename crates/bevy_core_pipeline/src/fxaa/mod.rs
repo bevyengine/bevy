@@ -7,7 +7,6 @@ use bevy_reflect::{
     std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypeUuid,
 };
 use bevy_render::{
-    camera::MipBias,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
     render_graph::RenderGraphApp,

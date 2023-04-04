@@ -323,7 +323,7 @@ pub fn prepare_view_uniforms(
 ) {
     view_uniforms.uniforms.clear();
 
-    for (entity, camera, temporal_jitter) in &views {
+    for (entity, camera, temporal_jitter, mip_bias) in &views {
         let viewport = camera.viewport.as_vec4();
         let unjittered_projection = camera.projection;
         let mut projection = unjittered_projection;
