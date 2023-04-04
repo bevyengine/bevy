@@ -1,4 +1,8 @@
-use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state};
+use crate::{
+    core_2d::{self, CORE_2D},
+    core_3d::{self, CORE_3D},
+    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
@@ -91,18 +95,18 @@ impl Plugin for FxaaPlugin {
             .init_resource::<FxaaPipeline>()
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
             .add_systems(Render, prepare_fxaa_pipelines.in_set(RenderSet::Prepare))
-            .add_render_graph_node::<FxaaNode>(core_3d::graph::NAME, core_3d::graph::node::FXAA)
+            .add_render_graph_node::<FxaaNode>(CORE_3D, core_3d::graph::node::FXAA)
             .add_render_graph_edges(
-                core_3d::graph::NAME,
+                CORE_3D,
                 &[
                     core_3d::graph::node::TONEMAPPING,
                     core_3d::graph::node::FXAA,
                     core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
                 ],
             )
-            .add_render_graph_node::<FxaaNode>(core_2d::graph::NAME, core_2d::graph::node::FXAA)
+            .add_render_graph_node::<FxaaNode>(CORE_2D, core_2d::graph::node::FXAA)
             .add_render_graph_edges(
-                core_2d::graph::NAME,
+                CORE_2D,
                 &[
                     core_2d::graph::node::TONEMAPPING,
                     core_2d::graph::node::FXAA,
