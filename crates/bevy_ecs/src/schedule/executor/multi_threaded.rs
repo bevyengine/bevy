@@ -305,10 +305,12 @@ impl MultiThreadedExecutor {
             self.num_running_systems += 1;
 
             if self.system_task_metadata[system_index].is_exclusive {
-                // SAFETY: `can_run` confirmed that no systems are running.
-                // Therefore, there is no existing reference to the world.
+                // SAFETY: `can_run` returned true for this system, which means
+                // that no other systems currently have access to the world.
+                let world = unsafe { world_cell.world_mut() };
+                // SAFETY: Since no systems are currently running, there are
+                // no existing borrows to the system at `system_index`.
                 unsafe {
-                    let world = world_cell.world_mut();
                     self.spawn_exclusive_system_task(scope, system_index, systems, world);
                 }
                 break;
