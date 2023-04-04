@@ -4,6 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{
+        contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings,
         experimental::taa::{
             TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasSettings,
         },
@@ -23,7 +24,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(TemporalAntiAliasPlugin)
         .add_systems(Startup, setup)
-        .add_systems(Update, (modify_aa, update_ui))
+        .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
         .run();
 }
 
@@ -112,12 +113,43 @@ fn modify_aa(
     }
 }
 
+fn modify_sharpening(
+    keys: Res<Input<KeyCode>>,
+    mut query: Query<&mut ContrastAdaptiveSharpeningSettings>,
+) {
+    for mut cas in &mut query {
+        if keys.just_pressed(KeyCode::Key0) {
+            cas.enabled = !cas.enabled;
+        }
+        if cas.enabled {
+            if keys.just_pressed(KeyCode::Minus) {
+                cas.sharpening_strength -= 0.1;
+                cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 1.0);
+            }
+            if keys.just_pressed(KeyCode::Equals) {
+                cas.sharpening_strength += 0.1;
+                cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 1.0);
+            }
+            if keys.just_pressed(KeyCode::D) {
+                cas.denoise = !cas.denoise;
+            }
+        }
+    }
+}
+
 fn update_ui(
-    camera: Query<(Option<&Fxaa>, Option<&TemporalAntiAliasSettings>), With<Camera>>,
+    camera: Query<
+        (
+            Option<&Fxaa>,
+            Option<&TemporalAntiAliasSettings>,
+            &ContrastAdaptiveSharpeningSettings,
+        ),
+        With<Camera>,
+    >,
     msaa: Res<Msaa>,
     mut ui: Query<&mut Text>,
 ) {
-    let (fxaa, taa) = camera.single();
+    let (fxaa, taa, cas_settings) = camera.single();
 
     let mut ui = ui.single_mut();
     let ui = &mut ui.sections[0].value;
@@ -201,6 +233,21 @@ fn update_ui(
             ui.push_str("(T) Extreme");
         }
     }
+
+    if cas_settings.enabled {
+        ui.push_str("\n\n----------\n\n(0) Sharpening (Enabled)\n");
+        ui.push_str(&format!(
+            "(-/+) Strength: {:.1}\n",
+            cas_settings.sharpening_strength
+        ));
+        if cas_settings.denoise {
+            ui.push_str("(D) Denoising (Enabled)\n");
+        } else {
+            ui.push_str("(D) Denoising (Disabled)\n");
+        }
+    } else {
+        ui.push_str("\n\n----------\n\n(0) Sharpening (Disabled)\n");
+    }
 }
 
 /// Set up a simple 3D scene
@@ -261,14 +308,21 @@ fn setup(
     });
 
     // Camera
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
-            hdr: true,
+    commands.spawn((
+        Camera3dBundle {
+            camera: Camera {
+                hdr: true,
+                ..default()
+            },
+            transform: Transform::from_xyz(0.7, 0.7, 1.0)
+                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },
-        transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-        ..default()
-    });
+        ContrastAdaptiveSharpeningSettings {
+            enabled: false,
+            ..default()
+        },
+    ));
 
     // UI
     commands.spawn(

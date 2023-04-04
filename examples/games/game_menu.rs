@@ -62,7 +62,7 @@ mod splash {
                 // When entering the state, spawn everything needed for this screen
                 .add_systems(OnEnter(GameState::Splash), splash_setup)
                 // While in this state, run the `countdown` system
-                .add_systems(Update, countdown.in_set(OnUpdate(GameState::Splash)))
+                .add_systems(Update, countdown.run_if(in_state(GameState::Splash)))
                 // When exiting the state, despawn everything that was spawned for this screen
                 .add_systems(OnExit(GameState::Splash), despawn_screen::<OnSplashScreen>);
         }
@@ -131,7 +131,7 @@ mod game {
     impl Plugin for GamePlugin {
         fn build(&self, app: &mut App) {
             app.add_systems(OnEnter(GameState::Game), game_setup)
-                .add_systems(Update, game.in_set(OnUpdate(GameState::Game)))
+                .add_systems(Update, game.run_if(in_state(GameState::Game)))
                 .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
         }
     }
@@ -284,7 +284,7 @@ mod menu {
                     Update,
                     (
                         setting_button::<DisplayQuality>
-                            .in_set(OnUpdate(MenuState::SettingsDisplay)),
+                            .run_if(in_state(MenuState::SettingsDisplay)),
                     ),
                 )
                 .add_systems(
@@ -295,7 +295,7 @@ mod menu {
                 .add_systems(OnEnter(MenuState::SettingsSound), sound_settings_menu_setup)
                 .add_systems(
                     Update,
-                    setting_button::<Volume>.in_set(OnUpdate(MenuState::SettingsSound)),
+                    setting_button::<Volume>.run_if(in_state(MenuState::SettingsSound)),
                 )
                 .add_systems(
                     OnExit(MenuState::SettingsSound),
@@ -304,7 +304,7 @@ mod menu {
                 // Common systems to all screens that handles buttons behaviour
                 .add_systems(
                     Update,
-                    (menu_action, button_system).in_set(OnUpdate(GameState::Menu)),
+                    (menu_action, button_system).run_if(in_state(GameState::Menu)),
                 );
         }
     }

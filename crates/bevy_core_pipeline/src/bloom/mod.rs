@@ -16,7 +16,7 @@ use bevy_render::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
     prelude::Color,
-    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
+    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
@@ -71,45 +71,27 @@ impl Plugin for BloomPlugin {
                     prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
                     queue_bloom_bind_groups.in_set(RenderSet::Queue),
                 ),
+            )
+            // Add bloom to the 3d render graph
+            .add_render_graph_node::<BloomNode>(core_3d::graph::NAME, core_3d::graph::node::BLOOM)
+            .add_render_graph_edges(
+                core_3d::graph::NAME,
+                &[
+                    core_3d::graph::node::END_MAIN_PASS,
+                    core_3d::graph::node::BLOOM,
+                    core_3d::graph::node::TONEMAPPING,
+                ],
+            )
+            // Add bloom to the 2d render graph
+            .add_render_graph_node::<BloomNode>(core_2d::graph::NAME, core_2d::graph::node::BLOOM)
+            .add_render_graph_edges(
+                core_2d::graph::NAME,
+                &[
+                    core_2d::graph::node::MAIN_PASS,
+                    core_2d::graph::node::BLOOM,
+                    core_2d::graph::node::TONEMAPPING,
+                ],
             );
-
-        // Add bloom to the 3d render graph
-        {
-            let bloom_node = BloomNode::new(&mut render_app.world);
-            let mut graph = render_app.world.resource_mut::<RenderGraph>();
-            let draw_3d_graph = graph
-                .get_sub_graph_mut(crate::core_3d::graph::NAME)
-                .unwrap();
-            draw_3d_graph.add_node(core_3d::graph::node::BLOOM, bloom_node);
-            // MAIN_PASS -> BLOOM -> TONEMAPPING
-            draw_3d_graph.add_node_edge(
-                crate::core_3d::graph::node::END_MAIN_PASS,
-                core_3d::graph::node::BLOOM,
-            );
-            draw_3d_graph.add_node_edge(
-                core_3d::graph::node::BLOOM,
-                crate::core_3d::graph::node::TONEMAPPING,
-            );
-        }
-
-        // Add bloom to the 2d render graph
-        {
-            let bloom_node = BloomNode::new(&mut render_app.world);
-            let mut graph = render_app.world.resource_mut::<RenderGraph>();
-            let draw_2d_graph = graph
-                .get_sub_graph_mut(crate::core_2d::graph::NAME)
-                .unwrap();
-            draw_2d_graph.add_node(core_2d::graph::node::BLOOM, bloom_node);
-            // MAIN_PASS -> BLOOM -> TONEMAPPING
-            draw_2d_graph.add_node_edge(
-                crate::core_2d::graph::node::MAIN_PASS,
-                core_2d::graph::node::BLOOM,
-            );
-            draw_2d_graph.add_node_edge(
-                core_2d::graph::node::BLOOM,
-                crate::core_2d::graph::node::TONEMAPPING,
-            );
-        }
     }
 }
 
@@ -126,8 +108,8 @@ pub struct BloomNode {
     )>,
 }
 
-impl BloomNode {
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for BloomNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             view_query: QueryState::new(world),
         }
