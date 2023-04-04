@@ -2,7 +2,7 @@ use crate::container_attributes::ReflectTraits;
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::fq_std::{FQAny, FQDefault, FQSend, FQSync};
 use crate::type_path::parse_path_no_leading_colon;
-use crate::utility::{members_to_serialization_denylist, WhereClauseOptions};
+use crate::utility::{members_to_serialization_denylist, StringExpr, WhereClauseOptions};
 use bit_set::BitSet;
 use quote::{quote, ToTokens};
 
@@ -608,8 +608,8 @@ pub(crate) enum ReflectTypePath<'a> {
     // Not currently used but may be useful in the future due to its generality.
     Anonymous {
         qualified_type: Type,
-        long_type_path: proc_macro2::TokenStream,
-        short_type_path: proc_macro2::TokenStream,
+        long_type_path: StringExpr,
+        short_type_path: StringExpr,
     },
 }
 
@@ -708,54 +708,53 @@ impl<'a> ReflectTypePath<'a> {
         }
     }
 
-    /// Returns tokens for a `&str` representing the name of the type's crate.
+    /// Returns a [`StringExpr`] representing the name of the type's crate.
     ///
     /// Returns [`None`] if the type is [primitive] or [anonymous].
     ///
-    /// For non-aliased [internal] paths this is created from [`module_path`].
+    /// For non-customised [internal] paths this is created from [`module_path`].
     ///
     /// For `::core::option::Option`, this is `"core"`.
     ///
     /// [primitive]: ReflectTypePath::Primitive
     /// [anonymous]: ReflectTypePath::Anonymous
     /// [internal]: ReflectTypePath::Internal
-    pub fn crate_name(&self) -> Option<proc_macro2::TokenStream> {
+    pub fn crate_name(&self) -> Option<StringExpr> {
         if let Some(path) = self.get_path() {
-            let crate_name = path.segments.first().unwrap().ident.to_string();
-            let crate_name = LitStr::new(&crate_name, path.span());
-            return Some(quote!(#crate_name));
+            let crate_name = &path.segments.first().unwrap().ident;
+            return Some(StringExpr::from_ident(crate_name));
         }
 
         match self {
-            Self::Internal { .. } => Some(quote! {
+            Self::Internal { .. } => Some(StringExpr::Borrowed(quote! {
                 ::core::module_path!()
                     .split(':')
                     .next()
                     .unwrap()
-            }),
+            })),
             Self::External { .. } => unreachable!(),
             _ => None,
         }
     }
 
-    /// Combines type generics and const generics into one expression for a `String`.
+    /// Combines type generics and const generics into one [`StringExpr`].
     ///
     /// This string can be used with a `GenericTypePathCell` in a `TypePath` implementation.
     ///
-    /// The `ty_generics_fn` param dictates how expressions for `&str` are put into the string.
-    fn combine_generics(
-        ty_generic_fn: impl FnMut(&TypeParam) -> proc_macro2::TokenStream,
+    /// The `ty_generics_fn` param maps [`TypeParam`]s to [`StringExpr`]s.
+    fn reduce_generics(
         generics: &Generics,
-    ) -> proc_macro2::TokenStream {
+        ty_generic_fn: impl FnMut(&TypeParam) -> StringExpr,
+    ) -> StringExpr {
         let ty_generics = generics.type_params().map(ty_generic_fn);
 
         let const_generics = generics.const_params().map(|param| {
             let ident = &param.ident;
             let ty = &param.ty;
 
-            quote! {
-                &<#ty as ::std::string::ToString>::to_string(&#ident)
-            }
+            StringExpr::Owned(quote! {
+                <#ty as ::std::string::ToString>::to_string(&#ident)
+            })
         });
 
         let mut combined_params = ty_generics.chain(const_generics);
@@ -763,107 +762,94 @@ impl<'a> ReflectTypePath<'a> {
         combined_params
             .next()
             .into_iter()
-            .chain(combined_params.flat_map(|x| {
-                [
-                    quote! {
-                        + ", " +
-                    },
-                    x,
-                ]
-            }))
+            .chain(combined_params.flat_map(|x| [StringExpr::Const(quote!(", ")), x]))
             .collect()
     }
 
-    /// Returns tokens for a `&str` representing the "type path" of the type.
+    /// Returns a [`StringExpr`] representing the "type path" of the type.
     ///
     /// For `::core::option::Option`, this is `"core::option::Option"`.
-    pub fn long_type_path(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
+    pub fn long_type_path(&self, bevy_reflect_path: &Path) -> StringExpr {
         match self {
-            Self::Primitive(ident) => {
-                let lit = LitStr::new(&ident.to_string(), ident.span());
-                lit.to_token_stream()
-            }
+            Self::Primitive(ident) => StringExpr::from_ident(ident),
             Self::Anonymous { long_type_path, .. } => long_type_path.clone(),
             Self::Internal { generics, .. } | Self::External { generics, .. } => {
-                let Some(ident) = self.get_ident() else {
-                    unreachable!()
-                };
-                let ident = LitStr::new(&ident.to_string(), ident.span());
-                let module_path = self.module_path();
+                let ident = self.type_ident().unwrap();
+                let module_path = self.module_path().unwrap();
 
                 if self.impl_is_generic() {
-                    let generics = ReflectTypePath::combine_generics(
-                        |TypeParam { ident, .. }| {
-                            quote! {
-                                <#ident as #bevy_reflect_path::TypePath>::type_path()
-                            }
-                        },
+                    let generics = ReflectTypePath::reduce_generics(
                         generics,
+                        |TypeParam { ident, .. }| {
+                            StringExpr::Borrowed(quote! {
+                                <#ident as #bevy_reflect_path::TypePath>::type_path()
+                            })
+                        },
                     );
-                    quote! {
-                        ::std::string::ToString::to_string(::core::concat!(#module_path, "::", #ident, "<")) + #generics + ">"
-                    }
+
+                    StringExpr::from_iter([
+                        module_path,
+                        StringExpr::from_str("::"),
+                        ident,
+                        StringExpr::from_str("<"),
+                        generics,
+                        StringExpr::from_str(">"),
+                    ])
                 } else {
-                    quote! {
-                        ::core::concat!(#module_path, "::", #ident)
-                    }
+                    StringExpr::from_iter([module_path, StringExpr::from_str("::"), ident])
                 }
             }
         }
     }
 
-    /// Returns tokens for a `&str` representing the "short path" of the type.
+    /// Returns a [`StringExpr`] representing the "short path" of the type.
     ///
     /// For `::core::option::Option`, this is `"Option"`.
-    pub fn short_type_path(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
+    pub fn short_type_path(&self, bevy_reflect_path: &Path) -> StringExpr {
         match self {
             Self::Anonymous {
                 short_type_path, ..
             } => short_type_path.clone(),
-            Self::Primitive(ident) => {
-                let lit = LitStr::new(&ident.to_string(), ident.span());
-                lit.to_token_stream()
-            }
+            Self::Primitive(ident) => StringExpr::from_ident(ident),
             Self::External { generics, .. } | Self::Internal { generics, .. } => {
-                let Some(ident) = self.get_ident() else {
-                    unreachable!()
-                };
-                let ident = LitStr::new(&ident.to_string(), ident.span());
+                let ident = self.type_ident().unwrap();
 
                 if self.impl_is_generic() {
-                    let generics = ReflectTypePath::combine_generics(
-                        |TypeParam { ident, .. }| {
-                            quote! {
-                                <#ident as #bevy_reflect_path::TypePath>::short_type_path()
-                            }
-                        },
+                    let generics = ReflectTypePath::reduce_generics(
                         generics,
+                        |TypeParam { ident, .. }| {
+                            StringExpr::Borrowed(quote! {
+                                <#ident as #bevy_reflect_path::TypePath>::short_type_path()
+                            })
+                        },
                     );
-                    quote! {
-                        ::std::string::ToString::to_string(::core::concat!(#ident, "<")) + #generics + ">"
-                    }
+
+                    StringExpr::from_iter([
+                        ident,
+                        StringExpr::from_str("<"),
+                        generics,
+                        StringExpr::from_str(">"),
+                    ])
                 } else {
-                    quote! {
-                        #ident
-                    }
+                    ident
                 }
             }
         }
     }
 
-    /// Returns tokens for a string literal representing the path to the module
+    /// Returns a [`StringExpr`] representing the path to the module
     /// that the type is in.
     ///
     /// Returns [`None`] if the type is [primitive] or [anonymous].
     ///
-    /// For non-aliased [internal] paths this is created from [`module_path`].
+    /// For non-customised [internal] paths this is created from [`module_path`].
     ///
     /// For `::core::option::Option`, this is `"core::option"`.
     ///
     /// [primitive]: ReflectTypePath::Primitive
     /// [anonymous]: ReflectTypePath::Anonymous
     /// [internal]: ReflectTypePath::Internal
-    pub fn module_path(&self) -> Option<proc_macro2::TokenStream> {
+    pub fn module_path(&self) -> Option<StringExpr> {
         if let Some(path) = self.get_path() {
             let path = path
                 .segments
@@ -874,21 +860,21 @@ impl<'a> ReflectTypePath<'a> {
                 .unwrap();
 
             let path = LitStr::new(&path, path.span());
-            return Some(quote! {
+            return Some(StringExpr::Const(quote! {
                 #path
-            });
+            }));
         }
 
         match self {
-            Self::Internal { .. } => Some(quote! {
+            Self::Internal { .. } => Some(StringExpr::Const(quote! {
                 ::core::module_path!()
-            }),
+            })),
             Self::External { .. } => unreachable!(),
             _ => None,
         }
     }
 
-    /// Returns tokens for a string literal representing the type's final ident.
+    /// Returns a [`StringExpr`] representing the type's final ident.
     ///
     /// Returns [`None`] if the type is [anonymous].
     ///
@@ -897,11 +883,8 @@ impl<'a> ReflectTypePath<'a> {
     /// For `::core::option::Option`, this is `"Option"`.
     ///
     /// [anonymous]: ReflectTypePath::Anonymous
-    pub fn type_ident(&self) -> Option<proc_macro2::TokenStream> {
-        self.get_ident().map(|ident| {
-            let ident = LitStr::new(&ident.to_string(), ident.span());
-            ident.to_token_stream()
-        })
+    pub fn type_ident(&self) -> Option<StringExpr> {
+        self.get_ident().map(StringExpr::from_ident)
     }
 }
 
