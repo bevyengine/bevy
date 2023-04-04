@@ -1,5 +1,7 @@
 #![allow(clippy::doc_markdown)]
 
+use std::marker::PhantomData;
+
 use super::Buffer;
 use crate::renderer::{RenderDevice, RenderQueue};
 use encase::{
@@ -166,6 +168,7 @@ pub struct DynamicStorageBuffer<T: ShaderType> {
     label: Option<String>,
     changed: bool,
     buffer_usage: BufferUsages,
+    _marker: PhantomData<fn() -> T>,
 }
 
 impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
@@ -177,6 +180,7 @@ impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            _marker: PhantomData,
         }
     }
 }
@@ -197,7 +201,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     }
 
     #[inline]
-    pub fn is_empty(&self) -> usize {
+    pub fn is_empty(&self) -> bool {
         self.scratch.as_ref().is_empty()
     }
 

@@ -161,7 +161,7 @@ pub struct DynamicUniformBuffer<T: ShaderType> {
     label: Option<String>,
     changed: bool,
     buffer_usage: BufferUsages,
-    _marker: PhantomData<T>,
+    _marker: PhantomData<fn() -> T>,
 }
 
 impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
@@ -194,7 +194,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn is_empty(&self) -> usize {
+    pub fn is_empty(&self) -> bool {
         self.scratch.as_ref().is_empty()
     }
 
