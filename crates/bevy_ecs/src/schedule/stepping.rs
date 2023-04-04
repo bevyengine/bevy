@@ -37,8 +37,11 @@ enum SystemBehavior {
 }
 
 // schedule_order index, and schedule start point
-#[derive(Debug, Default)]
-struct Cursor(usize, usize);
+#[derive(Debug, Default, Clone)]
+pub struct Cursor {
+    pub schedule: usize,
+    pub system: usize,
+}
 
 enum SystemIdentifier {
     Type(TypeId),
@@ -89,8 +92,13 @@ impl Stepping {
 
     /// Return the list of schedules with stepping enabled in the order
     /// they are executed in.
-    pub fn schedules(&mut self) -> &Vec<BoxedScheduleLabel> {
+    pub fn schedules(&self) -> &Vec<BoxedScheduleLabel> {
         &self.schedule_order
+    }
+
+    /// Return our current position within the stepping frame
+    pub fn cursor(&self) -> Cursor {
+        self.cursor.clone()
     }
 
     /// Enable stepping for the provided schedule
@@ -125,6 +133,11 @@ impl Stepping {
     pub fn disable(&mut self) -> &mut Self {
         self.updates.push(Update::SetAction(Action::RunAll));
         self
+    }
+
+    /// Check if stepping is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.action != Action::RunAll
     }
 
     /// run the next system
@@ -219,10 +232,16 @@ impl Stepping {
         self.action = Action::Waiting;
         self.previous_schedule = None;
 
-        let Cursor(schedule_index, _) = self.cursor;
+        let Cursor {
+            schedule: schedule_index,
+            ..
+        } = self.cursor;
         if schedule_index >= self.schedule_order.len() {
             println!("next_frame(): begin new stepping frame");
-            self.cursor = Cursor(0, 0);
+            self.cursor = Cursor {
+                schedule: 0,
+                system: 0,
+            };
         }
 
         if self.updates.is_empty() {
@@ -233,7 +252,10 @@ impl Stepping {
             match update {
                 Update::SetAction(Action::RunAll) => {
                     self.action = Action::RunAll;
-                    self.cursor = Cursor(0, 0);
+                    self.cursor = Cursor {
+                        schedule: 0,
+                        system: 0,
+                    };
                 }
                 Update::SetAction(a) => self.action = a,
                 Update::AddSchedule(l) => {
@@ -244,7 +266,10 @@ impl Stepping {
                     if let Some(index) = self.schedule_order.iter().position(|l| l == &label) {
                         self.schedule_order.remove(index);
                     }
-                    self.cursor = Cursor(0, 0);
+                    self.cursor = Cursor {
+                        schedule: 0,
+                        system: 0,
+                    };
                 }
                 Update::ClearSchedule(label) => match self.schedule_states.get_mut(&label) {
                     Some(state) => state.clear_behaviors(),
@@ -324,7 +349,10 @@ impl Stepping {
         // if the stepping frame cursor is pointing at this schedule, we'll run
         // the schedule with the current stepping action.  If this is not the
         // cursor schedule, we'll run the schedule with the waiting action.
-        let Cursor(schedule_index, start) = self.cursor;
+        let Cursor {
+            schedule: schedule_index,
+            system: start,
+        } = self.cursor;
         let (list, resume) = if index == schedule_index {
             let o = state.skipped_systems(schedule, start, self.action);
 
@@ -340,10 +368,18 @@ impl Stepping {
 
         // update the stepping frame cursor based on if there are any systems
         // remaining to be run in the schedule
-        // XXX Maybe not option here to auto-detect the end of the render frame
+        // Note: Don't try to detect the end of the render frame here using the
+        // schedule index.  We don't know all schedules have been added to the
+        // schedule_order, so only next_frame() knows its safe to reset the
+        // cursor.
         match resume {
-            None => self.cursor = Cursor(schedule_index + 1, 0),
-            Some(resume) => self.cursor.1 = resume,
+            None => {
+                self.cursor = Cursor {
+                    schedule: schedule_index + 1,
+                    system: 0,
+                }
+            }
+            Some(resume) => self.cursor.system = resume,
         }
 
         Some(list)

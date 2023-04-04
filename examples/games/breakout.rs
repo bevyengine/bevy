@@ -6,6 +6,8 @@ use bevy::{
     sprite::MaterialMesh2dBundle,
 };
 
+mod stepping;
+
 // These constants are defined in `Transform` units.
 // Using the default 2D camera they correspond 1:1 with screen pixels.
 const PADDLE_SIZE: Vec3 = Vec3::new(120.0, 20.0, 0.0);
