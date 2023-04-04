@@ -309,7 +309,7 @@ fn setup_sticks(
                 parent.spawn(SpriteBundle {
                     transform: Transform2d::from_xyz(live_mid, live_mid, 2.),
                     sprite: Sprite {
-                        custom_size: Some(Vec2::new(live_size, live_size)),
+                        custom_size: Some(Vec2::splat(live_size)),
                         color: LIVE_COLOR,
                         ..default()
                     },
@@ -319,7 +319,7 @@ fn setup_sticks(
                 parent.spawn(SpriteBundle {
                     transform: Transform2d::from_xyz(dead_mid, dead_mid, 3.),
                     sprite: Sprite {
-                        custom_size: Some(Vec2::new(dead_size, dead_size)),
+                        custom_size: Some(Vec2::splat(dead_size)),
                         color: DEAD_COLOR,
                         ..default()
                     },
