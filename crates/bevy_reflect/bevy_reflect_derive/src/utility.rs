@@ -334,7 +334,7 @@ impl FromIterator<StringExpr> for StringExpr {
         let mut iter = iter.into_iter();
         match iter.next() {
             Some(mut expr) => {
-                while let Some(next) = iter.next() {
+                for next in iter {
                     expr = expr.appended_by(next);
                 }
 
