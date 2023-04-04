@@ -148,8 +148,8 @@ impl GlobalTransform2d {
         let inv_scale = scale.recip();
 
         let rotation_matrix = Mat2::from_cols(
-            (affine.matrix2.x_axis * inv_scale.x).into(),
-            (affine.matrix2.y_axis * inv_scale.y).into(),
+            affine.matrix2.x_axis * inv_scale.x,
+            affine.matrix2.y_axis * inv_scale.y,
         );
         let rotation = Vec2::angle_between(Vec2::Y, rotation_matrix * Vec2::Y);
 
