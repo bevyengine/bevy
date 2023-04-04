@@ -1719,6 +1719,8 @@ impl Node for ShadowPassNode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
+            render_context.begin_debug_scope("ShadowMap");
+
             for view_light_entity in view_lights.lights.iter().copied() {
                 let (view_light, shadow_phase) = self
                     .view_light_query
@@ -1728,8 +1730,6 @@ impl Node for ShadowPassNode {
                 if shadow_phase.items.is_empty() {
                     continue;
                 }
-
-                render_context.begin_debug_scope("ShadowMap");
 
                 {
                     let mut render_pass =
@@ -1748,9 +1748,9 @@ impl Node for ShadowPassNode {
 
                     shadow_phase.render(&mut render_pass, world, view_light_entity);
                 }
-
-                render_context.end_debug_scope();
             }
+
+            render_context.end_debug_scope();
         }
 
         Ok(())
