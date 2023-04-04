@@ -14,7 +14,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
     parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, Lit, LitStr, Meta,
-    Path, PathSegment, Token, Type, Variant,
+    Path, PathSegment, Token, Type, TypeParam, Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -367,18 +367,6 @@ impl<'a> ReflectMeta<'a> {
         &self.bevy_reflect_path
     }
 
-    /// Whether an impl using this [`ReflectMeta`] should be generic.
-    pub fn impl_is_generic(&self) -> bool {
-        // Whether to use `GenericTypeCell` is not dependent on lifetimes
-        // (which all have to be 'static anyway).
-        !self
-            .type_path()
-            .generics()
-            .params
-            .iter()
-            .all(|param| matches!(param, GenericParam::Lifetime(_)))
-    }
-
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     pub fn get_type_registration(
         &self,
@@ -561,13 +549,13 @@ impl<'a> EnumVariant<'a> {
 ///
 /// The type can always be reached with its [`ToTokens`] implementation.
 ///
-/// The [`non_generic_type_path`], [`non_generic_short_path`],
-/// [`type_ident`], [`crate_name`], and [`module_path`] methods
-/// are equivalent to the methods on the `TypePath` trait.
+/// The [`short_type_path`], [`type_ident`], [`crate_name`], and [`module_path`] methods
+/// have corresponding methods on the `TypePath` trait.
+/// [`long_type_path`] corresponds to the `type_path` method on `TypePath`.
 ///
 /// [deriving `TypePath`]: crate::derive_type_path
-/// [`non_generic_type_path`]: ReflectTypePath::non_generic_type_path
-/// [`non_generic_short_path`]: ReflectTypePath::non_generic_short_path
+/// [`long_type_path`]: ReflectTypePath::long_type_path
+/// [`short_type_path`]: ReflectTypePath::short_type_path
 /// [`type_ident`]: ReflectTypePath::type_ident
 /// [`crate_name`]: ReflectTypePath::crate_name
 /// [`module_path`]: ReflectTypePath::module_path
@@ -677,6 +665,19 @@ impl<'a> ReflectTypePath<'a> {
         }
     }
 
+    /// Whether an implementation of `Typed` or `TypePath` should be generic.
+    ///
+    /// Returning true that it should use a `GenericTypeCell` in its implementation.
+    pub fn impl_is_generic(&self) -> bool {
+        // Whether to use `GenericTypeCell` is not dependent on lifetimes
+        // (which all have to be 'static anyway).
+        !self
+            .generics()
+            .params
+            .iter()
+            .all(|param| matches!(param, GenericParam::Lifetime(_)))
+    }
+
     /// Returns the path interpreted as a [`Path`].
     ///
     /// Returns [`None`] if [anonymous], [primitive],
@@ -737,27 +738,75 @@ impl<'a> ReflectTypePath<'a> {
         }
     }
 
+    /// Combines type generics and const generics into one expression for a `String`.
+    ///
+    /// This string can be used with a `GenericTypePathCell` in a `TypePath` implementation.
+    ///
+    /// The `ty_generics_fn` param dictates how expressions for `&str` are put into the string.
+    fn combine_generics(
+        ty_generic_fn: impl FnMut(&TypeParam) -> proc_macro2::TokenStream,
+        generics: &Generics,
+    ) -> proc_macro2::TokenStream {
+        let ty_generics = generics.type_params().map(ty_generic_fn);
+
+        let const_generics = generics.const_params().map(|param| {
+            let ident = &param.ident;
+            let ty = &param.ty;
+
+            quote! {
+                &<#ty as ::std::string::ToString>::to_string(&#ident)
+            }
+        });
+
+        let mut combined_params = ty_generics.chain(const_generics);
+
+        combined_params
+            .next()
+            .into_iter()
+            .chain(combined_params.flat_map(|x| {
+                [
+                    quote! {
+                        + ", " +
+                    },
+                    x,
+                ]
+            }))
+            .collect()
+    }
+
     /// Returns tokens for a `&str` representing the "type path" of the type.
     ///
-    /// Does not take generics into account.
-    ///
     /// For `::core::option::Option`, this is `"core::option::Option"`.
-    pub fn non_generic_type_path(&self) -> proc_macro2::TokenStream {
+    pub fn long_type_path(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
         match self {
             Self::Primitive(ident) => {
                 let lit = LitStr::new(&ident.to_string(), ident.span());
                 lit.to_token_stream()
             }
             Self::Anonymous { long_type_path, .. } => long_type_path.clone(),
-            _ => {
+            Self::Internal { generics, .. } | Self::External { generics, .. } => {
                 let Some(ident) = self.get_ident() else {
                     unreachable!()
                 };
-
-                let module_path = self.module_path();
                 let ident = LitStr::new(&ident.to_string(), ident.span());
-                quote! {
-                    ::core::concat!(#module_path, "::", #ident)
+                let module_path = self.module_path();
+
+                if self.impl_is_generic() {
+                    let generics = ReflectTypePath::combine_generics(
+                        |TypeParam { ident, .. }| {
+                            quote! {
+                                <#ident as #bevy_reflect_path::TypePath>::type_path()
+                            }
+                        },
+                        generics,
+                    );
+                    quote! {
+                        ::std::string::ToString::to_string(::core::concat!(#module_path, "::", #ident, "<")) + #generics + ">"
+                    }
+                } else {
+                    quote! {
+                        ::core::concat!(#module_path, "::", #ident)
+                    }
                 }
             }
         }
@@ -765,20 +814,40 @@ impl<'a> ReflectTypePath<'a> {
 
     /// Returns tokens for a `&str` representing the "short path" of the type.
     ///
-    /// Does not take generics into account.
-    ///
     /// For `::core::option::Option`, this is `"Option"`.
-    pub fn non_generic_short_path(&self) -> proc_macro2::TokenStream {
-        if let Some(ident) = self.get_ident() {
-            let ident = LitStr::new(&ident.to_string(), ident.span());
-            return ident.to_token_stream();
-        }
-
+    pub fn short_type_path(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
         match self {
             Self::Anonymous {
                 short_type_path, ..
             } => short_type_path.clone(),
-            _ => unreachable!(),
+            Self::Primitive(ident) => {
+                let lit = LitStr::new(&ident.to_string(), ident.span());
+                lit.to_token_stream()
+            }
+            Self::External { generics, .. } | Self::Internal { generics, .. } => {
+                let Some(ident) = self.get_ident() else {
+                    unreachable!()
+                };
+                let ident = LitStr::new(&ident.to_string(), ident.span());
+
+                if self.impl_is_generic() {
+                    let generics = ReflectTypePath::combine_generics(
+                        |TypeParam { ident, .. }| {
+                            quote! {
+                                <#ident as #bevy_reflect_path::TypePath>::short_type_path()
+                            }
+                        },
+                        generics,
+                    );
+                    quote! {
+                        ::std::string::ToString::to_string(::core::concat!(#ident, "<")) + #generics + ">"
+                    }
+                } else {
+                    quote! {
+                        #ident
+                    }
+                }
+            }
         }
     }
 
