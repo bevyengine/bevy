@@ -203,9 +203,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
 
     #[inline]
     pub fn push(&mut self, value: T) -> u32 {
-        let offset = self.scratch.write(&value).unwrap() as u32;
-        self.values.push(value);
-        offset
+        self.scratch.write(&value).unwrap() as u32
     }
 
     pub fn set_label(&mut self, label: Option<&str>) {
