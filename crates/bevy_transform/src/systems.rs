@@ -20,13 +20,14 @@ pub fn sync_simple_transforms(
     )>,
     mut orphaned: RemovedComponents<Parent>,
 ) {
+    // Update changed entities.
     query
         .p0()
         .par_iter_mut()
         .for_each_mut(|(transform, mut global_transform)| {
             *global_transform = GlobalTransform::from(*transform);
         });
-    // updated orphaned entities
+    // Update orphaned entities.
     let mut query = query.p1();
     let mut iter = query.iter_many_mut(orphaned.iter());
     while let Some((transform, mut global_transform)) = iter.fetch_next() {
