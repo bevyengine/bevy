@@ -74,15 +74,14 @@ impl Plugin for Core2dPlugin {
         draw_2d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
         draw_2d_graph.add_node(graph::node::END_MAIN_PASS_POST_PROCESSING, EmptyNode);
         draw_2d_graph.add_node(graph::node::UPSCALING, upscaling);
-        draw_2d_graph.add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING);
-        draw_2d_graph.add_node_edge(
+
+        draw_2d_graph.add_node_edges(&[
+            graph::node::MAIN_PASS,
             graph::node::TONEMAPPING,
             graph::node::END_MAIN_PASS_POST_PROCESSING,
-        );
-        draw_2d_graph.add_node_edge(
-            graph::node::END_MAIN_PASS_POST_PROCESSING,
             graph::node::UPSCALING,
-        );
+        ]);
+
         graph.add_sub_graph(graph::NAME, draw_2d_graph);
     }
 }
