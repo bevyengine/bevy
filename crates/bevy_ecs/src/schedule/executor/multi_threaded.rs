@@ -308,8 +308,8 @@ impl MultiThreadedExecutor {
                 // SAFETY: `can_run` returned true for this system, which means
                 // that no other systems currently have access to the world.
                 let world = unsafe { world_cell.world_mut() };
-                // SAFETY: Since no systems are currently running, there are
-                // no existing borrows to the system at `system_index`.
+                // SAFETY: `can_run` returned true for this system,
+                // which means no systems are currently borrowed.
                 unsafe {
                     self.spawn_exclusive_system_task(scope, system_index, systems, world);
                 }
