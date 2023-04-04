@@ -7,11 +7,13 @@ pub mod graph {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
     pub mod node {
+        pub const MSAA_WRITEBACK: &str = "msaa_writeback";
         pub const MAIN_PASS: &str = "main_pass";
         pub const BLOOM: &str = "bloom";
         pub const TONEMAPPING: &str = "tonemapping";
         pub const FXAA: &str = "fxaa";
         pub const UPSCALING: &str = "upscaling";
+        pub const CONTRAST_ADAPTIVE_SHARPENING: &str = "contrast_adaptive_sharpening";
         pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
     }
 }
@@ -24,13 +26,13 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::Camera,
     extract_component::ExtractComponentPlugin,
-    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
+    render_graph::{EmptyNode, RenderGraph},
     render_phase::{
         batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
         DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
     },
     render_resource::CachedRenderPipelineId,
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::FloatOrd;
 use std::ops::Range;
@@ -51,12 +53,15 @@ impl Plugin for Core2dPlugin {
 
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
-            .add_system_to_schedule(ExtractSchedule, extract_core_2d_camera_phases)
-            .add_system(sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort))
-            .add_system(
-                batch_phase_system::<Transparent2d>
-                    .after(sort_phase_system::<Transparent2d>)
-                    .in_set(RenderSet::PhaseSort),
+            .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
+            .add_systems(
+                Render,
+                (
+                    sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
+                    batch_phase_system::<Transparent2d>
+                        .after(sort_phase_system::<Transparent2d>)
+                        .in_set(RenderSet::PhaseSort),
+                ),
             );
 
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
@@ -69,37 +74,14 @@ impl Plugin for Core2dPlugin {
         draw_2d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
         draw_2d_graph.add_node(graph::node::END_MAIN_PASS_POST_PROCESSING, EmptyNode);
         draw_2d_graph.add_node(graph::node::UPSCALING, upscaling);
-        let input_node_id = draw_2d_graph.set_input(vec![SlotInfo::new(
-            graph::input::VIEW_ENTITY,
-            SlotType::Entity,
-        )]);
-        draw_2d_graph.add_slot_edge(
-            input_node_id,
-            graph::input::VIEW_ENTITY,
+
+        draw_2d_graph.add_node_edges(&[
             graph::node::MAIN_PASS,
-            MainPass2dNode::IN_VIEW,
-        );
-        draw_2d_graph.add_slot_edge(
-            input_node_id,
-            graph::input::VIEW_ENTITY,
-            graph::node::TONEMAPPING,
-            TonemappingNode::IN_VIEW,
-        );
-        draw_2d_graph.add_slot_edge(
-            input_node_id,
-            graph::input::VIEW_ENTITY,
-            graph::node::UPSCALING,
-            UpscalingNode::IN_VIEW,
-        );
-        draw_2d_graph.add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING);
-        draw_2d_graph.add_node_edge(
             graph::node::TONEMAPPING,
             graph::node::END_MAIN_PASS_POST_PROCESSING,
-        );
-        draw_2d_graph.add_node_edge(
-            graph::node::END_MAIN_PASS_POST_PROCESSING,
             graph::node::UPSCALING,
-        );
+        ]);
+
         graph.add_sub_graph(graph::NAME, draw_2d_graph);
     }
 }

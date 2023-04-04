@@ -2,25 +2,28 @@ use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
-use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_reflect::TypeUuid;
+use bevy_ecs::prelude::*;
+use bevy_reflect::{
+    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypeUuid,
+};
 use bevy_render::{
     camera::MipBias,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
-    render_graph::RenderGraph,
+    render_graph::RenderGraphApp,
     render_resource::*,
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
-    RenderApp, RenderSet,
+    Render, RenderApp, RenderSet,
 };
 
 mod node;
 
 pub use node::FxaaNode;
 
-#[derive(Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Reflect, FromReflect, Eq, PartialEq, Hash, Clone, Copy)]
+#[reflect(FromReflect, PartialEq, Hash)]
 pub enum Sensitivity {
     Low,
     Medium,
@@ -41,7 +44,9 @@ impl Sensitivity {
     }
 }
 
-#[derive(Component, Clone)]
+#[derive(Reflect, FromReflect, Component, Clone, ExtractComponent)]
+#[reflect(Component, FromReflect, Default)]
+#[extract_component_filter(With<Camera>)]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
     pub enabled: bool,
@@ -96,54 +101,25 @@ impl Plugin for FxaaPlugin {
         render_app
             .init_resource::<FxaaPipeline>()
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
-            .add_system(prepare_fxaa_pipelines.in_set(RenderSet::Prepare));
-
-        {
-            let fxaa_node = FxaaNode::new(&mut render_app.world);
-            let mut binding = render_app.world.resource_mut::<RenderGraph>();
-            let graph = binding.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
-
-            graph.add_node(core_3d::graph::node::FXAA, fxaa_node);
-
-            graph.add_slot_edge(
-                graph.input_node().id,
-                core_3d::graph::input::VIEW_ENTITY,
-                core_3d::graph::node::FXAA,
-                FxaaNode::IN_VIEW,
+            .add_systems(Render, prepare_fxaa_pipelines.in_set(RenderSet::Prepare))
+            .add_render_graph_node::<FxaaNode>(core_3d::graph::NAME, core_3d::graph::node::FXAA)
+            .add_render_graph_edges(
+                core_3d::graph::NAME,
+                &[
+                    core_3d::graph::node::TONEMAPPING,
+                    core_3d::graph::node::FXAA,
+                    core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+                ],
+            )
+            .add_render_graph_node::<FxaaNode>(core_2d::graph::NAME, core_2d::graph::node::FXAA)
+            .add_render_graph_edges(
+                core_2d::graph::NAME,
+                &[
+                    core_2d::graph::node::TONEMAPPING,
+                    core_2d::graph::node::FXAA,
+                    core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+                ],
             );
-
-            graph.add_node_edge(
-                core_3d::graph::node::TONEMAPPING,
-                core_3d::graph::node::FXAA,
-            );
-            graph.add_node_edge(
-                core_3d::graph::node::FXAA,
-                core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-            );
-        }
-        {
-            let fxaa_node = FxaaNode::new(&mut render_app.world);
-            let mut binding = render_app.world.resource_mut::<RenderGraph>();
-            let graph = binding.get_sub_graph_mut(core_2d::graph::NAME).unwrap();
-
-            graph.add_node(core_2d::graph::node::FXAA, fxaa_node);
-
-            graph.add_slot_edge(
-                graph.input_node().id,
-                core_2d::graph::input::VIEW_ENTITY,
-                core_2d::graph::node::FXAA,
-                FxaaNode::IN_VIEW,
-            );
-
-            graph.add_node_edge(
-                core_2d::graph::node::TONEMAPPING,
-                core_2d::graph::node::FXAA,
-            );
-            graph.add_node_edge(
-                core_2d::graph::node::FXAA,
-                core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-            );
-        }
     }
 }
 
@@ -200,7 +176,7 @@ impl SpecializedRenderPipeline for FxaaPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("fxaa".into()),
-            layout: Some(vec![self.texture_bind_group.clone()]),
+            layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: FXAA_SHADER_HANDLE.typed(),
@@ -218,6 +194,7 @@ impl SpecializedRenderPipeline for FxaaPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            push_constant_ranges: Vec::new(),
         }
     }
 }

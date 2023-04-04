@@ -8,7 +8,7 @@ use bevy::{
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
-    render::{camera::ScalingMode, RenderApp, RenderSet},
+    render::{camera::ScalingMode, Render, RenderApp, RenderSet},
     window::{PresentMode, WindowPlugin},
 };
 use rand::{thread_rng, Rng};
@@ -26,9 +26,8 @@ fn main() {
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(setup)
-        .add_system(move_camera)
-        .add_system(print_light_count)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (move_camera, print_light_count))
         .add_plugin(LogVisibleLights)
         .run();
 }
@@ -156,7 +155,7 @@ impl Plugin for LogVisibleLights {
             Err(_) => return,
         };
 
-        render_app.add_system(print_visible_light_count.in_set(RenderSet::Prepare));
+        render_app.add_systems(Render, print_visible_light_count.in_set(RenderSet::Prepare));
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::{Extract, ExtractSchedule, RenderApp, RenderSet};
+use crate::{Extract, ExtractSchedule, Render, RenderApp, RenderSet};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetEvent, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -41,7 +41,7 @@ pub trait RenderAsset: Asset {
 }
 
 #[derive(Clone, Hash, Debug, Default, PartialEq, Eq, SystemSet)]
-pub enum PrepareAssetLabel {
+pub enum PrepareAssetSet {
     PreAssetPrepare,
     #[default]
     AssetPrepare,
@@ -54,14 +54,14 @@ pub enum PrepareAssetLabel {
 /// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) and
 /// [`RenderSet::Prepare`](crate::RenderSet::Prepare) steps for the specified [`RenderAsset`].
 pub struct RenderAssetPlugin<A: RenderAsset> {
-    prepare_asset_label: PrepareAssetLabel,
+    prepare_asset_set: PrepareAssetSet,
     phantom: PhantomData<fn() -> A>,
 }
 
 impl<A: RenderAsset> RenderAssetPlugin<A> {
-    pub fn with_prepare_asset_label(prepare_asset_label: PrepareAssetLabel) -> Self {
+    pub fn with_prepare_asset_set(prepare_asset_set: PrepareAssetSet) -> Self {
         Self {
-            prepare_asset_label,
+            prepare_asset_set,
             phantom: PhantomData,
         }
     }
@@ -70,7 +70,7 @@ impl<A: RenderAsset> RenderAssetPlugin<A> {
 impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
     fn default() -> Self {
         Self {
-            prepare_asset_label: Default::default(),
+            prepare_asset_set: Default::default(),
             phantom: PhantomData,
         }
     }
@@ -80,20 +80,24 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<ExtractedAssets<A>>()
+                .init_resource::<RenderAssets<A>>()
+                .init_resource::<PrepareNextFrameAssets<A>>()
+                .add_systems(ExtractSchedule, extract_render_asset::<A>)
                 .configure_sets(
+                    Render,
                     (
-                        PrepareAssetLabel::PreAssetPrepare,
-                        PrepareAssetLabel::AssetPrepare,
-                        PrepareAssetLabel::PostAssetPrepare,
+                        PrepareAssetSet::PreAssetPrepare,
+                        PrepareAssetSet::AssetPrepare,
+                        PrepareAssetSet::PostAssetPrepare,
                     )
                         .chain()
                         .in_set(RenderSet::Prepare),
                 )
-                .init_resource::<ExtractedAssets<A>>()
-                .init_resource::<RenderAssets<A>>()
-                .init_resource::<PrepareNextFrameAssets<A>>()
-                .add_system_to_schedule(ExtractSchedule, extract_render_asset::<A>)
-                .add_system(prepare_assets::<A>.in_set(self.prepare_asset_label.clone()));
+                .add_systems(
+                    Render,
+                    prepare_assets::<A>.in_set(self.prepare_asset_set.clone()),
+                );
         }
     }
 }
@@ -176,7 +180,7 @@ impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {
 
 /// This system prepares all assets of the corresponding [`RenderAsset`] type
 /// which where extracted this frame for the GPU.
-fn prepare_assets<R: RenderAsset>(
+pub fn prepare_assets<R: RenderAsset>(
     mut extracted_assets: ResMut<ExtractedAssets<R>>,
     mut render_assets: ResMut<RenderAssets<R>>,
     mut prepare_next_frame: ResMut<PrepareNextFrameAssets<R>>,

@@ -36,7 +36,7 @@ impl Plugin for EnvironmentMapPlugin {
 ///
 /// When added to a 3D camera, this component adds indirect light
 /// to every point of the scene (including inside, enclosed areas) based on
-/// an environment cubemap texture. This is similiar to [`crate::AmbientLight`], but
+/// an environment cubemap texture. This is similar to [`crate::AmbientLight`], but
 /// higher quality, and is intended for outdoor scenes.
 ///
 /// The environment map must be prefiltered into a diffuse and specular cubemap based on the
@@ -53,7 +53,7 @@ pub struct EnvironmentMapLight {
 }
 
 impl EnvironmentMapLight {
-    /// Whether or not all textures neccesary to use the environment map
+    /// Whether or not all textures necessary to use the environment map
     /// have been loaded by the asset server.
     pub fn is_loaded(&self, images: &RenderAssets<Image>) -> bool {
         images.get(&self.diffuse_map).is_some() && images.get(&self.specular_map).is_some()

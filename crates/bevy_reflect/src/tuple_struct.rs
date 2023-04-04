@@ -6,29 +6,32 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
-/// A reflected Rust tuple struct.
+/// A trait used to power [tuple struct-like] operations via [reflection].
 ///
-/// Implementors of this trait allow their tuple fields to be addressed by
-/// index.
+/// This trait uses the [`Reflect`] trait to allow implementors to have their fields
+/// be dynamically addressed by index.
 ///
-/// This trait is automatically implemented for tuple struct types when using
-/// `#[derive(Reflect)]`.
+/// When using [`#[derive(Reflect)]`](derive@crate::Reflect) on a tuple struct,
+/// this trait will be automatically implemented.
+///
+/// # Example
 ///
 /// ```
 /// use bevy_reflect::{Reflect, TupleStruct};
 ///
 /// #[derive(Reflect)]
-/// struct Foo(String);
+/// struct Foo(u32);
 ///
-/// # fn main() {
-/// let foo = Foo("Hello, world!".to_string());
+/// let foo = Foo(123);
 ///
 /// assert_eq!(foo.field_len(), 1);
 ///
-/// let first = foo.field(0).unwrap();
-/// assert_eq!(first.downcast_ref::<String>(), Some(&"Hello, world!".to_string()));
-/// # }
+/// let field: &dyn Reflect = foo.field(0).unwrap();
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
 /// ```
+///
+/// [tuple struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types
+/// [reflection]: crate
 pub trait TupleStruct: Reflect {
     /// Returns a reference to the value of the field with index `index` as a
     /// `&dyn Reflect`.
