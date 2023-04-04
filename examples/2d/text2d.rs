@@ -99,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     size: box_size,
                 },
                 // ensure the text is drawn on top of the box
-                transform: Transform::from_translation(Vec3::Z),
+                transform: Transform2d::from_translation_3d(Vec3::Z),
                 ..default()
             });
         });
@@ -131,7 +131,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     size: other_box_size,
                 },
                 // ensure the text is drawn on top of the box
-                transform: Transform::from_translation(Vec3::Z),
+                transform: Transform2d::from_translation_3d(Vec3::Z),
                 ..default()
             });
         });
@@ -153,7 +153,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 )],
                 ..Default::default()
             },
-            transform: Transform::from_translation(250. * Vec3::Y),
+            transform: Transform2d::from_translation(250. * Vec2::Y),
             text_anchor,
             ..default()
         });

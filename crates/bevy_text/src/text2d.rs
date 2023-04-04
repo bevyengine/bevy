@@ -18,7 +18,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
-use bevy_transform::prelude::{GlobalTransform, GlobalTransform2d, Transform};
+use bevy_transform::prelude::{GlobalTransform2d, Transform2d};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
@@ -65,9 +65,9 @@ pub struct Text2dBundle {
     /// The maximum width and height of the text.
     pub text_2d_bounds: Text2dBounds,
     /// The transform of the text.
-    pub transform: Transform,
+    pub transform: Transform2d,
     /// The global transform of the text.
-    pub global_transform: GlobalTransform,
+    pub global_transform: GlobalTransform2d,
     /// The visibility properties of the text.
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.

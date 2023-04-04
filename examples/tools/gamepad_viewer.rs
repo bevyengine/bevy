@@ -333,7 +333,7 @@ fn setup_sticks(
                 };
                 parent.spawn((
                     Text2dBundle {
-                        transform: Transform::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
+                        transform: Transform2d::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
                         text: Text::from_sections([
                             TextSection {
                                 value: format!("{:.3}", 0.),
@@ -405,7 +405,7 @@ fn setup_triggers(
             .with_children(|parent| {
                 parent.spawn((
                     Text2dBundle {
-                        transform: Transform::from_xyz(0., 0., 1.),
+                        transform: Transform2d::from_xyz(0., 0., 1.),
                         text: Text::from_section(
                             format!("{:.3}", 0.),
                             TextStyle {
