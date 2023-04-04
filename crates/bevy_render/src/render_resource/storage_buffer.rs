@@ -160,7 +160,6 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
 pub struct DynamicStorageBuffer<T: ShaderType> {
-    values: Vec<T>,
     scratch: DynamicStorageBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
     capacity: usize,
@@ -172,7 +171,6 @@ pub struct DynamicStorageBuffer<T: ShaderType> {
 impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
     fn default() -> Self {
         Self {
-            values: Vec::new(),
             scratch: DynamicStorageBufferWrapper::new(Vec::new()),
             buffer: None,
             capacity: 0,
@@ -199,13 +197,8 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
+    pub fn is_empty(&self) -> usize {
+        self.scratch.as_ref().is_empty()
     }
 
     #[inline]
@@ -258,7 +251,6 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
 
     #[inline]
     pub fn clear(&mut self) {
-        self.values.clear();
         self.scratch.as_mut().clear();
         self.scratch.set_offset(0);
     }
