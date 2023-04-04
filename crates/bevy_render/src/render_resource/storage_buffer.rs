@@ -1,5 +1,7 @@
 #![allow(clippy::doc_markdown)]
 
+use std::marker::PhantomData;
+
 use super::Buffer;
 use crate::renderer::{RenderDevice, RenderQueue};
 use encase::{
@@ -160,25 +162,25 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
 pub struct DynamicStorageBuffer<T: ShaderType> {
-    values: Vec<T>,
     scratch: DynamicStorageBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
     capacity: usize,
     label: Option<String>,
     changed: bool,
     buffer_usage: BufferUsages,
+    _marker: PhantomData<fn() -> T>,
 }
 
 impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
     fn default() -> Self {
         Self {
-            values: Vec::new(),
             scratch: DynamicStorageBufferWrapper::new(Vec::new()),
             buffer: None,
             capacity: 0,
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            _marker: PhantomData,
         }
     }
 }
@@ -199,20 +201,13 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    #[inline]
     pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
+        self.scratch.as_ref().is_empty()
     }
 
     #[inline]
     pub fn push(&mut self, value: T) -> u32 {
-        let offset = self.scratch.write(&value).unwrap() as u32;
-        self.values.push(value);
-        offset
+        self.scratch.write(&value).unwrap() as u32
     }
 
     pub fn set_label(&mut self, label: Option<&str>) {
@@ -258,7 +253,6 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
 
     #[inline]
     pub fn clear(&mut self) {
-        self.values.clear();
         self.scratch.as_mut().clear();
         self.scratch.set_offset(0);
     }
