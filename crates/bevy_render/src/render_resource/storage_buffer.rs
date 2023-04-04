@@ -31,7 +31,6 @@ pub struct StorageBuffer<T: ShaderType> {
     value: T,
     scratch: StorageBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
-    capacity: usize,
     label: Option<String>,
     changed: bool,
     buffer_usage: BufferUsages,
@@ -43,7 +42,6 @@ impl<T: ShaderType> From<T> for StorageBuffer<T> {
             value,
             scratch: StorageBufferWrapper::new(Vec::new()),
             buffer: None,
-            capacity: 0,
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
@@ -57,7 +55,6 @@ impl<T: ShaderType + Default> Default for StorageBuffer<T> {
             value: T::default(),
             scratch: StorageBufferWrapper::new(Vec::new()),
             buffer: None,
-            capacity: 0,
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
@@ -122,15 +119,15 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         self.scratch.write(&self.value).unwrap();
 
-        let size = self.scratch.as_ref().len();
+        let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
+        let size = self.scratch.as_ref().len() as u64;
 
-        if self.capacity < size || self.changed {
+        if capacity < size || self.changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
-            self.capacity = size;
             self.changed = false;
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
@@ -163,7 +160,6 @@ pub struct DynamicStorageBuffer<T: ShaderType> {
     values: Vec<T>,
     scratch: DynamicStorageBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
-    capacity: usize,
     label: Option<String>,
     changed: bool,
     buffer_usage: BufferUsages,
@@ -175,7 +171,6 @@ impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
             values: Vec::new(),
             scratch: DynamicStorageBufferWrapper::new(Vec::new()),
             buffer: None,
-            capacity: 0,
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
@@ -241,15 +236,15 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
 
     #[inline]
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
-        let size = self.scratch.as_ref().len();
+        let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
+        let size = self.scratch.as_ref().len() as u64;
 
-        if self.capacity < size || self.changed {
+        if capacity < size || self.changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
-            self.capacity = size;
             self.changed = false;
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
