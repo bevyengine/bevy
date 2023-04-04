@@ -19,7 +19,7 @@ use bevy_ui::{
     AlignItems, FlexDirection, Size, Style, UiRect, Val,
 };
 use bevy_utils::{default, Duration};
-use std::{env, fmt::Write, ops::Div};
+use std::{env, fmt::Write};
 
 /// Displays an overlay showing how long GPU operations take.
 ///
@@ -106,7 +106,7 @@ fn setup_gpu_time_overlay(mut commands: Commands, asset_server: Res<AssetServer>
                             },
                         ),
                         TextSection::new(
-                            " (ms)\n",
+                            " (ms)  Mean     Min      Max\n",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                                 font_size: 10.0,
@@ -147,20 +147,21 @@ fn draw_gpu_time_overlay(
 
     for frame in gpu_timers.iter() {
         for timer in frame {
-            let timer_duration = timer.time.end - timer.time.start;
+            let timer_duration = (timer.time.end - timer.time.start) * 1000.0;
             match aggregated_timers
                 .iter_mut()
                 .find(|a| a.label == timer.label)
             {
                 Some(a) => {
                     a.mean_duration += timer_duration / 20.0;
-                    a.durations.push(timer_duration);
+                    a.min_duration = a.min_duration.min(timer_duration);
+                    a.max_duration = a.max_duration.max(timer_duration);
                 }
                 None => aggregated_timers.push(AggregatedGpuTimer {
                     label: &timer.label,
                     mean_duration: timer_duration / 20.0,
-                    durations: vec![timer_duration],
-                    // nested: Vec::new(),
+                    min_duration: timer_duration,
+                    max_duration: timer_duration,
                 }),
             }
         }
@@ -174,28 +175,23 @@ fn draw_gpu_time_overlay(
     });
 
     for timer in aggregated_timers {
-        let std_dev = timer
-            .durations
-            .iter()
-            .map(|d| (d - timer.mean_duration).powf(2.0))
-            .sum::<f64>()
-            .div(20.0)
-            .sqrt();
-
         writeln!(labels, "{}  ", timer.label).unwrap();
-        writeln!(
-            durations,
-            "{:.3} (±{:.2})",
-            timer.mean_duration * 1000.0,
-            std_dev * 1000.0
-        )
-        .unwrap();
+        if timer.max_duration - timer.min_duration > 0.05 {
+            writeln!(
+                durations,
+                "{:.3} ({:.3}, {:.3})",
+                timer.mean_duration, timer.min_duration, timer.max_duration,
+            )
+            .unwrap();
+        } else {
+            writeln!(durations, "{:.3}", timer.mean_duration,).unwrap();
+        }
     }
 }
 
 struct AggregatedGpuTimer<'a> {
     label: &'a str,
     mean_duration: f64,
-    durations: Vec<f64>,
-    // nested: Vec<Self>,
+    min_duration: f64,
+    max_duration: f64,
 }
