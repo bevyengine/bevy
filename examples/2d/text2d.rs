@@ -162,7 +162,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn animate_translation(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text>, With<AnimateTranslation>)>,
+    mut query: Query<&mut Transform2d, (With<Text>, With<AnimateTranslation>)>,
 ) {
     for mut transform in &mut query {
         transform.translation.x = 100.0 * time.elapsed_seconds().sin() - 400.0;
@@ -172,21 +172,21 @@ fn animate_translation(
 
 fn animate_rotation(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text>, With<AnimateRotation>)>,
+    mut query: Query<&mut Transform2d, (With<Text>, With<AnimateRotation>)>,
 ) {
     for mut transform in &mut query {
-        transform.rotation = Quat::from_rotation_z(time.elapsed_seconds().cos());
+        transform.rotation = time.elapsed_seconds().cos();
     }
 }
 
 fn animate_scale(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text>, With<AnimateScale>)>,
+    mut query: Query<&mut Transform2d, (With<Text>, With<AnimateScale>)>,
 ) {
     // Consider changing font-size instead of scaling the transform. Scaling a Text2D will scale the
     // rendered quad, resulting in a pixellated look.
     for mut transform in &mut query {
-        transform.translation = Vec3::new(400.0, 0.0, 0.0);
-        transform.scale = Vec3::splat((time.elapsed_seconds().sin() + 1.1) * 2.0);
+        transform.translation = Vec2::new(400.0, 0.0);
+        transform.scale = Vec2::splat((time.elapsed_seconds().sin() + 1.1) * 2.0);
     }
 }

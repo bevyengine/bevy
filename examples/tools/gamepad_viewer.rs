@@ -149,8 +149,8 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     // Buttons
 
     commands
-        .spawn(SpatialBundle {
-            transform: Transform::from_xyz(BUTTONS_X, BUTTONS_Y, 0.),
+        .spawn(SpatialBundle2d {
+            transform: Transform2d::from_xy(BUTTONS_X, BUTTONS_Y),
             ..default()
         })
         .with_children(|parent| {
@@ -205,8 +205,8 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     // D-Pad
 
     commands
-        .spawn(SpatialBundle {
-            transform: Transform::from_xyz(-BUTTONS_X, BUTTONS_Y, 0.),
+        .spawn(SpatialBundle2d {
+            transform: Transform2d::from_xy(-BUTTONS_X, BUTTONS_Y),
             ..default()
         })
         .with_children(|parent| {
@@ -291,8 +291,8 @@ fn setup_sticks(
 
     let mut spawn_stick = |x_pos, y_pos, x_axis, y_axis, button| {
         commands
-            .spawn(SpatialBundle {
-                transform: Transform::from_xyz(x_pos, y_pos, 0.),
+            .spawn(SpatialBundle2d {
+                transform: Transform2d::from_xy(x_pos, y_pos),
                 ..default()
             })
             .with_children(|parent| {
