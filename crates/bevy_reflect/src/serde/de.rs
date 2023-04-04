@@ -393,17 +393,39 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 Ok(Box::new(dynamic_struct))
             }
             TypeInfo::TupleStruct(tuple_struct_info) => {
-                let mut dynamic_tuple_struct = deserializer.deserialize_tuple_struct(
-                    tuple_struct_info.name(),
-                    tuple_struct_info.field_len(),
-                    TupleStructVisitor {
-                        tuple_struct_info,
-                        registry: self.registry,
-                        registration: self.registration,
-                    },
-                )?;
-                dynamic_tuple_struct.set_name(tuple_struct_info.type_name().to_string());
-                Ok(Box::new(dynamic_tuple_struct))
+                let ignored_len = self
+                    .registration
+                    .data::<SerializationData>()
+                    .map(|data| data.len())
+                    .unwrap_or(0);
+                let field_len = tuple_struct_info.field_len().saturating_sub(ignored_len);
+
+                // Only treat this as a newtype if it has exactly 1 field and that field isn't
+                // ignored.
+                if field_len == 1 && tuple_struct_info.field_len() == 1 {
+                    let mut dynamic_tuple_struct = deserializer.deserialize_newtype_struct(
+                        tuple_struct_info.name(),
+                        NewtypeStructVisitor {
+                            tuple_struct_info,
+                            registry: self.registry,
+                            registration: self.registration,
+                        },
+                    )?;
+                    dynamic_tuple_struct.set_name(tuple_struct_info.type_name().to_string());
+                    Ok(Box::new(dynamic_tuple_struct))
+                } else {
+                    let mut dynamic_tuple_struct = deserializer.deserialize_tuple_struct(
+                        tuple_struct_info.name(),
+                        tuple_struct_info.field_len(),
+                        TupleStructVisitor {
+                            tuple_struct_info,
+                            registry: self.registry,
+                            registration: self.registration,
+                        },
+                    )?;
+                    dynamic_tuple_struct.set_name(tuple_struct_info.type_name().to_string());
+                    Ok(Box::new(dynamic_tuple_struct))
+                }
             }
             TypeInfo::List(list_info) => {
                 let mut dynamic_list = deserializer.deserialize_seq(ListVisitor {
@@ -538,6 +560,60 @@ impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
     }
 }
 
+struct NewtypeStructVisitor<'a> {
+    tuple_struct_info: &'static TupleStructInfo,
+    registry: &'a TypeRegistry,
+    registration: &'a TypeRegistration,
+}
+
+impl<'a, 'de> Visitor<'de> for NewtypeStructVisitor<'a> {
+    type Value = DynamicTupleStruct;
+
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+        formatter.write_str("reflected newtype struct value")
+    }
+
+    fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let mut tuple_struct = DynamicTupleStruct::default();
+
+        let ignored_len = self
+            .registration
+            .data::<SerializationData>()
+            .map(|data| data.len())
+            .unwrap_or(0);
+        let field_len = self
+            .tuple_struct_info
+            .field_len()
+            .saturating_sub(ignored_len);
+
+        if field_len > 1 {
+            return Err(Error::custom(format_args!(
+                "Tried to deserialize a struct {} with more than 1 field as a newtype.",
+                self.tuple_struct_info.type_name(),
+            )));
+        }
+
+        let field = self.tuple_struct_info.field_at(0).ok_or_else(|| {
+            de::Error::custom(format_args!(
+                "no fields on supposedly newtype struct {}",
+                self.tuple_struct_info.type_name(),
+            ))
+        })?;
+        let registration = get_registration(field.type_id(), field.type_name(), self.registry)?;
+
+        let de = TypedReflectDeserializer {
+            registration,
+            registry: self.registry,
+        };
+        tuple_struct.insert_boxed(de.deserialize(deserializer)?);
+
+        Ok(tuple_struct)
+    }
+}
+
 struct TupleStructVisitor<'a> {
     tuple_struct_info: &'static TupleStructInfo,
     registry: &'a TypeRegistry,
@@ -595,12 +671,7 @@ impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
             }
         }
 
-        let ignored_len = self
-            .registration
-            .data::<SerializationData>()
-            .map(|data| data.len())
-            .unwrap_or(0);
-        if tuple_struct.field_len() != self.tuple_struct_info.field_len() - ignored_len {
+        if tuple_struct.field_len() != field_len {
             return Err(Error::invalid_length(
                 tuple_struct.field_len(),
                 &self.tuple_struct_info.field_len().to_string().as_str(),
@@ -1566,13 +1637,13 @@ mod tests {
             101, 114, 100, 101, 58, 58, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
             83, 116, 114, 117, 99, 116, 220, 0, 19, 123, 172, 72, 101, 108, 108, 111, 32, 119, 111,
             114, 108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255, 0,
-            1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 145, 172, 84,
-            117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110, 105, 116, 129,
-            167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146, 202,
-            63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145,
-            180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108,
-            117, 101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165, 84, 117, 112,
-            108, 101, 144, 146, 100, 145, 101,
+            1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 172, 84, 117,
+            112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110, 105, 116, 129, 167,
+            78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146, 202, 63,
+            157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145, 180,
+            83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108, 117,
+            101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165, 84, 117, 112, 108,
+            101, 144, 146, 100, 145, 101,
         ];
 
         let mut reader = std::io::BufReader::new(input.as_slice());

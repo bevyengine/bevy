@@ -125,11 +125,29 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                 registry: self.registry,
             }
             .serialize(serializer),
-            ReflectRef::TupleStruct(value) => TupleStructSerializer {
-                tuple_struct: value,
-                registry: self.registry,
+            ReflectRef::TupleStruct(value) => {
+                let ignored_len = self
+                    .registry
+                    .get(value.get_type_info().type_id())
+                    .and_then(|registration| registration.data::<SerializationData>())
+                    .map(|data| data.len())
+                    .unwrap_or(0);
+                let field_len = value.field_len().saturating_sub(ignored_len);
+
+                if value.field_len() == 1 && field_len == 1 {
+                    NewtypeStructSerializer {
+                        tuple_struct: value,
+                        registry: self.registry,
+                    }
+                    .serialize(serializer)
+                } else {
+                    TupleStructSerializer {
+                        tuple_struct: value,
+                        registry: self.registry,
+                    }
+                    .serialize(serializer)
+                }
             }
-            .serialize(serializer),
             ReflectRef::Tuple(value) => TupleSerializer {
                 tuple: value,
                 registry: self.registry,
@@ -222,6 +240,59 @@ impl<'a> Serialize for StructSerializer<'a> {
             state.serialize_field(key, &TypedReflectSerializer::new(value, self.registry))?;
         }
         state.end()
+    }
+}
+
+pub struct NewtypeStructSerializer<'a> {
+    pub tuple_struct: &'a dyn TupleStruct,
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a> Serialize for NewtypeStructSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let type_info = get_type_info(
+            self.tuple_struct.get_type_info(),
+            self.tuple_struct.type_name(),
+            self.registry,
+        )?;
+
+        let tuple_struct_info = match type_info {
+            TypeInfo::TupleStruct(tuple_struct_info) => tuple_struct_info,
+            info => {
+                return Err(Error::custom(format_args!(
+                    "expected newtype struct type but received {info:?}"
+                )));
+            }
+        };
+
+        let serialization_data = self
+            .registry
+            .get(type_info.type_id())
+            .and_then(|registration| registration.data::<SerializationData>());
+
+        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
+        let field_len = self.tuple_struct.field_len().saturating_sub(ignored_len);
+
+        if field_len > 1 {
+            return Err(Error::custom(format_args!(
+                "Tried to serialize a struct {} with more than 1 field as a newtype.",
+                type_info.type_name(),
+            )));
+        }
+
+        let field = self.tuple_struct.field(0).ok_or_else(|| {
+            Error::custom(format_args!(
+                "no fields on supposedly newtype struct {}",
+                self.tuple_struct.type_name(),
+            ))
+        })?;
+        serializer.serialize_newtype_struct(
+            tuple_struct_info.name(),
+            &TypedReflectSerializer::new(field, self.registry),
+        )
     }
 }
 
@@ -868,13 +939,13 @@ mod tests {
             101, 114, 100, 101, 58, 58, 115, 101, 114, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77,
             121, 83, 116, 114, 117, 99, 116, 220, 0, 19, 123, 172, 72, 101, 108, 108, 111, 32, 119,
             111, 114, 108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255,
-            0, 1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 145, 172,
-            84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110, 105, 116,
-            129, 167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146,
-            202, 63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116,
-            145, 180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97,
-            108, 117, 101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165, 84, 117,
-            112, 108, 101, 144, 146, 100, 145, 101,
+            0, 1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 172, 84,
+            117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110, 105, 116, 129,
+            167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146, 202,
+            63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145,
+            180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108,
+            117, 101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165, 84, 117, 112,
+            108, 101, 144, 146, 100, 145, 101,
         ];
 
         assert_eq!(expected, bytes);
