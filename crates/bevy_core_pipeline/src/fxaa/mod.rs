@@ -63,16 +63,6 @@ pub struct Fxaa {
     pub edge_threshold_min: Sensitivity,
 }
 
-impl ExtractComponent for Fxaa {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-    type Out = (Self, MipBias);
-
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self::Out> {
-        Some((item.clone(), MipBias(-0.25)))
-    }
-}
-
 impl Default for Fxaa {
     fn default() -> Self {
         Fxaa {

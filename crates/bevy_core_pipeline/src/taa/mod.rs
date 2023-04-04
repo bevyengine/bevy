@@ -17,7 +17,7 @@ use bevy_ecs::{
 use bevy_math::vec2;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
-    camera::{ExtractedCamera, TemporalJitter},
+    camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::{
@@ -437,7 +437,9 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
     {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         if camera.is_active && has_perspective_projection {
-            commands.get_or_spawn(entity).insert(taa_settings.clone());
+            commands
+                .get_or_spawn(entity)
+                .insert((taa_settings.clone(), MipBias(-1.0)));
             taa_settings.reset = false;
         }
     }
