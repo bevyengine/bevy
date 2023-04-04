@@ -11,7 +11,7 @@ use crate::{
 use crate as bevy_ecs;
 
 #[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
-enum StepAction {
+enum Action {
     /// Stepping is disabled; run all systems
     #[default]
     RunAll,
@@ -20,7 +20,7 @@ enum StepAction {
     Waiting,
 
     /// Stepping is enabled; run all systems until the end of the frame, or
-    /// until we encounter a system marked with [`StepBehavior::Break`] or all
+    /// until we encounter a system marked with [`SystemBehavior::Break`] or all
     /// systems in the frame have run.
     Continue,
 
@@ -29,12 +29,16 @@ enum StepAction {
 }
 
 #[derive(Debug, Copy, Clone)]
-enum StepBehavior {
+enum SystemBehavior {
     AlwaysRun,
     NeverRun,
     Continue,
     Break,
 }
+
+// schedule_order index, and schedule start point
+#[derive(Debug, Default)]
+struct Cursor(usize, usize);
 
 enum SystemIdentifier {
     Type(TypeId),
@@ -43,30 +47,33 @@ enum SystemIdentifier {
 }
 
 enum Update {
-    Action(StepAction),
+    SetAction(Action),
     AddSchedule(BoxedScheduleLabel),
     RemoveSchedule(BoxedScheduleLabel),
     ClearSchedule(BoxedScheduleLabel),
-    SetBehavior(BoxedScheduleLabel, SystemIdentifier, StepBehavior),
+    SetBehavior(BoxedScheduleLabel, SystemIdentifier, SystemBehavior),
     ClearBehavior(BoxedScheduleLabel, SystemIdentifier),
 }
 
 #[derive(Resource, Default)]
 pub struct Stepping {
-    /// [`ScheduleState`] for each [`Schedule`] with stepping enabled
+    // [`ScheduleState`] for each [`Schedule`] with stepping enabled
     schedule_states: HashMap<BoxedScheduleLabel, ScheduleState>,
 
-    /// Action to perform during this frame
-    action: StepAction,
-
-    /// Updates to stepping state to be applied at the start of the next frame
-    updates: Vec<Update>,
-
-    /// dynamically generated [`Schedule`] order
+    // dynamically generated [`Schedule`] order
     schedule_order: Vec<BoxedScheduleLabel>,
 
-    /// tracks the index of the last schedule stepped in schedule_order
-    last_schedule: Option<usize>,
+    // current position in the stepping frame
+    cursor: Cursor,
+
+    // index in [`schedule_order`] of the last schedule to call `build_skip_list`
+    previous_schedule: Option<usize>,
+
+    // Action to perform during this render frame
+    action: Action,
+
+    // Updates apply at the start of the next render frame
+    updates: Vec<Update>,
 }
 
 impl Stepping {
@@ -74,8 +81,6 @@ impl Stepping {
         Stepping::default()
     }
 
-    /// System that notifies the [`Stepping`] resource that a new frame has
-    /// begun.
     pub fn begin_frame(stepping: Option<ResMut<Self>>) {
         if let Some(mut stepping) = stepping {
             stepping.next_frame();
@@ -104,7 +109,7 @@ impl Stepping {
         self
     }
 
-    /// clear [`StepBehavior`] set for all systems in the provided [`Schedule`]
+    /// clear behavior set for all systems in the provided [`Schedule`]
     pub fn clear_schedule(&mut self, schedule: impl ScheduleLabel) -> &mut Self {
         self.updates.push(Update::ClearSchedule(Box::new(schedule)));
         self
@@ -112,25 +117,25 @@ impl Stepping {
 
     /// Begin stepping at the start of the next frame
     pub fn enable(&mut self) -> &mut Self {
-        self.updates.push(Update::Action(StepAction::Waiting));
+        self.updates.push(Update::SetAction(Action::Waiting));
         self
     }
 
     /// Disable stepping, resume normal systems execution
     pub fn disable(&mut self) -> &mut Self {
-        self.updates.push(Update::Action(StepAction::RunAll));
+        self.updates.push(Update::SetAction(Action::RunAll));
         self
     }
 
     /// run the next system
     pub fn step_frame(&mut self) -> &mut Self {
-        self.updates.push(Update::Action(StepAction::Step));
+        self.updates.push(Update::SetAction(Action::Step));
         self
     }
 
     /// continue stepping until the end of the frame or a breakpoint is hit
     pub fn continue_frame(&mut self) -> &mut Self {
-        self.updates.push(Update::Action(StepAction::Continue));
+        self.updates.push(Update::SetAction(Action::Continue));
         self
     }
 
@@ -144,7 +149,7 @@ impl Stepping {
         self.updates.push(Update::SetBehavior(
             Box::new(schedule),
             SystemIdentifier::Type(type_id),
-            StepBehavior::AlwaysRun,
+            SystemBehavior::AlwaysRun,
         ));
 
         self
@@ -160,7 +165,7 @@ impl Stepping {
         self.updates.push(Update::SetBehavior(
             Box::new(schedule),
             SystemIdentifier::Type(type_id),
-            StepBehavior::NeverRun,
+            SystemBehavior::NeverRun,
         ));
 
         self
@@ -176,7 +181,7 @@ impl Stepping {
         self.updates.push(Update::SetBehavior(
             Box::new(schedule),
             SystemIdentifier::Type(type_id),
-            StepBehavior::Break,
+            SystemBehavior::Break,
         ));
 
         self
@@ -210,45 +215,36 @@ impl Stepping {
 
     /// Advance schedule states for the next render frame
     fn next_frame(&mut self) {
-        // If we were stepping, and nothing ran, the action will remain Step.
-        // This happens when we've already run everything in the "stepping"
-        // frame.  Now, the user requested a step, let's reset our schedule
-        // state to the beginning and start a new "stepping" frame.
-        match self.action {
-            StepAction::Step => {
-                println!("wrapping state");
-                self.next_stepping_frame();
+        println!("next_frame(): resetting action");
+        self.action = Action::Waiting;
+        self.previous_schedule = None;
 
-                // This return here is to ensure that the step is executed.  We
-                // don't want to process updates from the previous frame
-                // because they may overwrite the action, resulting in Step
-                // doing nothing.
-                return;
-            }
-            StepAction::Continue => {
-                self.next_stepping_frame();
-                self.action = StepAction::Waiting;
-            }
-            _ => (),
+        let Cursor(schedule_index, _) = self.cursor;
+        if schedule_index >= self.schedule_order.len() {
+            println!("next_frame(): begin new stepping frame");
+            self.cursor = Cursor(0, 0);
         }
 
         if self.updates.is_empty() {
             return;
         }
 
-        let mut clear_schedule = false;
         for update in self.updates.drain(..) {
             match update {
-                Update::Action(StepAction::RunAll) => {
-                    self.action = StepAction::RunAll;
-                    clear_schedule = true;
+                Update::SetAction(Action::RunAll) => {
+                    self.action = Action::RunAll;
+                    self.cursor = Cursor(0, 0);
                 }
-                Update::Action(a) => self.action = a,
+                Update::SetAction(a) => self.action = a,
                 Update::AddSchedule(l) => {
                     self.schedule_states.insert(l, ScheduleState::default());
                 }
-                Update::RemoveSchedule(l) => {
-                    self.schedule_states.remove(&l);
+                Update::RemoveSchedule(label) => {
+                    self.schedule_states.remove(&label);
+                    if let Some(index) = self.schedule_order.iter().position(|l| l == &label) {
+                        self.schedule_order.remove(index);
+                    }
+                    self.cursor = Cursor(0, 0);
                 }
                 Update::ClearSchedule(label) => match self.schedule_states.get_mut(&label) {
                     Some(state) => state.clear_behaviors(),
@@ -257,7 +253,7 @@ impl Stepping {
                             "stepping is not enabled for schedule {:?}; use
                     `.add_stepping({:?})` to enable stepping",
                             label, label
-                        )
+                        );
                     }
                 },
                 Update::SetBehavior(label, system, behavior) => {
@@ -268,7 +264,7 @@ impl Stepping {
                                 "stepping is not enabled for schedule {:?}; use
                     `.add_stepping({:?})` to enable stepping",
                                 label, label
-                            )
+                            );
                         }
                     }
                 }
@@ -280,94 +276,93 @@ impl Stepping {
                                 "stepping is not enabled for schedule {:?}; use
                     `.add_stepping({:?})` to enable stepping",
                                 label, label
-                            )
+                            );
                         }
                     }
                 }
             }
         }
-
-        if clear_schedule {
-            self.next_stepping_frame();
-        }
     }
 
-    /// Advance schedule states for a new stepping frame
-    fn next_stepping_frame(&mut self) {
-        println!("next_stepping_frame(): being new stepping frame");
-
-        // clear any progress we've made in the stepping frame
-        self.last_schedule = None;
-
-        for state in self.schedule_states.values_mut() {
-            state.next = 0;
-        }
-    }
-
-    /// Build the list of systems the supplied schedule should skip this render
+    /// get the list of systems this schedule should skip for this render
     /// frame
-    pub fn build_skip_list(&mut self, schedule: &Schedule) -> Option<FixedBitSet> {
-        if self.action == StepAction::RunAll {
+    pub fn skipped_systems(&mut self, schedule: &Schedule) -> Option<FixedBitSet> {
+        if self.action == Action::RunAll {
             return None;
         }
-        let state = match schedule.label() {
-            Some(label) => self.schedule_states.get_mut(label)?,
+
+        // grab the label and state for the schedule if they've been added to
+        // stepping
+        let (label, state) = match schedule.label() {
             None => return None,
+            Some(label) => (label, self.schedule_states.get_mut(label)?),
         };
 
-        // We are stepping through a  schedule that has stepping enabled.
+        // Stepping is enabled, and this schedule is supposed to be stepped.
         //
-        // Let's take a moment to make sure this schedule is in our ordered
-        // schedule list.  We maintain this to give any stepping UI a way to
-        // know what order schedules are called in.
-        let label = schedule.label().as_ref().unwrap();
+        // We need to get this schedule's index in the ordered schedule list.
+        // If it's not present, it will be inserted in place after the index
+        // of the previous schedule that called this function.
         let index = self.schedule_order.iter().position(|l| l == label);
-        match (self.last_schedule, index) {
-            (_, Some(i)) => self.last_schedule = Some(i),
-            (Some(last), None) => {
-                self.schedule_order.insert(last + 1, label.clone());
-                self.last_schedule = Some(last + 1);
-            }
+        let index = match (index, self.previous_schedule) {
+            (Some(index), _) => index,
             (None, None) => {
                 self.schedule_order.insert(0, label.clone());
-                self.last_schedule = Some(0);
+                0
             }
+            (None, Some(last)) => {
+                self.schedule_order.insert(last + 1, label.clone());
+                last + 1
+            }
+        };
+        self.previous_schedule = Some(index);
+        println!(
+            "skipped_systems(): cursor {:?}, label {:?}, index {}",
+            self.cursor, label, index
+        );
+
+        // if the stepping frame cursor is pointing at this schedule, we'll run
+        // the schedule with the current stepping action.  If this is not the
+        // cursor schedule, we'll run the schedule with the waiting action.
+        let Cursor(schedule_index, start) = self.cursor;
+        let (list, resume) = if index == schedule_index {
+            let o = state.skipped_systems(schedule, start, self.action);
+
+            // if we just stepped this schedule, then we'll switch the action
+            // to be waiting
+            if self.action == Action::Step {
+                self.action = Action::Waiting;
+            }
+            o
+        } else {
+            state.skipped_systems(schedule, start, Action::Waiting)
+        };
+
+        // update the stepping frame cursor based on if there are any systems
+        // remaining to be run in the schedule
+        // XXX Maybe not option here to auto-detect the end of the render frame
+        match resume {
+            None => self.cursor = Cursor(schedule_index + 1, 0),
+            Some(resume) => self.cursor.1 = resume,
         }
 
-        let (list, wait) = state.progress(schedule, self.action);
-        if wait {
-            println!(
-                "build_skip_list({:?}): state {:?} -> {:?}",
-                schedule.label(),
-                self.action,
-                StepAction::Waiting
-            );
-            self.action = StepAction::Waiting;
-        }
         Some(list)
     }
 }
 
 #[derive(Default)]
 struct ScheduleState {
-    /// Index of the next system to run in the system schedule; if set to
-    /// greater than the number of systems in the schedule, then don't run
-    /// any systems.
-    /// NOTE: [`StepBehavior::AlwaysRun`] systems ignore this value and always
-    /// run
-    next: usize,
-
-    /// per-system [`StepBehavior`]
-    systems: HashMap<NodeId, StepBehavior>,
+    /// per-system [`SystemBehavior`]
+    systems: HashMap<NodeId, SystemBehavior>,
 
     /// changes to system behavior that should be applied the next time
     /// [`ScheduleState::progress()`] is called
-    updates: HashMap<TypeId, Option<StepBehavior>>,
+    updates: HashMap<TypeId, Option<SystemBehavior>>,
 }
 
 impl ScheduleState {
     // set the stepping behavior for a system in this schedule
-    fn set_behavior(&mut self, system: SystemIdentifier, behavior: StepBehavior) {
+    fn set_behavior(&mut self, system: SystemIdentifier, behavior: SystemBehavior) {
         match system {
             SystemIdentifier::Node(node_id) => {
                 self.systems.insert(node_id, behavior);
@@ -415,9 +410,12 @@ impl ScheduleState {
         println!("apply_updates(): {:?}", self.systems);
     }
 
-    // progress the schedule for the given action type, returning a skip list,
-    // and if the caller should update state to waiting
-    fn progress(&mut self, schedule: &Schedule, mut action: StepAction) -> (FixedBitSet, bool) {
+    fn skipped_systems(
+        &mut self,
+        schedule: &Schedule,
+        start: usize,
+        mut action: Action,
+    ) -> (FixedBitSet, Option<usize>) {
         use std::cmp::Ordering;
 
         // Now that we have the schedule, apply any pending system behavior
@@ -428,49 +426,51 @@ impl ScheduleState {
         }
         let mut skip = FixedBitSet::with_capacity(schedule.systems_len());
 
-        let mut pos = self.next;
-        let start_pos = pos;
+        let mut pos = start;
         for (i, (node_id, system)) in schedule.systems().unwrap().enumerate() {
             let behavior = self
                 .systems
                 .get(&node_id)
-                .unwrap_or(&StepBehavior::Continue);
+                .unwrap_or(&SystemBehavior::Continue);
             println!(
-                "progress(): systems[{}], cursor {}, Action::{:?}, Behavior::{:?}, {}",
+                "skipped_systems(): systems[{}], cursor {}, Action::{:?}, Behavior::{:?}, {}",
                 i,
                 pos,
                 action,
                 behavior,
                 system.name()
             );
+            // suppress this clippy warning; we want to keep the arms split to
+            // clearly document whats going on.
+            #[allow(clippy::match_same_arms)]
             match (action, behavior) {
                 // regardless of which action we're performing, if the system
                 // is marked as NeverRun, add it to the skip list
-                (_, StepBehavior::NeverRun) => skip.insert(i),
+                (_, SystemBehavior::NeverRun) => skip.insert(i),
                 // similarly, ignore any system marked as AlwaysRun; they should
                 // never be added to the skip list
-                (_, StepBehavior::AlwaysRun) => (),
+                (_, SystemBehavior::AlwaysRun) => (),
                 // if we're waiting, no other systems besides AlwaysRun should
                 // be run, so add systems to the skip list
-                (StepAction::Waiting, _) => skip.insert(i),
+                (Action::Waiting, _) => skip.insert(i),
                 // If we're stepping, the remaining behaviors don't matter,
                 // we're only going to run the system at our cursor.  Any system
                 // not at our cursor is skipped.  Once we encounter the system
                 // at the cursor, we'll move the cursor up, and switch to
                 // Waiting, to skip remaining systems.
-                (StepAction::Step, _) => match i.cmp(&pos) {
+                (Action::Step, _) => match i.cmp(&pos) {
                     Ordering::Less => skip.insert(i),
                     Ordering::Equal => {
                         pos += 1;
-                        action = StepAction::Waiting;
+                        action = Action::Waiting;
                     }
                     Ordering::Greater => unreachable!(),
                 },
                 // If we're continuing, and the step behavior is continue, we
                 // want to skip any systems prior to our start position.  That's
                 // where the stepping frame left off last time we ran anything.
-                (StepAction::Continue, StepBehavior::Continue) => {
-                    if i < start_pos {
+                (Action::Continue, SystemBehavior::Continue) => {
+                    if i < start {
                         skip.insert(i);
                     }
                 }
@@ -482,24 +482,28 @@ impl ScheduleState {
                 // user to continue, hit a breakpoint to stop before running
                 // the system, then continue again to run the system with the
                 // breakpoint.
-                (StepAction::Continue, StepBehavior::Break) => {
-                    if i != start_pos {
+                (Action::Continue, SystemBehavior::Break) => {
+                    if i != start {
                         debug_assert!(pos == i);
                         skip.insert(i);
-                        action = StepAction::Waiting;
+                        action = Action::Waiting;
                     }
                 }
                 // should have never gotten into this method if stepping is
                 // disabled
-                (StepAction::RunAll, _) => unreachable!(),
+                (Action::RunAll, _) => unreachable!(),
             }
 
-            if i == pos && action != StepAction::Waiting {
+            if i == pos && action != Action::Waiting {
                 pos += 1;
             }
         }
-        self.next = pos;
-        (skip, action == StepAction::Waiting)
+
+        if pos >= schedule.systems_len() {
+            (skip, None)
+        } else {
+            (skip, Some(pos))
+        }
     }
 }
 
@@ -572,7 +576,7 @@ mod tests {
             // advance stepping to the next frame, and build the skip list for
             // this schedule
             $stepping.next_frame();
-            let actual = match $stepping.build_skip_list($schedule) {
+            let actual = match $stepping.skipped_systems($schedule) {
                 None => FixedBitSet::with_capacity(systems.len()),
                 Some(b) => b,
             };
@@ -608,7 +612,7 @@ mod tests {
         let mut stepping = Stepping::new();
         stepping.add_schedule(TestSchedule).disable().next_frame();
 
-        assert!(stepping.build_skip_list(&schedule).is_none());
+        assert!(stepping.skipped_systems(&schedule).is_none());
     }
 
     #[test]
@@ -618,7 +622,7 @@ mod tests {
         let mut stepping = Stepping::new();
         stepping.enable().next_frame();
 
-        assert!(stepping.build_skip_list(&schedule).is_none());
+        assert!(stepping.skipped_systems(&schedule).is_none());
     }
 
     #[test]
@@ -771,16 +775,9 @@ mod tests {
         stepping.step_frame();
         assert_schedule_runs!(&schedule, &mut stepping, second_system);
 
-        // when stepping, we take one render frame to detect that the stepping
-        // frame has completed.  This looks like nothing runs for the first
-        // render frame, then the second render-frame resets the stepping frame
-        // and we run the first system again.
-        //
-        // XXX this is weird from the UI standpoint; how does UI display what
-        // is the next system to be run, esp when transitioning between
-        // schedules.
+        // let's go again to verify that we wrap back around to the start of
+        // the frame
         stepping.step_frame();
-        assert_schedule_runs!(&schedule, &mut stepping,);
         assert_schedule_runs!(&schedule, &mut stepping, first_system);
 
         // should be back in a waiting state now that it ran first_system
@@ -888,9 +885,9 @@ mod tests {
             .enable()
             .next_frame();
 
-        stepping.build_skip_list(&schedule_b);
-        stepping.build_skip_list(&schedule_a);
-        stepping.build_skip_list(&schedule_c);
+        stepping.skipped_systems(&schedule_b);
+        stepping.skipped_systems(&schedule_a);
+        stepping.skipped_systems(&schedule_c);
         assert_eq!(
             &stepping.schedules()[0],
             schedule_b.label().as_ref().unwrap()
@@ -907,10 +904,10 @@ mod tests {
         // make it complicated, run schedule_d after schedule_b and confirm it
         // was inserted correctly
         stepping.next_frame();
-        stepping.build_skip_list(&schedule_b);
-        stepping.build_skip_list(&schedule_d);
-        stepping.build_skip_list(&schedule_a);
-        stepping.build_skip_list(&schedule_c);
+        stepping.skipped_systems(&schedule_b);
+        stepping.skipped_systems(&schedule_d);
+        stepping.skipped_systems(&schedule_a);
+        stepping.skipped_systems(&schedule_c);
         assert_eq!(
             &stepping.schedules()[0],
             schedule_b.label().as_ref().unwrap()

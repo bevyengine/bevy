@@ -251,7 +251,7 @@ impl Schedule {
 
         let skip_systems = match world.get_resource_mut::<Stepping>() {
             None => None,
-            Some(mut stepping) => stepping.build_skip_list(self),
+            Some(mut stepping) => stepping.skipped_systems(self),
         };
 
         self.executor.run(&mut self.executable, skip_systems, world);

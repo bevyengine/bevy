@@ -154,7 +154,7 @@ pub struct MainSchedulePlugin;
 
 impl Plugin for MainSchedulePlugin {
     fn build(&self, app: &mut App) {
-        use bevy_ecs::schedule::Stepping;
+        use bevy_ecs::schedule::{IntoSystemConfigs, Stepping};
 
         // simple "facilitator" schedules benefit from simpler single threaded scheduling
         let mut main_schedule = Schedule::new();
@@ -165,6 +165,6 @@ impl Plugin for MainSchedulePlugin {
         app.add_schedule(Main, main_schedule)
             .add_schedule(RunFixedUpdateLoop, fixed_update_loop_schedule)
             .init_resource::<MainScheduleOrder>()
-            .add_systems(Main, (Stepping::begin_frame, Main::run_main));
+            .add_systems(Main, (Stepping::begin_frame, Main::run_main).chain());
     }
 }

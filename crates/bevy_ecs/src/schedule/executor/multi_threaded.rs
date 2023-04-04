@@ -172,6 +172,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
         if let Some(mut skipped_systems) = skip_systems {
+            debug_assert_eq!(skipped_systems.len(), self.completed_systems.len());
             // mark skipped systems as completed
             self.completed_systems |= &skipped_systems;
             self.num_completed_systems = self.completed_systems.count_ones(..);
