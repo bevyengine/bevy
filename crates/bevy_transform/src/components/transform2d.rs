@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Affine2, Mat2, Mat3, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
@@ -324,6 +326,31 @@ impl Transform2d {
         point = self.rotation_matrix() * point;
         point += self.translation;
         point
+    }
+
+    /// Multiplies `self` with `transform` component by component, returning the
+    /// resulting [`Transform`]
+    #[inline]
+    #[must_use]
+    pub fn mul_transform(&self, transform: Transform2d) -> Self {
+        let translation = self.transform_point(transform.translation);
+        let rotation = self.rotation + transform.rotation;
+        let scale = self.scale * transform.scale;
+        let z_translation = self.z_translation + transform.z_translation;
+        Transform2d {
+            translation,
+            rotation,
+            scale,
+            z_translation,
+        }
+    }
+}
+
+impl Mul<Transform2d> for Transform2d {
+    type Output = Transform2d;
+
+    fn mul(self, transform: Transform2d) -> Self::Output {
+        self.mul_transform(transform)
     }
 }
 

@@ -1,7 +1,7 @@
 use std::ops::Mul;
 
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Affine2, Affine3A, Mat3, Mat4, Vec2, Vec3};
+use bevy_math::{Affine2, Affine3A, Mat2, Mat3, Mat4, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 
 use crate::components::Transform2d;
@@ -103,7 +103,7 @@ impl GlobalTransform2d {
             .extend(point.z + self.z_translation)
     }
 
-    /// Returns the 3d affine transformation matrix as a [`Mat4`].
+    /// Returns the 2d affine transformation matrix as a [`Mat4`].
     #[inline]
     pub fn compute_matrix(&self) -> Mat4 {
         let mat3 = Mat3::from_cols_array_2d(&[
@@ -116,6 +116,49 @@ impl GlobalTransform2d {
             mat3,
             self.affine.translation.extend(self.z_translation),
         ))
+    }
+
+    /// Returns the 2d affine transformation matrix as an [`Affine2`].
+    #[inline]
+    pub fn affine(&self) -> Affine2 {
+        self.affine
+    }
+
+    /// Returns the translation on the Z axis.
+    #[inline]
+    pub fn z_translation(&self) -> f32 {
+        self.z_translation
+    }
+
+    /// Returns the transformation as a [`Transform2d`].
+    ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output
+    /// will be invalid.
+    #[inline]
+    pub fn compute_transform(&self) -> Transform2d {
+        let affine = self.affine;
+
+        let det = affine.matrix2.determinant();
+
+        let scale = Vec2::new(
+            affine.matrix2.x_axis.length() * det.signum(),
+            affine.matrix2.y_axis.length(),
+        );
+
+        let inv_scale = scale.recip();
+
+        let rotation_matrix = Mat2::from_cols(
+            (affine.matrix2.x_axis * inv_scale.x).into(),
+            (affine.matrix2.y_axis * inv_scale.y).into(),
+        );
+        let rotation = Vec2::angle_between(Vec2::Y, rotation_matrix * Vec2::Y);
+
+        Transform2d {
+            translation: affine.translation,
+            rotation,
+            scale,
+            z_translation: 0.,
+        }
     }
 }
 
