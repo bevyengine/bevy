@@ -1,4 +1,5 @@
 use crate::{
+    core_3d,
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
@@ -18,7 +19,7 @@ use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     prelude::{Camera, Projection},
-    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
+    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::{
         BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
@@ -71,24 +72,17 @@ impl Plugin for TemporalAntiAliasPlugin {
                     prepare_taa_history_textures.in_set(RenderSet::Prepare),
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
                 ),
+            )
+            .add_render_graph_node::<TAANode>(core_3d::graph::NAME, draw_3d_graph::node::TAA)
+            .add_render_graph_edges(
+                core_3d::graph::NAME,
+                &[
+                    core_3d::graph::node::END_MAIN_PASS,
+                    draw_3d_graph::node::TAA,
+                    core_3d::graph::node::BLOOM,
+                    core_3d::graph::node::TONEMAPPING,
+                ],
             );
-
-        let taa_node = TAANode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
-        let draw_3d_graph = graph
-            .get_sub_graph_mut(crate::core_3d::graph::NAME)
-            .unwrap();
-        draw_3d_graph.add_node(draw_3d_graph::node::TAA, taa_node);
-        // MAIN_PASS -> TAA -> BLOOM -> TONEMAPPING
-        draw_3d_graph.add_node_edge(
-            crate::core_3d::graph::node::END_MAIN_PASS,
-            draw_3d_graph::node::TAA,
-        );
-        draw_3d_graph.add_node_edge(draw_3d_graph::node::TAA, crate::core_3d::graph::node::BLOOM);
-        draw_3d_graph.add_node_edge(
-            draw_3d_graph::node::TAA,
-            crate::core_3d::graph::node::TONEMAPPING,
-        );
     }
 }
 
@@ -168,8 +162,8 @@ struct TAANode {
     )>,
 }
 
-impl TAANode {
-    fn new(world: &mut World) -> Self {
+impl FromWorld for TAANode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             view_query: QueryState::new(world),
         }

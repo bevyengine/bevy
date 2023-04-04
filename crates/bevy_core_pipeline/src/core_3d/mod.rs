@@ -106,25 +106,17 @@ impl Plugin for Core3dPlugin {
         draw_3d_graph.add_node(graph::node::END_MAIN_PASS_POST_PROCESSING, EmptyNode);
         draw_3d_graph.add_node(graph::node::UPSCALING, upscaling);
 
-        draw_3d_graph.add_node_edge(graph::node::PREPASS, graph::node::START_MAIN_PASS);
-        draw_3d_graph.add_node_edge(graph::node::START_MAIN_PASS, graph::node::MAIN_OPAQUE_PASS);
-        draw_3d_graph.add_node_edge(
+        draw_3d_graph.add_node_edges(&[
+            graph::node::PREPASS,
+            graph::node::START_MAIN_PASS,
             graph::node::MAIN_OPAQUE_PASS,
             graph::node::MAIN_TRANSPARENT_PASS,
-        );
-        draw_3d_graph.add_node_edge(
-            graph::node::MAIN_TRANSPARENT_PASS,
             graph::node::END_MAIN_PASS,
-        );
-        draw_3d_graph.add_node_edge(graph::node::END_MAIN_PASS, graph::node::TONEMAPPING);
-        draw_3d_graph.add_node_edge(
             graph::node::TONEMAPPING,
             graph::node::END_MAIN_PASS_POST_PROCESSING,
-        );
-        draw_3d_graph.add_node_edge(
-            graph::node::END_MAIN_PASS_POST_PROCESSING,
             graph::node::UPSCALING,
-        );
+        ]);
+
         graph.add_sub_graph(graph::NAME, draw_3d_graph);
     }
 }
