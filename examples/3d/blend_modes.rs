@@ -197,6 +197,12 @@ fn setup(
         color: Color::ORANGE,
     };
 
+    let label_style = Style {
+        position_type: PositionType::Absolute,
+        bottom: Val::Px(0.),
+        ..default()
+    };
+
     commands.spawn(
         TextBundle::from_section(
             "Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors",
@@ -220,51 +226,55 @@ fn setup(
         ExampleDisplay,
     ));
 
-    commands.spawn((
-        TextBundle::from_section("┌─ Opaque\n│\n│\n│\n│", label_text_style.clone()).with_style(
-            Style {
-                position_type: PositionType::Absolute,
+    fn anchor(entity: Entity) -> impl Bundle {
+        (
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    ..default()
+                },
                 ..default()
             },
-        ),
-        ExampleLabel { entity: opaque },
-    ));
+            ExampleLabel { entity },
+        )
+    }
 
-    commands.spawn((
-        TextBundle::from_section("┌─ Blend\n│\n│\n│", label_text_style.clone()).with_style(Style {
-            position_type: PositionType::Absolute,
-            ..default()
-        }),
-        ExampleLabel { entity: blend },
-    ));
+    commands.spawn(anchor(opaque)).with_children(|parent| {
+        parent.spawn(
+            TextBundle::from_section("┌─ Opaque\n│\n│\n│\n│", label_text_style.clone())
+                .with_style(label_style.clone()),
+        );
+    });
 
-    commands.spawn((
-        TextBundle::from_section("┌─ Premultiplied\n│\n│", label_text_style.clone()).with_style(
-            Style {
-                position_type: PositionType::Absolute,
-                ..default()
-            },
-        ),
-        ExampleLabel {
-            entity: premultiplied,
-        },
-    ));
+    commands.spawn(anchor(blend)).with_children(|parent| {
+        parent.spawn(
+            TextBundle::from_section("┌─ Blend\n│\n│\n│", label_text_style.clone())
+                .with_style(label_style.clone()),
+        );
+    });
 
-    commands.spawn((
-        TextBundle::from_section("┌─ Add\n│", label_text_style.clone()).with_style(Style {
-            position_type: PositionType::Absolute,
-            ..default()
-        }),
-        ExampleLabel { entity: add },
-    ));
+    commands
+        .spawn(anchor(premultiplied))
+        .with_children(|parent| {
+            parent.spawn(
+                TextBundle::from_section("┌─ Premultiplied\n│\n│", label_text_style.clone())
+                    .with_style(label_style.clone()),
+            );
+        });
 
-    commands.spawn((
-        TextBundle::from_section("┌─ Multiply", label_text_style).with_style(Style {
-            position_type: PositionType::Absolute,
-            ..default()
-        }),
-        ExampleLabel { entity: multiply },
-    ));
+    commands.spawn(anchor(add)).with_children(|parent| {
+        parent.spawn(
+            TextBundle::from_section("┌─ Add\n│", label_text_style.clone())
+                .with_style(label_style.clone()),
+        );
+    });
+
+    commands.spawn(anchor(multiply)).with_children(|parent| {
+        parent.spawn(
+            TextBundle::from_section("┌─ Multiply", label_text_style.clone())
+                .with_style(label_style.clone()),
+        );
+    });
 }
 
 #[derive(Component)]
@@ -347,20 +357,16 @@ fn example_control_system(
         0.0
     };
 
-    camera_transform.rotate_around(
-        Vec3::ZERO,
-        Quat::from_euler(EulerRot::XYZ, 0.0, rotation, 0.0),
-    );
+    camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(rotation));
 
     for (mut style, label) in &mut labels {
-        let world_position =
-            labelled.get(label.entity).unwrap().translation() + Vec3::new(0.0, 1.0, 0.0);
+        let world_position = labelled.get(label.entity).unwrap().translation() + Vec3::Y;
 
         let viewport_position = camera
             .world_to_viewport(camera_global_transform, world_position)
             .unwrap();
 
-        style.bottom = Val::Px(viewport_position.y);
+        style.top = Val::Px(viewport_position.y);
         style.left = Val::Px(viewport_position.x);
     }
 
