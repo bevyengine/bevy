@@ -938,16 +938,6 @@ category = "Audio"
 wasm = true
 
 [[example]]
-name = "audio_empty"
-path = "examples/audio/audio_empty.rs"
-
-[package.metadata.example.audio_empty]
-name = "Audio Empty"
-description = "Shows how to check if an AudioSink has been emptied"
-category = "Audio"
-wasm = true
-
-[[example]]
 name = "decodable"
 path = "examples/audio/decodable.rs"
 
