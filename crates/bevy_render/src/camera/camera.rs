@@ -236,7 +236,6 @@ impl Camera {
         let mut viewport_position = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size;
         // Flip the Y co-ordinate origin from the bottom to the top.
         viewport_position.y = target_size.y - viewport_position.y;
-
         Some(viewport_position)
     }
 
@@ -256,7 +255,6 @@ impl Camera {
         let target_size = self.logical_viewport_size()?;
         // Flip the Y co-ordinate origin from the top to the bottom.
         viewport_position.y = target_size.y - viewport_position.y;
-
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
 
         let ndc_to_world =
