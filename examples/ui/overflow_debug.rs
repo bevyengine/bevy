@@ -86,7 +86,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.), Val::Percent(100.)),
+                size: Size::width(Val::Percent(100.)),
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
@@ -149,7 +149,7 @@ fn spawn_row(parent: &mut ChildBuilder, spawn_children: impl FnOnce(&mut ChildBu
     parent
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.), Val::Percent(50.)),
+                size: Size::width(Val::Percent(50.)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceEvenly,
                 ..default()
@@ -168,7 +168,7 @@ fn spawn_image(
         parent.spawn(ImageBundle {
             image: UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
             style: Style {
-                size: Size::new(Val::Auto, Val::Px(100.)),
+                size: Size::height(Val::Px(100.)),
                 position_type: PositionType::Absolute,
                 top: Val::Px(-50.),
                 left: Val::Px(-200.),
