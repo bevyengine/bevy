@@ -197,12 +197,6 @@ fn setup(
         color: Color::ORANGE,
     };
 
-    let label_style = Style {
-        position_type: PositionType::Absolute,
-        bottom: Val::Px(0.),
-        ..default()
-    };
-
     commands.spawn(
         TextBundle::from_section(
             "Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors",
@@ -226,55 +220,34 @@ fn setup(
         ExampleDisplay,
     ));
 
-    fn anchor(entity: Entity) -> impl Bundle {
-        (
-            NodeBundle {
-                style: Style {
-                    position_type: PositionType::Absolute,
+    let mut label = |entity: Entity, label: &str| {
+        commands
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        position_type: PositionType::Absolute,
+                        ..default()
+                    },
                     ..default()
                 },
-                ..default()
-            },
-            ExampleLabel { entity },
-        )
-    }
+                ExampleLabel { entity },
+            ))
+            .with_children(|parent| {
+                parent.spawn(
+                    TextBundle::from_section(label, label_text_style.clone()).with_style(Style {
+                        position_type: PositionType::Absolute,
+                        bottom: Val::Px(0.),
+                        ..default()
+                    }),
+                );
+            });
+    };
 
-    commands.spawn(anchor(opaque)).with_children(|parent| {
-        parent.spawn(
-            TextBundle::from_section("┌─ Opaque\n│\n│\n│\n│", label_text_style.clone())
-                .with_style(label_style.clone()),
-        );
-    });
-
-    commands.spawn(anchor(blend)).with_children(|parent| {
-        parent.spawn(
-            TextBundle::from_section("┌─ Blend\n│\n│\n│", label_text_style.clone())
-                .with_style(label_style.clone()),
-        );
-    });
-
-    commands
-        .spawn(anchor(premultiplied))
-        .with_children(|parent| {
-            parent.spawn(
-                TextBundle::from_section("┌─ Premultiplied\n│\n│", label_text_style.clone())
-                    .with_style(label_style.clone()),
-            );
-        });
-
-    commands.spawn(anchor(add)).with_children(|parent| {
-        parent.spawn(
-            TextBundle::from_section("┌─ Add\n│", label_text_style.clone())
-                .with_style(label_style.clone()),
-        );
-    });
-
-    commands.spawn(anchor(multiply)).with_children(|parent| {
-        parent.spawn(
-            TextBundle::from_section("┌─ Multiply", label_text_style.clone())
-                .with_style(label_style.clone()),
-        );
-    });
+    label(opaque, "┌─ Opaque\n│\n│\n│\n│");
+    label(blend, "┌─ Blend\n│\n│\n│");
+    label(premultiplied, "┌─ Premultiplied\n│\n│");
+    label(add, "┌─ Add\n│");
+    label(multiply, "┌─ Multiply");
 }
 
 #[derive(Component)]
