@@ -18,3 +18,5 @@ serde_derive = { version = "1", optional = true }
 mint = ["glam/mint"]
 serialize = ["serde", "glam/serde"]
 serde = ["dep:serde", "dep:serde_derive"]
+# Enable assertions to check the validity of parameters passed to glam
+glam_assert = ["glam/glam-assert"]

@@ -22,7 +22,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// should assume that a new [`TouchPhase::Started`] event received with the same id has nothing
 /// to do with the old finger and is a new finger.
 ///
-/// A [`TouchPhase::Cancelled`] event is emitted when the system has canceled tracking this
+/// A [`TouchPhase::Canceled`] event is emitted when the system has canceled tracking this
 /// touch, such as when the window loses focus, or on iOS if the user moves the
 /// device against their face.
 ///
@@ -116,7 +116,7 @@ pub enum TouchPhase {
     ///
     /// This occurs when the window loses focus, or on iOS if the user moves the
     /// device against their face.
-    Cancelled,
+    Canceled,
 }
 
 /// A touch input.
@@ -231,7 +231,7 @@ pub struct Touches {
     /// A collection of every [`Touch`] that just got released.
     just_released: HashMap<u64, Touch>,
     /// A collection of every [`Touch`] that just got cancelled.
-    just_cancelled: HashMap<u64, Touch>,
+    just_canceled: HashMap<u64, Touch>,
 }
 
 impl Touches {
@@ -281,18 +281,18 @@ impl Touches {
     }
 
     /// Checks if any touch input was just cancelled.
-    pub fn any_just_cancelled(&self) -> bool {
-        !self.just_cancelled.is_empty()
+    pub fn any_just_canceled(&self) -> bool {
+        !self.just_canceled.is_empty()
     }
 
     /// Returns `true` if the input corresponding to the `id` has just been cancelled.
-    pub fn just_cancelled(&self, id: u64) -> bool {
-        self.just_cancelled.contains_key(&id)
+    pub fn just_canceled(&self, id: u64) -> bool {
+        self.just_canceled.contains_key(&id)
     }
 
     /// An iterator visiting every just cancelled [`Touch`] input in arbitrary order.
-    pub fn iter_just_cancelled(&self) -> impl Iterator<Item = &Touch> {
-        self.just_cancelled.values()
+    pub fn iter_just_canceled(&self) -> impl Iterator<Item = &Touch> {
+        self.just_canceled.values()
     }
 
     /// Retrieves the position of the first currently pressed touch, if any
@@ -301,7 +301,7 @@ impl Touches {
     }
 
     /// Processes a [`TouchInput`] event by updating the `pressed`, `just_pressed`,
-    /// `just_released`, and `just_cancelled` collections.
+    /// `just_released`, and `just_canceled` collections.
     fn process_touch_event(&mut self, event: &TouchInput) {
         match event.phase {
             TouchPhase::Started => {
@@ -326,19 +326,19 @@ impl Touches {
                     self.just_released.insert(event.id, event.into());
                 }
             }
-            TouchPhase::Cancelled => {
-                // if touch `just_cancelled`, add related event to it
+            TouchPhase::Canceled => {
+                // if touch `just_canceled`, add related event to it
                 // the event position info is inside `pressed`, so use it unless not found
                 if let Some((_, v)) = self.pressed.remove_entry(&event.id) {
-                    self.just_cancelled.insert(event.id, v);
+                    self.just_canceled.insert(event.id, v);
                 } else {
-                    self.just_cancelled.insert(event.id, event.into());
+                    self.just_canceled.insert(event.id, event.into());
                 }
             }
         };
     }
 
-    /// Clears the `just_pressed`, `just_released`, and `just_cancelled` collections.
+    /// Clears the `just_pressed`, `just_released`, and `just_canceled` collections.
     ///
     /// This is not clearing the `pressed` collection, because it could incorrectly mark
     /// a touch input as not pressed even though it is pressed. This could happen if the
@@ -348,7 +348,7 @@ impl Touches {
     fn update(&mut self) {
         self.just_pressed.clear();
         self.just_released.clear();
-        self.just_cancelled.clear();
+        self.just_canceled.clear();
     }
 }
 
@@ -393,14 +393,14 @@ mod test {
 
         touches.just_pressed.insert(4, touch_event);
         touches.just_released.insert(4, touch_event);
-        touches.just_cancelled.insert(4, touch_event);
+        touches.just_canceled.insert(4, touch_event);
 
         touches.update();
 
         // Verify that all the `just_x` maps are cleared
         assert!(touches.just_pressed.is_empty());
         assert!(touches.just_released.is_empty());
-        assert!(touches.just_cancelled.is_empty());
+        assert!(touches.just_canceled.is_empty());
     }
 
     #[test]
@@ -449,7 +449,7 @@ mod test {
         // Test cancelling an event
 
         let cancel_touch_event = TouchInput {
-            phase: TouchPhase::Cancelled,
+            phase: TouchPhase::Canceled,
             position: Vec2::ONE,
             force: None,
             id: touch_event.id,
@@ -458,7 +458,7 @@ mod test {
         touches.update();
         touches.process_touch_event(&cancel_touch_event);
 
-        assert!(touches.just_cancelled.get(&touch_event.id).is_some());
+        assert!(touches.just_canceled.get(&touch_event.id).is_some());
         assert!(touches.pressed.get(&touch_event.id).is_none());
 
         // Test ending an event
@@ -527,14 +527,14 @@ mod test {
     }
 
     #[test]
-    fn touch_cancelled() {
+    fn touch_canceled() {
         use crate::{touch::TouchPhase, TouchInput, Touches};
         use bevy_math::Vec2;
 
         let mut touches = Touches::default();
 
         let touch_event = TouchInput {
-            phase: TouchPhase::Cancelled,
+            phase: TouchPhase::Canceled,
             position: Vec2::splat(4.0),
             force: None,
             id: 4,
@@ -543,7 +543,7 @@ mod test {
         // Register the touch and test that it was registered correctly
         touches.process_touch_event(&touch_event);
 
-        assert!(touches.just_cancelled(touch_event.id));
-        assert_eq!(touches.iter_just_cancelled().count(), 1);
+        assert!(touches.just_canceled(touch_event.id));
+        assert_eq!(touches.iter_just_canceled().count(), 1);
     }
 }

@@ -124,7 +124,7 @@ pub fn build_ui_render(app: &mut App) {
             RunGraphOnViewNode::new(draw_ui_graph::NAME),
         );
         graph_3d.add_node_edge(
-            bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+            bevy_core_pipeline::core_3d::graph::node::END_MAIN_PASS,
             draw_ui_graph::node::UI_PASS,
         );
         graph_3d.add_node_edge(

@@ -15,7 +15,7 @@ pub struct Text {
     /// Should not affect its position within a container.
     pub alignment: TextAlignment,
     /// How the text should linebreak when running out of the bounds determined by max_size
-    pub linebreak_behaviour: BreakLineOn,
+    pub linebreak_behavior: BreakLineOn,
 }
 
 impl Default for Text {
@@ -23,7 +23,7 @@ impl Default for Text {
         Self {
             sections: Default::default(),
             alignment: TextAlignment::Left,
-            linebreak_behaviour: BreakLineOn::WordBoundary,
+            linebreak_behavior: BreakLineOn::WordBoundary,
         }
     }
 }

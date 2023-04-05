@@ -55,14 +55,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// - Methods can be implemented for the query items.
 /// - There is no hardcoded limit on the number of elements.
 ///
-/// This trait can only be derived if each field either
-///
-/// * also implements `WorldQuery`, or
-/// * is marked with `#[world_query(ignore)]`. Fields decorated with this attribute
-///   must implement [`Default`] and will be initialized to the default value as defined
-///   by the trait.
-///
-/// The derive macro only supports regular structs (structs with named fields).
+/// This trait can only be derived for structs, if each field also implements `WorldQuery`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -275,6 +268,24 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// fn my_system(query: Query<Entity, MyFilter<ComponentD, ComponentE>>) {
 ///     // ...
 /// }
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+///
+/// # Generic Queries
+///
+/// When writing generic code, it is often necessary to use [`PhantomData`]
+/// to constrain type parameters. Since `WorldQuery` is implemented for all
+/// `PhantomData<T>` types, this pattern can be used with this macro.
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, query::WorldQuery};
+/// # use std::marker::PhantomData;
+/// #[derive(WorldQuery)]
+/// pub struct GenericQuery<T> {
+///     id: Entity,
+///     marker: PhantomData<T>,
+/// }
+/// # fn my_system(q: Query<GenericQuery<()>>) {}
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
@@ -1315,7 +1326,6 @@ macro_rules! impl_anytuple_fetch {
 
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyWorldQuery),*> ReadOnlyWorldQuery for AnyOf<($($name,)*)> {}
-
     };
 }
 
@@ -1388,3 +1398,170 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
 
 /// SAFETY: `NopFetch` never accesses any data
 unsafe impl<Q: WorldQuery> ReadOnlyWorldQuery for NopWorldQuery<Q> {}
+
+/// SAFETY: `PhantomData` never accesses any world data.
+unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
+    type Item<'a> = ();
+    type Fetch<'a> = ();
+    type ReadOnly = Self;
+    type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
+
+    unsafe fn init_fetch<'w>(
+        _world: &'w World,
+        _state: &Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> Self::Fetch<'w> {
+    }
+
+    unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
+
+    // `PhantomData` does not match any components, so all components it matches
+    // are stored in a Table (vacuous truth).
+    const IS_DENSE: bool = true;
+    // `PhantomData` matches every entity in each archetype.
+    const IS_ARCHETYPAL: bool = true;
+
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _archetype: &'w Archetype,
+        _table: &'w Table,
+    ) {
+    }
+
+    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    }
+
+    unsafe fn fetch<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+    }
+
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+
+    fn update_archetype_component_access(
+        _state: &Self::State,
+        _archetype: &Archetype,
+        _access: &mut Access<ArchetypeComponentId>,
+    ) {
+    }
+
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+}
+
+/// SAFETY: `PhantomData` never accesses any world data.
+unsafe impl<T: ?Sized> ReadOnlyWorldQuery for PhantomData<T> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        self as bevy_ecs,
+        system::{assert_is_system, Query},
+    };
+
+    #[derive(Component)]
+    pub struct A;
+
+    #[derive(Component)]
+    pub struct B;
+
+    // Tests that each variant of struct can be used as a `WorldQuery`.
+    #[test]
+    fn world_query_struct_variants() {
+        #[derive(WorldQuery)]
+        pub struct NamedQuery {
+            id: Entity,
+            a: &'static A,
+        }
+
+        #[derive(WorldQuery)]
+        pub struct TupleQuery(&'static A, &'static B);
+
+        #[derive(WorldQuery)]
+        pub struct UnitQuery;
+
+        fn my_system(_: Query<(NamedQuery, TupleQuery, UnitQuery)>) {}
+
+        assert_is_system(my_system);
+    }
+
+    // Compile test for https://github.com/bevyengine/bevy/pull/8030.
+    #[test]
+    fn world_query_phantom_data() {
+        #[derive(WorldQuery)]
+        pub struct IgnoredQuery<Marker> {
+            id: Entity,
+            _marker: PhantomData<Marker>,
+        }
+
+        fn ignored_system(_: Query<IgnoredQuery<()>>) {}
+
+        crate::system::assert_is_system(ignored_system);
+    }
+
+    // Ensures that each field of a `WorldQuery` struct's read-only variant
+    // has the same visibility as its corresponding mutable field.
+    #[test]
+    fn read_only_field_visibility() {
+        mod private {
+            use super::*;
+
+            #[derive(WorldQuery)]
+            #[world_query(mutable)]
+            pub struct Q {
+                pub a: &'static mut A,
+            }
+        }
+
+        let _ = private::QReadOnly { a: &A };
+
+        fn my_system(query: Query<private::Q>) {
+            for q in &query {
+                let _ = &q.a;
+            }
+        }
+
+        crate::system::assert_is_system(my_system);
+    }
+
+    // Ensures that metadata types generated by the WorldQuery macro
+    // do not conflict with user-defined types.
+    // Regression test for https://github.com/bevyengine/bevy/issues/8010.
+    #[test]
+    fn world_query_metadata_collision() {
+        // The metadata types generated would be named `ClientState` and `ClientFetch`,
+        // but they should rename themselves to avoid conflicts.
+        #[derive(WorldQuery)]
+        pub struct Client<S: ClientState> {
+            pub state: &'static S,
+            pub fetch: &'static ClientFetch,
+        }
+
+        pub trait ClientState: Component {}
+
+        #[derive(Component)]
+        pub struct ClientFetch;
+
+        #[derive(Component)]
+        pub struct C;
+
+        impl ClientState for C {}
+
+        fn client_system(_: Query<Client<C>>) {}
+
+        crate::system::assert_is_system(client_system);
+    }
+}
