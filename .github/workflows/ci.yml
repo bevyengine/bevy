@@ -169,7 +169,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Check spelling
-        uses: check-spelling/check-spelling@0.0.21 #https://github.com/check-spelling/check-spelling/wiki/Feature%3A-Area-dictionaries
+        uses: check-spelling/check-spelling@v0.0.21 #https://github.com/check-spelling/check-spelling/wiki/Feature%3A-Area-dictionaries
         with:
           config: .github/linters/spelling
           extra_dictionaries: #https://github.com/streetsidesoftware/cspell-dicts/tree/main/dictionaries
