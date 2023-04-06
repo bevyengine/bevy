@@ -184,7 +184,7 @@ fn animate_scale(
     mut query: Query<&mut Transform, (With<Text>, With<AnimateScale>)>,
 ) {
     // Consider changing font-size instead of scaling the transform. Scaling a Text2D will scale the
-    // rendered quad, resulting in a pixellated look.
+    // rendered quad, resulting in a pixelated look.
     for mut transform in &mut query {
         transform.translation = Vec3::new(400.0, 0.0, 0.0);
         transform.scale = Vec3::splat((time.elapsed_seconds().sin() + 1.1) * 2.0);

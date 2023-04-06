@@ -119,7 +119,7 @@ impl BloomSettings {
         composite_mode: BloomCompositeMode::EnergyConserving,
     };
 
-    /// A preset that's similiar to how older games did bloom.
+    /// A preset that's similar to how older games did bloom.
     pub const OLD_SCHOOL: Self = Self {
         intensity: 0.05,
         low_frequency_boost: 0.7,

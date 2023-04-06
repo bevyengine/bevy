@@ -289,7 +289,7 @@ mv optimized.wasm examples/wasm/target/lighting_bg.wasm
 ```
 
 For a small project with a basic 3d model and two lights,
-the generated file sizes are, as of Jully 2022 as following:
+the generated file sizes are, as of July 2022 as following:
 
 |profile                           | wasm-opt | no wasm-opt |
 |----------------------------------|----------|-------------|

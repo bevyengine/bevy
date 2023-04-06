@@ -80,7 +80,7 @@ impl Plugin for PostProcessPlugin {
             // Add a [`Node`] to the [`RenderGraph`]
             // The Node needs to impl FromWorld
             .add_render_graph_node::<PostProcessNode>(
-                // Specifiy the name of the graph, in this case we want the graph for 3d
+                // Specify the name of the graph, in this case we want the graph for 3d
                 core_3d::graph::NAME,
                 // It also needs the name of the node
                 PostProcessNode::NAME,
@@ -304,7 +304,7 @@ impl FromWorld for PostProcessPipeline {
                     })],
                 }),
                 // All of the following property are not important for this effect so just use the default values.
-                // This struct doesn't have the Default trai implemented because not all field can have a default value.
+                // This struct doesn't have the Default trait implemented because not all field can have a default value.
                 primitive: PrimitiveState::default(),
                 depth_stencil: None,
                 multisample: MultisampleState::default(),

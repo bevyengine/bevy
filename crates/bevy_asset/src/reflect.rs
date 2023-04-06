@@ -285,7 +285,7 @@ mod tests {
         };
 
         let handle = reflect_asset.add(&mut app.world, &value);
-        let strukt = match reflect_asset
+        let dynamic_struct = match reflect_asset
             .get_mut(&mut app.world, handle)
             .unwrap()
             .reflect_mut()
@@ -293,7 +293,7 @@ mod tests {
             ReflectMut::Struct(s) => s,
             _ => unreachable!(),
         };
-        strukt
+        dynamic_struct
             .field_mut("field")
             .unwrap()
             .apply(&String::from("edited"));

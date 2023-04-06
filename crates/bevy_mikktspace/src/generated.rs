@@ -94,7 +94,7 @@ impl STSpace {
 // of the vertex shader, as explained earlier, then be sure to do this in the normal map sampler also.
 // Finally, beware of quad triangulations. If the normal map sampler doesn't use the same triangulation of
 // quads as your renderer then problems will occur since the interpolated tangent spaces will differ
-// eventhough the vertex level tangent spaces match. This can be solved either by triangulating before
+// even though the vertex level tangent spaces match. This can be solved either by triangulating before
 // sampling/exporting or by using the order-independent choice of diagonal for splitting quads suggested earlier.
 // However, this must be used both by the sampler and your tools/rendering pipeline.
 // internal structure
@@ -134,8 +134,8 @@ impl STriInfo {
 pub struct SGroup {
     pub iNrFaces: i32,
     pub pFaceIndices: *mut i32,
-    pub iVertexRepresentitive: i32,
-    pub bOrientPreservering: bool,
+    pub iVertexRepresentative: i32,
+    pub bOrientPreserving: bool,
 }
 
 impl SGroup {
@@ -143,8 +143,8 @@ impl SGroup {
         Self {
             iNrFaces: 0,
             pFaceIndices: null_mut(),
-            iVertexRepresentitive: 0,
-            bOrientPreservering: false,
+            iVertexRepresentative: 0,
+            bOrientPreserving: false,
         }
     }
 }
@@ -562,7 +562,7 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                     piTriListIn,
                     pTriInfos,
                     geometry,
-                    (*pGroup).iVertexRepresentitive,
+                    (*pGroup).iVertexRepresentative,
                 );
                 iUniqueSubGroups += 1
             }
@@ -572,11 +572,11 @@ unsafe fn GenerateTSpaces<I: Geometry>(
             if (*pTS_out).iCounter == 1i32 {
                 *pTS_out = AvgTSpace(pTS_out, &mut pSubGroupTspace[l]);
                 (*pTS_out).iCounter = 2i32;
-                (*pTS_out).bOrient = (*pGroup).bOrientPreservering
+                (*pTS_out).bOrient = (*pGroup).bOrientPreserving
             } else {
                 *pTS_out = pSubGroupTspace[l];
                 (*pTS_out).iCounter = 1i32;
-                (*pTS_out).bOrient = (*pGroup).bOrientPreservering
+                (*pTS_out).bOrient = (*pGroup).bOrientPreserving
             }
             i += 1
         }
@@ -636,7 +636,7 @@ unsafe fn EvalTspace<I: Geometry>(
     mut piTriListIn: *const i32,
     mut pTriInfos: *const STriInfo,
     geometry: &mut I,
-    iVertexRepresentitive: i32,
+    iVertexRepresentative: i32,
 ) -> STSpace {
     let mut res: STSpace = STSpace {
         vOs: Vec3::new(0.0, 0.0, 0.0),
@@ -677,11 +677,11 @@ unsafe fn EvalTspace<I: Geometry>(
             let mut i0: i32 = -1i32;
             let mut i1: i32 = -1i32;
             let mut i2: i32 = -1i32;
-            if *piTriListIn.offset((3i32 * f + 0i32) as isize) == iVertexRepresentitive {
+            if *piTriListIn.offset((3i32 * f + 0i32) as isize) == iVertexRepresentative {
                 i = 0i32
-            } else if *piTriListIn.offset((3i32 * f + 1i32) as isize) == iVertexRepresentitive {
+            } else if *piTriListIn.offset((3i32 * f + 1i32) as isize) == iVertexRepresentative {
                 i = 1i32
-            } else if *piTriListIn.offset((3i32 * f + 2i32) as isize) == iVertexRepresentitive {
+            } else if *piTriListIn.offset((3i32 * f + 2i32) as isize) == iVertexRepresentative {
                 i = 2i32
             }
             index = *piTriListIn.offset((3i32 * f + i) as isize);
@@ -833,8 +833,8 @@ unsafe fn Build4RuleGroups(
                 let ref mut fresh2 = (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize];
                 *fresh2 = &mut *pGroups.offset(iNrActiveGroups as isize) as *mut SGroup;
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize])
-                    .iVertexRepresentitive = vert_index;
-                (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).bOrientPreservering =
+                    .iVertexRepresentative = vert_index;
+                (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).bOrientPreserving =
                     (*pTriInfos.offset(f as isize)).iFlag & 8i32 != 0i32;
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces = 0i32;
                 let ref mut fresh3 =
@@ -899,7 +899,7 @@ unsafe fn AssignRecur(
     let mut pMyTriInfo: *mut STriInfo =
         &mut *psTriInfos.offset(iMyTriIndex as isize) as *mut STriInfo;
     // track down vertex
-    let iVertRep: i32 = (*pGroup).iVertexRepresentitive;
+    let iVertRep: i32 = (*pGroup).iVertexRepresentative;
     let mut pVerts: *const i32 =
         &*piTriListIn.offset((3i32 * iMyTriIndex + 0i32) as isize) as *const i32;
     let mut i: i32 = -1i32;
@@ -923,7 +923,7 @@ unsafe fn AssignRecur(
             && (*pMyTriInfo).AssignedGroup[2usize].is_null()
         {
             (*pMyTriInfo).iFlag &= !8i32;
-            (*pMyTriInfo).iFlag |= if (*pGroup).bOrientPreservering {
+            (*pMyTriInfo).iFlag |= if (*pGroup).bOrientPreserving {
                 8i32
             } else {
                 0i32
@@ -935,7 +935,7 @@ unsafe fn AssignRecur(
     } else {
         false
     };
-    if bOrient != (*pGroup).bOrientPreservering {
+    if bOrient != (*pGroup).bOrientPreserving {
         return false;
     }
     AddTriToGroup(pGroup, iMyTriIndex);

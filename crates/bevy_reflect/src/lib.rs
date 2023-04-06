@@ -380,7 +380,7 @@
 //!
 //! Since Rust doesn't provide built-in support for running initialization code before `main`,
 //! there is no way for `bevy_reflect` to automatically register types into the [type registry].
-//! This means types must manually be registered, including their desired monomorphized
+//! This means types must manually be registered, including their desired monomorphic
 //! representations if generic.
 //!
 //! # Features

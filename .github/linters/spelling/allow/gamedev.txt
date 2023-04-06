@@ -48,6 +48,8 @@ gpus
 apu
 apus
 ssao
+frametime
+frametimes
 framerate
 framerates
 fps
@@ -150,6 +152,7 @@ accesskit
 creativecommons
 kenney
 publicdomain
+interoperation
 patreon
 oklab 
 rng
@@ -218,6 +221,7 @@ rcontrol
 rshift
 rwin
 wasd
+wsad
 uninstalling
 quickstart
 png
@@ -320,6 +324,7 @@ prefiltered
 ggx
 texcoords
 microfacet
+microfacets
 ndf
 # Other
 bitshift

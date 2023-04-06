@@ -80,7 +80,7 @@ const CONTRIBUTORS_LIST: &[&str] = &["Carter Anderson", "And Many More"];
 fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load contributors from the git history log or use default values from
     // the constant array. Contributors must be unique, so they are stored in a HashSet
-    let contribs = contributors().unwrap_or_else(|_| {
+    let contributors = contributors().unwrap_or_else(|_| {
         CONTRIBUTORS_LIST
             .iter()
             .map(|name| name.to_string())
@@ -90,13 +90,13 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
     let texture_handle = asset_server.load("branding/icon.png");
 
     let mut contributor_selection = ContributorSelection {
-        order: Vec::with_capacity(contribs.len()),
+        order: Vec::with_capacity(contributors.len()),
         idx: 0,
     };
 
     let mut rng = rand::thread_rng();
 
-    for name in contribs {
+    for name in contributors {
         let pos = (rng.gen_range(-400.0..400.0), rng.gen_range(0.0..400.0));
         let dir = rng.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);

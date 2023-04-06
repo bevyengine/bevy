@@ -1,5 +1,5 @@
 // If using this WGSL snippet as an #import, a dedicated
-// "joint_matricies" uniform of type SkinnedMesh must be added in the
+// "joint_matrices" uniform of type SkinnedMesh must be added in the
 // main shader.
 
 #define_import_path bevy_pbr::skinning

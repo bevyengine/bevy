@@ -521,7 +521,7 @@ pub struct CircleBuilder<'a, 's> {
 }
 
 impl CircleBuilder<'_, '_> {
-    /// Set the number of line-segements for this circle.
+    /// Set the number of line-segments for this circle.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
         self
@@ -548,7 +548,7 @@ pub struct SphereBuilder<'a, 's> {
 }
 
 impl SphereBuilder<'_, '_> {
-    /// Set the number of line-segements per circle for this sphere.
+    /// Set the number of line-segments per circle for this sphere.
     pub fn circle_segments(mut self, segments: usize) -> Self {
         self.circle_segments = segments;
         self
@@ -575,7 +575,7 @@ pub struct Circle2dBuilder<'a, 's> {
 }
 
 impl Circle2dBuilder<'_, '_> {
-    /// Set the number of line-segements for this circle.
+    /// Set the number of line-segments for this circle.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
         self

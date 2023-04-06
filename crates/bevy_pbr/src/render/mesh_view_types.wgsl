@@ -53,7 +53,7 @@ struct Lights {
     // w is cluster_dimensions.z * log(near) / log(far / near)
     //
     // For orthographic projections:
-    // NOTE: near and far are +ve but -z is infront of the camera
+    // NOTE: near and far are +ve but -z is in front of the camera
     // z is -near
     // w is cluster_dimensions.z / (-far - -near)
     cluster_factors: vec4<f32>,

@@ -40,7 +40,7 @@ impl PartialOrd for Example {
 fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
     let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
     let manifest = manifest_file.parse::<Document>().unwrap();
-    let metadatas = manifest
+    let metadata_packages = manifest
         .get("package")
         .unwrap()
         .get("metadata")
@@ -54,11 +54,11 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
         .iter()
         .flat_map(|val| {
             let technical_name = val.get("name").unwrap().as_str().unwrap().to_string();
-            if panic_on_missing && metadatas.get(&technical_name).is_none() {
+            if panic_on_missing && metadata_packages.get(&technical_name).is_none() {
                 panic!("Missing metadata for example {technical_name}");
             }
 
-            if metadatas
+            if metadata_packages
                 .get(&technical_name)
                 .and_then(|metadata| metadata.get("hidden"))
                 .and_then(|hidden| hidden.as_bool())
@@ -68,14 +68,16 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
                 return None;
             }
 
-            metadatas.get(&technical_name).map(|metadata| Example {
-                technical_name,
-                path: val["path"].as_str().unwrap().to_string(),
-                name: metadata["name"].as_str().unwrap().to_string(),
-                description: metadata["description"].as_str().unwrap().to_string(),
-                category: metadata["category"].as_str().unwrap().to_string(),
-                wasm: metadata["wasm"].as_bool().unwrap(),
-            })
+            metadata_packages
+                .get(&technical_name)
+                .map(|metadata| Example {
+                    technical_name,
+                    path: val["path"].as_str().unwrap().to_string(),
+                    name: metadata["name"].as_str().unwrap().to_string(),
+                    description: metadata["description"].as_str().unwrap().to_string(),
+                    category: metadata["category"].as_str().unwrap().to_string(),
+                    wasm: metadata["wasm"].as_bool().unwrap(),
+                })
         })
         .collect()
 }

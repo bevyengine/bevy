@@ -1716,7 +1716,7 @@ impl encase::private::CreateFrom for Color {
         B: encase::private::BufferRef,
     {
         // These are intentionally not inlined in the constructor to make this
-        // resilient to internal Color refactors / implicit type changes.
+        // resilient to internal Color refactoring / implicit type changes.
         let red: f32 = encase::private::CreateFrom::create_from(reader);
         let green: f32 = encase::private::CreateFrom::create_from(reader);
         let blue: f32 = encase::private::CreateFrom::create_from(reader);

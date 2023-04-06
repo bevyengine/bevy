@@ -203,7 +203,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         buffer,
                     } = get_storage_binding_attr(nested_meta_items)?;
                     let visibility =
-                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+                        visibility.hygienic_quote(&quote! { #render_path::render_resource });
 
                     let field_name = field.ident.as_ref().unwrap();
                     let field_ty = &field.ty;
@@ -257,7 +257,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     } = get_texture_attrs(nested_meta_items)?;
 
                     let visibility =
-                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+                        visibility.hygienic_quote(&quote! { #render_path::render_resource });
 
                     binding_impls.push(quote! {
                         #render_path::render_resource::OwnedBindingResource::TextureView({
@@ -290,7 +290,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     } = get_sampler_attrs(nested_meta_items)?;
 
                     let visibility =
-                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+                        visibility.hygienic_quote(&quote! { #render_path::render_resource });
 
                     binding_impls.push(quote! {
                         #render_path::render_resource::OwnedBindingResource::Sampler({
@@ -568,7 +568,7 @@ impl VisibilityFlags {
 }
 
 impl ShaderStageVisibility {
-    fn hygenic_quote(&self, path: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    fn hygienic_quote(&self, path: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
         match self {
             ShaderStageVisibility::All => quote! { #path::ShaderStages::all() },
             ShaderStageVisibility::None => quote! { #path::ShaderStages::NONE },
