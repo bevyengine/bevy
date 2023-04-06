@@ -30,6 +30,7 @@ fixedbitset
 lifetimeless
 cpal
 bytemuck
+zeroable
 rodio
 ident
 idents
@@ -63,3 +64,14 @@ thiserror
 newtype
 newtyped
 rustc
+armv
+bincode
+rmp
+fixint
+guillotiere
+syncunsafecell
+evaluateable
+evaluateables
+reimplementation
+mulassign
+defaultable

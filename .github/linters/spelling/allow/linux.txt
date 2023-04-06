@@ -58,3 +58,5 @@ swo
 cmpge
 cmple
 markdownlint
+linting
+tts

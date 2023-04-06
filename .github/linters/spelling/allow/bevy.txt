@@ -25,6 +25,8 @@ ffffff
 gilrs
 hashbrown
 veclike
+downcast
+downcasted
 downcasting
 rustdoc
 reflectable
@@ -44,6 +46,7 @@ lifetime
 lifetimed
 subapp
 bevymark
+fira
 RRGGBB
 RRGGBBAA
 hecs
@@ -103,3 +106,54 @@ codespans
 logcat
 ryfjallet
 edgenum
+flexbox
+flexboxes
+zindex
+# Texture Keywords
+ddsfile
+sfloat
+ufloat
+snorm
+rsnorm
+runorm
+farbfeld
+pnm
+samplecount
+dxgi
+dformat
+uastc
+losslessly
+rrrg
+rgbsda
+pvrtc
+# Winit
+nwse
+nesw
+sresize
+nresize
+eresize
+sysrq
+abnt
+# Shapes
+sout
+latsn
+vts
+idxn
+vns
+vts
+ringsp
+lonsp
+# Bevy Reflect
+subtrait
+supertrait
+notreal
+dquat
+tvalue
+tmap
+tlist
+tenum
+titem
+tarray
+urist
+docstring
+docstrings
