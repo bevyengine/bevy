@@ -1,5 +1,6 @@
 ^\.github/
 ^\.github/linters/
-\.(png|svg|gltf|ktx2|hdr|ogg|glb|ico)$
+\.(png|svg|gltf|ktx2|hdr|ogg|glb|ico|ttf|bin)$
 LICEN(S|C)E$
 .gitattributes
+^CREDITS.md
