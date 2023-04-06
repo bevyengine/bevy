@@ -18,6 +18,7 @@ gmail
 mcanders
 mikkelsen
 layl
+bongers
 rampon
 morvan
 neubelt
@@ -32,6 +33,8 @@ halton
 desmos
 karis
 ryfjallet
+brücke
+aortiz
 # Cubemap
 prefiltering
 magick
@@ -42,6 +45,7 @@ posz
 negz
 negx
 # Other
+ptrmut
 pointee
 wikipedia
 ifdef
@@ -52,6 +56,7 @@ fbcff
 ffffff
 ffffffff
 gilrs
+adirectory
 hashbrown
 veclike
 downcast
@@ -124,6 +129,7 @@ raphson
 noreply
 # Bevy mikktspace
 mikktspace
+vnot
 tspace
 tspaces
 thres
@@ -141,6 +147,7 @@ logcat
 edgenum
 # Texture Keywords
 ddsfile
+bufread
 sfloat
 ufloat
 snorm
@@ -158,6 +165,9 @@ rgbsda
 pvrtc
 ccfa
 # Render Keywords
+lspec
+hsquared
+defunint
 zmode
 zconfig
 tspan
@@ -165,6 +175,7 @@ standardmaterial
 zmip
 xlayer
 zstandard
+subresource
 # Winit
 nwse
 nesw
@@ -184,6 +195,7 @@ ringsp
 lons
 lonsp
 # Bevy Reflect
+reflectstd
 reflectable
 subtrait
 subtraits
@@ -244,6 +256,7 @@ lbb
 dbundle
 # Bevy Scene
 messagepack
+componentless
 # Bevy Shader
 VConversion
 VMacros
@@ -268,7 +281,7 @@ csparse
 hier
 idxs
 noconstraints
-# Bevy World & Query
+# Bevy ECS & World & Query
 acq
 amarker
 bmarker
@@ -279,6 +292,25 @@ nsystems
 scommands
 squery
 sres
+destructures
+immut
+abcs
+worldqueries
+worldquery
+worldquery
+qread
+jargony
+subtyping
+xread
+xitem
+subqueries
+dropck
+ents
+baadf
+deadbeef
+idu
+wlong
+wshort
 # Bevy Gizmos
 trb
 blb

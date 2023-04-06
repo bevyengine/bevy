@@ -27,6 +27,7 @@ topsort
 topsorted
 petgraph
 fixedbitset
+unlifetimed
 lifetimeless
 cpal
 bytemuck
@@ -91,3 +92,4 @@ tweakable
 ilog
 reloadable
 tempdir
+chacha

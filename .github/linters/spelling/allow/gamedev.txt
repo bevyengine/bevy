@@ -15,6 +15,10 @@ icosphere
 uvsphere
 rasterization
 touchscreen
+vecs
+topleft
+topright
+topdown
 fov
 xfov
 yfov
@@ -33,6 +37,7 @@ tga
 timestep
 timesteps
 timestepping
+taa
 tick
 ticks
 gametick
@@ -49,9 +54,11 @@ fps
 wireframe
 wireframes
 wireframed
+worldspace
 screenspace
 screenshot
 screenshots
+thresholded
 vsync
 aabb
 apk
@@ -70,6 +77,7 @@ svg
 playdead
 playdeadgames
 gdc
+siggraph
 catmull
 unjitter
 unjittered
@@ -132,11 +140,11 @@ bitflag
 bitflags
 lut
 luts
+tonemap
+tonemaps
 tonemapper
 tonemapping
 ecs
-desaturate
-desaturates
 accesskit
 creativecommons
 kenney
@@ -160,6 +168,10 @@ usecase
 usecases
 threadpool
 footguns
+bitang
+bitangent
+pointlight
+pointlights
 devlog
 devlogs
 newbies
@@ -186,6 +198,7 @@ macroquad
 godot
 inkscape
 uint
+vfx
 reddit
 vendored
 workflow
@@ -239,7 +252,6 @@ zfar
 znear
 linestrip
 gltf
-mipmap
 reinhard
 jodie
 hittest
@@ -262,10 +274,17 @@ ciexyy
 ict
 ycg
 yco
-cmyk
-cmyka
+ycocg
+ycbcr
 yiqsda
 yuvsda
+cmyk
+cmyka
+# Tonemapping
+desat
+desaturate
+desaturates
+desaturated
 # Other
 mixamo
 freecam
@@ -283,6 +302,9 @@ srbg
 tif
 pbm
 targa
+mipchain
+mipmap
+mipmaps
 # Rendering
 lengyel
 koschmieder
@@ -297,7 +319,6 @@ ggx
 texcoords
 microfacet
 ndf
-mipchain
 # Other
 bitshift
 bitshifts

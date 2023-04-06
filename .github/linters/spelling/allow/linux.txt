@@ -17,6 +17,8 @@ pkgconfig
 libstd
 libxkbcommon
 staticlib
+ttf
+otf
 tpl
 metadata
 relflag
@@ -61,5 +63,3 @@ markdownlint
 linting
 esac
 distro
-ttf
-otf
