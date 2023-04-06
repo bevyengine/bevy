@@ -16,8 +16,8 @@ For more advice on contributing to the engine, see the [relevant section](../../
 3. Use comments to organize long and complex stretches of code that can't sensibly be refactored into separate functions.
 
 ## Spelling guidelines
-To ensure consistency, bevy code and documentation's spelling is written in American English.
-Here is some of the common spelling differences:
+To ensure consistency, the spelling used in Bevy code and documentation is written in American English. 
+Here are some common spelling differences between American English and other English variants:
 
 | UK/CN/AU  | US        |
 |-----------|-----------|
@@ -29,6 +29,7 @@ Here is some of the common spelling differences:
 | recognise | recognize |
 | centre    | center    |
 | metres    | meters    |
+| organise  | organize  |
 
 ## Rust API guidelines
 
