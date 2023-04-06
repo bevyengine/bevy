@@ -17,8 +17,6 @@ For more advice on contributing to the engine, see the [relevant section](../../
 
 ## Spelling guidelines
 To ensure consistency, bevy code and documentation's spelling is written in American English.
-This is inforced by the projects [clippy lints](../../clippy.toml) of disallowed-names.
-
 Here is some of the common spelling differences:
 
 | UK/CN/AU  | US        |
