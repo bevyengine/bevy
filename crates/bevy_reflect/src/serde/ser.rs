@@ -275,19 +275,14 @@ impl<'a> Serialize for NewtypeStructSerializer<'a> {
         let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
         let field_len = self.tuple_struct.field_len().saturating_sub(ignored_len);
 
-        if field_len > 1 {
+        if field_len != 1 {
             return Err(Error::custom(format_args!(
-                "Tried to serialize a struct {} with more than 1 field as a newtype.",
+                "tried to serialize {} as a newtype struct, but it doesn't have exactly 1 field.",
                 type_info.type_name(),
             )));
         }
 
-        let field = self.tuple_struct.field(0).ok_or_else(|| {
-            Error::custom(format_args!(
-                "no fields on supposedly newtype struct {}",
-                self.tuple_struct.type_name(),
-            ))
-        })?;
+        let field = self.tuple_struct.field(0).unwrap();
         serializer.serialize_newtype_struct(
             tuple_struct_info.name(),
             &TypedReflectSerializer::new(field, self.registry),
@@ -906,7 +901,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3, 0, 0, 0, 20,
             0, 0, 0, 0, 0, 0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116,
             32, 118, 97, 108, 117, 101, 1, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0,
-            0, 0, 0, 0, 0, 0
+            0, 0, 0, 0, 0, 0,
         ];
 
         assert_eq!(expected, bytes);
@@ -946,7 +941,6 @@ mod tests {
                 value: 100,
                 inner_struct: SomeSerializableStruct { foo: 101 },
             },
-
         };
 
         let registry = get_registry();
@@ -967,7 +961,7 @@ mod tests {
             77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145, 180, 83, 116, 114, 117, 99,
             116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108, 117, 101, 144, 144, 129,
             166, 83, 116, 114, 117, 99, 116, 144, 129, 165, 84, 117, 112, 108, 101, 144, 146, 100,
-            145, 101
+            145, 101,
         ];
 
         assert_eq!(expected, bytes);

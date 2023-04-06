@@ -589,19 +589,14 @@ impl<'a, 'de> Visitor<'de> for NewtypeStructVisitor<'a> {
             .field_len()
             .saturating_sub(ignored_len);
 
-        if field_len > 1 {
+        if field_len != 1 {
             return Err(Error::custom(format_args!(
-                "Tried to deserialize a struct {} with more than 1 field as a newtype.",
+                "tried to deserialize {} as a newtype struct, but it doesn't have exactly 1 field.",
                 self.tuple_struct_info.type_name(),
             )));
         }
 
-        let field = self.tuple_struct_info.field_at(0).ok_or_else(|| {
-            de::Error::custom(format_args!(
-                "no fields on supposedly newtype struct {}",
-                self.tuple_struct_info.type_name(),
-            ))
-        })?;
+        let field = self.tuple_struct_info.field_at(0).unwrap();
         let registration = get_registration(field.type_id(), field.type_name(), self.registry)?;
 
         let de = TypedReflectDeserializer {
@@ -1591,7 +1586,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3, 0, 0, 0, 20,
             0, 0, 0, 0, 0, 0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116,
             32, 118, 97, 108, 117, 101, 1, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0,
-            0, 0, 0, 0, 0, 0
+            0, 0, 0, 0, 0, 0,
         ];
 
         let deserializer = UntypedReflectDeserializer::new(&registry);
@@ -1654,7 +1649,7 @@ mod tests {
             164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145, 180, 83, 116,
             114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108, 117, 101,
             144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165, 84, 117, 112, 108, 101,
-            144, 146, 100, 145, 101
+            144, 146, 100, 145, 101,
         ];
 
         let mut reader = std::io::BufReader::new(input.as_slice());
