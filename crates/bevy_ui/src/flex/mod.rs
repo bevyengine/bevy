@@ -48,14 +48,11 @@ pub struct FlexSurface {
     taffy: Taffy,
 }
 
-// SAFETY: as long as MeasureFunc is Send + Sync. https://github.com/DioxusLabs/taffy/issues/146
-unsafe impl Send for FlexSurface {}
-unsafe impl Sync for FlexSurface {}
-
 fn _assert_send_sync_flex_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
     _assert_send_sync::<Taffy>();
+    _assert_send_sync::<FlexSurface>();
 }
 
 impl fmt::Debug for FlexSurface {
