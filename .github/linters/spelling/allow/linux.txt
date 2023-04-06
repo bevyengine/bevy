@@ -59,4 +59,7 @@ cmpge
 cmple
 markdownlint
 linting
-tts
+esac
+distro
+ttf
+otf

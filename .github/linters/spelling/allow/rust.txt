@@ -75,3 +75,14 @@ evaluateables
 reimplementation
 mulassign
 defaultable
+rustsec
+jni
+nalgebra
+fastrand
+getrandom
+deconstruct
+generify
+allocvec
+winit
+deserializers
+peekable
