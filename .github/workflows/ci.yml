@@ -176,7 +176,7 @@ jobs:
             cspell:en_US/src/en_US.txt
             cspell:rust/rust.txt
             cspell:software-terms/src/software-terms.txt
-            cspell:shell/src/command-words.txt
+            #cspell:shell/src/command-words.txt
 
   run-examples:
     runs-on: ubuntu-latest
