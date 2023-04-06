@@ -20,7 +20,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 pub struct NodeBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// Describes the style including flexbox settings
+    /// Describes the style including layout styles
     pub style: Style,
     /// The background color, which serves as a "fill" for this node
     pub background_color: BackgroundColor,
@@ -66,7 +66,7 @@ impl Default for NodeBundle {
 pub struct ImageBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// Describes the style including flexbox settings
+    /// Describes the style including layout styles
     pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
@@ -102,7 +102,7 @@ pub struct ImageBundle {
 pub struct TextBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// Describes the style including flexbox settings
+    /// Describes the style including layout styles
     pub style: Style,
     /// Contains the text of the node
     pub text: Text,
@@ -198,7 +198,7 @@ pub struct ButtonBundle {
     pub node: Node,
     /// Marker component that signals this node is a button
     pub button: Button,
-    /// Describes the style including flexbox settings
+    /// Describes the style including layout styles
     pub style: Style,
     /// Describes whether and how the button has been interacted with by the input
     pub interaction: Interaction,
