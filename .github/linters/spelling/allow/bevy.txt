@@ -34,7 +34,10 @@ desmos
 karis
 ryfjallet
 brücke
+cke
 aortiz
+vlachos
+alteous
 # Cubemap
 prefiltering
 magick
@@ -114,6 +117,7 @@ agx
 xlog
 percy
 appium
+ocio
 socio
 isomp
 ime
@@ -164,10 +168,14 @@ rrrg
 rgbsda
 pvrtc
 ccfa
+# Tonemapping
+xyy
+rrt
+odt
 # Render Keywords
 lspec
 hsquared
-defunint
+
 zmode
 zconfig
 tspan
@@ -262,8 +270,10 @@ VConversion
 VMacros
 ifop
 neq
-defunit
 defint
+defuint
+defunit
+defunint
 defbool
 egl
 dxc

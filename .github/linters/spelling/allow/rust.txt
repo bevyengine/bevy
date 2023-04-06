@@ -93,3 +93,4 @@ ilog
 reloadable
 tempdir
 chacha
+splitn
