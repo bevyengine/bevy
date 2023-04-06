@@ -160,6 +160,21 @@ jobs:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_MARKDOWN: true
           DEFAULT_BRANCH: main
+  
+  spell-checking:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: check-missing-features-in-docs
+    if: always()
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check spelling
+        uses: check-spelling/check-spelling@0.0.21 #https://github.com/check-spelling/check-spelling/wiki/Feature%3A-Area-dictionaries
+        with:
+          config: .github/linters/spelling
+          extra_dictionaries: #https://github.com/streetsidesoftware/cspell-dicts/tree/main/dictionaries
+            cspell:en_US/src/en_US.txt
+            cspell:rust/rust.txt
 
   run-examples:
     runs-on: ubuntu-latest

@@ -1,0 +1,8 @@
+cov
+eslintcache
+jscoverage
+jspm
+nyc
+tgz
+typings
+wscript
