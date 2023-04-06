@@ -94,3 +94,5 @@ reloadable
 tempdir
 chacha
 splitn
+cargotoml
+reallocatable

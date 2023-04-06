@@ -114,7 +114,7 @@ fn calculate_view(
         // Orthographic view vector
         V = normalize(vec3<f32>(view.view_proj[0].z, view.view_proj[1].z, view.view_proj[2].z));
     } else {
-        // Only valid for a perpective projection
+        // Only valid for a perspective projection
         V = normalize(view.world_position.xyz - world_position.xyz);
     }
     return V;

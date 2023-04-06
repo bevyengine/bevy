@@ -112,7 +112,7 @@ pub struct Window {
     pub resize_constraints: WindowResizeConstraints,
     /// Should the window be resizable?
     ///
-    /// Note: This does not stop the program from fullscreening/setting
+    /// Note: This does not stop the program from going fullscreen/setting
     /// the size programmatically.
     pub resizable: bool,
     /// Should the window have decorations enabled?

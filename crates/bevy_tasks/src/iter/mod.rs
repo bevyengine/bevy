@@ -244,9 +244,9 @@ where
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
-                let newf = f.clone();
-                let newi = init.clone();
-                s.spawn(async move { batch.fold(newi, newf) });
+                let new_f = f.clone();
+                let new_i = init.clone();
+                s.spawn(async move { batch.fold(new_i, new_f) });
             }
         })
     }

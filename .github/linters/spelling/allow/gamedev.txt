@@ -153,8 +153,9 @@ creativecommons
 kenney
 publicdomain
 interoperation
+oklab
+gibibytes
 patreon
-oklab 
 rng
 rngs
 bezier
