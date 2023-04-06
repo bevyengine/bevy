@@ -15,6 +15,23 @@ For more advice on contributing to the engine, see the [relevant section](../../
    5. Start comments with capital letters. End them with a period if they are sentence-like.
 3. Use comments to organize long and complex stretches of code that can't sensibly be refactored into separate functions.
 
+## Spelling guidelines
+To ensure consistency, bevy code and documentation's spelling is written in American English.
+This is inforced by the projects [clippy lints](../../clippy.toml) of disallowed-names.
+
+Here is some of the common spelling differences:
+
+| UK/CN/AU  | US        |
+|-----------|-----------|
+| cancelled | canceled  |
+| behaviour | behavior  |
+| neighbour | neighbor  |
+| colour    | color     |
+| grey      | gray      |
+| recognise | recognize |
+| centre    | center    |
+| metres    | meters    |
+
 ## Rust API guidelines
 
 As a reference for our API development we are using the [Rust API guidelines][Rust API guidelines]. Generally, these should be followed, except for the following areas of disagreement:
