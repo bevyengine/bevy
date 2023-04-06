@@ -504,7 +504,6 @@ pub fn prepare_uinodes(
         let uvs = if current_batch_handle.id() == DEFAULT_IMAGE_HANDLE.id() {
             [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
         } else {
-            let atlas_extent = extracted_uinode.extracted_rect.max_size();
             let uinode_rect = extracted_uinode.extracted_rect.rect();
             let mut uvs = [
                 Vec2::new(
@@ -524,7 +523,7 @@ pub fn prepare_uinodes(
                     uinode_rect.max.y + positions_diff[3].y,
                 ),
             ]
-            .map(|pos| pos / atlas_extent);
+            .map(|pos| pos / extracted_uinode.extracted_rect.max_size());
 
             if extracted_uinode.flip_x {
                 uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
