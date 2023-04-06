@@ -142,7 +142,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     background_color: Color::WHITE.into(),
                                     ..default()
                                 })
-                                .insert(RotateButton(-std::f32::consts::PI / 8.))
+                                .insert(RotateButton(-std::f32::consts::FRAC_PI_8))
                                 .with_children(|parent| {
                                     parent.spawn(TextBundle {
                                         text: Text::from_section(
