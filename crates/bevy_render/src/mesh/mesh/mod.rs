@@ -120,17 +120,14 @@ impl Mesh {
         }
 
         // validate attributes
-        match attribute.id {
-            id if id == Self::ATTRIBUTE_JOINT_WEIGHT.id => {
-                let VertexAttributeValues::Float32x4(ref mut values) = values else {
-                    unreachable!() // we confirmed the format above
-                };
-                for value in values.iter_mut().filter(|v| *v == &[0.0, 0.0, 0.0, 0.0]) {
-                    // zero weights are invalid
-                    value[0] = 1.0;
-                }
+        if attribute.id == Self::ATTRIBUTE_JOINT_WEIGHT.id {
+            let VertexAttributeValues::Float32x4(ref mut values) = values else {
+                unreachable!() // we confirmed the format above
+            };
+            for value in values.iter_mut().filter(|v| *v == &[0.0, 0.0, 0.0, 0.0]) {
+                // zero weights are invalid
+                value[0] = 1.0;
             }
-            _ => (),
         }
 
         self.attributes
