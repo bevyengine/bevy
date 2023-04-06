@@ -165,8 +165,7 @@ impl ExtractedRect {
 
     pub const fn max_size(self) -> Vec2 {
         match self {
-            ExtractedRect::Size(size) => size,
-            ExtractedRect::Section { size, .. } => size,
+            ExtractedRect::Size(size) | ExtractedRect::Section { size, .. } => size,
         }
     }
 
