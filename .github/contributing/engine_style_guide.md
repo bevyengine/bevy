@@ -16,7 +16,8 @@ For more advice on contributing to the engine, see the [relevant section](../../
 3. Use comments to organize long and complex stretches of code that can't sensibly be refactored into separate functions.
 
 ## Spelling guidelines
-To ensure consistency, the spelling used in Bevy code and documentation is written in American English. 
+
+To ensure consistency, the spelling used in Bevy code and documentation is written in American English.
 Here are some common spelling differences between American English and other English variants:
 
 | UK/CN/AU  | US        |
