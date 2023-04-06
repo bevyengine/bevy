@@ -165,18 +165,29 @@ pub fn update_text2d_layout(
         Ref<Text2dBounds>,
         Option<&mut TextLayoutInfo>,
     )>,
+    // True if text computation was skipped the previous frame.
+    mut skipped: Local<bool>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.iter().last().is_some();
 
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = windows
+    let Ok(scale_factor) = windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.0);
+        else {
+            // Skip text computation if no primary window found.
+            *skipped = true;
+            return;
+        };
 
     for (entity, text, bounds, text_layout_info) in &mut text_query {
-        if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
+        if factor_changed
+            || text.is_changed()
+            || bounds.is_changed()
+            || queue.remove(&entity)
+            || *skipped
+        {
             let text_bounds = Vec2::new(
                 scale_value(bounds.size.x, scale_factor),
                 scale_value(bounds.size.y, scale_factor),
@@ -213,6 +224,8 @@ pub fn update_text2d_layout(
             }
         }
     }
+
+    *skipped = false;
 }
 
 pub fn scale_value(value: f32, factor: f64) -> f32 {
