@@ -176,6 +176,7 @@ jobs:
             cspell:en_US/src/en_US.txt
             cspell:rust/rust.txt
             cspell:software-terms/src/software-terms.txt
+            https://raw.githubusercontent.com/streetsidesoftware/cspell-dicts/a19ca83da6e123f4df46000fe1fac10f6b2a1c30/dictionaries/cpp/dict/cpp-legacy.txt
             #cspell:shell/src/command-words.txt
 
   run-examples:

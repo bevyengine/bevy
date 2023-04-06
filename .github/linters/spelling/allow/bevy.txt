@@ -195,3 +195,13 @@ sdkroot
 libc
 bindless
 gabe
+xcode
+rustup
+codegen
+binaryen
+libxkbcommon
+flamegraph
+sme
+smes
+simplespace
+copysign
