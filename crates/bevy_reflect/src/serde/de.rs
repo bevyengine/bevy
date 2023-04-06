@@ -403,12 +403,14 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 // Only treat this as a newtype if it has exactly 1 field and that field isn't
                 // ignored.
                 if field_len == 1 && tuple_struct_info.field_len() == 1 {
+                    let field = tuple_struct_info.field_at(0).unwrap();
+                    let field_registration =
+                        get_registration(field.type_id(), field.type_name(), self.registry)?;
                     let mut dynamic_tuple_struct = deserializer.deserialize_newtype_struct(
                         tuple_struct_info.name(),
                         NewtypeStructVisitor {
-                            tuple_struct_info,
+                            field_registration,
                             registry: self.registry,
-                            registration: self.registration,
                         },
                     )?;
                     dynamic_tuple_struct.set_name(tuple_struct_info.type_name().to_string());
@@ -561,9 +563,8 @@ impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
 }
 
 struct NewtypeStructVisitor<'a> {
-    tuple_struct_info: &'static TupleStructInfo,
+    field_registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
-    registration: &'a TypeRegistration,
 }
 
 impl<'a, 'de> Visitor<'de> for NewtypeStructVisitor<'a> {
@@ -579,28 +580,8 @@ impl<'a, 'de> Visitor<'de> for NewtypeStructVisitor<'a> {
     {
         let mut tuple_struct = DynamicTupleStruct::default();
 
-        let ignored_len = self
-            .registration
-            .data::<SerializationData>()
-            .map(|data| data.len())
-            .unwrap_or(0);
-        let field_len = self
-            .tuple_struct_info
-            .field_len()
-            .saturating_sub(ignored_len);
-
-        if field_len != 1 {
-            return Err(Error::custom(format_args!(
-                "tried to deserialize {} as a newtype struct, but it doesn't have exactly 1 field.",
-                self.tuple_struct_info.type_name(),
-            )));
-        }
-
-        let field = self.tuple_struct_info.field_at(0).unwrap();
-        let registration = get_registration(field.type_id(), field.type_name(), self.registry)?;
-
         let de = TypedReflectDeserializer {
-            registration,
+            registration: self.field_registration,
             registry: self.registry,
         };
         tuple_struct.insert_boxed(de.deserialize(deserializer)?);
