@@ -1,1 +1,4 @@
 ^\.github/linters/
+\.(png|svg|gltf)$
+LICEN(S|C)E$
+.gitattributes
