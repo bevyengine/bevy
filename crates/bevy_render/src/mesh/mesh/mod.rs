@@ -123,7 +123,7 @@ impl Mesh {
         match attribute.id {
             id if id == Self::ATTRIBUTE_JOINT_WEIGHT.id => {
                 let VertexAttributeValues::Float32x4(ref mut values) = values else {
-                    panic!() // we confirmed the format above
+                    unreachable!() // we confirmed the format above
                 };
                 for value in values.iter_mut().filter(|v| *v == &[0.0, 0.0, 0.0, 0.0]) {
                     // zero weights are invalid
