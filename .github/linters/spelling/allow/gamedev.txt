@@ -1,6 +1,7 @@
 gamedev
 gameplay
 gameplays
+unported
 frustum
 swapchain
 minimap
@@ -15,6 +16,8 @@ uvsphere
 rasterization
 touchscreen
 fov
+xfov
+yfov
 lowerbound
 upperbound
 livezone
@@ -39,6 +42,10 @@ gpu
 gpus
 apu
 apus
+ssao
+framerate
+framerates
+fps
 wireframe
 wireframes
 wireframed
@@ -78,16 +85,18 @@ uvs
 fsr
 ffx
 fxaa
+dimas
+lottes
 highpass
 supersampling
 rgbw
 luma
+ndc
 deband
 writeback
-upscaled
-upscaling
 reprojection
 prepass
+prepasses
 skybox
 skyboxes
 learnopengl
@@ -102,10 +111,21 @@ mmorpg
 collider
 multisample
 multisampled
+multisampling
+upsample
+upsampled
+upsampling
+upscale
+upscaled
+upscaling
 downsample
 downsampling
 upsample
+upsampled
 upsampling
+downscale
+downscaled
+downscaling
 fullscreen
 radsort
 bitflag
@@ -144,7 +164,13 @@ devlog
 devlogs
 newbies
 configurability
+# Environment Map
 hdri
+fss
+edss
+fms
+favg
+ndot
 sketchfab
 yml
 hemi
@@ -191,6 +217,7 @@ gameover
 pixelate
 pixelated
 pixelization
+debanding
 khr
 tris
 bindpose
@@ -214,6 +241,7 @@ linestrip
 gltf
 mipmap
 reinhard
+jodie
 hittest
 hittests
 xaxis
@@ -233,6 +261,7 @@ lcha
 ciexyy
 ict
 ycg
+yco
 cmyk
 cmyka
 yiqsda
@@ -256,6 +285,27 @@ pbm
 targa
 # Rendering
 lengyel
+koschmieder
 uyvy
 yuy
 cxv
+shadowmap
+xymax
+xymin
+prefiltered
+ggx
+texcoords
+microfacet
+ndf
+mipchain
+# Other
+bitshift
+bitshifts
+bitshifted
+visualises
+# Abbreviations
+ijk
+brdf
+ior
+nior
+pbb

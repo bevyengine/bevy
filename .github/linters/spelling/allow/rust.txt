@@ -86,3 +86,8 @@ allocvec
 winit
 deserializers
 peekable
+vecdeque
+tweakable
+ilog
+reloadable
+tempdir
