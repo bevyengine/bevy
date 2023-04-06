@@ -51,7 +51,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(NodeBundle {
                     style: Style {
                         display: Display::Grid,
-                        /// Make this node span two grid column so that it takes up the entire top tow
+                        /// Make this node span two grid columns so that it takes up the entire top tow
                         grid_column: GridPlacement::span(2),
                         padding: UiRect::all(Val::Px(6.0)),
                         ..default()
@@ -66,7 +66,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder
                 .spawn(NodeBundle {
                     style: Style {
-                        /// Make the height of the node
+                        /// Make the height of the node fill its parent
                         size: Size::height(Val::Percent(100.0)),
                         /// Make the grid have a 1:1 aspect ratio meaning it will scale as an exact square
                         /// As the height is set explicitly, this means the width will adjust to match the height
