@@ -233,7 +233,10 @@ impl Camera {
         }
 
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-        Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size)
+        let mut viewport_position = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size;
+        // Flip the Y co-ordinate origin from the bottom to the top.
+        viewport_position.y = target_size.y - viewport_position.y;
+        Some(viewport_position)
     }
 
     /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
@@ -247,9 +250,11 @@ impl Camera {
     pub fn viewport_to_world(
         &self,
         camera_transform: &GlobalTransform,
-        viewport_position: Vec2,
+        mut viewport_position: Vec2,
     ) -> Option<Ray> {
         let target_size = self.logical_viewport_size()?;
+        // Flip the Y co-ordinate origin from the top to the bottom.
+        viewport_position.y = target_size.y - viewport_position.y;
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
 
         let ndc_to_world =
@@ -273,9 +278,11 @@ impl Camera {
     pub fn viewport_to_world_2d(
         &self,
         camera_transform: &GlobalTransform,
-        viewport_position: Vec2,
+        mut viewport_position: Vec2,
     ) -> Option<Vec2> {
         let target_size = self.logical_viewport_size()?;
+        // Flip the Y co-ordinate origin from the top to the bottom.
+        viewport_position.y = target_size.y - viewport_position.y;
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
 
         let world_near_plane = self.ndc_to_world(camera_transform, ndc.extend(1.))?;
