@@ -1746,6 +1746,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overflow_debug"
+path = "examples/ui/overflow_debug.rs"
+
+[package.metadata.example.overflow_debug]
+name = "Overflow and Clipping Debug"
+description = "An example to debug overflow and clipping behavior"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "relative_cursor_position"
 path = "examples/ui/relative_cursor_position.rs"
 

@@ -26,7 +26,7 @@ fn touch_system(touches: Res<Touches>) {
         );
     }
 
-    for touch in touches.iter_just_cancelled() {
+    for touch in touches.iter_just_canceled() {
         info!("cancelled touch with id: {:?}", touch.id());
     }
 

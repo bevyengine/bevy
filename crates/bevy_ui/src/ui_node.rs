@@ -679,7 +679,7 @@ pub enum AlignItems {
     /// then they are packed towards the end of the axis.
     FlexStart,
     /// Items are packed towards the end of the axis, unless the flex direction is reversed;
-    /// then they are packed towards the end of the axis.
+    /// then they are packed towards the start of the axis.
     FlexEnd,
     /// Items are aligned at the center.
     Center,
@@ -741,8 +741,8 @@ pub enum AlignSelf {
     /// This item will be aligned with the start of the axis, unless the flex direction is reversed;
     /// then it will be aligned with the end of the axis.
     FlexStart,
-    /// This item will be aligned with the start of the axis, unless the flex direction is reversed;
-    /// then it will be aligned with the end of the axis.
+    /// This item will be aligned with the end of the axis, unless the flex direction is reversed;
+    /// then it will be aligned with the start of the axis.
     FlexEnd,
     /// This item will be aligned at the center.
     Center,
@@ -1587,6 +1587,20 @@ impl UiImage {
             texture,
             ..Default::default()
         }
+    }
+
+    /// flip the image along its x-axis
+    #[must_use]
+    pub const fn with_flip_x(mut self) -> Self {
+        self.flip_x = true;
+        self
+    }
+
+    /// flip the image along its y-axis
+    #[must_use]
+    pub const fn with_flip_y(mut self) -> Self {
+        self.flip_y = true;
+        self
     }
 }
 
