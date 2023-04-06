@@ -31,7 +31,7 @@ pub struct BloomDownsamplingPipelineKeys {
 /// Will be available for use in the Bloom shader.
 #[derive(Component, ShaderType, Clone)]
 pub struct BloomUniforms {
-    // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
+    // Precomputed values used for threshold calculation, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
     pub threshold_precomputations: Vec4,
     pub viewport: Vec4,
     pub aspect: f32,
