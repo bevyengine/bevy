@@ -1,0 +1,7 @@
+https?:\S*
+# ignore long runs of a single character:
+([A-Za-z])\1{3,}
+# Any CLI args (-xzf -aef)
+\ -\w+\b
+# Hex colors (dummy group to not be treated as comment)
+(?:#)([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})
