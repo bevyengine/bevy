@@ -175,6 +175,7 @@ jobs:
           extra_dictionaries: #https://github.com/streetsidesoftware/cspell-dicts/tree/main/dictionaries
             cspell:en_US/src/en_US.txt
             cspell:rust/rust.txt
+            cspell:cpp/dict/cpp-legacy.txt
 
   run-examples:
     runs-on: ubuntu-latest
