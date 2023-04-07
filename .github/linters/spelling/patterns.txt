@@ -1,5 +1,7 @@
 # Ignore urls
 https?:\S*
+# Ignore markdown links [urltext](url)
+\[.*\]\(.*\)
 # Ignore long runs of a single character:
 ([A-Za-z])\1{3,}
 # Any CLI args (-xzf -aef)
