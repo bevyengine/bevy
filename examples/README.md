@@ -340,6 +340,7 @@ Example | Description
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
+[World to Viewport](../examples/ui/world_to_viewport.rs) | Demonstrates how to use the `Camera::world_to_viewport` method
 
 ## Window
 
