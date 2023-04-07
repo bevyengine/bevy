@@ -1,6 +1,7 @@
 //! Animation for the game engine Bevy
 
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 use std::ops::Deref;
 use std::time::Duration;

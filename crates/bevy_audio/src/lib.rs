@@ -20,6 +20,7 @@
 //! ```
 
 #![forbid(unsafe_code)]
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
 mod audio;
