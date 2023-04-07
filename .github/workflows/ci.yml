@@ -165,7 +165,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: check-missing-features-in-docs
-    if: ${{ !contains( github.event.head_commit.message, '[skip spellcheck]') }}
+    if: ${{ contains( github.event.head_commit.message, '[spellcheck]') }}
     steps:
       - uses: actions/checkout@v3
       - name: Check spelling
