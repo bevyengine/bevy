@@ -23,11 +23,15 @@ fn update_labels(
     let (camera, camera_global_transform) = camera_query.single();
 
     for (mut style, label) in &mut label_query {
+        // Get the Transform of the label target
         let transform = transforms.get(label.target).unwrap();
+        // Get a world space position half a unit above the target
         let position = transform.translation + Vec3::Y * 0.5;
 
+        // Project the world space coordinate onto the camera's viewport
         let Some(viewport_position) = camera.world_to_viewport(camera_global_transform, position) else { continue };
 
+        // Apply the returned viewport position to the label's Style component
         style.top = Val::Px(viewport_position.y);
         style.left = Val::Px(viewport_position.x);
     }
