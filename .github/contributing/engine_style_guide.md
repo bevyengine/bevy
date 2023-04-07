@@ -15,29 +15,11 @@ For more advice on contributing to the engine, see the [relevant section](../../
    5. Start comments with capital letters. End them with a period if they are sentence-like.
 3. Use comments to organize long and complex stretches of code that can't sensibly be refactored into separate functions.
 
-## Spelling guidelines
-
-To ensure consistency, the spelling used in Bevy code and documentation is written in American English.
-Here are some common spelling differences between American English and other English variants:
-
-| UK/CN/AU  | US        |
-|-----------|-----------|
-| cancelled | canceled  |
-| behaviour | behavior  |
-| neighbour | neighbor  |
-| colour    | color     |
-| grey      | gray      |
-| recognise | recognize |
-| centre    | center    |
-| metres    | meters    |
-| organise  | organize  |
-
 ## Rust API guidelines
 
 As a reference for our API development we are using the [Rust API guidelines][Rust API guidelines]. Generally, these should be followed, except for the following areas of disagreement:
 
 ### Areas of disagreements
-
 Some areas mentioned in the [Rust API guidelines][Rust API guidelines] we do not agree with. These areas will be expanded whenever we find something else we do not agree with, so be sure to check these from time to time.
 
 > All items have a rustdoc example
