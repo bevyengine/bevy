@@ -331,7 +331,6 @@ ndf
 bitshift
 bitshifts
 bitshifted
-visualises
 # Abbreviations
 ijk
 brdf

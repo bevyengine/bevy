@@ -64,7 +64,7 @@ fn cluster_debug_visualization(
 ) -> vec4<f32> {
     // Cluster allocation debug (using 'over' alpha blending)
 #ifdef CLUSTERED_FORWARD_DEBUG_Z_SLICES
-    // NOTE: This debug mode visualises the z-slices
+    // NOTE: This debug mode visualizes the z-slices
     let cluster_overlay_alpha = 0.1;
     var z_slice: u32 = view_z_to_z_slice(view_z, is_orthographic);
     // A hack to make the colors alternate a bit more
@@ -78,7 +78,7 @@ fn cluster_debug_visualization(
     );
 #endif // CLUSTERED_FORWARD_DEBUG_Z_SLICES
 #ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
-    // NOTE: This debug mode visualises the number of lights within the cluster that contains
+    // NOTE: This debug mode visualizes the number of lights within the cluster that contains
     // the fragment. It shows a sort of lighting complexity measure.
     let cluster_overlay_alpha = 0.1;
     let max_light_complexity_per_cluster = 64.0;
