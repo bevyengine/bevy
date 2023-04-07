@@ -1,24 +1,25 @@
 //! Plays animations from a skinned glTF.
 
+use bevy::{
+    prelude::*,
+    utils::Duration,
+    pbr::CascadeShadowConfigBuilder,
+};
 use std::f32::consts::PI;
-use std::time::Duration;
-
-use bevy::pbr::CascadeShadowConfigBuilder;
-use bevy::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_startup_system(setup)
+        .add_systems((
+            setup_scene_once_loaded,
+            keyboard_animation_control,
+        ))
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 1.0,
         })
-        .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (setup_scene_once_loaded, keyboard_animation_control),
-        )
-        .run();
+    .run();
 }
 
 #[derive(Resource)]
