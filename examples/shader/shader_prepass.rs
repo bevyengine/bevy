@@ -78,7 +78,7 @@ fn setup(
         NotShadowCaster,
     ));
 
-    // Opaque cube using the StandardMaterial
+    // Opaque cube
     commands.spawn((
         MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
