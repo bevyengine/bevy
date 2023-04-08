@@ -33,7 +33,7 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed coordinate space,
     // so we have to flip the z-axis when sampling.
     // NOTE: Due to the non-uniform control flow above, we must use the Level variant of
-    // textureSampleCompare to avoid undefined behaviour due to some of the fragments in
+    // textureSampleCompare to avoid undefined behavior due to some of the fragments in
     // a quad (2x2 fragments) being processed not being sampled, and this messing with
     // mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
     // from LOD 0.

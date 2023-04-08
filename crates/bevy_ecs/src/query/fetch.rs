@@ -41,7 +41,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///   Similar to change detection filters but it is used as a query fetch parameter.
 ///   It exposes methods to check for changes to the wrapped component.
 ///
-/// Implementing the trait manually can allow for a fundamentally new type of behaviour.
+/// Implementing the trait manually can allow for a fundamentally new type of behavior.
 ///
 /// # Trait derivation
 ///
