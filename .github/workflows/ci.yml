@@ -164,7 +164,6 @@ jobs:
   # GitHub Community Discussions : How to get commit message on pull_request workflow? #28474 
   # https://github.com/orgs/community/discussions/28474#discussioncomment-3334578
   check-skip-flags:
-    name: Check skip flags
     runs-on: ubuntu-latest
     outputs:
       head-commit-message: ${{ steps.get_head_commit_message.outputs.headCommitMsg }}
@@ -174,14 +173,17 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Print head git commit message
+        id: display_head_commit_message
+        run: echo "Head commit message - $(git show -s --format=%s)"
+      - name: Print head git commit message
         id: get_head_commit_message
-        run: echo "::set-output name=headCommitMsg::$(git show -s --format=%s)"
+        run: echo "headCommitMsg=$(git show -s --format=%s)" >> $GITHUB_OUTPUT
 
   spell-checking:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [check-missing-features-in-docs, check-skip-flags]
-    if: ${{ contains(needs.check_skip_flags.outputs.head-commit-message, '[spellcheck]') }}
+    if: ${{ contains(needs.check-skip-flags.outputs.head-commit-message, '[spellcheck]') }}
     steps:
       - uses: actions/checkout@v3
       - name: Check spelling
