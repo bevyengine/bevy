@@ -15,6 +15,22 @@ For more advice on contributing to the engine, see the [relevant section](../../
    5. Start comments with capital letters. End them with a period if they are sentence-like.
 3. Use comments to organize long and complex stretches of code that can't sensibly be refactored into separate functions.
 
+## Spelling guidelines
+
+To ensure consistency, the spelling used in Bevy code and documentation is written in American English. Bevy uses an automated spellcheck CI step to detect spelling mistakes and enforce the use of US spelling variant. Using the GitHub Action check-spelling, we are able to detect any spelling mistakes by using the default corpus and extra corpora, as well as providing our own exceptions via dictionaries, regex, and file filtering, see [linters/spelling](../linters/spelling/). Here are some common spelling differences between American English and other English variants:
+
+| UK/CN/AU  | US        |
+|-----------|-----------|
+| cancelled | canceled  |
+| behaviour | behavior  |
+| neighbour | neighbor  |
+| colour    | color     |
+| grey      | gray      |
+| recognise | recognize |
+| centre    | center    |
+| metres    | meters    |
+| organise  | organize  |
+
 ## Rust API guidelines
 
 As a reference for our API development we are using the [Rust API guidelines][Rust API guidelines]. Generally, these should be followed, except for the following areas of disagreement:
