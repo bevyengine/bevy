@@ -1,0 +1,57 @@
+{
+    "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
+    "language": "en-US",
+    "dictionaryDefinitions": [
+        {
+            "name": "bevy",
+            "path": "./.github/linters/spelling/allow/bevy.txt"
+        },
+        {
+            "name": "gamedev",
+            "path": "./.github/linters/spelling/allow/gamedev.txt"
+        },
+        {
+            "name": "linux",
+            "path": "./.github/linters/spelling/allow/linux.txt"
+        },
+        {
+            "name": "rust2",
+            "path": "./.github/linters/spelling/allow/rust.txt"
+        }
+    ],
+    "dictionaries": [
+        "bevy",
+        "gamedev",
+        "linux",
+        "rust",
+        "rust2",
+        "software-terms"
+    ],
+    "loadDefaultConfiguration": true,
+    "ignoreRegExpList": [
+        "UUID",
+        "Urls",
+        "HexValues",
+        "markdown-links",
+        "cli-args"
+    ],
+    "patterns": [
+        {
+            "name": "markdown-links",
+            "pattern": "\\[.*\\]\\(.*\\)"
+        },
+        {
+            "name": "cli-args",
+            "pattern": "\\ -\\w+\\b"
+        }
+    ],
+    "ignorePaths": [
+        ".github/*",
+        "*.(png|svg|gltf|ktx2|hdr|ogg|glb|ico|ttf|bin|gitignore|pbxproj)",
+        "*LICEN(S|C)E*",
+        ".gitattributes",
+        "CREDITS.md",
+        "CHANGELOG.md"
+    ]
+    
+}
