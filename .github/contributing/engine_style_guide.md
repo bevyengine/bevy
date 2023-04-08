@@ -20,6 +20,7 @@ For more advice on contributing to the engine, see the [relevant section](../../
 As a reference for our API development we are using the [Rust API guidelines][Rust API guidelines]. Generally, these should be followed, except for the following areas of disagreement:
 
 ### Areas of disagreements
+
 Some areas mentioned in the [Rust API guidelines][Rust API guidelines] we do not agree with. These areas will be expanded whenever we find something else we do not agree with, so be sure to check these from time to time.
 
 > All items have a rustdoc example
