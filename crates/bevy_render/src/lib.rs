@@ -44,6 +44,8 @@ pub mod prelude {
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
 pub use once_cell;
+use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
+use wgpu::Instance;
 
 use crate::{
     camera::CameraPlugin,
@@ -57,7 +59,10 @@ use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::{Arc, Mutex},
+};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
@@ -184,6 +189,21 @@ pub mod main_graph {
     }
 }
 
+#[derive(Resource)]
+struct FutureRendererResources(
+    Arc<
+        Mutex<
+            Option<(
+                RenderDevice,
+                RenderQueue,
+                RenderAdapterInfo,
+                RenderAdapter,
+                Instance,
+            )>,
+        >,
+    >,
+);
+
 /// A Label for the rendering sub-app.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
@@ -196,41 +216,50 @@ impl Plugin for RenderPlugin {
             .init_asset_loader::<ShaderLoader>()
             .init_debug_asset_loader::<ShaderLoader>();
 
-        let mut system_state: SystemState<Query<&RawHandleWrapper, With<PrimaryWindow>>> =
-            SystemState::new(&mut app.world);
-        let primary_window = system_state.get(&app.world);
-
         if let Some(backends) = self.wgpu_settings.backends {
-            let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-                backends,
-                dx12_shader_compiler: self.wgpu_settings.dx12_shader_compiler.clone(),
-            });
-            let surface = primary_window.get_single().ok().map(|wrapper| unsafe {
-                // SAFETY: Plugins should be set up on the main thread.
-                let handle = wrapper.get_handle();
-                instance
-                    .create_surface(&handle)
-                    .expect("Failed to create wgpu surface")
-            });
+            let stuff = Arc::new(Mutex::new(None));
+            app.insert_resource(FutureRendererResources(stuff.clone()));
 
-            let request_adapter_options = wgpu::RequestAdapterOptions {
-                power_preference: self.wgpu_settings.power_preference,
-                compatible_surface: surface.as_ref(),
-                ..Default::default()
-            };
-            let (device, queue, adapter_info, render_adapter) =
-                futures_lite::future::block_on(renderer::initialize_renderer(
-                    &instance,
-                    &self.wgpu_settings,
-                    &request_adapter_options,
-                ));
-            debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
-            debug!("Configured wgpu adapter Features: {:#?}", device.features());
-            app.insert_resource(device.clone())
-                .insert_resource(queue.clone())
-                .insert_resource(adapter_info.clone())
-                .insert_resource(render_adapter.clone())
-                .init_resource::<ScratchMainWorld>();
+            let mut system_state: SystemState<Query<&RawHandleWrapper, With<PrimaryWindow>>> =
+                SystemState::new(&mut app.world);
+            let primary_window = system_state.get(&app.world).get_single().ok().cloned();
+
+            let settings = self.wgpu_settings.clone();
+            bevy_tasks::IoTaskPool::get()
+                .spawn_local(async move {
+                    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+                        backends,
+                        dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
+                    });
+                    let surface = primary_window.map(|wrapper| unsafe {
+                        // SAFETY: Plugins should be set up on the main thread.
+                        let handle = wrapper.get_handle();
+                        instance
+                            .create_surface(&handle)
+                            .expect("Failed to create wgpu surface")
+                    });
+
+                    let request_adapter_options = wgpu::RequestAdapterOptions {
+                        power_preference: settings.power_preference,
+                        compatible_surface: surface.as_ref(),
+                        ..Default::default()
+                    };
+
+                    let (device, queue, adapter_info, render_adapter) =
+                        renderer::initialize_renderer(
+                            &instance,
+                            &settings,
+                            &request_adapter_options,
+                        )
+                        .await;
+                    debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
+                    debug!("Configured wgpu adapter Features: {:#?}", device.features());
+                    let mut stuffed = stuff.lock().unwrap();
+                    *stuffed = Some((device, queue, adapter_info, render_adapter, instance));
+                })
+                .detach();
+
+            app.init_resource::<ScratchMainWorld>();
 
             let mut render_app = App::empty();
             render_app.main_schedule_label = Box::new(Render);
@@ -242,12 +271,6 @@ impl Plugin for RenderPlugin {
                 .add_schedule(ExtractSchedule, extract_schedule)
                 .add_schedule(Render, Render::base_schedule())
                 .init_resource::<render_graph::RenderGraph>()
-                .insert_resource(RenderInstance(instance))
-                .insert_resource(PipelineCache::new(device.clone()))
-                .insert_resource(device)
-                .insert_resource(queue)
-                .insert_resource(render_adapter)
-                .insert_resource(adapter_info)
                 .insert_resource(app.world.resource::<AssetServer>().clone())
                 .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
                 .add_systems(
@@ -314,6 +337,42 @@ impl Plugin for RenderPlugin {
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
             .register_type::<primitives::Frustum>();
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.world
+            .resource::<FutureRendererResources>()
+            .0
+            .try_lock()
+            .map(|locked| locked.is_some())
+            .unwrap_or_default()
+    }
+
+    fn finish(&self, app: &mut App) {
+        let (device, queue, adapter_info, render_adapter, instance) = app
+            .world
+            .remove_resource::<FutureRendererResources>()
+            .unwrap()
+            .0
+            .lock()
+            .unwrap()
+            .take()
+            .unwrap();
+
+        app.insert_resource(device.clone())
+            .insert_resource(queue.clone())
+            .insert_resource(adapter_info.clone())
+            .insert_resource(render_adapter.clone());
+
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app
+            .insert_resource(RenderInstance(instance))
+            .insert_resource(PipelineCache::new(device.clone()))
+            .insert_resource(device)
+            .insert_resource(queue)
+            .insert_resource(render_adapter)
+            .insert_resource(adapter_info);
     }
 }
 

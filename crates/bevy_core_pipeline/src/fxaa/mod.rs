@@ -92,7 +92,6 @@ impl Plugin for FxaaPlugin {
             Err(_) => return,
         };
         render_app
-            .init_resource::<FxaaPipeline>()
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
             .add_systems(Render, prepare_fxaa_pipelines.in_set(RenderSet::Prepare))
             .add_render_graph_node::<FxaaNode>(CORE_3D, core_3d::graph::node::FXAA)
@@ -113,6 +112,14 @@ impl Plugin for FxaaPlugin {
                     core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
                 ],
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+        render_app.init_resource::<FxaaPipeline>();
     }
 }
 

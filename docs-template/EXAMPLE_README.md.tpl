@@ -207,7 +207,7 @@ Following is an example for `lighting`. For other examples, change the `lighting
 following commands.
 
 ```sh
-cargo build --release --example lighting --target wasm32-unknown-unknown
+cargo build --release --example lighting --target wasm32-unknown-unknown --features webgl
 wasm-bindgen --out-name wasm_example \
   --out-dir examples/wasm/target \
   --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
@@ -230,6 +230,12 @@ python3 -m http.server --directory examples/wasm
 # with ruby
 ruby -run -ehttpd examples/wasm
 ```
+
+#### WebGL2 and WebGPU
+
+Bevy support for WebGPU is being worked on, but is currently experimental.
+
+If you don't enable the `webgl` feature, it will build for WebGPU by default, which may not work and has limited browser support.
 
 ### Optimizing
 
