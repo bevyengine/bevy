@@ -165,7 +165,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: check-missing-features-in-docs
-    if: ${{ contains( github.event.head_commit.message, '[spellcheck]') }}
+    if: always() #Dosn't work for PRs anymore: ${{ contains( github.event.head_commit.message, '[spellcheck]') }}
     steps:
       - uses: actions/checkout@v3
       - name: Check spelling
@@ -176,7 +176,6 @@ jobs:
             cspell:en_US/src/en_US.txt
             cspell:rust/rust.txt
             cspell:software-terms/src/software-terms.txt
-            https://raw.githubusercontent.com/streetsidesoftware/cspell-dicts/a19ca83da6e123f4df46000fe1fac10f6b2a1c30/dictionaries/cpp/dict/cpp-legacy.txt
 
   run-examples:
     runs-on: ubuntu-latest

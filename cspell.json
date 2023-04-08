@@ -46,12 +46,17 @@
         }
     ],
     "ignorePaths": [
+        "cspell.json",
         ".github/*",
         "*.(png|svg|gltf|ktx2|hdr|ogg|glb|ico|ttf|bin|gitignore|pbxproj)",
         "*LICEN(S|C)E*",
         ".gitattributes",
         "CREDITS.md",
         "CHANGELOG.md"
+    ],
+    "enableFiletypes": [
+        "ron",
+        "toml",
+        "wgsl"
     ]
-    
 }

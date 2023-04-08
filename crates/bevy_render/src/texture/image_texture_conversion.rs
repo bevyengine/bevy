@@ -88,7 +88,7 @@ impl Image {
                     Vec::with_capacity(width as usize * height as usize * format.pixel_size());
 
                 for pixel in image.into_raw().chunks_exact(3) {
-                    // TODO: use the array_chunks method once stabilised
+                    // TODO: use the array_chunks method once stabilized
                     // https://github.com/rust-lang/rust/issues/74985
                     let r = pixel[0];
                     let g = pixel[1];
@@ -121,7 +121,7 @@ impl Image {
                     Vec::with_capacity(width as usize * height as usize * format.pixel_size());
 
                 for pixel in image.into_raw().chunks_exact(3) {
-                    // TODO: use the array_chunks method once stabilised
+                    // TODO: use the array_chunks method once stabilized
                     // https://github.com/rust-lang/rust/issues/74985
                     let r = pixel[0];
                     let g = pixel[1];

@@ -1,6 +1,8 @@
+aarch
 aclippy
 allocvec
 armv
+Astc
 bincode
 bindgen
 bindless
@@ -44,6 +46,7 @@ len
 lifetimeless
 lto
 marginalized
+metas
 mtpc
 mul
 mulassign
@@ -52,9 +55,11 @@ newtype
 newtyped
 peekable
 petgraph
+PRIO
 reallocatable
 reimplementation
 reloadable
+repr
 rfc
 rfcs
 rmp
@@ -73,7 +78,9 @@ splitn
 stdcxx
 subcrate
 subcrates
+Supercompression
 syncunsafecell
+sysinfo
 tempdir
 thiserror
 topsort
@@ -88,6 +95,7 @@ uuid
 vec
 vecdeque
 wclippy
+webp
 wgpu
 winit
 wrt

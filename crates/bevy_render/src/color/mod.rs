@@ -22,7 +22,7 @@ pub enum Color {
         /// Alpha channel. [0.0, 1.0]
         alpha: f32,
     },
-    /// RGBA color in the Linear sRGB colorspace (often colloquially referred to as "linear", "RGB", or "linear RGB").
+    /// RGBA color in the Linear sRGB color space (often colloquially referred to as "linear", "RGB", or "linear RGB").
     RgbaLinear {
         /// Red channel. [0.0, 1.0]
         red: f32,
