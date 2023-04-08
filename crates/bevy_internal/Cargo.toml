@@ -96,6 +96,9 @@ bevy_render = ["dep:bevy_render", "bevy_scene?/bevy_render"]
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
 
+# Enable reflection of documentation
+reflect_documentation = ["bevy_reflect/documentation"]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.11.0-dev" }
