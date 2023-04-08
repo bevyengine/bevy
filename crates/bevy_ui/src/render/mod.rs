@@ -24,7 +24,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
-    view::{ComputedVisibility, ExtractedView, ViewUniforms},
+    view::{ComputedVisibility, ExtractedView, RenderLayers, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
 use bevy_sprite::SpriteAssetEvents;
@@ -155,6 +155,7 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub render_layers: Option<RenderLayers>,
 }
 
 #[derive(Resource, Default)]
@@ -174,12 +175,13 @@ pub fn extract_uinodes(
             Option<&UiImage>,
             &ComputedVisibility,
             Option<&CalculatedClip>,
+            Option<&RenderLayers>,
         )>,
     >,
 ) {
     extracted_uinodes.uinodes.clear();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
+        if let Ok((uinode, transform, color, maybe_image, visibility, clip, render_layers)) =
             uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
@@ -210,6 +212,7 @@ pub fn extract_uinodes(
                 clip: clip.map(|clip| clip.clip),
                 flip_x,
                 flip_y,
+                render_layers: render_layers.cloned(),
             });
         }
     }
@@ -231,9 +234,19 @@ pub struct DefaultCameraView(pub Entity);
 
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
-    query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
+    query: Extract<
+        Query<
+            (
+                Entity,
+                &Camera,
+                Option<&UiCameraConfig>,
+                Option<&RenderLayers>,
+            ),
+            With<T>,
+        >,
+    >,
 ) {
-    for (entity, camera, camera_ui) in &query {
+    for (entity, camera, camera_ui, render_layers) in &query {
         // ignore cameras with disabled ui
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
@@ -265,6 +278,9 @@ pub fn extract_default_ui_camera_view<T: Component>(
                     color_grading: Default::default(),
                 })
                 .id();
+            if let Some(render_layers) = render_layers {
+                commands.entity(default_camera_view).insert(*render_layers);
+            }
             commands.get_or_spawn(entity).insert((
                 DefaultCameraView(default_camera_view),
                 RenderPhase::<TransparentUi>::default(),
@@ -287,6 +303,7 @@ pub fn extract_text_uinodes(
             &TextLayoutInfo,
             &ComputedVisibility,
             Option<&CalculatedClip>,
+            Option<&RenderLayers>,
         )>,
     >,
 ) {
@@ -299,8 +316,15 @@ pub fn extract_text_uinodes(
     let inverse_scale_factor = scale_factor.recip();
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
-            uinode_query.get(*entity)
+        if let Ok((
+            uinode,
+            global_transform,
+            text,
+            text_layout_info,
+            visibility,
+            clip,
+            render_layers,
+        )) = uinode_query.get(*entity)
         {
             // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
             if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {
@@ -338,6 +362,7 @@ pub fn extract_text_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
+                    render_layers: render_layers.cloned(),
                 });
             }
         }
@@ -381,6 +406,7 @@ pub struct UiBatch {
     pub range: Range<u32>,
     pub image: Handle<Image>,
     pub z: f32,
+    pub render_layers: Option<RenderLayers>,
 }
 
 pub fn prepare_uinodes(
@@ -401,17 +427,22 @@ pub fn prepare_uinodes(
     let mut end = 0;
     let mut current_batch_handle = Default::default();
     let mut last_z = 0.0;
+    let mut current_render_layers: Option<RenderLayers> = None;
     for extracted_uinode in &extracted_uinodes.uinodes {
-        if current_batch_handle != extracted_uinode.image {
+        if current_batch_handle != extracted_uinode.image
+            || current_render_layers != extracted_uinode.render_layers
+        {
             if start != end {
                 commands.spawn(UiBatch {
                     range: start..end,
                     image: current_batch_handle,
                     z: last_z,
+                    render_layers: current_render_layers,
                 });
                 start = end;
             }
             current_batch_handle = extracted_uinode.image.clone_weak();
+            current_render_layers = extracted_uinode.render_layers;
         }
 
         let uinode_rect = extracted_uinode.rect;
@@ -521,6 +552,7 @@ pub fn prepare_uinodes(
             range: start..end,
             image: current_batch_handle,
             z: last_z,
+            render_layers: current_render_layers,
         });
     }
 
@@ -544,7 +576,11 @@ pub fn queue_uinodes(
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    mut views: Query<(
+        &ExtractedView,
+        &mut RenderPhase<TransparentUi>,
+        Option<&RenderLayers>,
+    )>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -567,13 +603,18 @@ pub fn queue_uinodes(
             layout: &ui_pipeline.view_layout,
         }));
         let draw_ui_function = draw_functions.read().id::<DrawUi>();
-        for (view, mut transparent_phase) in &mut views {
+        for (view, mut transparent_phase, render_layers) in &mut views {
+            let view_layers = render_layers.cloned().unwrap_or_default();
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &ui_pipeline,
                 UiPipelineKey { hdr: view.hdr },
             );
             for (entity, batch) in &ui_batches {
+                let batch_layers = batch.render_layers.unwrap_or_default();
+                if !view_layers.intersects(&batch_layers) {
+                    continue;
+                }
                 image_bind_groups
                     .values
                     .entry(batch.image.clone_weak())
