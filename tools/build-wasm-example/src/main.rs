@@ -1,7 +1,13 @@
 use std::{fs::File, io::Write};
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use xshell::{cmd, Shell};
+
+#[derive(Debug, Copy, Clone, ValueEnum)]
+enum Api {
+    Webgl2,
+    Webgpu,
+}
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -19,31 +25,47 @@ struct Args {
     #[arg(short, long)]
     /// Stop after this number of frames
     frames: Option<usize>,
+
+    #[arg(value_enum, short, long, default_value_t = Api::Webgl2)]
+    /// Browser API to use for rendering
+    api: Api,
 }
 
 fn main() {
     let cli = Args::parse();
-    eprintln!("{cli:?}");
 
     assert!(!cli.examples.is_empty(), "must have at least one example");
 
-    let mut bevy_ci_testing = vec![];
+    let mut features = vec![];
     if let Some(frames) = cli.frames {
         let mut file = File::create("ci_testing_config.ron").unwrap();
         file.write_fmt(format_args!("(exit_after: Some({frames}))"))
             .unwrap();
-        bevy_ci_testing = vec!["--features", "bevy_ci_testing"];
+        features.push("bevy_ci_testing");
+    }
+
+    match cli.api {
+        Api::Webgl2 => features.push("webgl"),
+        Api::Webgpu => (),
     }
 
     for example in cli.examples {
         let sh = Shell::new().unwrap();
-        let bevy_ci_testing = bevy_ci_testing.clone();
-        cmd!(
+        let features_string = features.join(",");
+        let features = if !features.is_empty() {
+            vec!["--features", &features_string]
+        } else {
+            vec![]
+        };
+        let mut cmd = cmd!(
             sh,
-            "cargo build {bevy_ci_testing...} --release --target wasm32-unknown-unknown --example {example}"
-        )
-        .run()
-        .expect("Error building example");
+            "cargo build {features...} --release --target wasm32-unknown-unknown --example {example}"
+        );
+        if matches!(cli.api, Api::Webgpu) {
+            cmd = cmd.env("RUSTFLAGS", "--cfg=web_sys_unstable_apis");
+        }
+        cmd.run().expect("Error building example");
+
         cmd!(
             sh,
             "wasm-bindgen --out-dir examples/wasm/target --out-name wasm_example --target web target/wasm32-unknown-unknown/release/examples/{example}.wasm"
