@@ -178,8 +178,8 @@ jobs:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
 
-      - name: Check if spellcheck should be skipped
-        id: check_if_spell
+      - name: Parse latest commit message and set variables
+        id: latest_commit
         run: |
           if [$SPELL_CHECK]
           then
@@ -199,16 +199,15 @@ jobs:
       
       - name: Run Markdown & Spelling lints
         id: ml
-        # You can override MegaLinter flavor used to have faster performances
         # More info at https://megalinter.io/flavors/
         uses: oxsecurity/megalinter/flavors/documentation@v6.22.2 # docker://ghcr.io/github/oxsecurity/megalinter-documentation:v6.22.2 # oxsecurity/megalinter/flavors/rust@v6
         env:
-          MEGALINTER_CONFIG: ".github/linters/.mega-linter.yml"
           # All available variables are described in documentation
           # https://megalinter.io/configuration/
-          VALIDATE_ALL_CODEBASE: ${{ steps.check_if_spell.outputs.validate_all }} # Validates all source when push on main, else just the git diff with main. Set 'true' if you always want to lint all sources
+          MEGALINTER_CONFIG: ".github/linters/.mega-linter.yml"
+          VALIDATE_ALL_CODEBASE: ${{ steps.latest_commit.outputs.validate_all }} # Validates all source when push on main, else just the git diff with main. Set 'true' if you always want to lint all sources
           # ADD YOUR CUSTOM ENV VARIABLES HERE TO OVERRIDE VALUES OF .mega-linter.yml AT THE ROOT OF YOUR REPOSITORY
-          DISABLE_LINTERS : ${{ steps.check_if_spell.outputs.filter }}
+          DISABLE_LINTERS : ${{ steps.latest_commit.outputs.filter }}
 
   run-examples:
     runs-on: ubuntu-latest
