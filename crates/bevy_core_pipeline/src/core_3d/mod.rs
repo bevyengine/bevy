@@ -36,7 +36,7 @@ use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
-    render_graph::{EmptyNode, RenderGraphApp},
+    render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
         sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
         RenderPhase,
@@ -93,14 +93,20 @@ impl Plugin for Core3dPlugin {
         use graph::node::*;
         render_app
             .add_render_sub_graph(CORE_3D)
-            .add_render_graph_node::<PrepassNode>(CORE_3D, PREPASS)
+            .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(CORE_3D, PREPASS)
             .add_render_graph_node::<EmptyNode>(CORE_3D, START_MAIN_PASS)
-            .add_render_graph_node::<MainOpaquePass3dNode>(CORE_3D, MAIN_OPAQUE_PASS)
-            .add_render_graph_node::<MainTransparentPass3dNode>(CORE_3D, MAIN_TRANSPARENT_PASS)
+            .add_render_graph_node::<ViewNodeRunner<MainOpaquePass3dNode>>(
+                CORE_3D,
+                MAIN_OPAQUE_PASS,
+            )
+            .add_render_graph_node::<ViewNodeRunner<MainTransparentPass3dNode>>(
+                CORE_3D,
+                MAIN_TRANSPARENT_PASS,
+            )
             .add_render_graph_node::<EmptyNode>(CORE_3D, END_MAIN_PASS)
-            .add_render_graph_node::<TonemappingNode>(CORE_3D, TONEMAPPING)
+            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(CORE_3D, TONEMAPPING)
             .add_render_graph_node::<EmptyNode>(CORE_3D, END_MAIN_PASS_POST_PROCESSING)
-            .add_render_graph_node::<UpscalingNode>(CORE_3D, UPSCALING)
+            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(CORE_3D, UPSCALING)
             .add_render_graph_edges(
                 CORE_3D,
                 &[
