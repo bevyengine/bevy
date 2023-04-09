@@ -53,9 +53,11 @@ pub fn prepare_fog(
     mut fog_meta: ResMut<FogMeta>,
     views: Query<(Entity, Option<&FogSettings>), With<ExtractedView>>,
 ) {
-    fog_meta.gpu_fogs.clear();
+    let view_iter = views.iter();
+    let capacity = view_iter.len();
+    let Some(mut writer) = fog_meta.gpu_fogs.get_writer(capacity, &render_device, &render_queue) else  { return };
 
-    for (entity, fog) in &views {
+    for (entity, fog) in view_iter {
         let gpu_fog = if let Some(fog) = fog {
             match &fog.falloff {
                 FogFalloff::Linear { start, end } => GpuFog {
@@ -104,13 +106,9 @@ pub fn prepare_fog(
 
         // This is later read by `SetMeshViewBindGroup<I>`
         commands.entity(entity).insert(ViewFogUniformOffset {
-            offset: fog_meta.gpu_fogs.push(gpu_fog),
+            offset: writer.write(&gpu_fog),
         });
     }
-
-    fog_meta
-        .gpu_fogs
-        .write_buffer(&render_device, &render_queue);
 }
 
 /// Labels for fog-related systems

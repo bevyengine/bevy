@@ -702,7 +702,9 @@ pub fn prepare_previous_view_projection_uniforms(
         With<MotionVectorPrepass>,
     >,
 ) {
-    view_uniforms.uniforms.clear();
+    let view_iter = views.iter();
+    let capacity = view_iter.len();
+    let Some(mut writer) = view_uniforms.uniforms.get_writer(capacity, &render_device, &render_queue) else  { return };
 
     for (entity, camera, maybe_previous_view_proj) in &views {
         let view_projection = match maybe_previous_view_proj {
@@ -714,13 +716,9 @@ pub fn prepare_previous_view_projection_uniforms(
         commands
             .entity(entity)
             .insert(PreviousViewProjectionUniformOffset {
-                offset: view_uniforms.uniforms.push(view_projection),
+                offset: writer.write(&view_projection),
             });
     }
-
-    view_uniforms
-        .uniforms
-        .write_buffer(&render_device, &render_queue);
 }
 
 // Prepares the textures used by the prepass
