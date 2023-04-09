@@ -157,8 +157,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
         {
             let thread_count = ComputeTaskPool::get().thread_num();
             if thread_count <= 1 {
-                self.state
-                    .for_each_unchecked_manual(self.world, func, self.last_run, self.this_run);
+                self.state.for_each_unchecked_manual(
+                    self.world,
+                    func,
+                    self.last_run,
+                    self.this_run,
+                );
             } else {
                 // Need a batch size of at least 1.
                 let batch_size = self.get_batch_size(thread_count).max(1);
