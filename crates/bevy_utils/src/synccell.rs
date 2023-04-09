@@ -1,3 +1,7 @@
+//! A reimplementation of the currently unstable [`std::sync::Exclusive`]
+//!
+//! [`std::sync::Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
+
 /// See [`Exclusive`](https://github.com/rust-lang/rust/issues/98407) for stdlib's upcoming implementation,
 /// which should replace this one entirely.
 ///
@@ -25,6 +29,14 @@ impl<T: ?Sized> SyncCell<T> {
         &mut self.inner
     }
 
+    /// For types that implement [`Sync`], get shared access to this `SyncCell`'s inner value.
+    pub fn read(&self) -> &T
+    where
+        T: Sync,
+    {
+        &self.inner
+    }
+
     /// Build a mutable reference to a `SyncCell` from a mutable reference
     /// to its inner value, to skip constructing with [`new()`](SyncCell::new()).
     pub fn from_mut(r: &'_ mut T) -> &'_ mut SyncCell<T> {
@@ -34,6 +46,6 @@ impl<T: ?Sized> SyncCell<T> {
 }
 
 // SAFETY: `Sync` only allows multithreaded access via immutable reference.
-// As `SyncCell` requires an exclusive reference to access the wrapped value,
-// marking this type as `Sync` does not actually allow threaded access to the inner value.
+// As `SyncCell` requires an exclusive reference to access the wrapped value for `!Sync` types,
+// marking this type as `Sync` does not actually allow unsynchronized access to the inner value.
 unsafe impl<T: ?Sized> Sync for SyncCell<T> {}

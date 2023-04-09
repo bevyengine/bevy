@@ -172,7 +172,7 @@ mod tests {
                 // Add a child to the grandparent (the "parent"), which will get deleted
                 parent
                     .spawn((N("Parent, to be deleted".to_owned()), Idx(3)))
-                    // All descendents of the "parent" should also be deleted.
+                    // All descendants of the "parent" should also be deleted.
                     .with_children(|parent| {
                         parent
                             .spawn((N("First Child, to be deleted".to_owned()), Idx(4)))

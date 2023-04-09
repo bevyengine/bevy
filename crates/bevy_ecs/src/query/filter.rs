@@ -1,13 +1,13 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
+    component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
-    storage::{ComponentSparseSet, Table},
+    storage::{Column, ComponentSparseSet, Table, TableRow},
     world::World,
 };
-use bevy_ecs_macros::all_tuples;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
+use bevy_utils::all_tuples;
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 use super::ReadOnlyWorldQuery;
@@ -50,13 +50,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
-    unsafe fn init_fetch(
-        _world: &World,
-        _state: &ComponentId,
-        _last_change_tick: u32,
-        _change_tick: u32,
-    ) {
-    }
+    unsafe fn init_fetch(_world: &World, _state: &ComponentId, _last_run: Tick, _this_run: Tick) {}
 
     unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
 
@@ -85,7 +79,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     unsafe fn fetch<'w>(
         _fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
-        _table_row: usize,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
     }
 
@@ -152,13 +146,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
-    unsafe fn init_fetch(
-        _world: &World,
-        _state: &ComponentId,
-        _last_change_tick: u32,
-        _change_tick: u32,
-    ) {
-    }
+    unsafe fn init_fetch(_world: &World, _state: &ComponentId, _last_run: Tick, _this_run: Tick) {}
 
     unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
 
@@ -187,7 +175,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     unsafe fn fetch<'w>(
         _fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
-        _table_row: usize,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
     }
 
@@ -249,7 +237,7 @@ unsafe impl<T: Component> ReadOnlyWorldQuery for Without<T> {}
 /// }
 /// # bevy_ecs::system::assert_is_system(print_cool_entity_system);
 /// ```
-pub struct Or<T>(pub T);
+pub struct Or<T>(PhantomData<T>);
 
 #[doc(hidden)]
 pub struct OrFetch<'w, T: WorldQuery> {
@@ -277,10 +265,10 @@ macro_rules! impl_query_filter_tuple {
 
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
-            unsafe fn init_fetch<'w>(world: &'w World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(world: &'w World, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
                 ($(OrFetch {
-                    fetch: $filter::init_fetch(world, $filter, last_change_tick, change_tick),
+                    fetch: $filter::init_fetch(world, $filter, last_run, this_run),
                     matches: false,
                 },)*)
             }
@@ -330,7 +318,7 @@ macro_rules! impl_query_filter_tuple {
             unsafe fn fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
-                _table_row: usize
+                _table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($filter,)*) = fetch;
                 false $(|| ($filter.matches && $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row)))*
@@ -340,7 +328,7 @@ macro_rules! impl_query_filter_tuple {
             unsafe fn filter_fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
                 entity: Entity,
-                table_row: usize
+                table_row: TableRow
             ) -> bool {
                 Self::fetch(fetch, entity, table_row)
             }
@@ -405,7 +393,8 @@ macro_rules! impl_tick_filter {
         $name: ident,
         $(#[$fetch_meta:meta])*
         $fetch_name: ident,
-        $is_detected: expr
+        $get_slice: expr,
+        $get_sparse_set: expr
     ) => {
         $(#[$meta])*
         pub struct $name<T>(PhantomData<T>);
@@ -413,11 +402,11 @@ macro_rules! impl_tick_filter {
         #[doc(hidden)]
         $(#[$fetch_meta])*
         pub struct $fetch_name<'w, T> {
-            table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
+            table_ticks: Option< ThinSlicePtr<'w, UnsafeCell<Tick>>>,
             marker: PhantomData<T>,
             sparse_set: Option<&'w ComponentSparseSet>,
-            last_change_tick: u32,
-            change_tick: u32,
+            last_run: Tick,
+            this_run: Tick,
         }
 
         // SAFETY: `Self::ReadOnly` is the same as `Self`
@@ -431,7 +420,7 @@ macro_rules! impl_tick_filter {
                 item
             }
 
-            unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_change_tick: u32, change_tick: u32) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 Self::Fetch::<'w> {
                     table_ticks: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
@@ -442,8 +431,8 @@ macro_rules! impl_tick_filter {
                                  .debug_checked_unwrap()
                         }),
                     marker: PhantomData,
-                    last_change_tick,
-                    change_tick,
+                    last_run,
+                    this_run,
                 }
             }
 
@@ -453,8 +442,8 @@ macro_rules! impl_tick_filter {
                 $fetch_name {
                     table_ticks: fetch.table_ticks,
                     sparse_set: fetch.sparse_set,
-                    last_change_tick: fetch.last_change_tick,
-                    change_tick: fetch.change_tick,
+                    last_run: fetch.last_run,
+                    this_run: fetch.this_run,
                     marker: PhantomData,
                 }
             }
@@ -475,10 +464,11 @@ macro_rules! impl_tick_filter {
                 table: &'w Table
             ) {
                 fetch.table_ticks = Some(
-                    table.get_column(component_id)
-                    .debug_checked_unwrap()
-                         .get_ticks_slice()
-                         .into()
+                    $get_slice(
+                        &table
+                            .get_column(component_id)
+                            .debug_checked_unwrap()
+                    ).into(),
                 );
             }
 
@@ -498,27 +488,25 @@ macro_rules! impl_tick_filter {
             unsafe fn fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
                 entity: Entity,
-                table_row: usize
+                table_row: TableRow
             ) -> Self::Item<'w> {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        $is_detected(&*(
-                            fetch.table_ticks
+                        fetch
+                            .table_ticks
                             .debug_checked_unwrap()
-                                 .get(table_row))
-                                 .deref(),
-                            fetch.last_change_tick,
-                            fetch.change_tick
-                        )
+                            .get(table_row.index())
+                            .deref()
+                            .is_newer_than(fetch.last_run, fetch.this_run)
                     }
                     StorageType::SparseSet => {
-                        let ticks = &*fetch
+                        let sparse_set = &fetch
                             .sparse_set
+                            .debug_checked_unwrap();
+                        $get_sparse_set(sparse_set, entity)
                             .debug_checked_unwrap()
-                            .get_ticks(entity)
-                            .debug_checked_unwrap()
-                            .get();
-                        $is_detected(ticks, fetch.last_change_tick, fetch.change_tick)
+                            .deref()
+                            .is_newer_than(fetch.last_run, fetch.this_run)
                     }
                 }
             }
@@ -527,7 +515,7 @@ macro_rules! impl_tick_filter {
             unsafe fn filter_fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
                 entity: Entity,
-                table_row: usize
+                table_row: TableRow
             ) -> bool {
                 Self::fetch(fetch, entity, table_row)
             }
@@ -572,7 +560,7 @@ impl_tick_filter!(
     /// A common use for this filter is one-time initialization.
     ///
     /// To retain all results without filtering but still check whether they were added after the
-    /// system last ran, use [`ChangeTrackers<T>`](crate::query::ChangeTrackers).
+    /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
     ///
     /// # Examples
     ///
@@ -595,7 +583,8 @@ impl_tick_filter!(
     /// ```
     Added,
     AddedFetch,
-    ComponentTicks::is_added
+    Column::get_added_ticks_slice,
+    ComponentSparseSet::get_added_ticks
 );
 
 impl_tick_filter!(
@@ -607,7 +596,7 @@ impl_tick_filter!(
     /// Bevy does not compare components to their previous values.
     ///
     /// To retain all results without filtering but still check whether they were changed after the
-    /// system last ran, use [`ChangeTrackers<T>`](crate::query::ChangeTrackers).
+    /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
     ///
     /// # Examples
     ///
@@ -632,7 +621,8 @@ impl_tick_filter!(
     /// ```
     Changed,
     ChangedFetch,
-    ComponentTicks::is_changed
+    Column::get_changed_ticks_slice,
+    ComponentSparseSet::get_changed_ticks
 );
 
 /// A marker trait to indicate that the filter works at an archetype level.

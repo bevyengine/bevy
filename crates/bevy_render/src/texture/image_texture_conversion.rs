@@ -126,7 +126,7 @@ impl Image {
                     let r = pixel[0];
                     let g = pixel[1];
                     let b = pixel[2];
-                    let a = u16::max_value();
+                    let a = 1f32;
 
                     local_data.extend_from_slice(&r.to_ne_bytes());
                     local_data.extend_from_slice(&g.to_ne_bytes());
@@ -168,7 +168,7 @@ impl Image {
         )
     }
 
-    /// Convert a [`Image`] to a [`DynamicImage`]. Usefull for editing image
+    /// Convert a [`Image`] to a [`DynamicImage`]. Useful for editing image
     /// data. Not all [`TextureFormat`] are covered, therefore it will return an
     /// error if the format is unsupported. Supported formats are:
     /// - `TextureFormat::R8Unorm`

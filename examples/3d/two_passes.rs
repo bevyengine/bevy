@@ -5,7 +5,7 @@ use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -17,7 +17,7 @@ fn setup(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
@@ -53,7 +53,7 @@ fn setup(
         },
         camera: Camera {
             // renders after / on top of the main camera
-            priority: 1,
+            order: 1,
             ..default()
         },
         ..default()

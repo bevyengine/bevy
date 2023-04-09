@@ -17,10 +17,11 @@ use bevy_utils::{
     tracing::{debug, error},
     Entry, HashMap, HashSet,
 };
+use parking_lot::Mutex;
 use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref};
 use thiserror::Error;
 use wgpu::{
-    BufferBindingType, PipelineLayoutDescriptor, VertexBufferLayout as RawVertexBufferLayout,
+    PipelineLayoutDescriptor, PushConstantRange, VertexBufferLayout as RawVertexBufferLayout,
 };
 
 use crate::render_resource::resource_macros::*;
@@ -55,6 +56,11 @@ pub struct CachedRenderPipelineId(CachedPipelineId);
 impl CachedRenderPipelineId {
     /// An invalid cached render pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
+
+    #[inline]
+    pub fn id(&self) -> usize {
+        self.0
+    }
 }
 
 /// Index of a cached compute pipeline in a [`PipelineCache`].
@@ -64,6 +70,11 @@ pub struct CachedComputePipelineId(CachedPipelineId);
 impl CachedComputePipelineId {
     /// An invalid cached compute pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
+
+    #[inline]
+    pub fn id(&self) -> usize {
+        self.0
+    }
 }
 
 pub struct CachedPipeline {
@@ -107,7 +118,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Vec<String>, ErasedShaderModule>,
+    processed_shaders: HashMap<Vec<ShaderDefVal>, ErasedShaderModule>,
     resolved_imports: HashMap<ShaderImport, Handle<Shader>>,
     dependents: HashSet<Handle<Shader>>,
 }
@@ -121,13 +132,42 @@ struct ShaderCache {
     processor: ShaderProcessor,
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+pub enum ShaderDefVal {
+    Bool(String, bool),
+    Int(String, i32),
+    UInt(String, u32),
+}
+
+impl From<&str> for ShaderDefVal {
+    fn from(key: &str) -> Self {
+        ShaderDefVal::Bool(key.to_string(), true)
+    }
+}
+
+impl From<String> for ShaderDefVal {
+    fn from(key: String) -> Self {
+        ShaderDefVal::Bool(key, true)
+    }
+}
+
+impl ShaderDefVal {
+    pub fn value_as_string(&self) -> String {
+        match self {
+            ShaderDefVal::Bool(_, def) => def.to_string(),
+            ShaderDefVal::Int(_, def) => def.to_string(),
+            ShaderDefVal::UInt(_, def) => def.to_string(),
+        }
+    }
+}
+
 impl ShaderCache {
     fn get(
         &mut self,
         render_device: &RenderDevice,
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
-        shader_defs: &[String],
+        shader_defs: &[ShaderDefVal],
     ) -> Result<ErasedShaderModule, PipelineCacheError> {
         let shader = self
             .shaders
@@ -156,22 +196,14 @@ impl ShaderCache {
                 let mut shader_defs = shader_defs.to_vec();
                 #[cfg(feature = "webgl")]
                 {
-                    shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
-                    shader_defs.push(String::from("SIXTEEN_BYTE_ALIGNMENT"));
+                    shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+                    shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
-                // TODO: 3 is the value from CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT declared in bevy_pbr
-                // consider exposing this in shaders in a more generally useful way, such as:
-                // # if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
-                // /* use storage buffers here */
-                // # elif
-                // /* use uniforms here */
-                if !matches!(
-                    render_device.get_supported_read_only_binding_type(3),
-                    BufferBindingType::Storage { .. }
-                ) {
-                    shader_defs.push(String::from("NO_STORAGE_BUFFERS_SUPPORT"));
-                }
+                shader_defs.push(ShaderDefVal::UInt(
+                    String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+                    render_device.limits().max_storage_buffers_per_shader_stage,
+                ));
 
                 debug!(
                     "processing shader {:?}, with shader defs {:?}",
@@ -199,7 +231,7 @@ impl ShaderCache {
                 let error = render_device.wgpu_device().pop_error_scope();
 
                 // `now_or_never` will return Some if the future is ready and None otherwise.
-                // On native platforms, wgpu will yield the error immediatly while on wasm it may take longer since the browser APIs are asynchronous.
+                // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
                 // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
                 // and on wasm the error will be handled by wgpu and crash the application.
                 if let Some(Some(wgpu::Error::Validation { description, .. })) =
@@ -278,9 +310,10 @@ impl ShaderCache {
     }
 }
 
+type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<Vec<BindGroupLayoutId>, ErasedPipelineLayout>,
+    layouts: HashMap<LayoutCacheKey, ErasedPipelineLayout>,
 }
 
 impl LayoutCache {
@@ -288,20 +321,24 @@ impl LayoutCache {
         &mut self,
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
+        push_constant_ranges: Vec<PushConstantRange>,
     ) -> &wgpu::PipelineLayout {
-        let key = bind_group_layouts.iter().map(|l| l.id()).collect();
-        self.layouts.entry(key).or_insert_with(|| {
-            let bind_group_layouts = bind_group_layouts
-                .iter()
-                .map(|l| l.value())
-                .collect::<Vec<_>>();
-            ErasedPipelineLayout::new(render_device.create_pipeline_layout(
-                &PipelineLayoutDescriptor {
-                    bind_group_layouts: &bind_group_layouts,
-                    ..default()
-                },
-            ))
-        })
+        let bind_group_ids = bind_group_layouts.iter().map(|l| l.id()).collect();
+        self.layouts
+            .entry((bind_group_ids, push_constant_ranges))
+            .or_insert_with_key(|(_, push_constant_ranges)| {
+                let bind_group_layouts = bind_group_layouts
+                    .iter()
+                    .map(|l| l.value())
+                    .collect::<Vec<_>>();
+                ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+                    &PipelineLayoutDescriptor {
+                        bind_group_layouts: &bind_group_layouts,
+                        push_constant_ranges,
+                        ..default()
+                    },
+                ))
+            })
     }
 }
 
@@ -310,13 +347,13 @@ impl LayoutCache {
 /// The cache stores existing render and compute pipelines allocated on the GPU, as well as
 /// pending creation. Pipelines inserted into the cache are identified by a unique ID, which
 /// can be used to retrieve the actual GPU object once it's ready. The creation of the GPU
-/// pipeline object is deferred to the [`RenderStage::Render`] stage, just before the render
+/// pipeline object is deferred to the [`RenderSet::Render`] step, just before the render
 /// graph starts being processed, as this requires access to the GPU.
 ///
 /// Note that the cache do not perform automatic deduplication of identical pipelines. It is
 /// up to the user not to insert the same pipeline twice to avoid wasting GPU resources.
 ///
-/// [`RenderStage::Render`]: crate::RenderStage::Render
+/// [`RenderSet::Render`]: crate::RenderSet::Render
 #[derive(Resource)]
 pub struct PipelineCache {
     layout_cache: LayoutCache,
@@ -324,6 +361,7 @@ pub struct PipelineCache {
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
+    new_pipelines: Mutex<Vec<CachedPipeline>>,
 }
 
 impl PipelineCache {
@@ -338,6 +376,7 @@ impl PipelineCache {
             layout_cache: default(),
             shader_cache: default(),
             waiting_pipelines: default(),
+            new_pipelines: default(),
             pipelines: default(),
         }
     }
@@ -436,15 +475,15 @@ impl PipelineCache {
     /// [`get_render_pipeline_state()`]: PipelineCache::get_render_pipeline_state
     /// [`get_render_pipeline()`]: PipelineCache::get_render_pipeline
     pub fn queue_render_pipeline(
-        &mut self,
+        &self,
         descriptor: RenderPipelineDescriptor,
     ) -> CachedRenderPipelineId {
-        let id = CachedRenderPipelineId(self.pipelines.len());
-        self.pipelines.push(CachedPipeline {
+        let mut new_pipelines = self.new_pipelines.lock();
+        let id = CachedRenderPipelineId(self.pipelines.len() + new_pipelines.len());
+        new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::RenderPipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
         });
-        self.waiting_pipelines.insert(id.0);
         id
     }
 
@@ -462,15 +501,15 @@ impl PipelineCache {
     /// [`get_compute_pipeline_state()`]: PipelineCache::get_compute_pipeline_state
     /// [`get_compute_pipeline()`]: PipelineCache::get_compute_pipeline
     pub fn queue_compute_pipeline(
-        &mut self,
+        &self,
         descriptor: ComputePipelineDescriptor,
     ) -> CachedComputePipelineId {
-        let id = CachedComputePipelineId(self.pipelines.len());
-        self.pipelines.push(CachedPipeline {
+        let mut new_pipelines = self.new_pipelines.lock();
+        let id = CachedComputePipelineId(self.pipelines.len() + new_pipelines.len());
+        new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
         });
-        self.waiting_pipelines.insert(id.0);
         id
     }
 
@@ -539,10 +578,14 @@ impl PipelineCache {
             })
             .collect::<Vec<_>>();
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
             None
+        } else {
+            Some(self.layout_cache.get(
+                &self.device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
         };
 
         let descriptor = RawRenderPipelineDescriptor {
@@ -588,10 +631,14 @@ impl PipelineCache {
             }
         };
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
             None
+        } else {
+            Some(self.layout_cache.get(
+                &self.device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
         };
 
         let descriptor = RawComputePipelineDescriptor {
@@ -608,13 +655,22 @@ impl PipelineCache {
 
     /// Process the pipeline queue and create all pending pipelines if possible.
     ///
-    /// This is generally called automatically during the [`RenderStage::Render`] stage, but can
+    /// This is generally called automatically during the [`RenderSet::Render`] step, but can
     /// be called manually to force creation at a different time.
     ///
-    /// [`RenderStage::Render`]: crate::RenderStage::Render
+    /// [`RenderSet::Render`]: crate::RenderSet::Render
     pub fn process_queue(&mut self) {
-        let waiting_pipelines = mem::take(&mut self.waiting_pipelines);
+        let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
         let mut pipelines = mem::take(&mut self.pipelines);
+
+        {
+            let mut new_pipelines = self.new_pipelines.lock();
+            for new_pipeline in new_pipelines.drain(..) {
+                let id = pipelines.len();
+                pipelines.push(new_pipeline);
+                waiting_pipelines.insert(id);
+            }
+        }
 
         for id in waiting_pipelines {
             let pipeline = &mut pipelines[id];
@@ -775,7 +831,7 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
 #[derive(Error, Debug)]
 pub enum PipelineCacheError {
     #[error(
-        "Pipeline cound not be compiled because the following shader is not loaded yet: {0:?}"
+        "Pipeline could not be compiled because the following shader is not loaded yet: {0:?}"
     )]
     ShaderNotLoaded(Handle<Shader>),
     #[error(transparent)]

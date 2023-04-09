@@ -2,7 +2,7 @@ use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ComputedVisibility,
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, Handle};
@@ -13,6 +13,8 @@ use bevy_ecs::{
     system::lifetimeless::Read,
 };
 use std::{marker::PhantomData, ops::Deref};
+
+pub use bevy_render_macros::ExtractComponent;
 
 /// Stores the index of a uniform inside of [`ComponentUniforms`].
 #[derive(Component)]
@@ -31,14 +33,32 @@ impl<C: Component> DynamicUniformIndex<C> {
 /// Describes how a component gets extracted for rendering.
 ///
 /// Therefore the component is transferred from the "app world" into the "render world"
-/// in the [`RenderStage::Extract`](crate::RenderStage::Extract) step.
+/// in the [`ExtractSchedule`](crate::ExtractSchedule) step.
 pub trait ExtractComponent: Component {
     /// ECS [`WorldQuery`] to fetch the components to extract.
     type Query: WorldQuery + ReadOnlyWorldQuery;
     /// Filters the entities with additional constraints.
     type Filter: WorldQuery + ReadOnlyWorldQuery;
+
+    /// The output from extraction.
+    ///
+    /// Returning `None` based on the queried item can allow early optimization,
+    /// for example if there is an `enabled: bool` field on `Self`, or by only accepting
+    /// values within certain thresholds.
+    ///
+    /// The output may be different from the queried component.
+    /// This can be useful for example if only a subset of the fields are useful
+    /// in the render world.
+    ///
+    /// `Out` has a [`Bundle`] trait bound instead of a [`Component`] trait bound in order to allow use cases
+    /// such as tuples of components as output.
+    type Out: Bundle;
+
+    // TODO: https://github.com/rust-lang/rust/issues/29661
+    // type Out: Component = Self;
+
     /// Defines how the component is transferred into the "render world".
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self;
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self::Out>;
 }
 
 /// This plugin prepares the components of the corresponding type for the GPU
@@ -48,7 +68,7 @@ pub trait ExtractComponent: Component {
 /// For referencing the newly created uniforms a [`DynamicUniformIndex`] is inserted
 /// for every processed entity.
 ///
-/// Therefore it sets up the [`RenderStage::Prepare`](crate::RenderStage::Prepare) step
+/// Therefore it sets up the [`RenderSet::Prepare`](crate::RenderSet::Prepare) step
 /// for the specified [`ExtractComponent`].
 pub struct UniformComponentPlugin<C>(PhantomData<fn() -> C>);
 
@@ -63,7 +83,10 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .insert_resource(ComponentUniforms::<C>::default())
-                .add_system_to_stage(RenderStage::Prepare, prepare_uniform_components::<C>);
+                .add_systems(
+                    Render,
+                    prepare_uniform_components::<C>.in_set(RenderSet::Prepare),
+                );
         }
     }
 }
@@ -131,7 +154,7 @@ fn prepare_uniform_components<C: Component>(
 
 /// This plugin extracts the components into the "render world".
 ///
-/// Therefore it sets up the [`RenderStage::Extract`](crate::RenderStage::Extract) step
+/// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) step
 /// for the specified [`ExtractComponent`].
 pub struct ExtractComponentPlugin<C, F = ()> {
     only_extract_visible: bool,
@@ -160,10 +183,9 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
-                render_app
-                    .add_system_to_stage(RenderStage::Extract, extract_visible_components::<C>);
+                render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
             } else {
-                render_app.add_system_to_stage(RenderStage::Extract, extract_components::<C>);
+                render_app.add_systems(ExtractSchedule, extract_components::<C>);
             }
         }
     }
@@ -172,10 +194,11 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
 impl<T: Asset> ExtractComponent for Handle<T> {
     type Query = Read<Handle<T>>;
     type Filter = ();
+    type Out = Handle<T>;
 
     #[inline]
-    fn extract_component(handle: QueryItem<'_, Self::Query>) -> Self {
-        handle.clone_weak()
+    fn extract_component(handle: QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+        Some(handle.clone_weak())
     }
 }
 
@@ -187,7 +210,9 @@ fn extract_components<C: ExtractComponent>(
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
-        values.push((entity, C::extract_component(query_item)));
+        if let Some(component) = C::extract_component(query_item) {
+            values.push((entity, component));
+        }
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
@@ -202,7 +227,9 @@ fn extract_visible_components<C: ExtractComponent>(
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility, query_item) in &query {
         if computed_visibility.is_visible() {
-            values.push((entity, C::extract_component(query_item)));
+            if let Some(component) = C::extract_component(query_item) {
+                values.push((entity, component));
+            }
         }
     }
     *previous_len = values.len();

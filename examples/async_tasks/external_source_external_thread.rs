@@ -10,10 +10,8 @@ fn main() {
     App::new()
         .add_event::<StreamEvent>()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(read_stream)
-        .add_system(spawn_text)
-        .add_system(move_text)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (read_stream, spawn_text, move_text))
         .run();
 }
 
@@ -66,7 +64,7 @@ fn spawn_text(
     for (per_frame, event) in reader.iter().enumerate() {
         commands.spawn(Text2dBundle {
             text: Text::from_section(event.0.to_string(), text_style.clone())
-                .with_alignment(TextAlignment::CENTER),
+                .with_alignment(TextAlignment::Center),
             transform: Transform::from_xyz(
                 per_frame as f32 * 100.0 + rand::thread_rng().gen_range(-40.0..40.0),
                 300.0,
