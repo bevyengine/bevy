@@ -167,7 +167,7 @@ jobs:
   # This gonna download the lint image with a size of 1.78 gb locally on your device and run the linter, see the results in /megalinter-reports
   # Notice: You might have to restart docker if you cancel the linting process prematurely
   # For more info see: https://megalinter.io/latest/mega-linter-runner
-  linting:
+  markdownlint-and-spellcheck:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [check-missing-features-in-docs, check-skip-flags]
@@ -178,7 +178,7 @@ jobs:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
 
-      - name: Check if spelling should be skipped
+      - name: Check if spellcheck should be skipped
         id: check_if_spell
         run: |
           if [$REF]
@@ -194,7 +194,7 @@ jobs:
         id: ml
         # You can override MegaLinter flavor used to have faster performances
         # More info at https://megalinter.io/flavors/
-        uses: docker://ghcr.io/github/oxsecurity/megalinter-documentation:v6.22.2 # oxsecurity/megalinter/flavors/rust@v6
+        uses: oxsecurity/megalinter/flavors/documentation@v6.22.2 # docker://ghcr.io/github/oxsecurity/megalinter-documentation:v6.22.2 # oxsecurity/megalinter/flavors/rust@v6
         env:
           MEGALINTER_CONFIG: ".github/linters/.mega-linter.yml"
           # All available variables are described in documentation
