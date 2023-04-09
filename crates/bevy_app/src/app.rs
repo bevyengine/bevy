@@ -299,7 +299,7 @@ impl App {
     }
 
     /// Check that [`Plugin::ready`] of all plugins returns true. This is usually called by the
-    /// event loop, but can be useful for situations where you can to use [`App::update`]
+    /// event loop, but can be useful for situations where you want to use [`App::update`]
     pub fn ready(&self) -> bool {
         for plugin in &self.plugin_registry {
             if !plugin.ready(self) {
