@@ -341,38 +341,33 @@ impl Plugin for RenderPlugin {
 
     fn ready(&self, app: &App) -> bool {
         app.world
-            .resource::<FutureRendererResources>()
-            .0
-            .try_lock()
-            .map(|locked| locked.is_some())
+            .get_resource::<FutureRendererResources>()
+            .and_then(|frr| frr.0.try_lock().map(|locked| locked.is_some()).ok())
             .unwrap_or_default()
     }
 
     fn finish(&self, app: &mut App) {
-        let (device, queue, adapter_info, render_adapter, instance) = app
-            .world
-            .remove_resource::<FutureRendererResources>()
-            .unwrap()
-            .0
-            .lock()
-            .unwrap()
-            .take()
-            .unwrap();
+        if let Some(future_renderer_resources) =
+            app.world.remove_resource::<FutureRendererResources>()
+        {
+            let (device, queue, adapter_info, render_adapter, instance) =
+                future_renderer_resources.0.lock().unwrap().take().unwrap();
 
-        app.insert_resource(device.clone())
-            .insert_resource(queue.clone())
-            .insert_resource(adapter_info.clone())
-            .insert_resource(render_adapter.clone());
+            app.insert_resource(device.clone())
+                .insert_resource(queue.clone())
+                .insert_resource(adapter_info.clone())
+                .insert_resource(render_adapter.clone());
 
-        let render_app = app.sub_app_mut(RenderApp);
+            let render_app = app.sub_app_mut(RenderApp);
 
-        render_app
-            .insert_resource(RenderInstance(instance))
-            .insert_resource(PipelineCache::new(device.clone()))
-            .insert_resource(device)
-            .insert_resource(queue)
-            .insert_resource(render_adapter)
-            .insert_resource(adapter_info);
+            render_app
+                .insert_resource(RenderInstance(instance))
+                .insert_resource(PipelineCache::new(device.clone()))
+                .insert_resource(device)
+                .insert_resource(queue)
+                .insert_resource(render_adapter)
+                .insert_resource(adapter_info);
+        }
     }
 }
 
