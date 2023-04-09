@@ -20,9 +20,8 @@ use parking_lot::Mutex;
 use std::{borrow::Cow, hash::Hash, mem, ops::Deref};
 use thiserror::Error;
 use wgpu::{
-    util::make_spirv, Features, PipelineLayoutDescriptor, ShaderModuleDescriptor,
-    VertexBufferLayout as RawVertexBufferLayout,
-    PushConstantRange,
+    util::make_spirv, Features, PipelineLayoutDescriptor, PushConstantRange,
+    ShaderModuleDescriptor, VertexBufferLayout as RawVertexBufferLayout,
 };
 
 use crate::render_resource::resource_macros::*;

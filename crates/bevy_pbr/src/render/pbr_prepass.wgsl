@@ -31,7 +31,7 @@ const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 // We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
 fn prepass_alpha_discard(in: FragmentInput) {
 #ifndef EMPTY_PREPASS_ALPHA_DISCARD
-    var output_color: vec4<f32> = material.base_color;
+    var output_color: vec4<f32> = bevy_pbr::pbr_bindings::material.base_color;
 
 #ifdef VERTEX_UVS
     if (bevy_pbr::pbr_bindings::material.flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
@@ -39,6 +39,7 @@ fn prepass_alpha_discard(in: FragmentInput) {
     }
 #endif // VERTEX_UVS
 
+#ifdef ALPHA_MASK
     if ((bevy_pbr::pbr_bindings::material.flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) && output_color.a < bevy_pbr::pbr_bindings::material.alpha_cutoff {
         discard;
     }

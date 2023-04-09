@@ -46,5 +46,5 @@ fn fragment(
     );
     pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 
-    return fns::tone_mapping(fns::pbr(pbr_input));
+    return fns::tone_mapping(fns::pbr(pbr_input), ::view.color_grading);
 }

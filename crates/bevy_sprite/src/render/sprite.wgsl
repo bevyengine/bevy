@@ -45,7 +45,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 #endif
 
 #ifdef TONEMAP_IN_SHADER
-    color = bevy_core_pipeline::tonemapping::tone_mapping(color);
+    color = bevy_core_pipeline::tonemapping::tone_mapping(color, view::color_grading);
 #endif
 
     return color;

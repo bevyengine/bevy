@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::prepass_bindings
 
-#from bevy_pbr::mesh_view_types import View
+#from bevy_render::view import View
 #from bevy_render::globals import Globals
 #import bevy_pbr::mesh_types
 

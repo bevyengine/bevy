@@ -201,7 +201,7 @@ fn pbr(
 
     let R = reflect(-in.V, in.N);
 
-    let f_ab = F_AB(perceptual_roughness, NdotV);
+    let f_ab = lighting::F_AB(perceptual_roughness, NdotV);
 
     var direct_light: vec3<f32> = vec3<f32>(0.0);
 

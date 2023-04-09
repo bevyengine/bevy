@@ -37,7 +37,7 @@ pub struct Shader {
 
 impl Shader {
     fn preprocess(source: &str, path: &str) -> (ShaderImport, Vec<ShaderImport>) {
-        let (import_path, imports) = naga_oil::compose::get_preprocessor_data(source);
+        let (import_path, imports, _) = naga_oil::compose::get_preprocessor_data(source);
 
         let import_path = import_path
             .map(ShaderImport::Custom)

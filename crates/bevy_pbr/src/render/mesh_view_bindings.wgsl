@@ -1,9 +1,11 @@
 #define_import_path bevy_pbr::mesh_view_bindings
 
 #import bevy_pbr::mesh_view_types as types
+#from bevy_render::view import View
+#from bevy_render::globals import Globals
 
 @group(0) @binding(0)
-var<uniform> view: types::View;
+var<uniform> view: ::View;
 @group(0) @binding(1)
 var<uniform> lights: types::Lights;
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
@@ -42,7 +44,7 @@ var<uniform> cluster_offsets_and_counts: types::ClusterOffsetsAndCounts;
 #endif
 
 @group(0) @binding(9)
-var<uniform> globals: types::Globals;
+var<uniform> globals: ::Globals;
 @group(0) @binding(10)
 var<uniform> fog: types::Fog;
 

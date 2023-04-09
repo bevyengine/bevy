@@ -1,8 +1,9 @@
-#ifdef GIZMO_LINES_3D
-    #import bevy_pbr::mesh_view_bindings
-#else
-    #import bevy_sprite::mesh2d_view_bindings
-#endif
+// TODO use common view binding
+#from bevy_render::view import View
+
+@group(0) @binding(0)
+var<uniform> view: ::View;
+
 
 struct VertexInput {
     @location(0) pos: vec3<f32>,

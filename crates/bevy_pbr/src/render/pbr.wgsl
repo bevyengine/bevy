@@ -4,6 +4,12 @@
 #import bevy_pbr::pbr_bindings as pbr_bindings
 #import bevy_pbr::pbr_types as pbr_types
 
+#from bevy_pbr::mesh_vertex_output      import MeshVertexOutput
+#from bevy_pbr::mesh_bindings           import mesh
+#from bevy_pbr::mesh_view_bindings      import view, fog
+#from bevy_pbr::mesh_view_types         import FOG_MODE_OFF
+#from bevy_core_pipeline::tonemapping   import screen_space_dither, powsafe, tone_mapping
+
 #import bevy_pbr::prepass_utils
 
 struct FragmentInput {
@@ -14,17 +20,17 @@ struct FragmentInput {
 
 @fragment
 fn fragment(
-    mesh: ::MeshVertexOutput,
+    in: ::MeshVertexOutput,
     @builtin(front_facing) is_front: bool,
 ) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
 
 #ifdef VERTEX_COLORS
-    output_color = output_color * mesh.color;
+    output_color = output_color * in.color;
 #endif
 #ifdef VERTEX_UVS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
-        output_color = output_color * textureSample(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, mesh.uv);
+        output_color = output_color * textureSample(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, in.uv);
     }
 #endif
 
@@ -43,7 +49,7 @@ fn fragment(
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
-            emissive = vec4<f32>(emissive.rgb * textureSample(pbr_bindings::emissive_texture, pbr_bindings::emissive_sampler, mesh.uv).rgb, 1.0);
+            emissive = vec4<f32>(emissive.rgb * textureSample(pbr_bindings::emissive_texture, pbr_bindings::emissive_sampler, in.uv).rgb, 1.0);
         }
 #endif
         pbr_input.material.emissive = emissive;
@@ -52,7 +58,7 @@ fn fragment(
         var perceptual_roughness: f32 = pbr_bindings::material.perceptual_roughness;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
-            let metallic_roughness = textureSample(pbr_bindings::metallic_roughness_texture, pbr_bindings::metallic_roughness_sampler, mesh.uv);
+            let metallic_roughness = textureSample(pbr_bindings::metallic_roughness_texture, pbr_bindings::metallic_roughness_sampler, in.uv);
             // Sampling from GLTF standard channels for now
             metallic = metallic * metallic_roughness.b;
             perceptual_roughness = perceptual_roughness * metallic_roughness.g;
@@ -64,26 +70,26 @@ fn fragment(
         var occlusion: f32 = 1.0;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
-            occlusion = textureSample(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, mesh.uv).r;
+            occlusion = textureSample(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, in.uv).r;
         }
 #endif
-        pbr_input.frag_coord = in.frag_coord;
+        pbr_input.frag_coord = in.clip_position;
         pbr_input.world_position = in.world_position;
 
 #ifdef LOAD_PREPASS_NORMALS
-        pbr_input.world_normal = prepass_normal(in.frag_coord, 0u);
+        pbr_input.world_normal = prepass_normal(in.clip_position, 0u);
 #else // LOAD_PREPASS_NORMALS
-        pbr_input.world_normal = prepare_world_normal(
+        pbr_input.world_normal = pbr_functions::prepare_world_normal(
             in.world_normal,
-            (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
-            in.is_front,
+            (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+            is_front,
         );
 #endif // LOAD_PREPASS_NORMALS
 
-        pbr_input.is_orthographic = view.projection[3].w == 1.0;
+        pbr_input.is_orthographic = ::view.projection[3].w == 1.0;
 
-        pbr_input.N = apply_normal_mapping(
-            material.flags,
+        pbr_input.N = pbr_functions::apply_normal_mapping(
+            pbr_bindings::material.flags,
             pbr_input.world_normal,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
@@ -94,30 +100,30 @@ fn fragment(
             in.uv,
 #endif
         );
-        pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
+        pbr_input.V = pbr_functions::calculate_view(in.world_position, pbr_input.is_orthographic);
         pbr_input.occlusion = occlusion;
 
-        pbr_input.flags = mesh.flags;
+        pbr_input.flags = ::mesh.flags;
 
-        output_color = pbr(pbr_input);
+        output_color = pbr_functions::pbr(pbr_input);
     } else {
         output_color = pbr_functions::alpha_discard(pbr_bindings::material, output_color);
     }
 
     // fog
     if (::fog.mode != ::FOG_MODE_OFF && (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
-        output_color = pbr_functions::apply_fog(output_color, mesh.world_position.xyz, ::view.world_position.xyz);
+        output_color = pbr_functions::apply_fog(output_color, in.world_position.xyz, ::view.world_position.xyz);
     }
 
 #ifdef TONEMAP_IN_SHADER
-    output_color = tone_mapping(output_color);
+    output_color = ::tone_mapping(output_color, ::view.color_grading);
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
-    output_rgb = powsafe(output_rgb, 1.0 / 2.2);
-    output_rgb = output_rgb + screen_space_dither(in.frag_coord.xy);
+    output_rgb = ::powsafe(output_rgb, 1.0 / 2.2);
+    output_rgb = output_rgb + ::screen_space_dither(in.clip_position.xy);
     // This conversion back to linear space is required because our output texture format is
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
-    output_rgb = powsafe(output_rgb, 2.2);
+    output_rgb = ::powsafe(output_rgb, 2.2);
     output_color = vec4(output_rgb, output_color.a);
 #endif
 #endif

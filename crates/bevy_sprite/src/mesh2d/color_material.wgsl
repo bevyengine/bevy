@@ -1,5 +1,6 @@
 #from bevy_sprite::mesh2d_types         import Mesh2d
 #from bevy_sprite::mesh2d_vertex_output import MeshVertexOutput
+#from bevy_sprite::mesh2d_view_bindings import view
 
 #ifdef TONEMAP_IN_SHADER
 #import bevy_core_pipeline::tonemapping
@@ -31,7 +32,7 @@ fn fragment(
         output_color = output_color * textureSample(texture, texture_sampler, mesh.uv);
     }
 #ifdef TONEMAP_IN_SHADER
-    output_color = tone_mapping(output_color);
+    output_color = tone_mapping(output_color, ::view.color_grading);
 #endif
     return output_color;
 }

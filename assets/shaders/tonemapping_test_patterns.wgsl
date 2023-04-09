@@ -58,7 +58,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     }
     var color = vec4(out, 1.0);
 #ifdef TONEMAP_IN_SHADER
-    color = tone_mapping(color);
+    color = tone_mapping(color, bevy_pbr::mesh_view_bindings::view.color_grading);
 #endif
     return color;
 }

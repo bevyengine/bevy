@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::ambient
 
-#from bevy_pbr::lighting import EnvBRDFApprox
+#from bevy_pbr::lighting import EnvBRDFApprox, F_AB
 #from bevy_pbr::mesh_view_bindings import lights
 
 // A precomputed `NdotV` is provided because it is computed regardless,
@@ -15,8 +15,8 @@ fn ambient_light(
     perceptual_roughness: f32,
     occlusion: f32,
 ) -> vec3<f32> {
-    let diffuse_ambient = ::EnvBRDFApprox(diffuse_color, 1.0, NdotV);
-    let specular_ambient = ::EnvBRDFApprox(specular_color, perceptual_roughness, NdotV);
+    let diffuse_ambient = ::EnvBRDFApprox(diffuse_color, ::F_AB(1.0, NdotV));
+    let specular_ambient = ::EnvBRDFApprox(specular_color, ::F_AB(perceptual_roughness, NdotV));
 
     return (diffuse_ambient + specular_ambient) * ::lights.ambient_color.rgb * occlusion;
 }
