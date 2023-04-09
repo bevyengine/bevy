@@ -134,8 +134,10 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                     .unwrap_or(0);
                 let field_len = value.field_len().saturating_sub(ignored_len);
                 if value.field_len() == 1 && field_len == 1 {
+                    let field = value.field(0).unwrap();
                     NewtypeStructSerializer {
                         tuple_struct: value,
+                        field,
                         registry: self.registry,
                     }
                     .serialize(serializer)
@@ -244,6 +246,7 @@ impl<'a> Serialize for StructSerializer<'a> {
 
 pub struct NewtypeStructSerializer<'a> {
     pub tuple_struct: &'a dyn TupleStruct,
+    pub field: &'a dyn Reflect,
     pub registry: &'a TypeRegistry,
 }
 
@@ -252,40 +255,9 @@ impl<'a> Serialize for NewtypeStructSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let type_info = get_type_info(
-            self.tuple_struct.get_type_info(),
-            self.tuple_struct.type_name(),
-            self.registry,
-        )?;
-
-        let tuple_struct_info = match type_info {
-            TypeInfo::TupleStruct(tuple_struct_info) => tuple_struct_info,
-            info => {
-                return Err(Error::custom(format_args!(
-                    "expected newtype struct type but received {info:?}"
-                )));
-            }
-        };
-
-        let serialization_data = self
-            .registry
-            .get(type_info.type_id())
-            .and_then(|registration| registration.data::<SerializationData>());
-
-        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
-        let field_len = self.tuple_struct.field_len().saturating_sub(ignored_len);
-
-        if field_len != 1 {
-            return Err(Error::custom(format_args!(
-                "tried to serialize {} as a newtype struct, but it doesn't have exactly 1 field.",
-                type_info.type_name(),
-            )));
-        }
-
-        let field = self.tuple_struct.field(0).unwrap();
         serializer.serialize_newtype_struct(
-            tuple_struct_info.name(),
-            &TypedReflectSerializer::new(field, self.registry),
+            self.tuple_struct.get_type_info().type_name(),
+            &TypedReflectSerializer::new(self.field, self.registry),
         )
     }
 }
