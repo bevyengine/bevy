@@ -181,14 +181,21 @@ jobs:
       - name: Check if spellcheck should be skipped
         id: check_if_spell
         run: |
-          if [$REF]
+          if [$SPELL_CHECK]
           then
               echo "filter=PHP" >> $GITHUB_OUTPUT
           else
               echo "filter=SPELL" >> $GITHUB_OUTPUT
           fi
+          if [$VALIDATE_ALL]
+          then
+              echo "validate_all=true" >> $GITHUB_OUTPUT
+          else
+              echo "validate_all=false" >> $GITHUB_OUTPUT
+          fi
         env:
-          REF: ${{ contains(needs.check-skip-flags.outputs.head-commit-message, '[spellcheck]') }}
+          SPELL_CHECK: ${{ contains(needs.check-skip-flags.outputs.head-commit-message, '[spellcheck]') }}
+          VALIDATE_ALL: ${{ contains(needs.check-skip-flags.outputs.head-commit-message, '[lint-all]') }}
       
       - name: Run Markdown & Spelling lints
         id: ml
@@ -199,7 +206,7 @@ jobs:
           MEGALINTER_CONFIG: ".github/linters/.mega-linter.yml"
           # All available variables are described in documentation
           # https://megalinter.io/configuration/
-          VALIDATE_ALL_CODEBASE: false # Validates all source when push on main, else just the git diff with main. Set 'true' if you always want to lint all sources
+          VALIDATE_ALL_CODEBASE: ${{ steps.check_if_spell.outputs.validate_all }} # Validates all source when push on main, else just the git diff with main. Set 'true' if you always want to lint all sources
           # ADD YOUR CUSTOM ENV VARIABLES HERE TO OVERRIDE VALUES OF .mega-linter.yml AT THE ROOT OF YOUR REPOSITORY
           DISABLE_LINTERS : ${{ steps.check_if_spell.outputs.filter }}
 
