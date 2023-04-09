@@ -22,6 +22,7 @@ use thiserror::Error;
 use wgpu::{
     util::make_spirv, Features, PipelineLayoutDescriptor, ShaderModuleDescriptor,
     VertexBufferLayout as RawVertexBufferLayout,
+    PushConstantRange,
 };
 
 use crate::render_resource::resource_macros::*;
@@ -56,6 +57,11 @@ pub struct CachedRenderPipelineId(CachedPipelineId);
 impl CachedRenderPipelineId {
     /// An invalid cached render pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
+
+    #[inline]
+    pub fn id(&self) -> usize {
+        self.0
+    }
 }
 
 /// Index of a cached compute pipeline in a [`PipelineCache`].
@@ -65,6 +71,11 @@ pub struct CachedComputePipelineId(CachedPipelineId);
 impl CachedComputePipelineId {
     /// An invalid cached compute pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
+
+    #[inline]
+    pub fn id(&self) -> usize {
+        self.0
+    }
 }
 
 pub struct CachedPipeline {
@@ -400,9 +411,10 @@ impl ShaderCache {
     }
 }
 
+type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<Vec<BindGroupLayoutId>, ErasedPipelineLayout>,
+    layouts: HashMap<LayoutCacheKey, ErasedPipelineLayout>,
 }
 
 impl LayoutCache {
@@ -410,20 +422,24 @@ impl LayoutCache {
         &mut self,
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
+        push_constant_ranges: Vec<PushConstantRange>,
     ) -> &wgpu::PipelineLayout {
-        let key = bind_group_layouts.iter().map(|l| l.id()).collect();
-        self.layouts.entry(key).or_insert_with(|| {
-            let bind_group_layouts = bind_group_layouts
-                .iter()
-                .map(|l| l.value())
-                .collect::<Vec<_>>();
-            ErasedPipelineLayout::new(render_device.create_pipeline_layout(
-                &PipelineLayoutDescriptor {
-                    bind_group_layouts: &bind_group_layouts,
-                    ..default()
-                },
-            ))
-        })
+        let bind_group_ids = bind_group_layouts.iter().map(|l| l.id()).collect();
+        self.layouts
+            .entry((bind_group_ids, push_constant_ranges))
+            .or_insert_with_key(|(_, push_constant_ranges)| {
+                let bind_group_layouts = bind_group_layouts
+                    .iter()
+                    .map(|l| l.value())
+                    .collect::<Vec<_>>();
+                ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+                    &PipelineLayoutDescriptor {
+                        bind_group_layouts: &bind_group_layouts,
+                        push_constant_ranges,
+                        ..default()
+                    },
+                ))
+            })
     }
 }
 
@@ -663,10 +679,14 @@ impl PipelineCache {
             })
             .collect::<Vec<_>>();
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
             None
+        } else {
+            Some(self.layout_cache.get(
+                &self.device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
         };
 
         let descriptor = RawRenderPipelineDescriptor {
@@ -712,10 +732,14 @@ impl PipelineCache {
             }
         };
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
             None
+        } else {
+            Some(self.layout_cache.get(
+                &self.device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
         };
 
         let descriptor = RawComputePipelineDescriptor {

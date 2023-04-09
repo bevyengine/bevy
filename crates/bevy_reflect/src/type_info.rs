@@ -5,7 +5,7 @@ use std::any::{Any, TypeId};
 
 /// A static accessor to compile-time type information.
 ///
-/// This trait is automatically implemented by the `#[derive(Reflect)]` macro
+/// This trait is automatically implemented by the [`#[derive(Reflect)]`](derive@crate::Reflect) macro
 /// and allows type information to be processed without an instance of that type.
 ///
 /// # Implementing

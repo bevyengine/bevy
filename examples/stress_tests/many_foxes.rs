@@ -41,10 +41,15 @@ fn main() {
             color: Color::WHITE,
             brightness: 1.0,
         })
-        .add_startup_system(setup)
-        .add_system(setup_scene_once_loaded)
-        .add_system(keyboard_animation_control)
-        .add_system(update_fox_rings.after(keyboard_animation_control))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (
+                setup_scene_once_loaded,
+                keyboard_animation_control,
+                update_fox_rings.after(keyboard_animation_control),
+            ),
+        )
         .run();
 }
 
@@ -161,7 +166,7 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5000.0 })),
+        mesh: meshes.add(shape::Plane::from_size(5000.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });

@@ -2,6 +2,10 @@
 #from bevy_sprite::mesh2d_bindings      import mesh
 #from bevy_sprite::mesh2d_vertex_output import MeshVertexOutput
 
+#ifdef TONEMAP_IN_SHADER
+#import bevy_core_pipeline::tonemapping
+#endif
+
 struct Vertex {
 #ifdef VERTEX_POSITIONS
     @location(0) position: vec3<f32>,
@@ -57,7 +61,11 @@ fn fragment(
     mesh: ::MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
 #ifdef VERTEX_COLORS
-    return in.color;
+    var color = in.color;
+#ifdef TONEMAP_IN_SHADER
+    color = tone_mapping(color);
+#endif
+    return color;
 #else
     return vec4<f32>(1.0, 0.0, 1.0, 1.0);
 #endif

@@ -4,7 +4,6 @@ use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
 use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, BoxedFuture};
 
-use regex::Regex;
 use std::{borrow::Cow, marker::Copy};
 use thiserror::Error;
 
@@ -295,13 +294,6 @@ impl AssetLoader for ShaderLoader {
     }
 }
 
-pub struct ShaderImportProcessor {
-    import_asset_path_regex: Regex,
-    import_custom_path_regex: Regex,
-    import_items_regex: Regex,
-    define_import_path_regex: Regex,
-}
-
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum ShaderImport {
     AssetPath(String),
@@ -313,60 +305,6 @@ impl ShaderImport {
         match self {
             ShaderImport::AssetPath(s) | ShaderImport::Custom(s) => s,
         }
-    }
-}
-
-impl Default for ShaderImportProcessor {
-    fn default() -> Self {
-        Self {
-            import_asset_path_regex: Regex::new(r#"^\s*#\s*import\s+"([^\s]+)""#).unwrap(),
-            import_custom_path_regex: Regex::new(r"^\s*#\s*import\s+([^\s]+)").unwrap(),
-            import_items_regex: Regex::new(r"^\s*#\s*from\s+([^\s]+)").unwrap(),
-            define_import_path_regex: Regex::new(r"^\s*#\s*define_import_path\s+([^\s]+)").unwrap(),
-        }
-    }
-}
-
-#[derive(Default)]
-pub struct ShaderImports {
-    imports: Vec<ShaderImport>,
-    import_path: Option<ShaderImport>,
-}
-
-impl ShaderImportProcessor {
-    pub fn get_imports(&self, shader: &Shader) -> ShaderImports {
-        match &shader.source {
-            Source::Wgsl(source) => self.get_imports_from_str(source),
-            Source::Glsl(source, _stage) => self.get_imports_from_str(source),
-            Source::SpirV(_source) => ShaderImports::default(),
-        }
-    }
-
-    pub fn get_imports_from_str(&self, shader: &str) -> ShaderImports {
-        let mut shader_imports = ShaderImports::default();
-        for line in shader.lines() {
-            if let Some(cap) = self.import_asset_path_regex.captures(line) {
-                let import = cap.get(1).unwrap();
-                shader_imports
-                    .imports
-                    .push(ShaderImport::AssetPath(import.as_str().to_string()));
-            } else if let Some(cap) = self.import_custom_path_regex.captures(line) {
-                let import = cap.get(1).unwrap();
-                shader_imports
-                    .imports
-                    .push(ShaderImport::Custom(import.as_str().to_string()));
-            } else if let Some(cap) = self.import_items_regex.captures(line) {
-                let import = cap.get(1).unwrap();
-                shader_imports
-                    .imports
-                    .push(ShaderImport::Custom(import.as_str().to_string()));
-            } else if let Some(cap) = self.define_import_path_regex.captures(line) {
-                let path = cap.get(1).unwrap();
-                shader_imports.import_path = Some(ShaderImport::Custom(path.as_str().to_string()));
-            }
-        }
-
-        shader_imports
     }
 }
 

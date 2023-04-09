@@ -112,7 +112,12 @@ pub struct TaskPool {
 impl TaskPool {
     thread_local! {
         static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
-        static THREAD_EXECUTOR: ThreadExecutor<'static> = ThreadExecutor::new();
+        static THREAD_EXECUTOR: Arc<ThreadExecutor<'static>> = Arc::new(ThreadExecutor::new());
+    }
+
+    /// Each thread should only create one `ThreadExecutor`, otherwise, there are good chances they will deadlock
+    pub fn get_thread_executor() -> Arc<ThreadExecutor<'static>> {
+        Self::THREAD_EXECUTOR.with(|executor| executor.clone())
     }
 
     /// Create a `TaskPool` with the default configuration.
@@ -223,7 +228,7 @@ impl TaskPool {
     ///
     /// // The ordering is deterministic if you only spawn directly from the closure function.
     /// let results = pool.scope(|s| {
-    ///     s.spawn(async { 0  });
+    ///     s.spawn(async { 0 });
     ///     s.spawn(async { 1 });
     /// });
     /// assert_eq!(&results[..], &[0, 1]);
@@ -286,7 +291,7 @@ impl TaskPool {
     ///
     /// When `tick_task_pool_executor` is set to `true`, the multithreaded task stealing executor is ticked on the scope
     /// thread. Disabling this can be useful when finishing the scope is latency sensitive. Pulling tasks from
-    /// global excutor can run tasks unrelated to the scope and delay when the scope returns.
+    /// global executor can run tasks unrelated to the scope and delay when the scope returns.
     ///
     /// See [`Self::scope`] for more details in general about how scopes work.
     pub fn scope_with_executor<'env, F, T>(
@@ -336,35 +341,38 @@ impl TaskPool {
         // This is guaranteed because we drive all the futures spawned onto the Scope
         // to completion in this function. However, rust has no way of knowing this so we
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
+        // Any usages of the references passed into `Scope` must be accessed through
+        // the transmuted reference for the rest of this function.
         let executor: &async_executor::Executor = &self.executor;
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
         let external_executor: &'env ThreadExecutor<'env> =
             unsafe { mem::transmute(external_executor) };
         let scope_executor: &'env ThreadExecutor<'env> = unsafe { mem::transmute(scope_executor) };
         let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
-        let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
-            unsafe { mem::transmute(&spawned) };
+        // shadow the variable so that the owned value cannot be used for the rest of the function
+        let spawned: &'env ConcurrentQueue<FallibleTask<T>> = unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
             executor,
             external_executor,
             scope_executor,
-            spawned: spawned_ref,
+            spawned,
             scope: PhantomData,
             env: PhantomData,
         };
 
-        let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
+        // shadow the variable so that the owned value cannot be used for the rest of the function
+        let scope: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
 
-        f(scope_ref);
+        f(scope);
 
         if spawned.is_empty() {
             Vec::new()
         } else {
             future::block_on(async move {
                 let get_results = async {
-                    let mut results = Vec::with_capacity(spawned_ref.len());
-                    while let Ok(task) = spawned_ref.pop() {
+                    let mut results = Vec::with_capacity(spawned.len());
+                    while let Ok(task) = spawned.pop() {
                         results.push(task.await.unwrap());
                     }
                     results
@@ -373,9 +381,17 @@ impl TaskPool {
                 let tick_task_pool_executor = tick_task_pool_executor || self.threads.is_empty();
 
                 // we get this from a thread local so we should always be on the scope executors thread.
+                // note: it is possible `scope_executor` and `external_executor` is the same executor,
+                // in that case, we should only tick one of them, otherwise, it may cause deadlock.
                 let scope_ticker = scope_executor.ticker().unwrap();
-                if let Some(external_ticker) = external_executor.ticker() {
-                    if tick_task_pool_executor {
+                let external_ticker = if !external_executor.is_same(scope_executor) {
+                    external_executor.ticker()
+                } else {
+                    None
+                };
+
+                match (external_ticker, tick_task_pool_executor) {
+                    (Some(external_ticker), true) => {
                         Self::execute_global_external_scope(
                             executor,
                             external_ticker,
@@ -383,14 +399,16 @@ impl TaskPool {
                             get_results,
                         )
                         .await
-                    } else {
+                    }
+                    (Some(external_ticker), false) => {
                         Self::execute_external_scope(external_ticker, scope_ticker, get_results)
                             .await
                     }
-                } else if tick_task_pool_executor {
-                    Self::execute_global_scope(executor, scope_ticker, get_results).await
-                } else {
-                    Self::execute_scope(scope_ticker, get_results).await
+                    // either external_executor is none or it is same as scope_executor
+                    (None, true) => {
+                        Self::execute_global_scope(executor, scope_ticker, get_results).await
+                    }
+                    (None, false) => Self::execute_scope(scope_ticker, get_results).await,
                 }
             })
         }
@@ -483,7 +501,7 @@ impl TaskPool {
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
-    /// cancelled and "detached" allowing it to continue running without having to be polled by the
+    /// canceled and "detached" allowing it to continue running without having to be polled by the
     /// end-user.
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
@@ -496,7 +514,7 @@ impl TaskPool {
 
     /// Spawns a static future on the thread-local async executor for the current thread. The task
     /// will run entirely on the thread the task was spawned on.  The returned Task is a future.
-    /// It can also be cancelled and "detached" allowing it to continue running without having
+    /// It can also be canceled and "detached" allowing it to continue running without having
     /// to be polled by the end-user. Users should generally prefer to use [`TaskPool::spawn`]
     /// instead, unless the provided future is not `Send`.
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>

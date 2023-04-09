@@ -10,13 +10,14 @@ use std::{
     slice::Iter,
 };
 
-/// A reflected Rust regular struct type.
+/// A trait used to power [struct-like] operations via [reflection].
 ///
-/// Implementors of this trait allow their fields to be addressed by name as
-/// well as by index.
+/// This trait uses the [`Reflect`] trait to allow implementors to have their fields
+/// be dynamically addressed by both name and index.
 ///
-/// This trait is automatically implemented for `struct` types with named fields
-/// when using `#[derive(Reflect)]`.
+/// When using [`#[derive(Reflect)]`](derive@crate::Reflect) on a standard struct,
+/// this trait will be automatically implemented.
+/// This goes for [unit structs] as well.
 ///
 /// # Example
 ///
@@ -25,19 +26,22 @@ use std::{
 ///
 /// #[derive(Reflect)]
 /// struct Foo {
-///     bar: String,
+///     bar: u32,
 /// }
 ///
-/// # fn main() {
-/// let foo = Foo { bar: "Hello, world!".to_string() };
+/// let foo = Foo { bar: 123 };
 ///
 /// assert_eq!(foo.field_len(), 1);
 /// assert_eq!(foo.name_at(0), Some("bar"));
 ///
-/// let bar = foo.field("bar").unwrap();
-/// assert_eq!(bar.downcast_ref::<String>(), Some(&"Hello, world!".to_string()));
-/// # }
+/// let field: &dyn Reflect = foo.field("bar").unwrap();
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
 /// ```
+///
+/// [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html
+/// [reflection]: crate
+
+/// [unit structs]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#unit-like-structs-without-any-fields
 pub trait Struct: Reflect {
     /// Returns a reference to the value of the field named `name` as a `&dyn
     /// Reflect`.
@@ -68,7 +72,7 @@ pub trait Struct: Reflect {
     fn clone_dynamic(&self) -> DynamicStruct;
 }
 
-/// A container for compile-time struct info.
+/// A container for compile-time named struct info.
 #[derive(Clone, Debug)]
 pub struct StructInfo {
     name: &'static str,

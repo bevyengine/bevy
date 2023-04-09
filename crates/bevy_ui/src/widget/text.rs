@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Size, Style, UiScale, Val};
+use crate::{CalculatedSize, Node, Style, UiScale, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -25,9 +25,7 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
     match (min_size, size, max_size) {
         (_, _, Val::Px(max)) => scale_value(max, scale_factor),
         (Val::Px(min), _, _) => scale_value(min, scale_factor),
-        (Val::Undefined, Val::Px(size), Val::Undefined) | (Val::Auto, Val::Px(size), Val::Auto) => {
-            scale_value(size, scale_factor)
-        }
+        (Val::Auto, Val::Px(size), Val::Auto) => scale_value(size, scale_factor),
         _ => f32::MAX,
     }
 }
@@ -54,7 +52,7 @@ pub fn text_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_queries: ParamSet<(
-        Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
+        Query<Entity, Or<(Changed<Text>, Changed<Node>, Changed<Style>)>>,
         Query<Entity, (With<Text>, With<Style>)>,
         Query<(
             &Text,
@@ -117,7 +115,7 @@ pub fn text_system(
                 &text.sections,
                 scale_factor,
                 text.alignment,
-                text.linebreak_behaviour,
+                text.linebreak_behavior,
                 node_size,
                 &mut font_atlas_set_storage,
                 &mut texture_atlases,
@@ -135,10 +133,10 @@ pub fn text_system(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
-                    calculated_size.size = Size {
-                        width: Val::Px(scale_value(info.size.x, inv_scale_factor)),
-                        height: Val::Px(scale_value(info.size.y, inv_scale_factor)),
-                    };
+                    calculated_size.size = Vec2::new(
+                        scale_value(info.size.x, inv_scale_factor),
+                        scale_value(info.size.y, inv_scale_factor),
+                    );
                     match text_layout_info {
                         Some(mut t) => *t = info,
                         None => {

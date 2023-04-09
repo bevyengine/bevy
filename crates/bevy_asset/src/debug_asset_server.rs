@@ -2,7 +2,7 @@
 //!
 //! Internal assets (e.g. shaders) are bundled directly into an application and can't be hot
 //! reloaded using the conventional API.
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Update};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_tasks::{IoTaskPool, TaskPoolBuilder};
 use bevy_utils::HashMap;
@@ -32,7 +32,7 @@ impl DerefMut for DebugAssetApp {
     }
 }
 
-/// A label describing the system that runs [`DebugAssetApp`].
+/// A set containing the system that runs [`DebugAssetApp`].
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DebugAssetAppRun;
 
@@ -75,7 +75,7 @@ impl Plugin for DebugAssetServerPlugin {
             watch_for_changes: true,
         });
         app.insert_non_send_resource(DebugAssetApp(debug_asset_app));
-        app.add_system(run_debug_asset_app);
+        app.add_systems(Update, run_debug_asset_app);
     }
 }
 

@@ -1,15 +1,15 @@
 use crate::{
     archetype::ArchetypeComponentId,
-    change_detection::MAX_CHANGE_AGE,
-    component::ComponentId,
+    component::{ComponentId, Tick},
     query::Access,
     system::{
-        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, In, InputMarker,
-        IntoSystem, System, SystemMeta,
+        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, In, IntoSystem,
+        System, SystemMeta,
     },
     world::{World, WorldId},
 };
-use bevy_ecs_macros::all_tuples;
+
+use bevy_utils::all_tuples;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
 /// A function system that runs with exclusive [`World`] access.
@@ -18,30 +18,26 @@ use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 /// [`ExclusiveSystemParam`]s.
 ///
 /// [`ExclusiveFunctionSystem`] must be `.initialized` before they can be run.
-pub struct ExclusiveFunctionSystem<In, Out, Param, Marker, F>
+pub struct ExclusiveFunctionSystem<Marker, F>
 where
-    Param: ExclusiveSystemParam,
+    F: ExclusiveSystemParamFunction<Marker>,
 {
     func: F,
-    param_state: Option<Param::State>,
+    param_state: Option<<F::Param as ExclusiveSystemParam>::State>,
     system_meta: SystemMeta,
     world_id: Option<WorldId>,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn(In) -> (Out, Marker)>,
+    marker: PhantomData<fn() -> Marker>,
 }
 
 pub struct IsExclusiveFunctionSystem;
 
-impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsExclusiveFunctionSystem, Param, Marker)>
-    for F
+impl<Marker, F> IntoSystem<F::In, F::Out, (IsExclusiveFunctionSystem, Marker)> for F
 where
-    In: 'static,
-    Out: 'static,
-    Param: ExclusiveSystemParam + 'static,
     Marker: 'static,
-    F: ExclusiveSystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+    F: ExclusiveSystemParamFunction<Marker>,
 {
-    type System = ExclusiveFunctionSystem<In, Out, Param, Marker, F>;
+    type System = ExclusiveFunctionSystem<Marker, F>;
     fn into_system(func: Self) -> Self::System {
         ExclusiveFunctionSystem {
             func,
@@ -55,16 +51,13 @@ where
 
 const PARAM_MESSAGE: &str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 
-impl<In, Out, Param, Marker, F> System for ExclusiveFunctionSystem<In, Out, Param, Marker, F>
+impl<Marker, F> System for ExclusiveFunctionSystem<Marker, F>
 where
-    In: 'static,
-    Out: 'static,
-    Param: ExclusiveSystemParam + 'static,
     Marker: 'static,
-    F: ExclusiveSystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+    F: ExclusiveSystemParamFunction<Marker>,
 {
-    type In = In;
-    type Out = Out;
+    type In = F::In;
+    type Out = F::Out;
 
     #[inline]
     fn name(&self) -> Cow<'static, str> {
@@ -101,16 +94,16 @@ where
 
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         let saved_last_tick = world.last_change_tick;
-        world.last_change_tick = self.system_meta.last_change_tick;
+        world.last_change_tick = self.system_meta.last_run;
 
-        let params = Param::get_param(
+        let params = F::Param::get_param(
             self.param_state.as_mut().expect(PARAM_MESSAGE),
             &self.system_meta,
         );
         let out = self.func.run(world, input, params);
 
         let change_tick = world.change_tick.get_mut();
-        self.system_meta.last_change_tick = *change_tick;
+        self.system_meta.last_run.set(*change_tick);
         *change_tick = change_tick.wrapping_add(1);
         world.last_change_tick = saved_last_tick;
 
@@ -122,12 +115,12 @@ where
         true
     }
 
-    fn get_last_change_tick(&self) -> u32 {
-        self.system_meta.last_change_tick
+    fn get_last_run(&self) -> Tick {
+        self.system_meta.last_run
     }
 
-    fn set_last_change_tick(&mut self, last_change_tick: u32) {
-        self.system_meta.last_change_tick = last_change_tick;
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 
     #[inline]
@@ -140,16 +133,16 @@ where
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
-        self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(Param::init(world, &mut self.system_meta));
+        self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
+        self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, _world: &World) {}
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: u32) {
+    fn check_change_tick(&mut self, change_tick: Tick) {
         check_system_change_tick(
-            &mut self.system_meta.last_change_tick,
+            &mut self.system_meta.last_run,
             change_tick,
             self.system_meta.name.as_ref(),
         );
@@ -165,31 +158,42 @@ where
 ///
 /// This trait can be useful for making your own systems which accept other systems,
 /// sometimes called higher order systems.
-pub trait ExclusiveSystemParamFunction<In, Out, Param: ExclusiveSystemParam, Marker>:
-    Send + Sync + 'static
-{
+pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
+    /// The input type to this system. See [`System::In`].
+    type In;
+
+    /// The return type of this system. See [`System::Out`].
+    type Out;
+
+    /// The [`ExclusiveSystemParam`]/s defined by this system's `fn` parameters.
+    type Param: ExclusiveSystemParam;
+
+    /// Executes this system once. See [`System::run`].
     fn run(
         &mut self,
         world: &mut World,
-        input: In,
-        param_value: ExclusiveSystemParamItem<Param>,
-    ) -> Out;
+        input: Self::In,
+        param_value: ExclusiveSystemParamItem<Self::Param>,
+    ) -> Self::Out;
 }
 
 macro_rules! impl_exclusive_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<(), Out, ($($param,)*), ()> for Func
+        impl<Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn($($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(&mut World, $($param),*) -> Out +
                 FnMut(&mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
             Out: 'static,
         {
+            type In = ();
+            type Out = Out;
+            type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, world: &mut World, _in: (), param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
-                // without using this function. It fails to recognise that `func`
+                // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(
@@ -204,17 +208,20 @@ macro_rules! impl_exclusive_system_function {
             }
         }
         #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<Input, Out, ($($param,)*), InputMarker> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn(In<Input>, $($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, &mut World, $($param),*) -> Out +
                 FnMut(In<Input>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
             Out: 'static,
         {
+            type In = Input;
+            type Out = Out;
+            type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, world: &mut World, input: Input, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
-                // without using this function. It fails to recognise that `func`
+                // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Input, Out, $($param,)*>(

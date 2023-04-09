@@ -121,6 +121,10 @@ impl SystemExecutor for MultiThreadedExecutor {
         let sys_count = schedule.system_ids.len();
         let set_count = schedule.set_ids.len();
 
+        let (tx, rx) = async_channel::bounded(sys_count.max(1));
+
+        self.sender = tx;
+        self.receiver = rx;
         self.evaluated_sets = FixedBitSet::with_capacity(set_count);
         self.ready_systems = FixedBitSet::with_capacity(sys_count);
         self.ready_systems_copy = FixedBitSet::with_capacity(sys_count);
@@ -212,10 +216,8 @@ impl SystemExecutor for MultiThreadedExecutor {
 
         if self.apply_final_buffers {
             // Do one final apply buffers after all systems have completed
-            // SAFETY: all systems have completed, and so no outstanding accesses remain
-            let world = unsafe { &mut *world.get() };
             // Commands should be applied while on the scope's thread, not the executor's thread
-            apply_system_buffers(&self.unapplied_systems, systems, world);
+            apply_system_buffers(&self.unapplied_systems, systems, world.get_mut());
             self.unapplied_systems.clear();
             debug_assert!(self.unapplied_systems.is_clear());
         }
@@ -451,8 +453,7 @@ impl MultiThreadedExecutor {
                 sender.close();
             } else {
                 sender
-                    .send(system_index)
-                    .await
+                    .try_send(system_index)
                     .unwrap_or_else(|error| unreachable!("{}", error));
             }
         };
@@ -508,8 +509,7 @@ impl MultiThreadedExecutor {
                     sender.close();
                 } else {
                     sender
-                        .send(system_index)
-                        .await
+                        .try_send(system_index)
                         .unwrap_or_else(|error| unreachable!("{}", error));
                 }
             };
@@ -532,8 +532,7 @@ impl MultiThreadedExecutor {
                     sender.close();
                 } else {
                     sender
-                        .send(system_index)
-                        .await
+                        .try_send(system_index)
                         .unwrap_or_else(|error| unreachable!("{}", error));
                 }
             };
@@ -619,11 +618,17 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World
 }
 
 /// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
-#[derive(Resource, Default, Clone)]
+#[derive(Resource, Clone)]
 pub struct MainThreadExecutor(pub Arc<ThreadExecutor<'static>>);
+
+impl Default for MainThreadExecutor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl MainThreadExecutor {
     pub fn new() -> Self {
-        MainThreadExecutor(Arc::new(ThreadExecutor::new()))
+        MainThreadExecutor(TaskPool::get_thread_executor())
     }
 }

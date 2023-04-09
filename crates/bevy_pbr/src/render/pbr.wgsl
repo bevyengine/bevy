@@ -4,12 +4,13 @@
 #import bevy_pbr::pbr_bindings as pbr_bindings
 #import bevy_pbr::pbr_types as pbr_types
 
-#from bevy_pbr::mesh_vertex_output      import MeshVertexOutput
-#from bevy_pbr::mesh_view_bindings      import view, fog
-#from bevy_pbr::mesh_view_types         import FOG_MODE_OFF
-#from bevy_core_pipeline::tonemapping   import screen_space_dither
-// load user-defined function overrides
-#import bevy_pbr::user_overrides
+#import bevy_pbr::prepass_utils
+
+struct FragmentInput {
+    @builtin(front_facing) is_front: bool,
+    @builtin(position) frag_coord: vec4<f32>,
+    #import bevy_pbr::mesh_vertex_output
+};
 
 @fragment
 fn fragment(
@@ -66,32 +67,39 @@ fn fragment(
             occlusion = textureSample(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, mesh.uv).r;
         }
 #endif
-        pbr_input.occlusion = occlusion;
+        pbr_input.frag_coord = in.frag_coord;
+        pbr_input.world_position = in.world_position;
 
-        pbr_input.frag_coord = mesh.clip_position;
-        pbr_input.world_position = mesh.world_position;
-        pbr_input.world_normal = pbr_functions::prepare_world_normal(
-            mesh.world_normal,
-            (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
-            is_front,
+#ifdef LOAD_PREPASS_NORMALS
+        pbr_input.world_normal = prepass_normal(in.frag_coord, 0u);
+#else // LOAD_PREPASS_NORMALS
+        pbr_input.world_normal = prepare_world_normal(
+            in.world_normal,
+            (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+            in.is_front,
         );
+#endif // LOAD_PREPASS_NORMALS
 
-        pbr_input.is_orthographic = ::view.projection[3].w == 1.0;
+        pbr_input.is_orthographic = view.projection[3].w == 1.0;
 
-        pbr_input.N = pbr_functions::apply_normal_mapping(
-            pbr_bindings::material.flags,
+        pbr_input.N = apply_normal_mapping(
+            material.flags,
             pbr_input.world_normal,
 #ifdef VERTEX_TANGENTS
-    #ifdef STANDARDMATERIAL_NORMAL_MAP
-            mesh.world_tangent,
-    #endif
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+            in.world_tangent,
+#endif
 #endif
 #ifdef VERTEX_UVS
-            mesh.uv,
+            in.uv,
 #endif
         );
-        pbr_input.V = pbr_functions::calculate_view(mesh.world_position, pbr_input.is_orthographic);
-        output_color = pbr_functions::pbr(pbr_input);
+        pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
+        pbr_input.occlusion = occlusion;
+
+        pbr_input.flags = mesh.flags;
+
+        output_color = pbr(pbr_input);
     } else {
         output_color = pbr_functions::alpha_discard(pbr_bindings::material, output_color);
     }
@@ -102,19 +110,19 @@ fn fragment(
     }
 
 #ifdef TONEMAP_IN_SHADER
-        output_color = pbr_functions::tone_mapping(output_color);
-#endif
+    output_color = tone_mapping(output_color);
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
-    output_rgb = pow(output_rgb, vec3<f32>(1.0 / 2.2));
-    output_rgb = output_rgb + ::screen_space_dither(mesh.clip_position.xy);
+    output_rgb = powsafe(output_rgb, 1.0 / 2.2);
+    output_rgb = output_rgb + screen_space_dither(in.frag_coord.xy);
     // This conversion back to linear space is required because our output texture format is
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
-    output_rgb = pow(output_rgb, vec3<f32>(2.2));
+    output_rgb = powsafe(output_rgb, 2.2);
     output_color = vec4(output_rgb, output_color.a);
 #endif
+#endif
 #ifdef PREMULTIPLY_ALPHA
-        output_color = pbr_functions::premultiply_alpha(pbr_bindings::material.flags, output_color);
+    output_color = pbr_functions::premultiply_alpha(pbr_bindings::material.flags, output_color);
 #endif
     return output_color;
 }

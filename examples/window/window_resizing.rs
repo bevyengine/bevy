@@ -9,14 +9,12 @@ fn main() {
             small: Vec2::new(640.0, 360.0),
         })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_camera)
-        .add_startup_system(setup_ui)
-        .add_system(on_resize_system)
-        .add_system(toggle_resolution)
+        .add_systems(Startup, (setup_camera, setup_ui))
+        .add_systems(Update, (on_resize_system, toggle_resolution))
         .run();
 }
 
-/// Marker component for the text that displays the current reslution.
+/// Marker component for the text that displays the current resolution.
 #[derive(Component)]
 struct ResolutionText;
 
