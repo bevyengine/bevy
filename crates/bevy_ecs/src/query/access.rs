@@ -2,7 +2,6 @@ use crate::storage::SparseSetIndex;
 use bevy_utils::HashSet;
 use core::fmt;
 use fixedbitset::FixedBitSet;
-use smallvec::SmallVec;
 use std::marker::PhantomData;
 
 /// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
@@ -225,14 +224,14 @@ pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
     // An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
     // Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
-    filter_sets: SmallVec<[AccessFilters<T>; 8]>,
+    filter_sets: Vec<AccessFilters<T>>,
 }
 
 impl<T: SparseSetIndex> Default for FilteredAccess<T> {
     fn default() -> Self {
         Self {
             access: Access::default(),
-            filter_sets: smallvec::smallvec![AccessFilters::default()],
+            filter_sets: vec![AccessFilters::default()],
         }
     }
 }
@@ -356,8 +355,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
             return;
         }
 
-        let mut new_filters =
-            SmallVec::with_capacity(self.filter_sets.len() * other.filter_sets.len());
+        let mut new_filters = Vec::with_capacity(self.filter_sets.len() * other.filter_sets.len());
         for filter in &self.filter_sets {
             for other_filter in &other.filter_sets {
                 let mut new_filter = filter.clone();
@@ -652,7 +650,7 @@ mod tests {
         expected.add_write(0);
         expected.add_write(1);
         // The resulted access is expected to represent `Or<((With<A>, With<B>, With<C>), (With<A>, With<B>, With<D>, Without<E>))>`.
-        expected.filter_sets = smallvec::smallvec![
+        expected.filter_sets = vec![
             AccessFilters {
                 with: FixedBitSet::with_capacity_and_blocks(3, [0b111]),
                 without: FixedBitSet::default(),
@@ -662,7 +660,7 @@ mod tests {
                 with: FixedBitSet::with_capacity_and_blocks(4, [0b1011]),
                 without: FixedBitSet::with_capacity_and_blocks(5, [0b10000]),
                 _index_type: PhantomData,
-            }
+            },
         ];
 
         assert_eq!(access_a, expected);
