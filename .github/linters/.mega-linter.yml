@@ -1,0 +1,23 @@
+# Configuration file for MegaLinter
+# See all available variables at https://megalinter.io/configuration/ and in linters documentation
+
+APPLY_FIXES: none # all, none, or list of linter keys
+# ENABLE: # If you use ENABLE variable, all other languages/formats/tooling-formats will be disabled by default
+# ENABLE_LINTERS: # If you use ENABLE_LINTERS variable, all other linters will be disabled by default
+# DISABLE:
+  # - COPYPASTE # Uncomment to disable checks of excessive copy-pastes
+  # - SPELL # Uncomment to disable checks of spelling mistakes
+SHOW_ELAPSED_TIME: true
+FILEIO_REPORTER: false
+MARKDOWN_MARKDOWNLINT_RULES_PATH: ".github/linters/.markdown-lint.yml"
+# DISABLE_ERRORS: true # Uncomment if you want MegaLinter to detect errors but not block CI to pass
+ENABLE_LINTERS:
+# - RUST_CLIPPY - is already run via tools/ci
+  - MARKDOWN_REMARK_LINT
+  - MARKDOWN_MARKDOWNLINT
+  - MARKDOWN_MARKDOWN_LINK_CHECK
+  - MARKDOWN_MARKDOWN_TABLE_FORMATTER
+# - COPYPASTE_JSCPD - Currently disabled as it fails at the moment
+  - SPELL_CSPELL
+  - SPELL_MISSPELL
+  - SPELL_PROSELINT

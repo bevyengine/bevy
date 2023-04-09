@@ -142,24 +142,6 @@ jobs:
           target: wasm32-unknown-unknown
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown
-
-  markdownlint:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: check-missing-features-in-docs
-    if: always()
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          # Full git history is needed to get a proper list of changed files within `super-linter`
-          fetch-depth: 0
-      - name: Run Markdown Lint
-        uses: docker://ghcr.io/github/super-linter:slim-v4
-        env:
-          MULTI_STATUS: false
-          VALIDATE_ALL_CODEBASE: false
-          VALIDATE_MARKDOWN: true
-          DEFAULT_BRANCH: main
   
   # GitHub Community Discussions : How to get commit message on pull_request workflow? #28474 
   # https://github.com/orgs/community/discussions/28474#discussioncomment-3334578
@@ -178,22 +160,48 @@ jobs:
       - name: Print head git commit message
         id: get_head_commit_message
         run: echo "headCommitMsg=$(git show -s --format=%s)" >> $GITHUB_OUTPUT
-
-  spell-checking:
+ 
+  # Run locally by running the following commands in the root of bevy, need docker installed:
+  # - npm install mega-linter-runner -g
+  # - mega-linter-runner -f documentation -e 'MEGALINTER_CONFIG=.github/linters/.mega-linter.yml' 
+  # This gonna download the lint image with a size of 1.78 gb locally on your device and run the linter, see the results in /megalinter-reports
+  # Notice: You might have to restart docker if you cancel the linting process prematurely
+  # For more info see: https://megalinter.io/latest/mega-linter-runner
+  linting:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [check-missing-features-in-docs, check-skip-flags]
-    if: ${{ contains(needs.check-skip-flags.outputs.head-commit-message, '[spellcheck]') }}
+    if: always()
     steps:
       - uses: actions/checkout@v3
-      - name: Check spelling
-        uses: check-spelling/check-spelling@v0.0.21 #https://github.com/check-spelling/check-spelling/wiki/Feature%3A-Area-dictionaries
         with:
-          config: .github/linters/spelling
-          extra_dictionaries: #https://github.com/streetsidesoftware/cspell-dicts/tree/main/dictionaries
-            cspell:en_US/src/en_US.txt
-            cspell:rust/rust.txt
-            cspell:software-terms/src/software-terms.txt
+          # Full git history is needed to get a proper list of changed files within `super-linter`
+          fetch-depth: 0
+
+      - name: Check if spelling should be skipped
+        id: check_if_spell
+        run: |
+          if [$REF]
+          then
+              echo "filter=PHP" >> $GITHUB_OUTPUT
+          else
+              echo "filter=SPELL" >> $GITHUB_OUTPUT
+          fi
+        env:
+          REF: ${{ contains(needs.check-skip-flags.outputs.head-commit-message, '[spellcheck]') }}
+      
+      - name: Run Markdown & Spelling lints
+        id: ml
+        # You can override MegaLinter flavor used to have faster performances
+        # More info at https://megalinter.io/flavors/
+        uses: docker://ghcr.io/github/oxsecurity/megalinter-documentation:v6.22.2 # oxsecurity/megalinter/flavors/rust@v6
+        env:
+          MEGALINTER_CONFIG: ".github/linters/.mega-linter.yml"
+          # All available variables are described in documentation
+          # https://megalinter.io/configuration/
+          VALIDATE_ALL_CODEBASE: false # Validates all source when push on main, else just the git diff with main. Set 'true' if you always want to lint all sources
+          # ADD YOUR CUSTOM ENV VARIABLES HERE TO OVERRIDE VALUES OF .mega-linter.yml AT THE ROOT OF YOUR REPOSITORY
+          DISABLE_LINTERS : ${{ steps.check_if_spell.outputs.filter }}
 
   run-examples:
     runs-on: ubuntu-latest

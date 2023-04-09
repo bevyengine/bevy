@@ -4,19 +4,19 @@
     "dictionaryDefinitions": [
         {
             "name": "bevy",
-            "path": "./.github/linters/spelling/allow/bevy.txt"
+            "path": "./.github/linters/spelling/bevy.txt"
         },
         {
             "name": "gamedev",
-            "path": "./.github/linters/spelling/allow/gamedev.txt"
+            "path": "./.github/linters/spelling/gamedev.txt"
         },
         {
             "name": "linux",
-            "path": "./.github/linters/spelling/allow/linux.txt"
+            "path": "./.github/linters/spelling/linux.txt"
         },
         {
             "name": "rust2",
-            "path": "./.github/linters/spelling/allow/rust.txt"
+            "path": "./.github/linters/spelling/rust.txt"
         }
     ],
     "dictionaries": [
@@ -25,7 +25,8 @@
         "linux",
         "rust",
         "rust2",
-        "software-terms"
+        "software-terms",
+        "misc"
     ],
     "loadDefaultConfiguration": true,
     "ignoreRegExpList": [
@@ -33,16 +34,21 @@
         "Urls",
         "HexValues",
         "markdown-links",
-        "cli-args"
+        "cli-args",
+        "long-runs-single-chars"
     ],
     "patterns": [
         {
             "name": "markdown-links",
-            "pattern": "\\[.*\\]\\(.*\\)"
+            "pattern": "/\\[.*\\]\\(.*\\)/g"
         },
         {
             "name": "cli-args",
-            "pattern": "\\ -\\w+\\b"
+            "pattern": "/\\ -\\w+\\b/g"
+        },
+        {
+            "name": "long-runs-single-chars",
+            "pattern": "/([A-Za-z])\\1{3,}/g"
         }
     ],
     "ignorePaths": [
