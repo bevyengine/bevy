@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
 
@@ -174,7 +175,20 @@ pub mod winit {
 
 #[cfg(feature = "bevy_gizmos")]
 pub mod gizmos {
-    //! Immediate mode debug drawing.
+    //! Immediate mode drawing api for visual debugging.
+    //!
+    //! # Example
+    //! ```
+    //! # use bevy_gizmos::prelude::*;
+    //! # use bevy_render::prelude::*;
+    //! # use bevy_math::prelude::*;
+    //! fn system(mut gizmos: Gizmos) {
+    //!     gizmos.line(Vec3::ZERO, Vec3::X, Color::GREEN);
+    //! }
+    //! # bevy_ecs::system::assert_is_system(system);
+    //! ```
+    //!
+    //! See the documentation on [`Gizmos`](gizmos::Gizmos) for more examples.
     pub use bevy_gizmos::*;
 }
 

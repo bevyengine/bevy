@@ -211,8 +211,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     ///
     /// # Example
     ///
-    /// The following example shows a useful pattern where some behaviour is triggered if new events are available.
-    /// [`EventReader::clear()`] is used so the same events don't re-trigger the behaviour the next time the system runs.
+    /// The following example shows a useful pattern where some behavior is triggered if new events are available.
+    /// [`EventReader::clear()`] is used so the same events don't re-trigger the behavior the next time the system runs.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -283,8 +283,8 @@ impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
 ///     // which allows one to do all kinds of clever things with type erasure, such as sending
 ///     // custom events to unknown 3rd party plugins (modding API).
 ///     //
-///     // NOTE: the event won't actually be sent until commands get flushed
-///     // at the end of the current stage.
+///     // NOTE: the event won't actually be sent until commands get applied during
+///     // apply_system_buffers.
 ///     commands.add(|w: &mut World| {
 ///         w.send_event(MyEvent);
 ///     });

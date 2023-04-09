@@ -144,7 +144,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// # Safety
     /// - must not be used in a way that would conflict with any
     ///   live exclusive borrows on world data
-    unsafe fn unsafe_world(self) -> &'w World {
+    pub(crate) unsafe fn unsafe_world(self) -> &'w World {
         // SAFETY:
         // - caller ensures that the returned `&World` is not used in a way that would conflict
         //   with any existing mutable borrows of world data
@@ -202,12 +202,10 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     #[inline]
-    pub fn increment_change_tick(self) -> u32 {
+    pub fn increment_change_tick(self) -> Tick {
         // SAFETY:
         // - we only access world metadata
-        unsafe { self.world_metadata() }
-            .change_tick
-            .fetch_add(1, Ordering::AcqRel)
+        unsafe { self.world_metadata() }.increment_change_tick()
     }
 
     /// Shorthand helper function for getting the [`ArchetypeComponentId`] for a resource.

@@ -53,7 +53,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         text: Text {
             sections,
             alignment: TextAlignment::Center,
-            linebreak_behaviour: BreakLineOn::AnyCharacter,
+            linebreak_behavior: BreakLineOn::AnyCharacter,
         },
         ..Default::default()
     });

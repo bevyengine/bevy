@@ -1,3 +1,21 @@
+#![allow(clippy::type_complexity)]
+#![warn(missing_docs)]
+
+//! This crate adds an immediate mode drawing api to Bevy for visual debugging.
+//!
+//! # Example
+//! ```
+//! # use bevy_gizmos::prelude::*;
+//! # use bevy_render::prelude::*;
+//! # use bevy_math::prelude::*;
+//! fn system(mut gizmos: Gizmos) {
+//!     gizmos.line(Vec3::ZERO, Vec3::X, Color::GREEN);
+//! }
+//! # bevy_ecs::system::assert_is_system(system);
+//! ```
+//!
+//! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
+
 use std::mem;
 
 use bevy_app::{Last, Plugin};
@@ -40,6 +58,7 @@ pub mod prelude {
 const LINE_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7414812689238026784);
 
+/// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
@@ -81,6 +100,7 @@ impl Plugin for GizmoPlugin {
     }
 }
 
+/// A [`Resource`] that stores configuration for gizmos.
 #[derive(Resource, Clone, Copy)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
@@ -170,6 +190,7 @@ fn extract_gizmo_data(
                 MeshUniform {
                     flags: 0,
                     transform,
+                    previous_transform: transform,
                     inverse_transpose_model,
                 },
             ),

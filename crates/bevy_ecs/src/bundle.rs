@@ -39,14 +39,14 @@ use std::any::TypeId;
 /// will be overwritten.
 ///
 /// Importantly, bundles are only their constituent set of components.
-/// You **should not** use bundles as a unit of behaviour.
-/// The behaviour of your app can only be considered in terms of components, as systems,
-/// which drive the behaviour of a `bevy` application, operate on combinations of
+/// You **should not** use bundles as a unit of behavior.
+/// The behavior of your app can only be considered in terms of components, as systems,
+/// which drive the behavior of a `bevy` application, operate on combinations of
 /// components.
 ///
 /// This rule is also important because multiple bundles may contain the same component type,
 /// calculated in different ways &mdash; adding both of these bundles to one entity
-/// would create incoherent behaviour.
+/// would create incoherent behavior.
 /// This would be unexpected if bundles were treated as an abstraction boundary, as
 /// the abstraction would be unmaintainable for these cases.
 /// For example, both `Camera3dBundle` and `Camera2dBundle` contain the `CameraRenderGraph`
