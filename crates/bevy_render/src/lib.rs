@@ -343,7 +343,7 @@ impl Plugin for RenderPlugin {
         app.world
             .get_resource::<FutureRendererResources>()
             .and_then(|frr| frr.0.try_lock().map(|locked| locked.is_some()).ok())
-            .unwrap_or_default()
+            .unwrap_or(true)
     }
 
     fn finish(&self, app: &mut App) {
