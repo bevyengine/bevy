@@ -35,12 +35,13 @@ You can specify the dependency [both as a version and with git](https://doc.rust
 You can use one of these badges to communicate to your users how closely you intend to track Bevy's main branch.
 
 <!-- MD033 - The Badges could be downsized, without the inline HTML due to the large code column -->
+<!-- markdown-table-prettify-ignore-start -->
 <!-- markdownlint-disable-next-line MD033 -->
 |<div style="width:100px">badge</div>|<div style="width:200px">description</div>|code|
 |-|-|-|
 |[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-main-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)|I intend to track main as much as I can|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-main-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)`|
 |[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-released%20version-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)|I will only follow released Bevy versions|`[![Bevy tracking](https://img.shields.io/badge/Bevy%20tracking-released%20version-lightblue)](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md#main-branch-tracking)`|
-
+<!-- markdown-table-prettify-ignore-end -->
 ## Licensing
 
 Bevy is dual licensed under [MIT or Apache 2.0](https://www.rust-lang.org/policies/licenses), at your option. Most other Rust projects (including Rust itself) also use this dual-license approach. MIT-only is very popular and you might be tempted to just use that (Bevy also used to be MIT-only), but there are [very good reasons](https://github.com/bevyengine/bevy/issues/2373) to include both licenses. We highly recommend using the dual MIT / Apache-2.0 license for your Bevy Plugins and crates:

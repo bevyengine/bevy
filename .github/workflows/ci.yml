@@ -175,7 +175,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          # Full git history is needed to get a proper list of changed files within `super-linter`
+          # Full git history is needed to get a proper list of changed files within `mega-linter`
           fetch-depth: 0
 
       - name: Parse latest commit message and set variables
@@ -205,8 +205,9 @@ jobs:
           # All available variables are described in documentation
           # https://megalinter.io/configuration/
           MEGALINTER_CONFIG: ".github/linters/.mega-linter.yml"
-          VALIDATE_ALL_CODEBASE: ${{ steps.latest_commit.outputs.validate_all }} # Validates all source when push on main, else just the git diff with main. Set 'true' if you always want to lint all sources
-          # ADD YOUR CUSTOM ENV VARIABLES HERE TO OVERRIDE VALUES OF .mega-linter.yml AT THE ROOT OF YOUR REPOSITORY
+          # Validates all source when push on main, else just the git diff with main. Set 'true' if you always want to lint all sources
+          VALIDATE_ALL_CODEBASE: ${{ steps.latest_commit.outputs.validate_all }} 
+          # ADD YOUR CUSTOM ENV VARIABLES HERE TO OVERRIDE VALUES OF .mega-linter.yml
           DISABLE_LINTERS : ${{ steps.latest_commit.outputs.filter }}
 
   run-examples:

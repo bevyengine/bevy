@@ -9,7 +9,7 @@
 
 ## WGPU Tracing
 
-When a suspected wgpu error occurs, you should capture a wgpu trace so that Bevy and wgpu devs can debug using the [wgpu player tool](https://github.com/gfx-rs/wgpu/wiki/Debugging-wgpu-Applications#tracing-infrastructure).
+When a suspected wgpu error occurs, you should capture a wgpu trace so that Bevy and wgpu developers can debug using the [wgpu player tool](https://github.com/gfx-rs/wgpu/wiki/Debugging-wgpu-Applications#tracing-infrastructure).
 
 To capture a wgpu trace:
 

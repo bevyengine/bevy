@@ -12,6 +12,7 @@ cdylib
 cfg
 chacha
 cpal
+cpus
 dasharray
 deconstruct
 defaultable
@@ -26,11 +27,13 @@ dwarnings
 evaluateable
 evaluateables
 fastrand
+featureful
 fieldless
 fixedbitset
 fixint
 flamegraph
 flate
+gatekeep
 generify
 getrandom
 guillotiere
@@ -76,6 +79,7 @@ ruzstd
 smallvec
 splitn
 stdcxx
+structs
 subcrate
 subcrates
 Supercompression

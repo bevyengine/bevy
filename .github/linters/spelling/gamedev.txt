@@ -161,6 +161,7 @@ mixamo
 mmo
 mmorpg
 modding
+modularly
 msaa
 multisample
 multisampled
@@ -190,6 +191,7 @@ pixelated
 pixelization
 playdead
 playdeadgames
+pluggable
 png
 pngs
 pointlight
