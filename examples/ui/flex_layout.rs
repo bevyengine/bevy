@@ -10,12 +10,12 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: [870., 1066.].into(),
-                title: "Bevy Text Layout Example".to_string(),
+                title: "Bevy Flex Layout Example".to_string(),
                 ..Default::default()
             }),
             ..Default::default()
         }))
-        .add_startup_system(spawn_layout)
+        .add_systems(Startup, spawn_layout)
         .run();
 }
 

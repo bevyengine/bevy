@@ -1,4 +1,4 @@
-use bevy_ecs::world::World;
+use bevy_ecs::{prelude::Entity, world::World};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::HashMap;
@@ -59,7 +59,7 @@ impl RenderGraphRunner {
         world: &World,
     ) -> Result<(), RenderGraphRunnerError> {
         let mut render_context = RenderContext::new(render_device);
-        Self::run_graph(graph, None, &mut render_context, world, &[])?;
+        Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
         {
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
@@ -74,6 +74,7 @@ impl RenderGraphRunner {
         render_context: &mut RenderContext,
         world: &World,
         inputs: &[SlotValue],
+        view_entity: Option<Entity>,
     ) -> Result<(), RenderGraphRunnerError> {
         let mut node_outputs: HashMap<NodeId, SmallVec<[SlotValue; 4]>> = HashMap::default();
         #[cfg(feature = "trace")]
@@ -175,6 +176,10 @@ impl RenderGraphRunner {
                 smallvec![None; node_state.output_slots.len()];
             {
                 let mut context = RenderGraphContext::new(graph, node_state, &inputs, &mut outputs);
+                if let Some(view_entity) = view_entity {
+                    context.set_view_entity(view_entity);
+                }
+
                 {
                     #[cfg(feature = "trace")]
                     let _span = info_span!("node", name = node_state.type_name).entered();
@@ -192,6 +197,7 @@ impl RenderGraphRunner {
                         render_context,
                         world,
                         &run_sub_graph.inputs,
+                        run_sub_graph.view_entity,
                     )?;
                 }
             }

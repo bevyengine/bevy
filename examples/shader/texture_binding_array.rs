@@ -33,7 +33,7 @@ fn main() {
     }
 
     app.add_plugin(MaterialPlugin::<BindlessMaterial>::default())
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
