@@ -11,7 +11,7 @@ use bevy_tasks::IoTaskPool;
 use bevy_utils::{Entry, HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
-use std::{path::Path, sync::Arc};
+use std::{path::Path, sync::Arc, pin::Pin};
 use thiserror::Error;
 
 /// Errors that occur while loading assets with an `AssetServer`.
@@ -416,9 +416,12 @@ impl AssetServer {
             let label_id = LabelId::from(label.as_ref().map(|label| label.as_str()));
             let type_uuid = loaded_asset.value.as_ref().unwrap().type_uuid();
             source_info.asset_types.insert(label_id, type_uuid);
-            for dependency in &loaded_asset.dependencies {
-                self.load_untracked(dependency.clone(), false);
-            }
+
+            IoTaskPool::get().scope(|s| {
+                for dependency in &loaded_asset.dependencies {
+                    s.spawn(self.load_tracked(dependency.clone(), false));
+                }
+            });
         }
 
         self.asset_io()
@@ -443,6 +446,26 @@ impl AssetServer {
     /// in custom [`AssetIo`] implementations.
     pub fn reload_asset<'a, P: Into<AssetPath<'a>>>(&self, path: P) {
         self.load_untracked(path.into(), true);
+    }
+
+    pub(crate) fn load_tracked(&self, asset_path: AssetPath<'_>, force: bool) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+        let server = self.clone();
+        let owned_path = asset_path.to_owned();
+        let task = IoTaskPool::get()
+            .spawn(async move {
+                if let Err(err) = server.load_async(owned_path, force).await {
+                    warn!("{}", err);
+                }
+            });
+
+        let handle_id = asset_path.get_id().into();
+        self.server
+            .handle_to_path
+            .write()
+            .entry(handle_id)
+            .or_insert_with(|| asset_path.to_owned());
+
+        Box::pin(task)
     }
 
     pub(crate) fn load_untracked(&self, asset_path: AssetPath<'_>, force: bool) -> HandleId {
