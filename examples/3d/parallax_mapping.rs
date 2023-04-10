@@ -311,7 +311,10 @@ fn setup(
             TextSection::new("Controls\n", style.clone()),
             TextSection::new("---------------\n", style.clone()),
             TextSection::new("Left click - Change view angle\n", style.clone()),
-            TextSection::new("1/2 - Decrease/Increase parallax depth scale\n", style.clone()),
+            TextSection::new(
+                "1/2 - Decrease/Increase parallax depth scale\n",
+                style.clone(),
+            ),
             TextSection::new("3/4 - Decrease/Increase layer count\n", style.clone()),
             TextSection::new("Space - Switch parallaxing algorithm\n", style),
         ])
