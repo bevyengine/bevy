@@ -532,7 +532,7 @@ impl Material for StandardMaterial {
     }
 
     #[inline]
-    fn transmissive(&self) -> bool {
+    fn is_transmissive(&self) -> bool {
         self.transmission > 0.0
     }
 }

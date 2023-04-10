@@ -136,7 +136,7 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
     #[inline]
     /// Returns whether or not the material has light transmission properties. Transmissive materials use the color
     /// output from the [`Opaque3d`] pass as an input and therefore must run in a separate [`Transmissive3d`] pass.
-    fn transmissive(&self) -> bool {
+    fn is_transmissive(&self) -> bool {
         false
     }
 
@@ -503,7 +503,7 @@ pub fn queue_material_meshes<M: Material>(
                         + material.properties.depth_bias;
                     match material.properties.alpha_mode {
                         AlphaMode::Opaque => {
-                            if material.properties.transmissive {
+                            if material.properties.is_transmissive {
                                 transmissive_phase.add(Transmissive3d {
                                     entity: *visible_entity,
                                     draw_function: draw_transmissive_pbr,
@@ -555,7 +555,7 @@ pub struct MaterialProperties {
     pub depth_bias: f32,
     /// Whether or not the material has light transmission properties. Transmissive materials use the color
     /// output from the [`Opaque3d`] pass as an input and therefore must run in a separate [`Transmissive3d`] pass.
-    pub transmissive: bool,
+    pub is_transmissive: bool,
 }
 
 /// Data prepared for a [`Material`] instance.
@@ -709,7 +709,7 @@ fn prepare_material<M: Material>(
         properties: MaterialProperties {
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),
-            transmissive: material.transmissive(),
+            is_transmissive: material.is_transmissive(),
         },
     })
 }
