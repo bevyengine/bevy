@@ -1,13 +1,10 @@
-use super::ViewTransmissionTexture;
 use crate::core_3d::Transparent3d;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
-    render_resource::{
-        Extent3d, LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    },
+    render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
     renderer::RenderContext,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
@@ -21,7 +18,6 @@ pub struct MainTransparentPass3dNode {
             &'static ExtractedCamera,
             &'static RenderPhase<Transparent3d>,
             &'static ViewTarget,
-            &'static ViewTransmissionTexture,
             &'static ViewDepthTexture,
         ),
         With<ExtractedView>,
@@ -52,23 +48,11 @@ impl Node for MainTransparentPass3dNode {
             camera,
             transparent_phase,
             target,
-            transmission,
             depth,
         )) = self.query.get_manual(world, view_entity) else {
             // No window
             return Ok(());
         };
-
-        let physical_target_size = camera.physical_target_size.unwrap();
-        render_context.command_encoder().copy_texture_to_texture(
-            target.main_texture().as_image_copy(),
-            transmission.texture.as_image_copy(),
-            Extent3d {
-                width: physical_target_size.x,
-                height: physical_target_size.y,
-                depth_or_array_layers: 1,
-            },
-        );
 
         if !transparent_phase.items.is_empty() {
             // Run the transparent pass, sorted back-to-front

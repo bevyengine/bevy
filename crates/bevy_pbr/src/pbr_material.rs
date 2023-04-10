@@ -530,4 +530,9 @@ impl Material for StandardMaterial {
     fn depth_bias(&self) -> f32 {
         self.depth_bias
     }
+
+    #[inline]
+    fn transmissive(&self) -> bool {
+        self.transmission > 0.0
+    }
 }

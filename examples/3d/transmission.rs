@@ -74,7 +74,6 @@ fn setup(
                 thickness: 1.0,
                 ior: 1.5,
                 perceptual_roughness: 0.12,
-                alpha_mode: AlphaMode::Blend,
                 ..default()
             }),
             transform: Transform::from_xyz(1.0, 0.0, 0.0),

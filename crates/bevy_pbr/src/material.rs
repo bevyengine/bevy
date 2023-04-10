@@ -6,7 +6,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
+    core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d},
     prepass::NormalPrepass,
     tonemapping::{DebandDither, Tonemapping},
 };
@@ -133,6 +133,13 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
         0.0
     }
 
+    #[inline]
+    /// Returns whether or not the material has light transmission properties. Transmissive materials use the color
+    /// output from the [`Opaque3d`] pass as an input and therefore must run in a separate [`Transmissive3d`] pass.
+    fn transmissive(&self) -> bool {
+        false
+    }
+
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
     /// will be used.
     fn prepass_vertex_shader() -> ShaderRef {
@@ -193,6 +200,7 @@ where
             render_app
                 .init_resource::<DrawFunctions<Shadow>>()
                 .add_render_command::<Shadow, DrawPrepass<M>>()
+                .add_render_command::<Transmissive3d, DrawMaterial<M>>()
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
@@ -366,6 +374,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
 pub fn queue_material_meshes<M: Material>(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
+    transmissive_draw_functions: Res<DrawFunctions<Transmissive3d>>,
     transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
@@ -384,6 +393,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&NormalPrepass>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
+        &mut RenderPhase<Transmissive3d>,
         &mut RenderPhase<Transparent3d>,
     )>,
 ) where
@@ -398,11 +408,13 @@ pub fn queue_material_meshes<M: Material>(
         normal_prepass,
         mut opaque_phase,
         mut alpha_mask_phase,
+        mut transmissive_phase,
         mut transparent_phase,
     ) in &mut views
     {
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
+        let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
@@ -491,12 +503,21 @@ pub fn queue_material_meshes<M: Material>(
                         + material.properties.depth_bias;
                     match material.properties.alpha_mode {
                         AlphaMode::Opaque => {
-                            opaque_phase.add(Opaque3d {
-                                entity: *visible_entity,
-                                draw_function: draw_opaque_pbr,
-                                pipeline: pipeline_id,
-                                distance,
-                            });
+                            if material.properties.transmissive {
+                                transmissive_phase.add(Transmissive3d {
+                                    entity: *visible_entity,
+                                    draw_function: draw_transmissive_pbr,
+                                    pipeline: pipeline_id,
+                                    distance,
+                                });
+                            } else {
+                                opaque_phase.add(Opaque3d {
+                                    entity: *visible_entity,
+                                    draw_function: draw_opaque_pbr,
+                                    pipeline: pipeline_id,
+                                    distance,
+                                });
+                            }
                         }
                         AlphaMode::Mask(_) => {
                             alpha_mask_phase.add(AlphaMask3d {
@@ -532,6 +553,9 @@ pub struct MaterialProperties {
     /// for meshes with equal depth, to avoid z-fighting.
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
     pub depth_bias: f32,
+    /// Whether or not the material has light transmission properties. Transmissive materials use the color
+    /// output from the [`Opaque3d`] pass as an input and therefore must run in a separate [`Transmissive3d`] pass.
+    pub transmissive: bool,
 }
 
 /// Data prepared for a [`Material`] instance.
@@ -685,6 +709,7 @@ fn prepare_material<M: Material>(
         properties: MaterialProperties {
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),
+            transmissive: material.transmissive(),
         },
     })
 }

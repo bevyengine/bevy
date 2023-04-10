@@ -1,5 +1,6 @@
 mod camera_3d;
 mod main_opaque_pass_3d_node;
+mod main_transmissive_pass_3d_node;
 mod main_transparent_pass_3d_node;
 
 pub mod graph {
@@ -12,6 +13,7 @@ pub mod graph {
         pub const PREPASS: &str = "prepass";
         pub const START_MAIN_PASS: &str = "start_main_pass";
         pub const MAIN_OPAQUE_PASS: &str = "main_opaque_pass";
+        pub const MAIN_TRANSMISSIVE_PASS: &str = "main_transmissive_pass";
         pub const MAIN_TRANSPARENT_PASS: &str = "main_transparent_pass";
         pub const END_MAIN_PASS: &str = "end_main_pass";
         pub const BLOOM: &str = "bloom";
@@ -53,6 +55,7 @@ use bevy_render::{
 use bevy_utils::{FloatOrd, HashMap};
 
 use crate::{
+    core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
     prepass::{node::PrepassNode, DepthPrepass},
     skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
@@ -76,6 +79,7 @@ impl Plugin for Core3dPlugin {
         render_app
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()
+            .init_resource::<DrawFunctions<Transmissive3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
             .add_systems(
@@ -89,6 +93,7 @@ impl Plugin for Core3dPlugin {
                         .after(bevy_render::view::prepare_windows),
                     sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<Transmissive3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
                 ),
             );
@@ -99,6 +104,7 @@ impl Plugin for Core3dPlugin {
             .add_render_graph_node::<PrepassNode>(CORE_3D, PREPASS)
             .add_render_graph_node::<EmptyNode>(CORE_3D, START_MAIN_PASS)
             .add_render_graph_node::<MainOpaquePass3dNode>(CORE_3D, MAIN_OPAQUE_PASS)
+            .add_render_graph_node::<MainTransmissivePass3dNode>(CORE_3D, MAIN_TRANSMISSIVE_PASS)
             .add_render_graph_node::<MainTransparentPass3dNode>(CORE_3D, MAIN_TRANSPARENT_PASS)
             .add_render_graph_node::<EmptyNode>(CORE_3D, END_MAIN_PASS)
             .add_render_graph_node::<TonemappingNode>(CORE_3D, TONEMAPPING)
@@ -110,6 +116,7 @@ impl Plugin for Core3dPlugin {
                     PREPASS,
                     START_MAIN_PASS,
                     MAIN_OPAQUE_PASS,
+                    MAIN_TRANSMISSIVE_PASS,
                     MAIN_TRANSPARENT_PASS,
                     END_MAIN_PASS,
                     TONEMAPPING,
@@ -200,6 +207,45 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3d {
     }
 }
 
+pub struct Transmissive3d {
+    pub distance: f32,
+    pub pipeline: CachedRenderPipelineId,
+    pub entity: Entity,
+    pub draw_function: DrawFunctionId,
+}
+
+impl PhaseItem for Transmissive3d {
+    // NOTE: Values increase towards the camera. Back-to-front ordering for transmissive means we need an ascending sort.
+    type SortKey = FloatOrd;
+
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        FloatOrd(self.distance)
+    }
+
+    #[inline]
+    fn draw_function(&self) -> DrawFunctionId {
+        self.draw_function
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        radsort::sort_by_key(items, |item| item.distance);
+    }
+}
+
+impl CachedRenderPipelinePhaseItem for Transmissive3d {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
+        self.pipeline
+    }
+}
+
 pub struct Transparent3d {
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
@@ -248,6 +294,7 @@ pub fn extract_core_3d_camera_phases(
             commands.get_or_spawn(entity).insert((
                 RenderPhase::<Opaque3d>::default(),
                 RenderPhase::<AlphaMask3d>::default(),
+                RenderPhase::<Transmissive3d>::default(),
                 RenderPhase::<Transparent3d>::default(),
             ));
         }
@@ -264,6 +311,7 @@ pub fn prepare_core_3d_depth_textures(
         (
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
+            With<RenderPhase<Transmissive3d>>,
             With<RenderPhase<Transparent3d>>,
         ),
     >,
@@ -330,6 +378,7 @@ pub fn prepare_core_3d_transmission_textures(
         (
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
+            With<RenderPhase<Transmissive3d>>,
             With<RenderPhase<Transparent3d>>,
         ),
     >,
