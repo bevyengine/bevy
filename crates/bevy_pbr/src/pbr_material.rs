@@ -303,9 +303,9 @@ pub struct StandardMaterial {
     /// If you are seeing jaggy edges, increase this value.
     /// However, this incurs a performance cost.
     ///
-    /// Dependent on the situation, switching to [`ParallaxMappingMethod::ReliefMapping`]
+    /// Dependent on the situation, switching to [`ParallaxMappingMethod::Relief`]
     /// and keeping this value low might have better performance than increasing the
-    /// layer count while using [`ParallaxMappingMethod::ParallaxOcclusionMapping`].
+    /// layer count while using [`ParallaxMappingMethod::Occlusion`].
     ///
     /// Default is `16.0`.
     pub max_parallax_layer_count: f32,
@@ -431,7 +431,7 @@ pub struct StandardMaterialUniform {
     /// If your `parallax_depth_scale` is >0.1 and you are seeing jaggy edges,
     /// increase this value. However, this incurs a performance cost.
     pub max_parallax_layer_count: f32,
-    /// Using [`ParallaxMappingMethod::ReliefMapping`], how many additional
+    /// Using [`ParallaxMappingMethod::Relief`], how many additional
     /// steps to use at most to find the depth value.
     pub max_relief_mapping_search_steps: u32,
 }

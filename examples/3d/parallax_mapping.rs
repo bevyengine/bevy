@@ -331,14 +331,21 @@ fn setup(
 #[derive(Resource)]
 struct Normal(Option<Handle<Image>>);
 
-/// Work around the fact that the default bevy image loader sets the
-/// normal's format to something incompatible with normal shaders.
-/// The format must be one of the `TextureFormat` ending in `*Unorm`.
+/// Work around the default bevy image loader.
 ///
-/// In this function, we wait until the image is loaded, immediately
-/// change its format and never run the core logic afterward.
+/// The bevy image loader used by `AssetServer` always loads images in
+/// `Srgb` mode, which is usually what it should do,
+/// but is incompatible with normal maps.
 ///
-/// Without proper format, lighting looks wrong.
+/// Normal maps require a texture in linear color space,
+/// so we overwrite the format of the normal map we loaded through `AssetServer`
+/// in this system.
+///
+/// Note that this method of conversion is a last resort workaround. You should
+/// get your normal maps from a 3d model file, like gltf.
+///
+/// In this system, we wait until the image is loaded, immediately
+/// change its format and never run the logic afterward.
 fn update_normal(
     mut already_ran: Local<bool>,
     mut images: ResMut<Assets<Image>>,
