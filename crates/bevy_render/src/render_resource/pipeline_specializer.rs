@@ -147,7 +147,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                                 error!(
                                     "The cached pipeline descriptor for {} is not \
                                 equal to the generated descriptor for the given key. \
-                                This means the SpecializePipeline implementation uses \ 
+                                This means the SpecializePipeline implementation uses \
                                 unused' MeshVertexBufferLayout information to specialize \
                                 the pipeline. This is not allowed because it would invalidate \
                                 the pipeline cache.",
