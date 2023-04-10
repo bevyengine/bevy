@@ -8,10 +8,10 @@ use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_log::warn;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{Entry, HashMap, Uuid};
+use bevy_utils::{Entry, HashMap, Uuid, BoxedFuture};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
-use std::{path::Path, pin::Pin, sync::Arc};
+use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
 /// Errors that occur while loading assets with an `AssetServer`.
@@ -452,7 +452,7 @@ impl AssetServer {
         &self,
         asset_path: AssetPath<'_>,
         force: bool,
-    ) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+    ) -> BoxedFuture<'_, ()> {
         let server = self.clone();
         let owned_path = asset_path.to_owned();
         let task = IoTaskPool::get().spawn(async move {
