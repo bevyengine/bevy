@@ -32,7 +32,7 @@ fn fragment(
         output_color = output_color * textureSample(texture, texture_sampler, mesh.uv);
     }
 #ifdef TONEMAP_IN_SHADER
-    output_color = tone_mapping(output_color, ::view.color_grading);
+    output_color = bevy_core_pipeline::tonemapping::tone_mapping(output_color, ::view.color_grading);
 #endif
     return output_color;
 }

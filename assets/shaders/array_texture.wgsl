@@ -2,6 +2,7 @@
 #from bevy_pbr::mesh_view_bindings  import view
 #from bevy_pbr::pbr_types           import STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT
 #import bevy_pbr::pbr_functions as fns
+#from bevy_core_pipeline::tonemapping import tone_mapping
 
 @group(1) @binding(0)
 var my_array_texture: texture_2d_array<f32>;
@@ -46,5 +47,5 @@ fn fragment(
     );
     pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 
-    return fns::tone_mapping(fns::pbr(pbr_input), ::view.color_grading);
+    return ::tone_mapping(fns::pbr(pbr_input), ::view.color_grading);
 }

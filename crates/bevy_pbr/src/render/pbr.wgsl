@@ -3,6 +3,7 @@
 #import bevy_pbr::pbr_functions as pbr_functions
 #import bevy_pbr::pbr_bindings as pbr_bindings
 #import bevy_pbr::pbr_types as pbr_types
+#import bevy_pbr::prepass_utils
 
 #from bevy_pbr::mesh_vertex_output      import MeshVertexOutput
 #from bevy_pbr::mesh_bindings           import mesh
@@ -11,12 +12,6 @@
 #from bevy_core_pipeline::tonemapping   import screen_space_dither, powsafe, tone_mapping
 
 #import bevy_pbr::prepass_utils
-
-struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
-    @builtin(position) frag_coord: vec4<f32>,
-    #import bevy_pbr::mesh_vertex_output
-};
 
 @fragment
 fn fragment(
@@ -77,7 +72,7 @@ fn fragment(
         pbr_input.world_position = in.world_position;
 
 #ifdef LOAD_PREPASS_NORMALS
-        pbr_input.world_normal = prepass_normal(in.clip_position, 0u);
+        pbr_input.world_normal = bevy_pbr::prepass_utils::prepass_normal(in.clip_position, 0u);
 #else // LOAD_PREPASS_NORMALS
         pbr_input.world_normal = pbr_functions::prepare_world_normal(
             in.world_normal,

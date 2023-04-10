@@ -20,7 +20,7 @@
 // As you can see, the triangle ends up bigger than the screen.
 //
 // You don't need to worry about this too much since bevy will compute the correct UVs for you.
-#import bevy_core_pipeline::fullscreen_vertex_shader
+#from bevy_core_pipeline::fullscreen_vertex_shader import FullscreenVertexOutput
 
 @group(0) @binding(0)
 var screen_texture: texture_2d<f32>;
@@ -33,7 +33,7 @@ struct PostProcessSettings {
 var<uniform> settings: PostProcessSettings;
 
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn fragment(in: ::FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Chromatic aberration strength
     let offset_strength = settings.intensity;
 

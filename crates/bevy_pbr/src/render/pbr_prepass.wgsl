@@ -44,11 +44,11 @@ fn prepass_alpha_discard(in: FragmentInput) {
         discard;
     }
 #else // BLEND_PREMULTIPLIED_ALPHA || BLEND_ALPHA
-    let alpha_mode = material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD)
+    let alpha_mode = bevy_pbr::pbr_bindings::material.flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if (alpha_mode == bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD)
         && output_color.a < PREMULTIPLIED_ALPHA_CUTOFF {
         discard;
-    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED
+    } else if alpha_mode == bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED
         && all(output_color < vec4(PREMULTIPLIED_ALPHA_CUTOFF)) {
         discard;
     }
@@ -103,9 +103,9 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #endif // NORMAL_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
-    let clip_position_t = view.unjittered_view_proj * in.world_position;
+    let clip_position_t = bevy_pbr::prepass_bindings::view.unjittered_view_proj * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = previous_view_proj * in.previous_world_position;
+    let previous_clip_position_t = bevy_pbr::prepass_bindings::previous_view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

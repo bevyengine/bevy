@@ -1,16 +1,11 @@
 #import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::mesh_bindings
-#import bevy_pbr::utils
+#from bevy_pbr::mesh_vertex_output import MeshVertexOutput
+#from bevy_pbr::utils import PI
 
 #ifdef TONEMAP_IN_SHADER
 #import bevy_core_pipeline::tonemapping
 #endif
-
-struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
-    @builtin(position) frag_coord: vec4<f32>,
-    #import bevy_pbr::mesh_vertex_output
-};
 
 // Sweep across hues on y axis with value from 0.0 to +15EV across x axis 
 // quantized into 24 steps for both axis.
@@ -20,12 +15,12 @@ fn color_sweep(uv: vec2<f32>) -> vec3<f32> {
     uv.y = uv.y * (1.0 + 1.0 / steps);
     let ratio = 2.0;
     
-    let h = PI * 2.0 * floor(1.0 + steps * uv.y) / steps;
+    let h = ::PI * 2.0 * floor(1.0 + steps * uv.y) / steps;
     let L = floor(uv.x * steps * ratio) / (steps * ratio) - 0.5;
     
     var color = vec3(0.0);
     if uv.y < 1.0 { 
-        color = cos(h + vec3(0.0, 1.0, 2.0) * PI * 2.0 / 3.0);
+        color = cos(h + vec3(0.0, 1.0, 2.0) * ::PI * 2.0 / 3.0);
         let maxRGB = max(color.r, max(color.g, color.b));
         let minRGB = min(color.r, min(color.g, color.b));
         color = exp(15.0 * L) * (color - minRGB) / (maxRGB - minRGB);
@@ -47,7 +42,9 @@ fn continuous_hue(uv: vec2<f32>) -> vec3<f32> {
 }
 
 @fragment
-fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+fn fragment(
+    in: ::MeshVertexOutput,
+) -> @location(0) vec4<f32> {
     var uv = in.uv;
     var out = vec3(0.0);
     if uv.y > 0.5 {

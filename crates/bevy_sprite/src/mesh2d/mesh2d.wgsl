@@ -59,12 +59,12 @@ fn vertex(vertex: Vertex) -> ::MeshVertexOutput {
 
 @fragment
 fn fragment(
-    mesh: ::MeshVertexOutput,
+    in: ::MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
 #ifdef VERTEX_COLORS
     var color = in.color;
 #ifdef TONEMAP_IN_SHADER
-    color = tone_mapping(color, ::view.color_grading);
+    color = bevy_core_pipeline::tonemapping::tone_mapping(color, ::view.color_grading);
 #endif
     return color;
 #else

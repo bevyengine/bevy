@@ -371,6 +371,16 @@ where
             shader_defs.push("BLEND_ALPHA".into());
         }
 
+        // if we don't use any of ALPHA_MASK, BLEND_ALPHA or BLEND_PREMULTIPLIED_ALPHA
+        // then we can skip the prepass alpha discard stage
+        // TODO - move into shader once we can use something like `#ifndef X || Y`
+        if !key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
+            && blend_key != MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
+            && blend_key != MeshPipelineKey::BLEND_ALPHA
+        {
+            shader_defs.push("EMPTY_PREPASS_ALPHA_DISCARD".into());
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));

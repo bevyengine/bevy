@@ -77,8 +77,8 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #endif // NORMAL_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
-    out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
-    out.previous_world_position = mesh_position_local_to_world(mesh.previous_model, vec4<f32>(vertex.position, 1.0));
+    out.world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
+    out.previous_world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(::mesh.previous_model, vec4<f32>(vertex.position, 1.0));
 #endif // MOTION_VECTOR_PREPASS
 
     return out;
@@ -115,9 +115,9 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #endif
 
 #ifdef MOTION_VECTOR_PREPASS
-    let clip_position_t = view.unjittered_view_proj * in.world_position;
+    let clip_position_t = bevy_pbr::prepass_bindings::view.unjittered_view_proj * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = previous_view_proj * in.previous_world_position;
+    let previous_clip_position_t = bevy_pbr::prepass_bindings::previous_view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the
