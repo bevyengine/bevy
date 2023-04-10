@@ -1,5 +1,5 @@
 use crate::{
-    render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
+    render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderSize},
     renderer::{RenderDevice, RenderQueue},
     view::ComputedVisibility,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -78,7 +78,7 @@ impl<C> Default for UniformComponentPlugin<C> {
     }
 }
 
-impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentPlugin<C> {
+impl<C: Component + ShaderSize + WriteInto + Clone> Plugin for UniformComponentPlugin<C> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -93,11 +93,11 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
 
 /// Stores all uniforms of the component type.
 #[derive(Resource)]
-pub struct ComponentUniforms<C: Component + ShaderType> {
+pub struct ComponentUniforms<C: Component + ShaderSize> {
     uniforms: DynamicUniformBuffer<C>,
 }
 
-impl<C: Component + ShaderType> Deref for ComponentUniforms<C> {
+impl<C: Component + ShaderSize> Deref for ComponentUniforms<C> {
     type Target = DynamicUniformBuffer<C>;
 
     #[inline]
@@ -106,14 +106,14 @@ impl<C: Component + ShaderType> Deref for ComponentUniforms<C> {
     }
 }
 
-impl<C: Component + ShaderType> ComponentUniforms<C> {
+impl<C: Component + ShaderSize> ComponentUniforms<C> {
     #[inline]
     pub fn uniforms(&self) -> &DynamicUniformBuffer<C> {
         &self.uniforms
     }
 }
 
-impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
+impl<C: Component + ShaderSize> Default for ComponentUniforms<C> {
     fn default() -> Self {
         Self {
             uniforms: Default::default(),
@@ -130,7 +130,7 @@ fn prepare_uniform_components<C: Component>(
     mut component_uniforms: ResMut<ComponentUniforms<C>>,
     components: Query<(Entity, &C)>,
 ) where
-    C: ShaderType + WriteInto + Clone,
+    C: ShaderSize + WriteInto + Clone,
 {
     component_uniforms.uniforms.clear();
     let entities = components
