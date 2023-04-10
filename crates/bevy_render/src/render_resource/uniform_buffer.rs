@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, num::NonZeroU64};
+use std::{marker::PhantomData, num::NonZeroU64, ops::DerefMut};
 
 use crate::{
     render_resource::Buffer,
@@ -8,7 +8,9 @@ use encase::{
     internal::{BufferMut, WriteInto},
     ShaderType, UniformBuffer as UniformBufferWrapper,
 };
-use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
+use wgpu::{
+    util::BufferInitDescriptor, BindingResource, BufferBinding, BufferDescriptor, BufferUsages,
+};
 
 /// Stores data to be transferred to the GPU and made accessible to shaders as a uniform buffer.
 ///
@@ -177,12 +179,13 @@ impl<'a, T: ShaderType + WriteInto> DynamicUniformBufferWriter<'a, T> {
 /// [`encase::internal::BufferMut`].
 struct QueueWriteBufferViewWrapper<'a> {
     buffer_view: wgpu::QueueWriteBufferView<'a>,
+    capacity: usize,
 }
 
 impl<'a> BufferMut for QueueWriteBufferViewWrapper<'a> {
     #[inline]
     fn capacity(&self) -> usize {
-        self.buffer_view.capacity()
+        self.capacity
     }
 
     #[inline]
@@ -254,28 +257,35 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         device: &RenderDevice,
         queue: &'a RenderQueue,
     ) -> Option<DynamicUniformBufferWriter<'a, T>> {
-        T::assert_uniform_compat();
-
-        let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
-        let size = T::min_size().get().checked_mul(max_count as u64).unwrap();
+        let alignment = device.limits().min_uniform_buffer_offset_alignment;
+        let mut capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
+        let size = T::min_size()
+            .get()
+            .max(alignment.into())
+            .checked_mul(max_count as u64 + 1)
+            .unwrap();
 
         if capacity < size || self.changed {
-            self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
+            let buffer = device.create_buffer(&BufferDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
-                contents: &vec![0u8; size as usize],
-            }));
+                size,
+                mapped_at_creation: false,
+            });
+            capacity = buffer.size();
+            self.buffer = Some(buffer);
             self.changed = false;
         }
-
-        let alignment = device.limits().min_uniform_buffer_offset_alignment;
 
         if let Some(buffer) = self.buffer.as_deref() {
             let buffer_view =
                 queue.write_buffer_with(buffer, 0, NonZeroU64::new(buffer.size())?)?;
             Some(DynamicUniformBufferWriter {
                 buffer: encase::DynamicUniformBuffer::new_with_alignment(
-                    QueueWriteBufferViewWrapper { buffer_view },
+                    QueueWriteBufferViewWrapper {
+                        capacity: capacity as usize,
+                        buffer_view,
+                    },
                     alignment as u64,
                 ),
                 _marker: PhantomData,
