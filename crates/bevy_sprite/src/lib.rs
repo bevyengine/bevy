@@ -64,7 +64,10 @@ impl Plugin for SpritePlugin {
             .register_type::<Mesh2dHandle>()
             .add_plugin(Mesh2dRenderPlugin)
             .add_plugin(ColorMaterialPlugin)
-            .add_systems(PostUpdate, calculate_bounds.in_set(VisibilitySystems::CalculateBounds));
+            .add_systems(
+                PostUpdate,
+                calculate_bounds.in_set(VisibilitySystems::CalculateBounds),
+            );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
