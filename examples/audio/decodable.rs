@@ -89,7 +89,7 @@ fn main() {
         global_volume: GlobalVolume::new(0.2),
     }))
     .add_audio_source::<SineAudio>()
-    .add_system(Startup, setup)
+    .add_systems(Startup, setup)
     .run();
 }
 
