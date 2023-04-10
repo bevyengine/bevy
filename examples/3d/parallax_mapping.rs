@@ -14,7 +14,7 @@ fn main() {
                 spin,
                 update_normal,
                 move_camera,
-                update_parallax_depth,
+                update_parallax_depth_scale,
                 update_parallax_layers,
                 switch_method,
                 close_on_esc,
@@ -48,7 +48,7 @@ impl Default for TargetLayers {
         TargetLayers(5.0)
     }
 }
-fn update_parallax_depth(
+fn update_parallax_depth_scale(
     input: Res<Input<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_depth: Local<TargetDepth>,
@@ -68,11 +68,11 @@ fn update_parallax_depth(
     if *depth_update {
         let mut text = text.single_mut();
         for (_, mat) in materials.iter_mut() {
-            let current_depth = mat.parallax_depth;
+            let current_depth = mat.parallax_depth_scale;
             let new_depth =
                 current_depth * (1.0 - DEPTH_CHANGE_RATE) + (target_depth.0 * DEPTH_CHANGE_RATE);
-            mat.parallax_depth = new_depth;
-            text.sections[0].value = format!("Parallax depth: {new_depth:.5}\n");
+            mat.parallax_depth_scale = new_depth;
+            text.sections[0].value = format!("Parallax depth scale: {new_depth:.5}\n");
             if (new_depth - current_depth).abs() <= 0.000000001 {
                 *depth_update = false;
             }
@@ -247,7 +247,7 @@ fn setup(
     // needs tangents generated.
     cube.generate_tangents().unwrap();
 
-    let parallax_depth = TargetDepth::default().0;
+    let parallax_depth_scale = TargetDepth::default().0;
     let max_parallax_layer_count = TargetLayers::default().0.exp2();
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,
@@ -256,7 +256,7 @@ fn setup(
         // The depth map is a greyscale texture where black is the highest level and
         // white the lowest.
         depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.jpg")),
-        parallax_depth,
+        parallax_depth_scale,
         parallax_mapping_method: ParallaxMappingMethod::DEFAULT_RELIEF_MAPPING,
         max_parallax_layer_count,
         ..default()
@@ -299,7 +299,7 @@ fn setup(
     commands.spawn(
         TextBundle::from_sections(vec![
             TextSection::new(
-                format!("Parallax depth: {parallax_depth:.5}\n"),
+                format!("Parallax depth scale: {parallax_depth_scale:.5}\n"),
                 style.clone(),
             ),
             TextSection::new(
@@ -311,7 +311,7 @@ fn setup(
             TextSection::new("Controls\n", style.clone()),
             TextSection::new("---------------\n", style.clone()),
             TextSection::new("Left click - Change view angle\n", style.clone()),
-            TextSection::new("1/2 - Decrease/Increase parallax depth\n", style.clone()),
+            TextSection::new("1/2 - Decrease/Increase parallax depth scale\n", style.clone()),
             TextSection::new("3/4 - Decrease/Increase layer count\n", style.clone()),
             TextSection::new("Space - Switch parallaxing algorithm\n", style),
         ])

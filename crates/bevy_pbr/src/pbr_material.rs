@@ -243,7 +243,7 @@ pub struct StandardMaterial {
     /// The visual result is similar to a displacement map,
     /// but does not require additional geometry.
     ///
-    /// Use the [`parallax_depth`] field to control the depth of the parallax.
+    /// Use the [`parallax_depth_scale`] field to control the depth of the parallax.
     ///
     /// ## Limitations
     ///
@@ -273,7 +273,7 @@ pub struct StandardMaterial {
     ///
     /// [this paper]: https://www.diva-portal.org/smash/get/diva2:831762/FULLTEXT01.pdf
     /// [parallax mapping]: https://en.wikipedia.org/wiki/Parallax_mapping
-    /// [`parallax_depth`]: StandardMaterial::parallax_depth
+    /// [`parallax_depth_scale`]: StandardMaterial::parallax_depth_scale
     /// [`parallax_mapping_method`]: StandardMaterial::parallax_mapping_method
     /// [`max_parallax_layer_count`]: StandardMaterial::max_parallax_layer_count
     #[texture(11)]
@@ -286,11 +286,11 @@ pub struct StandardMaterial {
     /// Lower values lessen the effect.
     ///
     /// The depth is relative to texture size. This means that if your texture
-    /// occupies a surface of `1` world unit, and `parallax_depth` is `0.1`, then
+    /// occupies a surface of `1` world unit, and `parallax_depth_scale` is `0.1`, then
     /// the in-world depth will be of `0.1` world units.
     /// If the texture stretches for `10` world units, then the final depth
     /// will be of `1` world unit.
-    pub parallax_depth: f32,
+    pub parallax_depth_scale: f32,
 
     /// Which parallax mapping method to use.
     ///
@@ -339,7 +339,7 @@ impl Default for StandardMaterial {
             alpha_mode: AlphaMode::Opaque,
             depth_bias: 0.0,
             depth_map: None,
-            parallax_depth: 0.1,
+            parallax_depth_scale: 0.1,
             max_parallax_layer_count: 16.0,
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
         }
@@ -425,10 +425,10 @@ pub struct StandardMaterialUniform {
     /// and any below means fully transparent.
     pub alpha_cutoff: f32,
     /// The depth of the [`StandardMaterial::depth_map`] to apply.
-    pub parallax_depth: f32,
+    pub parallax_depth_scale: f32,
     /// In how many layers to split the depth maps for Steep parallax mapping.
     ///
-    /// If your `parallax_depth` is >0.1 and you are seeing jaggy edges,
+    /// If your `parallax_depth_scale` is >0.1 and you are seeing jaggy edges,
     /// increase this value. However, this incurs a performance cost.
     pub max_parallax_layer_count: f32,
     /// Using [`ParallaxMappingMethod::ReliefMapping`], how many additional
@@ -503,7 +503,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             reflectance: self.reflectance,
             flags: flags.bits(),
             alpha_cutoff,
-            parallax_depth: self.parallax_depth,
+            parallax_depth_scale: self.parallax_depth_scale,
             max_parallax_layer_count: self.max_parallax_layer_count,
             max_relief_mapping_search_steps: self.parallax_mapping_method.max_steps(),
         }

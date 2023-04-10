@@ -33,7 +33,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         // Transform V from fragment to camera in world space to tangent space.
         let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
         uv = parallaxed_uv(
-            material.parallax_depth,
+            material.parallax_depth_scale,
             material.max_parallax_layer_count,
             material.max_relief_mapping_search_steps,
             uv,
