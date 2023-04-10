@@ -11,7 +11,7 @@ use bevy_tasks::IoTaskPool;
 use bevy_utils::{Entry, HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
-use std::{path::Path, sync::Arc, pin::Pin};
+use std::{path::Path, pin::Pin, sync::Arc};
 use thiserror::Error;
 
 /// Errors that occur while loading assets with an `AssetServer`.
@@ -448,15 +448,18 @@ impl AssetServer {
         self.load_untracked(path.into(), true);
     }
 
-    pub(crate) fn load_tracked(&self, asset_path: AssetPath<'_>, force: bool) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+    pub(crate) fn load_tracked(
+        &self,
+        asset_path: AssetPath<'_>,
+        force: bool,
+    ) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
         let server = self.clone();
         let owned_path = asset_path.to_owned();
-        let task = IoTaskPool::get()
-            .spawn(async move {
-                if let Err(err) = server.load_async(owned_path, force).await {
-                    warn!("{}", err);
-                }
-            });
+        let task = IoTaskPool::get().spawn(async move {
+            if let Err(err) = server.load_async(owned_path, force).await {
+                warn!("{}", err);
+            }
+        });
 
         let handle_id = asset_path.get_id().into();
         self.server
