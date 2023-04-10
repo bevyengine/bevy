@@ -30,13 +30,17 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         let N = in.world_normal;
         let T = in.world_tangent.xyz;
         let B = in.world_tangent.w * cross(N, T);
-        let Vt = vec3<f32>(dot(V, T), dot(V, -B), dot(V, N));
+        // Transform V from fragment to camera in world space to tangent space.
+        let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
         uv = parallaxed_uv(
             material.parallax_depth,
             material.max_parallax_layer_count,
             material.max_relief_mapping_search_steps,
             uv,
-            Vt,
+            // Flip the direction of Vt to go toward the surface to make the
+            // parallax mapping algorithm easier to understand and reason
+            // about.
+            -Vt,
         );
     }
 #endif

@@ -7,18 +7,19 @@ fn sample_depth_map(uv: vec2<f32>) -> f32 {
 // An implementation of parallax mapping, see https://en.wikipedia.org/wiki/Parallax_mapping
 // Code derived from: https://web.archive.org/web/20150419215321/http://sunandblackcat.com/tipFullView.php?l=eng&topicid=28
 fn parallaxed_uv(
-    depth: f32,
+    depth_scale: f32,
     max_layer_count: f32,
     max_steps: u32,
-    // The original uv
+    // The original interpolated uv
     uv: vec2<f32>,
-    // The vector from camera to the surface of material
-    V: vec3<f32>,
+    // The vector from the camera to the fragment at the surface in tangent
+    // space
+    Vt: vec3<f32>,
 ) -> vec2<f32> {
-    var uv = uv;
     if max_layer_count < 1.0 {
         return uv;
     }
+    var uv = uv;
 
     // Steep Parallax Mapping
     // ======================
@@ -31,22 +32,24 @@ fn parallaxed_uv(
     // Where `layer_count` is interpolated between `min_layer_count` and
     // `max_layer_count` according to the steepness of V.
 
-    let view_steepness = abs(dot(vec3<f32>(0.0, 0.0, 1.0), V));
+    let view_steepness = abs(Vt.z);
     // We mix with minimum value 1.0 because otherwise, with 0.0, we get
     // a nice division by zero in surfaces parallel to viewport, resulting
     // in a singularity.
     let layer_count = mix(max_layer_count, 1.0, view_steepness);
-    let layer_height = 1.0 / layer_count;
-    var delta_uv = depth * V.xy / V.z / layer_count;
+    let layer_depth = 1.0 / layer_count;
+    var delta_uv = depth_scale * layer_depth * Vt.xy * vec2(1.0, -1.0) / view_steepness;
 
-    var current_layer_height = 0.0;
-    var current_height = sample_depth_map(uv);
+    var current_layer_depth = 0.0;
+    var current_depth = sample_depth_map(uv);
 
-    // This at most runs layer_count times
-    for (var i: i32 = 0; current_height > current_layer_height && i <= i32(layer_count); i++) {
-        current_layer_height += layer_height;
-        uv -= delta_uv;
-        current_height = sample_depth_map(uv);
+    // current_depth > current_layer_depth means the depth map depth is deeper
+    // than the depth the ray would be at at this UV offset so the ray has not
+    // intersected the surface
+    for (var i: i32 = 0; current_depth > current_layer_depth && i <= i32(layer_count); i++) {
+        current_layer_depth += layer_depth;
+        uv += delta_uv;
+        current_depth = sample_depth_map(uv);
     }
 
 #ifdef RELIEF_MAPPING
@@ -58,45 +61,45 @@ fn parallaxed_uv(
     // This reduces the jaggy step artifacts from steep parallax mapping.
 
     delta_uv *= 0.5;
-    var delta_height = 0.5 * layer_height;
-    uv += delta_uv;
-    current_layer_height -= delta_height;
+    var delta_depth = 0.5 * layer_depth;
+    uv -= delta_uv;
+    current_layer_depth -= delta_depth;
     for (var i: u32 = 0u; i < max_steps; i++) {
         // Sample depth at current offset
-        current_height = sample_depth_map(uv);
+        current_depth = sample_depth_map(uv);
 
         // Halve the deltas for the next step
         delta_uv *= 0.5;
-        delta_height *= 0.5;
+        delta_depth *= 0.5;
 
         // Step based on whether the current depth is above or below the depth map
-        if (current_height > current_layer_height) {
-            uv -= delta_uv;
-            current_layer_height += delta_height;
-        } else {
+        if (current_depth > current_layer_depth) {
             uv += delta_uv;
-            current_layer_height -= delta_height;
+            current_layer_depth += delta_depth;
+        } else {
+            uv -= delta_uv;
+            current_layer_depth -= delta_depth;
         }
     }
-#else    
+#else
     // Parallax Occlusion mapping
     // ==========================
     // "Refine" Steep Parallax Mapping by interpolating between the
-    // previous layer's height and the computed layer height.
+    // previous layer's depth and the computed layer depth.
     // Only requires a single lookup, unlike Relief Mapping, but
     // may incur artifacts on very steep relief.
-    let previous_uv = uv + delta_uv;
-    let next_height = current_height - current_layer_height;
-    let previous_height = sample_depth_map(previous_uv) - current_layer_height + layer_height;
+    let previous_uv = uv - delta_uv;
+    let next_depth = current_depth - current_layer_depth;
+    let previous_depth = sample_depth_map(previous_uv) - current_layer_depth + layer_depth;
 
-    let weight = next_height / (next_height - previous_height);
+    let weight = next_depth / (next_depth - previous_depth);
 
     uv = mix(uv, previous_uv, weight);
 
-    current_layer_height += mix(next_height, previous_height, weight);
+    current_layer_depth += mix(next_depth, previous_depth, weight);
 #endif
 
-    // Note: `current_layer_height` is not returned, but may be useful
+    // Note: `current_layer_depth` is not returned, but may be useful
     // for light computation later on in future improvements of the pbr shader.
     return uv;
 }
