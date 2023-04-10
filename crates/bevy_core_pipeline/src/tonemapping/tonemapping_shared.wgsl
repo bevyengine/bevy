@@ -14,10 +14,6 @@
     @group(0) @binding(15)
     var dt_lut_sampler: sampler;
 #endif
-// more hack! hope it's always there...
-@group(0) @binding(0)
-var<uniform> view: ::View;
-
 
 fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
     // Don't include code that will try to sample from LUTs if tonemap method doesn't require it

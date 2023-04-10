@@ -268,7 +268,7 @@ pub struct MaterialPipeline<M: Material> {
     pub material_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
-    pub marker: PhantomData<M>,
+    marker: PhantomData<M>,
 }
 
 impl<M: Material> Clone for MaterialPipeline<M> {
