@@ -456,12 +456,7 @@ impl AssetServer {
         let server = self.clone();
         let owned_path = asset_path.to_owned();
 
-        let handle_id = asset_path.get_id().into();
-        self.server
-            .handle_to_path
-            .write()
-            .entry(handle_id)
-            .or_insert_with(|| asset_path.to_owned());
+        self.insert_asset_key(asset_path);
 
         Box::pin(async move {
             if let Err(err) = server.load_async(owned_path, force).await {
@@ -481,14 +476,18 @@ impl AssetServer {
             })
             .detach();
 
+        self.insert_asset_key(asset_path.clone());
+
+        asset_path.into()
+    }
+
+    fn insert_asset_key(&self, asset_path: AssetPath<'_>) {
         let handle_id = asset_path.get_id().into();
         self.server
             .handle_to_path
             .write()
             .entry(handle_id)
             .or_insert_with(|| asset_path.to_owned());
-
-        asset_path.into()
     }
 
     /// Loads assets from the specified folder recursively.
