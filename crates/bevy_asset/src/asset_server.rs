@@ -8,7 +8,7 @@ use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_log::warn;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{Entry, HashMap, Uuid, BoxedFuture};
+use bevy_utils::{BoxedFuture, Entry, HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
 use std::{path::Path, sync::Arc};
