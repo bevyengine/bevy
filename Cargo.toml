@@ -1930,6 +1930,3 @@ codegen-units = 1
 inherits = "release"
 lto = "fat"
 panic = "abort"
-
-[patch.crates-io]
-naga_oil = { path="../../naga_oil" }
