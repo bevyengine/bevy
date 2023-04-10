@@ -199,7 +199,7 @@ impl<T: ShaderSize + WriteInto> DynamicUniformBuffer<T> {
     /// Push data into the `DynamicUniformBuffer`'s internal vector (residing on system RAM).
     ///
     /// Returns the dynamic offset of the pushed value in this buffer, which may later be passed to
-    /// [set_bind_group](wgpu::RenderPass::set_bind_group) as the `offsets` parameter, in bind order.
+    /// [`set_bind_group`](wgpu::RenderPass::set_bind_group) as the `offsets` parameter, in bind order.
     #[inline]
     pub fn push(&mut self, value: T) -> u32 {
         self.scratch.write(&value).unwrap() as u32
