@@ -5,7 +5,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use encase::{
-    internal::{BufferMut, WriteInto},
+    internal::{BufferMut, WriteInto, AlignmentValue},
     ShaderType, UniformBuffer as UniformBufferWrapper,
 };
 use wgpu::{
@@ -257,12 +257,10 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         device: &RenderDevice,
         queue: &'a RenderQueue,
     ) -> Option<DynamicUniformBufferWriter<'a, T>> {
-        let alignment = device.limits().min_uniform_buffer_offset_alignment;
+        let alignment = AlignmentValue::new(device.limits().min_uniform_buffer_offset_alignment as u64);
         let mut capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
-        let size = T::min_size()
-            .get()
-            .max(alignment.into())
-            .checked_mul(max_count as u64 + 1)
+        let size = alignment.round_up(T::min_size().get())
+            .checked_mul(max_count as u64)
             .unwrap();
 
         if capacity < size || self.changed {
@@ -286,7 +284,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
                         capacity: capacity as usize,
                         buffer_view,
                     },
-                    alignment as u64,
+                    alignment.get(),
                 ),
                 _marker: PhantomData,
             })
