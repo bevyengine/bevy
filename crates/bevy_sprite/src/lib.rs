@@ -118,7 +118,7 @@ pub fn calculate_bounds(
         if let Some(image) = images.get(texture_handle) {
             let size = sprite.custom_size.unwrap_or_else(|| image.size());
             let aabb = Aabb {
-                center: (-sprite.anchor.as_vec()).extend(0.0).into(),
+                center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
                 half_extents: (0.5 * size).extend(0.0).into(),
             };
             commands.entity(entity).insert(aabb);
@@ -131,7 +131,7 @@ pub fn calculate_bounds(
                     .custom_size
                     .unwrap_or_else(|| (rect.min - rect.max).abs());
                 let aabb = Aabb {
-                    center: (-atlas_sprite.anchor.as_vec()).extend(0.0).into(),
+                    center: (-atlas_sprite.anchor.as_vec() * size).extend(0.0).into(),
                     half_extents: (0.5 * size).extend(0.0).into(),
                 };
                 commands.entity(entity).insert(aabb);
