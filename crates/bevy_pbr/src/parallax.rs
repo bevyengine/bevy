@@ -16,6 +16,9 @@ pub enum ParallaxMappingMethod {
     /// A simple linear interpolation, using a single texture sample.
     ///
     /// This method is named "Parallax Occlusion Mapping".
+    ///
+    /// Unlike [`ParallaxMappingMethod::Relief`], only requires a single lookup,
+    /// but may skip small details and result in writhing material artifacts.
     #[default]
     Occlusion,
     /// Discovers the best depth value based on binary search.

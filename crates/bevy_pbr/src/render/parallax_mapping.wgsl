@@ -12,8 +12,7 @@ fn parallaxed_uv(
     max_steps: u32,
     // The original interpolated uv
     uv: vec2<f32>,
-    // The vector from the camera to the fragment at the surface in tangent
-    // space
+    // The vector from the camera to the fragment at the surface in tangent space
     Vt: vec3<f32>,
 ) -> vec2<f32> {
     if max_layer_count < 1.0 {
@@ -24,56 +23,58 @@ fn parallaxed_uv(
     // Steep Parallax Mapping
     // ======================
     // Split the depth map into `layer_count` layers.
-    // When V hits the surface of the mesh (excluding depth displacement),
+    // When Vt hits the surface of the mesh (excluding depth displacement),
     // if the depth is not below or on surface including depth displacement (textureSample), then
-    // look forward (-= delta_uv) according to V and distance between hit surface and
-    // depth map surface, repeat until below the surface.
+    // look forward (+= delta_uv) on depth texture according to
+    // Vt and distance between hit surface and depth map surface,
+    // repeat until below the surface.
     //
-    // Where `layer_count` is interpolated between `min_layer_count` and
-    // `max_layer_count` according to the steepness of V.
+    // Where `layer_count` is interpolated between `1.0` and
+    // `max_layer_count` according to the steepness of Vt.
 
     let view_steepness = abs(Vt.z);
-    // We mix with minimum value 1.0 because otherwise, with 0.0, we get
-    // a nice division by zero in surfaces parallel to viewport, resulting
-    // in a singularity.
+    // We mix with minimum value 1.0 because otherwise,
+    // with 0.0, we get a division by zero in surfaces parallel to viewport,
+    // resulting in a singularity.
     let layer_count = mix(max_layer_count, 1.0, view_steepness);
     let layer_depth = 1.0 / layer_count;
     var delta_uv = depth_scale * layer_depth * Vt.xy * vec2(1.0, -1.0) / view_steepness;
 
     var current_layer_depth = 0.0;
-    var current_depth = sample_depth_map(uv);
+    var texture_depth = sample_depth_map(uv);
 
-    // current_depth > current_layer_depth means the depth map depth is deeper
+    // texture_depth > current_layer_depth means the depth map depth is deeper
     // than the depth the ray would be at at this UV offset so the ray has not
     // intersected the surface
-    for (var i: i32 = 0; current_depth > current_layer_depth && i <= i32(layer_count); i++) {
+    for (var i: i32 = 0; texture_depth > current_layer_depth && i <= i32(layer_count); i++) {
         current_layer_depth += layer_depth;
         uv += delta_uv;
-        current_depth = sample_depth_map(uv);
+        texture_depth = sample_depth_map(uv);
     }
 
 #ifdef RELIEF_MAPPING
     // Relief Mapping
     // ==============
     // "Refine" the rough result from Steep Parallax Mapping
-    // with a binary search between the layer selected by steep parallax
+    // with a **binary search** between the layer selected by steep parallax
     // and the next one to find a point closer to the depth map surface.
     // This reduces the jaggy step artifacts from steep parallax mapping.
 
     delta_uv *= 0.5;
     var delta_depth = 0.5 * layer_depth;
+
     uv -= delta_uv;
     current_layer_depth -= delta_depth;
+
     for (var i: u32 = 0u; i < max_steps; i++) {
-        // Sample depth at current offset
-        current_depth = sample_depth_map(uv);
+        texture_depth = sample_depth_map(uv);
 
         // Halve the deltas for the next step
         delta_uv *= 0.5;
         delta_depth *= 0.5;
 
         // Step based on whether the current depth is above or below the depth map
-        if (current_depth > current_layer_depth) {
+        if (texture_depth > current_layer_depth) {
             uv += delta_uv;
             current_layer_depth += delta_depth;
         } else {
@@ -87,9 +88,9 @@ fn parallaxed_uv(
     // "Refine" Steep Parallax Mapping by interpolating between the
     // previous layer's depth and the computed layer depth.
     // Only requires a single lookup, unlike Relief Mapping, but
-    // may incur artifacts on very steep relief.
+    // may skip small details and result in writhing material artifacts.
     let previous_uv = uv - delta_uv;
-    let next_depth = current_depth - current_layer_depth;
+    let next_depth = texture_depth - current_layer_depth;
     let previous_depth = sample_depth_map(previous_uv) - current_layer_depth + layer_depth;
 
     let weight = next_depth / (next_depth - previous_depth);
