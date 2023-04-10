@@ -67,7 +67,7 @@ fn setup(
     // Transmissive
     commands.spawn((
         PbrBundle {
-            mesh: icosphere_mesh.clone(),
+            mesh: icosphere_mesh,
             material: materials.add(StandardMaterial {
                 base_color: Color::WHITE,
                 transmission: 1.0,
