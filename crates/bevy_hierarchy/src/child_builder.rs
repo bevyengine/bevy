@@ -41,11 +41,12 @@ fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option
 ///
 /// Removes the [`Children`] component from the parent if it's empty.
 fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
-    let mut parent = world.entity_mut(parent);
-    if let Some(mut children) = parent.get_mut::<Children>() {
-        children.0.retain(|x| *x != child);
-        if children.is_empty() {
-            parent.remove::<Children>();
+    if let Some(mut parent) = world.get_entity_mut(parent) {
+        if let Some(mut children) = parent.get_mut::<Children>() {
+            children.0.retain(|x| *x != child);
+            if children.is_empty() {
+                parent.remove::<Children>();
+            }
         }
     }
 }
