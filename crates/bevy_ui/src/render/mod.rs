@@ -163,7 +163,7 @@ impl ExtractedRect {
         }
     }
 
-    pub const fn max_size(self) -> Vec2 {
+    pub const fn texture_size(self) -> Vec2 {
         match self {
             ExtractedRect::Size(size) | ExtractedRect::Section { size, .. } => size,
         }
@@ -522,7 +522,7 @@ pub fn prepare_uinodes(
                     uinode_rect.max.y + positions_diff[3].y,
                 ),
             ]
-            .map(|pos| pos / extracted_uinode.extracted_rect.max_size());
+            .map(|pos| pos / extracted_uinode.extracted_rect.texture_size());
 
             if extracted_uinode.flip_x {
                 uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
