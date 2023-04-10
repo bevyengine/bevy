@@ -134,9 +134,29 @@ the `#ifdef` directive matches when the def name exists in the input binding set
 the `#if` directive requires a def name, an operator, and a value for comparison:
 - the def name must be a provided `shader_def` name. 
 - the operator must be one of `==`, `!=`, `>=`, `>`, `<`, `<=`
-- the value must be an integer literal if comparing to a `ShaderDef::Int`, or `true` or `false` if comparing to a `ShaderDef::Bool`.
+- the value must be an integer literal if comparing to a `ShaderDefValue::Int` or `ShaderDefValue::Uint`, or `true` or `false` if comparing to a `ShaderDef::Bool`.
 
 shader defs can also be used in the shader source with `#SHADER_DEF` or `#{SHADER_DEF}`, and will be substituted for their value.
+
+the preprocessor branching directives (`ifdef`, `ifndef` and `if`) can be prefixed with `#else` to create more complex control flows:
+
+```wgsl
+fn get_number() -> f32 {
+    #ifdef BIG_NUMBER
+        return 999.0;
+    #else if USER_NUMBER > 1
+        return f32(#USER_NUMBER)
+    #else
+        return 0.999;
+    #endif
+}
+```
+
+shader defs can be created or overridden at the start of the top-level shader with the `#define` directive:
+```wgsl
+#define USER_NUMBER 42
+```
+the created value will default to `true` if not specified.
 
 ## error reporting
 
