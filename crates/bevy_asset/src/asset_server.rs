@@ -455,11 +455,6 @@ impl AssetServer {
     ) -> BoxedFuture<'_, ()> {
         let server = self.clone();
         let owned_path = asset_path.to_owned();
-        let task = IoTaskPool::get().spawn(async move {
-            if let Err(err) = server.load_async(owned_path, force).await {
-                warn!("{}", err);
-            }
-        });
 
         let handle_id = asset_path.get_id().into();
         self.server
@@ -468,7 +463,11 @@ impl AssetServer {
             .entry(handle_id)
             .or_insert_with(|| asset_path.to_owned());
 
-        Box::pin(task)
+        Box::pin(async move {
+            if let Err(err) = server.load_async(owned_path, force).await {
+                warn!("{}", err);
+            }
+        })
     }
 
     pub(crate) fn load_untracked(&self, asset_path: AssetPath<'_>, force: bool) -> HandleId {
