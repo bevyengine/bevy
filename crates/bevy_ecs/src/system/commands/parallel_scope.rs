@@ -1,17 +1,16 @@
 use bevy_utils::Parallel;
 
 use crate::{
+    self as bevy_ecs,
     entity::Entities,
     prelude::World,
-    system::{SystemMeta, SystemParam},
+    system::{Deferred, SystemBuffer, SystemMeta, SystemParam},
 };
 
 use super::{CommandQueue, Commands};
 
-/// The internal [`SystemParam`] state of the [`ParallelCommands`] type
-#[doc(hidden)]
 #[derive(Default)]
-pub struct ParallelCommandsState {
+struct ParallelCommandQueue {
     thread_queues: Parallel<CommandQueue>,
 }
 
@@ -41,39 +40,21 @@ pub struct ParallelCommandsState {
 /// }
 /// # bevy_ecs::system::assert_is_system(parallel_command_system);
 ///```
+#[derive(SystemParam)]
 pub struct ParallelCommands<'w, 's> {
-    state: &'s mut ParallelCommandsState,
+    state: Deferred<'s, ParallelCommandQueue>,
     entities: &'w Entities,
 }
 
-// SAFETY: no component or resource access to report
-unsafe impl SystemParam for ParallelCommands<'_, '_> {
-    type State = ParallelCommandsState;
-    type Item<'w, 's> = ParallelCommands<'w, 's>;
-
-    fn init_state(_: &mut World, _: &mut crate::system::SystemMeta) -> Self::State {
-        ParallelCommandsState::default()
-    }
-
-    fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
+impl SystemBuffer for ParallelCommandQueue {
+    #[inline]
+    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
         #[cfg(feature = "trace")]
         let _system_span =
             bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
                 .entered();
-        for cq in state.thread_queues.iter_mut() {
+        for cq in self.thread_queues.iter_mut() {
             cq.apply(world);
-        }
-    }
-
-    unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
-        _: &crate::system::SystemMeta,
-        world: &'w World,
-        _: u32,
-    ) -> Self::Item<'w, 's> {
-        ParallelCommands {
-            state,
-            entities: world.entities(),
         }
     }
 }

@@ -1,5 +1,7 @@
 mod entity_ref;
+pub mod error;
 mod spawn_batch;
+pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
@@ -11,16 +13,15 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
-    component::{
-        Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components,
-        StorageType, TickCells,
-    },
+    component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, Events},
-    ptr::UnsafeCellDeref,
     query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
-    storage::{Column, ComponentSparseSet, ResourceData, SparseSet, Storages, TableRow},
+    removal_detection::RemovedComponentEvents,
+    schedule::{Schedule, ScheduleLabel, Schedules},
+    storage::{ResourceData, Storages},
     system::Resource,
+    world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
@@ -32,6 +33,8 @@ use std::{
 mod identifier;
 
 pub use identifier::WorldId;
+
+use self::unsafe_world_cell::UnsafeWorldCell;
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
@@ -59,12 +62,12 @@ pub struct World {
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
-    pub(crate) removed_components: SparseSet<ComponentId, Vec<Entity>>,
-    /// Access cache used by [WorldCell].
+    pub(crate) removed_components: RemovedComponentEvents,
+    /// Access cache used by [WorldCell]. Is only accessed in the `Drop` impl of `WorldCell`.
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     pub(crate) change_tick: AtomicU32,
-    pub(crate) last_change_tick: u32,
-    pub(crate) last_check_tick: u32,
+    pub(crate) last_change_tick: Tick,
+    pub(crate) last_check_tick: Tick,
 }
 
 impl Default for World {
@@ -81,8 +84,8 @@ impl Default for World {
             // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
-            last_change_tick: 0,
-            last_check_tick: 0,
+            last_change_tick: Tick::new(0),
+            last_check_tick: Tick::new(0),
         }
     }
 }
@@ -103,6 +106,23 @@ impl World {
     #[inline]
     pub fn id(&self) -> WorldId {
         self.id
+    }
+
+    /// Creates a new [`UnsafeWorldCell`] view with complete read+write access.
+    pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
+        UnsafeWorldCell::new_mutable(self)
+    }
+
+    /// Creates a new [`UnsafeWorldCell`] view with only read access to everything.
+    pub fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCell<'_> {
+        UnsafeWorldCell::new_readonly(self)
+    }
+
+    /// Creates a new [`UnsafeWorldCell`] with read+write access from a [&World](World).
+    /// This is only a temporary measure until every `&World` that is semantically a [`UnsafeWorldCell`]
+    /// has been replaced.
+    pub(crate) fn as_unsafe_world_cell_migration_internal(&self) -> UnsafeWorldCell<'_> {
+        UnsafeWorldCell::new_readonly(self)
     }
 
     /// Retrieves this world's [Entities] collection
@@ -143,6 +163,12 @@ impl World {
     #[inline]
     pub fn bundles(&self) -> &Bundles {
         &self.bundles
+    }
+
+    /// Retrieves this world's [`RemovedComponentEvents`] collection
+    #[inline]
+    pub fn removed_components(&self) -> &RemovedComponentEvents {
+        &self.removed_components
     }
 
     /// Retrieves a [`WorldCell`], which safely enables multiple mutable World accesses at the same
@@ -469,6 +495,7 @@ impl World {
     /// ```
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityMut {
         self.flush();
+        let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let entity_location = {
             let bundle_info = self
@@ -479,7 +506,7 @@ impl World {
                 &mut self.archetypes,
                 &mut self.components,
                 &mut self.storages,
-                *self.change_tick.get_mut(),
+                change_tick,
             );
 
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
@@ -574,9 +601,10 @@ impl World {
     #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
         // SAFETY:
-        // - lifetimes enforce correct usage of returned borrow
-        // - entity location is checked in `get_entity`
-        unsafe { entity_ref::get_mut(self, entity, self.get_entity(entity)?.location()) }
+        // - `as_unsafe_world_cell` is the only thing that is borrowing world
+        // - `as_unsafe_world_cell` provides mutable permission to everything
+        // - `&mut self` ensures no other borrows on world data
+        unsafe { self.as_unsafe_world_cell().get_entity(entity)?.get_mut() }
     }
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
@@ -621,7 +649,7 @@ impl World {
     /// of detection to be recorded.
     ///
     /// When using `bevy_ecs` as part of the full Bevy engine, this method is added as a system to the
-    /// main app, to run during the `CoreStage::Last`, so you don't need to call it manually. When using
+    /// main app, to run during `CoreSet::Last`, so you don't need to call it manually. When using
     /// `bevy_ecs` as a separate standalone crate however, you need to call this manually.
     ///
     /// ```
@@ -646,12 +674,9 @@ impl World {
     /// assert!(!transform.is_changed());
     /// ```
     ///
-    /// [`RemovedComponents`]: crate::system::RemovedComponents
+    /// [`RemovedComponents`]: crate::removal_detection::RemovedComponents
     pub fn clear_trackers(&mut self) {
-        for entities in self.removed_components.values_mut() {
-            entities.clear();
-        }
-
+        self.removed_components.update();
         self.last_change_tick = self.increment_change_tick();
     }
 
@@ -748,25 +773,23 @@ impl World {
 
     /// Returns an iterator of entities that had components of type `T` removed
     /// since the last call to [`World::clear_trackers`].
-    pub fn removed<T: Component>(&self) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
-        if let Some(component_id) = self.components.get_id(TypeId::of::<T>()) {
-            self.removed_with_id(component_id)
-        } else {
-            [].iter().cloned()
-        }
+    pub fn removed<T: Component>(&self) -> impl Iterator<Item = Entity> + '_ {
+        self.components
+            .get_id(TypeId::of::<T>())
+            .map(|component_id| self.removed_with_id(component_id))
+            .into_iter()
+            .flatten()
     }
 
     /// Returns an iterator of entities that had components with the given `component_id` removed
     /// since the last call to [`World::clear_trackers`].
-    pub fn removed_with_id(
-        &self,
-        component_id: ComponentId,
-    ) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
-        if let Some(removed) = self.removed_components.get(component_id) {
-            removed.iter().cloned()
-        } else {
-            [].iter().cloned()
-        }
+    pub fn removed_with_id(&self, component_id: ComponentId) -> impl Iterator<Item = Entity> + '_ {
+        self.removed_components
+            .get(component_id)
+            .map(|removed| removed.iter_current_update_events().cloned())
+            .into_iter()
+            .flatten()
+            .map(|e| e.into())
     }
 
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
@@ -982,16 +1005,19 @@ impl World {
     /// Gets a reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFETY: `component_id` was obtained from the type ID of `R`.
-        unsafe { self.get_resource_with_id(component_id) }
+        // SAFETY:
+        // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
+        // - `&self` ensures nothing in world is borrowed immutably
+        unsafe { self.as_unsafe_world_cell_readonly().get_resource() }
     }
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFETY: unique world access
-        unsafe { self.get_resource_unchecked_mut() }
+        // SAFETY:
+        // - `as_unsafe_world_cell` gives permission to access everything mutably
+        // - `&mut self` ensures nothing in world is borrowed
+        unsafe { self.as_unsafe_world_cell().get_resource_mut() }
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
@@ -1022,18 +1048,6 @@ impl World {
         };
         // SAFETY: The underlying type of the resource is `R`.
         unsafe { data.with_type::<R>() }
-    }
-
-    /// Gets a mutable reference to the resource of the given type, if it exists
-    /// Otherwise returns [None]
-    ///
-    /// # Safety
-    /// This will allow aliased mutable access to the given resource type. The caller must ensure
-    /// that there is either only one mutable access or multiple immutable accesses at a time.
-    #[inline]
-    pub unsafe fn get_resource_unchecked_mut<R: Resource>(&self) -> Option<Mut<'_, R>> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        self.get_resource_unchecked_mut_with_id(component_id)
     }
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
@@ -1087,9 +1101,10 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFETY: component id matches type T
-        unsafe { self.get_non_send_with_id(component_id) }
+        // SAFETY:
+        // - `as_unsafe_world_cell_readonly` gives permission to access the entire world immutably
+        // - `&self` ensures that there are no mutable borrows of world data
+        unsafe { self.as_unsafe_world_cell_readonly().get_non_send_resource() }
     }
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
@@ -1099,47 +1114,10 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFETY: unique world access
-        unsafe { self.get_non_send_resource_unchecked_mut() }
-    }
-
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
-    /// Otherwise returns [None]
-    ///
-    /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
-    ///
-    /// # Safety
-    /// This will allow aliased mutable access to the given non-send resource type. The caller must
-    /// ensure that there is either only one mutable access or multiple immutable accesses at a time.
-    #[inline]
-    pub unsafe fn get_non_send_resource_unchecked_mut<R: 'static>(&self) -> Option<Mut<'_, R>> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        self.get_non_send_unchecked_mut_with_id(component_id)
-    }
-
-    // Shorthand helper function for getting the data and change ticks for a resource.
-    #[inline]
-    pub(crate) fn get_resource_with_ticks(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
-        self.storages.resources.get(component_id)?.get_with_ticks()
-    }
-
-    // Shorthand helper function for getting the data and change ticks for a resource.
-    ///
-    /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
-    #[inline]
-    pub(crate) fn get_non_send_with_ticks(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
-        self.storages
-            .non_send_resources
-            .get(component_id)?
-            .get_with_ticks()
+        // SAFETY:
+        // - `as_unsafe_world_cell` gives permission to access the entire world mutably
+        // - `&mut self` ensures that there are no borrows of world data
+        unsafe { self.as_unsafe_world_cell().get_non_send_resource_mut() }
     }
 
     // Shorthand helper function for getting the [`ArchetypeComponentId`] for a resource.
@@ -1199,8 +1177,7 @@ impl World {
     {
         self.flush();
 
-        let iter = iter.into_iter();
-        let change_tick = *self.change_tick.get_mut();
+        let change_tick = self.change_tick();
 
         let bundle_info = self
             .bundles
@@ -1286,7 +1263,8 @@ impl World {
         }
     }
 
-    /// Temporarily removes the requested resource from this [`World`], then re-adds it before returning.
+    /// Temporarily removes the requested resource from this [`World`], runs custom user code,
+    /// then re-adds the resource before returning.
     ///
     /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
     /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
@@ -1316,7 +1294,6 @@ impl World {
             .components
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
-        // If the resource isn't send and sync, validate that we are on the main thread, so that we can access it.
         let (ptr, mut ticks) = self
             .storages
             .resources
@@ -1324,21 +1301,21 @@ impl World {
             .and_then(|info| info.remove())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // Read the value onto the stack to avoid potential mut aliasing.
-        // SAFETY: pointer is of type R
+        // SAFETY: `ptr` was obtained from the TypeId of `R`.
         let mut value = unsafe { ptr.read::<R>() };
         let value_mut = Mut {
             value: &mut value,
             ticks: TicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
-                last_change_tick,
-                change_tick,
+                last_run: last_change_tick,
+                this_run: change_tick,
             },
         };
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
-            This is not allowed as the original resource is reinserted to the world after the FnOnce param is invoked.",
+            This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
             std::any::type_name::<R>());
 
         OwningPtr::make(value, |ptr| {
@@ -1382,79 +1359,6 @@ impl World {
                     std::any::type_name::<E>()
                 ),
         }
-    }
-
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`
-    #[inline]
-    pub(crate) unsafe fn get_resource_with_id<R: 'static>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&R> {
-        self.storages
-            .resources
-            .get(component_id)?
-            .get_data()
-            .map(|ptr| ptr.deref())
-    }
-
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`
-    /// Caller must ensure this doesn't violate Rust mutability rules for the given resource.
-    #[inline]
-    pub(crate) unsafe fn get_resource_unchecked_mut_with_id<R>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<Mut<'_, R>> {
-        let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
-        Some(Mut {
-            value: ptr.assert_unique().deref_mut(),
-            ticks: TicksMut::from_tick_cells(
-                ticks,
-                self.last_change_tick(),
-                self.read_change_tick(),
-            ),
-        })
-    }
-
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`
-    #[inline]
-    pub(crate) unsafe fn get_non_send_with_id<R: 'static>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&R> {
-        Some(
-            self.storages
-                .non_send_resources
-                .get(component_id)?
-                .get_data()?
-                .deref::<R>(),
-        )
-    }
-
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`.
-    /// Caller must ensure this doesn't violate Rust mutability rules for the given resource.
-    #[inline]
-    pub(crate) unsafe fn get_non_send_unchecked_mut_with_id<R: 'static>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<Mut<'_, R>> {
-        let (ptr, ticks) = self
-            .storages
-            .non_send_resources
-            .get(component_id)?
-            .get_with_ticks()?;
-        Some(Mut {
-            value: ptr.assert_unique().deref_mut(),
-            ticks: TicksMut {
-                added: ticks.added.deref_mut(),
-                changed: ticks.changed.deref_mut(),
-                last_change_tick: self.last_change_tick(),
-                change_tick: self.read_change_tick(),
-            },
-        })
     }
 
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
@@ -1565,9 +1469,11 @@ impl World {
         }
     }
 
+    /// Increments the world's current change tick, and returns the old value.
     #[inline]
-    pub fn increment_change_tick(&self) -> u32 {
-        self.change_tick.fetch_add(1, Ordering::AcqRel)
+    pub fn increment_change_tick(&self) -> Tick {
+        let prev_tick = self.change_tick.fetch_add(1, Ordering::AcqRel);
+        Tick::new(prev_tick)
     }
 
     /// Reads the current change tick of this world.
@@ -1575,8 +1481,9 @@ impl World {
     /// If you have exclusive (`&mut`) access to the world, consider using [`change_tick()`](Self::change_tick),
     /// which is more efficient since it does not require atomic synchronization.
     #[inline]
-    pub fn read_change_tick(&self) -> u32 {
-        self.change_tick.load(Ordering::Acquire)
+    pub fn read_change_tick(&self) -> Tick {
+        let tick = self.change_tick.load(Ordering::Acquire);
+        Tick::new(tick)
     }
 
     /// Reads the current change tick of this world.
@@ -1584,12 +1491,13 @@ impl World {
     /// This does the same thing as [`read_change_tick()`](Self::read_change_tick), only this method
     /// is more efficient since it does not require atomic synchronization.
     #[inline]
-    pub fn change_tick(&mut self) -> u32 {
-        *self.change_tick.get_mut()
+    pub fn change_tick(&mut self) -> Tick {
+        let tick = *self.change_tick.get_mut();
+        Tick::new(tick)
     }
 
     #[inline]
-    pub fn last_change_tick(&self) -> u32 {
+    pub fn last_change_tick(&self) -> Tick {
         self.last_change_tick
     }
 
@@ -1601,7 +1509,7 @@ impl World {
     // TODO: benchmark and optimize
     pub fn check_change_ticks(&mut self) {
         let change_tick = self.change_tick();
-        if change_tick.wrapping_sub(self.last_check_tick) < CHECK_TICK_THRESHOLD {
+        if change_tick.relative_to(self.last_check_tick).get() < CHECK_TICK_THRESHOLD {
             return;
         }
 
@@ -1619,7 +1527,7 @@ impl World {
         resources.check_change_ticks(change_tick);
         non_send_resources.check_change_ticks(change_tick);
 
-        if let Some(mut schedules) = self.get_resource_mut::<crate::schedule_v3::Schedules>() {
+        if let Some(mut schedules) = self.get_resource_mut::<crate::schedule::Schedules>() {
             schedules.check_change_ticks(change_tick);
         }
 
@@ -1636,7 +1544,7 @@ impl World {
     /// Despawns all entities in this [`World`].
     pub fn clear_entities(&mut self) {
         self.storages.tables.clear();
-        self.storages.sparse_sets.clear();
+        self.storages.sparse_sets.clear_entities();
         self.archetypes.clear_entities();
         self.entities.clear();
     }
@@ -1655,7 +1563,7 @@ impl World {
 }
 
 impl World {
-    /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
     ///
@@ -1663,10 +1571,16 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
-        self.storages.resources.get(component_id)?.get_data()
+        // SAFETY:
+        // - `as_unsafe_world_cell_readonly` gives permission to access the whole world immutably
+        // - `&self` ensures there are no mutable borrows on world data
+        unsafe {
+            self.as_unsafe_world_cell_readonly()
+                .get_resource_by_id(component_id)
+        }
     }
 
-    /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///
@@ -1674,20 +1588,13 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        let change_tick = self.change_tick();
-        let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
-
-        let ticks =
-            // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
-            // - index is in-bounds because the column is initialized and non-empty
-            // - no other reference to the ticks of the same row can exist at the same time
-            unsafe { TicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
-
-        Some(MutUntyped {
-            // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
-            value: unsafe { ptr.assert_unique() },
-            ticks,
-        })
+        // SAFETY:
+        // - `&mut self` ensures that all accessed data is unaliased
+        // - `as_unsafe_world_cell` provides mutable permission to the whole world
+        unsafe {
+            self.as_unsafe_world_cell()
+                .get_resource_mut_by_id(component_id)
+        }
     }
 
     /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
@@ -1701,10 +1608,13 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
-        self.storages
-            .non_send_resources
-            .get(component_id)?
-            .get_data()
+        // SAFETY:
+        // - `as_unsafe_world_cell_readonly` gives permission to access the whole world immutably
+        // - `&self` ensures there are no mutable borrows on world data
+        unsafe {
+            self.as_unsafe_world_cell_readonly()
+                .get_non_send_resource_by_id(component_id)
+        }
     }
 
     /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
@@ -1718,20 +1628,13 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        let change_tick = self.change_tick();
-        let (ptr, ticks) = self.get_non_send_with_ticks(component_id)?;
-
-        let ticks =
-            // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
-            // - index is in-bounds because the column is initialized and non-empty
-            // - no other reference to the ticks of the same row can exist at the same time
-            unsafe { TicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
-
-        Some(MutUntyped {
-            // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
-            value: unsafe { ptr.assert_unique() },
-            ticks,
-        })
+        // SAFETY:
+        // - `&mut self` ensures that all accessed data is unaliased
+        // - `as_unsafe_world_cell` provides mutable permission to the whole world
+        unsafe {
+            self.as_unsafe_world_cell()
+                .get_non_send_resource_mut_by_id(component_id)
+        }
     }
 
     /// Removes the resource of a given type, if it exists. Otherwise returns [None].
@@ -1771,18 +1674,13 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_by_id(&self, entity: Entity, component_id: ComponentId) -> Option<Ptr<'_>> {
-        let info = self.components().get_info(component_id)?;
         // SAFETY:
-        // - entity_location is valid
-        // - component_id is valid as checked by the line above
-        // - the storage type is accurate as checked by the fetched ComponentInfo
+        // - `&self` ensures that all accessed data is not mutably aliased
+        // - `as_unsafe_world_cell_readonly` provides shared/readonly permission to the whole world
         unsafe {
-            self.get_component(
-                component_id,
-                info.storage_type(),
-                entity,
-                self.get_entity(entity)?.location(),
-            )
+            self.as_unsafe_world_cell_readonly()
+                .get_entity(entity)?
+                .get_by_id(component_id)
         }
     }
 
@@ -1797,180 +1695,97 @@ impl World {
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
-        self.components().get_info(component_id)?;
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        // SAFETY:
+        // - `&mut self` ensures that all accessed data is unaliased
+        // - `as_unsafe_world_cell` provides mutable permission to the whole world
         unsafe {
-            entity_ref::get_mut_by_id(
-                self,
-                entity,
-                self.get_entity(entity)?.location(),
-                component_id,
-            )
+            self.as_unsafe_world_cell()
+                .get_entity(entity)?
+                .get_mut_by_id(component_id)
         }
     }
 }
 
+// Schedule-related methods
 impl World {
-    /// Get a raw pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`] identified by their [`TypeId`]
+    /// Runs the [`Schedule`] associated with the `label` a single time.
     ///
-    /// # Safety
-    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
-    /// - `location` must refer to an archetype that contains `entity`
-    /// - the caller must ensure that no aliasing rules are violated
-    #[inline]
-    pub(crate) unsafe fn get_component_and_ticks_with_type(
-        &self,
-        type_id: TypeId,
-        storage_type: StorageType,
-        entity: Entity,
-        location: EntityLocation,
-    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
-        let component_id = self.components.get_id(type_id)?;
-        // SAFETY: component_id is valid, the rest is deferred to caller
-        self.get_component_and_ticks(component_id, storage_type, entity, location)
+    /// The [`Schedule`] is fetched from the
+    pub fn add_schedule(&mut self, schedule: Schedule, label: impl ScheduleLabel) {
+        let mut schedules = self.resource_mut::<Schedules>();
+        schedules.insert(label, schedule);
     }
 
-    /// Get a raw pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`]
+    /// Attempts to run the [`Schedule`] associated with the `label` a single time,
+    /// and returns a [`TryRunScheduleError`] if the schedule does not exist.
     ///
-    /// # Safety
-    /// - `location` must refer to an archetype that contains `entity`
-    /// - `component_id` must be valid
-    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
-    /// - the caller must ensure that no aliasing rules are violated
-    #[inline]
-    pub(crate) unsafe fn get_component_and_ticks(
-        &self,
-        component_id: ComponentId,
-        storage_type: StorageType,
-        entity: Entity,
-        location: EntityLocation,
-    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
-        match storage_type {
-            StorageType::Table => {
-                let (components, table_row) = self.fetch_table(location, component_id)?;
-
-                // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-                Some((
-                    components.get_data_unchecked(table_row),
-                    TickCells {
-                        added: components.get_added_ticks_unchecked(table_row),
-                        changed: components.get_changed_ticks_unchecked(table_row),
-                    },
-                ))
-            }
-            StorageType::SparseSet => self.fetch_sparse_set(component_id)?.get_with_ticks(entity),
-        }
-    }
-
-    /// Get a raw pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`], identified by the component's type
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
     ///
-    /// # Safety
-    /// - `location` must refer to an archetype that contains `entity`
-    /// the archetype
-    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
-    /// - the caller must ensure that no aliasing rules are violated
-    #[inline]
-    pub(crate) unsafe fn get_component_with_type(
-        &self,
-        type_id: TypeId,
-        storage_type: StorageType,
-        entity: Entity,
-        location: EntityLocation,
-    ) -> Option<Ptr<'_>> {
-        let component_id = self.components.get_id(type_id)?;
-        // SAFETY: component_id is valid, the rest is deferred to caller
-        self.get_component(component_id, storage_type, entity, location)
+    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    pub fn try_run_schedule(
+        &mut self,
+        label: impl ScheduleLabel,
+    ) -> Result<(), TryRunScheduleError> {
+        self.try_run_schedule_ref(&label)
     }
 
-    /// Get a raw pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`] in the provided [`World`](crate::world::World).
+    /// Attempts to run the [`Schedule`] associated with the `label` a single time,
+    /// and returns a [`TryRunScheduleError`] if the schedule does not exist.
     ///
-    /// # Safety
-    /// - `location` must refer to an archetype that contains `entity`
-    /// the archetype
-    /// - `component_id` must be valid
-    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
-    /// - the caller must ensure that no aliasing rules are violated
-    #[inline]
-    pub(crate) unsafe fn get_component(
-        &self,
-        component_id: ComponentId,
-        storage_type: StorageType,
-        entity: Entity,
-        location: EntityLocation,
-    ) -> Option<Ptr<'_>> {
-        // SAFETY: component_id exists and is therefore valid
-        match storage_type {
-            StorageType::Table => {
-                let (components, table_row) = self.fetch_table(location, component_id)?;
-                // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-                Some(components.get_data_unchecked(table_row))
-            }
-            StorageType::SparseSet => self.fetch_sparse_set(component_id)?.get(entity),
-        }
-    }
-
-    /// Get a raw pointer to the [`ComponentTicks`] on a particular [`Entity`], identified by the component's [`TypeId`]
+    /// Unlike the `try_run_schedule` method, this method takes the label by reference, which can save a clone.
     ///
-    /// # Safety
-    /// - `location` must refer to an archetype that contains `entity`
-    /// the archetype
-    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
-    /// - the caller must ensure that no aliasing rules are violated
-    #[inline]
-    pub(crate) unsafe fn get_ticks_with_type(
-        &self,
-        type_id: TypeId,
-        storage_type: StorageType,
-        entity: Entity,
-        location: EntityLocation,
-    ) -> Option<ComponentTicks> {
-        let component_id = self.components.get_id(type_id)?;
-        // SAFETY: component_id is valid, the rest is deferred to caller
-        self.get_ticks(component_id, storage_type, entity, location)
-    }
-
-    /// Get a raw pointer to the [`ComponentTicks`] on a particular [`Entity`]
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
     ///
-    /// # Safety
-    /// - `location` must refer to an archetype that contains `entity`
-    /// the archetype
-    /// - `component_id` must be valid
-    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
-    /// - the caller must ensure that no aliasing rules are violated
-    #[inline]
-    pub(crate) unsafe fn get_ticks(
-        &self,
-        component_id: ComponentId,
-        storage_type: StorageType,
-        entity: Entity,
-        location: EntityLocation,
-    ) -> Option<ComponentTicks> {
-        match storage_type {
-            StorageType::Table => {
-                let (components, table_row) = self.fetch_table(location, component_id)?;
-                // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-                Some(components.get_ticks_unchecked(table_row))
-            }
-            StorageType::SparseSet => self.fetch_sparse_set(component_id)?.get_ticks(entity),
-        }
+    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    pub fn try_run_schedule_ref(
+        &mut self,
+        label: &dyn ScheduleLabel,
+    ) -> Result<(), TryRunScheduleError> {
+        let Some((extracted_label, mut schedule)) = self.resource_mut::<Schedules>().remove_entry(label) else {
+            return Err(TryRunScheduleError(label.dyn_clone()));
+        };
+
+        // TODO: move this span to Schedule::run
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
+        schedule.run(self);
+        self.resource_mut::<Schedules>()
+            .insert(extracted_label, schedule);
+
+        Ok(())
     }
 
-    #[inline]
-    fn fetch_table(
-        &self,
-        location: EntityLocation,
-        component_id: ComponentId,
-    ) -> Option<(&Column, TableRow)> {
-        let archetype = &self.archetypes[location.archetype_id];
-        let table = &self.storages.tables[archetype.table_id()];
-        let components = table.get_column(component_id)?;
-        let table_row = archetype.entity_table_row(location.archetype_row);
-        Some((components, table_row))
+    /// Runs the [`Schedule`] associated with the `label` a single time.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
+    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
+        self.run_schedule_ref(&label);
     }
 
-    #[inline]
-    fn fetch_sparse_set(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
-        self.storages.sparse_sets.get(component_id)
+    /// Runs the [`Schedule`] associated with the `label` a single time.
+    ///
+    /// Unlike the `run_schedule` method, this method takes the label by reference, which can save a clone.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
+    pub fn run_schedule_ref(&mut self, label: &dyn ScheduleLabel) {
+        self.try_run_schedule_ref(label)
+            .unwrap_or_else(|e| panic!("{}", e));
     }
 }
 
@@ -1986,8 +1801,6 @@ impl fmt::Debug for World {
     }
 }
 
-// TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
-#[allow(clippy::non_send_fields_in_send_ty)]
 // SAFETY: all methods on the world ensure that non-send resources are only accessible on the main thread
 unsafe impl Send for World {}
 // SAFETY: all methods on the world ensure that non-send resources are only accessible on the main thread

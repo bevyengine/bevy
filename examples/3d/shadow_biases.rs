@@ -19,11 +19,16 @@ fn main() {
     );
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(adjust_point_light_biases)
-        .add_system(toggle_light)
-        .add_system(adjust_directional_light_biases)
-        .add_system(camera_controller)
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (
+                adjust_point_light_biases,
+                toggle_light,
+                adjust_directional_light_biases,
+                camera_controller,
+            ),
+        )
         .run();
 }
 
@@ -69,15 +74,6 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 100000.0,
-            shadow_projection: OrthographicProjection {
-                left: -0.35,
-                right: 500.35,
-                bottom: -0.1,
-                top: 5.0,
-                near: -5.0,
-                far: 5.0,
-                ..default()
-            },
             shadow_depth_bias: 0.0,
             shadow_normal_bias: 0.0,
             shadows_enabled: true,
@@ -113,9 +109,7 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane {
-            size: 2.0 * spawn_plane_depth,
-        })),
+        mesh: meshes.add(shape::Plane::from_size(2.0 * spawn_plane_depth).into()),
         material: white_handle,
         ..default()
     });

@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 use core::fmt::{self, Formatter, Pointer};
 use core::{
@@ -368,12 +369,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
 
 impl<'a, T> Clone for ThinSlicePtr<'a, T> {
     fn clone(&self) -> Self {
-        Self {
-            ptr: self.ptr,
-            #[cfg(debug_assertions)]
-            len: self.len,
-            _marker: PhantomData,
-        }
+        *self
     }
 }
 
@@ -461,13 +457,13 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
     #[track_caller]
     fn debug_ensure_aligned(self) -> Self {
         let align = core::mem::align_of::<T>();
-        // Implemenation shamelessly borrowed from the currently unstable
+        // Implementation shamelessly borrowed from the currently unstable
         // ptr.is_aligned_to.
         //
         // Replace once https://github.com/rust-lang/rust/issues/96284 is stable.
         assert!(
             self as usize & (align - 1) == 0,
-            "pointer is not aligned. Address {:p} does not have alignemnt {} for type {}",
+            "pointer is not aligned. Address {:p} does not have alignment {} for type {}",
             self,
             align,
             core::any::type_name::<T>(),

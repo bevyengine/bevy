@@ -61,6 +61,16 @@ impl ScheduleRunnerSettings {
 
 /// Configures an [`App`] to run its [`Schedule`](bevy_ecs::schedule::Schedule) according to a given
 /// [`RunMode`].
+///
+/// [`ScheduleRunnerPlugin`] is included in the
+/// [`MinimalPlugins`](https://docs.rs/bevy/latest/bevy/struct.MinimalPlugins.html) plugin group.
+///
+/// [`ScheduleRunnerPlugin`] is *not* included in the
+/// [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group
+/// which assumes that the [`Schedule`](bevy_ecs::schedule::Schedule) will be executed by other means:
+/// typically, the `winit` event loop
+/// (see [`WinitPlugin`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html))
+/// executes the schedule making [`ScheduleRunnerPlugin`] unnecessary.
 #[derive(Default)]
 pub struct ScheduleRunnerPlugin;
 

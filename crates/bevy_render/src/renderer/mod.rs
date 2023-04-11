@@ -251,6 +251,9 @@ pub async fn initialize_renderer(
             max_buffer_size: limits
                 .max_buffer_size
                 .min(constrained_limits.max_buffer_size),
+            max_bindings_per_bind_group: limits
+                .max_bindings_per_bind_group
+                .min(constrained_limits.max_bindings_per_bind_group),
         };
     }
 

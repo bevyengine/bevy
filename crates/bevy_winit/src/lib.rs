@@ -1,3 +1,13 @@
+#![allow(clippy::type_complexity)]
+#![warn(missing_docs)]
+//! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
+//!
+//! Most commonly, the [`WinitPlugin`] is used as part of
+//! [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
+//! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`](winit::event_loop::EventLoop).
+//! See `winit_runner` for details.
+
+pub mod accessibility;
 mod converters;
 mod system;
 #[cfg(target_arch = "wasm32")]
@@ -5,13 +15,14 @@ mod web_resize;
 mod winit_config;
 mod winit_windows;
 
+use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::system::{SystemParam, SystemState};
-use system::{changed_window, create_window, despawn_window};
+use system::{changed_window, create_window, despawn_window, CachedWindow};
 
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, CoreStage, Plugin};
+use bevy_app::{App, AppExit, Last, Plugin};
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::*;
 use bevy_input::{
@@ -25,38 +36,65 @@ use bevy_utils::{
     Instant,
 };
 use bevy_window::{
-    CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows, ReceivedCharacter,
-    RequestRedraw, Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated,
-    WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged,
+    exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
+    ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
+    WindowCloseRequested, WindowCreated, WindowFocused, WindowMoved, WindowResized,
+    WindowScaleFactorChanged,
 };
+
+#[cfg(target_os = "android")]
+pub use winit::platform::android::activity::AndroidApp;
 
 use winit::{
     event::{self, DeviceEvent, Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
+    event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
 
-use crate::system::WinitWindowInfo;
+use crate::accessibility::{AccessKitAdapters, AccessibilityPlugin, WinitActionHandlers};
+
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
+#[cfg(target_os = "android")]
+pub static ANDROID_APP: once_cell::sync::OnceCell<AndroidApp> = once_cell::sync::OnceCell::new();
+
+/// A [`Plugin`] that utilizes [`winit`] for window creation and event loop management.
 #[derive(Default)]
 pub struct WinitPlugin;
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
-        let event_loop = EventLoop::new();
+        let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
+
+        #[cfg(target_os = "android")]
+        {
+            use winit::platform::android::EventLoopBuilderExtAndroid;
+            event_loop_builder.with_android_app(
+                ANDROID_APP
+                    .get()
+                    .expect("Bevy must be setup with the #[bevy_main] macro on Android")
+                    .clone(),
+            );
+        }
+
+        let event_loop = event_loop_builder.build();
         app.insert_non_send_resource(event_loop);
 
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
-            .add_system_set_to_stage(
-                CoreStage::PostUpdate,
-                SystemSet::new()
-                    .label(ModifiesWindows)
-                    .with_system(changed_window)
-                    .with_system(despawn_window),
+            // exit_on_all_closed only uses the query to determine if the query is empty,
+            // and so doesn't care about ordering relative to changed_window
+            .add_systems(
+                Last,
+                (
+                    changed_window.ambiguous_with(exit_on_all_closed),
+                    // Update the state of the window before attempting to despawn to ensure consistent event ordering
+                    despawn_window.after(changed_window),
+                ),
             );
+
+        app.add_plugin(AccessibilityPlugin);
 
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(CanvasParentResizePlugin);
@@ -68,6 +106,9 @@ impl Plugin for WinitPlugin {
             Query<(Entity, &mut Window)>,
             EventWriter<WindowCreated>,
             NonSendMut<WinitWindows>,
+            NonSendMut<AccessKitAdapters>,
+            ResMut<WinitActionHandlers>,
+            ResMut<AccessibilityRequested>,
         )> = SystemState::from_world(&mut app.world);
 
         #[cfg(target_arch = "wasm32")]
@@ -77,6 +118,9 @@ impl Plugin for WinitPlugin {
             Query<(Entity, &mut Window)>,
             EventWriter<WindowCreated>,
             NonSendMut<WinitWindows>,
+            NonSendMut<AccessKitAdapters>,
+            ResMut<WinitActionHandlers>,
+            ResMut<AccessibilityRequested>,
             ResMut<CanvasParentResizeEventChannel>,
         )> = SystemState::from_world(&mut app.world);
 
@@ -85,15 +129,32 @@ impl Plugin for WinitPlugin {
         #[cfg(not(any(target_os = "android", target_os = "ios", target_os = "macos")))]
         {
             #[cfg(not(target_arch = "wasm32"))]
-            let (commands, event_loop, mut new_windows, event_writer, winit_windows) =
-                create_window_system_state.get_mut(&mut app.world);
+            let (
+                commands,
+                event_loop,
+                mut new_windows,
+                event_writer,
+                winit_windows,
+                adapters,
+                handlers,
+                accessibility_requested,
+            ) = create_window_system_state.get_mut(&mut app.world);
 
             #[cfg(target_arch = "wasm32")]
-            let (commands, event_loop, mut new_windows, event_writer, winit_windows, event_channel) =
-                create_window_system_state.get_mut(&mut app.world);
+            let (
+                commands,
+                event_loop,
+                mut new_windows,
+                event_writer,
+                winit_windows,
+                adapters,
+                handlers,
+                accessibility_requested,
+                event_channel,
+            ) = create_window_system_state.get_mut(&mut app.world);
 
             // Here we need to create a winit-window and give it a WindowHandle which the renderer can use.
-            // It needs to be spawned before the start of the startup-stage, so we cannot use a regular system.
+            // It needs to be spawned before the start of the startup schedule, so we cannot use a regular system.
             // Instead we need to create the window and spawn it using direct world access
             create_window(
                 commands,
@@ -101,6 +162,9 @@ impl Plugin for WinitPlugin {
                 new_windows.iter_mut(),
                 event_writer,
                 winit_windows,
+                adapters,
+                handlers,
+                accessibility_requested,
                 #[cfg(target_arch = "wasm32")]
                 event_channel,
             );
@@ -170,6 +234,7 @@ struct InputEvents<'w> {
     mouse_button_input: EventWriter<'w, MouseButtonInput>,
     mouse_wheel_input: EventWriter<'w, MouseWheel>,
     touch_input: EventWriter<'w, TouchInput>,
+    ime_input: EventWriter<'w, Ime>,
 }
 
 #[derive(SystemParam)]
@@ -206,7 +271,7 @@ struct WinitPersistentState {
 impl Default for WinitPersistentState {
     fn default() -> Self {
         Self {
-            active: true,
+            active: false,
             low_power_event: false,
             redraw_request_sent: false,
             timeout_reached: false,
@@ -215,6 +280,9 @@ impl Default for WinitPersistentState {
     }
 }
 
+/// The default [`App::runner`] for the [`WinitPlugin`] plugin.
+///
+/// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the `EventLoop`.
 pub fn winit_runner(mut app: App) {
     // We remove this so that we have ownership over it.
     let mut event_loop = app
@@ -241,6 +309,9 @@ pub fn winit_runner(mut app: App) {
         Query<(Entity, &mut Window), Added<Window>>,
         EventWriter<WindowCreated>,
         NonSendMut<WinitWindows>,
+        NonSendMut<AccessKitAdapters>,
+        ResMut<WinitActionHandlers>,
+        ResMut<AccessibilityRequested>,
     )> = SystemState::from_world(&mut app.world);
 
     #[cfg(target_arch = "wasm32")]
@@ -249,6 +320,9 @@ pub fn winit_runner(mut app: App) {
         Query<(Entity, &mut Window), Added<Window>>,
         EventWriter<WindowCreated>,
         NonSendMut<WinitWindows>,
+        NonSendMut<AccessKitAdapters>,
+        ResMut<WinitActionHandlers>,
+        ResMut<AccessibilityRequested>,
         ResMut<CanvasParentResizeEventChannel>,
     )> = SystemState::from_world(&mut app.world);
 
@@ -263,34 +337,6 @@ pub fn winit_runner(mut app: App) {
                 *control_flow = ControlFlow::Exit;
                 return;
             }
-        }
-
-        {
-            #[cfg(not(target_arch = "wasm32"))]
-            let (commands, mut new_windows, created_window_writer, winit_windows) =
-                create_window_system_state.get_mut(&mut app.world);
-
-            #[cfg(target_arch = "wasm32")]
-            let (
-                commands,
-                mut new_windows,
-                created_window_writer,
-                winit_windows,
-                canvas_parent_resize_channel,
-            ) = create_window_system_state.get_mut(&mut app.world);
-
-            // Responsible for creating new windows
-            create_window(
-                commands,
-                event_loop,
-                new_windows.iter_mut(),
-                created_window_writer,
-                winit_windows,
-                #[cfg(target_arch = "wasm32")]
-                canvas_parent_resize_channel,
-            );
-
-            create_window_system_state.apply(&mut app.world);
         }
 
         match event {
@@ -324,7 +370,7 @@ pub fn winit_runner(mut app: App) {
                 // Fetch and prepare details from the world
                 let mut system_state: SystemState<(
                     NonSend<WinitWindows>,
-                    Query<(&mut Window, &mut WinitWindowInfo)>,
+                    Query<(&mut Window, &mut CachedWindow)>,
                     WindowEvents,
                     InputEvents,
                     CursorEvents,
@@ -351,7 +397,7 @@ pub fn winit_runner(mut app: App) {
                         return;
                     };
 
-                let (mut window, mut info) =
+                let (mut window, mut cache) =
                     if let Ok((window, info)) = window_query.get_mut(window_entity) {
                         (window, info)
                     } else {
@@ -369,7 +415,6 @@ pub fn winit_runner(mut app: App) {
                         window
                             .resolution
                             .set_physical_resolution(size.width, size.height);
-                        info.last_winit_size = size;
 
                         window_events.window_resized.send(WindowResized {
                             window: window_entity,
@@ -390,17 +435,9 @@ pub fn winit_runner(mut app: App) {
                             .send(converters::convert_keyboard_input(input));
                     }
                     WindowEvent::CursorMoved { position, .. } => {
-                        let physical_position = DVec2::new(
-                            position.x,
-                            // Flip the coordinate space from winit's context to our context.
-                            window.resolution.physical_height() as f64 - position.y,
-                        );
+                        let physical_position = DVec2::new(position.x, position.y);
 
-                        // bypassing change detection to not trigger feedback loop with system `changed_window`
-                        // this system change the cursor position in winit
-                        window
-                            .bypass_change_detection()
-                            .set_physical_cursor_position(Some(physical_position));
+                        window.set_physical_cursor_position(Some(physical_position));
 
                         cursor_events.cursor_moved.send(CursorMoved {
                             window: window_entity,
@@ -414,14 +451,7 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                     WindowEvent::CursorLeft { .. } => {
-                        // Component
-                        if let Ok((mut window, _)) = window_query.get_mut(window_entity) {
-                            // bypassing change detection to not trigger feedback loop with system `changed_window`
-                            // this system change the cursor position in winit
-                            window
-                                .bypass_change_detection()
-                                .set_physical_cursor_position(None);
-                        }
+                        window.set_physical_cursor_position(None);
 
                         cursor_events.cursor_left.send(CursorLeft {
                             window: window_entity,
@@ -450,14 +480,7 @@ pub fn winit_runner(mut app: App) {
                         }
                     },
                     WindowEvent::Touch(touch) => {
-                        let mut location =
-                            touch.location.to_logical(window.resolution.scale_factor());
-
-                        // On a mobile window, the start is from the top while on PC/Linux/OSX from
-                        // bottom
-                        if cfg!(target_os = "android") || cfg!(target_os = "ios") {
-                            location.y = window.height() as f64 - location.y;
-                        }
+                        let location = touch.location.to_logical(window.resolution.scale_factor());
 
                         // Event
                         input_events
@@ -541,7 +564,7 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                     WindowEvent::HoveredFileCancelled => {
-                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCancelled {
+                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCanceled {
                             window: window_entity,
                         });
                     }
@@ -555,7 +578,30 @@ pub fn winit_runner(mut app: App) {
                             position,
                         });
                     }
+                    WindowEvent::Ime(event) => match event {
+                        event::Ime::Preedit(value, cursor) => {
+                            input_events.ime_input.send(Ime::Preedit {
+                                window: window_entity,
+                                value,
+                                cursor,
+                            });
+                        }
+                        event::Ime::Commit(value) => input_events.ime_input.send(Ime::Commit {
+                            window: window_entity,
+                            value,
+                        }),
+                        event::Ime::Enabled => input_events.ime_input.send(Ime::Enabled {
+                            window: window_entity,
+                        }),
+                        event::Ime::Disabled => input_events.ime_input.send(Ime::Disabled {
+                            window: window_entity,
+                        }),
+                    },
                     _ => {}
+                }
+
+                if window.is_changed() {
+                    cache.window = window.clone();
                 }
             }
             event::Event::DeviceEvent {
@@ -572,6 +618,13 @@ pub fn winit_runner(mut app: App) {
             }
             event::Event::Suspended => {
                 winit_state.active = false;
+                #[cfg(target_os = "android")]
+                {
+                    // Bevy doesn't support suspend/resume so we just exit
+                    // and Android will restart the application on resume
+                    // TODO: Save save some state and load on resume
+                    *control_flow = ControlFlow::Exit;
+                }
             }
             event::Event::Resumed => {
                 winit_state.active = true;
@@ -636,6 +689,47 @@ pub fn winit_runner(mut app: App) {
             }
 
             _ => (),
+        }
+
+        if winit_state.active {
+            #[cfg(not(target_arch = "wasm32"))]
+            let (
+                commands,
+                mut new_windows,
+                created_window_writer,
+                winit_windows,
+                adapters,
+                handlers,
+                accessibility_requested,
+            ) = create_window_system_state.get_mut(&mut app.world);
+
+            #[cfg(target_arch = "wasm32")]
+            let (
+                commands,
+                mut new_windows,
+                created_window_writer,
+                winit_windows,
+                adapters,
+                handlers,
+                accessibility_requested,
+                canvas_parent_resize_channel,
+            ) = create_window_system_state.get_mut(&mut app.world);
+
+            // Responsible for creating new windows
+            create_window(
+                commands,
+                event_loop,
+                new_windows.iter_mut(),
+                created_window_writer,
+                winit_windows,
+                adapters,
+                handlers,
+                accessibility_requested,
+                #[cfg(target_arch = "wasm32")]
+                canvas_parent_resize_channel,
+            );
+
+            create_window_system_state.apply(&mut app.world);
         }
     };
 

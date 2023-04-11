@@ -2,16 +2,18 @@ mod command_queue;
 mod parallel_scope;
 
 use crate::{
+    self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
+use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::Resource;
+use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 
 /// A [`World`] mutation.
 ///
@@ -48,10 +50,11 @@ pub trait Command: Send + 'static {
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
-/// only after each system in a [stage] has completed.
+/// when the [`apply_system_buffers`] system runs.
 ///
-/// The command queue of a system can also be manually applied
+/// The command queue of an individual system can also be manually applied
 /// by calling [`System::apply_buffers`].
+/// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_system_buffers`].
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
@@ -61,7 +64,7 @@ pub trait Command: Send + 'static {
 ///
 /// # Usage
 ///
-/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied at the end of the current stage.
+/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_system_buffers`] runs.
 /// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
@@ -93,11 +96,24 @@ pub trait Command: Send + 'static {
 /// # }
 /// ```
 ///
-/// [stage]: crate::schedule::SystemStage
 /// [`System::apply_buffers`]: crate::system::System::apply_buffers
+/// [`apply_system_buffers`]: crate::schedule::apply_system_buffers
+/// [`Schedule::apply_system_buffers`]: crate::schedule::Schedule::apply_system_buffers
+#[derive(SystemParam)]
 pub struct Commands<'w, 's> {
-    queue: &'s mut CommandQueue,
+    queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,
+}
+
+impl SystemBuffer for CommandQueue {
+    #[inline]
+    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _system_span =
+            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
+                .entered();
+        self.apply(world);
+    }
 }
 
 impl<'w, 's> Commands<'w, 's> {
@@ -107,10 +123,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [system parameter]: crate::system::SystemParam
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
-        Self {
-            queue,
-            entities: world.entities(),
-        }
+        Self::new_from_entities(queue, world.entities())
     }
 
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
@@ -119,7 +132,10 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [system parameter]: crate::system::SystemParam
     pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
-        Self { queue, entities }
+        Self {
+            queue: Deferred(queue),
+            entities,
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
@@ -428,9 +444,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
     /// ```
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        self.queue.push(InitResource::<R> {
-            _phantom: PhantomData::<R>::default(),
-        });
+        self.queue.push(InitResource::<R>::new());
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
@@ -483,9 +497,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn remove_resource<R: Resource>(&mut self) {
-        self.queue.push(RemoveResource::<R> {
-            phantom: PhantomData,
-        });
+        self.queue.push(RemoveResource::<R>::new());
     }
 
     /// Pushes a generic [`Command`] to the command queue.
@@ -565,11 +577,13 @@ impl<'w, 's> Commands<'w, 's> {
 /// # let mut world = World::new();
 /// # world.init_resource::<Counter>();
 /// #
-/// # let mut setup_stage = SystemStage::single_threaded().with_system(setup);
-/// # let mut assert_stage = SystemStage::single_threaded().with_system(assert_names);
+/// # let mut setup_schedule = Schedule::new();
+/// # setup_schedule.add_systems(setup);
+/// # let mut assert_schedule = Schedule::new();
+/// # assert_schedule.add_systems(assert_names);
 /// #
-/// # setup_stage.run(&mut world);
-/// # assert_stage.run(&mut world);
+/// # setup_schedule.run(&mut world);
+/// # assert_schedule.run(&mut world);
 ///
 /// fn setup(mut commands: Commands) {
 ///     commands.spawn_empty().add(CountName);
@@ -730,10 +744,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     where
         T: Bundle,
     {
-        self.commands.add(Remove::<T> {
-            entity: self.entity,
-            phantom: PhantomData,
-        });
+        self.commands.add(Remove::<T>::new(self.entity));
         self
     }
 
@@ -933,9 +944,17 @@ where
 {
     fn write(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
-            // remove intersection to gracefully handle components that were removed before running
-            // this command
-            entity_mut.remove_intersection::<T>();
+            entity_mut.remove::<T>();
+        }
+    }
+}
+
+impl<T> Remove<T> {
+    /// Creates a [`Command`] which will remove the specified [`Entity`] when flushed
+    pub const fn new(entity: Entity) -> Self {
+        Self {
+            entity,
+            phantom: PhantomData::<T>,
         }
     }
 }
@@ -947,6 +966,15 @@ pub struct InitResource<R: Resource + FromWorld> {
 impl<R: Resource + FromWorld> Command for InitResource<R> {
     fn write(self, world: &mut World) {
         world.init_resource::<R>();
+    }
+}
+
+impl<R: Resource + FromWorld> InitResource<R> {
+    /// Creates a [`Command`] which will insert a default created [`Resource`] into the [`World`]
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData::<R>,
+        }
     }
 }
 
@@ -967,6 +995,15 @@ pub struct RemoveResource<R: Resource> {
 impl<R: Resource> Command for RemoveResource<R> {
     fn write(self, world: &mut World) {
         world.remove_resource::<R>();
+    }
+}
+
+impl<R: Resource> RemoveResource<R> {
+    /// Creates a [`Command`] which will remove a [`Resource`] from the [`World`]
+    pub const fn new() -> Self {
+        Self {
+            phantom: PhantomData::<R>,
+        }
     }
 }
 

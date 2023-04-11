@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod error;
 mod font;
 mod font_atlas;
@@ -25,10 +27,9 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::{schedule::IntoSystemDescriptor, system::Resource};
-use bevy_render::{camera::CameraUpdateSystem, RenderApp, RenderStage};
+use bevy_ecs::prelude::*;
+use bevy_render::{camera::CameraUpdateSystem, ExtractSchedule, RenderApp};
 use bevy_sprite::SpriteSystem;
-use bevy_window::ModifiesWindows;
 use std::num::NonZeroUsize;
 
 #[derive(Default)]
@@ -80,10 +81,9 @@ impl Plugin for TextPlugin {
             .init_resource::<TextSettings>()
             .init_resource::<FontAtlasWarning>()
             .insert_resource(TextPipeline::default())
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
+            .add_systems(
+                PostUpdate,
                 update_text2d_layout
-                    .after(ModifiesWindows)
                     // Potential conflict: `Assets<Image>`
                     // In practice, they run independently since `bevy_render::camera_update_system`
                     // will only ever observe its own render target, and `update_text2d_layout`
@@ -92,8 +92,8 @@ impl Plugin for TextPlugin {
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(
-                RenderStage::Extract,
+            render_app.add_systems(
+                ExtractSchedule,
                 extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
             );
         }
