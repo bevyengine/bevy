@@ -22,42 +22,39 @@ pub enum Collision {
 /// If the collision occurs on multiple sides, the side with the deepest penetration is returned.
 /// If all sides are involved, `Inside` is returned.
 pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<Collision> {
-    let a_min = a_pos.truncate() - a_size / 2.0;
-    let a_max = a_pos.truncate() + a_size / 2.0;
+    let Vec2 { x: xa, y: ya } = a_pos.truncate(); // x and y of center of a
+    let Vec2 { x: wa, y: ha } = a_size * 0.5;  // half width and height of a
+    let Vec2 { x: xb, y: yb } = b_pos.truncate(); 
+    let Vec2 { x: wb, y: hb } = b_size * 0.5;
+    let dis_x = (xa - xb).abs();
+    let dis_y = (ya - yb).abs();
 
-    let b_min = b_pos.truncate() - b_size / 2.0;
-    let b_max = b_pos.truncate() + b_size / 2.0;
+    // this method is just like checking the relative position of the circles
 
-    // check to see if the two rectangles are intersecting
-    if a_min.x < b_max.x && a_max.x > b_min.x && a_min.y < b_max.y && a_max.y > b_min.y {
-        // check to see if we hit on the left or right side
-        let (x_collision, x_depth) = if a_min.x < b_min.x && a_max.x > b_min.x && a_max.x < b_max.x
-        {
-            (Collision::Left, b_min.x - a_max.x)
-        } else if a_min.x > b_min.x && a_min.x < b_max.x && a_max.x > b_max.x {
-            (Collision::Right, a_min.x - b_max.x)
-        } else {
-            (Collision::Inside, -f32::INFINITY)
-        };
+    if dis_x >= (wa + wb).abs() || dis_y >= (ha + hb).abs() {
+        return None; // a is separated from b or is tangent to b
+    } 
 
-        // check to see if we hit on the top or bottom side
-        let (y_collision, y_depth) = if a_min.y < b_min.y && a_max.y > b_min.y && a_max.y < b_max.y
-        {
-            (Collision::Bottom, b_min.y - a_max.y)
-        } else if a_min.y > b_min.y && a_min.y < b_max.y && a_max.y > b_max.y {
-            (Collision::Top, a_min.y - b_max.y)
-        } else {
-            (Collision::Inside, -f32::INFINITY)
-        };
-
-        // if we had an "x" and a "y" collision, pick the "primary" side using penetration depth
-        if y_depth.abs() > x_depth.abs() {
-            Some(y_collision)
-        } else {
-            Some(x_collision)
-        }
+    let (x_collision, x_depth) = if dis_x <= (wa - wb).abs() {
+        (Collision::Inside, 0.0)
+    } else if xa < xb {
+        (Collision::Left, (xa + wa) - (xb - wb)) // right_a - left_b
     } else {
-        None
+        (Collision::Right, (xb + wb) - (xa - wa)) // right_b - left_a
+    };
+
+    let (y_collision, y_depth) = if dis_y <= (ha - hb).abs() {
+        (Collision::Inside, 0.0)
+    } else if ya < yb {
+        (Collision::Bottom, (ya + ha) - (yb - hb)) // top_a - bottom_b
+    } else {
+        (Collision::Top, (yb + hb) - (ya - ha)) // top_b - bottom_a
+    };
+
+    if y_depth > x_depth { // choose deepest
+        Some(y_collision)
+    } else {
+        Some(x_collision)
     }
 }
 
