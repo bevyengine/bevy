@@ -7,7 +7,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -36,9 +36,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             for overflow in [
                 Overflow::visible(),
-                Overflow::x_hidden(),
-                Overflow::y_hidden(),
-                Overflow::hidden(),
+                Overflow::clip_x(),
+                Overflow::clip_y(),
+                Overflow::clip(),
             ] {
                 parent
                     .spawn(NodeBundle {

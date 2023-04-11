@@ -74,7 +74,8 @@ fn update_clipping(
         if style.overflow.x == OverflowAxis::Visible {
             node_rect.min.x = -f32::INFINITY;
             node_rect.max.x = f32::INFINITY; 
-        } else {
+        }
+        if style.overflow.y == OverflowAxis::Visible {
             node_rect.min.y = -f32::INFINITY;
             node_rect.max.y = f32::INFINITY;
         }

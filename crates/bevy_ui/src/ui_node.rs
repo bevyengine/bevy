@@ -618,13 +618,13 @@ impl Default for JustifyContent {
     }
 }
 
-/// Whether to show or hide overflowing items
+/// Whether to show or clip overflowing items
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Overflow {
-    /// Whether to show or hide overflowing items on the x axis        
+    /// Whether to show or clip overflowing items on the x axis        
     pub x: OverflowAxis,
-    /// Whether to show or hide overflowing items on the y axis
+    /// Whether to show or clip overflowing items on the y axis
     pub y: OverflowAxis,
 }
 
@@ -642,27 +642,27 @@ impl Overflow {
         }
     }
 
-    /// Hide overflowing items on both axes
-    pub const fn hidden() -> Self {
+    /// Clip overflowing items on both axes
+    pub const fn clip() -> Self {
         Self {
-            x: OverflowAxis::Hidden,
-            y: OverflowAxis::Hidden,
+            x: OverflowAxis::Clip,
+            y: OverflowAxis::Clip,
         }
     }
 
-    /// Hide overflowing items on the x axis
-    pub const fn x_hidden() -> Self {
+    /// Clip overflowing items on the x axis
+    pub const fn clip_x() -> Self {
         Self {
-            x: OverflowAxis::Hidden,
+            x: OverflowAxis::Clip,
             y: OverflowAxis::Visible,
         }
     }
 
-    /// Hide overflowing items on the y axis
-    pub const fn y_hidden() -> Self {
+    /// Clip overflowing items on the y axis
+    pub const fn clip_y() -> Self {
         Self {
             x: OverflowAxis::Visible,
-            y: OverflowAxis::Hidden,
+            y: OverflowAxis::Clip,
         }
     }
 
@@ -685,7 +685,7 @@ pub enum OverflowAxis {
     /// Show overflowing items.
     Visible,
     /// Hide overflowing items.
-    Hidden,
+    Clip,
 }
 
 impl OverflowAxis {
