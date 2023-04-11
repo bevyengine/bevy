@@ -61,10 +61,8 @@ impl SystemBuffer for ParallelCommandQueue {
 
 impl<'w, 's> ParallelCommands<'w, 's> {
     pub fn command_scope<R>(&self, f: impl FnOnce(Commands) -> R) -> R {
-        let mut command_queue = self.state.thread_queues.get();
-        f(Commands::new_from_entities(
-            &mut command_queue,
-            self.entities,
-        ))
+        self.state
+            .thread_queues
+            .scope(|command_queue| f(Commands::new_from_entities(command_queue, self.entities)))
     }
 }

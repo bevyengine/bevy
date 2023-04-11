@@ -1,12 +1,9 @@
-use core::{
-    cell::Cell,
-    ops::{Deref, DerefMut, Drop},
-};
+use core::cell::Cell;
 use thread_local::ThreadLocal;
 
 /// A cohesive set of thread-local values of a given type.
 ///
-/// Mutable references can be fetched if `T: Default` via [`Parallel::get`].
+/// Mutable references can be fetched if `T: Default` via [`Parallel::scope`].
 #[derive(Default)]
 pub struct Parallel<T: Send> {
     locals: ThreadLocal<Cell<T>>,
@@ -25,12 +22,15 @@ impl<T: Send> Parallel<T> {
 }
 
 impl<T: Default + Send> Parallel<T> {
-    /// Takes the thread-local value and replaces it with the default.
-    #[inline]
-    pub fn get(&self) -> ParRef<'_, T> {
+    /// Retrieves the thread-local value for the current thread and runs `f` on it.
+    ///
+    /// If there is no thread-local value, it will be initialized to it's default.
+    pub fn scope<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
         let cell = self.locals.get_or_default();
-        let value = cell.take();
-        ParRef { cell, value }
+        let mut value = cell.take();
+        let ret = f(&mut value);
+        cell.set(value);
+        ret
     }
 }
 
@@ -63,30 +63,5 @@ impl<T: Send> Parallel<Vec<T>> {
         for queue in self.locals.iter_mut() {
             out.append(queue.get_mut());
         }
-    }
-}
-
-/// A retrieved thread-local reference to a value in [`Parallel`].
-pub struct ParRef<'a, T: Default> {
-    cell: &'a Cell<T>,
-    value: T,
-}
-
-impl<'a, T: Default> Deref for ParRef<'a, T> {
-    type Target = T;
-    fn deref(&self) -> &T {
-        &self.value
-    }
-}
-
-impl<'a, T: Default> DerefMut for ParRef<'a, T> {
-    fn deref_mut(&mut self) -> &mut T {
-        &mut self.value
-    }
-}
-
-impl<'a, T: Default> Drop for ParRef<'a, T> {
-    fn drop(&mut self) {
-        self.cell.set(core::mem::take(&mut self.value));
     }
 }

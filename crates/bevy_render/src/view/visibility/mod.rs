@@ -407,7 +407,9 @@ pub fn check_visibility(
                 }
 
                 computed_visibility.set_visible_in_view();
-                thread_queues.get().push(entity);
+                thread_queues.scope(|queue| {
+                    queue.push(entity);
+                })
             },
         );
 
@@ -425,7 +427,9 @@ pub fn check_visibility(
                 }
 
                 computed_visibility.set_visible_in_view();
-                thread_queues.get().push(entity);
+                thread_queues.scope(|queue| {
+                    queue.push(entity);
+                });
             },
         );
 
