@@ -51,7 +51,7 @@ pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<C
         };
 
         // if we had an "x" and a "y" collision, pick the "primary" side using penetration depth
-        if y_depth.abs() < x_depth.abs() {
+        if y_depth.abs() > x_depth.abs() {
             Some(y_collision)
         } else {
             Some(x_collision)
@@ -179,13 +179,13 @@ mod test {
             (3., 3., 2., 2.),
             (2.5, 2.,2., 2.),
         );
-        assert_eq!(res, Some(Collision::Top));
+        assert_eq!(res, Some(Collision::Right));
         // Top-right collision
         #[rustfmt::skip]
         let res = collide_two_rectangles(
             (3., 3., 2., 2.),
             (2., 2.5, 2., 2.),
         );
-        assert_eq!(res, Some(Collision::Right));
+        assert_eq!(res, Some(Collision::Top));
     }
 }
