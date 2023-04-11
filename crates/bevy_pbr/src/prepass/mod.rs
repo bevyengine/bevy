@@ -845,47 +845,48 @@ pub fn queue_prepass_view_bind_group<M: Material>(
     previous_view_proj_uniforms: Res<PreviousViewProjectionUniforms>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
-    if let (Some(view_binding), Some(globals_binding)) = (
+    let (Some(view_binding), Some(globals_binding)) = (
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
-    ) {
-        prepass_view_bind_group.no_motion_vectors =
+    ) else {
+        return;
+    };
+    prepass_view_bind_group.no_motion_vectors =
+        Some(render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: view_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: globals_binding.clone(),
+                },
+            ],
+            label: Some("prepass_view_no_motion_vectors_bind_group"),
+            layout: &prepass_pipeline.view_layout_no_motion_vectors,
+        }));
+
+    if let Some(previous_view_proj_binding) = previous_view_proj_uniforms.uniforms.binding() {
+        prepass_view_bind_group.motion_vectors =
             Some(render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
-                        resource: view_binding.clone(),
+                        resource: view_binding,
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: globals_binding.clone(),
+                        resource: globals_binding,
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: previous_view_proj_binding,
                     },
                 ],
-                label: Some("prepass_view_no_motion_vectors_bind_group"),
-                layout: &prepass_pipeline.view_layout_no_motion_vectors,
+                label: Some("prepass_view_motion_vectors_bind_group"),
+                layout: &prepass_pipeline.view_layout_motion_vectors,
             }));
-
-        if let Some(previous_view_proj_binding) = previous_view_proj_uniforms.uniforms.binding() {
-            prepass_view_bind_group.motion_vectors =
-                Some(render_device.create_bind_group(&BindGroupDescriptor {
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: view_binding,
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: globals_binding,
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: previous_view_proj_binding,
-                        },
-                    ],
-                    label: Some("prepass_view_motion_vectors_bind_group"),
-                    layout: &prepass_pipeline.view_layout_motion_vectors,
-                }));
-        }
     }
 }
 

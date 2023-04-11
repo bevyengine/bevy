@@ -320,35 +320,35 @@ fn prepare_bloom_textures(
     views: Query<(Entity, &ExtractedCamera), With<BloomSettings>>,
 ) {
     for (entity, camera) in &views {
-        if let Some(UVec2 {
+        let Some(UVec2 {
             x: width,
             y: height,
-        }) = camera.physical_viewport_size
-        {
-            // How many times we can halve the resolution minus one so we don't go unnecessarily low
-            let mip_count = MAX_MIP_DIMENSION.ilog2().max(2) - 1;
-            let mip_height_ratio = MAX_MIP_DIMENSION as f32 / height as f32;
+        }) = camera.physical_viewport_size else {
+            continue;
+        };
+        // How many times we can halve the resolution minus one so we don't go unnecessarily low
+        let mip_count = MAX_MIP_DIMENSION.ilog2().max(2) - 1;
+        let mip_height_ratio = MAX_MIP_DIMENSION as f32 / height as f32;
 
-            let texture_descriptor = TextureDescriptor {
-                label: Some("bloom_texture"),
-                size: Extent3d {
-                    width: ((width as f32 * mip_height_ratio).round() as u32).max(1),
-                    height: ((height as f32 * mip_height_ratio).round() as u32).max(1),
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: mip_count,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: BLOOM_TEXTURE_FORMAT,
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            };
+        let texture_descriptor = TextureDescriptor {
+            label: Some("bloom_texture"),
+            size: Extent3d {
+                width: ((width as f32 * mip_height_ratio).round() as u32).max(1),
+                height: ((height as f32 * mip_height_ratio).round() as u32).max(1),
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: mip_count,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: BLOOM_TEXTURE_FORMAT,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        };
 
-            commands.entity(entity).insert(BloomTexture {
-                texture: texture_cache.get(&render_device, texture_descriptor),
-                mip_count,
-            });
-        }
+        commands.entity(entity).insert(BloomTexture {
+            texture: texture_cache.get(&render_device, texture_descriptor),
+            mip_count,
+        });
     }
 }
 

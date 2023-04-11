@@ -66,28 +66,29 @@ impl PluginGroupBuilder {
     // Insert the new plugin as enabled, and removes its previous ordering if it was
     // already present
     fn upsert_plugin_state<T: Plugin>(&mut self, plugin: T, added_at_index: usize) {
-        if let Some(entry) = self.plugins.insert(
+        let Some(entry) = self.plugins.insert(
             TypeId::of::<T>(),
             PluginEntry {
                 plugin: Box::new(plugin),
                 enabled: true,
             },
-        ) {
-            if entry.enabled {
-                warn!(
-                    "You are replacing plugin '{}' that was not disabled.",
-                    entry.plugin.name()
-                );
-            }
-            if let Some(to_remove) = self
-                .order
-                .iter()
-                .enumerate()
-                .find(|(i, ty)| *i != added_at_index && **ty == TypeId::of::<T>())
-                .map(|(i, _)| i)
-            {
-                self.order.remove(to_remove);
-            }
+        ) else {
+            return;
+        };
+        if entry.enabled {
+            warn!(
+                "You are replacing plugin '{}' that was not disabled.",
+                entry.plugin.name()
+            );
+        }
+        if let Some(to_remove) = self
+            .order
+            .iter()
+            .enumerate()
+            .find(|(i, ty)| *i != added_at_index && **ty == TypeId::of::<T>())
+            .map(|(i, _)| i)
+        {
+            self.order.remove(to_remove);
         }
     }
 
@@ -174,18 +175,19 @@ impl PluginGroupBuilder {
     /// Panics if one of the plugin in the group was already added to the application.
     pub fn finish(mut self, app: &mut App) {
         for ty in &self.order {
-            if let Some(entry) = self.plugins.remove(ty) {
-                if entry.enabled {
-                    debug!("added plugin: {}", entry.plugin.name());
-                    if let Err(AppError::DuplicatePlugin { plugin_name }) =
-                        app.add_boxed_plugin(entry.plugin)
-                    {
-                        panic!(
-                            "Error adding plugin {} in group {}: plugin was already added in application",
-                            plugin_name,
-                            self.group_name
-                        );
-                    }
+            let Some(entry) = self.plugins.remove(ty) else {
+                continue;
+            };
+            if entry.enabled {
+                debug!("added plugin: {}", entry.plugin.name());
+                if let Err(AppError::DuplicatePlugin { plugin_name }) =
+                    app.add_boxed_plugin(entry.plugin)
+                {
+                    panic!(
+                        "Error adding plugin {} in group {}: plugin was already added in application",
+                        plugin_name,
+                        self.group_name
+                    );
                 }
             }
         }

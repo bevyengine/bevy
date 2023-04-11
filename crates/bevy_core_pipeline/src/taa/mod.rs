@@ -480,46 +480,47 @@ fn prepare_taa_history_textures(
     views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasSettings>>,
 ) {
     for (entity, camera, view) in &views {
-        if let Some(physical_viewport_size) = camera.physical_viewport_size {
-            let mut texture_descriptor = TextureDescriptor {
-                label: None,
-                size: Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_viewport_size.x,
-                    height: physical_viewport_size.y,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
-                view_formats: &[],
-            };
-
-            texture_descriptor.label = Some("taa_history_1_texture");
-            let history_1_texture = texture_cache.get(&render_device, texture_descriptor.clone());
-
-            texture_descriptor.label = Some("taa_history_2_texture");
-            let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
-
-            let textures = if frame_count.0 % 2 == 0 {
-                TAAHistoryTextures {
-                    write: history_1_texture,
-                    read: history_2_texture,
-                }
+        let Some(physical_viewport_size) = camera.physical_viewport_size else {
+            continue;
+        };
+        let mut texture_descriptor = TextureDescriptor {
+            label: None,
+            size: Extent3d {
+                depth_or_array_layers: 1,
+                width: physical_viewport_size.x,
+                height: physical_viewport_size.y,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: if view.hdr {
+                ViewTarget::TEXTURE_FORMAT_HDR
             } else {
-                TAAHistoryTextures {
-                    write: history_2_texture,
-                    read: history_1_texture,
-                }
-            };
+                TextureFormat::bevy_default()
+            },
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        };
 
-            commands.entity(entity).insert(textures);
-        }
+        texture_descriptor.label = Some("taa_history_1_texture");
+        let history_1_texture = texture_cache.get(&render_device, texture_descriptor.clone());
+
+        texture_descriptor.label = Some("taa_history_2_texture");
+        let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
+
+        let textures = if frame_count.0 % 2 == 0 {
+            TAAHistoryTextures {
+                write: history_1_texture,
+                read: history_2_texture,
+            }
+        } else {
+            TAAHistoryTextures {
+                write: history_2_texture,
+                read: history_1_texture,
+            }
+        };
+
+        commands.entity(entity).insert(textures);
     }
 }
 

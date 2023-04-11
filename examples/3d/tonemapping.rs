@@ -318,28 +318,29 @@ fn update_image_viewer(
     }
 
     for (mat_h, mesh_h) in &image_mesh {
-        if let Some(mat) = materials.get_mut(mat_h) {
-            if let Some(ref new_image) = new_image {
-                mat.base_color_texture = Some(new_image.clone());
+        let Some(mat) = materials.get_mut(mat_h) else {
+            continue;
+        };
+        if let Some(ref new_image) = new_image {
+            mat.base_color_texture = Some(new_image.clone());
 
-                if let Ok(text_entity) = text.get_single() {
-                    commands.entity(text_entity).despawn();
-                }
+            if let Ok(text_entity) = text.get_single() {
+                commands.entity(text_entity).despawn();
             }
+        }
 
-            for event in image_events.iter() {
-                let image_changed_h = match event {
-                    AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
-                    _ => continue,
-                };
-                if let Some(base_color_texture) = mat.base_color_texture.clone() {
-                    if image_changed_h == &base_color_texture {
-                        if let Some(image_changed) = images.get(image_changed_h) {
-                            let size = image_changed.size().normalize_or_zero() * 1.4;
-                            // Resize Mesh
-                            let quad = Mesh::from(shape::Quad::new(size));
-                            let _ = meshes.set(mesh_h, quad);
-                        }
+        for event in image_events.iter() {
+            let image_changed_h = match event {
+                AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
+                _ => continue,
+            };
+            if let Some(base_color_texture) = mat.base_color_texture.clone() {
+                if image_changed_h == &base_color_texture {
+                    if let Some(image_changed) = images.get(image_changed_h) {
+                        let size = image_changed.size().normalize_or_zero() * 1.4;
+                        // Resize Mesh
+                        let quad = Mesh::from(shape::Quad::new(size));
+                        let _ = meshes.set(mesh_h, quad);
                     }
                 }
             }

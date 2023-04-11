@@ -142,23 +142,24 @@ pub(crate) fn queue_gizmos_3d(
     for (view, mut phase) in &mut views {
         let key = key | MeshPipelineKey::from_hdr(view.hdr);
         for (entity, mesh_handle) in &mesh_handles {
-            if let Some(mesh) = render_meshes.get(mesh_handle) {
-                let key = key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                let pipeline = pipelines
-                    .specialize(
-                        &pipeline_cache,
-                        &pipeline,
-                        (!config.on_top, key),
-                        &mesh.layout,
-                    )
-                    .unwrap();
-                phase.add(Opaque3d {
-                    entity,
-                    pipeline,
-                    draw_function,
-                    distance: 0.,
-                });
-            }
+            let Some(mesh) = render_meshes.get(mesh_handle) else {
+                continue;
+            };
+            let key = key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            let pipeline = pipelines
+                .specialize(
+                    &pipeline_cache,
+                    &pipeline,
+                    (!config.on_top, key),
+                    &mesh.layout,
+                )
+                .unwrap();
+            phase.add(Opaque3d {
+                entity,
+                pipeline,
+                draw_function,
+                distance: 0.,
+            });
         }
     }
 }

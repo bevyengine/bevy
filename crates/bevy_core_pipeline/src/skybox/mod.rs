@@ -207,29 +207,28 @@ fn queue_skybox_bind_groups(
     views: Query<(Entity, &Skybox)>,
 ) {
     for (entity, skybox) in &views {
-        if let (Some(skybox), Some(view_uniforms)) =
-            (images.get(&skybox.0), view_uniforms.uniforms.binding())
-        {
-            let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                label: Some("skybox_bind_group"),
-                layout: &pipeline.bind_group_layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(&skybox.texture_view),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(&skybox.sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: view_uniforms,
-                    },
-                ],
-            });
+        let (Some(skybox), Some(view_uniforms)) = (images.get(&skybox.0), view_uniforms.uniforms.binding()) else {
+            continue;
+        };
+        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("skybox_bind_group"),
+            layout: &pipeline.bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(&skybox.texture_view),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Sampler(&skybox.sampler),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: view_uniforms,
+                },
+            ],
+        });
 
-            commands.entity(entity).insert(SkyboxBindGroup(bind_group));
-        }
+        commands.entity(entity).insert(SkyboxBindGroup(bind_group));
     }
 }

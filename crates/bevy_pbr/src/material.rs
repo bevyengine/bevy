@@ -445,79 +445,81 @@ pub fn queue_material_meshes<M: Material>(
 
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
-            if let Ok((material_handle, mesh_handle, mesh_uniform)) =
-                material_meshes.get(*visible_entity)
-            {
-                if let (Some(mesh), Some(material)) = (
-                    render_meshes.get(mesh_handle),
-                    render_materials.get(material_handle),
-                ) {
-                    let mut mesh_key =
-                        MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                            | view_key;
-                    match material.properties.alpha_mode {
-                        AlphaMode::Blend => {
-                            mesh_key |= MeshPipelineKey::BLEND_ALPHA;
-                        }
-                        AlphaMode::Premultiplied | AlphaMode::Add => {
-                            // Premultiplied and Add share the same pipeline key
-                            // They're made distinct in the PBR shader, via `premultiply_alpha()`
-                            mesh_key |= MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA;
-                        }
-                        AlphaMode::Multiply => {
-                            mesh_key |= MeshPipelineKey::BLEND_MULTIPLY;
-                        }
-                        _ => (),
-                    }
+            let Ok((material_handle, mesh_handle, mesh_uniform)) =
+                material_meshes.get(*visible_entity) else {
+                    continue;
+                };
 
-                    let pipeline_id = pipelines.specialize(
-                        &pipeline_cache,
-                        &material_pipeline,
-                        MaterialPipelineKey {
-                            mesh_key,
-                            bind_group_data: material.key.clone(),
-                        },
-                        &mesh.layout,
-                    );
-                    let pipeline_id = match pipeline_id {
-                        Ok(id) => id,
-                        Err(err) => {
-                            error!("{}", err);
-                            continue;
-                        }
-                    };
+            let (Some(mesh), Some(material)) = (
+                render_meshes.get(mesh_handle),
+                render_materials.get(material_handle),
+            ) else {
+                continue;
+            };
 
-                    let distance = rangefinder.distance(&mesh_uniform.transform)
-                        + material.properties.depth_bias;
-                    match material.properties.alpha_mode {
-                        AlphaMode::Opaque => {
-                            opaque_phase.add(Opaque3d {
-                                entity: *visible_entity,
-                                draw_function: draw_opaque_pbr,
-                                pipeline: pipeline_id,
-                                distance,
-                            });
-                        }
-                        AlphaMode::Mask(_) => {
-                            alpha_mask_phase.add(AlphaMask3d {
-                                entity: *visible_entity,
-                                draw_function: draw_alpha_mask_pbr,
-                                pipeline: pipeline_id,
-                                distance,
-                            });
-                        }
-                        AlphaMode::Blend
-                        | AlphaMode::Premultiplied
-                        | AlphaMode::Add
-                        | AlphaMode::Multiply => {
-                            transparent_phase.add(Transparent3d {
-                                entity: *visible_entity,
-                                draw_function: draw_transparent_pbr,
-                                pipeline: pipeline_id,
-                                distance,
-                            });
-                        }
-                    }
+            let mut mesh_key =
+                MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
+            match material.properties.alpha_mode {
+                AlphaMode::Blend => {
+                    mesh_key |= MeshPipelineKey::BLEND_ALPHA;
+                }
+                AlphaMode::Premultiplied | AlphaMode::Add => {
+                    // Premultiplied and Add share the same pipeline key
+                    // They're made distinct in the PBR shader, via `premultiply_alpha()`
+                    mesh_key |= MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA;
+                }
+                AlphaMode::Multiply => {
+                    mesh_key |= MeshPipelineKey::BLEND_MULTIPLY;
+                }
+                _ => (),
+            }
+
+            let pipeline_id = pipelines.specialize(
+                &pipeline_cache,
+                &material_pipeline,
+                MaterialPipelineKey {
+                    mesh_key,
+                    bind_group_data: material.key.clone(),
+                },
+                &mesh.layout,
+            );
+            let pipeline_id = match pipeline_id {
+                Ok(id) => id,
+                Err(err) => {
+                    error!("{}", err);
+                    continue;
+                }
+            };
+
+            let distance =
+                rangefinder.distance(&mesh_uniform.transform) + material.properties.depth_bias;
+            match material.properties.alpha_mode {
+                AlphaMode::Opaque => {
+                    opaque_phase.add(Opaque3d {
+                        entity: *visible_entity,
+                        draw_function: draw_opaque_pbr,
+                        pipeline: pipeline_id,
+                        distance,
+                    });
+                }
+                AlphaMode::Mask(_) => {
+                    alpha_mask_phase.add(AlphaMask3d {
+                        entity: *visible_entity,
+                        draw_function: draw_alpha_mask_pbr,
+                        pipeline: pipeline_id,
+                        distance,
+                    });
+                }
+                AlphaMode::Blend
+                | AlphaMode::Premultiplied
+                | AlphaMode::Add
+                | AlphaMode::Multiply => {
+                    transparent_phase.add(Transparent3d {
+                        entity: *visible_entity,
+                        draw_function: draw_transparent_pbr,
+                        pipeline: pipeline_id,
+                        distance,
+                    });
                 }
             }
         }

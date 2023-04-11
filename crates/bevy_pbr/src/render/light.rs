@@ -352,82 +352,83 @@ pub fn extract_lights(
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((point_light, cubemap_visible_entities, transform, visibility)) =
-            point_lights.get(entity)
-        {
-            if !visibility.is_visible() {
-                continue;
-            }
-            // TODO: This is very much not ideal. We should be able to re-use the vector memory.
-            // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
-            let render_cubemap_visible_entities = cubemap_visible_entities.clone();
-            point_lights_values.push((
-                entity,
-                (
-                    ExtractedPointLight {
-                        color: point_light.color,
-                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-                        // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-                        // for details.
-                        intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
-                        range: point_light.range,
-                        radius: point_light.radius,
-                        transform: *transform,
-                        shadows_enabled: point_light.shadows_enabled,
-                        shadow_depth_bias: point_light.shadow_depth_bias,
-                        // The factor of SQRT_2 is for the worst-case diagonal offset
-                        shadow_normal_bias: point_light.shadow_normal_bias
-                            * point_light_texel_size
-                            * std::f32::consts::SQRT_2,
-                        spot_light_angles: None,
-                    },
-                    render_cubemap_visible_entities,
-                ),
-            ));
+        let Ok(components) = point_lights.get(entity) else {
+            continue;
+        };
+        let (point_light, cubemap_visible_entities, transform, visibility) = components;
+        if !visibility.is_visible() {
+            continue;
         }
+        // TODO: This is very much not ideal. We should be able to re-use the vector memory.
+        // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
+        let render_cubemap_visible_entities = cubemap_visible_entities.clone();
+        point_lights_values.push((
+            entity,
+            (
+                ExtractedPointLight {
+                    color: point_light.color,
+                    // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+                    // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                    // for details.
+                    intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
+                    range: point_light.range,
+                    radius: point_light.radius,
+                    transform: *transform,
+                    shadows_enabled: point_light.shadows_enabled,
+                    shadow_depth_bias: point_light.shadow_depth_bias,
+                    // The factor of SQRT_2 is for the worst-case diagonal offset
+                    shadow_normal_bias: point_light.shadow_normal_bias
+                        * point_light_texel_size
+                        * std::f32::consts::SQRT_2,
+                    spot_light_angles: None,
+                },
+                render_cubemap_visible_entities,
+            ),
+        ));
     }
     *previous_point_lights_len = point_lights_values.len();
     commands.insert_or_spawn_batch(point_lights_values);
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((spot_light, visible_entities, transform, visibility)) = spot_lights.get(entity) {
-            if !visibility.is_visible() {
-                continue;
-            }
-            // TODO: This is very much not ideal. We should be able to re-use the vector memory.
-            // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
-            let render_visible_entities = visible_entities.clone();
-            let texel_size =
-                2.0 * spot_light.outer_angle.tan() / directional_light_shadow_map.size as f32;
-
-            spot_lights_values.push((
-                entity,
-                (
-                    ExtractedPointLight {
-                        color: spot_light.color,
-                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-                        // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-                        // for details.
-                        // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
-                        // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
-                        // which seems least surprising for users
-                        intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
-                        range: spot_light.range,
-                        radius: spot_light.radius,
-                        transform: *transform,
-                        shadows_enabled: spot_light.shadows_enabled,
-                        shadow_depth_bias: spot_light.shadow_depth_bias,
-                        // The factor of SQRT_2 is for the worst-case diagonal offset
-                        shadow_normal_bias: spot_light.shadow_normal_bias
-                            * texel_size
-                            * std::f32::consts::SQRT_2,
-                        spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
-                    },
-                    render_visible_entities,
-                ),
-            ));
+        let Ok((spot_light, visible_entities, transform, visibility)) = spot_lights.get(entity) else {
+            continue;
+        };
+        if !visibility.is_visible() {
+            continue;
         }
+        // TODO: This is very much not ideal. We should be able to re-use the vector memory.
+        // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
+        let render_visible_entities = visible_entities.clone();
+        let texel_size =
+            2.0 * spot_light.outer_angle.tan() / directional_light_shadow_map.size as f32;
+
+        spot_lights_values.push((
+            entity,
+            (
+                ExtractedPointLight {
+                    color: spot_light.color,
+                    // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+                    // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                    // for details.
+                    // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
+                    // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
+                    // which seems least surprising for users
+                    intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
+                    range: spot_light.range,
+                    radius: spot_light.radius,
+                    transform: *transform,
+                    shadows_enabled: spot_light.shadows_enabled,
+                    shadow_depth_bias: spot_light.shadow_depth_bias,
+                    // The factor of SQRT_2 is for the worst-case diagonal offset
+                    shadow_normal_bias: spot_light.shadow_normal_bias
+                        * texel_size
+                        * std::f32::consts::SQRT_2,
+                    spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
+                },
+                render_visible_entities,
+            ),
+        ));
     }
     *previous_spot_lights_len = spot_lights_values.len();
     commands.insert_or_spawn_batch(spot_lights_values);
@@ -1598,53 +1599,56 @@ pub fn queue_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
-                if let Ok((mesh_handle, material_handle)) = casting_meshes.get(entity) {
-                    if let (Some(mesh), Some(material)) = (
-                        render_meshes.get(mesh_handle),
-                        render_materials.get(material_handle),
-                    ) {
-                        let mut mesh_key =
-                            MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                                | MeshPipelineKey::DEPTH_PREPASS;
-                        if is_directional_light {
-                            mesh_key |= MeshPipelineKey::DEPTH_CLAMP_ORTHO;
-                        }
-                        let alpha_mode = material.properties.alpha_mode;
-                        match alpha_mode {
-                            AlphaMode::Mask(_) => {
-                                mesh_key |= MeshPipelineKey::ALPHA_MASK;
-                            }
-                            AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add => {
-                                mesh_key |= MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA;
-                            }
-                            _ => {}
-                        }
-                        let pipeline_id = pipelines.specialize(
-                            &pipeline_cache,
-                            &prepass_pipeline,
-                            MaterialPipelineKey {
-                                mesh_key,
-                                bind_group_data: material.key.clone(),
-                            },
-                            &mesh.layout,
-                        );
+                let Ok((mesh_handle, material_handle)) = casting_meshes.get(entity) else {
+                    continue;
+                };
+                let (Some(mesh), Some(material)) = (
+                    render_meshes.get(mesh_handle),
+                    render_materials.get(material_handle),
+                ) else {
+                    continue;
+                };
 
-                        let pipeline_id = match pipeline_id {
-                            Ok(id) => id,
-                            Err(err) => {
-                                error!("{}", err);
-                                continue;
-                            }
-                        };
-
-                        shadow_phase.add(Shadow {
-                            draw_function: draw_shadow_mesh,
-                            pipeline: pipeline_id,
-                            entity,
-                            distance: 0.0, // TODO: sort back-to-front
-                        });
-                    }
+                let mut mesh_key =
+                    MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
+                        | MeshPipelineKey::DEPTH_PREPASS;
+                if is_directional_light {
+                    mesh_key |= MeshPipelineKey::DEPTH_CLAMP_ORTHO;
                 }
+                let alpha_mode = material.properties.alpha_mode;
+                match alpha_mode {
+                    AlphaMode::Mask(_) => {
+                        mesh_key |= MeshPipelineKey::ALPHA_MASK;
+                    }
+                    AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add => {
+                        mesh_key |= MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA;
+                    }
+                    _ => {}
+                }
+                let pipeline_id = pipelines.specialize(
+                    &pipeline_cache,
+                    &prepass_pipeline,
+                    MaterialPipelineKey {
+                        mesh_key,
+                        bind_group_data: material.key.clone(),
+                    },
+                    &mesh.layout,
+                );
+
+                let pipeline_id = match pipeline_id {
+                    Ok(id) => id,
+                    Err(err) => {
+                        error!("{}", err);
+                        continue;
+                    }
+                };
+
+                shadow_phase.add(Shadow {
+                    draw_function: draw_shadow_mesh,
+                    pipeline: pipeline_id,
+                    entity,
+                    distance: 0.0, // TODO: sort back-to-front
+                });
             }
         }
     }

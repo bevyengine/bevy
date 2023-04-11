@@ -607,49 +607,51 @@ pub fn extract_cameras(
             continue;
         }
 
-        if let (Some((viewport_origin, _)), Some(viewport_size), Some(target_size)) = (
+        let (Some((viewport_origin, _)), Some(viewport_size), Some(target_size)) = (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
             camera.physical_target_size(),
-        ) {
-            if target_size.x == 0 || target_size.y == 0 {
-                continue;
-            }
+        ) else {
+            continue;
+        };
 
-            let mut commands = commands.get_or_spawn(entity);
+        if target_size.x == 0 || target_size.y == 0 {
+            continue;
+        }
 
-            commands.insert((
-                ExtractedCamera {
-                    target: camera.target.normalize(primary_window),
-                    viewport: camera.viewport.clone(),
-                    physical_viewport_size: Some(viewport_size),
-                    physical_target_size: Some(target_size),
-                    render_graph: camera_render_graph.0.clone(),
-                    order: camera.order,
-                    output_mode: camera.output_mode,
-                    msaa_writeback: camera.msaa_writeback,
-                    // this will be set in sort_cameras
-                    sorted_camera_index_for_target: 0,
-                },
-                ExtractedView {
-                    projection: camera.projection_matrix(),
-                    transform: *transform,
-                    view_projection: None,
-                    hdr: camera.hdr,
-                    viewport: UVec4::new(
-                        viewport_origin.x,
-                        viewport_origin.y,
-                        viewport_size.x,
-                        viewport_size.y,
-                    ),
-                    color_grading,
-                },
-                visible_entities.clone(),
-            ));
+        let mut commands = commands.get_or_spawn(entity);
 
-            if let Some(temporal_jitter) = temporal_jitter {
-                commands.insert(temporal_jitter.clone());
-            }
+        commands.insert((
+            ExtractedCamera {
+                target: camera.target.normalize(primary_window),
+                viewport: camera.viewport.clone(),
+                physical_viewport_size: Some(viewport_size),
+                physical_target_size: Some(target_size),
+                render_graph: camera_render_graph.0.clone(),
+                order: camera.order,
+                output_mode: camera.output_mode,
+                msaa_writeback: camera.msaa_writeback,
+                // this will be set in sort_cameras
+                sorted_camera_index_for_target: 0,
+            },
+            ExtractedView {
+                projection: camera.projection_matrix(),
+                transform: *transform,
+                view_projection: None,
+                hdr: camera.hdr,
+                viewport: UVec4::new(
+                    viewport_origin.x,
+                    viewport_origin.y,
+                    viewport_size.x,
+                    viewport_size.y,
+                ),
+                color_grading,
+            },
+            visible_entities.clone(),
+        ));
+
+        if let Some(temporal_jitter) = temporal_jitter {
+            commands.insert(temporal_jitter.clone());
         }
     }
 }

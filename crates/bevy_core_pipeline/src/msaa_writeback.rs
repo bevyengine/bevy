@@ -66,56 +66,56 @@ impl Node for MsaaWritebackNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
-        if let Ok((target, blit_pipeline_id)) = self.cameras.get_manual(world, view_entity) {
-            let blit_pipeline = world.resource::<BlitPipeline>();
-            let pipeline_cache = world.resource::<PipelineCache>();
-            let pipeline = pipeline_cache
-                .get_render_pipeline(blit_pipeline_id.0)
-                .unwrap();
+        let Ok((target, blit_pipeline_id)) = self.cameras.get_manual(world, view_entity) else {
+            return Ok(());
+        };
+        let blit_pipeline = world.resource::<BlitPipeline>();
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let pipeline = pipeline_cache
+            .get_render_pipeline(blit_pipeline_id.0)
+            .unwrap();
 
-            // The current "main texture" needs to be bound as an input resource, and we need the "other"
-            // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
-            // as a post process write!
-            let post_process = target.post_process_write();
+        // The current "main texture" needs to be bound as an input resource, and we need the "other"
+        // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
+        // as a post process write!
+        let post_process = target.post_process_write();
 
-            let pass_descriptor = RenderPassDescriptor {
-                label: Some("msaa_writeback"),
-                // The target's "resolve target" is the "destination" in post_process
-                // We will indirectly write the results to the "destination" using
-                // the MSAA resolve step.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Clear(Default::default()),
-                    store: true,
-                }))],
-                depth_stencil_attachment: None,
-            };
+        let pass_descriptor = RenderPassDescriptor {
+            label: Some("msaa_writeback"),
+            // The target's "resolve target" is the "destination" in post_process
+            // We will indirectly write the results to the "destination" using
+            // the MSAA resolve step.
+            color_attachments: &[Some(target.get_color_attachment(Operations {
+                load: LoadOp::Clear(Default::default()),
+                store: true,
+            }))],
+            depth_stencil_attachment: None,
+        };
 
-            let bind_group =
-                render_context
-                    .render_device()
-                    .create_bind_group(&BindGroupDescriptor {
-                        label: None,
-                        layout: &blit_pipeline.texture_bind_group,
-                        entries: &[
-                            BindGroupEntry {
-                                binding: 0,
-                                resource: BindingResource::TextureView(post_process.source),
-                            },
-                            BindGroupEntry {
-                                binding: 1,
-                                resource: BindingResource::Sampler(&blit_pipeline.sampler),
-                            },
-                        ],
-                    });
+        let bind_group = render_context
+            .render_device()
+            .create_bind_group(&BindGroupDescriptor {
+                label: None,
+                layout: &blit_pipeline.texture_bind_group,
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(post_process.source),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Sampler(&blit_pipeline.sampler),
+                    },
+                ],
+            });
 
-            let mut render_pass = render_context
-                .command_encoder()
-                .begin_render_pass(&pass_descriptor);
+        let mut render_pass = render_context
+            .command_encoder()
+            .begin_render_pass(&pass_descriptor);
 
-            render_pass.set_pipeline(pipeline);
-            render_pass.set_bind_group(0, &bind_group, &[]);
-            render_pass.draw(0..3, 0..1);
-        }
+        render_pass.set_pipeline(pipeline);
+        render_pass.set_bind_group(0, &bind_group, &[]);
+        render_pass.draw(0..3, 0..1);
         Ok(())
     }
 }

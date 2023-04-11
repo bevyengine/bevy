@@ -870,41 +870,42 @@ pub fn queue_mesh_bind_group(
     mesh_uniforms: Res<ComponentUniforms<MeshUniform>>,
     skinned_mesh_uniform: Res<SkinnedMeshUniform>,
 ) {
-    if let Some(mesh_binding) = mesh_uniforms.uniforms().binding() {
-        let mut mesh_bind_group = MeshBindGroup {
-            normal: render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: mesh_binding.clone(),
-                }],
-                label: Some("mesh_bind_group"),
-                layout: &mesh_pipeline.mesh_layout,
-            }),
-            skinned: None,
-        };
+    let Some(mesh_binding) = mesh_uniforms.uniforms().binding() else {
+        return;
+    };
+    let mut mesh_bind_group = MeshBindGroup {
+        normal: render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: mesh_binding.clone(),
+            }],
+            label: Some("mesh_bind_group"),
+            layout: &mesh_pipeline.mesh_layout,
+        }),
+        skinned: None,
+    };
 
-        if let Some(skinned_joints_buffer) = skinned_mesh_uniform.buffer.buffer() {
-            mesh_bind_group.skinned = Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: mesh_binding,
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Buffer(BufferBinding {
-                            buffer: skinned_joints_buffer,
-                            offset: 0,
-                            size: Some(NonZeroU64::new(JOINT_BUFFER_SIZE as u64).unwrap()),
-                        }),
-                    },
-                ],
-                label: Some("skinned_mesh_bind_group"),
-                layout: &mesh_pipeline.skinned_mesh_layout,
-            }));
-        }
-        commands.insert_resource(mesh_bind_group);
+    if let Some(skinned_joints_buffer) = skinned_mesh_uniform.buffer.buffer() {
+        mesh_bind_group.skinned = Some(render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: mesh_binding,
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Buffer(BufferBinding {
+                        buffer: skinned_joints_buffer,
+                        offset: 0,
+                        size: Some(NonZeroU64::new(JOINT_BUFFER_SIZE as u64).unwrap()),
+                    }),
+                },
+            ],
+            label: Some("skinned_mesh_bind_group"),
+            layout: &mesh_pipeline.skinned_mesh_layout,
+        }));
     }
+    commands.insert_resource(mesh_bind_group);
 }
 
 // NOTE: This is using BufferVec because it is using a trick to allow a fixed-size array
@@ -973,7 +974,7 @@ pub fn queue_mesh_view_bind_groups(
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
 ) {
-    if let (
+    let (
         Some(view_binding),
         Some(light_binding),
         Some(point_light_binding),
@@ -985,106 +986,107 @@ pub fn queue_mesh_view_bind_groups(
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
         fog_meta.gpu_fogs.binding(),
-    ) {
-        for (
-            entity,
-            view_shadow_bindings,
-            view_cluster_bindings,
-            prepass_textures,
+    ) else {
+        return;
+    };
+
+    for (
+        entity,
+        view_shadow_bindings,
+        view_cluster_bindings,
+        prepass_textures,
+        environment_map,
+        tonemapping,
+    ) in &views
+    {
+        let layout = if msaa.samples() > 1 {
+            &mesh_pipeline.view_layout_multisampled
+        } else {
+            &mesh_pipeline.view_layout
+        };
+
+        let mut entries = vec![
+            BindGroupEntry {
+                binding: 0,
+                resource: view_binding.clone(),
+            },
+            BindGroupEntry {
+                binding: 1,
+                resource: light_binding.clone(),
+            },
+            BindGroupEntry {
+                binding: 2,
+                resource: BindingResource::TextureView(
+                    &view_shadow_bindings.point_light_depth_texture_view,
+                ),
+            },
+            BindGroupEntry {
+                binding: 3,
+                resource: BindingResource::Sampler(&shadow_samplers.point_light_sampler),
+            },
+            BindGroupEntry {
+                binding: 4,
+                resource: BindingResource::TextureView(
+                    &view_shadow_bindings.directional_light_depth_texture_view,
+                ),
+            },
+            BindGroupEntry {
+                binding: 5,
+                resource: BindingResource::Sampler(&shadow_samplers.directional_light_sampler),
+            },
+            BindGroupEntry {
+                binding: 6,
+                resource: point_light_binding.clone(),
+            },
+            BindGroupEntry {
+                binding: 7,
+                resource: view_cluster_bindings.light_index_lists_binding().unwrap(),
+            },
+            BindGroupEntry {
+                binding: 8,
+                resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
+            },
+            BindGroupEntry {
+                binding: 9,
+                resource: globals.clone(),
+            },
+            BindGroupEntry {
+                binding: 10,
+                resource: fog_binding.clone(),
+            },
+        ];
+
+        let env_map = environment_map::get_bindings(
             environment_map,
-            tonemapping,
-        ) in &views
-        {
-            let layout = if msaa.samples() > 1 {
-                &mesh_pipeline.view_layout_multisampled
-            } else {
-                &mesh_pipeline.view_layout
-            };
+            &images,
+            &fallback_cubemap,
+            [11, 12, 13],
+        );
+        entries.extend_from_slice(&env_map);
 
-            let mut entries = vec![
-                BindGroupEntry {
-                    binding: 0,
-                    resource: view_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: light_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::TextureView(
-                        &view_shadow_bindings.point_light_depth_texture_view,
-                    ),
-                },
-                BindGroupEntry {
-                    binding: 3,
-                    resource: BindingResource::Sampler(&shadow_samplers.point_light_sampler),
-                },
-                BindGroupEntry {
-                    binding: 4,
-                    resource: BindingResource::TextureView(
-                        &view_shadow_bindings.directional_light_depth_texture_view,
-                    ),
-                },
-                BindGroupEntry {
-                    binding: 5,
-                    resource: BindingResource::Sampler(&shadow_samplers.directional_light_sampler),
-                },
-                BindGroupEntry {
-                    binding: 6,
-                    resource: point_light_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 7,
-                    resource: view_cluster_bindings.light_index_lists_binding().unwrap(),
-                },
-                BindGroupEntry {
-                    binding: 8,
-                    resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
-                },
-                BindGroupEntry {
-                    binding: 9,
-                    resource: globals.clone(),
-                },
-                BindGroupEntry {
-                    binding: 10,
-                    resource: fog_binding.clone(),
-                },
-            ];
+        let tonemapping_luts = get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
+        entries.extend_from_slice(&tonemapping_luts);
 
-            let env_map = environment_map::get_bindings(
-                environment_map,
-                &images,
-                &fallback_cubemap,
-                [11, 12, 13],
-            );
-            entries.extend_from_slice(&env_map);
-
-            let tonemapping_luts =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
-            entries.extend_from_slice(&tonemapping_luts);
-
-            // When using WebGL, we can't have a depth texture with multisampling
-            if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && msaa.samples() == 1) {
-                entries.extend_from_slice(&prepass::get_bindings(
-                    prepass_textures,
-                    &mut fallback_images,
-                    &mut fallback_depths,
-                    &msaa,
-                    [16, 17, 18],
-                ));
-            }
-
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &entries,
-                label: Some("mesh_view_bind_group"),
-                layout,
-            });
-
-            commands.entity(entity).insert(MeshViewBindGroup {
-                value: view_bind_group,
-            });
+        // When using WebGL, we can't have a depth texture with multisampling
+        if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && msaa.samples() == 1) {
+            entries.extend_from_slice(&prepass::get_bindings(
+                prepass_textures,
+                &mut fallback_images,
+                &mut fallback_depths,
+                &msaa,
+                [16, 17, 18],
+            ));
         }
+
+        let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &entries,
+            label: Some("mesh_view_bind_group"),
+            layout,
+        });
+
+        commands.entity(entity).insert(MeshViewBindGroup {
+            value: view_bind_group,
+        });
     }
 }
 
@@ -1166,25 +1168,24 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         meshes: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
-            pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-            match &gpu_mesh.buffer_info {
-                GpuBufferInfo::Indexed {
-                    buffer,
-                    index_format,
-                    count,
-                } => {
-                    pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                    pass.draw_indexed(0..*count, 0, 0..1);
-                }
-                GpuBufferInfo::NonIndexed { vertex_count } => {
-                    pass.draw(0..*vertex_count, 0..1);
-                }
+        let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) else {
+            return RenderCommandResult::Failure;
+        };
+        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+        match &gpu_mesh.buffer_info {
+            GpuBufferInfo::Indexed {
+                buffer,
+                index_format,
+                count,
+            } => {
+                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                pass.draw_indexed(0..*count, 0, 0..1);
             }
-            RenderCommandResult::Success
-        } else {
-            RenderCommandResult::Failure
+            GpuBufferInfo::NonIndexed { vertex_count } => {
+                pass.draw(0..*vertex_count, 0..1);
+            }
         }
+        RenderCommandResult::Success
     }
 }
 

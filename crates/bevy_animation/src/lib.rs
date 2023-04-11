@@ -434,101 +434,101 @@ fn apply_animation(
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
-    if let Some(animation_clip) = animations.get(&animation.animation_clip) {
-        if !paused {
-            animation.elapsed += time.delta_seconds() * animation.speed;
-        }
-        let mut elapsed = animation.elapsed;
-        if animation.repeat {
-            elapsed %= animation_clip.duration;
-        }
-        if elapsed < 0.0 {
-            elapsed += animation_clip.duration;
-        }
-        if animation.path_cache.len() != animation_clip.paths.len() {
-            animation.path_cache = vec![Vec::new(); animation_clip.paths.len()];
-        }
-        if !verify_no_ancestor_player(maybe_parent, parents) {
-            warn!("Animation player on {:?} has a conflicting animation player on an ancestor. Cannot safely animate.", root);
-            return;
-        }
+    let Some(animation_clip) = animations.get(&animation.animation_clip) else {
+        return;
+    };
+    if !paused {
+        animation.elapsed += time.delta_seconds() * animation.speed;
+    }
+    let mut elapsed = animation.elapsed;
+    if animation.repeat {
+        elapsed %= animation_clip.duration;
+    }
+    if elapsed < 0.0 {
+        elapsed += animation_clip.duration;
+    }
+    if animation.path_cache.len() != animation_clip.paths.len() {
+        animation.path_cache = vec![Vec::new(); animation_clip.paths.len()];
+    }
+    if !verify_no_ancestor_player(maybe_parent, parents) {
+        warn!("Animation player on {:?} has a conflicting animation player on an ancestor. Cannot safely animate.", root);
+        return;
+    }
 
-        for (path, bone_id) in &animation_clip.paths {
-            let cached_path = &mut animation.path_cache[*bone_id];
-            let curves = animation_clip.get_curves(*bone_id).unwrap();
-            let Some(target) = find_bone(root, path, children, names, cached_path) else { continue };
-            // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
-            // any of their descendant Transforms.
-            //
-            // The system scheduler prevents any other system from mutating Transforms at the same time,
-            // so the only way this fetch can alias is if two AnimationPlayers are targeting the same bone.
-            // This can only happen if there are two or more AnimationPlayers are ancestors to the same
-            // entities. By verifying that there is no other AnimationPlayer in the ancestors of a
-            // running AnimationPlayer before animating any entity, this fetch cannot alias.
-            //
-            // This means only the AnimationPlayers closest to the root of the hierarchy will be able
-            // to run their animation. Any players in the children or descendants will log a warning
-            // and do nothing.
-            let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else { continue };
-            for curve in curves {
-                // Some curves have only one keyframe used to set a transform
-                if curve.keyframe_timestamps.len() == 1 {
-                    match &curve.keyframes {
-                        Keyframes::Rotation(keyframes) => {
-                            transform.rotation = transform.rotation.slerp(keyframes[0], weight);
-                        }
-                        Keyframes::Translation(keyframes) => {
-                            transform.translation =
-                                transform.translation.lerp(keyframes[0], weight);
-                        }
-                        Keyframes::Scale(keyframes) => {
-                            transform.scale = transform.scale.lerp(keyframes[0], weight);
-                        }
-                    }
-                    continue;
-                }
-
-                // Find the current keyframe
-                // PERF: finding the current keyframe can be optimised
-                let step_start = match curve
-                    .keyframe_timestamps
-                    .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
-                {
-                    Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
-                    Ok(i) => i,
-                    Err(0) => continue, // this curve isn't started yet
-                    Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
-                    Err(i) => i - 1,
-                };
-                let ts_start = curve.keyframe_timestamps[step_start];
-                let ts_end = curve.keyframe_timestamps[step_start + 1];
-                let lerp = (elapsed - ts_start) / (ts_end - ts_start);
-
-                // Apply the keyframe
+    for (path, bone_id) in &animation_clip.paths {
+        let cached_path = &mut animation.path_cache[*bone_id];
+        let curves = animation_clip.get_curves(*bone_id).unwrap();
+        let Some(target) = find_bone(root, path, children, names, cached_path) else { continue };
+        // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
+        // any of their descendant Transforms.
+        //
+        // The system scheduler prevents any other system from mutating Transforms at the same time,
+        // so the only way this fetch can alias is if two AnimationPlayers are targeting the same bone.
+        // This can only happen if there are two or more AnimationPlayers are ancestors to the same
+        // entities. By verifying that there is no other AnimationPlayer in the ancestors of a
+        // running AnimationPlayer before animating any entity, this fetch cannot alias.
+        //
+        // This means only the AnimationPlayers closest to the root of the hierarchy will be able
+        // to run their animation. Any players in the children or descendants will log a warning
+        // and do nothing.
+        let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else { continue };
+        for curve in curves {
+            // Some curves have only one keyframe used to set a transform
+            if curve.keyframe_timestamps.len() == 1 {
                 match &curve.keyframes {
                     Keyframes::Rotation(keyframes) => {
-                        let rot_start = keyframes[step_start];
-                        let mut rot_end = keyframes[step_start + 1];
-                        // Choose the smallest angle for the rotation
-                        if rot_end.dot(rot_start) < 0.0 {
-                            rot_end = -rot_end;
-                        }
-                        // Rotations are using a spherical linear interpolation
-                        let rot = rot_start.normalize().slerp(rot_end.normalize(), lerp);
-                        transform.rotation = transform.rotation.slerp(rot, weight);
+                        transform.rotation = transform.rotation.slerp(keyframes[0], weight);
                     }
                     Keyframes::Translation(keyframes) => {
-                        let translation_start = keyframes[step_start];
-                        let translation_end = keyframes[step_start + 1];
-                        let result = translation_start.lerp(translation_end, lerp);
-                        transform.translation = transform.translation.lerp(result, weight);
+                        transform.translation = transform.translation.lerp(keyframes[0], weight);
                     }
                     Keyframes::Scale(keyframes) => {
-                        let scale_start = keyframes[step_start];
-                        let scale_end = keyframes[step_start + 1];
-                        let result = scale_start.lerp(scale_end, lerp);
-                        transform.scale = transform.scale.lerp(result, weight);
+                        transform.scale = transform.scale.lerp(keyframes[0], weight);
                     }
+                }
+                continue;
+            }
+
+            // Find the current keyframe
+            // PERF: finding the current keyframe can be optimised
+            let step_start = match curve
+                .keyframe_timestamps
+                .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
+            {
+                Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
+                Ok(i) => i,
+                Err(0) => continue, // this curve isn't started yet
+                Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
+                Err(i) => i - 1,
+            };
+            let ts_start = curve.keyframe_timestamps[step_start];
+            let ts_end = curve.keyframe_timestamps[step_start + 1];
+            let lerp = (elapsed - ts_start) / (ts_end - ts_start);
+
+            // Apply the keyframe
+            match &curve.keyframes {
+                Keyframes::Rotation(keyframes) => {
+                    let rot_start = keyframes[step_start];
+                    let mut rot_end = keyframes[step_start + 1];
+                    // Choose the smallest angle for the rotation
+                    if rot_end.dot(rot_start) < 0.0 {
+                        rot_end = -rot_end;
+                    }
+                    // Rotations are using a spherical linear interpolation
+                    let rot = rot_start.normalize().slerp(rot_end.normalize(), lerp);
+                    transform.rotation = transform.rotation.slerp(rot, weight);
+                }
+                Keyframes::Translation(keyframes) => {
+                    let translation_start = keyframes[step_start];
+                    let translation_end = keyframes[step_start + 1];
+                    let result = translation_start.lerp(translation_end, lerp);
+                    transform.translation = transform.translation.lerp(result, weight);
+                }
+                Keyframes::Scale(keyframes) => {
+                    let scale_start = keyframes[step_start];
+                    let scale_end = keyframes[step_start + 1];
+                    let result = scale_start.lerp(scale_end, lerp);
+                    transform.scale = transform.scale.lerp(result, weight);
                 }
             }
         }

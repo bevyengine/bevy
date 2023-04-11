@@ -179,27 +179,26 @@ pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
         return;
     };
     let watcher = asset_io.filesystem_watcher.read();
-    if let Some(ref watcher) = *watcher {
-        let mut changed = HashSet::<&PathBuf>::default();
-        loop {
-            let event = match watcher.receiver.try_recv() {
-                Ok(result) => result.unwrap(),
-                Err(TryRecvError::Empty) => break,
-                Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected."),
-            };
-            if let notify::event::Event {
-                kind: notify::event::EventKind::Modify(_),
-                paths,
-                ..
-            } = event
-            {
-                for path in &paths {
-                    let Some(set) = watcher.path_map.get(path) else {continue};
-                    for to_reload in set {
-                        if !changed.contains(to_reload) {
-                            changed.insert(to_reload);
-                            let _ = asset_server.load_untracked(to_reload.as_path().into(), true);
-                        }
+    let Some(ref watcher) = *watcher else { return; };
+    let mut changed = HashSet::<&PathBuf>::default();
+    loop {
+        let event = match watcher.receiver.try_recv() {
+            Ok(result) => result.unwrap(),
+            Err(TryRecvError::Empty) => break,
+            Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected."),
+        };
+        if let notify::event::Event {
+            kind: notify::event::EventKind::Modify(_),
+            paths,
+            ..
+        } = event
+        {
+            for path in &paths {
+                let Some(set) = watcher.path_map.get(path) else {continue};
+                for to_reload in set {
+                    if !changed.contains(to_reload) {
+                        changed.insert(to_reload);
+                        let _ = asset_server.load_untracked(to_reload.as_path().into(), true);
                     }
                 }
             }

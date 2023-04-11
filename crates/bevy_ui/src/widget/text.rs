@@ -94,54 +94,55 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text_ids.drain(..) {
-        if let Ok((text, style, mut calculated_size, text_layout_info)) = query.get_mut(entity) {
-            let node_size = Vec2::new(
-                text_constraint(
-                    style.min_size.width,
-                    style.size.width,
-                    style.max_size.width,
-                    scale_factor,
-                ),
-                text_constraint(
-                    style.min_size.height,
-                    style.size.height,
-                    style.max_size.height,
-                    scale_factor,
-                ),
-            );
-
-            match text_pipeline.queue_text(
-                &fonts,
-                &text.sections,
+        let Ok((text, style, mut calculated_size, text_layout_info)) = query.get_mut(entity) else {
+            continue;
+        };
+        let node_size = Vec2::new(
+            text_constraint(
+                style.min_size.width,
+                style.size.width,
+                style.max_size.width,
                 scale_factor,
-                text.alignment,
-                text.linebreak_behavior,
-                node_size,
-                &mut font_atlas_set_storage,
-                &mut texture_atlases,
-                &mut textures,
-                text_settings.as_ref(),
-                &mut font_atlas_warning,
-                YAxisOrientation::TopToBottom,
-            ) {
-                Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, let's add this entity to the
-                    // queue for further processing
-                    new_queue.push(entity);
-                }
-                Err(e @ TextError::FailedToAddGlyph(_)) => {
-                    panic!("Fatal error when processing text: {e}.");
-                }
-                Ok(info) => {
-                    calculated_size.size = Vec2::new(
-                        scale_value(info.size.x, inv_scale_factor),
-                        scale_value(info.size.y, inv_scale_factor),
-                    );
-                    match text_layout_info {
-                        Some(mut t) => *t = info,
-                        None => {
-                            commands.entity(entity).insert(info);
-                        }
+            ),
+            text_constraint(
+                style.min_size.height,
+                style.size.height,
+                style.max_size.height,
+                scale_factor,
+            ),
+        );
+
+        match text_pipeline.queue_text(
+            &fonts,
+            &text.sections,
+            scale_factor,
+            text.alignment,
+            text.linebreak_behavior,
+            node_size,
+            &mut font_atlas_set_storage,
+            &mut texture_atlases,
+            &mut textures,
+            text_settings.as_ref(),
+            &mut font_atlas_warning,
+            YAxisOrientation::TopToBottom,
+        ) {
+            Err(TextError::NoSuchFont) => {
+                // There was an error processing the text layout, let's add this entity to the
+                // queue for further processing
+                new_queue.push(entity);
+            }
+            Err(e @ TextError::FailedToAddGlyph(_)) => {
+                panic!("Fatal error when processing text: {e}.");
+            }
+            Ok(info) => {
+                calculated_size.size = Vec2::new(
+                    scale_value(info.size.x, inv_scale_factor),
+                    scale_value(info.size.y, inv_scale_factor),
+                );
+                match text_layout_info {
+                    Some(mut t) => *t = info,
+                    None => {
+                        commands.entity(entity).insert(info);
                     }
                 }
             }

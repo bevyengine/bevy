@@ -176,39 +176,40 @@ pub fn extract_uinodes(
 ) {
     extracted_uinodes.uinodes.clear();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
-            uinode_query.get(*entity)
-        {
-            // Skip invisible and completely transparent nodes
-            if !visibility.is_visible() || color.0.a() == 0.0 {
+        let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
+            uinode_query.get(*entity) else {
                 continue;
-            }
-
-            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-                // Skip loading images
-                if !images.contains(&image.texture) {
-                    continue;
-                }
-                (image.texture.clone_weak(), image.flip_x, image.flip_y)
-            } else {
-                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
             };
 
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                stack_index,
-                transform: transform.compute_matrix(),
-                color: color.0,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
-                },
-                image,
-                atlas_size: None,
-                clip: clip.map(|clip| clip.clip),
-                flip_x,
-                flip_y,
-            });
+        // Skip invisible and completely transparent nodes
+        if !visibility.is_visible() || color.0.a() == 0.0 {
+            continue;
         }
+
+        let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+            // Skip loading images
+            if !images.contains(&image.texture) {
+                continue;
+            }
+            (image.texture.clone_weak(), image.flip_x, image.flip_y)
+        } else {
+            (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+        };
+
+        extracted_uinodes.uinodes.push(ExtractedUiNode {
+            stack_index,
+            transform: transform.compute_matrix(),
+            color: color.0,
+            rect: Rect {
+                min: Vec2::ZERO,
+                max: uinode.calculated_size,
+            },
+            image,
+            atlas_size: None,
+            clip: clip.map(|clip| clip.clip),
+            flip_x,
+            flip_y,
+        });
     }
 }
 
@@ -235,38 +236,40 @@ pub fn extract_default_ui_camera_view<T: Component>(
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
         }
-        if let (Some(logical_size), Some((physical_origin, _)), Some(physical_size)) = (
+        let (Some(logical_size), Some((physical_origin, _)), Some(physical_size)) = (
             camera.logical_viewport_size(),
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
-        ) {
-            // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
-            let projection_matrix =
-                Mat4::orthographic_rh(0.0, logical_size.x, logical_size.y, 0.0, 0.0, UI_CAMERA_FAR);
-            let default_camera_view = commands
-                .spawn(ExtractedView {
-                    projection: projection_matrix,
-                    transform: GlobalTransform::from_xyz(
-                        0.0,
-                        0.0,
-                        UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
-                    ),
-                    view_projection: None,
-                    hdr: camera.hdr,
-                    viewport: UVec4::new(
-                        physical_origin.x,
-                        physical_origin.y,
-                        physical_size.x,
-                        physical_size.y,
-                    ),
-                    color_grading: Default::default(),
-                })
-                .id();
-            commands.get_or_spawn(entity).insert((
-                DefaultCameraView(default_camera_view),
-                RenderPhase::<TransparentUi>::default(),
-            ));
-        }
+        ) else {
+            continue;
+        };
+
+        // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
+        let projection_matrix =
+            Mat4::orthographic_rh(0.0, logical_size.x, logical_size.y, 0.0, 0.0, UI_CAMERA_FAR);
+        let default_camera_view = commands
+            .spawn(ExtractedView {
+                projection: projection_matrix,
+                transform: GlobalTransform::from_xyz(
+                    0.0,
+                    0.0,
+                    UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
+                ),
+                view_projection: None,
+                hdr: camera.hdr,
+                viewport: UVec4::new(
+                    physical_origin.x,
+                    physical_origin.y,
+                    physical_size.x,
+                    physical_size.y,
+                ),
+                color_grading: Default::default(),
+            })
+            .id();
+        commands.get_or_spawn(entity).insert((
+            DefaultCameraView(default_camera_view),
+            RenderPhase::<TransparentUi>::default(),
+        ));
     }
 }
 
@@ -296,47 +299,47 @@ pub fn extract_text_uinodes(
     let inverse_scale_factor = scale_factor.recip();
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
-            uinode_query.get(*entity)
-        {
-            // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-            if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {
+        let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
+            uinode_query.get(*entity) else {
                 continue;
-            }
-            let transform = global_transform.compute_matrix()
-                * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
+            };
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {
+            continue;
+        }
+        let transform = global_transform.compute_matrix()
+            * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
 
-            let mut color = Color::WHITE;
-            let mut current_section = usize::MAX;
-            for PositionedGlyph {
-                position,
-                atlas_info,
-                section_index,
-                ..
-            } in &text_layout_info.glyphs
-            {
-                if *section_index != current_section {
-                    color = text.sections[*section_index].style.color.as_rgba_linear();
-                    current_section = *section_index;
-                }
-                let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
-
-                let mut rect = atlas.textures[atlas_info.glyph_index];
-                rect.min *= inverse_scale_factor;
-                rect.max *= inverse_scale_factor;
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    stack_index,
-                    transform: transform
-                        * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
-                    color,
-                    rect,
-                    image: atlas.texture.clone_weak(),
-                    atlas_size: Some(atlas.size * inverse_scale_factor),
-                    clip: clip.map(|clip| clip.clip),
-                    flip_x: false,
-                    flip_y: false,
-                });
+        let mut color = Color::WHITE;
+        let mut current_section = usize::MAX;
+        for PositionedGlyph {
+            position,
+            atlas_info,
+            section_index,
+            ..
+        } in &text_layout_info.glyphs
+        {
+            if *section_index != current_section {
+                color = text.sections[*section_index].style.color.as_rgba_linear();
+                current_section = *section_index;
             }
+            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+
+            let mut rect = atlas.textures[atlas_info.glyph_index];
+            rect.min *= inverse_scale_factor;
+            rect.max *= inverse_scale_factor;
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                stack_index,
+                transform: transform
+                    * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
+                color,
+                rect,
+                image: atlas.texture.clone_weak(),
+                atlas_size: Some(atlas.size * inverse_scale_factor),
+                clip: clip.map(|clip| clip.clip),
+                flip_x: false,
+                flip_y: false,
+            });
         }
     }
 }
@@ -554,50 +557,52 @@ pub fn queue_uinodes(
         };
     }
 
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        ui_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: view_binding,
-            }],
-            label: Some("ui_view_bind_group"),
-            layout: &ui_pipeline.view_layout,
-        }));
-        let draw_ui_function = draw_functions.read().id::<DrawUi>();
-        for (view, mut transparent_phase) in &mut views {
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &ui_pipeline,
-                UiPipelineKey { hdr: view.hdr },
-            );
-            for (entity, batch) in &ui_batches {
-                image_bind_groups
-                    .values
-                    .entry(batch.image.clone_weak())
-                    .or_insert_with(|| {
-                        let gpu_image = gpu_images.get(&batch.image).unwrap();
-                        render_device.create_bind_group(&BindGroupDescriptor {
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(&gpu_image.texture_view),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&gpu_image.sampler),
-                                },
-                            ],
-                            label: Some("ui_material_bind_group"),
-                            layout: &ui_pipeline.image_layout,
-                        })
-                    });
-                transparent_phase.add(TransparentUi {
-                    draw_function: draw_ui_function,
-                    pipeline,
-                    entity,
-                    sort_key: FloatOrd(batch.z),
+    let Some(view_binding) = view_uniforms.uniforms.binding() else {
+        return;
+    };
+
+    ui_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
+        entries: &[BindGroupEntry {
+            binding: 0,
+            resource: view_binding,
+        }],
+        label: Some("ui_view_bind_group"),
+        layout: &ui_pipeline.view_layout,
+    }));
+    let draw_ui_function = draw_functions.read().id::<DrawUi>();
+    for (view, mut transparent_phase) in &mut views {
+        let pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey { hdr: view.hdr },
+        );
+        for (entity, batch) in &ui_batches {
+            image_bind_groups
+                .values
+                .entry(batch.image.clone_weak())
+                .or_insert_with(|| {
+                    let gpu_image = gpu_images.get(&batch.image).unwrap();
+                    render_device.create_bind_group(&BindGroupDescriptor {
+                        entries: &[
+                            BindGroupEntry {
+                                binding: 0,
+                                resource: BindingResource::TextureView(&gpu_image.texture_view),
+                            },
+                            BindGroupEntry {
+                                binding: 1,
+                                resource: BindingResource::Sampler(&gpu_image.sampler),
+                            },
+                        ],
+                        label: Some("ui_material_bind_group"),
+                        layout: &ui_pipeline.image_layout,
+                    })
                 });
-            }
+            transparent_phase.add(TransparentUi {
+                draw_function: draw_ui_function,
+                pipeline,
+                entity,
+                sort_key: FloatOrd(batch.z),
+            });
         }
     }
 }
