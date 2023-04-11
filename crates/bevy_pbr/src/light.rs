@@ -124,7 +124,7 @@ impl SpotLight {
 
 impl Default for SpotLight {
     fn default() -> Self {
-        // a quarter arc attenuating from the centre
+        // a quarter arc attenuating from the center
         Self {
             color: Color::rgb(1.0, 1.0, 1.0),
             /// Luminous power in lumens

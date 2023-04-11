@@ -18,6 +18,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_audio|Provides audio functionality|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_gilrs|Adds gamepad support|
+|bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_pbr|Adds PBR rendering|
 |bevy_render|Provides rendering functionality|
@@ -50,6 +51,7 @@ The default feature set enables most of the expected features of a game engine, 
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |exr|EXR image format support|
 |flac|FLAC audio format support|
+|glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |jpeg|JPEG image format support|
 |minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|
@@ -67,5 +69,6 @@ The default feature set enables most of the expected features of a game engine, 
 |trace_tracy|Tracing support, exposing a port for Tracy|
 |wav|WAV audio format support|
 |wayland|Wayland display server support|
+|webp|WebP image format support|
 |wgpu_trace|Save a trace of all wgpu calls|
 |zlib|For KTX2 supercompression|

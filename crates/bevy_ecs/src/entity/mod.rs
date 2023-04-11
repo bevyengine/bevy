@@ -574,8 +574,7 @@ impl Entities {
     /// Note: for pending entities, returns `Some(EntityLocation::INVALID)`.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
-        if (entity.index as usize) < self.meta.len() {
-            let meta = &self.meta[entity.index as usize];
+        if let Some(meta) = self.meta.get(entity.index as usize) {
             if meta.generation != entity.generation
                 || meta.location.archetype_id == ArchetypeId::INVALID
             {

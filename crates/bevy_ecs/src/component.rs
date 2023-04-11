@@ -260,7 +260,7 @@ impl ComponentInfo {
 /// represented as Rust types for scripting or other advanced use-cases.
 ///
 /// A `ComponentId` is tightly coupled to its parent `World`. Attempting to use a `ComponentId` from
-/// one `World` to access the metadata of a `Component` in a different `World` is undefined behaviour
+/// one `World` to access the metadata of a `Component` in a different `World` is undefined behavior
 /// and must not be attempted.
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ComponentId(usize);

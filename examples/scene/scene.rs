@@ -1,8 +1,6 @@
 //! This example illustrates loading scenes from files.
-use std::fs::File;
-use std::io::Write;
-
 use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
+use std::{fs::File, io::Write};
 
 fn main() {
     App::new()
@@ -14,8 +12,12 @@ fn main() {
         }))
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
-        .add_startup_systems((save_scene_system, load_scene_system, infotext_system))
-        .add_system(log_system)
+        .register_type::<ResourceA>()
+        .add_systems(
+            Startup,
+            (save_scene_system, load_scene_system, infotext_system),
+        )
+        .add_systems(Update, log_system)
         .run();
 }
 
@@ -54,6 +56,13 @@ impl FromWorld for ComponentB {
     }
 }
 
+// Resources can be serialized in scenes as well, with the same requirements `Component`s have.
+#[derive(Resource, Reflect, Default)]
+#[reflect(Resource)]
+struct ResourceA {
+    pub score: u32,
+}
+
 // The initial scene file will be loaded below and not change when the scene is saved
 const SCENE_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
 
@@ -72,13 +81,21 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 // This system logs all ComponentA components in our world. Try making a change to a ComponentA in
 // load_scene_example.scn. You should immediately see the changes appear in the console.
-fn log_system(query: Query<(Entity, &ComponentA), Changed<ComponentA>>) {
+fn log_system(
+    query: Query<(Entity, &ComponentA), Changed<ComponentA>>,
+    res: Option<Res<ResourceA>>,
+) {
     for (entity, component_a) in &query {
         info!("  Entity({})", entity.index());
         info!(
             "    ComponentA: {{ x: {} y: {} }}\n",
             component_a.x, component_a.y
         );
+    }
+    if let Some(res) = res {
+        if res.is_added() {
+            info!("  New ResourceA: {{ score: {} }}\n", res.score);
+        }
     }
 }
 
@@ -94,6 +111,7 @@ fn save_scene_system(world: &mut World) {
         Transform::IDENTITY,
     ));
     scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
+    scene_world.insert_resource(ResourceA { score: 1 });
 
     // The TypeRegistry resource contains information about all registered types (including
     // components). This is used to construct scenes.
