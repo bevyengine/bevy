@@ -509,6 +509,7 @@ pub struct UnsafeEntityCell<'w> {
 }
 
 impl<'w> UnsafeEntityCell<'w> {
+    #[inline]
     pub(crate) fn new(
         world: UnsafeWorldCell<'w>,
         entity: Entity,
