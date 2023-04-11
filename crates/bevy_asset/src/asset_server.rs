@@ -479,7 +479,7 @@ impl AssetServer {
     ) -> bool {
         let mut asset_sources = self.server.asset_sources.write();
         let source_info = asset_sources
-            .get_mut(&source_path_id)
+            .get_mut(source_path_id)
             .expect("`AssetSource` should exist at this point.");
         if version != source_info.version {
             return false;
