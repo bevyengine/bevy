@@ -23,8 +23,8 @@ pub enum Collision {
 /// If all sides are involved, `Inside` is returned.
 pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<Collision> {
     let Vec2 { x: xa, y: ya } = a_pos.truncate(); // x and y of center of a
-    let Vec2 { x: wa, y: ha } = a_size * 0.5;  // half width and height of a
-    let Vec2 { x: xb, y: yb } = b_pos.truncate(); 
+    let Vec2 { x: wa, y: ha } = a_size * 0.5; // half width and height of a
+    let Vec2 { x: xb, y: yb } = b_pos.truncate();
     let Vec2 { x: wb, y: hb } = b_size * 0.5;
     let dis_x = (xa - xb).abs();
     let dis_y = (ya - yb).abs();
@@ -33,7 +33,7 @@ pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<C
 
     if dis_x >= (wa + wb).abs() || dis_y >= (ha + hb).abs() {
         return None; // a is separated from b or is tangent to b
-    } 
+    }
 
     let (x_collision, x_depth) = if dis_x <= (wa - wb).abs() {
         (Collision::Inside, 0.0)
