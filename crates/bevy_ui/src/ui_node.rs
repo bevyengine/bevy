@@ -493,7 +493,7 @@ pub enum AlignContent {
     /// Each line will stretch to fill the remaining space.
     Stretch,
     /// Each line fills the space it needs, putting the remaining space, if any
-    /// inbetween the lines.
+    /// in-between the lines.
     SpaceBetween,
     /// The gap between the first and last items is exactly THE SAME as the gap between items.
     /// The gaps are distributed evenly.

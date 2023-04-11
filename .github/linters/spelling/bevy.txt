@@ -15,12 +15,13 @@ anytuple
 aortiz
 appium
 apps
+arity
 baadf
 badindex
 bafa
-moiré
 bakudas
 bavy
+bbox
 bbut
 bcbc
 bdfedabcc
@@ -35,6 +36,8 @@ birb
 birbs
 blb
 blf
+blit
+blobby
 bmarker
 bongers
 brf
@@ -79,9 +82,11 @@ docstrings
 downcast
 downcasted
 downcasting
+tada
 dquat
 dri
 dropck
+dups
 dvec
 dxc
 dxgi
@@ -89,6 +94,8 @@ ebbdef
 edfdf
 edgenum
 egl
+elaina
+elems
 ents
 eresize
 exactsizeiterator
@@ -106,6 +113,7 @@ gabe
 gilrs
 gmail
 graphmap
+habib
 halton
 hashbrown
 hecs
@@ -119,14 +127,15 @@ idxs
 ifdef
 ifop
 ime
+vals
 immut
-inbetween
 ipa
 iryoku
 isomp
 jargony
 karis
 lambertian
+lare
 latsn
 lavapipe
 layl
@@ -156,8 +165,10 @@ mikkelsen
 mikktspace
 minimp
 mogrify
+moiré
 monomorphization
 monomorphizations
+Morten
 morvan
 mpatch
 msrv
@@ -181,6 +192,7 @@ nwse
 ocio
 odt
 oklab
+parentless
 pathing
 percy
 pettineo
@@ -195,6 +207,7 @@ powsafe
 precomputation
 precomputations
 prefiltering
+proto
 ptrmut
 pushd
 pvrtc
@@ -218,9 +231,11 @@ rustdoc
 rustdocflags
 rustwasm
 ryfjallet
+samp
 samplecount
 scc
 sccs
+sched
 scommands
 seedable
 sfloat
@@ -238,6 +253,7 @@ spx
 squery
 sres
 sresize
+ssor
 stachowiak
 stageless
 standardmaterial
@@ -248,6 +264,7 @@ structfield
 subapp
 subdir
 subqueries
+subquery
 subresource
 subtrait
 subtraits
@@ -256,6 +273,7 @@ supertrait
 supertraits
 synccell
 sysrq
+tarjan
 tarray
 tempfile
 tenum
@@ -266,6 +284,7 @@ titem
 tlf
 tlist
 tmap
+tomasz
 trb
 tspace
 tspaces
@@ -292,6 +311,7 @@ VMacros
 vnot
 vns
 vts
+Wasty
 wdio
 wikipedia
 wlong

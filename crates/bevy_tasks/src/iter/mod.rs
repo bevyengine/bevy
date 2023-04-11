@@ -107,9 +107,9 @@ where
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
-                let newf = f.clone();
+                let new_f = f.clone();
                 s.spawn(async move {
-                    batch.for_each(newf);
+                    batch.for_each(new_f);
                 });
             }
         });
@@ -218,8 +218,8 @@ where
         let (mut a, mut b) = <(C, C)>::default();
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
-                let newf = f.clone();
-                s.spawn(async move { batch.partition::<Vec<_>, F>(newf) });
+                let new_f = f.clone();
+                s.spawn(async move { batch.partition::<Vec<_>, F>(new_f) });
             }
         })
         .into_iter()
@@ -262,8 +262,8 @@ where
     {
         pool.scope(|s| {
             while let Some(mut batch) = self.next_batch() {
-                let newf = f.clone();
-                s.spawn(async move { batch.all(newf) });
+                let new_f = f.clone();
+                s.spawn(async move { batch.all(new_f) });
             }
         })
         .into_iter()
@@ -281,8 +281,8 @@ where
     {
         pool.scope(|s| {
             while let Some(mut batch) = self.next_batch() {
-                let newf = f.clone();
-                s.spawn(async move { batch.any(newf) });
+                let new_f = f.clone();
+                s.spawn(async move { batch.any(new_f) });
             }
         })
         .into_iter()
@@ -301,12 +301,12 @@ where
     {
         let poses = pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
-                let mut newf = f.clone();
+                let mut new_f = f.clone();
                 s.spawn(async move {
                     let mut len = 0;
                     let mut pos = None;
                     for item in batch {
-                        if pos.is_none() && newf(item) {
+                        if pos.is_none() && new_f(item) {
                             pos = Some(len);
                         }
                         len += 1;
@@ -370,8 +370,8 @@ where
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
-                let newf = f.clone();
-                s.spawn(async move { batch.max_by_key(newf) });
+                let new_f = f.clone();
+                s.spawn(async move { batch.max_by_key(new_f) });
             }
         })
         .into_iter()
@@ -390,8 +390,8 @@ where
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
-                let newf = f.clone();
-                s.spawn(async move { batch.max_by(newf) });
+                let new_f = f.clone();
+                s.spawn(async move { batch.max_by(new_f) });
             }
         })
         .into_iter()
@@ -410,8 +410,8 @@ where
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
-                let newf = f.clone();
-                s.spawn(async move { batch.min_by_key(newf) });
+                let new_f = f.clone();
+                s.spawn(async move { batch.min_by_key(new_f) });
             }
         })
         .into_iter()
@@ -430,8 +430,8 @@ where
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
-                let newf = f.clone();
-                s.spawn(async move { batch.min_by(newf) });
+                let new_f = f.clone();
+                s.spawn(async move { batch.min_by(new_f) });
             }
         })
         .into_iter()

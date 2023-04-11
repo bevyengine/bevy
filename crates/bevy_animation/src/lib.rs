@@ -276,7 +276,7 @@ fn find_bone(
     names: &Query<&Name>,
     path_cache: &mut Vec<Option<Entity>>,
 ) -> Option<Entity> {
-    // PERF: finding the target entity can be optimised
+    // PERF: finding the target entity can be optimized
     let mut current_entity = root;
     path_cache.resize(path.parts.len(), None);
     // Ignore the first name, it is the root node which we already have
@@ -488,7 +488,7 @@ fn apply_animation(
                 }
 
                 // Find the current keyframe
-                // PERF: finding the current keyframe can be optimised
+                // PERF: finding the current keyframe can be optimized
                 let step_start = match curve
                     .keyframe_timestamps
                     .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())

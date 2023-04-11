@@ -455,7 +455,7 @@ mod tests {
     }
 
     #[test]
-    fn option_doesnt_remove_unrelated_filter_with() {
+    fn option_does_not_remove_unrelated_filter_with() {
         fn sys(_: Query<(Option<&A>, &mut B, &A)>, _: Query<&mut B, Without<A>>) {}
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -477,7 +477,7 @@ mod tests {
     }
 
     #[test]
-    fn any_of_doesnt_remove_unrelated_filter_with() {
+    fn any_of_does_not_remove_unrelated_filter_with() {
         fn sys(_: Query<(AnyOf<(&A, ())>, &mut B, &A)>, _: Query<&mut B, Without<A>>) {}
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -499,7 +499,7 @@ mod tests {
     }
 
     #[test]
-    fn or_doesnt_remove_unrelated_filter_with() {
+    fn or_does_not_remove_unrelated_filter_with() {
         fn sys(_: Query<&mut B, (Or<(With<A>, With<B>)>, With<A>)>, _: Query<&mut B, Without<A>>) {}
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -1320,7 +1320,7 @@ mod tests {
         let mut world1 = World::new();
         let world2 = World::new();
         let qstate = world1.query::<()>();
-        // SAFETY: doesnt access anything
+        // SAFETY: doesn't access anything
         let query = unsafe { Query::new(&world2, &qstate, Tick::new(0), Tick::new(0), false) };
         query.iter();
     }

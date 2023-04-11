@@ -28,6 +28,9 @@ libxcb
 libxkbcommon
 linting
 llvmpipe
+syscall
+endian
+endianness
 markdownlint
 metadata
 nixpkgs
