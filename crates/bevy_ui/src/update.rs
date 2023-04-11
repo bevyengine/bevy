@@ -45,7 +45,9 @@ fn update_clipping(
         if let Some(inherited_clip) = maybe_inherited_clip {
             // Replace the previous calculated clip with the inherited clipping rect
             if calculated_clip.clip != inherited_clip {
-                *calculated_clip = CalculatedClip { clip: inherited_clip };
+                *calculated_clip = CalculatedClip {
+                    clip: inherited_clip,
+                };
             }
         } else {
             // No inherited clipping rect, remove the component
@@ -73,7 +75,7 @@ fn update_clipping(
         let mut node_rect = node.logical_rect(global_transform);
         if style.overflow.x == OverflowAxis::Visible {
             node_rect.min.x = -f32::INFINITY;
-            node_rect.max.x = f32::INFINITY; 
+            node_rect.max.x = f32::INFINITY;
         }
         if style.overflow.y == OverflowAxis::Visible {
             node_rect.min.y = -f32::INFINITY;
