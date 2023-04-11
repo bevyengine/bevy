@@ -58,16 +58,23 @@ fn update_clipping(
         });
     }
 
-    // Calculate new clip for its children
+    // Calculate new clip rectangle for children nodes
     let children_clip = if style.overflow.is_visible() {
+        // When `Visible`, children might be visible even when they are outside
+        // the current node's boundaries. In this case they inherit the current
+        // node's parent clip. If an ancestor is set as `Hidden`, that clip will
+        // be used; otherwise this will be `None`.
         maybe_inherited_clip
     } else {
+        // If `maybe_inherited_clip` is `Some`, use the intersection between
+        // current node's clip and the inherited clip. This handles the case
+        // of nested `Overflow::Hidden` nodes. If parent `clip` is not
+        // defined, use the current node's clip.
         let mut node_rect = node.logical_rect(global_transform);
         if style.overflow.x == OverflowAxis::Visible {
             node_rect.min.x = -f32::INFINITY;
-            node_rect.max.x = f32::INFINITY;
-        }
-        if style.overflow.y == OverflowAxis::Visible {
+            node_rect.max.x = f32::INFINITY; 
+        } else {
             node_rect.min.y = -f32::INFINITY;
             node_rect.max.y = f32::INFINITY;
         }

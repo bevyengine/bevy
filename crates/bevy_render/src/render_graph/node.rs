@@ -2,7 +2,7 @@ use crate::{
     define_atomic_id,
     render_graph::{
         Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
-        RunSubGraphError, SlotInfo, SlotInfos, SlotType, SlotValue,
+        RunSubGraphError, SlotInfo, SlotInfos,
     },
     renderer::RenderContext,
 };
@@ -293,6 +293,7 @@ impl From<NodeId> for NodeLabel {
 /// A [`Node`] without any inputs, outputs and subgraphs, which does nothing when run.
 /// Used (as a label) to bundle multiple dependencies into one inside
 /// the [`RenderGraph`](super::RenderGraph).
+#[derive(Default)]
 pub struct EmptyNode;
 
 impl Node for EmptyNode {
@@ -306,14 +307,13 @@ impl Node for EmptyNode {
     }
 }
 
-/// A [`RenderGraph`](super::RenderGraph) [`Node`] that takes a view entity as input and runs the configured graph name once.
+/// A [`RenderGraph`](super::RenderGraph) [`Node`] that runs the configured graph name once.
 /// This makes it easier to insert sub-graph runs into a graph.
 pub struct RunGraphOnViewNode {
     graph_name: Cow<'static, str>,
 }
 
 impl RunGraphOnViewNode {
-    pub const IN_VIEW: &'static str = "view";
     pub fn new<T: Into<Cow<'static, str>>>(graph_name: T) -> Self {
         Self {
             graph_name: graph_name.into(),
@@ -322,20 +322,13 @@ impl RunGraphOnViewNode {
 }
 
 impl Node for RunGraphOnViewNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
-    }
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        graph.run_sub_graph(
-            self.graph_name.clone(),
-            vec![SlotValue::Entity(view_entity)],
-        )?;
+        graph.run_sub_graph(self.graph_name.clone(), vec![], Some(graph.view_entity()))?;
         Ok(())
     }
 }

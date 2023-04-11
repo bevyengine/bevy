@@ -483,7 +483,7 @@ impl<P: Point> CubicCurve<P> {
         subdivisions: usize,
         sample_function: fn(&Self, f32) -> P,
     ) -> impl Iterator<Item = P> + '_ {
-        (0..subdivisions).map(move |i| {
+        (0..=subdivisions).map(move |i| {
             let segments = self.segments.len() as f32;
             let t = i as f32 / subdivisions as f32 * segments;
             sample_function(self, t)

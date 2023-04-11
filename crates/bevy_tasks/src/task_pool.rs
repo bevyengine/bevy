@@ -501,7 +501,7 @@ impl TaskPool {
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
-    /// cancelled and "detached" allowing it to continue running without having to be polled by the
+    /// canceled and "detached" allowing it to continue running without having to be polled by the
     /// end-user.
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
@@ -514,7 +514,7 @@ impl TaskPool {
 
     /// Spawns a static future on the thread-local async executor for the current thread. The task
     /// will run entirely on the thread the task was spawned on.  The returned Task is a future.
-    /// It can also be cancelled and "detached" allowing it to continue running without having
+    /// It can also be canceled and "detached" allowing it to continue running without having
     /// to be polled by the end-user. Users should generally prefer to use [`TaskPool::spawn`]
     /// instead, unless the provided future is not `Send`.
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
