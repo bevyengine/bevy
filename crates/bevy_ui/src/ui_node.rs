@@ -102,16 +102,6 @@ impl NodeTranslation {
 #[reflect(Component)]
 pub struct NodeRotation(pub f32);
 
-impl NodeRotation {
-    pub fn degrees(self) -> f32 {
-        self.0 * 180. / std::f32::consts::PI
-    }
-
-    pub fn from_degrees(degrees: f32) -> Self {
-        Self(degrees * std::f32::consts::PI / 180.)
-    }
-}
-
 /// Scaling that is applied to the UI node and it's children
 #[derive(Component, Debug, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component)]
