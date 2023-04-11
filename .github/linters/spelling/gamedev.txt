@@ -273,8 +273,13 @@ topdown
 topleft
 topright
 touchscreen
+rect
+rects
 transitioning
+scancode
 tris
+unfixable
+borderless
 tts
 uint
 unflushed

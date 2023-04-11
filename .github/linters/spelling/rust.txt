@@ -23,6 +23,7 @@ derefs
 deserializers
 doctest
 dotenv
+tera
 dropcheck
 dtolnay
 dwarnings
