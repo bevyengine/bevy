@@ -1,0 +1,5 @@
+{
+  "checks": {
+    "typography.symbols": false
+  }
+}

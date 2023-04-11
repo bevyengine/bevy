@@ -18,6 +18,7 @@ apps
 baadf
 badindex
 bafa
+moiré
 bakudas
 bavy
 bbut

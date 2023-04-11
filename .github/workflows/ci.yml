@@ -163,7 +163,7 @@ jobs:
  
   # Run locally by running the following commands in the root of bevy, need docker installed:
   # - npm install mega-linter-runner -g
-  # - mega-linter-runner -f documentation -e 'MEGALINTER_CONFIG=.github/linters/.mega-linter.yml' 
+  # - mega-linter-runner -f documentation -e 'MEGALINTER_CONFIG=.github/linters/.mega-linter.yml' --remove-container
   # This gonna download the lint image with a size of 1.78 gb locally on your device and run the linter, see the results in /megalinter-reports
   # Notice: You might have to restart docker if you cancel the linting process prematurely
   # For more info see: https://megalinter.io/latest/mega-linter-runner

@@ -6,11 +6,13 @@ Astc
 bincode
 bindgen
 bindless
+bitsets
 bytemuck
 cargotoml
 cdylib
 cfg
 chacha
+consts
 cpal
 cpus
 dasharray
@@ -58,6 +60,7 @@ newtype
 newtyped
 peekable
 petgraph
+powi
 PRIO
 reallocatable
 reimplementation

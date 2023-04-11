@@ -13,6 +13,7 @@ bezier
 Bgra
 bindpose
 bindposes
+lerp
 bitang
 bitangent
 bitflag
@@ -264,6 +265,8 @@ timesteps
 tonemap
 tonemapper
 tonemappers
+unthrottled
+cooldown
 tonemapping
 tonemaps
 topdown
@@ -298,6 +301,7 @@ valorant
 vecs
 vendored
 verlet
+verts
 vfx
 viewports
 vorbis

@@ -9,7 +9,16 @@ APPLY_FIXES: none # all, none, or list of linter keys
   # - SPELL # Uncomment to disable checks of spelling mistakes
 SHOW_ELAPSED_TIME: true
 FILEIO_REPORTER: false
-MARKDOWN_MARKDOWNLINT_RULES_PATH: ".github/linters/.markdown-lint.yml"
+MARKDOWN_MARKDOWNLINT_RULES_PATH: ".github/linters"
+SPELL_PROSELINT_RULES_PATH: ".github/linters"
+SPELL_CSPELL_CONFIG_FILE: cspell.json
+SPELL_CSPELL_ARGUMENTS:
+  - "--no-progress"
+
+MARKDOWN_MARKDOWN_TABLE_FORMATTER_FILTER_REGEX_EXCLUDE: cargo_features\.md|plugins_guidelines\.md|examples/README\.md
+SPELL_CSPELL_FILE_EXTENSIONS:
+  - ".rs"
+
 # DISABLE_ERRORS: true # Uncomment if you want MegaLinter to detect errors but not block CI to pass
 ENABLE_LINTERS:
 # - RUST_CLIPPY - is already run via tools/ci
