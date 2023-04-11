@@ -56,19 +56,22 @@ git checkout v0.4.0
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
-
 - [Tests](#tests)
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
     - [Setup](#setup)
-    - [Build & Run](#build--run)
+    - [Build \& Run](#build--run)
+    - [Debugging](#debugging)
     - [Old phones](#old-phones)
   - [iOS](#ios)
     - [Setup](#setup-1)
-    - [Build & Run](#build--run-1)
+    - [Build \& Run](#build--run-1)
   - [WASM](#wasm)
     - [Setup](#setup-2)
-    - [Build & Run](#build--run-2)
+    - [Build \& Run](#build--run-2)
+    - [Optimizing](#optimizing)
+      - [1. Tweak your `Cargo.toml`](#1-tweak-your-cargotoml)
+      - [2. Use `wasm-opt` from the binaryen package](#2-use-wasm-opt-from-the-binaryen-package)
     - [Loading Assets](#loading-assets)
 
 # The Bare Minimum
@@ -465,7 +468,7 @@ If you'd like to see xcode do stuff, you can run
 open bevy_mobile_example.xcodeproj/
 ```
 
-which will open xcode. You then must push the zoom zoom play button and wait
+which will open xcode. You then must push the zoom play button and wait
 for the magic.
 
 Example | File | Description

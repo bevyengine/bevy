@@ -1,6 +1,7 @@
 {
   "checks": {
     "typography.symbols": false,
-    "typography.exclamation": false
+    "typography.exclamation": false,
+    "weasel_words.very": false
   }
 }
