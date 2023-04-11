@@ -132,17 +132,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             parent
-                                .spawn(ButtonBundle {
-                                    style: Style {
-                                        size: Size::all(Val::Px(50.)),
-                                        align_items: AlignItems::Center,
-                                        justify_content: JustifyContent::Center,
+                                .spawn((
+                                    ButtonBundle {
+                                        style: Style {
+                                            size: Size::all(Val::Px(50.)),
+                                            align_items: AlignItems::Center,
+                                            justify_content: JustifyContent::Center,
+                                            ..default()
+                                        },
+                                        background_color: Color::WHITE.into(),
                                         ..default()
                                     },
-                                    background_color: Color::WHITE.into(),
-                                    ..default()
-                                })
-                                .insert(RotateButton(-std::f32::consts::FRAC_PI_8))
+                                    RotateButton(-std::f32::consts::FRAC_PI_8),
+                                ))
                                 .with_children(|parent| {
                                     parent.spawn(TextBundle {
                                         text: Text::from_section(
@@ -158,17 +160,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 });
 
                             parent
-                                .spawn(ButtonBundle {
-                                    style: Style {
-                                        size: Size::all(Val::Px(50.)),
-                                        align_items: AlignItems::Center,
-                                        justify_content: JustifyContent::Center,
+                                .spawn((
+                                    ButtonBundle {
+                                        style: Style {
+                                            size: Size::all(Val::Px(50.)),
+                                            align_items: AlignItems::Center,
+                                            justify_content: JustifyContent::Center,
+                                            ..default()
+                                        },
+                                        background_color: Color::WHITE.into(),
                                         ..default()
                                     },
-                                    background_color: Color::WHITE.into(),
-                                    ..default()
-                                })
-                                .insert(ScaleButton(-0.25))
+                                    ScaleButton(-0.25),
+                                ))
                                 .with_children(|parent| {
                                     parent.spawn(TextBundle {
                                         text: Text::from_section(
@@ -185,21 +189,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         });
 
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::SpaceBetween,
-                                align_items: AlignItems::Center,
-                                size: Size::all(Val::Px(300.)),
+                        .spawn((
+                            NodeBundle {
+                                style: Style {
+                                    flex_direction: FlexDirection::Column,
+                                    justify_content: JustifyContent::SpaceBetween,
+                                    align_items: AlignItems::Center,
+                                    size: Size::all(Val::Px(300.)),
+                                    ..default()
+                                },
+                                background_color: Color::DARK_GRAY.into(),
                                 ..default()
                             },
-                            background_color: Color::DARK_GRAY.into(),
-                            ..default()
-                        })
-                        .insert(TargetNode)
-                        .insert(NodeRotation::default())
-                        .insert(NodeScale::default())
-                        .insert(NodeTranslation::default())
+                            TargetNode,
+                            NodeRotation::default(),
+                            NodeScale::default(),
+                            NodeTranslation::default(),
+                        ))
                         .with_children(|parent| {
                             parent
                                 .spawn(ButtonBundle {
@@ -237,17 +243,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 })
                                 .with_children(|parent| {
                                     parent
-                                        .spawn(ButtonBundle {
-                                            style: Style {
-                                                size: Size::all(Val::Px(50.)),
-                                                align_items: AlignItems::Center,
-                                                justify_content: JustifyContent::Center,
+                                        .spawn((
+                                            ButtonBundle {
+                                                style: Style {
+                                                    size: Size::all(Val::Px(50.)),
+                                                    align_items: AlignItems::Center,
+                                                    justify_content: JustifyContent::Center,
+                                                    ..default()
+                                                },
+                                                background_color: Color::WHITE.into(),
                                                 ..default()
                                             },
-                                            background_color: Color::WHITE.into(),
-                                            ..default()
-                                        })
-                                        .insert(NodeRotation(std::f32::consts::PI / 2.))
+                                            NodeRotation(std::f32::consts::FRAC_PI_2),
+                                        ))
                                         .with_children(|parent| {
                                             parent.spawn(TextBundle {
                                                 text: Text::from_section(
@@ -264,17 +272,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         });
 
                                     parent
-                                        .spawn(ButtonBundle {
-                                            style: Style {
-                                                size: Size::all(Val::Px(50.)),
-                                                align_items: AlignItems::Center,
-                                                justify_content: JustifyContent::Center,
+                                        .spawn((
+                                            ButtonBundle {
+                                                style: Style {
+                                                    size: Size::all(Val::Px(50.)),
+                                                    align_items: AlignItems::Center,
+                                                    justify_content: JustifyContent::Center,
+                                                    ..default()
+                                                },
+                                                background_color: Color::WHITE.into(),
                                                 ..default()
                                             },
-                                            background_color: Color::WHITE.into(),
-                                            ..default()
-                                        })
-                                        .insert(NodeRotation(-std::f32::consts::PI / 2.))
+                                            NodeRotation(-std::f32::consts::FRAC_PI_2),
+                                        ))
                                         .with_children(|parent| {
                                             parent.spawn(TextBundle {
                                                 text: Text::from_section(
@@ -292,17 +302,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 });
 
                             parent
-                                .spawn(ButtonBundle {
-                                    style: Style {
-                                        size: Size::all(Val::Px(50.)),
-                                        align_items: AlignItems::Center,
-                                        justify_content: JustifyContent::Center,
+                                .spawn((
+                                    ButtonBundle {
+                                        style: Style {
+                                            size: Size::all(Val::Px(50.)),
+                                            align_items: AlignItems::Center,
+                                            justify_content: JustifyContent::Center,
+                                            ..default()
+                                        },
+                                        background_color: Color::WHITE.into(),
                                         ..default()
                                     },
-                                    background_color: Color::WHITE.into(),
-                                    ..default()
-                                })
-                                .insert(NodeRotation(std::f32::consts::PI))
+                                    NodeRotation(std::f32::consts::PI),
+                                ))
                                 .with_children(|parent| {
                                     parent.spawn(TextBundle {
                                         text: Text::from_section(
@@ -332,17 +344,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             parent
-                                .spawn(ButtonBundle {
-                                    style: Style {
-                                        size: Size::all(Val::Px(50.)),
-                                        align_items: AlignItems::Center,
-                                        justify_content: JustifyContent::Center,
+                                .spawn((
+                                    ButtonBundle {
+                                        style: Style {
+                                            size: Size::all(Val::Px(50.)),
+                                            align_items: AlignItems::Center,
+                                            justify_content: JustifyContent::Center,
+                                            ..default()
+                                        },
+                                        background_color: Color::WHITE.into(),
                                         ..default()
                                     },
-                                    background_color: Color::WHITE.into(),
-                                    ..default()
-                                })
-                                .insert(RotateButton(std::f32::consts::PI / 8.))
+                                    RotateButton(std::f32::consts::FRAC_PI_8),
+                                ))
                                 .with_children(|parent| {
                                     parent.spawn(TextBundle {
                                         text: Text::from_section(
@@ -358,17 +372,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 });
 
                             parent
-                                .spawn(ButtonBundle {
-                                    style: Style {
-                                        size: Size::all(Val::Px(50.)),
-                                        align_items: AlignItems::Center,
-                                        justify_content: JustifyContent::Center,
+                                .spawn((
+                                    ButtonBundle {
+                                        style: Style {
+                                            size: Size::all(Val::Px(50.)),
+                                            align_items: AlignItems::Center,
+                                            justify_content: JustifyContent::Center,
+                                            ..default()
+                                        },
+                                        background_color: Color::WHITE.into(),
                                         ..default()
                                     },
-                                    background_color: Color::WHITE.into(),
-                                    ..default()
-                                })
-                                .insert(ScaleButton(0.25))
+                                    ScaleButton(0.25),
+                                ))
                                 .with_children(|parent| {
                                     parent.spawn(TextBundle {
                                         text: Text::from_section(
