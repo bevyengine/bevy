@@ -23,7 +23,6 @@ MARKDOWN_MARKDOWN_TABLE_FORMATTER_FILTER_REGEX_EXCLUDE: cargo_features\.md|plugi
 SPELL_PROSELINT_FILTER_REGEX_EXCLUDE: engine_style_guide\.md|\.github/linters/spelling
 #   CSpell
 SPELL_CSPELL_CONFIG_FILE: cspell.json
-SPELL_CSPELL_FILTER_REGEX_EXCLUDE: _cspell\.txt
 SPELL_CSPELL_FILE_EXTENSIONS:
   - ".rs"
   - ".txt"

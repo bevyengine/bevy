@@ -55,10 +55,11 @@
         "cspell.json",
         ".github/*",
         "*.(png|svg|gltf|ktx2|hdr|ogg|glb|ico|ttf|bin|gitignore|pbxproj)",
-        "*LICEN(S|C)E*",
+        "*.LICEN(S|C)E*",
         ".gitattributes",
         "CREDITS.md",
-        "CHANGELOG.md"
+        "CHANGELOG.md",
+        "*_cspell.txt"
     ],
     "enableFiletypes": [
         "ron",
