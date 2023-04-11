@@ -302,6 +302,7 @@ bitflags::bitflags! {
         const TWO_COMPONENT_NORMAL_MAP   = (1 << 6);
         const FLIP_NORMAL_MAP_Y          = (1 << 7);
         const FOG_ENABLED                = (1 << 8);
+        const NORMAL_MAP_TEXTURE         = (1 << 9);
         const ALPHA_MODE_RESERVED_BITS   = (Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS); // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = (0 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = (1 << Self::ALPHA_MODE_SHIFT_BITS);                          //   the bitmask, and can range from 0 to 7.
@@ -357,6 +358,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
         if self.occlusion_texture.is_some() {
             flags |= StandardMaterialFlags::OCCLUSION_TEXTURE;
+        }
+        if self.normal_map_texture.is_some() {
+            flags |= StandardMaterialFlags::NORMAL_MAP_TEXTURE;
         }
         if self.double_sided {
             flags |= StandardMaterialFlags::DOUBLE_SIDED;
@@ -435,13 +439,6 @@ impl Material for StandardMaterial {
         _layout: &MeshVertexBufferLayout,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        if key.bind_group_data.normal_map {
-            if let Some(fragment) = descriptor.fragment.as_mut() {
-                fragment
-                    .shader_defs
-                    .push("STANDARDMATERIAL_NORMAL_MAP".into());
-            }
-        }
         descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();

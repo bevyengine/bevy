@@ -77,25 +77,32 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #else // LOAD_PREPASS_NORMALS
         pbr_input.world_normal = prepare_world_normal(
             in.world_normal,
-            (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
             in.is_front,
+            material.flags,
         );
 #endif // LOAD_PREPASS_NORMALS
 
         pbr_input.is_orthographic = view.projection[3].w == 1.0;
 
-        pbr_input.N = apply_normal_mapping(
-            material.flags,
-            pbr_input.world_normal,
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-            in.world_tangent,
-#endif
-#endif
+        var N = normalize(pbr_input.world_normal);
+
 #ifdef VERTEX_UVS
-            in.uv,
-#endif
-        );
+#ifdef VERTEX_TANGENTS
+        if (material.flags & STANDARD_MATERIAL_FLAGS_NORMAL_MAP_TEXTURE_BIT) != 0u {
+            // NOTE: Do NOT normalize this value before applying normal mapping
+            // http://www.mikktspace.com/
+            let tangent_normal = textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb;
+            N = apply_normal_mapping(
+                material.flags,
+                pbr_input.world_normal,
+                in.world_tangent,
+                tangent_normal,
+            );
+        }
+#endif // VERTEX_TANGENTS
+#endif // VERTEX_UVS
+
+        pbr_input.N = N;
         pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
         pbr_input.occlusion = occlusion;
 
