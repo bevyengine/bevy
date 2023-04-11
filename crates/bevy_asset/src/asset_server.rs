@@ -7,8 +7,8 @@ use crate::{
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_log::warn;
-use bevy_tasks::IoTaskPool;
-use bevy_utils::{BoxedFuture, Entry, HashMap, Uuid};
+use bevy_tasks::{IoTaskPool, Task};
+use bevy_utils::{Entry, HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
 use std::{path::Path, sync::Arc};
@@ -389,39 +389,22 @@ impl AssetServer {
 
         // if version has changed since we loaded and grabbed a lock, return. there is a newer
         // version being loaded
-        let mut asset_sources = self.server.asset_sources.write();
-        let source_info = asset_sources
-            .get_mut(&asset_path_id.source_path_id())
-            .expect("`AssetSource` should exist at this point.");
-        if version != source_info.version {
+        if !self
+            .update_source_info(version, &asset_path_id.source_path_id(), &mut load_context)
+            .await
+        {
             return Ok(asset_path_id);
         }
 
-        // if all assets have been committed already (aka there were 0), set state to "Loaded"
-        if source_info.is_loaded() {
-            source_info.load_state = LoadState::Loaded;
-        }
+        let dependency_tasks = load_context
+            .labeled_assets
+            .values()
+            .flat_map(|loaded_asset| &loaded_asset.dependencies)
+            .map(|dependency| self.load_tracked(dependency.clone(), false))
+            .collect::<Vec<_>>();
 
-        // reset relevant SourceInfo fields
-        source_info.committed_assets.clear();
-        // TODO: queue free old assets
-        source_info.asset_types.clear();
-
-        source_info.meta = Some(SourceMeta {
-            assets: load_context.get_asset_metas(),
-        });
-
-        // load asset dependencies and prepare asset type hashmap
-        for (label, loaded_asset) in &mut load_context.labeled_assets {
-            let label_id = LabelId::from(label.as_ref().map(|label| label.as_str()));
-            let type_uuid = loaded_asset.value.as_ref().unwrap().type_uuid();
-            source_info.asset_types.insert(label_id, type_uuid);
-
-            IoTaskPool::get().scope(|s| {
-                for dependency in &loaded_asset.dependencies {
-                    s.spawn(self.load_tracked(dependency.clone(), false));
-                }
-            });
+        for task in dependency_tasks {
+            task.await;
         }
 
         self.asset_io()
@@ -448,17 +431,13 @@ impl AssetServer {
         self.load_untracked(path.into(), true);
     }
 
-    pub(crate) fn load_tracked(
-        &self,
-        asset_path: AssetPath<'_>,
-        force: bool,
-    ) -> BoxedFuture<'_, ()> {
+    pub(crate) fn load_tracked(&self, asset_path: AssetPath<'_>, force: bool) -> Task<()> {
         let server = self.clone();
         let owned_path = asset_path.to_owned();
 
         self.insert_asset_key(asset_path);
 
-        Box::pin(async move {
+        IoTaskPool::get().spawn(async move {
             if let Err(err) = server.load_async(owned_path, force).await {
                 warn!("{}", err);
             }
@@ -488,6 +467,46 @@ impl AssetServer {
             .write()
             .entry(handle_id)
             .or_insert_with(|| asset_path.to_owned());
+    }
+
+    // Returns `true` if the source info for the asset has been successfully updated.
+    // Returns `false` otherwise.
+    async fn update_source_info(
+        &self,
+        version: usize,
+        source_path_id: &SourcePathId,
+        load_context: &mut LoadContext<'_>,
+    ) -> bool {
+        let mut asset_sources = self.server.asset_sources.write();
+        let source_info = asset_sources
+            .get_mut(&source_path_id)
+            .expect("`AssetSource` should exist at this point.");
+        if version != source_info.version {
+            return false;
+        }
+
+        // if all assets have been committed already (aka there were 0), set state to "Loaded"
+        if source_info.is_loaded() {
+            source_info.load_state = LoadState::Loaded;
+        }
+
+        // reset relevant SourceInfo fields
+        source_info.committed_assets.clear();
+        // TODO: queue free old assets
+        source_info.asset_types.clear();
+
+        source_info.meta = Some(SourceMeta {
+            assets: load_context.get_asset_metas(),
+        });
+
+        // load asset dependencies and prepare asset type hashmap
+        for (label, loaded_asset) in &mut load_context.labeled_assets {
+            let label_id = LabelId::from(label.as_ref().map(|label| label.as_str()));
+            let type_uuid = loaded_asset.value.as_ref().unwrap().type_uuid();
+            source_info.asset_types.insert(label_id, type_uuid);
+        }
+
+        true
     }
 
     /// Loads assets from the specified folder recursively.
