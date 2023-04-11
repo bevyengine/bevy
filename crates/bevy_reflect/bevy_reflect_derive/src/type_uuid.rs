@@ -29,10 +29,7 @@ pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::To
             continue;
         }
 
-        let uuid_str = match name_value.lit {
-            Lit::Str(lit_str) => lit_str,
-            _ => panic!("`uuid` attribute must take the form `#[uuid = \"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\"`."),
-        };
+        let Lit::Str(uuid_str) = name_value.lit else { panic!("`uuid` attribute must take the form `#[uuid = \"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\"`.") };
 
         uuid = Some(
             Uuid::parse_str(&uuid_str.value())

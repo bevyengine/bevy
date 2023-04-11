@@ -56,10 +56,7 @@ impl Plugin for BloomPlugin {
         app.add_plugin(ExtractComponentPlugin::<BloomSettings>::default());
         app.add_plugin(UniformComponentPlugin::<BloomUniforms>::default());
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
-        };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
         render_app
             .init_resource::<BloomDownsamplingPipeline>()

@@ -51,10 +51,7 @@ impl Node for FxaaNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let fxaa_pipeline = world.resource::<FxaaPipeline>();
 
-        let (target, pipeline, fxaa) = match self.query.get_manual(world, view_entity) {
-            Ok(result) => result,
-            Err(_) => return Ok(()),
-        };
+        let Ok((target, pipeline, fxaa)) = self.query.get_manual(world, view_entity) else { return Ok(()) };
 
         if !fxaa.enabled {
             return Ok(());

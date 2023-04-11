@@ -175,12 +175,9 @@ impl AssetIo for FileAssetIo {
     all(not(target_arch = "wasm32"), not(target_os = "android"))
 ))]
 pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
-    let asset_io =
-        if let Some(asset_io) = asset_server.server.asset_io.downcast_ref::<FileAssetIo>() {
-            asset_io
-        } else {
-            return;
-        };
+    let Some(asset_io) = asset_server.server.asset_io.downcast_ref::<FileAssetIo>() else {
+        return;
+    };
     let watcher = asset_io.filesystem_watcher.read();
     if let Some(ref watcher) = *watcher {
         let mut changed = HashSet::<&PathBuf>::default();

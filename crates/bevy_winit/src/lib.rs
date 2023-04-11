@@ -386,27 +386,21 @@ pub fn winit_runner(mut app: App) {
                 ) = system_state.get_mut(&mut app.world);
 
                 // Entity of this window
-                let window_entity =
-                    if let Some(entity) = winit_windows.get_window_entity(winit_window_id) {
-                        entity
-                    } else {
-                        warn!(
-                            "Skipped event {:?} for unknown winit Window Id {:?}",
-                            event, winit_window_id
-                        );
-                        return;
-                    };
+                let Some(window_entity) = winit_windows.get_window_entity(winit_window_id) else {
+                    warn!(
+                        "Skipped event {:?} for unknown winit Window Id {:?}",
+                        event, winit_window_id
+                    );
+                    return;
+                };
 
-                let (mut window, mut cache) =
-                    if let Ok((window, info)) = window_query.get_mut(window_entity) {
-                        (window, info)
-                    } else {
-                        warn!(
-                            "Window {:?} is missing `Window` component, skipping event {:?}",
-                            window_entity, event
-                        );
-                        return;
-                    };
+                let Ok((mut window, mut cache)) =  window_query.get_mut(window_entity) else {
+                    warn!(
+                        "Window {:?} is missing `Window` component, skipping event {:?}",
+                        window_entity, event
+                    );
+                    return;
+                };
 
                 winit_state.low_power_event = true;
 

@@ -62,19 +62,18 @@ impl Node for TonemappingNode {
         let view_uniforms = &view_uniforms_resource.uniforms;
         let view_uniforms_id = view_uniforms.buffer().unwrap().id();
 
-        let (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) =
-            match self.query.get_manual(world, view_entity) {
-                Ok(result) => result,
-                Err(_) => return Ok(()),
-            };
+        let Ok(components) = self.query.get_manual(world, view_entity) else {
+            return Ok(());
+        };
+
+        let (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) = components;
 
         if !target.is_hdr() {
             return Ok(());
         }
 
-        let pipeline = match pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.0) {
-            Some(pipeline) => pipeline,
-            None => return Ok(()),
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.0) else {
+            return Ok(());
         };
 
         let post_process = target.post_process_write();

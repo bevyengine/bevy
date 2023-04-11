@@ -111,10 +111,7 @@ impl Plugin for CASPlugin {
         app.add_plugin(ExtractComponentPlugin::<ContrastAdaptiveSharpeningSettings>::default());
         app.add_plugin(UniformComponentPlugin::<CASUniform>::default());
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
-        };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
         render_app
             .init_resource::<CASPipeline>()
             .init_resource::<SpecializedRenderPipelines<CASPipeline>>()

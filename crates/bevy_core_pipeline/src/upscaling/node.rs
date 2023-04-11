@@ -51,9 +51,8 @@ impl Node for UpscalingNode {
         let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();
         let blit_pipeline = world.get_resource::<BlitPipeline>().unwrap();
 
-        let (target, upscaling_target, camera) = match self.query.get_manual(world, view_entity) {
-            Ok(query) => query,
-            Err(_) => return Ok(()),
+        let Ok((target, upscaling_target, camera)) = self.query.get_manual(world, view_entity) else {
+            return Ok(());
         };
 
         let color_attachment_load_op = if let Some(camera) = camera {
@@ -101,9 +100,8 @@ impl Node for UpscalingNode {
             }
         };
 
-        let pipeline = match pipeline_cache.get_render_pipeline(upscaling_target.0) {
-            Some(pipeline) => pipeline,
-            None => return Ok(()),
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(upscaling_target.0) else {
+            return Ok(());
         };
 
         let pass_descriptor = RenderPassDescriptor {

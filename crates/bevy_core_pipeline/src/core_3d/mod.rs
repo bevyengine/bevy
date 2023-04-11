@@ -68,10 +68,7 @@ impl Plugin for Core3dPlugin {
             .add_plugin(SkyboxPlugin)
             .add_plugin(ExtractComponentPlugin::<Camera3d>::default());
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
-        };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
         render_app
             .init_resource::<DrawFunctions<Opaque3d>>()
