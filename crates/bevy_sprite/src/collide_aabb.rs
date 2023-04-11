@@ -51,7 +51,8 @@ pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<C
         (Collision::Top, (yb + hb) - (ya - ha)) // top_b - bottom_a
     };
 
-    if y_depth > x_depth { // choose deepest
+    // choose deepest
+    if y_depth > x_depth {
         Some(y_collision)
     } else {
         Some(x_collision)
