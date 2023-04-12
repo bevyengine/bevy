@@ -1762,7 +1762,7 @@ impl World {
     }
 
     /// Attempts to run the [`Schedule`] associated with the `label` a single time,
-    /// and returns a [`TryRunScheduleError`] if the schedule does not exist.
+    /// and returns a [`ScheduleNotFoundError`] if the schedule does not exist.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
     /// and system state is cached.
@@ -1776,7 +1776,7 @@ impl World {
     }
 
     /// Attempts to run the [`Schedule`] associated with the `label` a single time,
-    /// and returns a [`TryRunScheduleError`] if the schedule does not exist.
+    /// and returns a [`ScheduleNotFoundError`] if the schedule does not exist.
     ///
     /// Unlike the `try_run_schedule` method, this method takes the label by reference, which can save a clone.
     ///
