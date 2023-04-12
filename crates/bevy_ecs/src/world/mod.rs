@@ -1716,6 +1716,51 @@ impl World {
         schedules.insert(label, schedule);
     }
 
+    pub fn try_schedule_scope<R>(
+        &mut self,
+        label: impl ScheduleLabel,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+    ) -> Result<R, ScheduleNotFoundError> {
+        self.try_schedule_scope_ref(&label, f)
+    }
+
+    pub fn try_schedule_scope_ref<R>(
+        &mut self,
+        label: &dyn ScheduleLabel,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+    ) -> Result<R, ScheduleNotFoundError> {
+        let Some((extracted_label, mut schedule)) = self.resource_mut::<Schedules>().remove_entry(label) else {
+            return Err(ScheduleNotFoundError(label.dyn_clone()));
+        };
+
+        // TODO: move this span to Schedule::run
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
+        let value = f(self, &mut schedule);
+
+        self.resource_mut::<Schedules>()
+            .insert(extracted_label, schedule);
+
+        Ok(value)
+    }
+
+    pub fn schedule_scope<R>(
+        &mut self,
+        label: impl ScheduleLabel,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+    ) -> R {
+        self.schedule_scope_ref(&label, f)
+    }
+
+    pub fn schedule_scope_ref<R>(
+        &mut self,
+        label: &dyn ScheduleLabel,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+    ) -> R {
+        self.try_schedule_scope_ref(label, f)
+            .unwrap_or_else(|e| panic!("{e}"))
+    }
+
     /// Attempts to run the [`Schedule`] associated with the `label` a single time,
     /// and returns a [`TryRunScheduleError`] if the schedule does not exist.
     ///
@@ -1743,18 +1788,7 @@ impl World {
         &mut self,
         label: &dyn ScheduleLabel,
     ) -> Result<(), ScheduleNotFoundError> {
-        let Some((extracted_label, mut schedule)) = self.resource_mut::<Schedules>().remove_entry(label) else {
-            return Err(ScheduleNotFoundError(label.dyn_clone()));
-        };
-
-        // TODO: move this span to Schedule::run
-        #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
-        schedule.run(self);
-        self.resource_mut::<Schedules>()
-            .insert(extracted_label, schedule);
-
-        Ok(())
+        self.try_schedule_scope_ref(label, |world, sched| sched.run(world))
     }
 
     /// Runs the [`Schedule`] associated with the `label` a single time.
@@ -1784,8 +1818,7 @@ impl World {
     ///
     /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
     pub fn run_schedule_ref(&mut self, label: &dyn ScheduleLabel) {
-        self.try_run_schedule_ref(label)
-            .unwrap_or_else(|e| panic!("{}", e));
+        self.schedule_scope_ref(label, |world, sched| sched.run(world));
     }
 }
 
