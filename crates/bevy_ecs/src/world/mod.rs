@@ -1712,7 +1712,7 @@ impl World {
     ///
     /// The [`Schedule`] is fetched from the
     pub fn add_schedule(&mut self, schedule: Schedule, label: impl ScheduleLabel) {
-        let mut schedules = self.resource_mut::<Schedules>();
+        let mut schedules = self.get_resource_or_insert_with(Schedules::default);
         schedules.insert(label, schedule);
     }
 
