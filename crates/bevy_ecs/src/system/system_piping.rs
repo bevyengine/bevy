@@ -306,8 +306,12 @@ pub mod adapter {
     /// }
     /// ```
     pub fn ignore<T>(In(_): In<T>) {}
+}
 
-    #[cfg(test)]
+#[cfg(test)]
+mod tests {
+    use super::adapter::*;
+
     #[test]
     fn assert_systems() {
         use std::str::FromStr;
