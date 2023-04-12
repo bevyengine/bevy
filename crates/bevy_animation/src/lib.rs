@@ -544,7 +544,7 @@ fn update_transitions(player: &mut AnimationPlayer, time: &Time) {
 
 /// Adds animation support to an app
 #[derive(Default)]
-pub struct AnimationPlugin {}
+pub struct AnimationPlugin;
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
