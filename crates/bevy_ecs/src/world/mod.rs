@@ -1751,9 +1751,7 @@ impl World {
         label: &dyn ScheduleLabel,
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> Result<R, TryRunScheduleError> {
-        let Some((extracted_label, mut schedule))
-            = self.get_resource_mut::<Schedules>().and_then(|mut s| s.remove_entry(label))
-        else {
+        let Some((extracted_label, mut schedule)) = self.resource_mut::<Schedules>().remove_entry(label) else {
             return Err(TryRunScheduleError(label.dyn_clone()));
         };
 
