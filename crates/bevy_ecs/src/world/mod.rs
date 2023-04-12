@@ -1752,7 +1752,7 @@ impl World {
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> Result<R, ScheduleNotFoundError> {
         let Some((extracted_label, mut schedule))
-            = self.get_resource_or_insert_with(Schedules::default).remove_entry(label)
+            = self.get_resource_mut::<Schedules>().and_then(|mut s| s.remove_entry(label))
         else {
             return Err(ScheduleNotFoundError(label.dyn_clone()));
         };
