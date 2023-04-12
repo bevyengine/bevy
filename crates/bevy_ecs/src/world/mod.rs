@@ -1777,7 +1777,7 @@ impl World {
     ///
     /// # Panics
     ///
-    /// Panics if the requested schedule does not exist.
+    /// If the requested schedule does not exist.
     pub fn schedule_scope<R>(
         &mut self,
         label: impl ScheduleLabel,
@@ -1799,7 +1799,7 @@ impl World {
     ///
     /// # Panics
     ///
-    /// Panics if the requested schedule does not exist.
+    /// If the requested schedule does not exist.
     pub fn schedule_scope_ref<R>(
         &mut self,
         label: &dyn ScheduleLabel,
@@ -1848,7 +1848,7 @@ impl World {
     ///
     /// # Panics
     ///
-    /// Panics if the requested schedule does not exist.
+    /// If the requested schedule does not exist.
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.run_schedule_ref(&label);
     }
@@ -1864,7 +1864,7 @@ impl World {
     ///
     /// # Panics
     ///
-    /// Panics if the requested schedule does not exist.
+    /// If the requested schedule does not exist.
     pub fn run_schedule_ref(&mut self, label: &dyn ScheduleLabel) {
         self.schedule_scope_ref(label, |world, sched| sched.run(world));
     }
