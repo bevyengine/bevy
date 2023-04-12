@@ -1722,7 +1722,7 @@ impl World {
     /// associated with `label`.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
-    /// and system state is cached.
+    /// and system state is cached. The `Schedules` resource will be initialized if it does not exist.
     ///
     /// For simple cases where you just need to call the schedule,
     /// consider using [`World::try_run_schedule`] instead.
@@ -1742,7 +1742,7 @@ impl World {
     /// Unlike the `try_run_schedule` method, this method takes the label by reference, which can save a clone.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
-    /// and system state is cached.
+    /// and system state is cached. The `Schedules` resource will be initialized if it does not exist.
     ///
     /// For simple cases where you just need to call the schedule,
     /// consider using [`World::try_run_schedule_ref`] instead.
@@ -1772,7 +1772,7 @@ impl World {
     /// runs user code, and finally re-adds the schedule.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
-    /// and system state is cached.
+    /// and system state is cached. The `Schedules` resource will be initialized if it does not exist.
     ///
     /// For simple cases where you just need to call the schedule,
     /// consider using [`World::run_schedule`] instead.
@@ -1794,7 +1794,7 @@ impl World {
     /// Unlike the `try_run_schedule` method, this method takes the label by reference, which can save a clone.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
-    /// and system state is cached.
+    /// and system state is cached. The `Schedules` resource will be initialized if it does not exist.
     ///
     /// For simple cases where you just need to call the schedule,
     /// consider using [`World::run_schedule_ref`] instead.
@@ -1815,7 +1815,7 @@ impl World {
     /// and returns a [`ScheduleNotFoundError`] if the schedule does not exist.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
-    /// and system state is cached.
+    /// and system state is cached. The `Schedules` resource will be initialized if it does not exist.
     ///
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
     pub fn try_run_schedule(
@@ -1831,7 +1831,7 @@ impl World {
     /// Unlike the `try_run_schedule` method, this method takes the label by reference, which can save a clone.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
-    /// and system state is cached.
+    /// and system state is cached. The `Schedules` resource will be initialized if it does not exist.
     ///
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
     pub fn try_run_schedule_ref(
@@ -1844,7 +1844,7 @@ impl World {
     /// Runs the [`Schedule`] associated with the `label` a single time.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
-    /// and system state is cached.
+    /// and system state is cached. The `Schedules` resource will be initialized if it does not exist.
     ///
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
     ///
@@ -1860,7 +1860,7 @@ impl World {
     /// Unlike the `run_schedule` method, this method takes the label by reference, which can save a clone.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
-    /// and system state is cached.
+    /// and system state is cached. The `Schedules` resource will be initialized if it does not exist.
     ///
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
     ///
