@@ -1718,7 +1718,7 @@ impl World {
 
     /// Temporarily removes the schedule associated with `label` from the world,
     /// runs user code, and finally re-adds the schedule.
-    /// This returns a [`ScheduleNotFoundError`] if there is no schedule
+    /// This returns a [`TryRunScheduleError`] if there is no schedule
     /// associated with `label`.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
@@ -1737,7 +1737,7 @@ impl World {
 
     /// Temporarily removes the schedule associated with `label` from the world,
     /// runs user code, and finally re-adds the schedule.
-    /// This returns a [`ScheduleNotFoundError`] if there is no schedule
+    /// This returns a [`TryRunScheduleError`] if there is no schedule
     /// associated with `label`.
     ///
     /// Unlike the `try_run_schedule` method, this method takes the label by reference, which can save a clone.
@@ -1838,7 +1838,7 @@ impl World {
     }
 
     /// Attempts to run the [`Schedule`] associated with the `label` a single time,
-    /// and returns a [`ScheduleNotFoundError`] if the schedule does not exist.
+    /// and returns a [`TryRunScheduleError`] if the schedule does not exist.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
     /// and system state is cached.
@@ -1852,7 +1852,7 @@ impl World {
     }
 
     /// Attempts to run the [`Schedule`] associated with the `label` a single time,
-    /// and returns a [`ScheduleNotFoundError`] if the schedule does not exist.
+    /// and returns a [`TryRunScheduleError`] if the schedule does not exist.
     ///
     /// Unlike the `try_run_schedule` method, this method takes the label by reference, which can save a clone.
     ///
