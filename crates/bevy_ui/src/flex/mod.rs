@@ -166,6 +166,13 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
+    /// Removes the measure from the entity's taffy node if it exists. Does nothing otherwise.
+    pub fn try_remove_measure(&mut self, entity: Entity) {
+        if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
+            self.taffy.set_measure(*taffy_node, None).unwrap();
+        }
+    }
+
     pub fn update_window(&mut self, window: Entity, window_resolution: &WindowResolution) {
         let taffy = &mut self.taffy;
         let node = self
@@ -258,6 +265,7 @@ pub fn flex_node_system(
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
+    mut removed_calculated_sizes: RemovedComponents<CalculatedSize>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
@@ -319,6 +327,11 @@ pub fn flex_node_system(
 
     // clean up removed nodes
     flex_surface.remove_entities(removed_nodes.iter());
+
+    // When a `CalculatedSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    for entity in removed_calculated_sizes.iter() {
+        flex_surface.try_remove_measure(entity);
+    }
 
     // update window children (for now assuming all Nodes live in the primary window)
     flex_surface.set_window_children(primary_window_entity, root_node_query.iter());

@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 //! This crate provides core functionality for Bevy Engine.
 
 mod name;
@@ -128,7 +129,7 @@ fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
 /// Maintains a count of frames rendered since the start of the application.
 ///
 /// [`FrameCount`] is incremented during [`Last`], providing predictable
-/// behaviour: it will be 0 during the first update, 1 during the next, and so forth.
+/// behavior: it will be 0 during the first update, 1 during the next, and so forth.
 ///
 /// # Overflows
 ///

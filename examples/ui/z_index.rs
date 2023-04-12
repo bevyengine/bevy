@@ -54,7 +54,7 @@ fn setup(mut commands: Commands) {
                     });
 
                     // spawn a node with a positive local z-index of 2.
-                    // it will show above other nodes in the grey container.
+                    // it will show above other nodes in the gray container.
                     parent.spawn(NodeBundle {
                         z_index: ZIndex::Local(2),
                         background_color: Color::BLUE.into(),
@@ -69,7 +69,7 @@ fn setup(mut commands: Commands) {
                     });
 
                     // spawn a node with a negative local z-index.
-                    // it will show under other nodes in the grey container.
+                    // it will show under other nodes in the gray container.
                     parent.spawn(NodeBundle {
                         z_index: ZIndex::Local(-1),
                         background_color: Color::GREEN.into(),
@@ -85,7 +85,7 @@ fn setup(mut commands: Commands) {
 
                     // spawn a node with a positive global z-index of 1.
                     // it will show above all other nodes, because it's the highest global z-index in this example.
-                    // by default, boxes all share the global z-index of 0 that the grey container is added to.
+                    // by default, boxes all share the global z-index of 0 that the gray container is added to.
                     parent.spawn(NodeBundle {
                         z_index: ZIndex::Global(1),
                         background_color: Color::PURPLE.into(),
