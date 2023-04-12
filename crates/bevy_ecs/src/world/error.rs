@@ -7,4 +7,4 @@ use crate::schedule::BoxedScheduleLabel;
 /// [`World::try_run_schedule`]: crate::world::World::try_run_schedule
 #[derive(Error, Debug)]
 #[error("The schedule with the label {0:?} was not found.")]
-pub struct ScheduleNotFoundError(pub BoxedScheduleLabel);
+pub struct TryRunScheduleError(pub BoxedScheduleLabel);

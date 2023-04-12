@@ -21,7 +21,7 @@ use crate::{
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Resource,
-    world::error::ScheduleNotFoundError,
+    world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
@@ -1730,7 +1730,7 @@ impl World {
         &mut self,
         label: impl ScheduleLabel,
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
-    ) -> Result<R, ScheduleNotFoundError> {
+    ) -> Result<R, TryRunScheduleError> {
         self.try_schedule_scope_ref(&label, f)
     }
 
@@ -1750,11 +1750,11 @@ impl World {
         &mut self,
         label: &dyn ScheduleLabel,
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
-    ) -> Result<R, ScheduleNotFoundError> {
+    ) -> Result<R, TryRunScheduleError> {
         let Some((extracted_label, mut schedule))
             = self.get_resource_mut::<Schedules>().and_then(|mut s| s.remove_entry(label))
         else {
-            return Err(ScheduleNotFoundError(label.dyn_clone()));
+            return Err(TryRunScheduleError(label.dyn_clone()));
         };
 
         // TODO: move this span to Schedule::run
@@ -1821,7 +1821,7 @@ impl World {
     pub fn try_run_schedule(
         &mut self,
         label: impl ScheduleLabel,
-    ) -> Result<(), ScheduleNotFoundError> {
+    ) -> Result<(), TryRunScheduleError> {
         self.try_run_schedule_ref(&label)
     }
 
@@ -1837,7 +1837,7 @@ impl World {
     pub fn try_run_schedule_ref(
         &mut self,
         label: &dyn ScheduleLabel,
-    ) -> Result<(), ScheduleNotFoundError> {
+    ) -> Result<(), TryRunScheduleError> {
         self.try_schedule_scope_ref(label, |world, sched| sched.run(world))
     }
 
