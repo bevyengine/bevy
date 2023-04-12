@@ -1708,11 +1708,13 @@ impl World {
 
 // Schedule-related methods
 impl World {
-    /// Runs the [`Schedule`] associated with the `label` a single time.
+    /// Adds the specified [`Schedule`] to the world. The schedule can later be run
+    /// by calling [`.run_schedule(label)`](Self::run_schedule) or by directly
+    /// accessing the [`Schedules`] resource.
     ///
-    /// The [`Schedule`] is fetched from the
+    /// The `Schedules` resource will be initialized if it does not already exist.
     pub fn add_schedule(&mut self, schedule: Schedule, label: impl ScheduleLabel) {
-        let mut schedules = self.resource_mut::<Schedules>();
+        let mut schedules = self.get_resource_or_insert_with(Schedules::default);
         schedules.insert(label, schedule);
     }
 
@@ -1743,7 +1745,9 @@ impl World {
         &mut self,
         label: &dyn ScheduleLabel,
     ) -> Result<(), TryRunScheduleError> {
-        let Some((extracted_label, mut schedule)) = self.resource_mut::<Schedules>().remove_entry(label) else {
+        let Some((extracted_label, mut schedule))
+            = self.get_resource_mut::<Schedules>().and_then(|mut s| s.remove_entry(label))
+        else {
             return Err(TryRunScheduleError(label.dyn_clone()));
         };
 
