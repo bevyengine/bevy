@@ -1775,6 +1775,31 @@ impl World {
     /// For simple cases where you just need to call the schedule,
     /// consider using [`World::run_schedule`] instead.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+    /// # #[derive(ScheduleLabel, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    /// # pub struct MySchedule;
+    /// # #[derive(Resource)]
+    /// # struct Counter(usize);
+    /// #
+    /// # let mut world = World::new();
+    /// # world.insert_resource(Counter(0));
+    /// # let mut schedule = Schedule::new();
+    /// # schedule.add_systems(tick_counter);
+    /// # world.init_resource::<Schedules>();
+    /// # world.add_schedule(schedule, MySchedule);
+    /// # fn tick_counter(mut counter: ResMut<Counter>) { counter.0 += 1; }
+    /// // Run the schedule five times.
+    /// world.schedule_scope(MySchedule, |world, schedule| {
+    ///     for _ in 0..5 {
+    ///         schedule.run(world);
+    ///     }
+    /// });
+    /// # assert_eq!(world.resource::<Counter>().0, 5);
+    /// ```
+    ///
     /// # Panics
     ///
     /// If the requested schedule does not exist.
