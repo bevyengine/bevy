@@ -1,6 +1,8 @@
 //! A simple 3D scene with a spinning cube with a normal map and depth map to demonstrate parallax mapping.
 //! Press left mouse button to cycle through different views.
 
+use std::fmt;
+
 use bevy::{prelude::*, render::render_resource::TextureFormat, window::close_on_esc};
 
 fn main() {
@@ -48,6 +50,34 @@ impl Default for TargetLayers {
         TargetLayers(5.0)
     }
 }
+struct CurrentMethod(ParallaxMappingMethod);
+impl Default for CurrentMethod {
+    fn default() -> Self {
+        CurrentMethod(ParallaxMappingMethod::Relief { max_steps: 4 })
+    }
+}
+impl fmt::Display for CurrentMethod {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.0 {
+            ParallaxMappingMethod::Occlusion => write!(f, "Parallax Occlusion Mapping"),
+            ParallaxMappingMethod::Relief { max_steps } => {
+                write!(f, "Relief Mapping with {max_steps} steps")
+            }
+        }
+    }
+}
+impl CurrentMethod {
+    fn next_method(&mut self) {
+        use ParallaxMappingMethod::*;
+        self.0 = match self.0 {
+            Occlusion => Relief { max_steps: 2 },
+            Relief { max_steps } if max_steps < 3 => Relief { max_steps: 4 },
+            Relief { max_steps } if max_steps < 5 => Relief { max_steps: 8 },
+            Relief { .. } => Occlusion,
+        }
+    }
+}
+
 fn update_parallax_depth_scale(
     input: Res<Input<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -57,7 +87,7 @@ fn update_parallax_depth_scale(
 ) {
     if input.just_pressed(KeyCode::Key1) {
         target_depth.0 -= DEPTH_UPDATE_STEP;
-        target_depth.0 = target_depth.0.max(-MAX_DEPTH);
+        target_depth.0 = target_depth.0.max(0.0);
         *depth_update = true;
     }
     if input.just_pressed(KeyCode::Key2) {
@@ -84,25 +114,18 @@ fn switch_method(
     input: Res<Input<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut text: Query<&mut Text>,
-    mut current: Local<ParallaxMappingMethod>,
+    mut current: Local<CurrentMethod>,
 ) {
     if input.just_pressed(KeyCode::Space) {
-        *current = match *current {
-            ParallaxMappingMethod::Relief { .. } => ParallaxMappingMethod::Occlusion,
-            ParallaxMappingMethod::Occlusion => ParallaxMappingMethod::Relief { max_steps: 5 },
-        }
+        current.next_method();
     } else {
         return;
     }
-    let method_name = match *current {
-        ParallaxMappingMethod::Relief { .. } => "Relief Mapping",
-        ParallaxMappingMethod::Occlusion => "Parallax Occlusion Mapping",
-    };
     let mut text = text.single_mut();
-    text.sections[2].value = format!("Method: {method_name}\n");
+    text.sections[2].value = format!("Method: {}\n", *current);
 
     for (_, mat) in materials.iter_mut() {
-        mat.parallax_mapping_method = *current;
+        mat.parallax_mapping_method = current.0;
     }
 }
 
@@ -133,7 +156,7 @@ fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>) {
     for (mut transform, spin) in query.iter_mut() {
         transform.rotate_local_y(spin.speed * time.delta_seconds());
         transform.rotate_local_x(spin.speed * time.delta_seconds());
-        transform.rotate_local_z(spin.speed * time.delta_seconds());
+        transform.rotate_local_z(-spin.speed * time.delta_seconds());
     }
 }
 
@@ -183,7 +206,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // The normal map. Note that to generate it in the GIMP image editor, you should
-    // open the bump map, and do Filters → Generic → Normal Map
+    // open the depth map, and do Filters → Generic → Normal Map
     // You should enable the "flip X" checkbox.
     let normal_handle = asset_server.load("textures/parallax_example/cube_normal.jpg");
     normal.0 = Some(normal_handle);
@@ -249,6 +272,7 @@ fn setup(
 
     let parallax_depth_scale = TargetDepth::default().0;
     let max_parallax_layer_count = TargetLayers::default().0.exp2();
+    let parallax_mapping_method = CurrentMethod::default();
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,
         base_color_texture: Some(asset_server.load("textures/parallax_example/cube_color.jpg")),
@@ -257,7 +281,7 @@ fn setup(
         // white the lowest.
         depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.jpg")),
         parallax_depth_scale,
-        parallax_mapping_method: ParallaxMappingMethod::DEFAULT_RELIEF_MAPPING,
+        parallax_mapping_method: parallax_mapping_method.0,
         max_parallax_layer_count,
         ..default()
     });
@@ -306,7 +330,7 @@ fn setup(
                 format!("Layers: {max_parallax_layer_count:.0}\n"),
                 style.clone(),
             ),
-            TextSection::new("Method: Relief Mapping\n", style.clone()),
+            TextSection::new(format!("{parallax_mapping_method}\n"), style.clone()),
             TextSection::new("\n\n", style.clone()),
             TextSection::new("Controls\n", style.clone()),
             TextSection::new("---------------\n", style.clone()),
