@@ -1745,7 +1745,7 @@ impl World {
     /// and system state is cached.
     ///
     /// For simple cases where you just need to call the schedule,
-    /// consider using [`World::try_run_schedule`] instead.
+    /// consider using [`World::try_run_schedule_ref`] instead.
     pub fn try_schedule_scope_ref<R>(
         &mut self,
         label: &dyn ScheduleLabel,
@@ -1775,11 +1775,11 @@ impl World {
     /// and system state is cached.
     ///
     /// For simple cases where you just need to call the schedule,
-    /// consider using [`World::try_run_schedule`] instead.
+    /// consider using [`World::run_schedule`] instead.
     ///
     /// # Panics
     ///
-    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
+    /// Panics if the requested schedule does not exist.
     pub fn schedule_scope<R>(
         &mut self,
         label: impl ScheduleLabel,
@@ -1797,11 +1797,11 @@ impl World {
     /// and system state is cached.
     ///
     /// For simple cases where you just need to call the schedule,
-    /// consider using [`World::try_run_schedule`] instead.
+    /// consider using [`World::run_schedule_ref`] instead.
     ///
     /// # Panics
     ///
-    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
+    /// Panics if the requested schedule does not exist.
     pub fn schedule_scope_ref<R>(
         &mut self,
         label: &dyn ScheduleLabel,
@@ -1850,7 +1850,7 @@ impl World {
     ///
     /// # Panics
     ///
-    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
+    /// Panics if the requested schedule does not exist.
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.run_schedule_ref(&label);
     }
@@ -1866,7 +1866,7 @@ impl World {
     ///
     /// # Panics
     ///
-    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
+    /// Panics if the requested schedule does not exist.
     pub fn run_schedule_ref(&mut self, label: &dyn ScheduleLabel) {
         self.schedule_scope_ref(label, |world, sched| sched.run(world));
     }
