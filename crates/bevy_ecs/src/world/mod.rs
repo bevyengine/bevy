@@ -1716,6 +1716,16 @@ impl World {
         schedules.insert(label, schedule);
     }
 
+    /// Temporarily removes the schedule associated with `label` from the world,
+    /// runs user code, and finally re-adds the schedule.
+    /// This returns a [`ScheduleNotFoundError`] if there is no schedule
+    /// associated with `label`.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple cases where you just need to call the schedule,
+    /// consider using [`World::try_run_schedule`] instead.
     pub fn try_schedule_scope<R>(
         &mut self,
         label: impl ScheduleLabel,
@@ -1724,6 +1734,18 @@ impl World {
         self.try_schedule_scope_ref(&label, f)
     }
 
+    /// Temporarily removes the schedule associated with `label` from the world,
+    /// runs user code, and finally re-adds the schedule.
+    /// This returns a [`ScheduleNotFoundError`] if there is no schedule
+    /// associated with `label`.
+    ///
+    /// Unlike the `try_run_schedule` method, this method takes the label by reference, which can save a clone.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple cases where you just need to call the schedule,
+    /// consider using [`World::try_run_schedule`] instead.
     pub fn try_schedule_scope_ref<R>(
         &mut self,
         label: &dyn ScheduleLabel,
@@ -1744,6 +1766,18 @@ impl World {
         Ok(value)
     }
 
+    /// Temporarily removes the schedule associated with `label` from the world,
+    /// runs user code, and finally re-adds the schedule.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple cases where you just need to call the schedule,
+    /// consider using [`World::try_run_schedule`] instead.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
     pub fn schedule_scope<R>(
         &mut self,
         label: impl ScheduleLabel,
@@ -1752,6 +1786,20 @@ impl World {
         self.schedule_scope_ref(&label, f)
     }
 
+    /// Temporarily removes the schedule associated with `label` from the world,
+    /// runs user code, and finally re-adds the schedule.
+    ///
+    /// Unlike the `try_run_schedule` method, this method takes the label by reference, which can save a clone.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple cases where you just need to call the schedule,
+    /// consider using [`World::try_run_schedule`] instead.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
     pub fn schedule_scope_ref<R>(
         &mut self,
         label: &dyn ScheduleLabel,
