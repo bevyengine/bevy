@@ -238,9 +238,11 @@ impl App {
     ///
     /// The active schedule of the app must be set before this method is called.
     pub fn update(&mut self) {
+        #[cfg(feature = "trace")]
+        let _bevy_frame_update_span = info_span!("frame").entered();
         {
             #[cfg(feature = "trace")]
-            let _bevy_frame_update_span = info_span!("main app").entered();
+            let _bevy_main_update_span = info_span!("main app").entered();
             self.world.run_schedule_ref(&*self.main_schedule_label);
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
