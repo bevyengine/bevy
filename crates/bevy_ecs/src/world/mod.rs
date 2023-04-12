@@ -1724,8 +1724,9 @@ impl World {
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
     /// and system state is cached.
     ///
-    /// For simple cases where you just need to call the schedule,
+    /// For simple cases where you just need to call the schedule once,
     /// consider using [`World::try_run_schedule`] instead.
+    /// For other use cases, see the example on [`World::schedule_scope`].
     pub fn try_schedule_scope<R>(
         &mut self,
         label: impl ScheduleLabel,
@@ -1744,8 +1745,9 @@ impl World {
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
     /// and system state is cached.
     ///
-    /// For simple cases where you just need to call the schedule,
+    /// For simple cases where you just need to call the schedule once,
     /// consider using [`World::try_run_schedule_ref`] instead.
+    /// For other use cases, see the example on [`World::schedule_scope`].
     pub fn try_schedule_scope_ref<R>(
         &mut self,
         label: &dyn ScheduleLabel,
@@ -1772,9 +1774,6 @@ impl World {
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
     /// and system state is cached.
     ///
-    /// For simple cases where you just need to call the schedule,
-    /// consider using [`World::run_schedule`] instead.
-    ///
     /// # Examples
     ///
     /// ```
@@ -1800,6 +1799,9 @@ impl World {
     /// # assert_eq!(world.resource::<Counter>().0, 5);
     /// ```
     ///
+    /// For simple cases where you just need to call the schedule once,
+    /// consider using [`World::run_schedule`] instead.
+    ///
     /// # Panics
     ///
     /// If the requested schedule does not exist.
@@ -1821,6 +1823,7 @@ impl World {
     ///
     /// For simple cases where you just need to call the schedule,
     /// consider using [`World::run_schedule_ref`] instead.
+    /// For other use cases, see the example on [`World::schedule_scope`].
     ///
     /// # Panics
     ///
