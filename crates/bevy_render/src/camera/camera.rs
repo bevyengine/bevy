@@ -555,6 +555,10 @@ pub fn camera_system<T: CameraProjection + Component>(
                 }
             }
         }
+
+        if camera.computed.old_viewport_size != viewport_size {
+            camera.computed.old_viewport_size = viewport_size;
+        }
     }
 }
 

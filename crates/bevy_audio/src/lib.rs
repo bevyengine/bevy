@@ -9,7 +9,7 @@
 //!    App::new()
 //!         .add_plugins(MinimalPlugins)
 //!         .add_plugin(AssetPlugin::default())
-//!         .add_plugin(AudioPlugin)
+//!         .add_plugin(AudioPlugin::default())
 //!         .add_systems(Startup, play_background_audio)
 //!         .run();
 //! }
@@ -20,6 +20,7 @@
 //! ```
 
 #![forbid(unsafe_code)]
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
 mod audio;
@@ -31,8 +32,8 @@ mod sinks;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Audio, AudioOutput, AudioSink, AudioSinkPlayback, AudioSource, Decodable, PlaybackSettings,
-        SpatialAudioSink,
+        Audio, AudioOutput, AudioSink, AudioSinkPlayback, AudioSource, Decodable, GlobalVolume,
+        PlaybackSettings, SpatialAudioSink,
     };
 }
 
@@ -52,7 +53,10 @@ use bevy_asset::{AddAsset, Asset};
 ///
 /// Use the [`Audio`] resource to play audio.
 #[derive(Default)]
-pub struct AudioPlugin;
+pub struct AudioPlugin {
+    /// The global volume for all audio sources with a [`Volume::Relative`] volume.
+    pub global_volume: GlobalVolume,
+}
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
@@ -61,6 +65,7 @@ impl Plugin for AudioPlugin {
             .add_asset::<AudioSink>()
             .add_asset::<SpatialAudioSink>()
             .init_resource::<Audio<AudioSource>>()
+            .insert_resource(self.global_volume)
             .add_systems(PostUpdate, play_queued_audio_system::<AudioSource>);
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]

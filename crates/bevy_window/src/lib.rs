@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 #[warn(missing_docs)]
 mod cursor;
 mod event;
