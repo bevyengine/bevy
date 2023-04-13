@@ -240,7 +240,7 @@ impl Command for RemoveParent {
     }
 }
 
-/// Struct for building children onto an entity
+/// Struct for building children entities and adding them to a parent entity
 pub struct ChildBuilder<'w, 's, 'a> {
     commands: &'a mut Commands<'w, 's>,
     push_children: PushChildren,
