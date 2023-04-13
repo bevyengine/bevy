@@ -307,6 +307,8 @@ pub trait BuildChildren {
     /// Sets the parent of this entity.
     fn set_parent(&mut self, parent: Entity) -> &mut Self;
     /// Removes the parent of this entity.
+    ///
+    /// Removing all children from a parent causes its [`Children`] component to be removed from the entity.
     fn remove_parent(&mut self) -> &mut Self;
 }
 
