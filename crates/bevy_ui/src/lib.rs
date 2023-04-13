@@ -53,6 +53,8 @@ pub struct UiPlugin;
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum UiSystem {
+    /// After this label, window events have been handled and windows have been associated to taffy nodes
+    Windows,
     /// After this label, removed ui nodes have been removed from the layout tree
     Removal,
     /// After this label, new ui nodes have been added to the layout tree
@@ -91,6 +93,7 @@ impl Plugin for UiPlugin {
             .init_resource::<FlexSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .init_resource::<UiViewport>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
@@ -154,6 +157,9 @@ impl Plugin for UiPlugin {
         .add_systems(
             PostUpdate,
             (
+                update_window_layouts
+                    .in_set(UiSystem::Windows)
+                    .before(UiSystem::Flex),
                 clean_up_removed_ui_nodes
                     .in_set(UiSystem::Removal)
                     .before(UiSystem::Insertion),

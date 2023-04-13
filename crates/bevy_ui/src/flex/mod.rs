@@ -16,7 +16,7 @@ use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
-use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
+use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{
     prelude::{AvailableSpace, Size},
@@ -31,21 +31,32 @@ pub struct Node {
     key: taffy::node::Node,
 }
 
+#[derive(Resource, Default)]
+pub struct UiViewport(pub Option<LayoutContext>);
+
 pub struct LayoutContext {
+    pub window_entity: Entity,
+    pub resized: bool,
     pub scale_factor: f64,
     pub physical_size: Vec2,
+    pub physical_to_logical_factor: f64,
+    pub scale_factor_changed: bool,
     pub min_size: f32,
     pub max_size: f32,
 }
 
 impl LayoutContext {
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
-    fn new(scale_factor: f64, physical_size: Vec2) -> Self {
+    fn new(scale_factor: f64, physical_size: Vec2, resized: bool, scale_factor_changed: bool, window_entity: Entity) -> Self {
         Self {
+            window_entity,
+            resized,
             scale_factor,
             physical_size,
             min_size: physical_size.x.min(physical_size.y),
             max_size: physical_size.x.max(physical_size.y),
+            physical_to_logical_factor: 1. / scale_factor,
+            scale_factor_changed,
         }
     }
 }
@@ -55,7 +66,6 @@ pub struct FlexSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
     window_nodes: HashMap<Entity, taffy::node::Node>,
     taffy: Taffy,
-    physical_to_logical_factor: f64,
 }
 
 // SAFETY: as long as MeasureFunc is Send + Sync. https://github.com/DioxusLabs/taffy/issues/146
@@ -83,7 +93,6 @@ impl Default for FlexSurface {
             entity_to_taffy: Default::default(),
             window_nodes: Default::default(),
             taffy: Taffy::new(),
-            physical_to_logical_factor: 1.0,
         }
     }
 }
@@ -161,7 +170,7 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    pub fn update_window(&mut self, window: Entity, window_resolution: &WindowResolution) {
+    pub fn update_window(&mut self, window: Entity, window_resolution: Vec2) {
         let taffy = &mut self.taffy;
         let node = self
             .window_nodes
@@ -174,10 +183,10 @@ without UI components as a child of an entity with UI components, results may be
                 taffy::style::Style {
                     size: taffy::geometry::Size {
                         width: taffy::style::Dimension::Points(
-                            window_resolution.physical_width() as f32
+                            window_resolution.x
                         ),
                         height: taffy::style::Dimension::Points(
-                            window_resolution.physical_height() as f32,
+                            window_resolution.y
                         ),
                     },
                     ..Default::default()
@@ -296,18 +305,13 @@ pub fn synchonise_children(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn flex_node_system(
-    primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    windows: Query<(Entity, &Window)>,
-    ui_scale: Res<UiScale>,
-    mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
+pub fn update_window_layouts(
     mut resize_events: EventReader<bevy_window::WindowResized>,
+    primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
     mut flex_surface: ResMut<FlexSurface>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    node_query: Query<(&Node, &Style, Option<&CalculatedSize>), Changed<Style>>,
-    full_node_query: Query<(&Node, &Style, Option<&CalculatedSize>)>,
-    changed_size_query: Query<(&Node, &Style, &CalculatedSize), Changed<CalculatedSize>>,
+    mut ui_viewport: ResMut<UiViewport>,
+    mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
 ) {
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -322,23 +326,37 @@ pub fn flex_node_system(
                 ),
             )
         } else {
+            ui_viewport.0 = None;
             return;
         };
+
+    // update window root nodes
+    flex_surface.update_window(primary_window_entity, physical_size);
 
     let resized = resize_events
         .iter()
         .any(|resized_window| resized_window.window == primary_window_entity);
-
-    // update window root nodes
-    for (entity, window) in windows.iter() {
-        flex_surface.update_window(entity, &window.resolution);
-    }
-
+    let scale_factor_changed = scale_factor_events.is_empty() || ui_scale.is_changed();
+    scale_factor_events.clear();
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
+    let context = LayoutContext::new(scale_factor, physical_size, resized, scale_factor_changed, primary_window_entity);
+    ui_viewport.0 = Some(context);
+    
+}
 
-    let viewport_values = LayoutContext::new(scale_factor, physical_size);
-    flex_surface.physical_to_logical_factor = 1. / logical_to_physical_factor;
-
+#[allow(clippy::too_many_arguments)]
+pub fn flex_node_system(
+    ui_viewport: ResMut<UiViewport>,
+    mut flex_surface: ResMut<FlexSurface>,
+    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    node_query: Query<(&Node, &Style, Option<&CalculatedSize>), Changed<Style>>,
+    full_node_query: Query<(&Node, &Style, Option<&CalculatedSize>)>,
+    changed_size_query: Query<(&Node, &Style, &CalculatedSize), Changed<CalculatedSize>>,
+) {
+    let Some(ref viewport_values) = ui_viewport.0 else {
+        return
+    };
+    
     fn update_changed<F: ReadOnlyWorldQuery>(
         flex_surface: &mut FlexSurface,
         viewport_values: &LayoutContext,
@@ -355,8 +373,8 @@ pub fn flex_node_system(
         }
     }
 
-    if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
-        scale_factor_events.clear();
+    if viewport_values.scale_factor_changed || viewport_values.resized {
+        
         update_changed(&mut flex_surface, &viewport_values, full_node_query);
     } else {
         update_changed(&mut flex_surface, &viewport_values, node_query);
@@ -367,7 +385,8 @@ pub fn flex_node_system(
     }
 
     // update window children (for now assuming all Nodes live in the primary window)
-    flex_surface.set_window_children(primary_window_entity, root_node_query.iter());
+    let window_entity = *flex_surface.window_nodes.keys().next().unwrap();
+    flex_surface.set_window_children(window_entity, root_node_query.iter());
 
     // compute layouts
     flex_surface.compute_window_layouts();
@@ -375,36 +394,39 @@ pub fn flex_node_system(
 
 pub fn update_ui_node_transforms(
     flex_surface: Res<FlexSurface>,
+    ui_viewport: ResMut<UiViewport>,
     mut node_transform_query: Query<(&Node, &mut NodeSize, &mut Transform)>,
 ) {
-    let to_logical = |v| (flex_surface.physical_to_logical_factor * v as f64) as f32;
+    if let Some(physical_to_logical_factor) = ui_viewport.0.as_ref().map(|context| context.physical_to_logical_factor) {
+        let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
-    // PERF: try doing this incrementally
-    for &primary_node in flex_surface.window_nodes.values() {
-        for (node, mut node_size, mut transform) in &mut node_transform_query {
-            let layout = flex_surface.taffy.layout(node.key).unwrap();
-            let new_size = Vec2::new(
-                to_logical(layout.size.width),
-                to_logical(layout.size.height),
-            );
-            // only trigger change detection when the new value is different
-            if node_size.calculated_size != new_size {
-                node_size.calculated_size = new_size;
-            }
-            let mut new_position = transform.translation;
-            new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-            new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
+        // PERF: try doing this incrementally
+        for &primary_node in flex_surface.window_nodes.values() {
+            for (node, mut node_size, mut transform) in &mut node_transform_query {
+                let layout = flex_surface.taffy.layout(node.key).unwrap();
+                let new_size = Vec2::new(
+                    to_logical(layout.size.width),
+                    to_logical(layout.size.height),
+                );
+                // only trigger change detection when the new value is different
+                if node_size.calculated_size != new_size {
+                    node_size.calculated_size = new_size;
+                }
+                let mut new_position = transform.translation;
+                new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
+                new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
 
-            let parent_key = flex_surface.taffy.parent(node.key).unwrap();
-            if parent_key != primary_node {
-                let parent_layout = flex_surface.taffy.layout(parent_key).unwrap();
-                new_position.x -= to_logical(parent_layout.size.width / 2.0);
-                new_position.y -= to_logical(parent_layout.size.height / 2.0);
-            }
+                let parent_key = flex_surface.taffy.parent(node.key).unwrap();
+                if parent_key != primary_node {
+                    let parent_layout = flex_surface.taffy.layout(parent_key).unwrap();
+                    new_position.x -= to_logical(parent_layout.size.width / 2.0);
+                    new_position.y -= to_logical(parent_layout.size.height / 2.0);
+                }
 
-            // only trigger change detection when the new value is different
-            if transform.translation != new_position {
-                transform.translation = new_position;
+                // only trigger change detection when the new value is different
+                if transform.translation != new_position {
+                    transform.translation = new_position;
+                }
             }
         }
     }
