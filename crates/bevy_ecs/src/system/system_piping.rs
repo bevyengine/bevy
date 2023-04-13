@@ -405,7 +405,7 @@ mod tests {
         assert!(info.second_flag);
 
         // When a change is made in the second system, the first system
-        // should it observe it the next time they are run.
+        // should observe it the next time they are run.
         let info1 = sys.run(
             Info {
                 do_second: true,
