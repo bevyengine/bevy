@@ -247,14 +247,17 @@ pub struct ChildBuilder<'w, 's, 'a> {
 }
 
 impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
-    /// Spawns an entity with the given bundle and inserts it into the children defined by the [`ChildBuilder`]
+    /// Spawns an entity with the given bundle and inserts it into the parent entity's [`Children`],
+    /// defined by the [`ChildBuilder`], later adding a [`Parent`] component to the created entity.
     pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'w, 's, '_> {
         let e = self.commands.spawn(bundle);
         self.push_children.children.push(e.id());
         e
     }
 
-    /// Spawns an [`Entity`] with no components and inserts it into the children defined by the [`ChildBuilder`] which adds the [`Parent`] component to it.
+    /// Spawns an [`Entity`] with no components and inserts it into the parent entity's [`Children`],
+    /// defined by the [`ChildBuilder`], later which adds the [`Parent`] component to the created
+    /// entity.
     pub fn spawn_empty(&mut self) -> EntityCommands<'w, 's, '_> {
         let e = self.commands.spawn_empty();
         self.push_children.children.push(e.id());
