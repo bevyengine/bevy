@@ -8,9 +8,8 @@ use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(movement)
-        .add_system(animate_light_direction)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (movement, animate_light_direction))
         .run();
 }
 
@@ -22,6 +21,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     // ground plane
     commands.spawn(PbrBundle {
@@ -60,6 +60,25 @@ fn setup(
         }),
         ..default()
     });
+
+    // Bevy logo to demonstrate alpha mask shadows
+    let mut transform = Transform::from_xyz(-2.2, 0.5, 1.0);
+    transform.rotate_y(PI / 8.);
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(2.0, 0.5)))),
+            transform,
+            material: materials.add(StandardMaterial {
+                base_color_texture: Some(asset_server.load("branding/bevy_logo_light.png")),
+                perceptual_roughness: 1.0,
+                alpha_mode: AlphaMode::Mask(0.5),
+                cull_mode: None,
+                ..default()
+            }),
+            ..default()
+        },
+        Movable,
+    ));
 
     // cube
     commands.spawn((
@@ -118,7 +137,7 @@ fn setup(
                 })),
                 material: materials.add(StandardMaterial {
                     base_color: Color::RED,
-                    emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
+                    emissive: Color::rgba_linear(7.13, 0.0, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -150,7 +169,7 @@ fn setup(
                 })),
                 material: materials.add(StandardMaterial {
                     base_color: Color::GREEN,
-                    emissive: Color::rgba_linear(0.0, 100.0, 0.0, 0.0),
+                    emissive: Color::rgba_linear(0.0, 7.13, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -178,7 +197,7 @@ fn setup(
                 })),
                 material: materials.add(StandardMaterial {
                     base_color: Color::BLUE,
-                    emissive: Color::rgba_linear(0.0, 0.0, 100.0, 0.0),
+                    emissive: Color::rgba_linear(0.0, 0.0, 7.13, 0.0),
                     ..default()
                 }),
                 ..default()

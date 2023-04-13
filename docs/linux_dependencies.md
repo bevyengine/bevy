@@ -162,3 +162,24 @@ When using a NVIDIA GPU with the proprietary driver (eg. `x11-drivers/nvidia-dri
 sudo swupd bundle-add devpkg-alsa-lib
 sudo swupd bundle-add devpkg-libgudev
 ```
+
+## [Alpine Linux](https://alpinelinux.org/)
+
+Run the following command to install `GNU C compiler, standard C development libraries, pkg-config, X11 development libraries, ALSA development libraries, eudev development libraries`:
+
+```sh
+sudo apk add gcc libc-dev pkgconf libx11-dev alsa-lib-dev eudev-dev
+```
+
+Install a GPU renderer for you graphics card. For Intel integrated GPUs:
+
+```sh
+sudo apk add mesa-vulkan-intel
+```
+
+If you have issues with `winit` such as `Failed to initialize backend!` or similar, try adding the following to your `~/.cargo/config.toml` (more information at the [issue #1818](https://github.com/rust-windowing/winit/issues/1818) of the [winit repository](https://github.com/rust-windowing/winit):
+
+```toml
+[build]
+rustflags = ["-C", "target-feature=-crt-static"]
+```

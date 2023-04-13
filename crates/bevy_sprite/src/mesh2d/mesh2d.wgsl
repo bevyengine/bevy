@@ -4,6 +4,10 @@
 // NOTE: Bindings must come before functions that use them!
 #import bevy_sprite::mesh2d_functions
 
+#ifdef TONEMAP_IN_SHADER
+#import bevy_core_pipeline::tonemapping
+#endif
+
 struct Vertex {
 #ifdef VERTEX_POSITIONS
     @location(0) position: vec3<f32>,
@@ -61,7 +65,11 @@ struct FragmentInput {
 @fragment
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef VERTEX_COLORS
-    return in.color;
+    var color = in.color;
+#ifdef TONEMAP_IN_SHADER
+    color = tone_mapping(color);
+#endif
+    return color;
 #else
     return vec4<f32>(1.0, 0.0, 1.0, 1.0);
 #endif

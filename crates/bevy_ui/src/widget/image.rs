@@ -1,11 +1,11 @@
 use crate::{CalculatedSize, Measure, UiImage};
 use bevy_asset::Assets;
-use bevy_ecs::{
-    query::Without,
-    system::{Query, Res},
-};
+#[cfg(feature = "bevy_text")]
+use bevy_ecs::query::Without;
+use bevy_ecs::system::{Query, Res};
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
+#[cfg(feature = "bevy_text")]
 use bevy_text::Text;
 use taffy::prelude::AvailableSpace;
 
@@ -49,7 +49,8 @@ impl Measure for ImageMeasure {
 /// Updates calculated size of the node based on the image provided
 pub fn update_image_calculated_size_system(
     textures: Res<Assets<Image>>,
-    mut query: Query<(&mut CalculatedSize, &UiImage), Without<Text>>,
+    #[cfg(feature = "bevy_text")] mut query: Query<(&mut CalculatedSize, &UiImage), Without<Text>>,
+    #[cfg(not(feature = "bevy_text"))] mut query: Query<(&mut CalculatedSize, &UiImage)>,
 ) {
     for (mut calculated_size, image) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
