@@ -530,4 +530,18 @@ mod tests {
         );
         assert_eq!(Size::default(), Size::DEFAULT);
     }
+
+    #[test]
+    fn test_uirect_axes() {
+        let x = Val::Px(1.);
+        let y = Val::Vw(4.);
+        let r = UiRect::axes(x, y);
+        let h = UiRect::horizontal(x);
+        let v = UiRect::vertical(y);
+        
+        assert_eq!(r.top, v.top);
+        assert_eq!(r.bottom, v.bottom);
+        assert_eq!(r.left, h.left);
+        assert_eq!(r.right, h.right);
+    }
 }
