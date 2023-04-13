@@ -73,22 +73,24 @@ where
 /// This trait is blanket implemented for all system pairs that fulfill the type requirements.
 ///
 /// See [`PipeSystem`].
-pub trait IntoPipeSystem<ParamA, Payload, SystemB, ParamB, Out>:
-    IntoSystem<(), Payload, ParamA> + Sized
-where
-    SystemB: IntoSystem<Payload, Out, ParamB>,
-{
+pub trait IntoPipeSystem<In, Payload, Marker>: IntoSystem<In, Payload, Marker> + Sized {
     /// Pass the output of this system `A` into a second system `B`, creating a new compound system.
-    fn pipe(self, system: SystemB) -> PipeSystem<Self::System, SystemB::System>;
+    fn pipe<B, Out, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
+    where
+        B: IntoSystem<Payload, Out, MarkerB>;
 }
 
-impl<SystemA, ParamA, Payload, SystemB, ParamB, Out>
-    IntoPipeSystem<ParamA, Payload, SystemB, ParamB, Out> for SystemA
+impl<In, Payload, MarkerA, SystemA> IntoPipeSystem<In, Payload, MarkerA> for SystemA
 where
-    SystemA: IntoSystem<(), Payload, ParamA>,
-    SystemB: IntoSystem<Payload, Out, ParamB>,
+    SystemA: IntoSystem<In, Payload, MarkerA>,
 {
-    fn pipe(self, system: SystemB) -> PipeSystem<SystemA::System, SystemB::System> {
+    fn pipe<SystemB, Out, MarkerB>(
+        self,
+        system: SystemB,
+    ) -> PipeSystem<SystemA::System, SystemB::System>
+    where
+        SystemB: IntoSystem<Payload, Out, MarkerB>,
+    {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);
         let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
