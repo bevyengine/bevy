@@ -90,10 +90,10 @@ impl Default for UiScale {
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
-            .init_resource::<FlexSurface>()
+            .init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
-            .init_resource::<UiViewport>()
+            .init_resource::<UiContext>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
@@ -169,7 +169,7 @@ impl Plugin for UiPlugin {
                 synchonise_children
                     .in_set(UiSystem::Children)
                     .before(UiSystem::Flex),
-                flex_node_system
+                update_ui_layout
                     .in_set(UiSystem::Flex)
                     .before(UiSystem::Transforms),
                 update_ui_node_transforms
