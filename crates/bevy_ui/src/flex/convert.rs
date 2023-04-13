@@ -212,8 +212,6 @@ impl From<FlexWrap> for taffy::style::FlexWrap {
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::world::World;
-
     use super::*;
 
     #[test]
@@ -277,7 +275,6 @@ mod tests {
             bevy_math::Vec2::new(800., 600.),
             false,
             false,
-            World::new().spawn_empty().id(),
         );
         let taffy_style = from_style(&viewport_values, &bevy_style);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
@@ -413,7 +410,6 @@ mod tests {
             bevy_math::Vec2::new(800., 600.),
             false,
             false,
-            World::new().spawn_empty().id(),
         );
         let cases = [
             (Val::Auto, LengthPercentage::Points(0.)),
