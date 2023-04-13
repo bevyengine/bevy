@@ -208,7 +208,7 @@ fn setup(
     // The normal map. Note that to generate it in the GIMP image editor, you should
     // open the depth map, and do Filters → Generic → Normal Map
     // You should enable the "flip X" checkbox.
-    let normal_handle = asset_server.load("textures/parallax_example/cube_normal.jpg");
+    let normal_handle = asset_server.load("textures/parallax_example/cube_normal.png");
     normal.0 = Some(normal_handle);
 
     // Camera
@@ -275,11 +275,11 @@ fn setup(
     let parallax_mapping_method = CurrentMethod::default();
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,
-        base_color_texture: Some(asset_server.load("textures/parallax_example/cube_color.jpg")),
+        base_color_texture: Some(asset_server.load("textures/parallax_example/cube_color.png")),
         normal_map_texture: normal.0.clone(),
         // The depth map is a greyscale texture where black is the highest level and
         // white the lowest.
-        depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.jpg")),
+        depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.png")),
         parallax_depth_scale,
         parallax_mapping_method: parallax_mapping_method.0,
         max_parallax_layer_count,

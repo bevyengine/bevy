@@ -564,7 +564,6 @@ wasm = true
 [[example]]
 name = "parallax_mapping"
 path = "examples/3d/parallax_mapping.rs"
-required-features = [ "jpeg" ]
 
 [package.metadata.example.parallax_mapping]
 name = "Parallax Mapping"
