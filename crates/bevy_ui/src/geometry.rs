@@ -164,6 +164,29 @@ impl UiRect {
         }
     }
 
+    /// Creates a new [`UiRect`] where both `left` and `right` take the value of `horizontal`, and both `top` and `bottom` take the value of `vertical`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::axes(Val::Px(10.0), Val::Percent(15.0));
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(10.0));
+    /// assert_eq!(ui_rect.right, Val::Px(10.0));
+    /// assert_eq!(ui_rect.top, Val::Percent(15.0));
+    /// assert_eq!(ui_rect.bottom, Val::Percent(15.0));
+    /// ```
+    pub fn axes(horizontal: Val, vertical: Val) -> Self {
+        UiRect {
+            left: horizontal,
+            right: horizontal,
+            top: vertical,
+            bottom: vertical,
+        }
+    }
+
     /// Creates a new [`UiRect`] where `left` takes the given value, and
     /// the other fields are set to `Val::Px(0.)`.
     ///
@@ -506,5 +529,19 @@ mod tests {
             }
         );
         assert_eq!(Size::default(), Size::DEFAULT);
+    }
+
+    #[test]
+    fn test_uirect_axes() {
+        let x = Val::Px(1.);
+        let y = Val::Vw(4.);
+        let r = UiRect::axes(x, y);
+        let h = UiRect::horizontal(x);
+        let v = UiRect::vertical(y);
+
+        assert_eq!(r.top, v.top);
+        assert_eq!(r.bottom, v.bottom);
+        assert_eq!(r.left, h.left);
+        assert_eq!(r.right, h.right);
     }
 }
