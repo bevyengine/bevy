@@ -1,18 +1,23 @@
 use std::fmt::Debug;
 
 use crate::{
-    resource::GlobalEntropy,
-    thread_local_entropy::ThreadLocalEntropy,
-    traits::{EntropySource, SeedableEntropySource},
+    resource::GlobalEntropy, thread_local_entropy::ThreadLocalEntropy,
+    traits::SeedableEntropySource,
 };
-use bevy_ecs::{prelude::Component, system::ResMut, world::Mut};
+use bevy_ecs::{
+    prelude::{Component, ReflectComponent},
+    system::ResMut,
+    world::Mut,
+};
 use rand_core::{RngCore, SeedableRng};
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{
+    FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
+};
 
 /// An [`EntropyComponent`] that wraps a random number generator that implements
 /// [`RngCore`] & [`SeedableRng`].
@@ -105,11 +110,15 @@ use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
-    reflect_value(Debug, PartialEq, Serialize, Deserialize)
+    reflect_value(Debug, PartialEq, Component, FromReflect, Serialize, Deserialize)
 )]
-pub struct EntropyComponent<R: EntropySource + 'static>(R);
+#[cfg_attr(
+    all(not(feature = "serialize"), feature = "bevy_reflect"),
+    reflect_value(Debug, PartialEq, Component, FromReflect)
+)]
+pub struct EntropyComponent<R: SeedableEntropySource + 'static>(R);
 
-impl<R: EntropySource + 'static> EntropyComponent<R> {
+impl<R: SeedableEntropySource + 'static> EntropyComponent<R> {
     /// Create a new component from an `RngCore` instance.
     #[inline]
     #[must_use]
@@ -144,7 +153,7 @@ impl<R: SeedableEntropySource + 'static> Default for EntropyComponent<R> {
     }
 }
 
-impl<R: EntropySource + 'static> RngCore for EntropyComponent<R> {
+impl<R: SeedableEntropySource + 'static> RngCore for EntropyComponent<R> {
     #[inline]
     fn next_u32(&mut self) -> u32 {
         self.0.next_u32()
@@ -174,7 +183,7 @@ impl<R: SeedableEntropySource + 'static> SeedableRng for EntropyComponent<R> {
     }
 }
 
-impl<R: EntropySource + 'static> From<R> for EntropyComponent<R> {
+impl<R: SeedableEntropySource + 'static> From<R> for EntropyComponent<R> {
     fn from(value: R) -> Self {
         Self::new(value)
     }

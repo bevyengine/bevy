@@ -1,14 +1,16 @@
 use std::fmt::Debug;
 
-use crate::traits::{EntropySource, SeedableEntropySource};
-use bevy_ecs::prelude::Resource;
+use crate::traits::SeedableEntropySource;
+use bevy_ecs::prelude::{ReflectResource, Resource};
 use rand_core::{RngCore, SeedableRng};
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{
+    FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
+};
 
 /// A Global [`RngCore`] instance, meant for use as a Resource. Gets
 /// created automatically with [`crate::plugin::EntropyPlugin`], or
@@ -35,11 +37,15 @@ use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
-    reflect_value(Debug, PartialEq, Serialize, Deserialize)
+    reflect_value(Debug, PartialEq, Resource, FromReflect, Serialize, Deserialize)
 )]
-pub struct GlobalEntropy<R: EntropySource + 'static>(R);
+#[cfg_attr(
+    all(not(feature = "serialize"), feature = "bevy_reflect"),
+    reflect_value(Debug, PartialEq, Resource, FromReflect)
+)]
+pub struct GlobalEntropy<R: SeedableEntropySource + 'static>(R);
 
-impl<R: EntropySource + 'static> GlobalEntropy<R> {
+impl<R: SeedableEntropySource + 'static> GlobalEntropy<R> {
     /// Create a new resource from a `RngCore` instance.
     #[inline]
     #[must_use]
@@ -73,7 +79,7 @@ impl<R: SeedableEntropySource + 'static> Default for GlobalEntropy<R> {
     }
 }
 
-impl<R: EntropySource + 'static> RngCore for GlobalEntropy<R> {
+impl<R: SeedableEntropySource + 'static> RngCore for GlobalEntropy<R> {
     #[inline]
     fn next_u32(&mut self) -> u32 {
         self.0.next_u32()
@@ -103,7 +109,7 @@ impl<R: SeedableEntropySource + 'static> SeedableRng for GlobalEntropy<R> {
     }
 }
 
-impl<R: EntropySource + 'static> From<R> for GlobalEntropy<R> {
+impl<R: SeedableEntropySource + 'static> From<R> for GlobalEntropy<R> {
     fn from(value: R) -> Self {
         Self::new(value)
     }
