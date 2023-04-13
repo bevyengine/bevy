@@ -336,7 +336,7 @@ pub fn update_window_layouts(
     let resized = resize_events
         .iter()
         .any(|resized_window| resized_window.window == primary_window_entity);
-    let scale_factor_changed = scale_factor_events.is_empty() || ui_scale.is_changed();
+    let scale_factor_changed = !scale_factor_events.is_empty() || ui_scale.is_changed();
     scale_factor_events.clear();
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
     let context = LayoutContext::new(scale_factor, physical_size, resized, scale_factor_changed, primary_window_entity);
@@ -374,7 +374,6 @@ pub fn flex_node_system(
     }
 
     if viewport_values.scale_factor_changed || viewport_values.resized {
-        
         update_changed(&mut flex_surface, &viewport_values, full_node_query);
     } else {
         update_changed(&mut flex_surface, &viewport_values, node_query);
