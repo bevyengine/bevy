@@ -311,7 +311,6 @@ pub fn update_window_layouts(
     mut resize_events: EventReader<bevy_window::WindowResized>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
-    mut flex_surface: ResMut<FlexSurface>,
     mut ui_viewport: ResMut<UiViewport>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
 ) {
@@ -331,9 +330,6 @@ pub fn update_window_layouts(
             ui_viewport.0 = None;
             return;
         };
-
-    // update window root nodes
-    flex_surface.update_window(primary_window_entity, physical_size);
 
     let resized = resize_events
         .iter()
@@ -390,9 +386,11 @@ pub fn flex_node_system(
         flex_surface.update_leaf(node.key, style, *calculated_size, &viewport_values);
     }
 
-    // update window children (for now assuming all Nodes live in the primary window)
-    let window_entity = *flex_surface.window_nodes.keys().next().unwrap();
-    flex_surface.set_window_children(window_entity, root_node_query.iter());
+    // update window root nodes
+    flex_surface.update_window(viewport_values.window_entity, viewport_values.physical_size);
+
+    // update window children 
+    flex_surface.set_window_children(viewport_values.window_entity, root_node_query.iter());
 
     // compute layouts
     flex_surface.compute_window_layouts();
@@ -403,41 +401,42 @@ pub fn update_ui_node_transforms(
     ui_viewport: ResMut<UiViewport>,
     mut node_transform_query: Query<(&Node, &mut NodeSize, &mut Transform)>,
 ) {
-    if let Some(physical_to_logical_factor) = ui_viewport
+    let Some((primary_window, physical_to_logical_factor)) = ui_viewport
         .0
         .as_ref()
-        .map(|context| context.physical_to_logical_factor)
-    {
-        let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
+        .map(|context| (context.window_entity, context.physical_to_logical_factor))
+    else {
+        return;
+    };
 
-        // PERF: try doing this incrementally
-        for &primary_node in flex_surface.window_nodes.values() {
-            for (node, mut node_size, mut transform) in &mut node_transform_query {
-                let layout = flex_surface.taffy.layout(node.key).unwrap();
-                let new_size = Vec2::new(
-                    to_logical(layout.size.width),
-                    to_logical(layout.size.height),
-                );
-                // only trigger change detection when the new value is different
-                if node_size.calculated_size != new_size {
-                    node_size.calculated_size = new_size;
-                }
-                let mut new_position = transform.translation;
-                new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-                new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
+    let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
+    let primary_node = *flex_surface.window_nodes.get(&primary_window).unwrap();
+    
+    // PERF: try doing this incrementally
+    for (node, mut node_size, mut transform) in &mut node_transform_query {
+        let layout = flex_surface.taffy.layout(node.key).unwrap();
+        let new_size = Vec2::new(
+            to_logical(layout.size.width),
+            to_logical(layout.size.height),
+        );
+        // only trigger change detection when the new value is different
+        if node_size.calculated_size != new_size {
+            node_size.calculated_size = new_size;
+        }
+        let mut new_position = transform.translation;
+        new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
+        new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
 
-                let parent_key = flex_surface.taffy.parent(node.key).unwrap();
-                if parent_key != primary_node {
-                    let parent_layout = flex_surface.taffy.layout(parent_key).unwrap();
-                    new_position.x -= to_logical(parent_layout.size.width / 2.0);
-                    new_position.y -= to_logical(parent_layout.size.height / 2.0);
-                }
+        let parent_key = flex_surface.taffy.parent(node.key).unwrap();
+        if parent_key != primary_node {
+            let parent_layout = flex_surface.taffy.layout(parent_key).unwrap();
+            new_position.x -= to_logical(parent_layout.size.width / 2.0);
+            new_position.y -= to_logical(parent_layout.size.height / 2.0);
+        }
 
-                // only trigger change detection when the new value is different
-                if transform.translation != new_position {
-                    transform.translation = new_position;
-                }
-            }
+        // only trigger change detection when the new value is different
+        if transform.translation != new_position {
+            transform.translation = new_position;
         }
     }
 }
