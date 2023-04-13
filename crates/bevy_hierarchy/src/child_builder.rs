@@ -25,6 +25,7 @@ fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
     }
 }
 
+/// Sets [`Parent`] of the `child` to `new_parent`. Inserts [`Parent`] if `child` doesn't have one
 fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option<Entity> {
     let mut child = world.entity_mut(child);
     if let Some(mut parent) = child.get_mut::<Parent>() {
