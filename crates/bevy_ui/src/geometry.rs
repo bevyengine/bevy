@@ -538,7 +538,7 @@ mod tests {
         let r = UiRect::axes(x, y);
         let h = UiRect::horizontal(x);
         let v = UiRect::vertical(y);
-        
+
         assert_eq!(r.top, v.top);
         assert_eq!(r.bottom, v.bottom);
         assert_eq!(r.left, h.left);
