@@ -307,10 +307,7 @@ pub fn flex_node_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     node_query: Query<(&Node, &Style, Option<&CalculatedSize>), Changed<Style>>,
     full_node_query: Query<(&Node, &Style, Option<&CalculatedSize>)>,
-    changed_size_query: Query<
-        (&Node, &Style, &CalculatedSize),
-        Changed<CalculatedSize>,
-    >,
+    changed_size_query: Query<(&Node, &Style, &CalculatedSize), Changed<CalculatedSize>>,
 ) {
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -368,8 +365,6 @@ pub fn flex_node_system(
     for (node, style, calculated_size) in &changed_size_query {
         flex_surface.update_leaf(node.key, style, *calculated_size, &viewport_values);
     }
-
-    
 
     // update window children (for now assuming all Nodes live in the primary window)
     flex_surface.set_window_children(primary_window_entity, root_node_query.iter());
