@@ -1,6 +1,6 @@
 //! Shows how to create a custom `Decodable` type by implementing a Sine wave.
-//! ***WARNING THIS EXAMPLE IS VERY LOUD.*** Turn your volume down.
 use bevy::audio::AddAudioSource;
+use bevy::audio::AudioPlugin;
 use bevy::audio::Source;
 use bevy::prelude::*;
 use bevy::reflect::TypeUuid;
@@ -85,10 +85,12 @@ impl Decodable for SineAudio {
 fn main() {
     let mut app = App::new();
     // register the audio source so that it can be used
-    app.add_plugins(DefaultPlugins)
-        .add_audio_source::<SineAudio>()
-        .add_systems(Startup, setup)
-        .run();
+    app.add_plugins(DefaultPlugins.set(AudioPlugin {
+        global_volume: GlobalVolume::new(0.2),
+    }))
+    .add_audio_source::<SineAudio>()
+    .add_systems(Startup, setup)
+    .run();
 }
 
 fn setup(mut assets: ResMut<Assets<SineAudio>>, audio: Res<Audio<SineAudio>>) {

@@ -1,6 +1,7 @@
 //! Animation for the game engine Bevy
 
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 use std::ops::Deref;
 use std::time::Duration;
@@ -543,7 +544,7 @@ fn update_transitions(player: &mut AnimationPlayer, time: &Time) {
 
 /// Adds animation support to an app
 #[derive(Default)]
-pub struct AnimationPlugin {}
+pub struct AnimationPlugin;
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {

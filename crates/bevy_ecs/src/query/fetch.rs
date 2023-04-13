@@ -41,7 +41,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///   Similar to change detection filters but it is used as a query fetch parameter.
 ///   It exposes methods to check for changes to the wrapped component.
 ///
-/// Implementing the trait manually can allow for a fundamentally new type of behaviour.
+/// Implementing the trait manually can allow for a fundamentally new type of behavior.
 ///
 /// # Trait derivation
 ///
@@ -55,8 +55,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// - Methods can be implemented for the query items.
 /// - There is no hardcoded limit on the number of elements.
 ///
-/// This trait can only be derived if each field also implements `WorldQuery`.
-/// The derive macro only supports regular structs (structs with named fields).
+/// This trait can only be derived for structs, if each field also implements `WorldQuery`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -551,6 +550,7 @@ unsafe impl<T: Component> WorldQuery for &T {
 
     const IS_ARCHETYPAL: bool = true;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
@@ -696,6 +696,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 
     const IS_ARCHETYPAL: bool = true;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
@@ -857,6 +858,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
     const IS_ARCHETYPAL: bool = true;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
@@ -1001,6 +1003,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 
     const IS_ARCHETYPAL: bool = T::IS_ARCHETYPAL;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         state: &T::State,
@@ -1105,6 +1108,7 @@ macro_rules! impl_tuple_fetch {
                 )*)
             }
 
+            #[inline]
             #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
@@ -1214,6 +1218,7 @@ macro_rules! impl_anytuple_fetch {
                 )*)
             }
 
+            #[inline]
             #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
@@ -1468,10 +1473,36 @@ unsafe impl<T: ?Sized> ReadOnlyWorldQuery for PhantomData<T> {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{self as bevy_ecs, system::Query};
+    use crate::{
+        self as bevy_ecs,
+        system::{assert_is_system, Query},
+    };
 
     #[derive(Component)]
     pub struct A;
+
+    #[derive(Component)]
+    pub struct B;
+
+    // Tests that each variant of struct can be used as a `WorldQuery`.
+    #[test]
+    fn world_query_struct_variants() {
+        #[derive(WorldQuery)]
+        pub struct NamedQuery {
+            id: Entity,
+            a: &'static A,
+        }
+
+        #[derive(WorldQuery)]
+        pub struct TupleQuery(&'static A, &'static B);
+
+        #[derive(WorldQuery)]
+        pub struct UnitQuery;
+
+        fn my_system(_: Query<(NamedQuery, TupleQuery, UnitQuery)>) {}
+
+        assert_is_system(my_system);
+    }
 
     // Compile test for https://github.com/bevyengine/bevy/pull/8030.
     #[test]

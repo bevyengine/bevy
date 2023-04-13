@@ -108,10 +108,7 @@ fn toggle_ime(
     if input.just_pressed(MouseButton::Left) {
         let mut window = windows.single_mut();
 
-        window.ime_position = window
-            .cursor_position()
-            .map(|p| Vec2::new(p.x, window.height() - p.y))
-            .unwrap();
+        window.ime_position = window.cursor_position().unwrap();
         window.ime_enabled = !window.ime_enabled;
 
         let mut text = text.single_mut();

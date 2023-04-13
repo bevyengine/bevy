@@ -154,6 +154,13 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
+    /// Removes the measure from the entity's taffy node if it exists. Does nothing otherwise.
+    pub fn try_remove_measure(&mut self, entity: Entity) {
+        if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
+            self.taffy.set_measure(*taffy_node, None).unwrap();
+        }
+    }
+
     pub fn update_window(&mut self, window: Entity, window_resolution: &WindowResolution) {
         let taffy = &mut self.taffy;
         let node = self
@@ -245,9 +252,15 @@ pub fn clean_up_removed_ui_nodes(
     mut commands: Commands,
     mut flex_surface: ResMut<FlexSurface>,
     mut removed_nodes: RemovedComponents<Node>,
+    mut removed_calculated_sizes: RemovedComponents<CalculatedSize>,
 ) {
     // clean up removed nodes
     flex_surface.remove_entities(removed_nodes.iter(), &mut commands);
+
+    // When a `CalculatedSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    for entity in removed_calculated_sizes.iter() {
+        flex_surface.try_remove_measure(entity);
+    }
 }
 
 /// Insert a new taffy node into the layout for any entity that a `Node` component added.
@@ -294,7 +307,10 @@ pub fn flex_node_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     node_query: Query<(&Node, &Style, Option<&CalculatedSize>), Changed<Style>>,
     full_node_query: Query<(&Node, &Style, Option<&CalculatedSize>)>,
-    changed_size_query: Query<(&Node, &Style, &CalculatedSize), Changed<CalculatedSize>>,
+    changed_size_query: Query<
+        (&Node, &Style, &CalculatedSize),
+        Changed<CalculatedSize>,
+    >,
 ) {
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -349,9 +365,11 @@ pub fn flex_node_system(
         update_changed(&mut flex_surface, &viewport_values, node_query);
     }
 
-    for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.update_leaf(entity.key, style, *calculated_size, &viewport_values);
+    for (node, style, calculated_size) in &changed_size_query {
+        flex_surface.update_leaf(node.key, style, *calculated_size, &viewport_values);
     }
+
+    
 
     // update window children (for now assuming all Nodes live in the primary window)
     flex_surface.set_window_children(primary_window_entity, root_node_query.iter());

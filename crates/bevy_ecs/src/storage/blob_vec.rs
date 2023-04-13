@@ -244,6 +244,7 @@ impl BlobVec {
     /// Newly added items must be immediately populated with valid values and length must be
     /// increased. For better unwind safety, call [`BlobVec::set_len`] _after_ populating a new
     /// value.
+    #[inline]
     pub unsafe fn set_len(&mut self, len: usize) {
         debug_assert!(len <= self.capacity());
         self.len = len;
