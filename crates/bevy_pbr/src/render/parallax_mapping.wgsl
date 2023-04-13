@@ -1,7 +1,17 @@
 #define_import_path bevy_pbr::parallax_mapping
 
 fn sample_depth_map(uv: vec2<f32>) -> f32 {
-    return textureSample(depth_map_texture, depth_map_sampler, uv).r;
+    // We use `textureSampleLevel` over `textureSample` because the wgpu DX12
+    // backend (Fxc) panics when using "gradient instructions" inside a loop.
+    // It results in the whole loop being unrolled by the shader compiler,
+    // which it can't do because the upper limit of the loop in steep parallax
+    // mapping is a variable set by the user.
+    // The "gradient instructions" comes from `textureSample` computing MIP level
+    // based on UV derivative. With `textureSampleLevel`, we provide ourselves
+    // the MIP level, so no gradient instructions are used, and we can use
+    // sample_depth_map in our loop.
+    // See https://stackoverflow.com/questions/56581141/direct3d11-gradient-instruction-used-in-a-loop-with-varying-iteration-forcing
+    return textureSampleLevel(depth_map_texture, depth_map_sampler, uv, 0.0).r;
 }
 
 // An implementation of parallax mapping, see https://en.wikipedia.org/wiki/Parallax_mapping
