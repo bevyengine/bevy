@@ -57,7 +57,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter, Layer};
 ///         .add_plugins(DefaultPlugins.set(LogPlugin {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
-///             layer: Box::new(|| Box::new(bevy::log::tracing_subscriber::fmt::layer().pretty().without_time())),
+///             layer: Box::new(|| Box::new(tracing_subscriber::fmt::layer().pretty().without_time())),
 ///         }))
 ///         .run();
 /// }
