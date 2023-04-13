@@ -33,9 +33,10 @@ pub use bevy_utils::tracing::{
 
 use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
+pub use tracing_subscriber;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
-use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
+use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter, Layer};
 
 /// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a collector appropriate to your target platform:
@@ -56,6 +57,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///         .add_plugins(DefaultPlugins.set(LogPlugin {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
+///             layer: Box::new(|| Box::new(bevy::log::tracing_subscriber::fmt::layer().pretty().without_time())),
 ///         }))
 ///         .run();
 /// }
@@ -92,6 +94,11 @@ pub struct LogPlugin {
     /// Filters out logs that are "less than" the given level.
     /// This can be further filtered using the `filter` setting.
     pub level: Level,
+
+    /// Allows user-defined tracing subscriber layer rather than default formatting.
+    /// See also: [`tracing_subscriber::fmt::Subscriber`]
+    pub layer:
+        Box<dyn (Fn() -> Box<dyn Layer<tracing_subscriber::Registry> + Send + Sync>) + Send + Sync>,
 }
 
 impl Default for LogPlugin {
@@ -99,6 +106,10 @@ impl Default for LogPlugin {
         Self {
             filter: "wgpu=error".to_string(),
             level: Level::INFO,
+            layer: Box::new(|| {
+                #[allow(clippy::box_default)]
+                Box::new(tracing_subscriber::fmt::Layer::default())
+            }),
         }
     }
 }
@@ -117,10 +128,23 @@ impl Plugin for LogPlugin {
 
         let finished_subscriber;
         let default_filter = { format!("{},{}", self.level, self.filter) };
+        let fmt_layer = (self.layer)();
+
+        // bevy_render::renderer logs a `tracy.frame_mark` event every frame
+        // at Level::INFO. Formatted logs should omit it.
+        #[cfg(feature = "tracing-tracy")]
+        let fmt_layer = fmt_layer.with_filter(tracing_subscriber::filter::FilterFn::new(|meta| {
+            meta.fields().field("tracy.frame_mark").is_none()
+        }));
+
         let filter_layer = EnvFilter::try_from_default_env()
-            .or_else(|_| EnvFilter::try_new(&default_filter))
+            .or_else(|_| {
+                println!("Using non-default filter");
+                EnvFilter::try_new(&default_filter)
+            })
             .unwrap();
-        let subscriber = Registry::default().with(filter_layer);
+
+        let subscriber = Registry::default().with(fmt_layer).with(filter_layer);
 
         #[cfg(feature = "trace")]
         let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
@@ -153,18 +177,6 @@ impl Plugin for LogPlugin {
 
             #[cfg(feature = "tracing-tracy")]
             let tracy_layer = tracing_tracy::TracyLayer::new();
-
-            let fmt_layer = tracing_subscriber::fmt::Layer::default();
-
-            // bevy_render::renderer logs a `tracy.frame_mark` event every frame
-            // at Level::INFO. Formatted logs should omit it.
-            #[cfg(feature = "tracing-tracy")]
-            let fmt_layer =
-                fmt_layer.with_filter(tracing_subscriber::filter::FilterFn::new(|meta| {
-                    meta.fields().field("tracy.frame_mark").is_none()
-                }));
-
-            let subscriber = subscriber.with(fmt_layer);
 
             #[cfg(feature = "tracing-chrome")]
             let subscriber = subscriber.with(chrome_layer);
