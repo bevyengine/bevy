@@ -287,8 +287,6 @@ pub struct Style {
     ///   - [`Display::None`]: Hide this node and perform layout as if it does not exist.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/display>
-    ///
-    /// &nbsp;
     pub display: Display,
 
     /// Whether a node should be laid out in-flow with, or independently of it's siblings:
@@ -296,23 +294,17 @@ pub struct Style {
     ///  - [`PositionType::Absolute`]: Layout this node on top and independently of other nodes.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/position>
-    ///
-    /// &nbsp;
     pub position_type: PositionType,
 
     /// Whether overflowing content should be displayed or clipped.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
-    ///
-    /// &nbsp;
     pub overflow: Overflow,
 
     /// Defines the text direction. For example English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
     ///
     /// Note: the corresponding CSS property also affects box layout order, but this isn't yet implemented in bevy.
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/direction>
-    ///
-    /// &nbsp;
     pub direction: Direction,
 
     /// The horizontal position of the left edge of the node.
@@ -320,8 +312,6 @@ pub struct Style {
     ///  - For absolutely positioned nodes, this is relative to the *parent* node's bounding box.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/left>
-    ///
-    /// &nbsp;
     pub left: Val,
 
     /// The horizontal position of the right edge of the node.
@@ -329,8 +319,6 @@ pub struct Style {
     ///  - For absolutely positioned nodes, this is relative to the *parent* node's bounding box.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/right>
-    ///
-    /// &nbsp;
     pub right: Val,
 
     /// The vertical position of the top edge of the node.
@@ -338,8 +326,6 @@ pub struct Style {
     ///  - For absolutely positioned nodes, this is relative to the *parent* node's bounding box.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/top>
-    ///
-    /// &nbsp;
     pub top: Val,
 
     /// The vertical position of the bottom edge of the node.
@@ -347,8 +333,6 @@ pub struct Style {
     ///  - For absolutely positioned nodes, this is relative to the *parent* node's bounding box.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/bottom>
-    ///
-    /// &nbsp;
     pub bottom: Val,
 
     /// The ideal size of the node
@@ -358,8 +342,6 @@ pub struct Style {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/width> <br />
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/height>
-    ///
-    /// &nbsp;
     pub size: Size,
 
     /// The minimum size of the node
@@ -369,8 +351,6 @@ pub struct Style {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/min-width> <br />
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/min-height>
-    ///
-    /// &nbsp;
     pub min_size: Size,
 
     /// The maximum size of the node
@@ -380,15 +360,11 @@ pub struct Style {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/max-width> <br />
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/max-height>
-    ///
-    /// &nbsp;
     pub max_size: Size,
 
     /// The aspect ratio of the node (defined as `width / height`)
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio>
-    ///
-    /// &nbsp;
     pub aspect_ratio: Option<f32>,
 
     /// For Flexbox containers:
@@ -399,8 +375,6 @@ pub struct Style {
     /// This value is overriden [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
-    ///
-    /// &nbsp;
     pub align_items: AlignItems,
 
     /// For Flexbox containers:
@@ -411,8 +385,6 @@ pub struct Style {
     /// This value is overriden [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
-    ///
-    /// &nbsp;
     pub justify_items: JustifyItems,
 
     /// For Flexbox items:
@@ -423,8 +395,6 @@ pub struct Style {
     /// If set to `Auto`, alignment is inherited from the value of [`AlignItems`] set on the parent node.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
-    ///
-    /// &nbsp;
     pub align_self: AlignSelf,
 
     /// For Flexbox items:
@@ -435,8 +405,6 @@ pub struct Style {
     /// If set to `Auto`, alignment is inherited from the value of [`JustifyItems`] set on the parent node.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
-    ///
-    /// &nbsp;
     pub justify_self: JustifySelf,
 
     /// For Flexbox containers:
@@ -445,8 +413,6 @@ pub struct Style {
     ///   - Controls alignment of grid rows
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
-    ///
-    /// &nbsp;
     pub align_content: AlignContent,
 
     /// For Flexbox containers:
@@ -455,8 +421,6 @@ pub struct Style {
     ///   - Controls alignment of grid columns
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
-    ///
-    /// &nbsp;
     pub justify_content: JustifyContent,
 
     /// The amount of space around a node outside its border.
@@ -479,8 +443,6 @@ pub struct Style {
     /// A node with this style and a parent with dimensions of 100px by 300px, will have calculated margins of 10px on both left and right edges, and 15px on both top and bottom edges.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/margin>
-    ///
-    /// &nbsp;
     pub margin: UiRect,
 
     /// The amount of space between the edges of a node and its contents.
@@ -503,8 +465,6 @@ pub struct Style {
     /// A node with this style and a parent with dimensions of 300px by 100px, will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/padding>
-    ///
-    /// &nbsp;
     pub padding: UiRect,
 
     /// The amount of space between the margins of a node and its padding.
@@ -516,36 +476,26 @@ pub struct Style {
     /// Rendering for borders is not yet implemented.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-    ///
-    /// &nbsp;
     pub border: UiRect,
 
     /// Whether a Flexbox container should be a row or a column. This property has no effect of Grid nodes.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-direction>
-    ///
-    /// &nbsp;
     pub flex_direction: FlexDirection,
 
     /// Whether a Flexbox container should wrap it's contents onto multiple line wrap if they overflow. This property has no effect of Grid nodes.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-wrap>
-    ///
-    /// &nbsp;
     pub flex_wrap: FlexWrap,
 
     /// Defines how much a flexbox item should grow if there's space available. Defaults to 0 (don't grow at all).
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-grow>
-    ///
-    /// &nbsp;
     pub flex_grow: f32,
 
     /// Defines how much a flexbox item should shrink if there's not enough space available. Defaults to 1.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-shrink>
-    ///
-    /// &nbsp;
     pub flex_shrink: f32,
 
     /// The initial length of a flexbox in the main axis, before flex growing/shrinking properties are applied.
@@ -553,8 +503,6 @@ pub struct Style {
     /// `flex_basis` overrides `size` on the main axis if both are set,  but it obeys the bounds defined by `min_size` and `max_size`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-basis>
-    ///
-    /// &nbsp;
     pub flex_basis: Val,
 
     /// The size of the gutters between items in flexbox layout or rows/columns in a grid layout
@@ -562,61 +510,45 @@ pub struct Style {
     /// Note: Values of `Val::Auto` are not valid and are treated as zero.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gap>
-    ///
-    /// &nbsp;
     pub gap: Size,
 
     /// Controls whether automatically placed grid items are placed row-wise or column-wise. And whether the sparse or dense packing algorithm is used.
     /// Only affect Grid layouts
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-flow>
-    ///
-    /// &nbsp;
     pub grid_auto_flow: GridAutoFlow,
 
     /// Defines the number of rows a grid has and the sizes of those rows. If grid items are given explicit placements then more rows may
     /// be implicitly generated by items that are placed out of bounds. The sizes of those rows are controlled by `grid_auto_rows` property.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-template-rows>
-    ///
-    /// &nbsp;
     pub grid_template_rows: Vec<RepeatedGridTrack>,
 
     /// Defines the number of columns a grid has and the sizes of those columns. If grid items are given explicit placements then more columns may
     /// be implicitly generated by items that are placed out of bounds. The sizes of those columns are controlled by `grid_auto_columns` property.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-template-columns>
-    ///
-    /// &nbsp;
     pub grid_template_columns: Vec<RepeatedGridTrack>,
 
     /// Defines the size of implicitly created rows. Rows are created implicitly when grid items are given explicit placements that are out of bounds
     /// of the rows explicitly created using `grid_template_rows`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-rows>
-    ///
-    /// &nbsp;
     pub grid_auto_rows: Vec<GridTrack>,
     /// Defines the size of implicitly created columns. Columns are created implicitly when grid items are given explicit placements that are out of bounds
     /// of the columns explicitly created using `grid_template_columms`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-template-columns>
-    ///
-    /// &nbsp;
     pub grid_auto_columns: Vec<GridTrack>,
 
     /// The row in which a grid item starts and how many rows it spans.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-row>
-    ///
-    /// &nbsp;
     pub grid_row: GridPlacement,
 
     /// The column in which a grid item starts and how many columns it spans.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
-    ///
-    /// &nbsp;
     pub grid_column: GridPlacement,
 }
 
