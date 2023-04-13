@@ -47,7 +47,13 @@ pub struct LayoutContext {
 
 impl LayoutContext {
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
-    fn new(scale_factor: f64, physical_size: Vec2, resized: bool, scale_factor_changed: bool, window_entity: Entity) -> Self {
+    fn new(
+        scale_factor: f64,
+        physical_size: Vec2,
+        resized: bool,
+        scale_factor_changed: bool,
+        window_entity: Entity,
+    ) -> Self {
         Self {
             window_entity,
             resized,
@@ -182,12 +188,8 @@ without UI components as a child of an entity with UI components, results may be
                 *node,
                 taffy::style::Style {
                     size: taffy::geometry::Size {
-                        width: taffy::style::Dimension::Points(
-                            window_resolution.x
-                        ),
-                        height: taffy::style::Dimension::Points(
-                            window_resolution.y
-                        ),
+                        width: taffy::style::Dimension::Points(window_resolution.x),
+                        height: taffy::style::Dimension::Points(window_resolution.y),
                     },
                     ..Default::default()
                 },
@@ -339,9 +341,14 @@ pub fn update_window_layouts(
     let scale_factor_changed = !scale_factor_events.is_empty() || ui_scale.is_changed();
     scale_factor_events.clear();
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
-    let context = LayoutContext::new(scale_factor, physical_size, resized, scale_factor_changed, primary_window_entity);
+    let context = LayoutContext::new(
+        scale_factor,
+        physical_size,
+        resized,
+        scale_factor_changed,
+        primary_window_entity,
+    );
     ui_viewport.0 = Some(context);
-    
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -356,7 +363,7 @@ pub fn flex_node_system(
     let Some(ref viewport_values) = ui_viewport.0 else {
         return
     };
-    
+
     fn update_changed<F: ReadOnlyWorldQuery>(
         flex_surface: &mut FlexSurface,
         viewport_values: &LayoutContext,
@@ -396,7 +403,11 @@ pub fn update_ui_node_transforms(
     ui_viewport: ResMut<UiViewport>,
     mut node_transform_query: Query<(&Node, &mut NodeSize, &mut Transform)>,
 ) {
-    if let Some(physical_to_logical_factor) = ui_viewport.0.as_ref().map(|context| context.physical_to_logical_factor) {
+    if let Some(physical_to_logical_factor) = ui_viewport
+        .0
+        .as_ref()
+        .map(|context| context.physical_to_logical_factor)
+    {
         let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
         // PERF: try doing this incrementally
