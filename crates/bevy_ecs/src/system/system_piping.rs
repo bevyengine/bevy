@@ -1,5 +1,4 @@
-use crate::system::{IntoSystem, System};
-use std::borrow::Cow;
+use crate::system::System;
 
 use super::{CombinatorSystem, Combine};
 
@@ -63,32 +62,6 @@ where
         let value = a(input);
         b(value)
     }
-}
-
-/// An extension trait providing the [`IntoPipeSystem::pipe`] method to pass input from one system into the next.
-///
-/// The first system must have return type `T`
-/// and the second system must have [`In<T>`](crate::system::In) as its first system parameter.
-///
-/// This trait is blanket implemented for all system pairs that fulfill the type requirements.
-///
-/// See [`PipeSystem`].
-pub trait IntoPipeSystem<In, Payload, Marker>: IntoSystem<In, Payload, Marker> + Sized {
-    /// Pass the output of this system `A` into a second system `B`, creating a new compound system.
-    fn pipe<B, Out, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
-    where
-        B: IntoSystem<Payload, Out, MarkerB>,
-    {
-        let system_a = IntoSystem::into_system(self);
-        let system_b = IntoSystem::into_system(system);
-        let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
-        PipeSystem::new(system_a, system_b, Cow::Owned(name))
-    }
-}
-
-impl<In, Payload, Marker, Sys> IntoPipeSystem<In, Payload, Marker> for Sys where
-    Sys: IntoSystem<In, Payload, Marker>
-{
 }
 
 /// A collection of common adapters for [piping](super::PipeSystem) the result of a system.

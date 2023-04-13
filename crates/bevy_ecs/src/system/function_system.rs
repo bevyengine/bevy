@@ -10,7 +10,7 @@ use crate::{
 use bevy_utils::all_tuples;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
-use super::ReadOnlySystem;
+use super::{PipeSystem, ReadOnlySystem};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -329,6 +329,20 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     type System: System<In = In, Out = Out>;
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
+
+    /// Pass the output of this system `A` into a second system `B`, creating a new compound system.
+    ///
+    /// The second system must have `In<T>` as its first parameter, where `T`
+    /// is the return type of the first system.
+    fn pipe<B, Final, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
+    where
+        B: IntoSystem<Out, Final, MarkerB>,
+    {
+        let system_a = IntoSystem::into_system(self);
+        let system_b = IntoSystem::into_system(system);
+        let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
+        PipeSystem::new(system_a, system_b, Cow::Owned(name))
+    }
 }
 
 // Systems implicitly implement IntoSystem
