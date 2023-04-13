@@ -16,6 +16,7 @@ fn push_events(world: &mut World, events: impl IntoIterator<Item = HierarchyEven
     }
 }
 
+/// Adds a `child` to `parent`'s [`Children`], eithout checking if it is already present there.
 fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
     let mut parent = world.entity_mut(parent);
     if let Some(mut children) = parent.get_mut::<Children>() {
@@ -25,7 +26,7 @@ fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
     }
 }
 
-/// Sets [`Parent`] of the `child` to `new_parent`. Inserts [`Parent`] if `child` doesn't have one
+/// Sets [`Parent`] of the `child` to `new_parent`. Inserts [`Parent`] if `child` doesn't have one.
 fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option<Entity> {
     let mut child = world.entity_mut(child);
     if let Some(mut parent) = child.get_mut::<Parent>() {
