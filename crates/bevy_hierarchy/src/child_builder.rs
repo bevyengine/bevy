@@ -144,6 +144,8 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     }
 }
 
+/// Removes all children from `parent` by removing its [`Children`] component, as well as removing
+/// [`Parent`] component from its children.
 fn clear_children(parent: Entity, world: &mut World) {
     if let Some(children) = world.entity_mut(parent).take::<Children>() {
         for &child in &children.0 {
