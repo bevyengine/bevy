@@ -8,7 +8,7 @@ pub use taffy::style::AvailableSpace;
 pub struct CalculatedSize {
     pub size: Vec2,
     /// The measure function used to calculate the size
-    pub measure: Box<dyn Measure>,
+    pub measure: Box<dyn NodeMeasure>,
 }
 
 impl Clone for CalculatedSize {
@@ -39,18 +39,18 @@ impl std::fmt::Debug for CalculatedSize {
     }
 }
 
-pub trait Measure: Send + Sync + 'static {
+pub trait NodeMeasure: Send + Sync + 'static {
     /// Calculate the size of the node given the constraints.
     fn measure(
         &self,
-        max_width: Option<f32>,
-        max_height: Option<f32>,
+        width: Option<f32>,
+        height: Option<f32>,
         available_width: AvailableSpace,
         available_height: AvailableSpace,
     ) -> Vec2;
 
     /// Clone and box self.
-    fn dyn_clone(&self) -> Box<dyn Measure>;
+    fn dyn_clone(&self) -> Box<dyn NodeMeasure>;
 }
 
 #[derive(Clone)]
@@ -59,7 +59,7 @@ pub struct BasicMeasure {
     pub size: Vec2,
 }
 
-impl Measure for BasicMeasure {
+impl NodeMeasure for BasicMeasure {
     fn measure(
         &self,
         width: Option<f32>,
@@ -75,12 +75,12 @@ impl Measure for BasicMeasure {
         }
     }
 
-    fn dyn_clone(&self) -> Box<dyn Measure> {
+    fn dyn_clone(&self) -> Box<dyn NodeMeasure> {
         Box::new(self.clone())
     }
 }
 
-impl<F> Measure for F
+impl<F> NodeMeasure for F
 where
     F: Fn(Option<f32>, Option<f32>, AvailableSpace, AvailableSpace) -> Vec2
         + Send
@@ -90,15 +90,15 @@ where
 {
     fn measure(
         &self,
-        max_width: Option<f32>,
-        max_height: Option<f32>,
+        width: Option<f32>,
+        height: Option<f32>,
         available_width: AvailableSpace,
         available_height: AvailableSpace,
     ) -> Vec2 {
-        self(max_width, max_height, available_width, available_height)
+        self(width, height, available_width, available_height)
     }
 
-    fn dyn_clone(&self) -> Box<dyn Measure> {
+    fn dyn_clone(&self) -> Box<dyn NodeMeasure> {
         Box::new(self.clone())
     }
 }
