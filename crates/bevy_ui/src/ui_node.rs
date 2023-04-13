@@ -17,13 +17,13 @@ use thiserror::Error;
 #[reflect(Component, Default)]
 pub struct NodeSize {
     /// The size of the node as width and height in logical pixels
-    /// automatically calculated by [`super::flex::flex_node_system`]
+    /// automatically calculated by [`super::flex::update_ui_layout`]
     pub(crate) calculated_size: Vec2,
 }
 
 impl NodeSize {
     /// The calculated node size as width and height in logical pixels
-    /// automatically calculated by [`super::flex::flex_node_system`]
+    /// automatically calculated by [`super::flex::update_ui_layout`]
     pub fn size(&self) -> Vec2 {
         self.calculated_size
     }
@@ -543,7 +543,7 @@ impl Default for Direction {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Display {
-    /// Use Flexbox layout model to determine the position of this [`Node`].
+    /// Use Flexbox layout model to determine the position of this [`super::flex::Node`].
     Flex,
     /// Use no layout, don't render this node and its children.
     ///
@@ -788,7 +788,7 @@ pub struct CalculatedClip {
     pub clip: Rect,
 }
 
-/// Indicates that this [`Node`] entity's front-to-back ordering is not controlled solely
+/// Indicates that this [`super::flex::Node`] entity's front-to-back ordering is not controlled solely
 /// by its location in the UI hierarchy. A node with a higher z-index will appear on top
 /// of other nodes with a lower z-index.
 ///
