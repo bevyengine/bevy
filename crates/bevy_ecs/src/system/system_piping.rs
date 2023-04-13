@@ -86,8 +86,8 @@ pub trait IntoPipeSystem<In, Payload, Marker>: IntoSystem<In, Payload, Marker> +
     }
 }
 
-impl<In, Payload, MarkerA, SystemA> IntoPipeSystem<In, Payload, MarkerA> for SystemA where
-    SystemA: IntoSystem<In, Payload, MarkerA>
+impl<In, Payload, Marker, Sys> IntoPipeSystem<In, Payload, Marker> for Sys where
+    Sys: IntoSystem<In, Payload, Marker>
 {
 }
 
