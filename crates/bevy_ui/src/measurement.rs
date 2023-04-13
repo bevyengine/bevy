@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::Component;
 use bevy_math::Vec2;
 use std::fmt::Formatter;
-pub use taffy::layout::AvailableSpace;
+pub use taffy::style::AvailableSpace;
 
 /// The calculated size of the node
 #[derive(Component)]
@@ -9,6 +9,15 @@ pub struct CalculatedSize {
     pub size: Vec2,
     /// The measure function used to calculate the size
     pub measure: Box<dyn Measure>,
+}
+
+impl Clone for CalculatedSize {
+    fn clone(&self) -> Self {
+        Self {
+            size: self.size.clone(),
+            measure: self.measure.dyn_clone(),
+        }
+    }
 }
 
 impl Default for CalculatedSize {

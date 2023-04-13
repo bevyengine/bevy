@@ -97,16 +97,13 @@ impl FlexSurface {
         &mut self,
         entity: Entity,
         style: &Style,
-        calculated_size: CalculatedSize,
+        calculated_size: &CalculatedSize,
         context: &LayoutContext,
     ) {
         let taffy = &mut self.taffy;
-        let taffy_style = convert::from_style(scale_factor, style);
-        let m = calculated_size.measure.dyn_clone();
- 
-        let taffy = &mut self.taffy;
         let taffy_style = convert::from_style(context, style);
         let scale_factor = context.scale_factor;
+        let m = calculated_size.measure.dyn_clone();
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, available_space: Size<AvailableSpace>| {
                 let size = m.measure(
@@ -307,8 +304,7 @@ pub fn flex_node_system(
         for (entity, style, calculated_size) in &query {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, style, calculated_size, scaling_factor);
-
+                flex_surface.upsert_leaf(entity, style, calculated_size, viewport_values);
             } else {
                 flex_surface.upsert_node(entity, style, viewport_values);
             }
@@ -323,7 +319,7 @@ pub fn flex_node_system(
     }
 
     for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(entity, style, calculated_size, scale_factor);
+        flex_surface.upsert_leaf(entity, style, calculated_size, &viewport_values);
     }
 
     // clean up removed nodes

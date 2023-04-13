@@ -33,7 +33,7 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, measurement::*, node_bundles::*, ui_node::*, widget::Button,
+        camera_config::*, geometry::*, measurement::*, node_bundles::*, ui_node::*, widget::*,
         Interaction, UiScale,
     };
 }
