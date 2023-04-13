@@ -6,11 +6,11 @@ use crate::{
     bundle::Bundles,
     change_detection::{MutUntyped, TicksMut},
     component::{
-        ComponentId, ComponentStorage, ComponentTicks, Components, StorageType, TickCells,
+        ComponentId, ComponentStorage, ComponentTicks, Components, StorageType, Tick, TickCells,
     },
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
-    storage::{Column, ComponentSparseSet, TableRow},
+    storage::{Column, ComponentSparseSet},
     system::Resource,
 };
 use bevy_ptr::Ptr;
@@ -81,11 +81,13 @@ unsafe impl Sync for UnsafeWorldCell<'_> {}
 
 impl<'w> UnsafeWorldCell<'w> {
     /// Creates a [`UnsafeWorldCell`] that can be used to access everything immutably
+    #[inline]
     pub(crate) fn new_readonly(world: &'w World) -> Self {
         UnsafeWorldCell(world as *const World as *mut World, PhantomData)
     }
 
     /// Creates [`UnsafeWorldCell`] that can be used to access everything mutably
+    #[inline]
     pub(crate) fn new_mutable(world: &'w mut World) -> Self {
         Self(world as *mut World, PhantomData)
     }
@@ -99,6 +101,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - there must be no other borrows on world
     /// - returned borrow must not be used in any way if the world is accessed
     ///   through other means than the `&mut World` after this call.
+    #[inline]
     pub unsafe fn world_mut(self) -> &'w mut World {
         // SAFETY:
         // - caller ensures the created `&mut World` is the only borrow of world
@@ -112,6 +115,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - must have permission to access the whole world immutably
     /// - there must be no live exclusive borrows on world data
     /// - there must be no live exclusive borrow of world
+    #[inline]
     pub unsafe fn world(self) -> &'w World {
         // SAFETY:
         // - caller ensures there is no `&mut World` this makes it okay to make a `&World`
@@ -128,6 +132,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ///
     /// # Safety
     /// - must only be used to access world metadata
+    #[inline]
     pub unsafe fn world_metadata(self) -> &'w World {
         // SAFETY: caller ensures that returned reference is not used to violate aliasing rules
         unsafe { self.unsafe_world() }
@@ -144,7 +149,8 @@ impl<'w> UnsafeWorldCell<'w> {
     /// # Safety
     /// - must not be used in a way that would conflict with any
     ///   live exclusive borrows on world data
-    unsafe fn unsafe_world(self) -> &'w World {
+    #[inline]
+    pub(crate) unsafe fn unsafe_world(self) -> &'w World {
         // SAFETY:
         // - caller ensures that the returned `&World` is not used in a way that would conflict
         //   with any existing mutable borrows of world data
@@ -185,28 +191,27 @@ impl<'w> UnsafeWorldCell<'w> {
 
     /// Reads the current change tick of this world.
     #[inline]
-    pub fn read_change_tick(self) -> u32 {
+    pub fn read_change_tick(self) -> Tick {
         // SAFETY:
         // - we only access world metadata
-        unsafe { self.world_metadata() }
+        let tick = unsafe { self.world_metadata() }
             .change_tick
-            .load(Ordering::Acquire)
+            .load(Ordering::Acquire);
+        Tick::new(tick)
     }
 
     #[inline]
-    pub fn last_change_tick(self) -> u32 {
+    pub fn last_change_tick(self) -> Tick {
         // SAFETY:
         // - we only access world metadata
         unsafe { self.world_metadata() }.last_change_tick
     }
 
     #[inline]
-    pub fn increment_change_tick(self) -> u32 {
+    pub fn increment_change_tick(self) -> Tick {
         // SAFETY:
         // - we only access world metadata
-        unsafe { self.world_metadata() }
-            .change_tick
-            .fetch_add(1, Ordering::AcqRel)
+        unsafe { self.world_metadata() }.increment_change_tick()
     }
 
     /// Shorthand helper function for getting the [`ArchetypeComponentId`] for a resource.
@@ -241,6 +246,7 @@ impl<'w> UnsafeWorldCell<'w> {
 
     /// Retrieves an [`UnsafeEntityCell`] that exposes read and write operations for the given `entity`.
     /// Similar to the [`UnsafeWorldCell`], you are in charge of making sure that no aliasing rules are violated.
+    #[inline]
     pub fn get_entity(self, entity: Entity) -> Option<UnsafeEntityCell<'w>> {
         let location = self.entities().get(entity)?;
         Some(UnsafeEntityCell::new(self, entity, location))
@@ -299,7 +305,7 @@ impl<'w> UnsafeWorldCell<'w> {
         //  caller ensures that no mutable reference exists to `R`
         unsafe {
             self.get_non_send_resource_by_id(component_id)
-                // SAEFTY: `component_id` was obtained from `TypeId::of::<R>()`
+                // SAFETY: `component_id` was obtained from `TypeId::of::<R>()`
                 .map(|ptr| ptr.deref::<R>())
         }
     }
@@ -503,6 +509,7 @@ pub struct UnsafeEntityCell<'w> {
 }
 
 impl<'w> UnsafeEntityCell<'w> {
+    #[inline]
     pub(crate) fn new(
         world: UnsafeWorldCell<'w>,
         entity: Entity,
@@ -592,7 +599,7 @@ impl<'w> UnsafeEntityCell<'w> {
 
         // SAFETY:
         // - entity location is valid
-        // - proper world acess is promised by caller
+        // - proper world access is promised by caller
         unsafe {
             get_ticks(
                 self.world,
@@ -655,8 +662,8 @@ impl<'w> UnsafeEntityCell<'w> {
     #[inline]
     pub(crate) unsafe fn get_mut_using_ticks<T: Component>(
         &self,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Option<Mut<'w, T>> {
         let component_id = self.world.components().get_id(TypeId::of::<T>())?;
 
@@ -754,14 +761,10 @@ impl<'w> UnsafeWorldCell<'w> {
         self,
         location: EntityLocation,
         component_id: ComponentId,
-    ) -> Option<(&'w Column, TableRow)> {
-        let archetype = &self.archetypes()[location.archetype_id];
+    ) -> Option<&'w Column> {
         // SAFETY: caller ensures returned data is not misused and we have not created any borrows
         // of component/resource data
-        let table = &unsafe { self.unsafe_world() }.storages.tables[archetype.table_id()];
-        let components = table.get_column(component_id)?;
-        let table_row = archetype.entity_table_row(location.archetype_row);
-        Some((components, table_row))
+        unsafe { self.unsafe_world() }.storages.tables[location.table_id].get_column(component_id)
     }
 
     #[inline]
@@ -799,9 +802,9 @@ unsafe fn get_component(
     // SAFETY: component_id exists and is therefore valid
     match storage_type {
         StorageType::Table => {
-            let (components, table_row) = world.fetch_table(location, component_id)?;
+            let components = world.fetch_table(location, component_id)?;
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-            Some(components.get_data_unchecked(table_row))
+            Some(components.get_data_unchecked(location.table_row))
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get(entity),
     }
@@ -825,14 +828,14 @@ unsafe fn get_component_and_ticks(
 ) -> Option<(Ptr<'_>, TickCells<'_>)> {
     match storage_type {
         StorageType::Table => {
-            let (components, table_row) = world.fetch_table(location, component_id)?;
+            let components = world.fetch_table(location, component_id)?;
 
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some((
-                components.get_data_unchecked(table_row),
+                components.get_data_unchecked(location.table_row),
                 TickCells {
-                    added: components.get_added_ticks_unchecked(table_row),
-                    changed: components.get_changed_ticks_unchecked(table_row),
+                    added: components.get_added_ticks_unchecked(location.table_row),
+                    changed: components.get_changed_ticks_unchecked(location.table_row),
                 },
             ))
         }
@@ -859,9 +862,9 @@ unsafe fn get_ticks(
 ) -> Option<ComponentTicks> {
     match storage_type {
         StorageType::Table => {
-            let (components, table_row) = world.fetch_table(location, component_id)?;
+            let components = world.fetch_table(location, component_id)?;
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-            Some(components.get_ticks_unchecked(table_row))
+            Some(components.get_ticks_unchecked(location.table_row))
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_ticks(entity),
     }

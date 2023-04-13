@@ -1,8 +1,8 @@
 //! Tools to run systems at a regular interval.
 //! This can be extremely useful for steady, frame-rate independent gameplay logic and physics.
 //!
-//! To run a system on a fixed timestep, add it to the [`CoreSchedule::FixedUpdate`] [`Schedule`](bevy_ecs::schedule::Schedule).
-//! This schedules is run in the [`CoreSet::FixedUpdate`](bevy_app::CoreSet::FixedUpdate) near the start of each frame,
+//! To run a system on a fixed timestep, add it to the [`FixedUpdate`] [`Schedule`](bevy_ecs::schedule::Schedule).
+//! This schedule is run in [`RunFixedUpdateLoop`](bevy_app::RunFixedUpdateLoop) near the start of each frame,
 //! via the [`run_fixed_update_schedule`] exclusive system.
 //!
 //! This schedule will be run a number of times each frame,
@@ -22,12 +22,12 @@
 //! variants for game simulation, but rather use the value of [`FixedTime`] instead.
 
 use crate::Time;
-use bevy_app::CoreSchedule;
+use bevy_app::FixedUpdate;
 use bevy_ecs::{system::Resource, world::World};
 use bevy_utils::Duration;
 use thiserror::Error;
 
-/// The amount of time that must pass before the fixed timstep schedule is run again.
+/// The amount of time that must pass before the fixed timestep schedule is run again.
 #[derive(Resource, Debug)]
 pub struct FixedTime {
     accumulated: Duration,
@@ -65,7 +65,7 @@ impl FixedTime {
 
     /// Expends one `period` of accumulated time.
     ///
-    /// [`Err(FixedTimstepError`)] will be returned
+    /// [`Err(FixedUpdateError`)] will be returned
     pub fn expend(&mut self) -> Result<(), FixedUpdateError> {
         if let Some(new_value) = self.accumulated.checked_sub(self.period) {
             self.accumulated = new_value;
@@ -98,7 +98,7 @@ pub enum FixedUpdateError {
     },
 }
 
-/// Ticks the [`FixedTime`] resource then runs the [`CoreSchedule::FixedUpdate`].
+/// Ticks the [`FixedTime`] resource then runs the [`FixedUpdate`].
 pub fn run_fixed_update_schedule(world: &mut World) {
     // Tick the time
     let delta_time = world.resource::<Time>().delta();
@@ -111,7 +111,7 @@ pub fn run_fixed_update_schedule(world: &mut World) {
         let mut fixed_time = world.resource_mut::<FixedTime>();
         let fixed_time_run = fixed_time.expend().is_ok();
         if fixed_time_run {
-            world.run_schedule(CoreSchedule::FixedUpdate);
+            let _ = world.try_run_schedule(FixedUpdate);
         } else {
             check_again = false;
         }

@@ -2,7 +2,7 @@
 
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
-use bevy_utils::tracing::trace;
+use bevy_utils::detailed_trace;
 use std::ops::{Deref, DerefMut};
 use std::{fmt, hash::Hash, iter::Chain, marker::PhantomData, slice::Iter};
 /// A type that can be stored in an [`Events<E>`] resource
@@ -211,8 +211,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     ///
     /// # Example
     ///
-    /// The following example shows a useful pattern where some behaviour is triggered if new events are available.
-    /// [`EventReader::clear()`] is used so the same events don't re-trigger the behaviour the next time the system runs.
+    /// The following example shows a useful pattern where some behavior is triggered if new events are available.
+    /// [`EventReader::clear()`] is used so the same events don't re-trigger the behavior the next time the system runs.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -238,6 +238,14 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// For usage, see [`EventReader::is_empty()`].
     pub fn clear(&mut self) {
         self.reader.clear(&self.events);
+    }
+}
+
+impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
+    type Item = &'a E;
+    type IntoIter = ManualEventIterator<'a, E>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
@@ -275,8 +283,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 ///     // which allows one to do all kinds of clever things with type erasure, such as sending
 ///     // custom events to unknown 3rd party plugins (modding API).
 ///     //
-///     // NOTE: the event won't actually be sent until commands get flushed
-///     // at the end of the current stage.
+///     // NOTE: the event won't actually be sent until commands get applied during
+///     // apply_system_buffers.
 ///     commands.add(|w: &mut World| {
 ///         w.send_event(MyEvent);
 ///     });
@@ -378,6 +386,21 @@ impl<'a, E: Event> Iterator for ManualEventIterator<'a, E> {
         self.iter.next().map(|(event, _)| event)
     }
 
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.iter.nth(n).map(|(event, _)| event)
+    }
+
+    fn last(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+    {
+        self.iter.last().map(|(event, _)| event)
+    }
+
+    fn count(self) -> usize {
+        self.iter.count()
+    }
+
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }
@@ -394,10 +417,6 @@ pub struct ManualEventIteratorWithId<'a, E: Event> {
     reader: &'a mut ManualEventReader<E>,
     chain: Chain<Iter<'a, EventInstance<E>>, Iter<'a, EventInstance<E>>>,
     unread: usize,
-}
-
-fn event_trace<E: Event>(id: EventId<E>) {
-    trace!("EventReader::iter() -> {}", id);
 }
 
 impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
@@ -436,13 +455,39 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
             .map(|instance| (&instance.event, instance.event_id))
         {
             Some(item) => {
-                event_trace(item.1);
+                detailed_trace!("EventReader::iter() -> {}", item.1);
                 self.reader.last_event_count += 1;
                 self.unread -= 1;
                 Some(item)
             }
             None => None,
         }
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        if let Some(EventInstance { event_id, event }) = self.chain.nth(n) {
+            self.reader.last_event_count += n + 1;
+            self.unread -= n + 1;
+            Some((event, *event_id))
+        } else {
+            self.reader.last_event_count += self.unread;
+            self.unread = 0;
+            None
+        }
+    }
+
+    fn last(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+    {
+        let EventInstance { event_id, event } = self.chain.last()?;
+        self.reader.last_event_count += self.unread;
+        Some((event, *event_id))
+    }
+
+    fn count(self) -> usize {
+        self.reader.last_event_count += self.unread;
+        self.unread
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -464,7 +509,7 @@ impl<E: Event> Events<E> {
             id: self.event_count,
             _marker: PhantomData,
         };
-        trace!("Events::send() -> id: {}", event_id);
+        detailed_trace!("Events::send() -> id: {}", event_id);
 
         let event_instance = EventInstance { event_id, event };
 
@@ -591,6 +636,7 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
     where
         I: IntoIterator<Item = E>,
     {
+        let old_count = self.event_count;
         let mut event_count = self.event_count;
         let events = iter.into_iter().map(|event| {
             let event_id = EventId {
@@ -603,11 +649,14 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
 
         self.events_b.extend(events);
 
-        trace!(
-            "Events::extend() -> ids: ({}..{})",
-            self.event_count,
-            event_count
-        );
+        if old_count != event_count {
+            detailed_trace!(
+                "Events::extend() -> ids: ({}..{})",
+                self.event_count,
+                event_count
+            );
+        }
+
         self.event_count = event_count;
     }
 }
@@ -869,6 +918,63 @@ mod tests {
         assert!(!is_empty, "EventReader should not be empty");
         let is_empty = reader.run((), &mut world);
         assert!(is_empty, "EventReader should be empty");
+    }
+
+    #[allow(clippy::iter_nth_zero)]
+    #[test]
+    fn test_event_iter_nth() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        world.send_event(TestEvent { i: 0 });
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        world.send_event(TestEvent { i: 4 });
+
+        let mut schedule = Schedule::new();
+        schedule.add_systems(|mut events: EventReader<TestEvent>| {
+            let mut iter = events.iter();
+
+            assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));
+            assert_eq!(iter.nth(2), Some(&TestEvent { i: 3 }));
+            assert_eq!(iter.nth(1), None);
+
+            assert!(events.is_empty());
+        });
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    fn test_event_iter_last() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        let mut reader =
+            IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> Option<TestEvent> {
+                events.iter().last().copied()
+            });
+        reader.initialize(&mut world);
+
+        let last = reader.run((), &mut world);
+        assert!(last.is_none(), "EventReader should be empty");
+
+        world.send_event(TestEvent { i: 0 });
+        let last = reader.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 0 }));
+
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        let last = reader.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 3 }));
+
+        let last = reader.run((), &mut world);
+        assert!(last.is_none(), "EventReader should be empty");
     }
 
     #[derive(Clone, PartialEq, Debug, Default)]
