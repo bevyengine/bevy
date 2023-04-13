@@ -7,7 +7,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(
             // This sets image filtering to nearest
             // This is done to prevent textures with low resolution (e.g. pixel art) from being blurred
-            // by nearest filtering.
+            // by linear filtering.
             ImagePlugin::default_nearest(),
         ))
         .add_systems(Startup, setup)
