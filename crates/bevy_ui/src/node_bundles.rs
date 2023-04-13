@@ -65,8 +65,11 @@ impl Default for NodeBundle {
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub node: Node,
-    /// Describes the style including layout styles
+    /// Contains styles which control the layout (size and position) of the node and it's children
     pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
