@@ -77,25 +77,18 @@ pub trait IntoPipeSystem<In, Payload, Marker>: IntoSystem<In, Payload, Marker> +
     /// Pass the output of this system `A` into a second system `B`, creating a new compound system.
     fn pipe<B, Out, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
     where
-        B: IntoSystem<Payload, Out, MarkerB>;
-}
-
-impl<In, Payload, MarkerA, SystemA> IntoPipeSystem<In, Payload, MarkerA> for SystemA
-where
-    SystemA: IntoSystem<In, Payload, MarkerA>,
-{
-    fn pipe<SystemB, Out, MarkerB>(
-        self,
-        system: SystemB,
-    ) -> PipeSystem<SystemA::System, SystemB::System>
-    where
-        SystemB: IntoSystem<Payload, Out, MarkerB>,
+        B: IntoSystem<Payload, Out, MarkerB>,
     {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);
         let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
         PipeSystem::new(system_a, system_b, Cow::Owned(name))
     }
+}
+
+impl<In, Payload, MarkerA, SystemA> IntoPipeSystem<In, Payload, MarkerA> for SystemA where
+    SystemA: IntoSystem<In, Payload, MarkerA>
+{
 }
 
 /// A collection of common adapters for [piping](super::PipeSystem) the result of a system.
