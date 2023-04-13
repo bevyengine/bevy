@@ -204,7 +204,7 @@ impl Command for RemoveChildren {
     }
 }
 
-/// Command that clear all children from an entity.
+/// Command that clear all children from an entity and its [`Children`] component.
 pub struct ClearChildren {
     parent: Entity,
 }
