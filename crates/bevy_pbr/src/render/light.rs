@@ -778,6 +778,17 @@ pub fn prepare_lights(
             .reserve(point_lights.len());
     }
 
+    // convert from illuminance (lux) to candelas
+    //
+    // exposure is hard coded at the moment but should be replaced
+    // by values coming from the camera
+    // see: https://google.github.io/filament/Filament.html#imagingpipeline/physicallybasedcamera/exposuresettings
+    const APERTURE: f32 = 4.0;
+    const SHUTTER_SPEED: f32 = 1.0 / 250.0;
+    const SENSITIVITY: f32 = 100.0;
+    let ev100 = f32::log2(APERTURE * APERTURE / SHUTTER_SPEED) - f32::log2(SENSITIVITY / 100.0);
+    let exposure = 1.0 / (f32::powf(2.0, ev100) * 1.2);
+
     let mut gpu_point_lights = Vec::new();
     for (index, &(entity, light)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
@@ -823,12 +834,14 @@ pub fn prepare_lights(
             }
         };
 
+        let intensity = light.intensity * exposure;
+
         gpu_point_lights.push(GpuPointLight {
             light_custom_data,
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
             color_inverse_square_range: (Vec4::from_slice(&light.color.as_linear_rgba_f32())
-                * light.intensity)
+                * intensity)
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
             position_radius: light.transform.translation().extend(light.radius),
@@ -854,16 +867,6 @@ pub fn prepare_lights(
             flags |= DirectionalLightFlags::SHADOWS_ENABLED;
         }
 
-        // convert from illuminance (lux) to candelas
-        //
-        // exposure is hard coded at the moment but should be replaced
-        // by values coming from the camera
-        // see: https://google.github.io/filament/Filament.html#imagingpipeline/physicallybasedcamera/exposuresettings
-        const APERTURE: f32 = 4.0;
-        const SHUTTER_SPEED: f32 = 1.0 / 250.0;
-        const SENSITIVITY: f32 = 100.0;
-        let ev100 = f32::log2(APERTURE * APERTURE / SHUTTER_SPEED) - f32::log2(SENSITIVITY / 100.0);
-        let exposure = 1.0 / (f32::powf(2.0, ev100) * 1.2);
         let intensity = light.illuminance * exposure;
 
         let num_cascades = light
