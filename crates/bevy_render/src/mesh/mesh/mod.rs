@@ -110,13 +110,24 @@ impl Mesh {
         attribute: MeshVertexAttribute,
         values: impl Into<VertexAttributeValues>,
     ) {
-        let values = values.into();
+        let mut values = values.into();
         let values_format = VertexFormat::from(&values);
         if values_format != attribute.format {
             panic!(
                 "Failed to insert attribute. Invalid attribute format for {}. Given format is {values_format:?} but expected {:?}",
                 attribute.name, attribute.format
             );
+        }
+
+        // validate attributes
+        if attribute.id == Self::ATTRIBUTE_JOINT_WEIGHT.id {
+            let VertexAttributeValues::Float32x4(ref mut values) = values else {
+                unreachable!() // we confirmed the format above
+            };
+            for value in values.iter_mut().filter(|v| *v == &[0.0, 0.0, 0.0, 0.0]) {
+                // zero weights are invalid
+                value[0] = 1.0;
+            }
         }
 
         self.attributes
