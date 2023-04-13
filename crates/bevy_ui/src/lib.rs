@@ -29,7 +29,8 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::*, Interaction, UiScale,
+        camera_config::*, flex::Node, geometry::*, node_bundles::*, ui_node::*, widget::*,
+        Interaction, UiScale,
     };
 }
 
@@ -50,6 +51,12 @@ pub struct UiPlugin;
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum UiSystem {
+    /// After this label, removed ui nodes have been removed from the layout tree
+    Removal,
+    /// After this label, new ui nodes have been added to the layout tree
+    Insertion,
+    /// After this label, the Bevy and Taffy Parent-Children trees have been synchonised
+    Children,
     /// After this label, the ui flex state has been updated
     Flex,
     /// After this label, the ui node transforms have been updated
@@ -93,7 +100,7 @@ impl Plugin for UiPlugin {
             .register_type::<FocusPolicy>()
             .register_type::<Interaction>()
             .register_type::<JustifyContent>()
-            .register_type::<Node>()
+            .register_type::<NodeSize>()
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
             .register_type::<Overflow>()
@@ -106,6 +113,7 @@ impl Plugin for UiPlugin {
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
+            .register_type::<Node>()
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
@@ -144,12 +152,20 @@ impl Plugin for UiPlugin {
         .add_systems(
             PostUpdate,
             (
+                clean_up_removed_ui_nodes
+                    .in_set(UiSystem::Removal)
+                    .before(UiSystem::Insertion),
+                insert_new_ui_nodes_into_layout
+                    .in_set(UiSystem::Insertion)
+                    .before(UiSystem::Children),
+                synchonise_children
+                    .in_set(UiSystem::Children)
+                    .before(UiSystem::Flex),
                 flex_node_system
                     .in_set(UiSystem::Flex)
                     .before(UiSystem::Transforms),
                 update_ui_node_transforms
                     .in_set(UiSystem::Transforms)
-                    .after(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),

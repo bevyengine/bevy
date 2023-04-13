@@ -1,8 +1,8 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style,
-    UiImage, ZIndex,
+    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, NodeSize,
+    Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -16,13 +16,15 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 /// The basic UI node
 ///
 /// Useful as a container for a variety of child nodes.
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Debug)]
 pub struct NodeBundle {
-    /// Describes the logical size of the node
+    /// Identifier for the Node in the layout.
     pub node: Node,
+    /// Describes the logical size of the node
+    pub node_size: NodeSize,
     /// Describes the style including flexbox settings
     pub style: Style,
-    /// The background color, which serves as a "fill" for this node
+    /// The background color, which serves as a "fill" for this nodet
     pub background_color: BackgroundColor,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
@@ -50,6 +52,7 @@ impl Default for NodeBundle {
             // Transparent background
             background_color: Color::NONE.into(),
             node: Default::default(),
+            node_size: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
             transform: Default::default(),
@@ -62,10 +65,12 @@ impl Default for NodeBundle {
 }
 
 /// A UI node that is an image
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
-    /// Describes the logical size of the node
+    /// Identifier for the Node in the layout.
     pub node: Node,
+    /// Describes the logical size of the node
+    pub node_size: NodeSize,
     /// Describes the style including flexbox settings
     pub style: Style,
     /// The calculated size based on the given image
@@ -98,10 +103,12 @@ pub struct ImageBundle {
 
 #[cfg(feature = "bevy_text")]
 /// A UI node that is text
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Debug)]
 pub struct TextBundle {
-    /// Describes the logical size of the node
+    /// Identifier for the Node in the layout.
     pub node: Node,
+    /// Describes the logical size of the node
+    pub node_size: NodeSize,
     /// Describes the style including flexbox settings
     pub style: Style,
     /// Contains the text of the node
@@ -134,11 +141,12 @@ pub struct TextBundle {
 impl Default for TextBundle {
     fn default() -> Self {
         Self {
+            node: Default::default(),
             text: Default::default(),
             calculated_size: Default::default(),
             // Transparent background
             background_color: BackgroundColor(Color::NONE),
-            node: Default::default(),
+            node_size: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
             transform: Default::default(),
@@ -192,10 +200,12 @@ impl TextBundle {
 }
 
 /// A UI node that is a button
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Debug)]
 pub struct ButtonBundle {
-    /// Describes the logical size of the node
+    /// Identifier for the Node in the layout.
     pub node: Node,
+    /// Describes the logical size of the node
+    pub node_size: NodeSize,
     /// Marker component that signals this node is a button
     pub button: Button,
     /// Describes the style including flexbox settings
@@ -233,6 +243,7 @@ impl Default for ButtonBundle {
         Self {
             focus_policy: FocusPolicy::Block,
             node: Default::default(),
+            node_size: Default::default(),
             button: Default::default(),
             style: Default::default(),
             interaction: Default::default(),

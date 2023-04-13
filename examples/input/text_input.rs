@@ -103,7 +103,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn toggle_ime(
     input: Res<Input<MouseButton>>,
     mut windows: Query<&mut Window>,
-    mut text: Query<&mut Text, With<Node>>,
+    mut text: Query<&mut Text, With<NodeSize>>,
 ) {
     if input.just_pressed(MouseButton::Left) {
         let mut window = windows.single_mut();
@@ -142,8 +142,8 @@ fn bubbling_text(
 
 fn listen_ime_events(
     mut events: EventReader<Ime>,
-    mut status_text: Query<&mut Text, With<Node>>,
-    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
+    mut status_text: Query<&mut Text, With<NodeSize>>,
+    mut edit_text: Query<&mut Text, (Without<NodeSize>, Without<Bubble>)>,
 ) {
     for event in events.iter() {
         match event {
@@ -169,7 +169,7 @@ fn listen_ime_events(
 
 fn listen_received_character_events(
     mut events: EventReader<ReceivedCharacter>,
-    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
+    mut edit_text: Query<&mut Text, (Without<NodeSize>, Without<Bubble>)>,
 ) {
     for event in events.iter() {
         edit_text.single_mut().sections[0].value.push(event.char);
@@ -179,7 +179,7 @@ fn listen_received_character_events(
 fn listen_keyboard_input_events(
     mut commands: Commands,
     mut events: EventReader<KeyboardInput>,
-    mut edit_text: Query<(Entity, &mut Text), (Without<Node>, Without<Bubble>)>,
+    mut edit_text: Query<(Entity, &mut Text), (Without<NodeSize>, Without<Bubble>)>,
 ) {
     for event in events.iter() {
         match event.key_code {
