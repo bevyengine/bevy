@@ -308,7 +308,7 @@ mod tests {
     use bevy_utils::default;
 
     use super::adapter::*;
-    use crate::{self as bevy_ecs, prelude::*, system::PipeSystem};
+    use crate::{self as bevy_ecs, prelude::*};
 
     #[test]
     fn assert_systems() {
@@ -379,11 +379,7 @@ mod tests {
 
         let mut world = World::new();
         world.init_resource::<Flag>();
-        let mut sys = PipeSystem::new(
-            IntoSystem::into_system(first),
-            IntoSystem::into_system(second),
-            "".into(),
-        );
+        let mut sys = first.pipe(second);
         sys.initialize(&mut world);
 
         sys.run(default(), &mut world);
