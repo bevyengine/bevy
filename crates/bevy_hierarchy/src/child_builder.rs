@@ -282,7 +282,7 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
     }
 }
 
-/// Trait defining how to build children.
+/// Trait for removing, adding and replacing children/parents
 pub trait BuildChildren {
     /// Creates a [`ChildBuilder`] with the given children built in the given closure.
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
