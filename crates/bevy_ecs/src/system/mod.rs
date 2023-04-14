@@ -227,10 +227,10 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     }
 }
 
-// Systems implicitly implement IntoSystem
-impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, ()> for Sys {
-    type System = Sys;
-    fn into_system(this: Self) -> Sys {
+// All systems implicitly implement IntoSystem.
+impl<T: System> IntoSystem<T::In, T::Out, ()> for T {
+    type System = T;
+    fn into_system(this: Self) -> Self {
         this
     }
 }
