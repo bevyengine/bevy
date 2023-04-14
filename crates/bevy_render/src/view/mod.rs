@@ -443,15 +443,7 @@ fn prepare_view_targets(
                                             dimension: TextureDimension::D2,
                                             format: main_texture_format,
                                             usage: TextureUsages::RENDER_ATTACHMENT,
-                                            view_formats: match main_texture_format {
-                                                TextureFormat::Bgra8Unorm => {
-                                                    &[TextureFormat::Bgra8UnormSrgb]
-                                                }
-                                                TextureFormat::Rgba8Unorm => {
-                                                    &[TextureFormat::Rgba8UnormSrgb]
-                                                }
-                                                _ => &[],
-                                            },
+                                            view_formats: descriptor.view_formats,
                                         },
                                     )
                                     .default_view
