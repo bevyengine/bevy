@@ -21,11 +21,6 @@ Depending on your graphics card, you may have to install one of the following:
 
 Compiling with clang is also possible - replace the `g++` package with `clang`.
 
-### Windows Subsystem for Linux (WSL 2)
-
-Graphics and audio need to be configured for them to work with WSL 2 backend.
-Please see the ubuntu [WSL documentation](https://wiki.ubuntu.com/WSL) on how to set up graphics and audio.
-
 ## [Fedora](https://getfedora.org/)
 
 ```bash
