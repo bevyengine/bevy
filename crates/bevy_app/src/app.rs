@@ -268,7 +268,7 @@ impl App {
     ///
     /// Windowed apps are typically driven by an *event loop* or *message loop* and
     /// some window-manager APIs expect programs to terminate when their primary
-    /// window is closed and that event loop terminates – behaviour of processes that
+    /// window is closed and that event loop terminates – behavior of processes that
     /// do not is often platform dependent or undocumented.
     ///
     /// By default, *Bevy* uses the `winit` crate for window creation. See
@@ -312,10 +312,6 @@ impl App {
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
     /// initial state.
     ///
-    /// This also adds an [`OnUpdate`] system set for each state variant,
-    /// which runs during [`Update`] after the transitions are applied.
-    /// These system sets only run if the [`State<S>`] resource matches the respective state variant.
-    ///
     /// If you would like to control how other systems run based on the current state,
     /// you can emulate this behavior using the [`in_state`] [`Condition`](bevy_ecs::schedule::Condition).
     ///
@@ -332,10 +328,6 @@ impl App {
                 )
                     .chain(),
             );
-
-        for variant in S::variants() {
-            self.configure_set(Update, OnUpdate(variant.clone()).run_if(in_state(variant)));
-        }
 
         // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
         // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail

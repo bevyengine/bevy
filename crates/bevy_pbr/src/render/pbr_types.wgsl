@@ -37,8 +37,8 @@ fn standard_material_new() -> StandardMaterial {
     // NOTE: Keep in-sync with src/pbr_material.rs!
     material.base_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
     material.emissive = vec4<f32>(0.0, 0.0, 0.0, 1.0);
-    material.perceptual_roughness = 0.089;
-    material.metallic = 0.01;
+    material.perceptual_roughness = 0.5;
+    material.metallic = 0.00;
     material.reflectance = 0.5;
     material.flags = STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE;
     material.alpha_cutoff = 0.5;

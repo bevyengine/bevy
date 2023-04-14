@@ -44,7 +44,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         }),
     );
     commands.spawn(TextBundle::from_section(
-            "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink.",
+            "This text is very long, has a limited width, is centered, is positioned in the top right and is also colored pink.",
             TextStyle {
                 font: font.clone(),
                 font_size: 50.0,

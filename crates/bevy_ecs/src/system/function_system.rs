@@ -291,7 +291,12 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'w World,
         change_tick: Tick,
     ) -> SystemParamItem<'w, 's, Param> {
-        let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
+        let param = Param::get_param(
+            &mut self.param_state,
+            &self.meta,
+            world.as_unsafe_world_cell_migration_internal(),
+            change_tick,
+        );
         self.meta.last_run = change_tick;
         param
     }
@@ -481,7 +486,7 @@ where
         let params = F::Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
-            world,
+            world.as_unsafe_world_cell_migration_internal(),
             change_tick,
         );
         let out = self.func.run(input, params);
@@ -639,7 +644,7 @@ macro_rules! impl_system_function {
             #[inline]
             fn run(&mut self, _input: (), param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
-                // without using this function. It fails to recognise that `func`
+                // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(

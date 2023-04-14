@@ -196,7 +196,7 @@ pub fn text_system(
                 &text.sections,
                 scale_factor,
                 text.alignment,
-                text.linebreak_behaviour,
+                text.linebreak_behavior,
                 node_size,
                 &mut font_atlas_set_storage,
                 &mut texture_atlases,
