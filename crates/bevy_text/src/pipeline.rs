@@ -92,6 +92,9 @@ impl TextPipeline {
         for sg in &section_glyphs {
             let scaled_font = scaled_fonts[sg.section_index];
             let glyph = &sg.glyph;
+            // The fonts use a coordinate system increasing upwards so ascent is a positive value
+            //  and descent is negative, but Bevy UI uses a downwards increasing coordinate system,
+            // so we have to subtract from the baseline position to get the minimum and maximum values.
             min_x = min_x.min(glyph.position.x);
             min_y = min_y.min(glyph.position.y - scaled_font.ascent());
             max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
@@ -234,6 +237,9 @@ impl TextMeasureInfo {
         for sg in section_glyphs {
             let scaled_font = &self.scaled_fonts[sg.section_index];
             let glyph = &sg.glyph;
+            // The fonts use a coordinate system increasing upwards so ascent is a positive value
+            //  and descent is negative, but Bevy UI uses a downwards increasing coordinate system,
+            // so we have to subtract from the baseline position to get the minimum and maximum values.
             min_x = min_x.min(glyph.position.x);
             min_y = min_y.min(glyph.position.y - scaled_font.ascent());
             max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
