@@ -147,27 +147,13 @@ impl TextPipeline {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mut info = TextMeasureInfo {
-            fonts: auto_fonts,
+        Ok(TextMeasureInfo::new(
+            auto_fonts,
             scaled_fonts,
             sections,
             text_alignment,
-            linebreak_behaviour: linebreak_behaviour.into(),
-            min_width_content_size: Vec2::ZERO,
-            max_width_content_size: Vec2::ZERO,
-        };
-
-        let section_texts = info.prepare_section_texts();
-        let min =
-            info.compute_size_from_section_texts(&section_texts, Vec2::new(0.0, f32::INFINITY));
-        let max = info.compute_size_from_section_texts(
-            &section_texts,
-            Vec2::new(f32::INFINITY, f32::INFINITY),
-        );
-        info.min_width_content_size = min;
-        info.max_width_content_size = max;
-
-        Ok(info)
+            linebreak_behaviour.into(),
+        ))
     }
 }
 
@@ -190,6 +176,35 @@ pub struct TextMeasureInfo {
 }
 
 impl TextMeasureInfo {
+    fn new(
+        fonts: Vec<ab_glyph::FontArc>,
+        scaled_fonts: Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>,
+        sections: Vec<TextMeasureSection>,
+        text_alignment: TextAlignment,
+        linebreak_behaviour: glyph_brush_layout::BuiltInLineBreaker,
+    ) -> Self {
+        let mut info = Self {
+            fonts: auto_fonts,
+            scaled_fonts,
+            sections,
+            text_alignment,
+            linebreak_behaviour: linebreak_behaviour.into(),
+            min_width_content_size: Vec2::ZERO,
+            max_width_content_size: Vec2::ZERO,
+        };
+
+        let section_texts = info.prepare_section_texts();
+        let min =
+            info.compute_size_from_section_texts(&section_texts, Vec2::new(0.0, f32::INFINITY));
+        let max = info.compute_size_from_section_texts(
+            &section_texts,
+            Vec2::new(f32::INFINITY, f32::INFINITY),
+        );
+        info.min_width_content_size = min;
+        info.max_width_content_size = max;
+        info
+    }
+
     fn prepare_section_texts(&self) -> Vec<SectionText> {
         self.sections
             .iter()
