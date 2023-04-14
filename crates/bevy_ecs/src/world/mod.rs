@@ -1773,7 +1773,7 @@ impl World {
             .resource_mut::<Schedules>()
             .insert(extracted_label, schedule);
         if old.is_some() {
-            warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten")
+            warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
         }
 
         Ok(value)
