@@ -292,8 +292,8 @@ where
 
     fn combine(
         input: Self::In,
-        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+        a: impl FnOnce(A::In) -> A::Out,
+        b: impl FnOnce(B::In) -> B::Out,
     ) -> Self::Out {
         let value = a(input);
         b(value)
