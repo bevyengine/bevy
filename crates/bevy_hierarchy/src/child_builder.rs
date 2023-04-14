@@ -657,6 +657,22 @@ mod tests {
     }
 
     #[test]
+    fn set_parent_of_orphan() {
+        let world = &mut World::new();
+
+        let [a, b, c] = std::array::from_fn(|_| world.spawn_empty().id());
+        world.entity_mut(a).set_parent(b);
+        assert_parent(world, a, Some(b));
+        assert_children(world, b, Some(&[a]));
+
+        world.entity_mut(b).despawn();
+        world.entity_mut(a).set_parent(c);
+
+        assert_parent(world, a, Some(c));
+        assert_children(world, c, Some(&[a]));
+    }
+
+    #[test]
     fn remove_parent() {
         let world = &mut World::new();
         world.insert_resource(Events::<HierarchyEvent>::default());
