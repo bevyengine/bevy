@@ -8,7 +8,7 @@ use bevy_ecs::{
     prelude::Component,
     query::{Added, Changed, ReadOnlyWorldQuery, With, Without},
     removal_detection::RemovedComponents,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -116,6 +116,7 @@ impl UiSurface {
             self.taffy.new_leaf(style).unwrap()
         };
         self.entity_to_taffy.insert(entity, taffy_node);
+
         taffy_node
     }
 
@@ -127,7 +128,7 @@ impl UiSurface {
     ) {
         self.taffy
             .set_style(taffy_node, convert::from_style(context, style))
-            .unwrap();
+            .ok();
     }
 
     pub fn update_leaf(
@@ -191,15 +192,11 @@ without UI components as a child of an entity with UI components, results may be
             .unwrap();
     }
 
-    pub fn set_window_children(&mut self, children: impl Iterator<Item = Entity>) {
-        let window_node = self.window_node;
-        let child_nodes = children
-            .map(|e| {
-                let taffy_node = *self.entity_to_taffy.get(&e).unwrap();
-                taffy_node
-            })
-            .collect::<Vec<taffy::node::Node>>();
-        self.taffy.set_children(window_node, &child_nodes).unwrap();
+    pub fn set_window_children(&mut self, children: impl Iterator<Item = taffy::node::Node>) {
+        let child_nodes = children.collect::<Vec<taffy::node::Node>>();
+        self.taffy
+            .set_children(self.window_node, &child_nodes)
+            .unwrap();
     }
 
     pub fn compute_window_layout(&mut self) {
@@ -209,18 +206,10 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Removes each entity from the internal map and then removes their associated node from taffy
-    pub fn remove_entities(
-        &mut self,
-        entities: impl IntoIterator<Item = Entity>,
-        commands: &mut Commands,
-    ) {
+    pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
                 self.taffy.remove(node).unwrap();
-            }
-
-            if let Some(mut entity_commands) = commands.get_entity(entity) {
-                entity_commands.remove::<Node>();
             }
         }
     }
@@ -248,13 +237,12 @@ pub enum FlexError {
 
 /// Remove the corresponding taffy node for any entity that has its `Node` component removed.
 pub fn clean_up_removed_ui_nodes(
-    mut commands: Commands,
     mut ui_surface: ResMut<UiSurface>,
     mut removed_nodes: RemovedComponents<Node>,
     mut removed_calculated_sizes: RemovedComponents<CalculatedSize>,
 ) {
     // clean up removed nodes
-    ui_surface.remove_entities(removed_nodes.iter(), &mut commands);
+    ui_surface.remove_entities(removed_nodes.iter());
 
     // When a `CalculatedSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_calculated_sizes.iter() {
@@ -262,7 +250,7 @@ pub fn clean_up_removed_ui_nodes(
     }
 }
 
-/// Insert a new taffy node into the layout for any entity that a `Node` component added.
+/// Insert a new taffy node into the layout for any entity that had a `Node` component added.
 pub fn insert_new_ui_nodes_into_layout(
     mut ui_surface: ResMut<UiSurface>,
     mut new_node_query: Query<(Entity, &mut Node), Added<Node>>,
@@ -333,7 +321,7 @@ pub fn update_window_layouts(
 pub fn update_ui_layout(
     ui_context: ResMut<UiContext>,
     mut ui_surface: ResMut<UiSurface>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    root_node_query: Query<&Node, (With<Style>, Without<Parent>)>,
     node_query: Query<(&Node, &Style, Option<&CalculatedSize>), Changed<Style>>,
     full_node_query: Query<(&Node, &Style, Option<&CalculatedSize>)>,
     changed_size_query: Query<(&Node, &Style, &CalculatedSize), Changed<CalculatedSize>>,
@@ -372,7 +360,7 @@ pub fn update_ui_layout(
     ui_surface.update_window(layout_context.physical_size);
 
     // update window children
-    ui_surface.set_window_children(root_node_query.iter());
+    ui_surface.set_window_children(root_node_query.iter().map(|node| node.key));
 
     // compute layouts
     ui_surface.compute_window_layout();
@@ -451,4 +439,83 @@ pub fn measure(calculated_size: CalculatedSize, scale_factor: f64) -> taffy::nod
             size
         },
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::clean_up_removed_ui_nodes;
+    use crate::insert_new_ui_nodes_into_layout;
+    use crate::synchonise_children;
+    use crate::update_ui_layout;
+    use crate::LayoutContext;
+    use crate::Node;
+    use crate::NodeSize;
+    use crate::Style;
+    use crate::UiContext;
+    use crate::UiSurface;
+    use bevy_ecs::prelude::*;
+    use bevy_math::Vec2;
+    use taffy::tree::LayoutTree;
+
+    fn node_bundle() -> (Node, NodeSize, Style) {
+        (Node::default(), NodeSize::default(), Style::default())
+    }
+
+    fn test_schedule() -> Schedule {
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems((
+            clean_up_removed_ui_nodes.before(insert_new_ui_nodes_into_layout),
+            insert_new_ui_nodes_into_layout.before(synchonise_children),
+            synchonise_children.before(update_ui_layout),
+            update_ui_layout,
+        ));
+        schedule
+    }
+
+    #[test]
+    fn insert_and_remove_node() {
+        let mut world = World::new();
+
+        world.init_resource::<UiSurface>();
+        world.insert_resource(UiContext(Some(LayoutContext::new(
+            3.0,
+            Vec2::new(1000., 500.),
+            true,
+            true,
+        ))));
+
+        // add ui node entity to world
+        let entity = world.spawn(node_bundle()).id();
+
+        // ui update
+        let mut schedule = test_schedule();
+        schedule.run(&mut world);
+
+        let key = world.get::<Node>(entity).unwrap().key;
+        let surface = world.resource::<UiSurface>();
+
+        // ui node entity should be associated with a taffy node
+        assert_eq!(surface.entity_to_taffy[&entity], key);
+
+        // taffy node should be a child of the window node
+        assert_eq!(surface.taffy.parent(key).unwrap(), surface.window_node);
+
+        // despawn the ui node entity
+        world.entity_mut(entity).despawn();
+
+        schedule.run(&mut world);
+
+        let surface = world.resource::<UiSurface>();
+
+        // the despawned entity's associated taffy node should also be removed
+        assert!(!surface.entity_to_taffy.contains_key(&entity));
+
+        // window node should have no children
+        assert!(surface
+            .taffy
+            .children(surface.window_node)
+            .unwrap()
+            .is_empty());
+    }
 }
