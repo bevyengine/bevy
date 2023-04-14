@@ -1,12 +1,25 @@
-use crate::{measurement::AvailableSpace, CalculatedSize, Measure, UiImage};
+use crate::{measurement::AvailableSpace, CalculatedSize, Measure, UiImage, Node};
 use bevy_asset::Assets;
 #[cfg(feature = "bevy_text")]
 use bevy_ecs::query::Without;
-use bevy_ecs::system::{Query, Res};
+use bevy_ecs::{system::{Query, Res}, prelude::Component, query::With};
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 #[cfg(feature = "bevy_text")]
 use bevy_text::Text;
+
+/// The size of the image in pixels
+/// 
+/// This field is set automatically
+
+#[derive(Component, Copy, Clone, Debug, Default)]
+pub struct UiImageSize { size: Vec2 }
+
+impl UiImageSize {
+    pub fn size(&self) -> Vec2 {
+        self.size
+    }
+}
 
 #[derive(Clone)]
 pub struct ImageMeasure {
@@ -49,18 +62,18 @@ impl Measure for ImageMeasure {
 /// Updates calculated size of the node based on the image provided
 pub fn update_image_calculated_size_system(
     textures: Res<Assets<Image>>,
-    #[cfg(feature = "bevy_text")] mut query: Query<(&mut CalculatedSize, &UiImage), Without<Text>>,
-    #[cfg(not(feature = "bevy_text"))] mut query: Query<(&mut CalculatedSize, &UiImage)>,
+    #[cfg(feature = "bevy_text")] mut query: Query<(&mut CalculatedSize, &UiImage, &mut UiImageSize), (With<Node>, Without<Text>)>,
+    #[cfg(not(feature = "bevy_text"))] mut query: Query<(&mut CalculatedSize, &UiImage, &mut UiImageSize), With<Node>>,
 ) {
-    for (mut calculated_size, image) in &mut query {
+    for (mut calculated_size, image, mut image_size) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
             let size = Vec2::new(
                 texture.texture_descriptor.size.width as f32,
                 texture.texture_descriptor.size.height as f32,
             );
             // Update only if size has changed to avoid needless layout calculations
-            if size != calculated_size.previous_size {
-                calculated_size.previous_size = size;
+            if size != image_size.size {
+                image_size.size = size;
                 calculated_size.measure = Box::new(ImageMeasure { size });
             }
         }

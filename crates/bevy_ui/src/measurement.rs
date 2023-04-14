@@ -7,7 +7,6 @@ pub use taffy::style::AvailableSpace;
 impl std::fmt::Debug for CalculatedSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CalculatedSize")
-            .field("size", &self.previous_size)
             .finish()
     }
 }
@@ -55,8 +54,6 @@ impl Measure for FixedMeasure {
 /// is based on its content.
 #[derive(Component, Reflect)]
 pub struct CalculatedSize {
-    /// Used to track changes, not required to be set.
-    pub previous_size: Vec2,
     /// The `Measure` used to compute the intrinsic size
     #[reflect(ignore)]
     pub measure: Box<dyn Measure>,
@@ -66,7 +63,6 @@ pub struct CalculatedSize {
 impl Default for CalculatedSize {
     fn default() -> Self {
         Self {
-            previous_size: Default::default(),
             // Default `FixedMeasure` always returns zero size.
             measure: Box::<FixedMeasure>::default(),
         }
@@ -76,7 +72,6 @@ impl Default for CalculatedSize {
 impl Clone for CalculatedSize {
     fn clone(&self) -> Self {
         Self {
-            previous_size: self.previous_size,
             measure: self.measure.dyn_clone(),
         }
     }
