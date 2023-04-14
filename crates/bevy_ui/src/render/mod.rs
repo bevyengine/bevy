@@ -171,11 +171,11 @@ fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) 
     match value {
         Val::Auto => 0.,
         Val::Px(px) => px.max(0.),
-        Val::Percent(percent) => (parent_width * percent / 100.).min(0.),
-        Val::Vw(percent) => (viewport_size.x * percent / 100.).min(0.),
-        Val::Vh(percent) => (viewport_size.y * percent / 100.).min(0.),
-        Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).min(0.),
-        Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).min(0.),
+        Val::Percent(percent) => (parent_width * percent / 100.).max(0.),
+        Val::Vw(percent) => (viewport_size.x * percent / 100.).max(0.),
+        Val::Vh(percent) => (viewport_size.y * percent / 100.).max(0.),
+        Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
+        Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
     }
 }
 
