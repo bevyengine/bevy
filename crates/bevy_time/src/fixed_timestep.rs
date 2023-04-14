@@ -106,7 +106,8 @@ pub fn run_fixed_update_schedule(world: &mut World) {
     let mut fixed_time = world.resource_mut::<FixedTime>();
     fixed_time.tick(delta_time);
 
-    // Run the schedule until we run out of accumulated timelet mut check_again = true;
+    // Run the schedule until we run out of accumulated time
+    let mut check_again = true;
     while check_again {
         let mut fixed_time = world.resource_mut::<FixedTime>();
         let fixed_time_run = fixed_time.expend().is_ok();
