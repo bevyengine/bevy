@@ -194,6 +194,8 @@ where
 mod tests {
     use std::any::TypeId;
 
+    use bevy_utils::default;
+
     use crate::{
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
@@ -206,8 +208,8 @@ mod tests {
         removal_detection::RemovedComponents,
         schedule::{apply_system_buffers, IntoSystemConfigs, Schedule},
         system::{
-            Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
-            Res, ResMut, Resource, System, SystemState,
+            adapter::new, Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
+            QueryComponentError, Res, ResMut, Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -1444,5 +1446,106 @@ mod tests {
     fn panic_inside_system() {
         let mut world = World::new();
         run_system(&mut world, || panic!("this system panics"));
+    }
+
+    #[test]
+    fn assert_systems() {
+        use std::str::FromStr;
+
+        use crate::{prelude::*, system::assert_is_system};
+
+        /// Mocks a system that returns a value of type `T`.
+        fn returning<T>() -> T {
+            unimplemented!()
+        }
+
+        /// Mocks an exclusive system that takes an input and returns an output.
+        fn exclusive_in_out<A, B>(_: In<A>, _: &mut World) -> B {
+            unimplemented!()
+        }
+
+        fn not(In(val): In<bool>) -> bool {
+            !val
+        }
+
+        assert_is_system(returning::<Result<u32, std::io::Error>>.pipe(unwrap));
+        assert_is_system(returning::<Option<()>>.pipe(ignore));
+        assert_is_system(returning::<&str>.pipe(new(u64::from_str)).pipe(unwrap));
+        assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.pipe(error));
+        assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
+
+        returning::<()>.run_if(returning::<bool>.pipe(not));
+    }
+
+    #[test]
+    fn pipe_change_detection() {
+        #[derive(Resource, Default)]
+        struct Flag;
+
+        #[derive(Default)]
+        struct Info {
+            // If true, the respective system will mutate `Flag`.
+            do_first: bool,
+            do_second: bool,
+
+            // Will be set to true if the respective system saw that `Flag` changed.
+            first_flag: bool,
+            second_flag: bool,
+        }
+
+        fn first(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
+            if flag.is_changed() {
+                info.first_flag = true;
+            }
+            if info.do_first {
+                *flag = Flag;
+            }
+
+            info
+        }
+
+        fn second(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
+            if flag.is_changed() {
+                info.second_flag = true;
+            }
+            if info.do_second {
+                *flag = Flag;
+            }
+
+            info
+        }
+
+        let mut world = World::new();
+        world.init_resource::<Flag>();
+        let mut sys = first.pipe(second);
+        sys.initialize(&mut world);
+
+        sys.run(default(), &mut world);
+
+        // The second system should observe a change made in the first system.
+        let info = sys.run(
+            Info {
+                do_first: true,
+                ..default()
+            },
+            &mut world,
+        );
+        assert!(!info.first_flag);
+        assert!(info.second_flag);
+
+        // When a change is made in the second system, the first system
+        // should observe it the next time they are run.
+        let info1 = sys.run(
+            Info {
+                do_second: true,
+                ..default()
+            },
+            &mut world,
+        );
+        let info2 = sys.run(default(), &mut world);
+        assert!(!info1.first_flag);
+        assert!(!info1.second_flag);
+        assert!(info2.first_flag);
+        assert!(!info2.second_flag);
     }
 }
