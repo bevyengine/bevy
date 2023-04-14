@@ -54,8 +54,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-       
-            corner_radius: CornerRadius::all(25.0),
             border: Border {
                 color: Color::rgb(0.05, 0.05, 0.05),
                 width: 1.0,
@@ -74,6 +72,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     background_color: NORMAL_BUTTON.into(),
+                    corner_radius: CornerRadius::all(25.0),
                     ..default()
                 })
                 .with_children(|parent| {

@@ -971,6 +971,10 @@ mod tests {
 /// The corner radius of the node
 ///
 /// This describes a radius value for each corner of a node, even if they have no [`Border`].
+/// 
+/// ## Limitations
+/// Currently, every UI nodes that have CornerRadius must have its BackgroundColor's opacity to something bigger than zero. <br/>
+/// TODO: Remove this limitation
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct CornerRadius {
