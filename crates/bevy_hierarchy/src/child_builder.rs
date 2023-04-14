@@ -112,8 +112,8 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
     push_events(world, events);
 }
 
-/// Removes `children` from `parent`'s [`Children`], removing the component if ends up empty and
-/// removes [`Parent`] components from `children`.
+/// Removes entities in `children` from `parent`'s [`Children`], removing the component if it ends up empty.
+/// Also removes [`Parent`] components from `children`.
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
     if let Some(parent_children) = world.get::<Children>(parent) {
