@@ -6,12 +6,12 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_utils::{tracing::debug, HashMap, HashSet};
+use bevy_utils::{default, tracing::debug, HashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };
 use std::ops::{Deref, DerefMut};
-use wgpu::{BufferUsages, TextureFormat, TextureUsages};
+use wgpu::{BufferUsages, TextureFormat, TextureUsages, TextureViewDescriptor};
 
 pub mod screenshot;
 
@@ -71,8 +71,12 @@ pub struct ExtractedWindow {
 
 impl ExtractedWindow {
     fn set_swapchain_texture(&mut self, frame: wgpu::SurfaceTexture) {
+        let texture_view_descriptor = TextureViewDescriptor {
+            format: Some(frame.texture.format().add_srgb_suffix()),
+            ..default()
+        };
         self.swap_chain_texture_view = Some(TextureView::from(
-            frame.texture.create_view(&Default::default()),
+            frame.texture.create_view(&texture_view_descriptor),
         ));
         self.swap_chain_texture = Some(SurfaceTexture::from(frame));
     }
@@ -269,8 +273,11 @@ pub fn prepare_windows(
                 CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
                 CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
             },
-            // TODO: Use an sRGB view format here on platforms that don't support sRGB surfaces. (afaik only WebGPU)
-            view_formats: vec![],
+            view_formats: if surface_data.format.is_srgb() {
+                vec![]
+            } else {
+                vec![surface_data.format.add_srgb_suffix()]
+            },
         };
 
         // This is an ugly hack to work around drivers that don't support MSAA.

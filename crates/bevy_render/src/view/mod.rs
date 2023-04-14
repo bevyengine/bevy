@@ -406,8 +406,11 @@ fn prepare_view_targets(
                             format: main_texture_format,
                             usage: TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
-                            // TODO: Consider changing this if main_texture_format is not sRGB
-                            view_formats: &[],
+                            view_formats: match main_texture_format {
+                                TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
+                                TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
+                                _ => &[],
+                            },
                         };
                         MainTargetTextures {
                             a: texture_cache
@@ -440,7 +443,15 @@ fn prepare_view_targets(
                                             dimension: TextureDimension::D2,
                                             format: main_texture_format,
                                             usage: TextureUsages::RENDER_ATTACHMENT,
-                                            view_formats: &[],
+                                            view_formats: match main_texture_format {
+                                                TextureFormat::Bgra8Unorm => {
+                                                    &[TextureFormat::Bgra8UnormSrgb]
+                                                }
+                                                TextureFormat::Rgba8Unorm => {
+                                                    &[TextureFormat::Rgba8UnormSrgb]
+                                                }
+                                                _ => &[],
+                                            },
                                         },
                                     )
                                     .default_view
@@ -454,7 +465,7 @@ fn prepare_view_targets(
                     main_texture_format,
                     main_texture: main_textures.main_texture.clone(),
                     out_texture: out_texture_view.clone(),
-                    out_texture_format,
+                    out_texture_format: out_texture_format.add_srgb_suffix(),
                 });
             }
         }
