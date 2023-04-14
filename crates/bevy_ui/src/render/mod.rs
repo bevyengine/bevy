@@ -264,7 +264,7 @@ pub fn extract_uinode_borders(
             // calculate border rects, ensuring that they don't overlap
             let transform = global_transform.compute_matrix();
 
-            for &edge in border_rects.iter() {
+            for edge in border_rects {
                 if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
                         stack_index,
