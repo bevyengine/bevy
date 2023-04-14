@@ -187,7 +187,7 @@ impl TextMeasureInfo {
         linebreak_behaviour: glyph_brush_layout::BuiltInLineBreaker,
     ) -> Self {
         let mut info = Self {
-            fonts: auto_fonts,
+            fonts,
             scaled_fonts,
             sections,
             text_alignment,
