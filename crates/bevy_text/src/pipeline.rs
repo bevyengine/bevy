@@ -187,11 +187,11 @@ impl TextMeasureInfo {
         linebreak_behaviour: glyph_brush_layout::BuiltInLineBreaker,
     ) -> Self {
         let mut info = Self {
-            fonts: auto_fonts,
+            fonts,
             scaled_fonts,
             sections,
             text_alignment,
-            linebreak_behaviour: linebreak_behaviour.into(),
+            linebreak_behaviour,
             min_width_content_size: Vec2::ZERO,
             max_width_content_size: Vec2::ZERO,
         };

@@ -115,7 +115,7 @@ pub fn measure_text_system(
                 &text.sections,
                 scale_factor,
                 text.alignment,
-                text.linebreak_behaviour,
+                text.linebreak_behavior,
             ) {
                 Ok(measure) => {
                     calculated_size.measure = Box::new(TextMeasure { info: measure });
