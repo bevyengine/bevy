@@ -9,8 +9,10 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{Style, CalculatedSize, Val, UiScale};
-use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack, BorderColor};
+use crate::{
+    prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
+};
+use crate::{CalculatedSize, Style, UiScale, Val};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -196,26 +198,30 @@ pub fn extract_uinode_borders(
             Without<CalculatedSize>,
         >,
     >,
-    parent_node_query: Extract<
-        Query<
-            &Node, With<Parent>
-        >
-    >
+    parent_node_query: Extract<Query<&Node, With<Parent>>>,
 ) {
     let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
-    
+
     let viewport_size = windows
         .get_single()
-        .map(|window| Vec2::new( window.resolution.physical_width() as f32, window.resolution.physical_height() as f32) * (window.resolution.scale_factor() * ui_scale.scale) as f32)
+        .map(|window| {
+            Vec2::new(
+                window.resolution.physical_width() as f32,
+                window.resolution.physical_height() as f32,
+            ) * (window.resolution.scale_factor() * ui_scale.scale) as f32
+        })
         .unwrap_or(Vec2::ZERO);
-
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((node, global_transform, style, border_color, parent, visibility, clip)) =
             uinode_query.get(*entity)
         {
             // Skip invisible borders
-            if !visibility.is_visible() || border_color.0.a() == 0.0 || node.size().x <= 0. || node.size().y <= 0. {
+            if !visibility.is_visible()
+                || border_color.0.a() == 0.0
+                || node.size().x <= 0.
+                || node.size().y <= 0.
+            {
                 continue;
             }
 

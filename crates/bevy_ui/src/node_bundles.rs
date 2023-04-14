@@ -1,8 +1,8 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::Button, BackgroundColor, BorderColor, CalculatedSize,
-    FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
+    widget::Button, BackgroundColor, BorderColor, CalculatedSize, FocusPolicy, Interaction, Node,
+    Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -199,7 +199,7 @@ impl TextBundle {
 pub struct ButtonBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    
+
     /// Marker component that signals this node is a button
     pub button: Button,
     /// Describes the style including flexbox settings
