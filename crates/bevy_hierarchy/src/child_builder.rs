@@ -198,7 +198,7 @@ impl Command for PushChildren {
     }
 }
 
-/// Command that removes children from an entity, and removes that child's parent.
+/// Command that removes children from an entity, and removes these children's parent.
 pub struct RemoveChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
