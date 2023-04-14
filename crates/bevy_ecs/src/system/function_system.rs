@@ -1,7 +1,6 @@
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
-    change_detection::MAX_CHANGE_AGE,
-    component::ComponentId,
+    component::{ComponentId, Tick},
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
@@ -22,7 +21,7 @@ pub struct SystemMeta {
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
-    pub(crate) last_change_tick: u32,
+    pub(crate) last_run: Tick,
 }
 
 impl SystemMeta {
@@ -32,7 +31,7 @@ impl SystemMeta {
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
-            last_change_tick: 0,
+            last_run: Tick::new(0),
         }
     }
 
@@ -82,17 +81,17 @@ impl SystemMeta {
 ///
 /// Basic usage:
 /// ```rust
-/// use bevy_ecs::prelude::*;
-/// use bevy_ecs::{system::SystemState};
-/// use bevy_ecs::event::Events;
-///
-/// struct MyEvent;
-/// #[derive(Resource)]
-/// struct MyResource(u32);
-///
-/// #[derive(Component)]
-/// struct MyComponent;
-///
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::SystemState;
+/// # use bevy_ecs::event::Events;
+/// #
+/// # struct MyEvent;
+/// # #[derive(Resource)]
+/// # struct MyResource(u32);
+/// #
+/// # #[derive(Component)]
+/// # struct MyComponent;
+/// #
 /// // Work directly on the `World`
 /// let mut world = World::new();
 /// world.init_resource::<Events<MyEvent>>();
@@ -103,34 +102,36 @@ impl SystemMeta {
 ///     EventWriter<MyEvent>,
 ///     Option<ResMut<MyResource>>,
 ///     Query<&MyComponent>,
-///     )> = SystemState::new(&mut world);
+/// )> = SystemState::new(&mut world);
 ///
 /// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
 /// // system_state.get(&world) provides read-only versions of your system parameters instead.
 /// let (event_writer, maybe_resource, query) = system_state.get_mut(&mut world);
 ///
-/// // If you are using [`Commands`], you can choose when you want to apply them to the world.
-/// // You need to manually call `.apply(world)` on the [`SystemState`] to apply them.
+/// // If you are using `Commands`, you can choose when you want to apply them to the world.
+/// // You need to manually call `.apply(world)` on the `SystemState` to apply them.
 /// ```
 /// Caching:
 /// ```rust
-/// use bevy_ecs::prelude::*;
-/// use bevy_ecs::{system::SystemState};
-/// use bevy_ecs::event::Events;
-///
-/// struct MyEvent;
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::SystemState;
+/// # use bevy_ecs::event::Events;
+/// #
+/// # struct MyEvent;
 /// #[derive(Resource)]
 /// struct CachedSystemState {
-///    event_state: SystemState<EventReader<'static, 'static, MyEvent>>
+///     event_state: SystemState<EventReader<'static, 'static, MyEvent>>,
 /// }
 ///
 /// // Create and store a system state once
 /// let mut world = World::new();
 /// world.init_resource::<Events<MyEvent>>();
-/// let initial_state: SystemState<EventReader<MyEvent>>  = SystemState::new(&mut world);
+/// let initial_state: SystemState<EventReader<MyEvent>> = SystemState::new(&mut world);
 ///
 /// // The system state is cached in a resource
-/// world.insert_resource(CachedSystemState{event_state: initial_state});
+/// world.insert_resource(CachedSystemState {
+///     event_state: initial_state,
+/// });
 ///
 /// // Later, fetch the cached system state, saving on overhead
 /// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
@@ -138,7 +139,7 @@ impl SystemMeta {
 ///
 ///     for events in event_reader.iter() {
 ///         println!("Hello World!");
-///     };
+///     }
 /// });
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
@@ -151,7 +152,7 @@ pub struct SystemState<Param: SystemParam + 'static> {
 impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
-        meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
+        meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let param_state = Param::init_state(world, &mut meta);
         Self {
             meta,
@@ -288,10 +289,15 @@ impl<Param: SystemParam> SystemState<Param> {
     unsafe fn fetch<'w, 's>(
         &'s mut self,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> SystemParamItem<'w, 's, Param> {
-        let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
-        self.meta.last_change_tick = change_tick;
+        let param = Param::get_param(
+            &mut self.param_state,
+            &self.meta,
+            world.as_unsafe_world_cell_migration_internal(),
+            change_tick,
+        );
+        self.meta.last_run = change_tick;
         param
     }
 }
@@ -368,6 +374,9 @@ pub struct In<In>(pub In);
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 ///
 /// [`FunctionSystem`] must be `.initialized` before they can be run.
+///
+/// The [`Clone`] implementation for [`FunctionSystem`] returns a new instance which
+/// is NOT initialized. The cloned system must also be `.initialized` before it can be run.
 pub struct FunctionSystem<Marker, F>
 where
     F: SystemParamFunction<Marker>,
@@ -379,6 +388,23 @@ where
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn() -> Marker>,
+}
+
+// De-initializes the cloned system.
+impl<Marker, F> Clone for FunctionSystem<Marker, F>
+where
+    F: SystemParamFunction<Marker> + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            func: self.func.clone(),
+            param_state: None,
+            system_meta: SystemMeta::new::<F>(),
+            world_id: None,
+            archetype_generation: ArchetypeGeneration::initial(),
+            marker: PhantomData,
+        }
+    }
 }
 
 pub struct IsFunctionSystem;
@@ -460,20 +486,20 @@ where
         let params = F::Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
-            world,
+            world.as_unsafe_world_cell_migration_internal(),
             change_tick,
         );
         let out = self.func.run(input, params);
-        self.system_meta.last_change_tick = change_tick;
+        self.system_meta.last_run = change_tick;
         out
     }
 
-    fn get_last_change_tick(&self) -> u32 {
-        self.system_meta.last_change_tick
+    fn get_last_run(&self) -> Tick {
+        self.system_meta.last_run
     }
 
-    fn set_last_change_tick(&mut self, last_change_tick: u32) {
-        self.system_meta.last_change_tick = last_change_tick;
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 
     #[inline]
@@ -485,7 +511,7 @@ where
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
-        self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
+        self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
     }
 
@@ -507,9 +533,9 @@ where
     }
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: u32) {
+    fn check_change_tick(&mut self, change_tick: Tick) {
         check_system_change_tick(
-            &mut self.system_meta.last_change_tick,
+            &mut self.system_meta.last_run,
             change_tick,
             self.system_meta.name.as_ref(),
         );
@@ -547,7 +573,6 @@ where
 /// use std::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::system::{SystemParam, SystemParamItem};
 ///
 /// /// Pipe creates a new system which calls `a`, then calls `b` with the output of `a`
 /// pub fn pipe<A, B, AMarker, BMarker>(
@@ -619,7 +644,7 @@ macro_rules! impl_system_function {
             #[inline]
             fn run(&mut self, _input: (), param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
-                // without using this function. It fails to recognise that `func`
+                // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(

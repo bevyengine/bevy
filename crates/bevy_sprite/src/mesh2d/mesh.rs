@@ -22,7 +22,7 @@ use bevy_render::{
     view::{
         ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
     },
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 
@@ -103,9 +103,14 @@ impl Plugin for Mesh2dRenderPlugin {
             render_app
                 .init_resource::<Mesh2dPipeline>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
-                .add_system_to_schedule(ExtractSchedule, extract_mesh2d)
-                .add_system(queue_mesh2d_bind_group.in_set(RenderSet::Queue))
-                .add_system(queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue));
+                .add_systems(ExtractSchedule, extract_mesh2d)
+                .add_systems(
+                    Render,
+                    (
+                        queue_mesh2d_bind_group.in_set(RenderSet::Queue),
+                        queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue),
+                    ),
+                );
         }
     }
 }
@@ -208,12 +213,7 @@ impl FromWorld for Mesh2dPipeline {
         });
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
-            let image = Image::new_fill(
-                Extent3d::default(),
-                TextureDimension::D2,
-                &[255u8; 4],
-                TextureFormat::bevy_default(),
-            );
+            let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
                 ImageSampler::Default => (**default_sampler).clone(),

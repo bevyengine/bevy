@@ -45,7 +45,7 @@ impl TextPipeline {
         sections: &[TextSection],
         scale_factor: f64,
         text_alignment: TextAlignment,
-        linebreak_behaviour: BreakLineOn,
+        linebreak_behavior: BreakLineOn,
         bounds: Vec2,
         font_atlas_set_storage: &mut Assets<FontAtlasSet>,
         texture_atlases: &mut Assets<TextureAtlas>,
@@ -78,7 +78,7 @@ impl TextPipeline {
 
         let section_glyphs =
             self.brush
-                .compute_glyphs(&sections, bounds, text_alignment, linebreak_behaviour)?;
+                .compute_glyphs(&sections, bounds, text_alignment, linebreak_behavior)?;
 
         if section_glyphs.is_empty() {
             return Ok(TextLayoutInfo::default());

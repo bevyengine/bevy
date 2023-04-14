@@ -12,10 +12,11 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(setup)
-        .add_system(display_override)
-        .add_system(toggle_override)
-        .add_system(change_scale_factor)
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (display_override, toggle_override, change_scale_factor),
+        )
         .run();
 }
 

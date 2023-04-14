@@ -6,7 +6,7 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
@@ -14,15 +14,18 @@ use crate::{
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
-    RenderApp, RenderSet,
+    Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec4, Vec3, Vec4};
+use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use wgpu::{
     Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
     TextureFormat, TextureUsages,
@@ -43,6 +46,7 @@ impl Plugin for ViewPlugin {
             .register_type::<RenderLayers>()
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
+            .register_type::<ColorGrading>()
             .init_resource::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugin(ExtractResourcePlugin::<Msaa>::default())
@@ -51,13 +55,16 @@ impl Plugin for ViewPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .configure_set(ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
-                .add_system(prepare_view_uniforms.in_set(ViewSet::PrepareUniforms))
-                .add_system(
-                    prepare_view_targets
-                        .after(WindowSystem::Prepare)
-                        .in_set(RenderSet::Prepare)
-                        .after(crate::render_asset::prepare_assets::<Image>),
+                .configure_set(Render, ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
+                .add_systems(
+                    Render,
+                    (
+                        prepare_view_uniforms.in_set(ViewSet::PrepareUniforms),
+                        prepare_view_targets
+                            .after(WindowSystem::Prepare)
+                            .in_set(RenderSet::Prepare)
+                            .after(crate::render_asset::prepare_assets::<Image>),
+                    ),
                 );
         }
     }
@@ -154,6 +161,7 @@ impl Default for ColorGrading {
 #[derive(Clone, ShaderType)]
 pub struct ViewUniform {
     view_proj: Mat4,
+    unjittered_view_proj: Mat4,
     inverse_view_proj: Mat4,
     view: Mat4,
     inverse_view: Mat4,
@@ -180,7 +188,8 @@ pub struct ViewTarget {
     main_textures: MainTargetTextures,
     main_texture_format: TextureFormat,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
-    main_texture: AtomicUsize,
+    /// This is shared across view targets with the same render target
+    main_texture: Arc<AtomicUsize>,
     out_texture: TextureView,
     out_texture_format: TextureFormat,
 }
@@ -299,31 +308,41 @@ pub struct ViewDepthTexture {
     pub view: TextureView,
 }
 
-fn prepare_view_uniforms(
+pub fn prepare_view_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut view_uniforms: ResMut<ViewUniforms>,
-    views: Query<(Entity, &ExtractedView)>,
+    views: Query<(Entity, &ExtractedView, Option<&TemporalJitter>)>,
 ) {
     view_uniforms.uniforms.clear();
-    for (entity, camera) in &views {
-        let projection = camera.projection;
+
+    for (entity, camera, temporal_jitter) in &views {
+        let viewport = camera.viewport.as_vec4();
+        let unjittered_projection = camera.projection;
+        let mut projection = unjittered_projection;
+
+        if let Some(temporal_jitter) = temporal_jitter {
+            temporal_jitter.jitter_projection(&mut projection, viewport.zw());
+        }
+
         let inverse_projection = projection.inverse();
         let view = camera.transform.compute_matrix();
         let inverse_view = view.inverse();
+
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
                 view_proj: camera
                     .view_projection
                     .unwrap_or_else(|| projection * inverse_view),
+                unjittered_view_proj: unjittered_projection * inverse_view,
                 inverse_view_proj: view * inverse_projection,
                 view,
                 inverse_view,
                 projection,
                 inverse_projection,
                 world_position: camera.transform.translation(),
-                viewport: camera.viewport.as_vec4(),
+                viewport,
                 color_grading: camera.color_grading,
             }),
         };
@@ -341,6 +360,9 @@ struct MainTargetTextures {
     a: TextureView,
     b: TextureView,
     sampled: Option<TextureView>,
+    /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
+    /// This is shared across view targets with the same render target
+    main_texture: Arc<AtomicUsize>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -423,13 +445,14 @@ fn prepare_view_targets(
                                     )
                                     .default_view
                             }),
+                            main_texture: Arc::new(AtomicUsize::new(0)),
                         }
                     });
 
                 commands.entity(entity).insert(ViewTarget {
                     main_textures: main_textures.clone(),
                     main_texture_format,
-                    main_texture: AtomicUsize::new(0),
+                    main_texture: main_textures.main_texture.clone(),
                     out_texture: out_texture_view.clone(),
                     out_texture_format,
                 });
