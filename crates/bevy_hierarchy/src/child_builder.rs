@@ -451,7 +451,7 @@ impl<'w> WorldChildBuilder<'w> {
     }
 }
 
-/// Trait that defines adding children to an entity directly through the [`World`].
+/// Trait that defines adding, changing and children and parents of an entity directly through the [`World`].
 pub trait BuildWorldChildren {
     /// Takes a clousre which builds children for this entity using [`WorldChildBuilder`].
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self;
