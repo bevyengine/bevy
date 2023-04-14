@@ -222,7 +222,7 @@ impl Command for ClearChildren {
     }
 }
 
-/// Command that clear all children from an entity. And replace with the given children.
+/// Command that clear all children from an entity, replacing with the given children.
 pub struct ReplaceChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
