@@ -236,6 +236,10 @@ pub struct ButtonBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// Describes the radius of corners for the node
+    pub corner_radius: CornerRadius,
+    /// Describes the visual properties of the node's border
+    pub border: Border,
 }
 
 impl Default for ButtonBundle {
@@ -253,6 +257,8 @@ impl Default for ButtonBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
+            corner_radius: Default::default(),
+            border: Default::default(),
         }
     }
 }
