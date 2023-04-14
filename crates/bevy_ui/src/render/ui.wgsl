@@ -11,6 +11,7 @@ struct VertexOutput {
     @location(4) border_color: vec4<f32>,
     @location(5) border_width: f32,
     @location(6) radius: f32,
+    @location(7)  pos: vec2<f32>,
     @builtin(position) position: vec4<f32>,
  
 };
@@ -60,12 +61,47 @@ fn vertex(
     // clamp radius between (0.0) and (shortest side / 2.0)
     out.radius = clamp(out.radius, 0.0, min(out.size.x, out.size.y) / 2.0);
 
-
+    out.pos = vertex_position.xy;
     out.uv = vertex_uv;
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
     out.color = unpack_color_from_u32(node.color);
     return out;
 }
+
+
+fn distance_alg(
+    frag_coord: vec2<f32>,
+    position: vec2<f32>,
+    size: vec2<f32>,
+    radius: f32
+) -> f32 {
+    var inner_size: vec2<f32> = size - vec2<f32>(radius, radius) * 2.0;
+    var top_left: vec2<f32> = position + vec2<f32>(radius, radius);
+    var bottom_right: vec2<f32> = top_left + inner_size;
+
+    var top_left_distance: vec2<f32> = top_left - frag_coord;
+    var bottom_right_distance: vec2<f32> = frag_coord - bottom_right;
+
+    var dist: vec2<f32> = vec2<f32>(
+        max(max(top_left_distance.x, bottom_right_distance.x), 0.0),
+        max(max(top_left_distance.y, bottom_right_distance.y), 0.0)
+    );
+
+    return sqrt(dist.x * dist.x + dist.y * dist.y);
+}
+
+// Based on the fragement position and the center of the quad, select one of the 4 radi.
+// Order matches CSS border radius attribute:
+// radi.x = top-left, radi.y = top-right, radi.z = bottom-right, radi.w = bottom-left
+fn select_border_radius(radi: vec4<f32>, position: vec2<f32>, center: vec2<f32>) -> f32 {
+    var rx = radi.x;
+    var ry = radi.y;
+    rx = select(radi.x, radi.y, position.x > center.x);
+    ry = select(radi.w, radi.z, position.x > center.x);
+    rx = select(rx, ry, position.y > center.y);
+    return rx;
+}
+
 
 @group(1) @binding(0)
 var sprite_texture: texture_2d<f32>;
@@ -80,15 +116,43 @@ fn distance_round_border(point: vec2<f32>, size: vec2<f32>, radius: f32) -> f32 
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = textureSample(sprite_texture, sprite_sampler, in.uv);
     color = in.color * color;
+    
 
-    if (in.radius > 0.0 || in.border_width > 0.0) {
-        var distance = distance_round_border(in.point, in.size * 0.5, in.radius);
 
-        var inner_alpha = 1.0 - smoothstep(0.0, 0.0, distance);
-        var border_alpha = 1.0 - smoothstep(in.border_width, in.border_width, abs(distance));
-        color = mix(vec4<f32>(0.0), mix(color, in.border_color, border_alpha), inner_alpha);
+    var border_radius = in.radius;
+    var scale = vec2(1.0, 1.0);
+
+    if (in.border_width > 0.0) {
+        var internal_border: f32 = max(border_radius - in.border_width, 0.0);
+
+        var internal_distance: f32 = distance_alg(
+            in.position.xy,
+            in.pos + vec2<f32>(in.border_width, in.border_width),
+            scale - vec2<f32>(in.border_width * 2.0, in.border_width * 2.0),
+            internal_border
+        );
+
+        var border_mix: f32 = smoothstep(
+            max(internal_border - 0.5, 0.0),
+            internal_border + 0.5,
+            internal_distance
+        );
+
+        color = mix(in.color, in.border_color, vec4<f32>(border_mix, border_mix, border_mix, border_mix));
     }
 
+    var dist: f32 = distance_alg(
+        vec2<f32>(in.position.x, in.position.y),
+        in.pos,
+        scale,
+        border_radius
+    );
 
-    return color;
+    var radius_alpha: f32 = 1.0 - smoothstep(
+        max(border_radius - 0.5, 0.0),
+        border_radius + 0.5,
+        dist
+    );
+
+    return vec4<f32>(color.x, color.y, color.z, color.w * radius_alpha);
 }
