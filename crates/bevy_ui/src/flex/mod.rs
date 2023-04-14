@@ -35,11 +35,11 @@ pub struct Node {
 pub struct UiContext(pub Option<LayoutContext>);
 
 pub struct LayoutContext {
-    pub resized: bool,
+    pub require_full_update: bool,
     pub scale_factor: f64,
+    pub logical_size: Vec2,
     pub physical_size: Vec2,
     pub physical_to_logical_factor: f64,
-    pub scale_factor_changed: bool,
     pub min_size: f32,
     pub max_size: f32,
 }
@@ -49,17 +49,17 @@ impl LayoutContext {
     fn new(
         scale_factor: f64,
         physical_size: Vec2,
-        resized: bool,
-        scale_factor_changed: bool,
+        require_full_update: bool,
     ) -> Self {
+        let physical_to_logical_factor = 1. / scale_factor;
         Self {
-            resized,
+            require_full_update,
             scale_factor,
+            logical_size: physical_size * physical_to_logical_factor as f32,
             physical_size,
             min_size: physical_size.x.min(physical_size.y),
             max_size: physical_size.x.max(physical_size.y),
-            physical_to_logical_factor: 1. / scale_factor,
-            scale_factor_changed,
+            physical_to_logical_factor,
         }
     }
 }
@@ -116,7 +116,6 @@ impl UiSurface {
             self.taffy.new_leaf(style).unwrap()
         };
         self.entity_to_taffy.insert(entity, taffy_node);
-
         taffy_node
     }
 
@@ -307,13 +306,16 @@ pub fn update_window_layouts(
             return;
         };
 
-    let resized = resize_events
-        .iter()
-        .any(|resized_window| resized_window.window == primary_window_entity);
-    let scale_factor_changed = !scale_factor_events.is_empty() || ui_scale.is_changed();
+    let require_full_update = 
+        ui_context.0.is_none()
+        || resize_events
+            .iter()
+            .any(|resized_window| resized_window.window == primary_window_entity)
+        || !scale_factor_events.is_empty() 
+        || ui_scale.is_changed();
     scale_factor_events.clear();
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
-    let context = LayoutContext::new(scale_factor, physical_size, resized, scale_factor_changed);
+    let context = LayoutContext::new(scale_factor, physical_size, require_full_update);
     ui_context.0 = Some(context);
 }
 
@@ -346,7 +348,7 @@ pub fn update_ui_layout(
         }
     }
 
-    if layout_context.scale_factor_changed || layout_context.resized {
+    if layout_context.require_full_update {
         update_changed(&mut ui_surface, layout_context, full_node_query);
     } else {
         update_changed(&mut ui_surface, layout_context, node_query);
@@ -481,7 +483,6 @@ mod tests {
             3.0,
             Vec2::new(1000., 500.),
             true,
-            true,
         ))));
         let mut ui_schedule = ui_schedule();
 
@@ -526,7 +527,6 @@ mod tests {
             3.0,
             Vec2::new(1000., 500.),
             true,
-            true,
         ))));
         let mut ui_schedule = ui_schedule();
 
@@ -541,7 +541,6 @@ mod tests {
         world.insert_resource(UiContext(Some(LayoutContext::new(
             3.0,
             Vec2::new(1000., 500.),
-            false,
             false,
         ))));
 

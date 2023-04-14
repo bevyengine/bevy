@@ -271,7 +271,7 @@ mod tests {
             },
         };
         let viewport_values =
-            LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.), false, false);
+            LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.), false);
         let taffy_style = from_style(&viewport_values, &bevy_style);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
@@ -401,7 +401,7 @@ mod tests {
     #[test]
     fn test_into_length_percentage() {
         use taffy::style::LengthPercentage;
-        let context = LayoutContext::new(2.0, bevy_math::Vec2::new(800., 600.), false, false);
+        let context = LayoutContext::new(2.0, bevy_math::Vec2::new(800., 600.), false);
         let cases = [
             (Val::Auto, LengthPercentage::Points(0.)),
             (Val::Percent(1.), LengthPercentage::Percent(0.01)),
