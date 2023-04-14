@@ -6,8 +6,7 @@ pub use taffy::style::AvailableSpace;
 
 impl std::fmt::Debug for CalculatedSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CalculatedSize")
-            .finish()
+        f.debug_struct("CalculatedSize").finish()
     }
 }
 

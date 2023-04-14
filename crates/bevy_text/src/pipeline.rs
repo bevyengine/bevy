@@ -123,7 +123,7 @@ impl TextPipeline {
         text_alignment: TextAlignment,
         linebreak_behaviour: BreakLineOn,
     ) -> Result<TextMeasureInfo, TextError> {
-        let mut auto_fonts = vec![];
+        let mut auto_fonts = Vec::new();
         let mut scaled_fonts = Vec::new();
         let sections = sections
             .iter()
@@ -158,8 +158,12 @@ impl TextPipeline {
         };
 
         let section_texts = info.prepare_section_texts();
-        let min = info.compute_size_from_section_texts(&section_texts, Vec2::new(0.0, f32::INFINITY));
-        let max = info.compute_size_from_section_texts(&section_texts, Vec2::new(f32::INFINITY, f32::INFINITY));
+        let min =
+            info.compute_size_from_section_texts(&section_texts, Vec2::new(0.0, f32::INFINITY));
+        let max = info.compute_size_from_section_texts(
+            &section_texts,
+            Vec2::new(f32::INFINITY, f32::INFINITY),
+        );
         info.min_width_content_size = min;
         info.max_width_content_size = max;
 

@@ -1,19 +1,25 @@
-use crate::{measurement::AvailableSpace, CalculatedSize, Measure, UiImage, Node};
+use crate::{measurement::AvailableSpace, CalculatedSize, Measure, Node, UiImage};
 use bevy_asset::Assets;
 #[cfg(feature = "bevy_text")]
 use bevy_ecs::query::Without;
-use bevy_ecs::{system::{Query, Res}, prelude::Component, query::With};
+use bevy_ecs::{
+    prelude::Component,
+    query::With,
+    system::{Query, Res},
+};
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 #[cfg(feature = "bevy_text")]
 use bevy_text::Text;
 
 /// The size of the image in pixels
-/// 
+///
 /// This field is set automatically
 
 #[derive(Component, Copy, Clone, Debug, Default)]
-pub struct UiImageSize { size: Vec2 }
+pub struct UiImageSize {
+    size: Vec2,
+}
 
 impl UiImageSize {
     pub fn size(&self) -> Vec2 {
@@ -62,8 +68,14 @@ impl Measure for ImageMeasure {
 /// Updates calculated size of the node based on the image provided
 pub fn update_image_calculated_size_system(
     textures: Res<Assets<Image>>,
-    #[cfg(feature = "bevy_text")] mut query: Query<(&mut CalculatedSize, &UiImage, &mut UiImageSize), (With<Node>, Without<Text>)>,
-    #[cfg(not(feature = "bevy_text"))] mut query: Query<(&mut CalculatedSize, &UiImage, &mut UiImageSize), With<Node>>,
+    #[cfg(feature = "bevy_text")] mut query: Query<
+        (&mut CalculatedSize, &UiImage, &mut UiImageSize),
+        (With<Node>, Without<Text>),
+    >,
+    #[cfg(not(feature = "bevy_text"))] mut query: Query<
+        (&mut CalculatedSize, &UiImage, &mut UiImageSize),
+        With<Node>,
+    >,
 ) {
     for (mut calculated_size, image, mut image_size) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
