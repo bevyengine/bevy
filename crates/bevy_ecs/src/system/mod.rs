@@ -111,7 +111,6 @@ mod query;
 #[allow(clippy::module_inception)]
 mod system;
 mod system_param;
-mod system_piping;
 
 pub use combinator::*;
 pub use commands::*;
@@ -121,7 +120,6 @@ pub use function_system::*;
 pub use query::*;
 pub use system::*;
 pub use system_param::*;
-pub use system_piping::*;
 
 use crate::world::World;
 
