@@ -313,7 +313,7 @@ pub trait BuildChildren {
     fn clear_children(&mut self) -> &mut Self;
     /// Removes all current children from this entity, replacing them with the specified list of entities.
     ///
-    /// The removed children will have their [`Parent`] components removed.
+    /// The removed children will have their [`Parent`] component removed.
     fn replace_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Sets the parent of this entity.
     ///
