@@ -447,6 +447,7 @@ mod tests {
     use crate::insert_new_ui_nodes_into_layout;
     use crate::synchonise_children;
     use crate::update_ui_layout;
+    use crate::AlignItems;
     use crate::LayoutContext;
     use crate::Node;
     use crate::NodeSize;
@@ -461,22 +462,20 @@ mod tests {
         (Node::default(), NodeSize::default(), Style::default())
     }
 
-    fn test_schedule() -> Schedule {
-        let mut schedule = Schedule::default();
-
-        schedule.add_systems((
+    fn ui_schedule() -> Schedule {
+        let mut ui_schedule = Schedule::default();
+        ui_schedule.add_systems((
             clean_up_removed_ui_nodes.before(insert_new_ui_nodes_into_layout),
             insert_new_ui_nodes_into_layout.before(synchonise_children),
             synchonise_children.before(update_ui_layout),
             update_ui_layout,
         ));
-        schedule
+        ui_schedule
     }
 
     #[test]
-    fn insert_and_remove_node() {
+    fn test_insert_and_remove_node() {
         let mut world = World::new();
-
         world.init_resource::<UiSurface>();
         world.insert_resource(UiContext(Some(LayoutContext::new(
             3.0,
@@ -484,13 +483,13 @@ mod tests {
             true,
             true,
         ))));
+        let mut ui_schedule = ui_schedule();
 
         // add ui node entity to world
         let entity = world.spawn(node_bundle()).id();
 
         // ui update
-        let mut schedule = test_schedule();
-        schedule.run(&mut world);
+        ui_schedule.run(&mut world);
 
         let key = world.get::<Node>(entity).unwrap().key;
         let surface = world.resource::<UiSurface>();
@@ -504,7 +503,7 @@ mod tests {
         // despawn the ui node entity
         world.entity_mut(entity).despawn();
 
-        schedule.run(&mut world);
+        ui_schedule.run(&mut world);
 
         let surface = world.resource::<UiSurface>();
 
@@ -517,5 +516,43 @@ mod tests {
             .children(surface.window_node)
             .unwrap()
             .is_empty());
+    }
+
+    #[test]
+    fn test_node_style_update() {
+        let mut world = World::new();
+        world.init_resource::<UiSurface>();
+        world.insert_resource(UiContext(Some(LayoutContext::new(
+            3.0,
+            Vec2::new(1000., 500.),
+            true,
+            true,
+        ))));
+        let mut ui_schedule = ui_schedule();
+
+        // add a ui node entity to the world and run the ui schedule to add a corresponding node to the taffy layout tree
+        let entity = world.spawn(node_bundle()).id();
+        ui_schedule.run(&mut world);
+
+        // modify the ui node's style component and rerun the schedule
+        world.get_mut::<Style>(entity).unwrap().align_items = AlignItems::Baseline;
+
+        // don't want a full update
+        world.insert_resource(UiContext(Some(LayoutContext::new(
+            3.0,
+            Vec2::new(1000., 500.),
+            false,
+            false,
+        ))));
+
+        ui_schedule.run(&mut world);
+
+        // check the corresponding taffy node's style is also updated
+        let ui_surface = world.resource::<UiSurface>();
+        let key = ui_surface.entity_to_taffy[&entity];
+        assert_eq!(
+            ui_surface.taffy.style(key).unwrap().align_items,
+            Some(taffy::style::AlignItems::Baseline)
+        );
     }
 }
