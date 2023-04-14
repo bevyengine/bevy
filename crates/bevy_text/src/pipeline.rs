@@ -54,7 +54,7 @@ impl TextPipeline {
         font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
     ) -> Result<TextLayoutInfo, TextError> {
-        let mut scaled_fonts = Vec::new();
+        let mut scaled_fonts = Vec::with_capacity(sections.len());
         let sections = sections
             .iter()
             .map(|section| {
@@ -126,8 +126,8 @@ impl TextPipeline {
         text_alignment: TextAlignment,
         linebreak_behaviour: BreakLineOn,
     ) -> Result<TextMeasureInfo, TextError> {
-        let mut auto_fonts = Vec::new();
-        let mut scaled_fonts = Vec::new();
+        let mut auto_fonts = Vec::with_capacity(sections.len());
+        let mut scaled_fonts = Vec::with_capacity(sections.len());
         let sections = sections
             .iter()
             .enumerate()
