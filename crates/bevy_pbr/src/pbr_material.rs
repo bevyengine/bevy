@@ -137,7 +137,30 @@ pub struct StandardMaterial {
     #[doc(alias = "specular_intensity")]
     pub reflectance: f32,
 
-    /// The amount of light transmitted through the material (via refraction)
+    /// The amount of light transmitted _diffusely_ through the material (i.e. “translucency”)
+    ///
+    /// Implemented as a second, flipped [Lambertian diffuse](https://en.wikipedia.org/wiki/Lambertian_reflectance) lobe,
+    /// which provides an inexpensive but plausible approximation of translucency for thin dieletric objects (e.g. paper,
+    /// leaves, some fabrics) or thicker volumetric materials with short scattering distances (e.g. porcelain, wax).
+    ///
+    /// For specular transmission usecases with refraction (e.g. glass) use the [`StandardMaterial::transmission`] and
+    /// [`StandardMaterial::ior`] properties instead.
+    ///
+    /// - When set to `0.0` (the default) no light is transmitted.
+    /// - When set to `1.0` all light is transmitted through the material.
+    ///
+    /// **Important:** The material's [`StandardMaterial::base_color`] also modulates the transmitted light. Diffuse transmission
+    /// values higher than 0.5 will cause more diffuse light to be transmitted than reflected, resulting in a “darker” appearance
+    /// for the front Lambertian lobe when an object is illuminated primarily from a single direction.
+    ///
+    /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`].
+    pub diffuse_transmission: f32,
+
+    /// The amount of light transmitted _specularly_ through the material (i.e. via refraction)
+    ///
+    /// Implemented as a relatively expensive screen-space effect that allows ocluded objects to be seen through the material, while
+    /// taking [`StandardMaterial::ior`], [`StandardMaterial::thickness`] and [`StandardMaterial::roughness`] into account. If purely
+    /// diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead.
     ///
     /// - When set to `0.0` (the default) no light is transmitted.
     /// - When set to `1.0` all light is transmitted through the material.
@@ -155,7 +178,8 @@ pub struct StandardMaterial {
     ///
     /// When set to any other value, the material distorts light like a volumetric lens.
     ///
-    /// **Note:** Typically used in conjunction with [`StandardMaterial::transmission`] and [`StandardMaterial::ior`].
+    /// **Note:** Typically used in conjunction with [`StandardMaterial::transmission`] and [`StandardMaterial::ior`], or with
+    /// [`StandardMaterial::diffuse_transmission`].
     pub thickness: f32,
 
     /// The index of refraction of the material
@@ -378,6 +402,7 @@ impl Default for StandardMaterial {
             // Expressed in a linear scale and equivalent to 4% reflectance see
             // <https://google.github.io/filament/Material%20Properties.pdf>
             reflectance: 0.5,
+            diffuse_transmission: 0.0,
             transmission: 0.0,
             thickness: 0.0,
             ior: 1.5,
@@ -471,7 +496,9 @@ pub struct StandardMaterialUniform {
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
-    /// Amount of light transmitted through the material
+    /// Amount of diffuse light transmitted through the material
+    pub diffuse_transmission: f32,
+    /// Amount of specular light transmitted through the material
     pub transmission: f32,
     /// Thickness of the volume underneath the material surface
     pub thickness: f32,
@@ -559,6 +586,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,
+            diffuse_transmission: self.diffuse_transmission,
             transmission: self.transmission,
             thickness: self.thickness,
             ior: self.ior,

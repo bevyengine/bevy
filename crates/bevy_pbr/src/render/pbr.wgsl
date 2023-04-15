@@ -68,6 +68,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             // Disable transmission for `alpha_mode` values that are not `AlphaMode::Blend`
             transmission = 0.0;
         }
+        pbr_input.material.diffuse_transmission = material.diffuse_transmission;
         pbr_input.material.transmission = material.transmission;
         pbr_input.material.thickness = material.thickness;
         pbr_input.material.ior = material.ior;

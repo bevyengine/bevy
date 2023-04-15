@@ -170,6 +170,7 @@ fn pbr(
     let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
     let ior = in.material.ior;
     let thickness = in.material.thickness;
+    let diffuse_transmission = in.material.diffuse_transmission;
     let transmission = in.material.transmission;
 
     let transmissive_color = transmission * in.material.base_color.rgb;
