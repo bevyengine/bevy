@@ -562,6 +562,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "parallax_mapping"
+path = "examples/3d/parallax_mapping.rs"
+
+[package.metadata.example.parallax_mapping]
+name = "Parallax Mapping"
+description = "Demonstrates use of a normal map and depth map for parallax mapping"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "render_to_texture"
 path = "examples/3d/render_to_texture.rs"
 
