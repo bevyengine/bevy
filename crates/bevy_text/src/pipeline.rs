@@ -160,14 +160,14 @@ impl TextPipeline {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TextMeasureSection {
     pub text: String,
     pub scale: PxScale,
     pub font_id: FontId,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TextMeasureInfo {
     pub fonts: Vec<ab_glyph::FontArc>,
     pub scaled_fonts: Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>,
