@@ -167,7 +167,6 @@ pub struct StandardMaterial {
     ///
     /// The material's [`StandardMaterial::base_color`] also modulates the transmitted light.
     ///
-    /// **Important:** For transmission to have any effect, you must also set `alpha_mode` to [`AlphaMode::Blend`].
     /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`] and [`StandardMaterial::ior`].
     pub transmission: f32,
 

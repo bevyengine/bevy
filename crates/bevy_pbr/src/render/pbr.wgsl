@@ -63,11 +63,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 
         pbr_input.material.base_color = output_color;
         pbr_input.material.reflectance = material.reflectance;
-        var transmission = material.transmission;
-        if (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS) != STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND {
-            // Disable transmission for `alpha_mode` values that are not `AlphaMode::Blend`
-            transmission = 0.0;
-        }
         pbr_input.material.diffuse_transmission = material.diffuse_transmission;
         pbr_input.material.transmission = material.transmission;
         pbr_input.material.thickness = material.thickness;
