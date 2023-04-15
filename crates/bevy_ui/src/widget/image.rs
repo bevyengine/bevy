@@ -15,7 +15,6 @@ use bevy_text::Text;
 /// The size of the image in pixels
 ///
 /// This field is set automatically
-
 #[derive(Component, Copy, Clone, Debug, Default)]
 pub struct UiImageSize {
     size: Vec2,
