@@ -46,11 +46,7 @@ pub struct LayoutContext {
 
 impl LayoutContext {
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
-    fn new(
-        scale_factor: f64,
-        physical_size: Vec2,
-        require_full_update: bool,
-    ) -> Self {
+    fn new(scale_factor: f64, physical_size: Vec2, require_full_update: bool) -> Self {
         let physical_to_logical_factor = 1. / scale_factor;
         Self {
             require_full_update,
@@ -306,12 +302,11 @@ pub fn update_ui_windows(
             return;
         };
 
-    let require_full_update = 
-        ui_context.0.is_none()
+    let require_full_update = ui_context.0.is_none()
         || resize_events
             .iter()
             .any(|resized_window| resized_window.window == primary_window_entity)
-        || !scale_factor_events.is_empty() 
+        || !scale_factor_events.is_empty()
         || ui_scale.is_changed();
     scale_factor_events.clear();
     let scale_factor = logical_to_physical_factor * ui_scale.scale;

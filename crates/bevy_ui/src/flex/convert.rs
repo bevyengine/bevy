@@ -270,8 +270,7 @@ mod tests {
                 height: Val::Percent(0.),
             },
         };
-        let viewport_values =
-            LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.), false);
+        let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.), false);
         let taffy_style = from_style(&viewport_values, &bevy_style);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
