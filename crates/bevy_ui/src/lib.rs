@@ -157,16 +157,16 @@ impl Plugin for UiPlugin {
         .add_systems(
             PostUpdate,
             (
-                update_window_layouts
+                update_ui_windows
                     .in_set(UiSystem::Windows)
                     .before(UiSystem::Flex),
                 clean_up_removed_ui_nodes
                     .in_set(UiSystem::Removal)
                     .before(UiSystem::Insertion),
-                insert_new_ui_nodes_into_layout
+                insert_new_ui_nodes
                     .in_set(UiSystem::Insertion)
                     .before(UiSystem::Children),
-                synchonise_children
+                synchonise_ui_children
                     .in_set(UiSystem::Children)
                     .before(UiSystem::Flex),
                 update_ui_layout

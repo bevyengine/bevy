@@ -250,7 +250,7 @@ pub fn clean_up_removed_ui_nodes(
 }
 
 /// Insert a new taffy node into the layout for any entity that had a `Node` component added.
-pub fn insert_new_ui_nodes_into_layout(
+pub fn insert_new_ui_nodes(
     mut ui_surface: ResMut<UiSurface>,
     mut new_node_query: Query<(Entity, &mut Node), Added<Node>>,
 ) {
@@ -266,7 +266,7 @@ pub fn insert_new_ui_nodes_into_layout(
 }
 
 /// Synchonise the Bevy and Taffy Parent-Children trees
-pub fn synchonise_children(
+pub fn synchonise_ui_children(
     mut flex_surface: ResMut<UiSurface>,
     mut removed_children: RemovedComponents<Children>,
     children_query: Query<(&Node, &Children), Changed<Children>>,
@@ -282,7 +282,7 @@ pub fn synchonise_children(
     }
 }
 
-pub fn update_window_layouts(
+pub fn update_ui_windows(
     mut resize_events: EventReader<bevy_window::WindowResized>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
@@ -446,8 +446,8 @@ pub fn measure(calculated_size: CalculatedSize, scale_factor: f64) -> taffy::nod
 #[cfg(test)]
 mod tests {
     use crate::clean_up_removed_ui_nodes;
-    use crate::insert_new_ui_nodes_into_layout;
-    use crate::synchonise_children;
+    use crate::insert_new_ui_nodes;
+    use crate::synchonise_ui_children;
     use crate::update_ui_layout;
     use crate::AlignItems;
     use crate::LayoutContext;
@@ -467,9 +467,9 @@ mod tests {
     fn ui_schedule() -> Schedule {
         let mut ui_schedule = Schedule::default();
         ui_schedule.add_systems((
-            clean_up_removed_ui_nodes.before(insert_new_ui_nodes_into_layout),
-            insert_new_ui_nodes_into_layout.before(synchonise_children),
-            synchonise_children.before(update_ui_layout),
+            clean_up_removed_ui_nodes.before(insert_new_ui_nodes),
+            insert_new_ui_nodes.before(synchonise_ui_children),
+            synchonise_ui_children.before(update_ui_layout),
             update_ui_layout,
         ));
         ui_schedule
