@@ -275,14 +275,14 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
         self.push_children.parent
     }
 
-    /// Adds a command to be executed, like [`Commands::add`]
+    /// Adds a command to be executed, like [`Commands::add`].
     pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
         self.commands.add(command);
         self
     }
 }
 
-/// Trait for removing, adding and replacing children and parents of an entity
+/// Trait for removing, adding and replacing children and parents of an entity.
 pub trait BuildChildren {
     /// Takes a clousre which builds children for this entity using [`ChildBuilder`].
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
