@@ -227,7 +227,7 @@ impl TextMeasureInfo {
         let section_glyphs = glyph_brush_layout::Layout::default()
             .h_align(self.text_alignment.into())
             .line_breaker(self.linebreak_behaviour)
-            .calculate_glyphs(&self.fonts, &geom, &sections);
+            .calculate_glyphs(&self.fonts, &geom, sections);
 
         let mut min_x: f32 = std::f32::MAX;
         let mut min_y: f32 = std::f32::MAX;
