@@ -46,6 +46,7 @@ fn main() {
 
 /// It is generally encouraged to set up post processing effects as a plugin
 struct PostProcessPlugin;
+
 impl Plugin for PostProcessPlugin {
     fn build(&self, app: &mut App) {
         app
