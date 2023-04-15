@@ -1415,16 +1415,6 @@ name = "post_processing"
 path = "examples/shader/post_processing.rs"
 
 [package.metadata.example.post_processing]
-name = "Post Processing - Render To Texture"
-description = "A custom post processing effect, using two cameras, with one reusing the render texture of the first one"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "post_process_pass"
-path = "examples/shader/post_process_pass.rs"
-
-[package.metadata.example.post_process_pass]
 name = "Post Processing - Custom Render Pass"
 description = "A custom post processing effect, using a custom render pass that runs after the main pass"
 category = "Shaders"
