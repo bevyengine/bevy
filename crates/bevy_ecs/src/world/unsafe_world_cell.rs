@@ -81,11 +81,13 @@ unsafe impl Sync for UnsafeWorldCell<'_> {}
 
 impl<'w> UnsafeWorldCell<'w> {
     /// Creates a [`UnsafeWorldCell`] that can be used to access everything immutably
+    #[inline]
     pub(crate) fn new_readonly(world: &'w World) -> Self {
         UnsafeWorldCell(world as *const World as *mut World, PhantomData)
     }
 
     /// Creates [`UnsafeWorldCell`] that can be used to access everything mutably
+    #[inline]
     pub(crate) fn new_mutable(world: &'w mut World) -> Self {
         Self(world as *mut World, PhantomData)
     }
@@ -99,6 +101,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - there must be no other borrows on world
     /// - returned borrow must not be used in any way if the world is accessed
     ///   through other means than the `&mut World` after this call.
+    #[inline]
     pub unsafe fn world_mut(self) -> &'w mut World {
         // SAFETY:
         // - caller ensures the created `&mut World` is the only borrow of world
@@ -112,6 +115,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - must have permission to access the whole world immutably
     /// - there must be no live exclusive borrows on world data
     /// - there must be no live exclusive borrow of world
+    #[inline]
     pub unsafe fn world(self) -> &'w World {
         // SAFETY:
         // - caller ensures there is no `&mut World` this makes it okay to make a `&World`
@@ -128,6 +132,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ///
     /// # Safety
     /// - must only be used to access world metadata
+    #[inline]
     pub unsafe fn world_metadata(self) -> &'w World {
         // SAFETY: caller ensures that returned reference is not used to violate aliasing rules
         unsafe { self.unsafe_world() }
@@ -144,6 +149,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// # Safety
     /// - must not be used in a way that would conflict with any
     ///   live exclusive borrows on world data
+    #[inline]
     pub(crate) unsafe fn unsafe_world(self) -> &'w World {
         // SAFETY:
         // - caller ensures that the returned `&World` is not used in a way that would conflict
@@ -240,6 +246,7 @@ impl<'w> UnsafeWorldCell<'w> {
 
     /// Retrieves an [`UnsafeEntityCell`] that exposes read and write operations for the given `entity`.
     /// Similar to the [`UnsafeWorldCell`], you are in charge of making sure that no aliasing rules are violated.
+    #[inline]
     pub fn get_entity(self, entity: Entity) -> Option<UnsafeEntityCell<'w>> {
         let location = self.entities().get(entity)?;
         Some(UnsafeEntityCell::new(self, entity, location))
@@ -502,6 +509,7 @@ pub struct UnsafeEntityCell<'w> {
 }
 
 impl<'w> UnsafeEntityCell<'w> {
+    #[inline]
     pub(crate) fn new(
         world: UnsafeWorldCell<'w>,
         entity: Entity,

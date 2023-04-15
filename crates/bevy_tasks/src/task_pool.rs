@@ -350,7 +350,9 @@ impl TaskPool {
         let scope_executor: &'env ThreadExecutor<'env> = unsafe { mem::transmute(scope_executor) };
         let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
-        let spawned: &'env ConcurrentQueue<FallibleTask<T>> = unsafe { mem::transmute(&spawned) };
+        let spawned: &'env ConcurrentQueue<
+            FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>,
+        > = unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
             executor,
@@ -373,7 +375,14 @@ impl TaskPool {
                 let get_results = async {
                     let mut results = Vec::with_capacity(spawned.len());
                     while let Ok(task) = spawned.pop() {
-                        results.push(task.await.unwrap());
+                        if let Some(res) = task.await {
+                            match res {
+                                Ok(res) => results.push(res),
+                                Err(payload) => std::panic::resume_unwind(payload),
+                            }
+                        } else {
+                            panic!("Failed to catch panic!");
+                        }
                     }
                     results
                 };
@@ -571,7 +580,7 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
     external_executor: &'scope ThreadExecutor<'scope>,
     scope_executor: &'scope ThreadExecutor<'scope>,
-    spawned: &'scope ConcurrentQueue<FallibleTask<T>>,
+    spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
@@ -587,7 +596,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.executor.spawn(f).fallible();
+        let task = self
+            .executor
+            .spawn(AssertUnwindSafe(f).catch_unwind())
+            .fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
@@ -600,7 +612,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.scope_executor.spawn(f).fallible();
+        let task = self
+            .scope_executor
+            .spawn(AssertUnwindSafe(f).catch_unwind())
+            .fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
@@ -614,7 +629,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_external<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.external_executor.spawn(f).fallible();
+        let task = self
+            .external_executor
+            .spawn(AssertUnwindSafe(f).catch_unwind())
+            .fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();

@@ -283,6 +283,7 @@ impl SparseSetIndex for ComponentId {
         self.index()
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Self(value)
     }
@@ -601,6 +602,7 @@ impl Tick {
     /// ticks are periodically scanned to ensure their relative values are below this.
     pub const MAX: Self = Self::new(MAX_CHANGE_AGE);
 
+    #[inline]
     pub const fn new(tick: u32) -> Self {
         Self { tick }
     }
@@ -617,10 +619,10 @@ impl Tick {
         self.tick = tick;
     }
 
-    #[inline]
     /// Returns `true` if this `Tick` occurred since the system's `last_run`.
     ///
     /// `this_run` is the current tick of the system, used as a reference to help deal with wraparound.
+    #[inline]
     pub fn is_newer_than(self, last_run: Tick, this_run: Tick) -> bool {
         // This works even with wraparound because the world tick (`this_run`) is always "newer" than
         // `last_run` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
@@ -634,6 +636,7 @@ impl Tick {
     }
 
     /// Returns a change tick representing the relationship between `self` and `other`.
+    #[inline]
     pub(crate) fn relative_to(self, other: Self) -> Self {
         let tick = self.tick.wrapping_sub(other.tick);
         Self { tick }
@@ -642,6 +645,7 @@ impl Tick {
     /// Wraps this change tick's value if it exceeds [`Tick::MAX`].
     ///
     /// Returns `true` if wrapping was performed. Otherwise, returns `false`.
+    #[inline]
     pub(crate) fn check_tick(&mut self, tick: Tick) -> bool {
         let age = tick.relative_to(*self);
         // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
