@@ -138,10 +138,7 @@ impl Plugin for LogPlugin {
         }));
 
         let filter_layer = EnvFilter::try_from_default_env()
-            .or_else(|_| {
-                println!("Using non-default filter");
-                EnvFilter::try_new(&default_filter)
-            })
+            .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
 
         let subscriber = Registry::default().with(fmt_layer).with(filter_layer);
