@@ -72,6 +72,7 @@ pub struct Text2dBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
     pub computed_visibility: ComputedVisibility,
+    /// Contains the size of the text and its glyph's position and scale data. Generated via [`TextPipeline::queue_text`]
     pub text_layout_info: TextLayoutInfo,
 }
 
