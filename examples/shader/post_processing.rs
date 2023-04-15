@@ -281,7 +281,7 @@ impl FromWorld for PostProcessPipeline {
         // Get the shader handle
         let shader = world
             .resource::<AssetServer>()
-            .load("shaders/post_process_pass.wgsl");
+            .load("shaders/post_processing.wgsl");
 
         let pipeline_id = world
             .resource_mut::<PipelineCache>()
