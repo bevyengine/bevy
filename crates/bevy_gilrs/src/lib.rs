@@ -11,7 +11,6 @@ use bevy_utils::tracing::error;
 use gilrs::GilrsBuilder;
 use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 use rumble::{play_gilrs_rumble, RumblesManager};
-pub use rumble::{RumbleIntensity, RumbleRequest};
 
 #[derive(Default)]
 pub struct GilrsPlugin;
@@ -25,7 +24,6 @@ impl Plugin for GilrsPlugin {
         {
             Ok(gilrs) => {
                 app.insert_non_send_resource(gilrs)
-                    .add_event::<RumbleRequest>()
                     .init_non_send_resource::<RumblesManager>()
                     .add_systems(PreStartup, gilrs_event_startup_system)
                     .add_systems(PreUpdate, gilrs_event_system.before(InputSystem))

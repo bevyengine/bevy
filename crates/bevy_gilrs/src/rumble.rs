@@ -3,7 +3,7 @@ use bevy_ecs::{
     prelude::{EventReader, Res},
     system::NonSendMut,
 };
-use bevy_input::gamepad::Gamepad;
+use bevy_input::gamepad::{RumbleIntensity, RumbleRequest};
 use bevy_log as log;
 use bevy_time::Time;
 use bevy_utils::HashMap;
@@ -11,63 +11,12 @@ use gilrs::{ff, GamepadId, Gilrs};
 
 use crate::converter::convert_gamepad_id;
 
-#[derive(Clone, Copy, Debug)]
-pub enum RumbleIntensity {
-    Strong,
-    Medium,
-    Weak,
-}
-impl RumbleIntensity {
-    fn effect_type(&self) -> ff::BaseEffectType {
-        use RumbleIntensity::*;
-        match self {
-            Strong => ff::BaseEffectType::Strong { magnitude: 63_000 },
-            Medium => ff::BaseEffectType::Strong { magnitude: 40_000 },
-            Weak => ff::BaseEffectType::Weak { magnitude: 40_000 },
-        }
-    }
-}
-
-/// Request that `gamepad` should rumble with `intensity` for `duration_seconds`
-///
-/// # Notes
-///
-/// * Does nothing if the `gamepad` does not support rumble
-/// * If a new `RumbleRequest` is sent while another one is still executing, it
-///   replaces the old one.
-///
-/// # Example
-///
-/// ```
-/// # use bevy_gilrs::{RumbleRequest, RumbleIntensity};
-/// # use bevy_input::gamepad::Gamepad;
-/// # use bevy_app::EventWriter;
-/// fn rumble_pad_system(mut rumble_requests: EventWriter<RumbleRequest>) {
-///     let request = RumbleRequest::{
-///         intensity: RumbleIntensity::Strong,
-///         duration_seconds: 10.0,
-///         gamepad: Gamepad(0),
-///     );
-///     rumble_requests.send(request);
-/// }
-/// ```
-#[derive(Clone)]
-pub struct RumbleRequest {
-    /// The duration in seconds of the rumble
-    pub duration_seconds: f32,
-    /// How intense the rumble should be
-    pub intensity: RumbleIntensity,
-    /// The gamepad to rumble
-    pub gamepad: Gamepad,
-}
-impl RumbleRequest {
-    /// Stops any rumbles on the given gamepad
-    pub fn stop(gamepad: Gamepad) -> Self {
-        RumbleRequest {
-            duration_seconds: 0.0,
-            intensity: RumbleIntensity::Weak,
-            gamepad,
-        }
+fn get_effect_type(intensity: RumbleIntensity) -> ff::BaseEffectType {
+    use RumbleIntensity::*;
+    match intensity {
+        Strong => ff::BaseEffectType::Strong { magnitude: 63_000 },
+        Medium => ff::BaseEffectType::Strong { magnitude: 40_000 },
+        Weak => ff::BaseEffectType::Weak { magnitude: 40_000 },
     }
 }
 
@@ -106,7 +55,7 @@ fn add_rumble(
         .ok_or(RumbleError::GamepadNotFound)?;
     let deadline = current_time + rumble.duration_seconds;
 
-    let kind = rumble.intensity.effect_type();
+    let kind = get_effect_type(rumble.intensity);
     let effect = ff::BaseEffect {
         kind,
         ..Default::default()

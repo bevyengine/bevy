@@ -1575,3 +1575,53 @@ mod tests {
         );
     }
 }
+
+#[derive(Clone, Copy, Debug)]
+pub enum RumbleIntensity {
+    Strong,
+    Medium,
+    Weak,
+}
+
+/// Request that `gamepad` should rumble with `intensity` for `duration_seconds`
+///
+/// # Notes
+///
+/// * Does nothing if the `gamepad` does not support rumble
+/// * If a new `RumbleRequest` is sent while another one is still executing, it
+///   replaces the old one.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_gilrs::{RumbleRequest, RumbleIntensity};
+/// # use bevy_input::gamepad::Gamepad;
+/// # use bevy_app::EventWriter;
+/// fn rumble_pad_system(mut rumble_requests: EventWriter<RumbleRequest>) {
+///     let request = RumbleRequest::{
+///         intensity: RumbleIntensity::Strong,
+///         duration_seconds: 10.0,
+///         gamepad: Gamepad(0),
+///     );
+///     rumble_requests.send(request);
+/// }
+/// ```
+#[derive(Clone)]
+pub struct RumbleRequest {
+    /// The duration in seconds of the rumble
+    pub duration_seconds: f32,
+    /// How intense the rumble should be
+    pub intensity: RumbleIntensity,
+    /// The gamepad to rumble
+    pub gamepad: Gamepad,
+}
+impl RumbleRequest {
+    /// Stops any rumbles on the given gamepad
+    pub fn stop(gamepad: Gamepad) -> Self {
+        RumbleRequest {
+            duration_seconds: 0.0,
+            intensity: RumbleIntensity::Weak,
+            gamepad,
+        }
+    }
+}

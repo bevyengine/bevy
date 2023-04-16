@@ -2,7 +2,7 @@
 //! pressed.
 
 use bevy::{
-    gilrs::{RumbleIntensity, RumbleRequest},
+    input::gamepad::{RumbleIntensity, RumbleRequest},
     prelude::*,
 };
 
