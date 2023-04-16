@@ -20,14 +20,21 @@ use serde::{Deserialize, Serialize};
 #[reflect(Component)]
 pub struct Camera3d {
     /// The clear color operation to perform for the main 3d pass.
+    ///
+    /// **Note:** When [`Camera3d::transmissive_steps`] > `0`, using a clear color
+    /// with an alpha value lower than `1.0` will allow the environment map light
+    /// texture to also be refracted “behind” the screen-space refracted background.
     pub clear_color: ClearColorConfig,
     /// The depth clear operation to perform for the main 3d pass.
     pub depth_load_op: Camera3dDepthLoadOp,
-    /// How many individual steps should be performed in the transmissive 3d pass
+    /// How many individual steps should be performed in the transmissive 3d pass.
     ///
     /// Roughly corresponds to how many “layers of transparency” are rendered for
     /// transmissive objects. Each step requires making one additional texture copy,
-    /// so it's recommended to keep this number to a resonably low value.
+    /// so it's recommended to keep this number to a resonably low value. Defaults to `1`.
+    ///
+    /// Setting this to `0` disables screen-space refraction effect entirely, and falls
+    /// back to refracting the environment map light's texture.
     pub transmissive_steps: usize,
 }
 
