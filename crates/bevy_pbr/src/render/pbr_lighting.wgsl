@@ -281,7 +281,7 @@ fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32
     return (specular_light + diffuse) * (*light).color.rgb * NoL;
 }
 
-fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, transmissive_color: vec3<f32>) -> vec3<f32> {
+fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
     // Calculate distance, used to scale roughness transmission blur
     let distance = length(view.world_position - world_position.xyz);
 
@@ -308,12 +308,12 @@ fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<
     // Fetch background color
     let background_color = fetch_transmissive_background(offset_position, frag_coord, perceptual_roughness, distance);
 
-    // Calculate final color by applying transmissive color to background
+    // Calculate final color by applying transmissive color to a mix of background color and transmitted specular environment light
     // TODO: Add support for attenuationColor and attenuationDistance
-    return transmissive_color * background_color;
+    return transmissive_color * mix(transmitted_environment_light_specular, background_color.rgb, background_color.a);
 }
 
-fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, perceptual_roughness: f32, distance: f32) -> vec3<f32> {
+fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, perceptual_roughness: f32, distance: f32) -> vec4<f32> {
     // Calculate view aspect ratio, used to scale offset so that it's proportionate
     let aspect = view.viewport.z / view.viewport.w;
 
@@ -331,7 +331,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     // Number of taps scale with blur intensity
     // Minimum: 1, Maximum: 9
     let num_taps = i32(max(blur_intensity * 300.0, 8.0)) + 1;
-    var result = vec3<f32>(0.0, 0.0, 0.0);
+    var result = vec4<f32>(0.0);
     for (var i: i32 = 0; i < num_taps; i = i + 1) {
         // Magic numbers have been empirically chosen to produce blurry results that look “smooth”
         let dither = screen_space_dither(frag_coord.xy + vec2<f32>(f32(i) * 4773.0, f32(i) * 1472.0));
@@ -343,7 +343,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
             view_transmission_texture,
             view_transmission_sampler,
             offset_position + dither_offset,
-        ).rgb;
+        );
     }
 
     result /= f32(num_taps);

@@ -330,27 +330,34 @@ fn pbr(
     let environment_light = environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
     indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
 
-    if diffuse_transmission > 0.0 {
-        // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
-        // world position, inverted normal and view vectors, and the following simplified
-        // values for a fully diffuse transmitted light contribution approximation:
+    // we'll use the specular component of the transmitted environment
+    // light in the call to `transmissive_light()` below
+    var transmitted_environment_light_specular = vec3<f32>(0.0);
+
+    if diffuse_transmission > 0.0 || transmission > 0.0 {
+        // NOTE: We use the diffuse transmissive color, inverted normal and view vectors,
+        // and the following simplified values for the transmitted environment light contribution
+        // approximation:
         //
-        // perceptual_roughness = 1.0;
-        // roughness = 1.0;
         // NdotV = 1.0;
         // f_ab = vec2<f32>(0.1)
-        // R = vec3<f32>(0.0) // doesn't really matter
-        // F0 = vec3<f32>(0.0)
+        // R = -refract(in.V, -in.N, 1.0 / ior)
+        // F0 = vec3<f32>(0.16)
         // occlusion = 1.0
-        let environment_light = environment_map_light(1.0, 1.0, diffuse_transmissive_color, 1.0, vec2<f32>(0.1), -in.N, vec3<f32>(0.0), vec3<f32>(0.0));
-        transmitted_light += environment_light.diffuse;
+        let transmitted_environment_light = environment_map_light(perceptual_roughness, roughness, diffuse_transmissive_color, 1.0, vec2<f32>(0.1), -in.N, -refract(in.V, -in.N, 1.0 / ior), vec3<f32>(0.16));
+        transmitted_light += transmitted_environment_light.diffuse;
+        transmitted_environment_light_specular = transmitted_environment_light.specular;
     }
+#else
+    // If there's no environment map light, there's no transmitted environment
+    // light specular component, so we can just hardcode it to zero.
+    let transmitted_environment_light_specular = vec3<f32>(0.0);
 #endif
 
     let emissive_light = emissive.rgb * output_color.a;
 
     if transmission > 0.0 {
-        transmitted_light += transmissive_light(in.world_position, in.frag_coord.xyz, in.N, in.V, ior, thickness, perceptual_roughness, transmissive_color).rgb;
+        transmitted_light += transmissive_light(in.world_position, in.frag_coord.xyz, in.N, in.V, ior, thickness, perceptual_roughness, transmissive_color, transmitted_environment_light_specular).rgb;
     }
 
     // Total light
