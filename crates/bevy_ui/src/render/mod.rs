@@ -145,13 +145,47 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
     ui_graph
 }
 
+/// Texture size and subrect data
+#[derive(Clone, Copy, Debug)]
+pub enum ExtractedRect {
+    /// Render the entire texture with this size
+    Size(Vec2),
+    /// Select a subsection of the texture to render
+    Section { sub_rect: Rect, size: Vec2 },
+}
+
+impl ExtractedRect {
+    #[inline]
+    pub fn size(self) -> Vec2 {
+        match self {
+            ExtractedRect::Size(size) => size,
+            ExtractedRect::Section { sub_rect, .. } => sub_rect.size(),
+        }
+    }
+
+    pub const fn texture_size(self) -> Vec2 {
+        match self {
+            ExtractedRect::Size(size) | ExtractedRect::Section { size, .. } => size,
+        }
+    }
+
+    pub const fn rect(self) -> Rect {
+        match self {
+            ExtractedRect::Size(size) => Rect {
+                min: Vec2::ZERO,
+                max: size,
+            },
+            ExtractedRect::Section { sub_rect, .. } => sub_rect,
+        }
+    }
+}
+
 pub struct ExtractedUiNode {
     pub stack_index: usize,
     pub transform: Mat4,
     pub color: Color,
-    pub rect: Rect,
+    pub extracted_rect: ExtractedRect,
     pub image: Handle<Image>,
-    pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
@@ -201,12 +235,8 @@ pub fn extract_uinodes(
                 stack_index,
                 transform: transform.compute_matrix(),
                 color: color.0,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
-                },
+                extracted_rect: ExtractedRect::Size(uinode.size()),
                 image,
-                atlas_size: None,
                 clip: clip.map(|clip| clip.clip),
                 flip_x,
                 flip_y,
@@ -332,9 +362,11 @@ pub fn extract_text_uinodes(
                     transform: transform
                         * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
                     color,
-                    rect,
+                    extracted_rect: ExtractedRect::Section {
+                        sub_rect: rect,
+                        size: atlas.size * inverse_scale_factor,
+                    },
                     image: atlas.texture.clone_weak(),
-                    atlas_size: Some(atlas.size * inverse_scale_factor),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
@@ -414,8 +446,7 @@ pub fn prepare_uinodes(
             current_batch_handle = extracted_uinode.image.clone_weak();
         }
 
-        let uinode_rect = extracted_uinode.rect;
-        let rect_size = uinode_rect.size().extend(1.0);
+        let rect_size = extracted_uinode.extracted_rect.size().extend(1.0);
 
         // Specify the corners of the node
         let positions = QUAD_VERTEX_POSITIONS
@@ -472,7 +503,7 @@ pub fn prepare_uinodes(
         let uvs = if current_batch_handle.id() == DEFAULT_IMAGE_HANDLE.id() {
             [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
         } else {
-            let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
+            let uinode_rect = extracted_uinode.extracted_rect.rect();
             let mut uvs = [
                 Vec2::new(
                     uinode_rect.min.x + positions_diff[0].x,
@@ -491,7 +522,7 @@ pub fn prepare_uinodes(
                     uinode_rect.max.y + positions_diff[3].y,
                 ),
             ]
-            .map(|pos| pos / atlas_extent);
+            .map(|pos| pos / extracted_uinode.extracted_rect.texture_size());
 
             if extracted_uinode.flip_x {
                 uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
