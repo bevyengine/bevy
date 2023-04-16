@@ -34,8 +34,9 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, FallbackImage, FallbackImageCubemap, FallbackImagesDepth,
-        FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImageZero,
+        FallbackImagesDepth, FallbackImagesMsaa, GpuImage, Image, ImageSampler,
+        TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -1002,7 +1003,7 @@ pub fn queue_mesh_view_bind_groups(
     images: Res<RenderAssets<Image>>,
     mut fallback_images: FallbackImagesMsaa,
     mut fallback_depths: FallbackImagesDepth,
-    fallback_image: Res<FallbackImage>,
+    fallback_image_zero: Res<FallbackImageZero>,
     fallback_cubemap: Res<FallbackImageCubemap>,
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
@@ -1115,14 +1116,14 @@ pub fn queue_mesh_view_bind_groups(
                 BindGroupEntry {
                     binding: 19,
                     resource: BindingResource::TextureView(transmission.map_or_else(
-                        || &fallback_image.texture_view,
+                        || &fallback_image_zero.texture_view,
                         |transmission| &transmission.view,
                     )),
                 },
                 BindGroupEntry {
                     binding: 20,
                     resource: BindingResource::Sampler(&transmission.map_or_else(
-                        || &fallback_image.sampler,
+                        || &fallback_image_zero.sampler,
                         |transmission| &transmission.sampler,
                     )),
                 },
