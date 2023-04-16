@@ -1302,17 +1302,18 @@ impl GamepadRumbleIntensity {
 /// # Example
 ///
 /// ```
-/// # use bevy_gilrs::{GamepadRumbleRequest, GamepadRumbleIntensity};
-/// # use bevy_input::gamepad::Gamepad;
-/// # use bevy_app::EventWriter;
-/// fn rumble_pad_system(mut rumble_requests: EventWriter<GamepadRumbleRequest>) {
-///     let request = GamepadRumbleRequest {
-///         intensity: GamepadRumbleIntensity::Strong,
-///         duration_seconds: 10.0,
-///         gamepad: Gamepad(0),
-///         additive: true,
-///     };
-///     rumble_requests.send(request);
+/// # use bevy_input::gamepad::{Gamepad, Gamepads, GamepadRumbleRequest, GamepadRumbleIntensity};
+/// # use bevy_ecs::prelude::{EventWriter, Res};
+/// fn rumble_gamepad_system(mut rumble_requests: EventWriter<GamepadRumbleRequest>, gamepads: Res<Gamepads>) {
+///     for gamepad in gamepads.iter() {
+///         let request = GamepadRumbleRequest {
+///             gamepad,
+///             intensity: GamepadRumbleIntensity::MAX,
+///             duration_seconds: 0.5,
+///             additive: true,
+///         };
+///         rumble_requests.send(request);
+///     }
 /// }
 /// ```
 #[derive(Clone)]
