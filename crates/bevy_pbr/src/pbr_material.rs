@@ -160,7 +160,7 @@ pub struct StandardMaterial {
     /// The amount of light transmitted _specularly_ through the material (i.e. via refraction)
     ///
     /// Implemented as a relatively expensive screen-space effect that allows ocluded objects to be seen through the material, while
-    /// taking [`StandardMaterial::ior`], [`StandardMaterial::thickness`] and [`StandardMaterial::roughness`] into account. If purely
+    /// taking [`StandardMaterial::ior`], [`StandardMaterial::thickness`] and [`StandardMaterial::perceptual_roughness`] into account. If purely
     /// diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead.
     ///
     /// - When set to `0.0` (the default) no light is transmitted.
