@@ -1240,11 +1240,30 @@ const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
     GamepadAxisType::RightZ,
 ];
 
-#[derive(Clone, Copy, Debug)]
-pub enum RumbleIntensity {
-    Strong,
-    Medium,
-    Weak,
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GamepadRumbleIntensity {
+    /// The rumble intensity of the strong gamepad motor
+    ///
+    /// Ranges from 0.0 to 1.0
+    pub strong: f32,
+    /// The rumble intensity of the weak gamepad motor
+    ///
+    /// Ranges from 0.0 to 1.0
+    pub weak: f32,
+}
+
+impl GamepadRumbleIntensity {
+    /// Rumble both gamepad motors at maximum intensity
+    pub const MAX: Self = GamepadRumbleIntensity {
+        strong: 1.0,
+        weak: 1.0,
+    };
+
+    /// Don't rumble at all, only makes sense when `additive` is `false`
+    pub const ZERO: Self = GamepadRumbleIntensity {
+        strong: 0.0,
+        weak: 0.0,
+    };
 }
 
 /// Request that `gamepad` should rumble with `intensity` for `duration_seconds`
@@ -1258,14 +1277,15 @@ pub enum RumbleIntensity {
 /// # Example
 ///
 /// ```
-/// # use bevy_gilrs::{GamepadRumbleRequest, RumbleIntensity};
+/// # use bevy_gilrs::{GamepadRumbleRequest, GamepadRumbleIntensity};
 /// # use bevy_input::gamepad::Gamepad;
 /// # use bevy_app::EventWriter;
 /// fn rumble_pad_system(mut rumble_requests: EventWriter<GamepadRumbleRequest>) {
-///     let request = GamepadRumbleRequest::{
-///         intensity: RumbleIntensity::Strong,
+///     let request = GamepadRumbleRequest {
+///         intensity: GamepadRumbleIntensity::Strong,
 ///         duration_seconds: 10.0,
 ///         gamepad: Gamepad(0),
+///         additive: true,
 ///     };
 ///     rumble_requests.send(request);
 /// }
@@ -1275,9 +1295,26 @@ pub struct GamepadRumbleRequest {
     /// The duration in seconds of the rumble
     pub duration_seconds: f32,
     /// How intense the rumble should be
-    pub intensity: RumbleIntensity,
+    pub intensity: GamepadRumbleIntensity,
     /// The gamepad to rumble
     pub gamepad: Gamepad,
+    /// Whether the rumble effects should add up, or replace any existing effects
+    pub additive: bool,
+}
+
+impl GamepadRumbleRequest {
+    /// Stop all running rumbles on the given `Gamepad`
+    pub fn stop(gamepad: Gamepad) -> Self {
+        Self {
+            duration_seconds: 0.0,
+            intensity: GamepadRumbleIntensity {
+                strong: 0.0,
+                weak: 0.0,
+            },
+            gamepad,
+            additive: false,
+        }
+    }
 }
 
 #[cfg(test)]

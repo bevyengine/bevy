@@ -3,21 +3,16 @@ use bevy_ecs::{
     prelude::{EventReader, Res},
     system::NonSendMut,
 };
-use bevy_input::gamepad::{GamepadRumbleRequest, RumbleIntensity};
+use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy_log::{debug, warn};
 use bevy_time::Time;
-use gilrs::{ff, GamepadId, Gilrs};
+use bevy_utils::HashMap;
+use gilrs::{
+    ff::{self, BaseEffect, BaseEffectType},
+    GamepadId, Gilrs,
+};
 
 use crate::converter::convert_gamepad_id;
-
-fn get_effect_type(intensity: RumbleIntensity) -> ff::BaseEffectType {
-    use RumbleIntensity::*;
-    match intensity {
-        Strong => ff::BaseEffectType::Strong { magnitude: 63_000 },
-        Medium => ff::BaseEffectType::Strong { magnitude: 40_000 },
-        Weak => ff::BaseEffectType::Weak { magnitude: 40_000 },
-    }
-}
 
 struct RunningRumble {
     deadline: f32,
@@ -39,7 +34,38 @@ impl From<ff::Error> for RumbleError {
 
 #[derive(Default)]
 pub(crate) struct RumblesManager {
-    rumbles: Vec<(GamepadId, RunningRumble)>,
+    rumbles: HashMap<GamepadId, Vec<RunningRumble>>,
+}
+
+fn is_stop_request(request: &GamepadRumbleRequest) -> bool {
+    !request.additive && request.intensity == GamepadRumbleIntensity::ZERO
+}
+
+fn to_gilrs_magnitude(ratio: f32) -> u16 {
+    (ratio * u16::MAX as f32) as u16
+}
+
+fn get_base_effects(
+    GamepadRumbleIntensity { weak, strong }: GamepadRumbleIntensity,
+) -> Vec<ff::BaseEffect> {
+    let mut effects = Vec::new();
+    if strong > 0. {
+        effects.push(BaseEffect {
+            kind: BaseEffectType::Strong {
+                magnitude: to_gilrs_magnitude(strong),
+            },
+            ..Default::default()
+        });
+    }
+    if weak > 0. {
+        effects.push(BaseEffect {
+            kind: BaseEffectType::Strong {
+                magnitude: to_gilrs_magnitude(weak),
+            },
+            ..Default::default()
+        });
+    }
+    effects
 }
 
 fn add_rumble(
@@ -48,25 +74,31 @@ fn add_rumble(
     rumble: GamepadRumbleRequest,
     current_time: f32,
 ) -> Result<(), RumbleError> {
-    let (pad_id, _) = gilrs
+    let (gamepad_id, _) = gilrs
         .gamepads()
         .find(|(pad_id, _)| convert_gamepad_id(*pad_id) == rumble.gamepad)
         .ok_or(RumbleError::GamepadNotFound)?;
-    let deadline = current_time + rumble.duration_seconds;
 
-    let kind = get_effect_type(rumble.intensity);
-    let effect = ff::BaseEffect {
-        kind,
-        ..Default::default()
-    };
-    let mut effect_builder = ff::EffectBuilder::new();
-    let effect_builder = effect_builder.add_effect(effect);
+    if !rumble.additive {
+        // `ff::Effect` uses RAII, dropping = deactivating
+        manager.rumbles.remove(&gamepad_id);
+    }
 
-    let effect = effect_builder.gamepads(&[pad_id]).finish(gilrs)?;
-    effect.play()?;
-    manager
-        .rumbles
-        .push((pad_id, RunningRumble { deadline, effect }));
+    if !is_stop_request(&rumble) {
+        let deadline = current_time + rumble.duration_seconds;
+
+        let mut effect_builder = ff::EffectBuilder::new();
+
+        for effect in get_base_effects(rumble.intensity) {
+            effect_builder.add_effect(effect);
+        }
+
+        let effect = effect_builder.gamepads(&[gamepad_id]).finish(gilrs)?;
+        effect.play()?;
+
+        let gamepad_rumbles = manager.rumbles.entry(gamepad_id).or_default();
+        gamepad_rumbles.push(RunningRumble { deadline, effect });
+    }
     Ok(())
 }
 pub(crate) fn play_gilrs_rumble(
@@ -77,10 +109,13 @@ pub(crate) fn play_gilrs_rumble(
 ) {
     let current_time = time.elapsed_seconds();
     // Remove outdated rumble effects.
-    // `ff::Effect` uses RAII, dropping = deactivating
+    for (_gamepad, rumbles) in manager.rumbles.iter_mut() {
+        // `ff::Effect` uses RAII, dropping = deactivating
+        rumbles.retain(|RunningRumble { deadline, .. }| *deadline >= current_time);
+    }
     manager
         .rumbles
-        .retain(|(_, RunningRumble { deadline, .. })| *deadline >= current_time);
+        .retain(|_gamepad, rumbles| !rumbles.is_empty());
 
     // Add new effects.
     for rumble in requests.iter().cloned() {
