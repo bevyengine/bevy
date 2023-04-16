@@ -374,7 +374,7 @@ pub fn prepare_core_3d_transmission_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedCamera, &ExtractedView),
+        (Entity, &ExtractedCamera, &Camera3d, &ExtractedView),
         (
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
@@ -384,10 +384,15 @@ pub fn prepare_core_3d_transmission_textures(
     >,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera, view) in &views_3d {
+    for (entity, camera, camera_3d, view) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
+
+        // Don't prepare a transmission texture if the number of steps is set to 0
+        if camera_3d.transmissive_steps == 0 {
+            continue;
+        }
 
         let cached_texture = textures
             .entry(camera.target.clone())

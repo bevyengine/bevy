@@ -15,7 +15,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the "main 3d render graph".
-#[derive(Component, Reflect, Clone, Default, ExtractComponent)]
+#[derive(Component, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
 pub struct Camera3d {
@@ -23,6 +23,22 @@ pub struct Camera3d {
     pub clear_color: ClearColorConfig,
     /// The depth clear operation to perform for the main 3d pass.
     pub depth_load_op: Camera3dDepthLoadOp,
+    /// How many individual steps should be performed in the transmissive 3d pass
+    ///
+    /// Roughly corresponds to how many “layers of transparency” are rendered for
+    /// transmissive objects. Each step requires making one additional texture copy,
+    /// so it's recommended to keep this number to a resonably low value.
+    pub transmissive_steps: usize,
+}
+
+impl Default for Camera3d {
+    fn default() -> Self {
+        Camera3d {
+            clear_color: ClearColorConfig::default(),
+            depth_load_op: Camera3dDepthLoadOp::default(),
+            transmissive_steps: 1,
+        }
+    }
 }
 
 /// The depth clear operation to perform for the main 3d pass.
