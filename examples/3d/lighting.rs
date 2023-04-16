@@ -3,13 +3,13 @@
 
 use std::f32::consts::PI;
 
-use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
+use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*, render::camera::ExposureSettings};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (movement, animate_light_direction))
+        .add_systems(Update, (update_exposure, movement, animate_light_direction))
         .run();
 }
 
@@ -207,6 +207,7 @@ fn setup(
     // directional 'sun' light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
+            illuminance: 1000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -227,11 +228,101 @@ fn setup(
         ..default()
     });
 
+    let exposure_settings = ExposureSettings::default();
+    let style = TextStyle {
+        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+        font_size: 18.0,
+        color: Color::WHITE,
+    };
+
+    commands.spawn(
+        TextBundle::from_sections(vec![
+            TextSection::new(
+                format!("Aperture: f/{:.0}\n", exposure_settings.aperture_f_stops),
+                style.clone(),
+            ),
+            TextSection::new(
+                format!(
+                    "Shutter speed: 1/{:.0}s\n",
+                    1.0 / exposure_settings.shutter_speed_s
+                ),
+                style.clone(),
+            ),
+            TextSection::new(
+                format!(
+                    "Sensitivity: ISO {:.0}\n",
+                    exposure_settings.sensitivity_iso
+                ),
+                style.clone(),
+            ),
+            TextSection::new("\n\n", style.clone()),
+            TextSection::new("Controls\n", style.clone()),
+            TextSection::new("---------------\n", style.clone()),
+            TextSection::new("1/2 - Decrease/Increase aperture\n", style.clone()),
+            TextSection::new("3/4 - Decrease/Increase shutter speed\n", style.clone()),
+            TextSection::new("5/6 - Decrease/Increase sensitivity\n", style),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..default()
+        }),
+    );
+
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        exposure_settings,
+    ));
+}
+
+fn update_exposure(
+    key_input: Res<Input<KeyCode>>,
+    mut query: Query<&mut ExposureSettings>,
+    mut text: Query<&mut Text>,
+) {
+    let mut text = text.single_mut();
+    let mut exposure_settings = query.single_mut();
+    if key_input.just_pressed(KeyCode::Key2) {
+        exposure_settings.aperture_f_stops *= 2.0;
+        text.sections[0].value = format!("Aperture: f/{:.0}\n", exposure_settings.aperture_f_stops);
+    } else if key_input.just_pressed(KeyCode::Key1) {
+        exposure_settings.aperture_f_stops *= 0.5;
+        text.sections[0].value = format!("Aperture: f/{:.0}\n", exposure_settings.aperture_f_stops);
+    }
+    if key_input.just_pressed(KeyCode::Key4) {
+        exposure_settings.shutter_speed_s *= 2.0;
+        text.sections[1].value = format!(
+            "Shutter speed: 1/{:.0}s\n",
+            1.0 / exposure_settings.shutter_speed_s
+        );
+    } else if key_input.just_pressed(KeyCode::Key3) {
+        exposure_settings.shutter_speed_s *= 0.5;
+        text.sections[1].value = format!(
+            "Shutter speed: 1/{:.0}s\n",
+            1.0 / exposure_settings.shutter_speed_s
+        );
+    }
+    if key_input.just_pressed(KeyCode::Key6) {
+        exposure_settings.sensitivity_iso += 100.0;
+        text.sections[2].value = format!(
+            "Sensitivity: ISO {:.0}\n",
+            exposure_settings.sensitivity_iso
+        );
+    } else if key_input.just_pressed(KeyCode::Key5) {
+        exposure_settings.sensitivity_iso -= 100.0;
+        text.sections[2].value = format!(
+            "Sensitivity: ISO {:.0}\n",
+            exposure_settings.sensitivity_iso
+        );
+    }
+    if key_input.just_pressed(KeyCode::D) {
+        *exposure_settings = ExposureSettings::default();
+    }
 }
 
 fn animate_light_direction(
