@@ -215,7 +215,7 @@ fn setup(
     // Paper
     commands.spawn((
         PbrBundle {
-            mesh: plane_mesh.clone(),
+            mesh: plane_mesh,
             material: materials.add(StandardMaterial {
                 base_color: Color::WHITE,
                 diffuse_transmission: 0.6,
