@@ -1289,9 +1289,15 @@ impl GamepadRumbleIntensity {
 ///
 /// # Notes
 ///
-/// * Does nothing if the `gamepad` does not support rumble
-/// * If a new `GamepadRumbleRequest` is sent while another one is still executing, it
-///   replaces the old one.
+/// Does nothing if the `gamepad` or platform does not support rumble.
+///
+/// If a new `GamepadRumbleRequest` is sent while another one is still
+/// executing, it's intensity is added to the existing one.
+///
+/// This means if two rumbles at half intensity are added at the same time,
+/// their intensities will be added up, and the controller will rumble at full
+/// intensity until one of the rumbles finishes, then the rumble will continue
+/// at the intensity of the other event.
 ///
 /// # Example
 ///
