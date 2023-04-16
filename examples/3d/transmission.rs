@@ -10,6 +10,7 @@
 //! | `Z` / `X`          | Decrease / Increase IOR                   |
 //! | `Down` / `Up`      | Decrease / Increase Perceptual Roughness  |
 //! | `Left` / `Right`   | Rotate Camera                             |
+//! | `O` / `P`          | Decrease / Increase Transmission Steps    |
 //! | `H`                | Toggle HDR                                |
 //! | `C`                | Randomize Colors                          |
 
@@ -154,7 +155,7 @@ fn setup(
     // Glass Sphere
     commands.spawn((
         PbrBundle {
-            mesh: icosphere_mesh,
+            mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
                 base_color: Color::WHITE,
                 transmission: 0.9,
@@ -165,6 +166,78 @@ fn setup(
                 ..default()
             }),
             transform: Transform::from_xyz(1.0, 0.0, 0.0),
+            ..default()
+        },
+        NotTransmittedShadowReceiver,
+        ExampleControls {
+            color: true,
+            transmission: true,
+            diffuse_transmission: false,
+        },
+    ));
+
+    // R Sphere
+    commands.spawn((
+        PbrBundle {
+            mesh: icosphere_mesh.clone(),
+            material: materials.add(StandardMaterial {
+                base_color: Color::RED,
+                transmission: 0.9,
+                diffuse_transmission: 1.0,
+                thickness: 1.8,
+                ior: 1.5,
+                perceptual_roughness: 0.12,
+                ..default()
+            }),
+            transform: Transform::from_xyz(1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
+            ..default()
+        },
+        NotTransmittedShadowReceiver,
+        ExampleControls {
+            color: true,
+            transmission: true,
+            diffuse_transmission: false,
+        },
+    ));
+
+    // G Sphere
+    commands.spawn((
+        PbrBundle {
+            mesh: icosphere_mesh.clone(),
+            material: materials.add(StandardMaterial {
+                base_color: Color::GREEN,
+                transmission: 0.9,
+                diffuse_transmission: 1.0,
+                thickness: 1.8,
+                ior: 1.5,
+                perceptual_roughness: 0.12,
+                ..default()
+            }),
+            transform: Transform::from_xyz(0.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
+            ..default()
+        },
+        NotTransmittedShadowReceiver,
+        ExampleControls {
+            color: true,
+            transmission: true,
+            diffuse_transmission: false,
+        },
+    ));
+
+    // B Sphere
+    commands.spawn((
+        PbrBundle {
+            mesh: icosphere_mesh,
+            material: materials.add(StandardMaterial {
+                base_color: Color::BLUE,
+                transmission: 0.9,
+                diffuse_transmission: 1.0,
+                thickness: 1.8,
+                ior: 1.5,
+                perceptual_roughness: 0.12,
+                ..default()
+            }),
+            transform: Transform::from_xyz(-1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
             ..default()
         },
         NotTransmittedShadowReceiver,
@@ -286,7 +359,7 @@ fn setup(
 
     commands.spawn(
         TextBundle::from_section(
-            "1 / 2 - Decrease / Increase Diffuse Transmission\nQ / W - Decrease / Increase Transmission\nA / S - Decrease / Increase Thickness\nZ / X - Decrease / Increase IOR\nDown / Up - Decrease / Increase Perceptual Roughness\nLeft / Right - Rotate Camera\nH - Toggle HDR\nC - Randomize Colors",
+            "1 / 2 - Decrease / Increase Diffuse Transmission\nQ / W - Decrease / Increase Transmission\nA / S - Decrease / Increase Thickness\nZ / X - Decrease / Increase IOR\nDown / Up - Decrease / Increase Perceptual Roughness\nLeft / Right - Rotate Camera\nO / P - Decrease / Increase Transmission Steps\nH - Toggle HDR\nC - Randomize Colors",
             text_style.clone(),
         )
         .with_style(Style {
@@ -345,7 +418,7 @@ impl Default for ExampleState {
 fn example_control_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     controllable: Query<(&Handle<StandardMaterial>, &ExampleControls)>,
-    mut camera: Query<(&mut Camera, &mut Transform), With<Camera3d>>,
+    mut camera: Query<(&mut Camera, &mut Camera3d, &mut Transform), With<Camera3d>>,
     mut display: Query<&mut Text, With<ExampleDisplay>>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
@@ -403,10 +476,18 @@ fn example_control_system(
         }
     }
 
-    let (mut camera, mut camera_transform) = camera.single_mut();
+    let (mut camera, mut camera_3d, mut camera_transform) = camera.single_mut();
 
     if input.just_pressed(KeyCode::H) {
         camera.hdr = !camera.hdr;
+    }
+
+    if input.just_pressed(KeyCode::O) && camera_3d.transmissive_steps > 0 {
+        camera_3d.transmissive_steps -= 1;
+    }
+
+    if input.just_pressed(KeyCode::P) && camera_3d.transmissive_steps < 5 {
+        camera_3d.transmissive_steps += 1;
     }
 
     let rotation = if input.pressed(KeyCode::Left) {
@@ -424,13 +505,14 @@ fn example_control_system(
 
     let mut display = display.single_mut();
     display.sections[0].value = format!(
-        "HDR: {}\nDiffuse Transmission: {:.2}\nTransmission: {:.2}\nThickness: {:.2}\nIOR: {:.2}\nPerceptual Roughness: {:.2}",
+        "HDR: {}\nDiffuse Transmission: {:.2}\nTransmission: {:.2}\nThickness: {:.2}\nIOR: {:.2}\nPerceptual Roughness: {:.2}\nTransmissive Steps: {}",
         if camera.hdr { "ON " } else { "OFF" },
         state.diffuse_transmission,
         state.transmission,
         state.thickness,
         state.ior,
         state.perceptual_roughness,
+        camera_3d.transmissive_steps,
     );
 }
 
