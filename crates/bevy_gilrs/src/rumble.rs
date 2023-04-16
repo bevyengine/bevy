@@ -1,4 +1,4 @@
-//! Handle user specified Rumble request events.  use crate::converter::convert_gamepad_id; use bevy_app::EventReader; use bevy_core::Time;
+//! Handle user specified rumble request events.
 use bevy_ecs::{
     prelude::{EventReader, Res},
     system::NonSendMut,
