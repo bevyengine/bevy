@@ -155,6 +155,7 @@ pub struct StandardMaterial {
     ///
     /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`]. To avoid self-shadows on complicated
     /// mesh shapes without having to fine tune the thickness, consider using the [`NotTransmittedShadowReceiver`](crate::light::NotTransmittedShadowReceiver) component.
+    #[doc(alias = "translucency")]
     pub diffuse_transmission: f32,
 
     /// A map that modulates diffuse transmission via its **A channel**. Multiplied by [`StandardMaterial::diffuse_transmission`]
@@ -186,6 +187,7 @@ pub struct StandardMaterial {
     /// The material's [`StandardMaterial::base_color`] also modulates the transmitted light.
     ///
     /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`] and [`StandardMaterial::ior`].
+    #[doc(alias = "refraction")]
     pub transmission: f32,
 
     /// A map that modulates specular transmission via its **R channel**. Multiplied by [`StandardMaterial::transmission`]
@@ -214,6 +216,8 @@ pub struct StandardMaterial {
     ///
     /// **Note:** Typically used in conjunction with [`StandardMaterial::transmission`] and [`StandardMaterial::ior`], or with
     /// [`StandardMaterial::diffuse_transmission`].
+    #[doc(alias = "volume")]
+    #[doc(alias = "thin_walled")]
     pub thickness: f32,
 
     /// A map that modulates thickness via its G channel. Multiplied by [`StandardMaterial::thickness`]
