@@ -11,6 +11,7 @@ use gilrs::{ff, GamepadId, Gilrs};
 
 use crate::converter::convert_gamepad_id;
 
+#[derive(Clone, Copy, Debug)]
 pub enum RumbleIntensity {
     Strong,
     Medium,
@@ -27,11 +28,11 @@ impl RumbleIntensity {
     }
 }
 
-/// Request `pad` rumble in `gilrs_effect` pattern for `duration_seconds`
+/// Request that `gamepad` should rumble with `intensity` for `duration_seconds`
 ///
 /// # Notes
 ///
-/// * Does nothing if `pad` does not support rumble
+/// * Does nothing if the `gamepad` does not support rumble
 /// * If a new `RumbleRequest` is sent while another one is still executing, it
 ///   replaces the old one.
 ///
@@ -42,10 +43,10 @@ impl RumbleIntensity {
 /// # use bevy_input::gamepad::Gamepad;
 /// # use bevy_app::EventWriter;
 /// fn rumble_pad_system(mut rumble_requests: EventWriter<RumbleRequest>) {
-///     let request = RumbleRequest::with_intensity(
-///         RumbleIntensity::Strong,
-///         10.0,
-///         Gamepad(0),
+///     let request = RumbleRequest::{
+///         intensity: RumbleIntensity::Strong,
+///         duration_seconds: 10.0,
+///         gamepad: Gamepad(0),
 ///     );
 ///     rumble_requests.send(request);
 /// }
@@ -54,33 +55,18 @@ impl RumbleIntensity {
 pub struct RumbleRequest {
     /// The duration in seconds of the rumble
     pub duration_seconds: f32,
-    /// The gilrs descriptor used internally
-    gilrs_effect: ff::EffectBuilder,
+    /// How intense the rumble should be
+    pub intensity: RumbleIntensity,
     /// The gamepad to rumble
-    pub pad: Gamepad,
+    pub gamepad: Gamepad,
 }
 impl RumbleRequest {
-    /// Causes `pad` to rumble for `duration_seconds` at given `intensity`.
-    pub fn with_intensity(intensity: RumbleIntensity, duration_seconds: f32, pad: Gamepad) -> Self {
-        let kind = intensity.effect_type();
-        let effect = ff::BaseEffect {
-            kind,
-            ..Default::default()
-        };
-        let mut gilrs_effect = ff::EffectBuilder::new();
-        gilrs_effect.add_effect(effect);
-        RumbleRequest {
-            duration_seconds,
-            gilrs_effect,
-            pad,
-        }
-    }
-    /// Stops provided `pad` rumbling.
-    pub fn stop(pad: Gamepad) -> Self {
+    /// Stops any rumbles on the given gamepad
+    pub fn stop(gamepad: Gamepad) -> Self {
         RumbleRequest {
             duration_seconds: 0.0,
-            gilrs_effect: ff::EffectBuilder::new(),
-            pad,
+            intensity: RumbleIntensity::Weak,
+            gamepad,
         }
     }
 }
@@ -111,15 +97,24 @@ pub(crate) struct RumblesManager {
 fn add_rumble(
     manager: &mut RumblesManager,
     gilrs: &mut Gilrs,
-    mut rumble: RumbleRequest,
+    rumble: RumbleRequest,
     current_time: f32,
 ) -> Result<(), RumbleError> {
     let (pad_id, _) = gilrs
         .gamepads()
-        .find(|(pad_id, _)| convert_gamepad_id(*pad_id) == rumble.pad)
+        .find(|(pad_id, _)| convert_gamepad_id(*pad_id) == rumble.gamepad)
         .ok_or(RumbleError::GamepadNotFound)?;
     let deadline = current_time + rumble.duration_seconds;
-    let effect = rumble.gilrs_effect.gamepads(&[pad_id]).finish(gilrs)?;
+
+    let kind = rumble.intensity.effect_type();
+    let effect = ff::BaseEffect {
+        kind,
+        ..Default::default()
+    };
+    let mut effect_builder = ff::EffectBuilder::new();
+    let effect_builder = effect_builder.add_effect(effect);
+
+    let effect = effect_builder.gamepads(&[pad_id]).finish(gilrs)?;
     effect.play()?;
     manager
         .rumbles
@@ -148,7 +143,7 @@ pub(crate) fn play_gilrs_rumble(
     }
     // Add new effects.
     for rumble in requests.iter().cloned() {
-        let pad = rumble.pad;
+        let pad = rumble.gamepad;
         match add_rumble(&mut manager, &mut gilrs, rumble, current_time) {
             Ok(()) => {}
             Err(RumbleError::GilrsError(err)) => {
