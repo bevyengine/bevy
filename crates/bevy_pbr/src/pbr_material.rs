@@ -146,12 +146,12 @@ pub struct StandardMaterial {
     /// For specular transmission usecases with refraction (e.g. glass) use the [`StandardMaterial::transmission`] and
     /// [`StandardMaterial::ior`] properties instead.
     ///
-    /// - When set to `0.0` (the default) no light is transmitted.
-    /// - When set to `1.0` all light is transmitted through the material.
+    /// - When set to `0.0` (the default) no diffuse light is transmitted;
+    /// - When set to `1.0` all diffuse light is transmitted through the material;
+    /// - Values higher than `0.5` will cause more diffuse light to be transmitted than reflected, resulting in a “darker”
+    ///   appearance on the side facing the light than the opposite side. (e.g. plant leaves)
     ///
-    /// **Important:** The material's [`StandardMaterial::base_color`] also modulates the transmitted light. Diffuse transmission
-    /// values higher than 0.5 will cause more diffuse light to be transmitted than reflected, resulting in a “darker” appearance
-    /// for the front Lambertian lobe when an object is illuminated primarily from a single direction.
+    /// **Important:** The material's [`StandardMaterial::base_color`] also modulates the transmitted light.
     ///
     /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`]. To avoid self-shadows on complicated
     /// mesh shapes without having to fine tune the thickness, consider using the [`NotTransmittedShadowReceiver`](crate::light::NotTransmittedShadowReceiver) component.
