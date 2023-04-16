@@ -33,7 +33,7 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, setup)
-        .add_systems(Update, example_control_system);
+        .add_systems(Update, (example_control_system, flicker_system));
 
     // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.
     // Since this example uses HDR, we must disable MSAA for WASM builds, at least
@@ -147,6 +147,7 @@ fn setup(
             transform: Transform::from_xyz(-1.0, 1.15, 0.0).with_scale(Vec3::new(0.1, 0.2, 0.1)),
             ..default()
         },
+        Flicker,
         NotShadowCaster,
     ));
 
@@ -237,18 +238,21 @@ fn setup(
     ));
 
     // Candle Light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(-1.0, 1.7, 0.0),
-        point_light: PointLight {
-            color: Color::ANTIQUE_WHITE * 0.8 + Color::ORANGE_RED * 0.2,
-            intensity: 1600.0,
-            radius: 0.2,
-            range: 5.0,
-            shadows_enabled: true,
+    commands.spawn((
+        PointLightBundle {
+            transform: Transform::from_xyz(-1.0, 1.7, 0.0),
+            point_light: PointLight {
+                color: Color::ANTIQUE_WHITE * 0.8 + Color::ORANGE_RED * 0.2,
+                intensity: 1600.0,
+                radius: 0.2,
+                range: 5.0,
+                shadows_enabled: true,
+                ..default()
+            },
             ..default()
         },
-        ..default()
-    });
+        Flicker,
+    ));
 
     // Camera
     commands.spawn((
@@ -303,6 +307,9 @@ fn setup(
         ExampleDisplay,
     ));
 }
+
+#[derive(Component)]
+struct Flicker;
 
 #[derive(Component)]
 struct ExampleControls {
@@ -425,4 +432,23 @@ fn example_control_system(
         state.ior,
         state.perceptual_roughness,
     );
+}
+
+fn flicker_system(
+    mut flame: Query<&mut Transform, (With<Flicker>, With<Handle<Mesh>>)>,
+    mut light: Query<(&mut PointLight, &mut Transform), (With<Flicker>, Without<Handle<Mesh>>)>,
+    time: Res<Time>,
+) {
+    let s = time.elapsed_seconds();
+    let a = (s * 6.0).cos() * 0.0125 + (s * 4.0).cos() * 0.025;
+    let b = (s * 5.0).cos() * 0.0125 + (s * 3.0).cos() * 0.025;
+    let c = (s * 7.0).cos() * 0.0125 + (s * 2.0).cos() * 0.025;
+    let (mut light, mut light_transform) = light.single_mut();
+    let mut flame_transform = flame.single_mut();
+    light.intensity = 1600.0 + 3000.0 * (a + b + c);
+    flame_transform.translation = Vec3::new(-1.0, 1.23, 0.0);
+    flame_transform.look_at(Vec3::new(-1.0 - c, 1.7 - b, 0.0 - a), Vec3::X);
+    flame_transform.rotate(Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, PI / 2.0));
+    light_transform.translation = Vec3::new(-1.0 - c, 1.7, 0.0 - a);
+    flame_transform.translation = Vec3::new(-1.0 - c, 1.23, 0.0 - a);
 }
