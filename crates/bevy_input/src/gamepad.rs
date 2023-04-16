@@ -1240,6 +1240,55 @@ const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
     GamepadAxisType::RightZ,
 ];
 
+#[derive(Clone, Copy, Debug)]
+pub enum RumbleIntensity {
+    Strong,
+    Medium,
+    Weak,
+}
+
+/// Request that `gamepad` should rumble with `intensity` for `duration_seconds`
+///
+/// # Notes
+///
+/// * Does nothing if the `gamepad` does not support rumble
+/// * If a new `RumbleRequest` is sent while another one is still executing, it
+///   replaces the old one.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_gilrs::{RumbleRequest, RumbleIntensity};
+/// # use bevy_input::gamepad::Gamepad;
+/// # use bevy_app::EventWriter;
+/// fn rumble_pad_system(mut rumble_requests: EventWriter<RumbleRequest>) {
+///     let request = RumbleRequest::{
+///         intensity: RumbleIntensity::Strong,
+///         duration_seconds: 10.0,
+///         gamepad: Gamepad(0),
+///     );
+///     rumble_requests.send(request);
+/// }
+/// ```
+#[derive(Clone)]
+pub struct GamepadRumbleRequest {
+    /// The duration in seconds of the rumble
+    pub duration_seconds: f32,
+    /// How intense the rumble should be
+    pub intensity: RumbleIntensity,
+    /// The gamepad to rumble
+    pub gamepad: Gamepad,
+}
+impl GamepadRumbleRequest {
+    /// Stops any rumbles on the given gamepad
+    pub fn stop(gamepad: Gamepad) -> Self {
+        GamepadRumbleRequest {
+            duration_seconds: 0.0,
+            intensity: RumbleIntensity::Weak,
+            gamepad,
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use crate::gamepad::{AxisSettingsError, ButtonSettingsError};
@@ -1573,55 +1622,5 @@ mod tests {
             ),
             axis_settings.try_set_livezone_upperbound(0.1)
         );
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum RumbleIntensity {
-    Strong,
-    Medium,
-    Weak,
-}
-
-/// Request that `gamepad` should rumble with `intensity` for `duration_seconds`
-///
-/// # Notes
-///
-/// * Does nothing if the `gamepad` does not support rumble
-/// * If a new `RumbleRequest` is sent while another one is still executing, it
-///   replaces the old one.
-///
-/// # Example
-///
-/// ```
-/// # use bevy_gilrs::{RumbleRequest, RumbleIntensity};
-/// # use bevy_input::gamepad::Gamepad;
-/// # use bevy_app::EventWriter;
-/// fn rumble_pad_system(mut rumble_requests: EventWriter<RumbleRequest>) {
-///     let request = RumbleRequest::{
-///         intensity: RumbleIntensity::Strong,
-///         duration_seconds: 10.0,
-///         gamepad: Gamepad(0),
-///     );
-///     rumble_requests.send(request);
-/// }
-/// ```
-#[derive(Clone)]
-pub struct GamepadRumbleRequest {
-    /// The duration in seconds of the rumble
-    pub duration_seconds: f32,
-    /// How intense the rumble should be
-    pub intensity: RumbleIntensity,
-    /// The gamepad to rumble
-    pub gamepad: Gamepad,
-}
-impl GamepadRumbleRequest {
-    /// Stops any rumbles on the given gamepad
-    pub fn stop(gamepad: Gamepad) -> Self {
-        GamepadRumbleRequest {
-            duration_seconds: 0.0,
-            intensity: RumbleIntensity::Weak,
-            gamepad,
-        }
     }
 }
