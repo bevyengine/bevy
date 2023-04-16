@@ -79,16 +79,10 @@ pub(crate) fn play_gilrs_rumble(
     let current_time = time.elapsed_seconds();
     // Remove outdated rumble effects.
     if !manager.rumbles.is_empty() {
-        let mut to_remove = Vec::new();
-        for (id, RunningRumble { deadline, .. }) in manager.rumbles.iter() {
-            if *deadline < current_time {
-                to_remove.push(*id);
-            }
-        }
-        for id in &to_remove {
-            // `ff::Effect` uses RAII, dropping = deactivating
-            manager.rumbles.remove(id);
-        }
+        // `ff::Effect` uses RAII, dropping = deactivating
+        manager
+            .rumbles
+            .retain(|_, RunningRumble { deadline, .. }| *deadline >= current_time);
     }
     // Add new effects.
     for rumble in requests.iter().cloned() {
