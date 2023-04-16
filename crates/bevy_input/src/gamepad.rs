@@ -1245,10 +1245,16 @@ pub struct GamepadRumbleIntensity {
     /// The rumble intensity of the strong gamepad motor
     ///
     /// Ranges from 0.0 to 1.0
+    ///
+    /// By convention, this is usually a low-frequency motor on the left-hand
+    /// side of the gamepad, though it may vary across platforms and hardware.
     pub strong: f32,
     /// The rumble intensity of the weak gamepad motor
     ///
     /// Ranges from 0.0 to 1.0
+    ///
+    /// By convention, this is usually a high-frequency motor on the right-hand
+    /// side of the gamepad, though it may vary across platforms and hardware.
     pub weak: f32,
 }
 
