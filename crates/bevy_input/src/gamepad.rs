@@ -1252,17 +1252,17 @@ pub enum RumbleIntensity {
 /// # Notes
 ///
 /// * Does nothing if the `gamepad` does not support rumble
-/// * If a new `RumbleRequest` is sent while another one is still executing, it
+/// * If a new `GamepadRumbleRequest` is sent while another one is still executing, it
 ///   replaces the old one.
 ///
 /// # Example
 ///
 /// ```
-/// # use bevy_gilrs::{RumbleRequest, RumbleIntensity};
+/// # use bevy_gilrs::{GamepadRumbleRequest, RumbleIntensity};
 /// # use bevy_input::gamepad::Gamepad;
 /// # use bevy_app::EventWriter;
-/// fn rumble_pad_system(mut rumble_requests: EventWriter<RumbleRequest>) {
-///     let request = RumbleRequest::{
+/// fn rumble_pad_system(mut rumble_requests: EventWriter<GamepadRumbleRequest>) {
+///     let request = GamepadRumbleRequest::{
 ///         intensity: RumbleIntensity::Strong,
 ///         duration_seconds: 10.0,
 ///         gamepad: Gamepad(0),
