@@ -157,6 +157,23 @@ pub struct StandardMaterial {
     /// mesh shapes without having to fine tune the thickness, consider using the [`NotTransmittedShadowReceiver`](crate::light::NotTransmittedShadowReceiver) component.
     pub diffuse_transmission: f32,
 
+    /// A map that modulates diffuse transmission via its **A channel**. Multiplied by [`StandardMaterial::diffuse_transmission`]
+    /// to obtain the final result.
+    ///
+    /// **Important:** The [`StandardMaterial::diffuse_transmission`] property must be set to a value higher than 0.0,
+    /// or this texture won't have any effect.
+    ///
+    /// **Note:** Due to how channels are mapped, you can more efficiently use a single shared texture image
+    /// for configuring the following:
+    ///
+    /// - R - `transmission_texture`
+    /// - G - `thickness_texture`
+    /// - B - _unused_
+    /// - A - `diffuse_transmission_texture`
+    #[texture(17)]
+    #[sampler(18)]
+    pub diffuse_transmission_texture: Option<Handle<Image>>,
+
     /// The amount of light transmitted _specularly_ through the material (i.e. via refraction)
     ///
     /// Implemented as a relatively expensive screen-space effect that allows ocluded objects to be seen through the material, while
@@ -171,6 +188,23 @@ pub struct StandardMaterial {
     /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`] and [`StandardMaterial::ior`].
     pub transmission: f32,
 
+    /// A map that modulates specular transmission via its **R channel**. Multiplied by [`StandardMaterial::transmission`]
+    /// to obtain the final result.
+    ///
+    /// **Important:** The [`StandardMaterial::transmission`] property must be set to a value higher than 0.0,
+    /// or this texture won't have any effect.
+    ///
+    /// **Note:** Due to how channels are mapped, you can more efficiently use a single shared texture image
+    /// for configuring the following:
+    ///
+    /// - R - `transmission_texture`
+    /// - G - `thickness_texture`
+    /// - B - _unused_
+    /// - A - `diffuse_transmission_texture`
+    #[texture(13)]
+    #[sampler(14)]
+    pub transmission_texture: Option<Handle<Image>>,
+
     /// Thickness of the volume beneath the material surface.
     ///
     /// When set to `0.0` (the default) the material appears as an infinitely-thin film,
@@ -181,6 +215,23 @@ pub struct StandardMaterial {
     /// **Note:** Typically used in conjunction with [`StandardMaterial::transmission`] and [`StandardMaterial::ior`], or with
     /// [`StandardMaterial::diffuse_transmission`].
     pub thickness: f32,
+
+    /// A map that modulates thickness via its G channel. Multiplied by [`StandardMaterial::thickness`]
+    /// to obtain the final result.
+    ///
+    /// **Important:** The [`StandardMaterial::thickness`] property must be set to a value higher than 0.0,
+    /// or this texture won't have any effect.
+    ///
+    /// **Note:** Due to how channels are mapped, you can more efficiently use a single shared texture image
+    /// for configuring the following:
+    ///
+    /// - R - `transmission_texture`
+    /// - G - `thickness_texture`
+    /// - B - _unused_
+    /// - A - `diffuse_transmission_texture`
+    #[texture(15)]
+    #[sampler(16)]
+    pub thickness_texture: Option<Handle<Image>>,
 
     /// The index of refraction of the material
     ///
@@ -403,8 +454,11 @@ impl Default for StandardMaterial {
             // <https://google.github.io/filament/Material%20Properties.pdf>
             reflectance: 0.5,
             diffuse_transmission: 0.0,
+            diffuse_transmission_texture: None,
             transmission: 0.0,
+            transmission_texture: None,
             thickness: 0.0,
+            thickness_texture: None,
             ior: 1.5,
             occlusion_texture: None,
             normal_map_texture: None,
@@ -462,6 +516,9 @@ bitflags::bitflags! {
         const FLIP_NORMAL_MAP_Y          = (1 << 7);
         const FOG_ENABLED                = (1 << 8);
         const DEPTH_MAP                  = (1 << 9); // Used for parallax mapping
+        const TRANSMISSION_TEXTURE       = (1 << 10);
+        const THICKNESS_TEXTURE          = (1 << 11);
+        const DIFFUSE_TRANSMISSION_TEXTURE = (1 << 12);
         const ALPHA_MODE_RESERVED_BITS   = (Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS); // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = (0 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = (1 << Self::ALPHA_MODE_SHIFT_BITS);                          //   the bitmask, and can range from 0 to 7.
@@ -547,6 +604,15 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
         if self.depth_map.is_some() {
             flags |= StandardMaterialFlags::DEPTH_MAP;
+        }
+        if self.transmission_texture.is_some() {
+            flags |= StandardMaterialFlags::TRANSMISSION_TEXTURE;
+        }
+        if self.thickness_texture.is_some() {
+            flags |= StandardMaterialFlags::THICKNESS_TEXTURE;
+        }
+        if self.diffuse_transmission_texture.is_some() {
+            flags |= StandardMaterialFlags::DIFFUSE_TRANSMISSION_TEXTURE;
         }
         let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {
