@@ -1266,6 +1266,18 @@ impl GamepadRumbleIntensity {
         weak: 1.0,
     };
 
+    /// Rumble the weak motor at maximum intensity
+    pub const WEAK_MAX: Self = GamepadRumbleIntensity {
+        strong: 0.0,
+        weak: 1.0,
+    };
+
+    /// Rumble the strong motor at maximum intensity
+    pub const STRONG_MAX: Self = GamepadRumbleIntensity {
+        strong: 1.0,
+        weak: 0.0,
+    };
+
     /// Don't rumble at all, only makes sense when `additive` is `false`
     pub const ZERO: Self = GamepadRumbleIntensity {
         strong: 0.0,
