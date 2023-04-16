@@ -1730,7 +1730,7 @@ impl World {
     /// and system state is cached.
     ///
     /// For simple cases where you just need to call the schedule once,
-    /// consider using [`World::try_run_schedule_ref`] instead.
+    /// consider using [`World::try_run_schedule`] instead.
     /// For other use cases, see the example on [`World::schedule_scope`].
     pub fn try_schedule_scope<R>(
         &mut self,
