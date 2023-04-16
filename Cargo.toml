@@ -1425,16 +1425,6 @@ name = "post_processing"
 path = "examples/shader/post_processing.rs"
 
 [package.metadata.example.post_processing]
-name = "Post Processing - Render To Texture"
-description = "A custom post processing effect, using two cameras, with one reusing the render texture of the first one"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "post_process_pass"
-path = "examples/shader/post_process_pass.rs"
-
-[package.metadata.example.post_process_pass]
 name = "Post Processing - Custom Render Pass"
 description = "A custom post processing effect, using a custom render pass that runs after the main pass"
 category = "Shaders"
@@ -1690,7 +1680,7 @@ path = "examples/ecs/nondeterministic_system_order.rs"
 
 [package.metadata.example.nondeterministic_system_order]
 name = "Nondeterministic System Order"
-description = "Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this."
+description = "Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this."
 category = "ECS (Entity Component System)"
 wasm = false
 
