@@ -486,7 +486,7 @@ fn example_control_system(
         camera_3d.transmissive_steps -= 1;
     }
 
-    if input.just_pressed(KeyCode::P) && camera_3d.transmissive_steps < 5 {
+    if input.just_pressed(KeyCode::P) && camera_3d.transmissive_steps < 4 {
         camera_3d.transmissive_steps += 1;
     }
 
