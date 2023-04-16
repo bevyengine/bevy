@@ -89,10 +89,10 @@ pub(crate) fn play_gilrs_rumble(
         match add_rumble(&mut manager, &mut gilrs, rumble, current_time) {
             Ok(()) => {}
             Err(RumbleError::GilrsError(err)) => {
-                debug!("Tried to rumble {pad:?} but an error occurred: {err}")
+                debug!("Tried to rumble {pad:?} but an error occurred: {err}");
             }
             Err(RumbleError::GamepadNotFound) => {
-                warn!("Tried to rumble {pad:?} but it doesn't exist!")
+                warn!("Tried to rumble {pad:?} but it doesn't exist!");
             }
         };
     }
