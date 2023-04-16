@@ -1827,7 +1827,7 @@ impl World {
     /// Temporarily removes the schedule associated with `label` from the world,
     /// runs user code, and finally re-adds the schedule.
     ///
-    /// Unlike the `try_run_schedule` method, this method takes the label by reference, which can save a clone.
+    /// Unlike the `run_schedule` method, this method takes the label by reference, which can save a clone.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
     /// and system state is cached.
