@@ -113,7 +113,7 @@ impl<S: States> NextState<S> {
 /// Run the enter schedule (if it exists) for the current state.
 pub fn run_enter_schedule<S: States>(world: &mut World) {
     world
-        .try_run_schedule(OnEnter(world.resource::<State<S>>().0.clone()))
+        .try_run_schedule(&OnEnter(world.resource::<State<S>>().0.clone()))
         .ok();
 }
 
@@ -133,14 +133,14 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         if *state_resource != entered {
             let exited = mem::replace(&mut state_resource.0, entered.clone());
             // Try to run the schedules if they exist.
-            world.try_run_schedule(OnExit(exited.clone())).ok();
+            world.try_run_schedule(&OnExit(exited.clone())).ok();
             world
-                .try_run_schedule(OnTransition {
+                .try_run_schedule(&OnTransition {
                     from: exited,
                     to: entered.clone(),
                 })
                 .ok();
-            world.try_run_schedule(OnEnter(entered)).ok();
+            world.try_run_schedule(&OnEnter(entered)).ok();
         }
     }
 }
