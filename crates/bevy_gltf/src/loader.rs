@@ -674,6 +674,30 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         load_context.get_handle(path)
     });
 
+    let (transmission, transmission_texture) =
+        material.transmission().map_or((0.0, None), |transmission| {
+            let transmission_texture: Option<Handle<Image>> =
+                transmission.transmission_texture().map(|info| {
+                    let label = texture_label(&info.texture());
+                    let path = AssetPath::new_ref(load_context.path(), Some(&label));
+                    load_context.get_handle(path)
+                });
+
+            (transmission.transmission_factor(), transmission_texture)
+        });
+
+    let (thickness, thickness_texture) = material.volume().map_or((0.0, None), |volume| {
+        let thickness_texture: Option<Handle<Image>> = volume.thickness_texture().map(|info| {
+            let label = texture_label(&info.texture());
+            let path = AssetPath::new_ref(load_context.path(), Some(&label));
+            load_context.get_handle(path)
+        });
+
+        (volume.thickness_factor(), thickness_texture)
+    });
+
+    let ior = material.ior().unwrap_or(1.5);
+
     load_context.set_labeled_asset(
         &material_label,
         LoadedAsset::new(StandardMaterial {
@@ -692,6 +716,11 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             occlusion_texture,
             emissive: Color::rgb_linear(emissive[0], emissive[1], emissive[2]),
             emissive_texture,
+            transmission,
+            transmission_texture,
+            thickness,
+            thickness_texture,
+            ior,
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),
             ..Default::default()

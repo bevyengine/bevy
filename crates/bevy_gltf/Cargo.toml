@@ -30,6 +30,9 @@ bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
 # other
 gltf = { version = "1.0.0", default-features = false, features = [
     "KHR_lights_punctual",
+    "KHR_materials_transmission",
+    "KHR_materials_ior",
+    "KHR_materials_volume",
     "KHR_materials_unlit",
     "extras",
     "names",
