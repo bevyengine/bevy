@@ -1,9 +1,9 @@
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
-    GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
-    ShadowSamplers, ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset,
-    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
-    MAX_DIRECTIONAL_LIGHTS,
+    GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, NotTransmittedShadowReceiver,
+    PreviousGlobalTransform, ShadowSamplers, ViewClusterBindings, ViewFogUniformOffset,
+    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -134,12 +134,13 @@ pub struct MeshUniform {
 bitflags::bitflags! {
     #[repr(transparent)]
     struct MeshFlags: u32 {
-        const SHADOW_RECEIVER            = (1 << 0);
+        const SHADOW_RECEIVER             = (1 << 0);
+        const TRANSMITTED_SHADOW_RECEIVER = (1 << 1);
         // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
         // then the flag should be set, else it should not be set.
-        const SIGN_DETERMINANT_MODEL_3X3 = (1 << 31);
-        const NONE                       = 0;
-        const UNINITIALIZED              = 0xFFFF;
+        const SIGN_DETERMINANT_MODEL_3X3  = (1 << 31);
+        const NONE                        = 0;
+        const UNINITIALIZED               = 0xFFFF;
     }
 }
 
@@ -155,6 +156,7 @@ pub fn extract_meshes(
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
             Option<With<NotShadowReceiver>>,
+            Option<With<NotTransmittedShadowReceiver>>,
             Option<With<NotShadowCaster>>,
         )>,
     >,
@@ -163,8 +165,16 @@ pub fn extract_meshes(
     let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
     let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.is_visible());
 
-    for (entity, _, transform, previous_transform, handle, not_receiver, not_caster) in
-        visible_meshes
+    for (
+        entity,
+        _,
+        transform,
+        previous_transform,
+        handle,
+        not_receiver,
+        not_transmitted_receiver,
+        not_caster,
+    ) in visible_meshes
     {
         let transform = transform.compute_matrix();
         let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
@@ -173,6 +183,9 @@ pub fn extract_meshes(
         } else {
             MeshFlags::SHADOW_RECEIVER
         };
+        if not_transmitted_receiver.is_none() {
+            flags |= MeshFlags::TRANSMITTED_SHADOW_RECEIVER;
+        }
         if Mat3A::from_mat4(transform).determinant().is_sign_positive() {
             flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
         }

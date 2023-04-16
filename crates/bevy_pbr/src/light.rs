@@ -606,6 +606,18 @@ pub struct NotShadowCaster;
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
 
+/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows
+/// on its diffuse transmission lobe.
+///
+/// Useful, for example, when a thick translucent mesh using [`StandardMaterial::diffuse_transmission`]
+/// has a complicated shape that's hard to model via [`StandardMaterial::thickness`], and you'd like
+/// to avoid self-shadows from affecting the transmitted light.
+///
+/// **Note:** Setting [`NotShadowReceiver`] disables both regular and transmitted shadows.
+#[derive(Component, Reflect, Default)]
+#[reflect(Component, Default)]
+pub struct NotTransmittedShadowReceiver;
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
     AddClusters,

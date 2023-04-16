@@ -235,12 +235,13 @@ fn pbr(
             // R = vec3<f32>(0.0) // doesn't really matter
             // f_ab = vec2<f32>(0.1)
             // F0 = vec3<f32>(0.0)
-            if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+            var transmitted_shadow: f32 = 1.0;
+            if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
                     && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                shadow = fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
+                transmitted_shadow = fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
             }
             let light_contrib = point_light(diffuse_transmissive_lobe_world_position.xyz, light_id, 1.0, 1.0, -in.N, -in.V, vec3<f32>(0.0), vec3<f32>(0.0), vec2<f32>(0.1), diffuse_transmissive_color);
-            transmitted_light += light_contrib * shadow;
+            transmitted_light += light_contrib * transmitted_shadow;
         }
     }
 
@@ -265,12 +266,13 @@ fn pbr(
             // R = vec3<f32>(0.0) // doesn't really matter
             // f_ab = vec2<f32>(0.1)
             // F0 = vec3<f32>(0.0)
-            if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+            var transmitted_shadow: f32 = 1.0;
+            if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
                     && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                shadow = fetch_spot_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
+                transmitted_shadow = fetch_spot_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
             }
             let light_contrib = spot_light(diffuse_transmissive_lobe_world_position.xyz, light_id, 1.0, 1.0, -in.N, -in.V, vec3<f32>(0.0), vec3<f32>(0.0), vec2<f32>(0.1), diffuse_transmissive_color);
-            transmitted_light += light_contrib * shadow;
+            transmitted_light += light_contrib * transmitted_shadow;
         }
     }
 
@@ -298,12 +300,13 @@ fn pbr(
             // R = vec3<f32>(0.0) // doesn't really matter
             // f_ab = vec2<f32>(0.1)
             // F0 = vec3<f32>(0.0)
-            if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+            var transmitted_shadow: f32 = 1.0;
+            if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
                     && (lights.directional_lights[i].flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                shadow = fetch_directional_shadow(i, diffuse_transmissive_lobe_world_position, -in.world_normal, view_z);
+                transmitted_shadow = fetch_directional_shadow(i, diffuse_transmissive_lobe_world_position, -in.world_normal, view_z);
             }
             let light_contrib = directional_light(i, 1.0, 1.0, -in.N, -in.V, vec3<f32>(0.0), vec3<f32>(0.0), vec2<f32>(0.1), diffuse_transmissive_color);
-            transmitted_light += light_contrib * shadow;
+            transmitted_light += light_contrib * transmitted_shadow;
         }
     }
 

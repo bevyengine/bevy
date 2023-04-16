@@ -153,7 +153,8 @@ pub struct StandardMaterial {
     /// values higher than 0.5 will cause more diffuse light to be transmitted than reflected, resulting in a “darker” appearance
     /// for the front Lambertian lobe when an object is illuminated primarily from a single direction.
     ///
-    /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`].
+    /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`]. To avoid self-shadows on complicated
+    /// mesh shapes without having to fine tune the thickness, consider using the [`NotTransmittedShadowReceiver`] component.
     pub diffuse_transmission: f32,
 
     /// The amount of light transmitted _specularly_ through the material (i.e. via refraction)
