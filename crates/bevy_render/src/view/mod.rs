@@ -6,7 +6,7 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, TemporalJitter},
+    camera::{ExposureSettings, ExtractedCamera, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
@@ -168,6 +168,7 @@ pub struct ViewUniform {
     projection: Mat4,
     inverse_projection: Mat4,
     world_position: Vec3,
+    exposure: f32,
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
     color_grading: ColorGrading,
@@ -313,13 +314,18 @@ pub fn prepare_view_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut view_uniforms: ResMut<ViewUniforms>,
-    views: Query<(Entity, &ExtractedView, Option<&TemporalJitter>)>,
+    views: Query<(
+        Entity,
+        Option<&ExtractedCamera>,
+        &ExtractedView,
+        Option<&TemporalJitter>,
+    )>,
 ) {
     view_uniforms.uniforms.clear();
 
-    for (entity, camera, temporal_jitter) in &views {
-        let viewport = camera.viewport.as_vec4();
-        let unjittered_projection = camera.projection;
+    for (entity, extracted_camera, extracted_view, temporal_jitter) in &views {
+        let viewport = extracted_view.viewport.as_vec4();
+        let unjittered_projection = extracted_view.projection;
         let mut projection = unjittered_projection;
 
         if let Some(temporal_jitter) = temporal_jitter {
@@ -327,12 +333,12 @@ pub fn prepare_view_uniforms(
         }
 
         let inverse_projection = projection.inverse();
-        let view = camera.transform.compute_matrix();
+        let view = extracted_view.transform.compute_matrix();
         let inverse_view = view.inverse();
 
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
-                view_proj: camera
+                view_proj: extracted_view
                     .view_projection
                     .unwrap_or_else(|| projection * inverse_view),
                 unjittered_view_proj: unjittered_projection * inverse_view,
@@ -341,9 +347,12 @@ pub fn prepare_view_uniforms(
                 inverse_view,
                 projection,
                 inverse_projection,
-                world_position: camera.transform.translation(),
+                world_position: extracted_view.transform.translation(),
+                exposure: extracted_camera
+                    .map(|c| c.exposure)
+                    .unwrap_or_else(|| ExposureSettings::default().exposure()),
                 viewport,
-                color_grading: camera.color_grading,
+                color_grading: extracted_view.color_grading,
             }),
         };
 

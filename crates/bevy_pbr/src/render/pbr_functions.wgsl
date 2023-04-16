@@ -254,7 +254,7 @@ fn pbr(
 
     // Total light
     output_color = vec4<f32>(
-        direct_light + indirect_light + emissive_light,
+        view.exposure * (direct_light + indirect_light + emissive_light),
         output_color.a
     );
 

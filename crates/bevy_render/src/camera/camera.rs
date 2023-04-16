@@ -76,6 +76,36 @@ pub struct ComputedCameraValues {
     old_viewport_size: Option<UVec2>,
 }
 
+#[derive(Component)]
+pub struct ExposureSettings {
+    pub aperture_f_stops: f32,
+    pub shutter_speed_s: f32,
+    pub sensitivity_iso: f32,
+}
+
+impl Default for ExposureSettings {
+    fn default() -> Self {
+        Self {
+            aperture_f_stops: 4.0,
+            shutter_speed_s: 1.0 / 250.0,
+            sensitivity_iso: 100.0,
+        }
+    }
+}
+
+impl ExposureSettings {
+    #[inline]
+    pub fn ev100(&self) -> f32 {
+        (self.aperture_f_stops * self.aperture_f_stops / self.shutter_speed_s).log2()
+            - (self.sensitivity_iso / 100.0).log2()
+    }
+
+    #[inline]
+    pub fn exposure(&self) -> f32 {
+        1.0 / (2.0f32.powf(self.ev100()) * 1.2)
+    }
+}
+
 /// The defining component for camera entities, storing information about how and what to render
 /// through this camera.
 ///
@@ -573,6 +603,7 @@ pub struct ExtractedCamera {
     pub output_mode: CameraOutputMode,
     pub msaa_writeback: bool,
     pub sorted_camera_index_for_target: usize,
+    pub exposure: f32,
 }
 
 pub fn extract_cameras(
@@ -585,6 +616,7 @@ pub fn extract_cameras(
             &GlobalTransform,
             &VisibleEntities,
             Option<&ColorGrading>,
+            Option<&ExposureSettings>,
             Option<&TemporalJitter>,
         )>,
     >,
@@ -598,6 +630,7 @@ pub fn extract_cameras(
         transform,
         visible_entities,
         color_grading,
+        exposure_settings,
         temporal_jitter,
     ) in query.iter()
     {
@@ -630,6 +663,9 @@ pub fn extract_cameras(
                     msaa_writeback: camera.msaa_writeback,
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
+                    exposure: exposure_settings
+                        .map(|e| e.exposure())
+                        .unwrap_or_else(|| ExposureSettings::default().exposure()),
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),
