@@ -1122,7 +1122,7 @@ pub fn queue_mesh_view_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 20,
-                    resource: BindingResource::Sampler(&transmission.map_or_else(
+                    resource: BindingResource::Sampler(transmission.map_or_else(
                         || &fallback_image_zero.sampler,
                         |transmission| &transmission.sampler,
                     )),
