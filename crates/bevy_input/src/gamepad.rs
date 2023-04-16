@@ -1279,16 +1279,7 @@ pub struct GamepadRumbleRequest {
     /// The gamepad to rumble
     pub gamepad: Gamepad,
 }
-impl GamepadRumbleRequest {
-    /// Stops any rumbles on the given gamepad
-    pub fn stop(gamepad: Gamepad) -> Self {
-        GamepadRumbleRequest {
-            duration_seconds: 0.0,
-            intensity: RumbleIntensity::Weak,
-            gamepad,
-        }
-    }
-}
+
 #[cfg(test)]
 mod tests {
     use crate::gamepad::{AxisSettingsError, ButtonSettingsError};

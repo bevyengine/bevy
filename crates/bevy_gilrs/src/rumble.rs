@@ -6,7 +6,6 @@ use bevy_ecs::{
 use bevy_input::gamepad::{GamepadRumbleRequest, RumbleIntensity};
 use bevy_log::{debug, warn};
 use bevy_time::Time;
-use bevy_utils::HashMap;
 use gilrs::{ff, GamepadId, Gilrs};
 
 use crate::converter::convert_gamepad_id;
@@ -40,7 +39,7 @@ impl From<ff::Error> for RumbleError {
 
 #[derive(Default)]
 pub(crate) struct RumblesManager {
-    rumbles: HashMap<GamepadId, RunningRumble>,
+    rumbles: Vec<(GamepadId, RunningRumble)>,
 }
 
 fn add_rumble(
@@ -67,7 +66,7 @@ fn add_rumble(
     effect.play()?;
     manager
         .rumbles
-        .insert(pad_id, RunningRumble { deadline, effect });
+        .push((pad_id, RunningRumble { deadline, effect }));
     Ok(())
 }
 pub(crate) fn play_gilrs_rumble(
@@ -81,7 +80,7 @@ pub(crate) fn play_gilrs_rumble(
     // `ff::Effect` uses RAII, dropping = deactivating
     manager
         .rumbles
-        .retain(|_, RunningRumble { deadline, .. }| *deadline >= current_time);
+        .retain(|(_, RunningRumble { deadline, .. })| *deadline >= current_time);
 
     // Add new effects.
     for rumble in requests.iter().cloned() {
