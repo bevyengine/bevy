@@ -1781,7 +1781,7 @@ impl World {
     /// # world.add_schedule(schedule, MySchedule);
     /// # fn tick_counter(mut counter: ResMut<Counter>) { counter.0 += 1; }
     /// // Run the schedule five times.
-    /// world.schedule_scope(MySchedule, |world, schedule| {
+    /// world.schedule_scope(&MySchedule, |world, schedule| {
     ///     for _ in 0..5 {
     ///         schedule.run(world);
     ///     }
