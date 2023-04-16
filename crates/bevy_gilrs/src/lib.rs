@@ -8,7 +8,6 @@ use bevy_app::{App, Plugin, PostUpdate, PreStartup, PreUpdate};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_utils::tracing::error;
-pub use gilrs::ff;
 use gilrs::GilrsBuilder;
 use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 use rumble::{play_gilrs_rumble, RumblesManager};

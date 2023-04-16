@@ -54,9 +54,8 @@ impl RumbleIntensity {
 pub struct RumbleRequest {
     /// The duration in seconds of the rumble
     pub duration_seconds: f32,
-    /// The gilrs descriptor, use [`RumbleRequest::with_intensity`] if you want
-    /// a simpler API.
-    pub gilrs_effect: ff::EffectBuilder,
+    /// The gilrs descriptor used internally
+    gilrs_effect: ff::EffectBuilder,
     /// The gamepad to rumble
     pub pad: Gamepad,
 }
