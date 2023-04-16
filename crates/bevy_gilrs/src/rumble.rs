@@ -3,7 +3,7 @@ use bevy_ecs::{
     prelude::{EventReader, Res},
     system::NonSendMut,
 };
-use bevy_input::gamepad::{RumbleIntensity, RumbleRequest};
+use bevy_input::gamepad::{GamepadRumbleRequest, RumbleIntensity};
 use bevy_log as log;
 use bevy_time::Time;
 use bevy_utils::HashMap;
@@ -46,7 +46,7 @@ pub(crate) struct RumblesManager {
 fn add_rumble(
     manager: &mut RumblesManager,
     gilrs: &mut Gilrs,
-    rumble: RumbleRequest,
+    rumble: GamepadRumbleRequest,
     current_time: f32,
 ) -> Result<(), RumbleError> {
     let (pad_id, _) = gilrs
@@ -73,7 +73,7 @@ fn add_rumble(
 pub(crate) fn play_gilrs_rumble(
     time: Res<Time>,
     mut gilrs: NonSendMut<Gilrs>,
-    mut requests: EventReader<RumbleRequest>,
+    mut requests: EventReader<GamepadRumbleRequest>,
     mut manager: NonSendMut<RumblesManager>,
 ) {
     let current_time = time.elapsed_seconds();

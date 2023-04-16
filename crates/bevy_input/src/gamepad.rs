@@ -1607,7 +1607,7 @@ pub enum RumbleIntensity {
 /// }
 /// ```
 #[derive(Clone)]
-pub struct RumbleRequest {
+pub struct GamepadRumbleRequest {
     /// The duration in seconds of the rumble
     pub duration_seconds: f32,
     /// How intense the rumble should be
@@ -1615,10 +1615,10 @@ pub struct RumbleRequest {
     /// The gamepad to rumble
     pub gamepad: Gamepad,
 }
-impl RumbleRequest {
+impl GamepadRumbleRequest {
     /// Stops any rumbles on the given gamepad
     pub fn stop(gamepad: Gamepad) -> Self {
-        RumbleRequest {
+        GamepadRumbleRequest {
             duration_seconds: 0.0,
             intensity: RumbleIntensity::Weak,
             gamepad,

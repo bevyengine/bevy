@@ -2,7 +2,7 @@
 //! pressed.
 
 use bevy::{
-    input::gamepad::{RumbleIntensity, RumbleRequest},
+    input::gamepad::{GamepadRumbleRequest, RumbleIntensity},
     prelude::*,
 };
 
@@ -16,7 +16,7 @@ fn main() {
 fn gamepad_system(
     gamepads: Res<Gamepads>,
     button_inputs: Res<Input<GamepadButton>>,
-    mut rumble_requests: EventWriter<RumbleRequest>,
+    mut rumble_requests: EventWriter<GamepadRumbleRequest>,
 ) {
     for gamepad in gamepads.iter() {
         let button_pressed = |button| {
@@ -28,21 +28,21 @@ fn gamepad_system(
         if button_pressed(GamepadButtonType::South) {
             info!("(S) South face button: weak rumble for 3 second");
             // Use the simplified API provided by bevy
-            rumble_requests.send(RumbleRequest {
+            rumble_requests.send(GamepadRumbleRequest {
                 gamepad,
                 duration_seconds: 3.0,
                 intensity: RumbleIntensity::Weak,
             });
         } else if button_pressed(GamepadButtonType::West) {
             info!("(W) West face button: strong rumble for 10 second");
-            rumble_requests.send(RumbleRequest {
+            rumble_requests.send(GamepadRumbleRequest {
                 gamepad,
                 intensity: RumbleIntensity::Strong,
                 duration_seconds: 10.0,
             });
         } else if button_pressed(GamepadButtonType::North) {
             info!("(N) North face button: Interrupt the current rumble");
-            rumble_requests.send(RumbleRequest::stop(gamepad));
+            rumble_requests.send(GamepadRumbleRequest::stop(gamepad));
         }
     }
 }
