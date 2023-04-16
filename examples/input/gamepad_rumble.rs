@@ -41,7 +41,7 @@ fn gamepad_system(
                 gamepad,
             ));
         } else if button_pressed(GamepadButtonType::North) {
-            info!("(N) North face button: Interupt the current rumble");
+            info!("(N) North face button: Interrupt the current rumble");
             rumble_requests.send(RumbleRequest::stop(gamepad));
         }
     }
