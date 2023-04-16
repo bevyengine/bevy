@@ -341,10 +341,16 @@ fn pbr(
         //
         // NdotV = 1.0;
         // f_ab = vec2<f32>(0.1)
-        // R = -refract(in.V, -in.N, 1.0 / ior)
+        // R = T // see definition below
         // F0 = vec3<f32>(0.16)
         // occlusion = 1.0
-        let transmitted_environment_light = environment_map_light(perceptual_roughness, roughness, diffuse_transmissive_color, 1.0, vec2<f32>(0.1), -in.N, -refract(in.V, -in.N, 1.0 / ior), vec3<f32>(0.16));
+
+        let T = -normalize(
+            in.V + // start with view vector at entry point
+            refract(in.V, -in.N, 1.0 / ior) * thickness // add refracted vector scaled by thickness, towards exit point
+        ); // normalize to find exit point view vector
+
+        let transmitted_environment_light = environment_map_light(perceptual_roughness, roughness, diffuse_transmissive_color, 1.0, vec2<f32>(0.1), -in.N, T, vec3<f32>(0.16));
         transmitted_light += transmitted_environment_light.diffuse;
         transmitted_environment_light_specular = transmitted_environment_light.specular;
     }
