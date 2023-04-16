@@ -99,6 +99,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         if ((material.flags & STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT) != 0u) {
             thickness *= textureSample(thickness_texture, thickness_sampler, uv).g;
         }
+        thickness *= (length(mesh.model[0].xyz) + length(mesh.model[1].xyz) + length(mesh.model[2].xyz)) / 3.0;
         pbr_input.material.thickness = thickness;
 
         var diffuse_transmission = material.diffuse_transmission;
