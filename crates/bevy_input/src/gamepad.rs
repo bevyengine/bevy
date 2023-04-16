@@ -1266,7 +1266,7 @@ pub enum RumbleIntensity {
 ///         intensity: RumbleIntensity::Strong,
 ///         duration_seconds: 10.0,
 ///         gamepad: Gamepad(0),
-///     );
+///     };
 ///     rumble_requests.send(request);
 /// }
 /// ```
