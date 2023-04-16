@@ -154,7 +154,7 @@ pub struct StandardMaterial {
     /// for the front Lambertian lobe when an object is illuminated primarily from a single direction.
     ///
     /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`]. To avoid self-shadows on complicated
-    /// mesh shapes without having to fine tune the thickness, consider using the [`NotTransmittedShadowReceiver`] component.
+    /// mesh shapes without having to fine tune the thickness, consider using the [`NotTransmittedShadowReceiver`](crate::light::NotTransmittedShadowReceiver) component.
     pub diffuse_transmission: f32,
 
     /// The amount of light transmitted _specularly_ through the material (i.e. via refraction)
