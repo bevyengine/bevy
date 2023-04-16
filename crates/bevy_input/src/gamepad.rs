@@ -1240,6 +1240,7 @@ const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
     GamepadAxisType::RightZ,
 ];
 
+/// The intensity at which a gamepad's force-feedback motors may rumble.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GamepadRumbleIntensity {
     /// The rumble intensity of the strong gamepad motor
