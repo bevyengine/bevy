@@ -18,32 +18,31 @@ use bevy_ecs::{
 use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::ExtractedCamera,
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
     render_phase::{
-        sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand,
+        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand,
         RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
-        DynamicUniformBuffer, Extent3d, FragmentState, FrontFace, MultisampleState, PipelineCache,
+        DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState, PipelineCache,
         PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef,
         ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureDescriptor,
-        TextureDimension, TextureSampleType, TextureUsages, TextureViewDimension, VertexState,
+        SpecializedMeshPipelines, StencilFaceState, StencilState,TextureSampleType,
+        TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
-    texture::{FallbackImagesDepth, FallbackImagesMsaa, TextureCache},
+    texture::{FallbackImagesDepth, FallbackImagesMsaa},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{tracing::error, HashMap};
+use bevy_utils::{tracing::error};
 
 use crate::{
     prepare_lights, AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey,
