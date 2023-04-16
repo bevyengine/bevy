@@ -187,14 +187,23 @@ fn pbr(
     let reflectance = in.material.reflectance;
     let F0 = 0.16 * reflectance * reflectance * (1.0 - metallic) + output_color.rgb * metallic;
 
-    // Diffuse strength inversely related to metallicity and transmission
-    let diffuse_color = output_color.rgb * (1.0 - metallic) * (1.0 - transmission);
+    // Diffuse strength is inversely related to metallicity, specular and diffuse transmission
+    let diffuse_color = output_color.rgb * (1.0 - metallic) * (1.0 - transmission) * (1.0 - diffuse_transmission);
+
+    // Diffuse transmissive strength is inversely related to metallicity and specular transmission, but directly related to diffuse transmission
+    let diffuse_transmissive_color = output_color.rgb * (1.0 - metallic) * (1.0 - transmission) * diffuse_transmission;
+
+    // Calculate the world position of the second Lambertian lobe used for diffuse transmission, by subtracting material thickness
+    let diffuse_transmissive_lobe_world_position = in.world_position - vec4<f32>(in.world_normal, 0.0) * thickness;
 
     let R = reflect(-in.V, in.N);
 
     let f_ab = F_AB(perceptual_roughness, NdotV);
 
     var direct_light: vec3<f32> = vec3<f32>(0.0);
+
+    // Transmitted Light (Specular and Diffuse)
+    var transmitted_light: vec3<f32> = vec3<f32>(0.0);
 
     let view_z = dot(vec4<f32>(
         view.inverse_view[0].z,
@@ -215,6 +224,24 @@ fn pbr(
         }
         let light_contrib = point_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
         direct_light += light_contrib * shadow;
+
+        if diffuse_transmission > 0.0 {
+            // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
+            // world position, inverted normal and view vectors, and the following simplified
+            // values for a fully diffuse transmitted light contribution approximation:
+            //
+            // roughness = 1.0;
+            // NdotV = 1.0;
+            // R = vec3<f32>(0.0) // doesn't really matter
+            // f_ab = vec2<f32>(0.1)
+            // F0 = vec3<f32>(0.0)
+            if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                    && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                shadow = fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
+            }
+            let light_contrib = point_light(diffuse_transmissive_lobe_world_position.xyz, light_id, 1.0, 1.0, -in.N, -in.V, vec3<f32>(0.0), vec3<f32>(0.0), vec2<f32>(0.1), diffuse_transmissive_color);
+            transmitted_light += light_contrib * shadow;
+        }
     }
 
     // Spot lights (direct)
@@ -227,6 +254,24 @@ fn pbr(
         }
         let light_contrib = spot_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
         direct_light += light_contrib * shadow;
+
+        if diffuse_transmission > 0.0 {
+            // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
+            // world position, inverted normal and view vectors, and the following simplified
+            // values for a fully diffuse transmitted light contribution approximation:
+            //
+            // roughness = 1.0;
+            // NdotV = 1.0;
+            // R = vec3<f32>(0.0) // doesn't really matter
+            // f_ab = vec2<f32>(0.1)
+            // F0 = vec3<f32>(0.0)
+            if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                    && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                shadow = fetch_spot_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
+            }
+            let light_contrib = spot_light(diffuse_transmissive_lobe_world_position.xyz, light_id, 1.0, 1.0, -in.N, -in.V, vec3<f32>(0.0), vec3<f32>(0.0), vec2<f32>(0.1), diffuse_transmissive_color);
+            transmitted_light += light_contrib * shadow;
+        }
     }
 
     // Directional lights (direct)
@@ -242,23 +287,67 @@ fn pbr(
         light_contrib = cascade_debug_visualization(light_contrib, i, view_z);
 #endif
         direct_light += light_contrib * shadow;
+
+        if diffuse_transmission > 0.0 {
+            // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
+            // world position, inverted normal and view vectors, and the following simplified
+            // values for a fully diffuse transmitted light contribution approximation:
+            //
+            // roughness = 1.0;
+            // NdotV = 1.0;
+            // R = vec3<f32>(0.0) // doesn't really matter
+            // f_ab = vec2<f32>(0.1)
+            // F0 = vec3<f32>(0.0)
+            if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                    && (lights.directional_lights[i].flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                shadow = fetch_directional_shadow(i, diffuse_transmissive_lobe_world_position, -in.world_normal, view_z);
+            }
+            let light_contrib = directional_light(i, 1.0, 1.0, -in.N, -in.V, vec3<f32>(0.0), vec3<f32>(0.0), vec2<f32>(0.1), diffuse_transmissive_color);
+            transmitted_light += light_contrib * shadow;
+        }
     }
 
     // Ambient light (indirect)
     var indirect_light = ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
 
+    if diffuse_transmission > 0.0 {
+        // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
+        // world position, inverted normal and view vectors, and the following simplified
+        // values for a fully diffuse transmitted light contribution approximation:
+        //
+        // perceptual_roughness = 1.0;
+        // NdotV = 1.0;
+        // F0 = vec3<f32>(0.0)
+        // occlusion = 1.0
+        transmitted_light += ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, 1.0);
+    }
+
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
     let environment_light = environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
     indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
+
+    if diffuse_transmission > 0.0 {
+        // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
+        // world position, inverted normal and view vectors, and the following simplified
+        // values for a fully diffuse transmitted light contribution approximation:
+        //
+        // perceptual_roughness = 1.0;
+        // roughness = 1.0;
+        // NdotV = 1.0;
+        // f_ab = vec2<f32>(0.1)
+        // R = vec3<f32>(0.0) // doesn't really matter
+        // F0 = vec3<f32>(0.0)
+        // occlusion = 1.0
+        let environment_light = environment_map_light(1.0, 1.0, diffuse_transmissive_color, 1.0, vec2<f32>(0.1), -in.N, vec3<f32>(0.0), vec3<f32>(0.0));
+        transmitted_light += environment_light.diffuse;
+    }
 #endif
 
     let emissive_light = emissive.rgb * output_color.a;
 
-    // Transmitted Light
-    var transmitted_light: vec3<f32> = vec3<f32>(0.0);
     if transmission > 0.0 {
-        transmitted_light = transmissive_light(in.world_position, in.frag_coord.xyz, in.N, in.V, ior, thickness, perceptual_roughness, transmissive_color).rgb;
+        transmitted_light += transmissive_light(in.world_position, in.frag_coord.xyz, in.N, in.V, ior, thickness, perceptual_roughness, transmissive_color).rgb;
     }
 
     // Total light
