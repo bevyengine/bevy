@@ -1,12 +1,15 @@
-//! Handle user specified Rumble request events.
-use crate::converter::convert_gamepad_id;
-use bevy_app::EventReader;
-use bevy_core::Time;
-use bevy_ecs::{prelude::Res, system::NonSendMut};
+//! Handle user specified Rumble request events.  use crate::converter::convert_gamepad_id; use bevy_app::EventReader; use bevy_core::Time;
+use bevy_ecs::{
+    prelude::{EventReader, Res},
+    system::NonSendMut,
+};
 use bevy_input::gamepad::Gamepad;
 use bevy_log as log;
+use bevy_time::Time;
 use bevy_utils::HashMap;
 use gilrs::{ff, GamepadId, Gilrs};
+
+use crate::converter::convert_gamepad_id;
 
 pub enum RumbleIntensity {
     Strong,
@@ -130,7 +133,7 @@ pub(crate) fn gilrs_rumble_system(
     mut requests: EventReader<RumbleRequest>,
     mut manager: NonSendMut<RumblesManager>,
 ) {
-    let current_time = time.seconds_since_startup() as f32;
+    let current_time = time.elapsed_seconds();
     // Remove outdated rumble effects.
     if !manager.rumbles.is_empty() {
         let mut to_remove = Vec::new();

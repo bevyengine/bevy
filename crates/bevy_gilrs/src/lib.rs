@@ -1,9 +1,11 @@
+#![allow(clippy::type_complexity)]
+
 mod converter;
 mod gilrs_system;
 mod rumble;
 
-use bevy_app::{App, CoreStage, Plugin, StartupStage};
-use bevy_ecs::schedule::ParallelSystemDescriptorCoercion;
+use bevy_app::{App, Plugin, PostUpdate, PreStartup, PreUpdate};
+use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_utils::tracing::error;
 pub use gilrs::ff;
@@ -25,15 +27,9 @@ impl Plugin for GilrsPlugin {
                 app.insert_non_send_resource(gilrs)
                     .add_event::<RumbleRequest>()
                     .init_non_send_resource::<rumble::RumblesManager>()
-                    .add_startup_system_to_stage(
-                        StartupStage::PreStartup,
-                        gilrs_event_startup_system,
-                    )
-                    .add_system_to_stage(CoreStage::PostUpdate, rumble::gilrs_rumble_system)
-                    .add_system_to_stage(
-                        CoreStage::PreUpdate,
-                        gilrs_event_system.before(InputSystem),
-                    );
+                    .add_systems(PreStartup, gilrs_event_startup_system)
+                    .add_systems(PreUpdate, gilrs_event_system.before(InputSystem))
+                    .add_systems(PostUpdate, rumble::gilrs_rumble_system);
             }
             Err(err) => error!("Failed to start Gilrs. {}", err),
         }

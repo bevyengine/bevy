@@ -1,4 +1,4 @@
-use bevy_ecs::world::World;
+use bevy_ecs::{prelude::Entity, world::World};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::HashMap;
@@ -41,6 +41,14 @@ pub enum RenderGraphRunnerError {
         expected: SlotType,
         actual: SlotType,
     },
+    #[error(
+        "node (name: '{node_name:?}') has {slot_count} input slots, but was provided {value_count} values"
+    )]
+    MismatchedInputCount {
+        node_name: Option<Cow<'static, str>>,
+        slot_count: usize,
+        value_count: usize,
+    },
 }
 
 impl RenderGraphRunner {
@@ -50,20 +58,12 @@ impl RenderGraphRunner {
         queue: &wgpu::Queue,
         world: &World,
     ) -> Result<(), RenderGraphRunnerError> {
-        let command_encoder =
-            render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-        let mut render_context = RenderContext {
-            render_device,
-            command_encoder,
-        };
-
-        Self::run_graph(graph, None, &mut render_context, world, &[])?;
+        let mut render_context = RenderContext::new(render_device);
+        Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
         {
             #[cfg(feature = "trace")]
-            let span = info_span!("submit_graph_commands");
-            #[cfg(feature = "trace")]
-            let _guard = span.enter();
-            queue.submit(vec![render_context.command_encoder.finish()]);
+            let _span = info_span!("submit_graph_commands").entered();
+            queue.submit(render_context.finish());
         }
         Ok(())
     }
@@ -74,6 +74,7 @@ impl RenderGraphRunner {
         render_context: &mut RenderContext,
         world: &World,
         inputs: &[SlotValue],
+        view_entity: Option<Entity>,
     ) -> Result<(), RenderGraphRunnerError> {
         let mut node_outputs: HashMap<NodeId, SmallVec<[SlotValue; 4]>> = HashMap::default();
         #[cfg(feature = "trace")]
@@ -92,7 +93,7 @@ impl RenderGraphRunner {
             .collect();
 
         // pass inputs into the graph
-        if let Some(input_node) = graph.input_node() {
+        if let Some(input_node) = graph.get_input_node() {
             let mut input_values: SmallVec<[SlotValue; 4]> = SmallVec::new();
             for (i, input_slot) in input_node.input_slots.iter().enumerate() {
                 if let Some(input_value) = inputs.get(i) {
@@ -103,14 +104,13 @@ impl RenderGraphRunner {
                             expected: input_slot.slot_type,
                             label: input_slot.name.clone().into(),
                         });
-                    } else {
-                        input_values.push(input_value.clone());
                     }
+                    input_values.push(input_value.clone());
                 } else {
                     return Err(RenderGraphRunnerError::MissingInput {
                         slot_index: i,
                         slot_name: input_slot.name.clone(),
-                        graph_name: graph_name.clone(),
+                        graph_name,
                     });
                 }
             }
@@ -164,21 +164,28 @@ impl RenderGraphRunner {
                 .map(|(_, value)| value)
                 .collect();
 
-            assert_eq!(inputs.len(), node_state.input_slots.len());
+            if inputs.len() != node_state.input_slots.len() {
+                return Err(RenderGraphRunnerError::MismatchedInputCount {
+                    node_name: node_state.name.clone(),
+                    slot_count: node_state.input_slots.len(),
+                    value_count: inputs.len(),
+                });
+            }
 
             let mut outputs: SmallVec<[Option<SlotValue>; 4]> =
                 smallvec![None; node_state.output_slots.len()];
             {
                 let mut context = RenderGraphContext::new(graph, node_state, &inputs, &mut outputs);
-                #[cfg(feature = "trace")]
-                let span = info_span!("node", name = node_state.type_name);
-                #[cfg(feature = "trace")]
-                let guard = span.enter();
+                if let Some(view_entity) = view_entity {
+                    context.set_view_entity(view_entity);
+                }
 
-                node_state.node.run(&mut context, render_context, world)?;
+                {
+                    #[cfg(feature = "trace")]
+                    let _span = info_span!("node", name = node_state.type_name).entered();
 
-                #[cfg(feature = "trace")]
-                drop(guard);
+                    node_state.node.run(&mut context, render_context, world)?;
+                }
 
                 for run_sub_graph in context.finish() {
                     let sub_graph = graph
@@ -190,6 +197,7 @@ impl RenderGraphRunner {
                         render_context,
                         world,
                         &run_sub_graph.inputs,
+                        run_sub_graph.view_entity,
                     )?;
                 }
             }

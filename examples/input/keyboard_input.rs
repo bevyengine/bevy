@@ -1,12 +1,11 @@
-use bevy::{
-    input::{keyboard::KeyCode, Input},
-    prelude::*,
-};
+//! Demonstrates handling a key press/release.
+
+use bevy::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_system(keyboard_input_system)
+        .add_systems(Update, keyboard_input_system)
         .run();
 }
 

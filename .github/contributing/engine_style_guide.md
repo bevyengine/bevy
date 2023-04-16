@@ -6,7 +6,7 @@ For more advice on contributing to the engine, see the [relevant section](../../
 
 ## General guidelines
 
-1. Prefer granular imports over glob imports of `bevy::prelude::*` and `bevy::sub_crate::*`.
+1. Prefer granular imports over glob imports like `bevy_ecs::prelude::*`.
 2. Use a consistent comment style:
    1. `///` doc comments belong above `#[derive(Trait)]` invocations.
    2. `//` comments should generally go above the line in question, rather than in-line.

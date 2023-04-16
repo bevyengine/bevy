@@ -3,6 +3,7 @@ use crate::{
     entity::Entity,
     world::World,
 };
+use std::iter::FusedIterator;
 
 pub struct SpawnBatchIter<'w, I>
 where
@@ -24,6 +25,8 @@ where
         // necessary
         world.flush();
 
+        let change_tick = world.change_tick();
+
         let (lower, upper) = iter.size_hint();
         let length = upper.unwrap_or(lower);
 
@@ -36,7 +39,7 @@ where
             &mut world.archetypes,
             &mut world.components,
             &mut world.storages,
-            *world.change_tick.get_mut(),
+            change_tick,
         );
         spawner.reserve_storage(length);
 
@@ -66,7 +69,7 @@ where
 
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
-        // SAFE: bundle matches spawner type
+        // SAFETY: bundle matches spawner type
         unsafe { Some(self.spawner.spawn(bundle)) }
     }
 
@@ -83,4 +86,11 @@ where
     fn len(&self) -> usize {
         self.inner.len()
     }
+}
+
+impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
+where
+    I: FusedIterator<Item = T>,
+    T: Bundle,
+{
 }

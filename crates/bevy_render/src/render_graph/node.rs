@@ -1,4 +1,5 @@
 use crate::{
+    define_atomic_id,
     render_graph::{
         Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
         RunSubGraphError, SlotInfo, SlotInfos,
@@ -6,28 +7,11 @@ use crate::{
     renderer::RenderContext,
 };
 use bevy_ecs::world::World;
-use bevy_utils::Uuid;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
 
-/// A [`Node`] identifier.
-/// It automatically generates its own random uuid.
-///
-/// This id is used to reference the node internally (edges, etc).
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct NodeId(Uuid);
-
-impl NodeId {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        NodeId(Uuid::new_v4())
-    }
-
-    pub fn uuid(&self) -> &Uuid {
-        &self.0
-    }
-}
+define_atomic_id!(NodeId);
 
 /// A render node that can be added to a [`RenderGraph`](super::RenderGraph).
 ///
@@ -83,12 +67,30 @@ pub enum NodeRunError {
 /// A collection of input and output [`Edges`](Edge) for a [`Node`].
 #[derive(Debug)]
 pub struct Edges {
-    pub id: NodeId,
-    pub input_edges: Vec<Edge>,
-    pub output_edges: Vec<Edge>,
+    id: NodeId,
+    input_edges: Vec<Edge>,
+    output_edges: Vec<Edge>,
 }
 
 impl Edges {
+    /// Returns all "input edges" (edges going "in") for this node .
+    #[inline]
+    pub fn input_edges(&self) -> &[Edge] {
+        &self.input_edges
+    }
+
+    /// Returns all "output edges" (edges going "out") for this node .
+    #[inline]
+    pub fn output_edges(&self) -> &[Edge] {
+        &self.output_edges
+    }
+
+    /// Returns this node's id.
+    #[inline]
+    pub fn id(&self) -> NodeId {
+        self.id
+    }
+
     /// Adds an edge to the `input_edges` if it does not already exist.
     pub(crate) fn add_input_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
         if self.has_input_edge(&edge) {
@@ -98,6 +100,16 @@ impl Edges {
         Ok(())
     }
 
+    /// Removes an edge from the `input_edges` if it exists.
+    pub(crate) fn remove_input_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
+        if let Some(index) = self.input_edges.iter().position(|e| *e == edge) {
+            self.input_edges.swap_remove(index);
+            Ok(())
+        } else {
+            Err(RenderGraphError::EdgeDoesNotExist(edge))
+        }
+    }
+
     /// Adds an edge to the `output_edges` if it does not already exist.
     pub(crate) fn add_output_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
         if self.has_output_edge(&edge) {
@@ -105,6 +117,16 @@ impl Edges {
         }
         self.output_edges.push(edge);
         Ok(())
+    }
+
+    /// Removes an edge from the `output_edges` if it exists.
+    pub(crate) fn remove_output_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
+        if let Some(index) = self.output_edges.iter().position(|e| *e == edge) {
+            self.output_edges.swap_remove(index);
+            Ok(())
+        } else {
+            Err(RenderGraphError::EdgeDoesNotExist(edge))
+        }
     }
 
     /// Checks whether the input edge already exists.
@@ -271,6 +293,7 @@ impl From<NodeId> for NodeLabel {
 /// A [`Node`] without any inputs, outputs and subgraphs, which does nothing when run.
 /// Used (as a label) to bundle multiple dependencies into one inside
 /// the [`RenderGraph`](super::RenderGraph).
+#[derive(Default)]
 pub struct EmptyNode;
 
 impl Node for EmptyNode {
@@ -280,6 +303,32 @@ impl Node for EmptyNode {
         _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
+        Ok(())
+    }
+}
+
+/// A [`RenderGraph`](super::RenderGraph) [`Node`] that runs the configured graph name once.
+/// This makes it easier to insert sub-graph runs into a graph.
+pub struct RunGraphOnViewNode {
+    graph_name: Cow<'static, str>,
+}
+
+impl RunGraphOnViewNode {
+    pub fn new<T: Into<Cow<'static, str>>>(graph_name: T) -> Self {
+        Self {
+            graph_name: graph_name.into(),
+        }
+    }
+}
+
+impl Node for RunGraphOnViewNode {
+    fn run(
+        &self,
+        graph: &mut RenderGraphContext,
+        _render_context: &mut RenderContext,
+        _world: &World,
+    ) -> Result<(), NodeRunError> {
+        graph.run_sub_graph(self.graph_name.clone(), vec![], Some(graph.view_entity()))?;
         Ok(())
     }
 }
