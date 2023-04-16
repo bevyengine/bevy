@@ -1,3 +1,6 @@
+//! Shows how to trigger force-feedback, making gamepads rumble when buttons are
+//! pressed
+
 use bevy::{
     gilrs::{ff, RumbleIntensity, RumbleRequest},
     prelude::*,

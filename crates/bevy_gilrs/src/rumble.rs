@@ -127,7 +127,7 @@ fn add_rumble(
         .insert(pad_id, RunningRumble { deadline, effect });
     Ok(())
 }
-pub(crate) fn gilrs_rumble_system(
+pub(crate) fn play_gilrs_rumble(
     time: Res<Time>,
     mut gilrs: NonSendMut<Gilrs>,
     mut requests: EventReader<RumbleRequest>,
@@ -156,7 +156,7 @@ pub(crate) fn gilrs_rumble_system(
                 log::debug!("Tried to rumble {pad:?} but an error occurred: {err}")
             }
             Err(RumbleError::GamepadNotFound) => {
-                log::error!("Tried to rumble {pad:?} but it doesn't exist!")
+                log::warn!("Tried to rumble {pad:?} but it doesn't exist!")
             }
         };
     }
