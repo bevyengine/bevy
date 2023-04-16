@@ -4,7 +4,7 @@ use bevy_ecs::{
     system::NonSendMut,
 };
 use bevy_input::gamepad::{GamepadRumbleRequest, RumbleIntensity};
-use bevy_log as log;
+use bevy_log::{debug, warn};
 use bevy_time::Time;
 use bevy_utils::HashMap;
 use gilrs::{ff, GamepadId, Gilrs};
@@ -89,10 +89,10 @@ pub(crate) fn play_gilrs_rumble(
         match add_rumble(&mut manager, &mut gilrs, rumble, current_time) {
             Ok(()) => {}
             Err(RumbleError::GilrsError(err)) => {
-                log::debug!("Tried to rumble {pad:?} but an error occurred: {err}")
+                debug!("Tried to rumble {pad:?} but an error occurred: {err}")
             }
             Err(RumbleError::GamepadNotFound) => {
-                log::warn!("Tried to rumble {pad:?} but it doesn't exist!")
+                warn!("Tried to rumble {pad:?} but it doesn't exist!")
             }
         };
     }
