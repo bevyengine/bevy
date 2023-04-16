@@ -562,6 +562,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "parallax_mapping"
+path = "examples/3d/parallax_mapping.rs"
+
+[package.metadata.example.parallax_mapping]
+name = "Parallax Mapping"
+description = "Demonstrates use of a normal map and depth map for parallax mapping"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "render_to_texture"
 path = "examples/3d/render_to_texture.rs"
 
@@ -1405,16 +1415,6 @@ name = "post_processing"
 path = "examples/shader/post_processing.rs"
 
 [package.metadata.example.post_processing]
-name = "Post Processing - Render To Texture"
-description = "A custom post processing effect, using two cameras, with one reusing the render texture of the first one"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "post_process_pass"
-path = "examples/shader/post_process_pass.rs"
-
-[package.metadata.example.post_process_pass]
 name = "Post Processing - Custom Render Pass"
 description = "A custom post processing effect, using a custom render pass that runs after the main pass"
 category = "Shaders"
@@ -1742,6 +1742,16 @@ path = "examples/ui/font_atlas_debug.rs"
 [package.metadata.example.font_atlas_debug]
 name = "Font Atlas Debug"
 description = "Illustrates how FontAtlases are populated (used to optimize text rendering internally)"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "overflow_debug"
+path = "examples/ui/overflow_debug.rs"
+
+[package.metadata.example.overflow_debug]
+name = "Overflow and Clipping Debug"
+description = "An example to debug overflow and clipping behavior"
 category = "UI (User Interface)"
 wasm = true
 

@@ -92,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         slightly_smaller_text_style.clone(),
                     )],
                     alignment: TextAlignment::Left,
-                    linebreak_behaviour: BreakLineOn::WordBoundary,
+                    linebreak_behavior: BreakLineOn::WordBoundary,
                 },
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle
@@ -124,7 +124,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         slightly_smaller_text_style.clone(),
                     )],
                     alignment: TextAlignment::Left,
-                    linebreak_behaviour: BreakLineOn::AnyCharacter,
+                    linebreak_behavior: BreakLineOn::AnyCharacter,
                 },
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle

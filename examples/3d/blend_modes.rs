@@ -220,51 +220,34 @@ fn setup(
         ExampleDisplay,
     ));
 
-    commands.spawn((
-        TextBundle::from_section("┌─ Opaque\n│\n│\n│\n│", label_text_style.clone()).with_style(
-            Style {
-                position_type: PositionType::Absolute,
-                ..default()
-            },
-        ),
-        ExampleLabel { entity: opaque },
-    ));
+    let mut label = |entity: Entity, label: &str| {
+        commands
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        position_type: PositionType::Absolute,
+                        ..default()
+                    },
+                    ..default()
+                },
+                ExampleLabel { entity },
+            ))
+            .with_children(|parent| {
+                parent.spawn(
+                    TextBundle::from_section(label, label_text_style.clone()).with_style(Style {
+                        position_type: PositionType::Absolute,
+                        bottom: Val::Px(0.),
+                        ..default()
+                    }),
+                );
+            });
+    };
 
-    commands.spawn((
-        TextBundle::from_section("┌─ Blend\n│\n│\n│", label_text_style.clone()).with_style(Style {
-            position_type: PositionType::Absolute,
-            ..default()
-        }),
-        ExampleLabel { entity: blend },
-    ));
-
-    commands.spawn((
-        TextBundle::from_section("┌─ Premultiplied\n│\n│", label_text_style.clone()).with_style(
-            Style {
-                position_type: PositionType::Absolute,
-                ..default()
-            },
-        ),
-        ExampleLabel {
-            entity: premultiplied,
-        },
-    ));
-
-    commands.spawn((
-        TextBundle::from_section("┌─ Add\n│", label_text_style.clone()).with_style(Style {
-            position_type: PositionType::Absolute,
-            ..default()
-        }),
-        ExampleLabel { entity: add },
-    ));
-
-    commands.spawn((
-        TextBundle::from_section("┌─ Multiply", label_text_style).with_style(Style {
-            position_type: PositionType::Absolute,
-            ..default()
-        }),
-        ExampleLabel { entity: multiply },
-    ));
+    label(opaque, "┌─ Opaque\n│\n│\n│\n│");
+    label(blend, "┌─ Blend\n│\n│\n│");
+    label(premultiplied, "┌─ Premultiplied\n│\n│");
+    label(add, "┌─ Add\n│");
+    label(multiply, "┌─ Multiply");
 }
 
 #[derive(Component)]
@@ -347,20 +330,16 @@ fn example_control_system(
         0.0
     };
 
-    camera_transform.rotate_around(
-        Vec3::ZERO,
-        Quat::from_euler(EulerRot::XYZ, 0.0, rotation, 0.0),
-    );
+    camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(rotation));
 
     for (mut style, label) in &mut labels {
-        let world_position =
-            labelled.get(label.entity).unwrap().translation() + Vec3::new(0.0, 1.0, 0.0);
+        let world_position = labelled.get(label.entity).unwrap().translation() + Vec3::Y;
 
         let viewport_position = camera
             .world_to_viewport(camera_global_transform, world_position)
             .unwrap();
 
-        style.bottom = Val::Px(viewport_position.y);
+        style.top = Val::Px(viewport_position.y);
         style.left = Val::Px(viewport_position.x);
     }
 

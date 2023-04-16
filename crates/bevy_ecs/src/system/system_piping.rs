@@ -306,8 +306,15 @@ pub mod adapter {
     /// }
     /// ```
     pub fn ignore<T>(In(_): In<T>) {}
+}
 
-    #[cfg(test)]
+#[cfg(test)]
+mod tests {
+    use bevy_utils::default;
+
+    use super::adapter::*;
+    use crate::{self as bevy_ecs, prelude::*, system::PipeSystem};
+
     #[test]
     fn assert_systems() {
         use std::str::FromStr;
@@ -335,5 +342,81 @@ pub mod adapter {
         assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
 
         returning::<()>.run_if(returning::<bool>.pipe(not));
+    }
+
+    #[test]
+    fn pipe_change_detection() {
+        #[derive(Resource, Default)]
+        struct Flag;
+
+        #[derive(Default)]
+        struct Info {
+            // If true, the respective system will mutate `Flag`.
+            do_first: bool,
+            do_second: bool,
+
+            // Will be set to true if the respective system saw that `Flag` changed.
+            first_flag: bool,
+            second_flag: bool,
+        }
+
+        fn first(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
+            if flag.is_changed() {
+                info.first_flag = true;
+            }
+            if info.do_first {
+                *flag = Flag;
+            }
+
+            info
+        }
+
+        fn second(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
+            if flag.is_changed() {
+                info.second_flag = true;
+            }
+            if info.do_second {
+                *flag = Flag;
+            }
+
+            info
+        }
+
+        let mut world = World::new();
+        world.init_resource::<Flag>();
+        let mut sys = PipeSystem::new(
+            IntoSystem::into_system(first),
+            IntoSystem::into_system(second),
+            "".into(),
+        );
+        sys.initialize(&mut world);
+
+        sys.run(default(), &mut world);
+
+        // The second system should observe a change made in the first system.
+        let info = sys.run(
+            Info {
+                do_first: true,
+                ..default()
+            },
+            &mut world,
+        );
+        assert!(!info.first_flag);
+        assert!(info.second_flag);
+
+        // When a change is made in the second system, the first system
+        // should observe it the next time they are run.
+        let info1 = sys.run(
+            Info {
+                do_second: true,
+                ..default()
+            },
+            &mut world,
+        );
+        let info2 = sys.run(default(), &mut world);
+        assert!(!info1.first_flag);
+        assert!(!info1.second_flag);
+        assert!(info2.first_flag);
+        assert!(!info2.second_flag);
     }
 }
