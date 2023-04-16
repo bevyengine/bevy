@@ -5,9 +5,9 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     event::EventReader,
-    query::{Changed, Or, With, Without},
+    query::{Changed, With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut, Resource}, world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -93,21 +93,16 @@ impl FlexSurface {
         }
     }
 
-    pub fn upsert_leaf(
+    pub fn update_measure(
         &mut self,
         entity: Entity,
-        style: &Style,
         calculated_size: CalculatedSize,
-        context: &LayoutContext,
     ) {
-        let taffy = &mut self.taffy;
-        let taffy_style = convert::from_style(context, style);
-        let scale_factor = context.scale_factor;
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, _available: Size<AvailableSpace>| {
-                let mut size = Size {
-                    width: (scale_factor * calculated_size.size.x as f64) as f32,
-                    height: (scale_factor * calculated_size.size.y as f64) as f32,
+                let mut size = Size { 
+                    width: calculated_size.size.x,
+                    height: calculated_size.size.y
                 };
                 match (constraints.width, constraints.height) {
                     (None, None) => {}
@@ -131,13 +126,8 @@ impl FlexSurface {
                 size
             },
         ));
-        if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
-            self.taffy.set_style(*taffy_node, taffy_style).unwrap();
-            self.taffy.set_measure(*taffy_node, Some(measure)).unwrap();
-        } else {
-            let taffy_node = taffy.new_leaf_with_measure(taffy_style, measure).unwrap();
-            self.entity_to_taffy.insert(entity, taffy_node);
-        }
+        let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
+        self.taffy.set_measure(*taffy_node, Some(measure)).ok();
     }
 
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
@@ -250,15 +240,8 @@ pub fn flex_node_system(
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    full_node_query: Query<(Entity, &Style, Option<&CalculatedSize>), With<Node>>,
-    changed_style_query: Query<
-        (Entity, &Style),
-        (With<Node>, Without<CalculatedSize>, Changed<Style>),
-    >,
-    changed_size_query: Query<
-        (Entity, &Style, &CalculatedSize),
-        (With<Node>, Or<(Changed<CalculatedSize>, Changed<Style>)>),
-    >,
+    style_query: Query<(Entity, Ref<Style>), With<Node>>,
+    measure_query: Query<(Entity, Ref<CalculatedSize>)>,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
@@ -296,22 +279,20 @@ pub fn flex_node_system(
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
         scale_factor_events.clear();
         // update all nodes
-        for (entity, style, calculated_size) in &full_node_query {
-            if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, style, *calculated_size, &layout_context);
-            } else {
-                flex_surface.upsert_node(entity, style, &layout_context);
-            }
+        for (entity, style) in style_query.iter() {
+            flex_surface.upsert_node(entity, &style, &layout_context);
         }
     } else {
-        // update changed nodes without a calculated size
-        for (entity, style) in changed_style_query.iter() {
-            flex_surface.upsert_node(entity, style, &layout_context);
+        for (entity, style) in style_query.iter() {
+            if style.is_changed() {
+                flex_surface.upsert_node(entity, &style, &layout_context);
+            }
         }
+    }
 
-        // update changed nodes with a calculated size
-        for (entity, style, calculated_size) in changed_size_query.iter() {
-            flex_surface.upsert_leaf(entity, style, *calculated_size, &layout_context);
+    for (entity, calculated_size) in measure_query.iter() {
+        if calculated_size.is_changed() {
+            flex_surface.update_measure(entity, *calculated_size);
         }
     }
 

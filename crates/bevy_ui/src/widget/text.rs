@@ -134,8 +134,8 @@ pub fn text_system(
                 }
                 Ok(info) => {
                     calculated_size.size = Vec2::new(
-                        scale_value(info.size.x, inv_scale_factor),
-                        scale_value(info.size.y, inv_scale_factor),
+                        info.size.x,
+                       info.size.y,
                     );
                     match text_layout_info {
                         Some(mut t) => *t = info,
