@@ -23,8 +23,8 @@ use bevy_render::{
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand,
-        RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
+        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+        RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
@@ -33,7 +33,7 @@ use bevy_render::{
         DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState, PipelineCache,
         PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef,
         ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-        SpecializedMeshPipelines, StencilFaceState, StencilState,TextureSampleType,
+        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureSampleType,
         TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
@@ -42,7 +42,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{tracing::error};
+use bevy_utils::tracing::error;
 
 use crate::{
     prepare_lights, AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey,
@@ -621,23 +621,9 @@ pub fn get_bindings<'a>(
 // Extract the render phases for the prepass
 pub fn extract_camera_previous_view_projection(
     mut commands: Commands,
-    cameras_3d: Extract<
-        Query<
-            (
-                Entity,
-                &Camera,
-                Option<&PreviousViewProjection>,
-            ),
-            With<Camera3d>,
-        >,
-    >,
+    cameras_3d: Extract<Query<(Entity, &Camera, Option<&PreviousViewProjection>), With<Camera3d>>>,
 ) {
-    for (
-        entity,
-        camera,
-        maybe_previous_view_proj,
-    ) in cameras_3d.iter()
-    {
+    for (entity, camera, maybe_previous_view_proj) in cameras_3d.iter() {
         if camera.is_active {
             let mut entity = commands.get_or_spawn(entity);
 

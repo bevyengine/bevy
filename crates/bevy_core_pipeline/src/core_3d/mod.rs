@@ -54,9 +54,9 @@ use bevy_utils::{FloatOrd, HashMap};
 
 use crate::{
     prepass::{
-        node::PrepassNode, DepthPrepass, Opaque3dPrepass, AlphaMask3dPrepass, NormalPrepass,
-        MotionVectorPrepass, DEPTH_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
-        MOTION_VECTOR_PREPASS_FORMAT, ViewPrepassTextures
+        node::PrepassNode, AlphaMask3dPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
+        Opaque3dPrepass, ViewPrepassTextures, DEPTH_PREPASS_FORMAT, MOTION_VECTOR_PREPASS_FORMAT,
+        NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
@@ -279,13 +279,7 @@ pub fn extract_camera_prepass_phase(
         >,
     >,
 ) {
-    for (
-        entity,
-        camera,
-        depth_prepass,
-        normal_prepass,
-        motion_vector_prepass,
-    ) in cameras_3d.iter()
+    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass) in cameras_3d.iter()
     {
         if camera.is_active {
             let mut entity = commands.get_or_spawn(entity);
