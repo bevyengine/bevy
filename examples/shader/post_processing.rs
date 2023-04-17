@@ -69,7 +69,7 @@ impl Plugin for PostProcessPlugin {
 
         render_app
             // Initialize the pipeline
-            .init_resource::<PostProcessPipeline>()
+            .init_resources::<PostProcessPipeline>()
             // Bevy's renderer uses a render graph which is a collection of nodes in a directed acyclic graph.
             // It currently runs on each view/camera and executes each node in the specified order.
             // It will make sure that any node that needs a dependency from another node

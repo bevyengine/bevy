@@ -1796,7 +1796,7 @@ mod tests {
         }
 
         let mut world = World::new();
-        world.init_resource::<Flag>();
+        world.init_resources::<Flag>();
         let mut sys = first.pipe(second);
         sys.initialize(&mut world);
 

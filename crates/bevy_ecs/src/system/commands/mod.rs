@@ -646,7 +646,7 @@ impl<'w, 's> Commands<'w, 's> {
 ///
 /// // App creation boilerplate omitted...
 /// # let mut world = World::new();
-/// # world.init_resource::<Counter>();
+/// # world.init_resources::<Counter>();
 /// #
 /// # let mut setup_schedule = Schedule::new();
 /// # setup_schedule.add_systems(setup);

@@ -1822,7 +1822,7 @@ impl World {
     /// # world.insert_resources(Counter(0));
     /// # let mut schedule = Schedule::new();
     /// # schedule.add_systems(tick_counter);
-    /// # world.init_resource::<Schedules>();
+    /// # world.init_resources::<Schedules>();
     /// # world.add_schedule(schedule, MySchedule);
     /// # fn tick_counter(mut counter: ResMut<Counter>) { counter.0 += 1; }
     /// // Run the schedule five times.

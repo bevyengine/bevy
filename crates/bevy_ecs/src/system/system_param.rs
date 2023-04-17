@@ -909,7 +909,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// }
 ///
 /// let mut world = World::new();
-/// world.init_resource::<Alarm>();
+/// world.init_resources::<Alarm>();
 /// world.spawn(Settlement {
 ///     // ...
 /// });
