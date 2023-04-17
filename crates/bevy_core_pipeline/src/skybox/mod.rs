@@ -44,8 +44,8 @@ impl Plugin for SkyboxPlugin {
         let render_device = render_app.world.resource::<RenderDevice>().clone();
 
         render_app
-            .insert_resource(SkyboxPipeline::new(&render_device))
-            .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
+            .insert_resources(SkyboxPipeline::new(&render_device))
+            .init_resources::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .add_systems(
                 Render,
                 (

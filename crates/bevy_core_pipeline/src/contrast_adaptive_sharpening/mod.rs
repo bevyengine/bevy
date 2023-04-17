@@ -116,8 +116,7 @@ impl Plugin for CASPlugin {
             Err(_) => return,
         };
         render_app
-            .init_resource::<CASPipeline>()
-            .init_resource::<SpecializedRenderPipelines<CASPipeline>>()
+            .init_resources::<(CASPipeline, SpecializedRenderPipelines<CASPipeline>)>()
             .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
 
         {

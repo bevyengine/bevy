@@ -54,14 +54,13 @@ impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
-        app.insert_resource(Msaa::Off)
+        app.insert_resources(Msaa::Off)
             .register_type::<TemporalAntiAliasSettings>();
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
         render_app
-            .init_resource::<TAAPipeline>()
-            .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
+            .init_resources::<(TAAPipeline, SpecializedRenderPipelines<TAAPipeline>)>()
             .add_systems(ExtractSchedule, extract_taa_settings)
             .add_systems(
                 Render,

@@ -65,9 +65,7 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
-        app.init_resource::<MeshHandles>()
-            .init_resource::<GizmoConfig>()
-            .init_resource::<GizmoStorage>()
+        app.init_resources::<(MeshHandles, GizmoConfig, GizmoStorage)>()
             .add_systems(Last, update_gizmo_meshes);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
@@ -81,8 +79,10 @@ impl Plugin for GizmoPlugin {
 
             render_app
                 .add_render_command::<Transparent2d, DrawGizmoLines>()
-                .init_resource::<GizmoLinePipeline>()
-                .init_resource::<SpecializedMeshPipelines<GizmoLinePipeline>>()
+                .init_resources::<(
+                    GizmoLinePipeline,
+                    SpecializedMeshPipelines<GizmoLinePipeline>,
+                )>()
                 .add_systems(Render, queue_gizmos_2d.in_set(RenderSet::Queue));
         }
 
@@ -93,8 +93,7 @@ impl Plugin for GizmoPlugin {
 
             render_app
                 .add_render_command::<Opaque3d, DrawGizmoLines>()
-                .init_resource::<GizmoPipeline>()
-                .init_resource::<SpecializedMeshPipelines<GizmoPipeline>>()
+                .init_resources::<(GizmoPipeline, SpecializedMeshPipelines<GizmoPipeline>)>()
                 .add_systems(Render, queue_gizmos_3d.in_set(RenderSet::Queue));
         }
     }
@@ -172,7 +171,7 @@ fn extract_gizmo_data(
     config: Extract<Res<GizmoConfig>>,
 ) {
     if config.is_changed() {
-        commands.insert_resource(**config);
+        commands.insert_resources(**config);
     }
 
     if !config.enabled {
