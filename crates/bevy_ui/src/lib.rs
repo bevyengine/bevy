@@ -122,11 +122,11 @@ impl Plugin for UiPlugin {
         #[cfg(feature = "bevy_text")]
         app.add_systems(
             PostUpdate,
-            widget::text_system
+            widget::measure_text_system
                 .before(UiSystem::Layout)
                 // Potential conflict: `Assets<Image>`
                 // In practice, they run independently since `bevy_render::camera_update_system`
-                // will only ever observe its own render target, and `widget::text_system`
+                // will only ever observe its own render target, and `widget::measure_text_system`
                 // will never modify a pre-existing `Image` asset.
                 .ambiguous_with(CameraUpdateSystem)
                 // Potential conflict: `Assets<Image>`
@@ -157,6 +157,7 @@ impl Plugin for UiPlugin {
                     .before(TransformSystem::TransformPropagate),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
+                widget::text_system.after(UiSystem::Layout),
             ),
         );
 
