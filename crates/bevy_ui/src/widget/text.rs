@@ -30,7 +30,7 @@ impl Measure for TextMeasure {
         width: Option<f32>,
         height: Option<f32>,
         available_width: AvailableSpace,
-        available_height: AvailableSpace,
+        _available_height: AvailableSpace,
     ) -> Vec2 {
         let x = width.unwrap_or_else(|| match available_width {
             AvailableSpace::Definite(x) => x.clamp(
@@ -43,16 +43,10 @@ impl Measure for TextMeasure {
 
         height
             .map_or_else(
-                || match available_height {
-                    AvailableSpace::Definite(y) => {
-                        let y = y.clamp(
-                            self.info.max_width_content_size.y,
-                            self.info.min_width_content_size.y,
-                        );
-                        self.info.compute_size(Vec2::new(x, y))
-                    }
-                    AvailableSpace::MinContent => Vec2::new(x, self.info.max_width_content_size.y),
-                    AvailableSpace::MaxContent => Vec2::new(x, self.info.min_width_content_size.y),
+                || match available_width {
+                    AvailableSpace::Definite(_) => self.info.compute_size(Vec2::new(x, f32::MAX)),
+                    AvailableSpace::MinContent => Vec2::new(x, self.info.min_width_content_size.y),
+                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max_width_content_size.y),
                 },
                 |y| Vec2::new(x, y),
             )
