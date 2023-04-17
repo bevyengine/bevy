@@ -365,7 +365,12 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
             #[doc = "`]."]
             #[automatically_derived]
             #visibility struct #read_only_struct_name #user_impl_generics #user_where_clauses {
-                #( #field_visibilities #named_field_idents: #read_only_field_types, )*
+                #(
+                    #[doc = "Automatically generated read-only field for accessing `"]
+                    #[doc = stringify!(#field_types)]
+                    #[doc = "`."]
+                    #field_visibilities #named_field_idents: #read_only_field_types,
+                )*
             }
 
             #readonly_state

@@ -41,8 +41,8 @@ pub struct MainOpaquePass3dNode {
     >,
 }
 
-impl MainOpaquePass3dNode {
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for MainOpaquePass3dNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             query: world.query_filtered(),
         }

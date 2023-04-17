@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 pub mod blit;
 pub mod bloom;
 pub mod clear_color;

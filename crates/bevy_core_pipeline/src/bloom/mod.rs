@@ -4,7 +4,10 @@ mod upsampling_pipeline;
 
 pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 
-use crate::{core_2d, core_3d};
+use crate::{
+    core_2d::{self, CORE_2D},
+    core_3d::{self, CORE_3D},
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -73,9 +76,9 @@ impl Plugin for BloomPlugin {
                 ),
             )
             // Add bloom to the 3d render graph
-            .add_render_graph_node::<BloomNode>(core_3d::graph::NAME, core_3d::graph::node::BLOOM)
+            .add_render_graph_node::<BloomNode>(CORE_3D, core_3d::graph::node::BLOOM)
             .add_render_graph_edges(
-                core_3d::graph::NAME,
+                CORE_3D,
                 &[
                     core_3d::graph::node::END_MAIN_PASS,
                     core_3d::graph::node::BLOOM,
@@ -83,9 +86,9 @@ impl Plugin for BloomPlugin {
                 ],
             )
             // Add bloom to the 2d render graph
-            .add_render_graph_node::<BloomNode>(core_2d::graph::NAME, core_2d::graph::node::BLOOM)
+            .add_render_graph_node::<BloomNode>(CORE_2D, core_2d::graph::node::BLOOM)
             .add_render_graph_edges(
-                core_2d::graph::NAME,
+                CORE_2D,
                 &[
                     core_2d::graph::node::MAIN_PASS,
                     core_2d::graph::node::BLOOM,
