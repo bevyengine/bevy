@@ -479,10 +479,11 @@ where
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
         let change_tick = world.increment_change_tick();
 
-        // Safety:
-        // We update the archetype component access correctly based on `Param`'s requirements
-        // in `update_archetype_component_access`.
-        // Our caller upholds the requirements.
+        // SAFETY:
+        // - The caller has invoked `update_archetype_component_access`, which will panic
+        //   if the world does not match.
+        // - All world accesses used by `F::Param` have been registered, so the caller
+        //   will ensure that there are no data access conflicts.
         let params = F::Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
