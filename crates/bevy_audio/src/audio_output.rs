@@ -81,17 +81,20 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                     spatial.right_ear,
                 ) {
                     Ok(sink) => {
-                        if settings.repeat {
-                            sink.append(audio_source.decoder().repeat_infinite());
-                        } else {
-                            sink.append(audio_source.decoder());
-                        }
                         sink.set_speed(settings.speed);
                         match settings.volume {
                             Volume::Relative(vol) => {
                                 sink.set_volume(vol.0 * global_volume.volume.0);
                             }
                             Volume::Absolute(vol) => sink.set_volume(vol.0),
+                        }
+                        if settings.paused {
+                            sink.pause();
+                        }
+                        if settings.repeat {
+                            sink.append(audio_source.decoder().repeat_infinite());
+                        } else {
+                            sink.append(audio_source.decoder());
                         }
                         commands
                             .entity(entity)
@@ -104,17 +107,20 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             } else {
                 match Sink::try_new(stream_handle) {
                     Ok(sink) => {
-                        if settings.repeat {
-                            sink.append(audio_source.decoder().repeat_infinite());
-                        } else {
-                            sink.append(audio_source.decoder());
-                        }
                         sink.set_speed(settings.speed);
                         match settings.volume {
                             Volume::Relative(vol) => {
                                 sink.set_volume(vol.0 * global_volume.volume.0);
                             }
                             Volume::Absolute(vol) => sink.set_volume(vol.0),
+                        }
+                        if settings.paused {
+                            sink.pause();
+                        }
+                        if settings.repeat {
+                            sink.append(audio_source.decoder().repeat_infinite());
+                        } else {
+                            sink.append(audio_source.decoder());
                         }
                         commands
                             .entity(entity)

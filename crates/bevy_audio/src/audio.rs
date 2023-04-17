@@ -65,6 +65,10 @@ pub struct PlaybackSettings {
     pub volume: Volume,
     /// Speed to play at.
     pub speed: f32,
+    /// Create the sink in paused state.
+    /// Useful for "deferred playback", if you want to prepare
+    /// the entity, but hear the sound later.
+    pub paused: bool,
 }
 
 impl Default for PlaybackSettings {
@@ -79,6 +83,7 @@ impl PlaybackSettings {
         repeat: false,
         volume: Volume::Relative(VolumeLevel(1.0)),
         speed: 1.0,
+        paused: false,
     };
 
     /// Will play the associated audio source in a loop.
@@ -86,7 +91,14 @@ impl PlaybackSettings {
         repeat: true,
         volume: Volume::Relative(VolumeLevel(1.0)),
         speed: 1.0,
+        paused: false,
     };
+
+    /// Helper to start in a paused state.
+    pub const fn paused(mut self) -> Self {
+        self.paused = true;
+        self
+    }
 
     /// Helper to set the volume from start of playback.
     pub const fn with_volume(mut self, volume: Volume) -> Self {
