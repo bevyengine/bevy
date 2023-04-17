@@ -90,8 +90,13 @@ struct CollisionEvent;
 #[derive(Component)]
 struct Brick;
 
+/// Store the handle in a resource for ease of access
 #[derive(Resource)]
 struct CollisionSound(Handle<AudioSource>);
+
+/// Marker for the entity used for collision sound playback
+#[derive(Component)]
+struct CollisionSoundManager;
 
 // This bundle is a collection of the components that define a "wall" in our game
 #[derive(Bundle)]
@@ -404,14 +409,26 @@ fn check_for_collisions(
 }
 
 fn play_collision_sound(
+    mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    audio: Res<Audio>,
     sound: Res<CollisionSound>,
+    query_sound: Query<Entity, With<CollisionSoundManager>>,
 ) {
     // Play a sound once per frame if a collision occurred.
     if !collision_events.is_empty() {
         // This prevents events staying active on the next frame.
         collision_events.clear();
-        audio.play(sound.0.clone());
+
+        // If there is an existing sound entity, we can reuse it.
+        // Removing the AudioSink component will cause Bevy to play the sound again.
+        if let Ok(entity) = query_sound.get_single() {
+            commands.entity(entity).remove::<AudioSink>();
+        } else {
+            // The entity doesn't exist, create it.
+            commands.spawn((
+                CollisionSoundManager,
+                AudioBundle::from_audio_source(sound.0.clone()),
+            ));
+        }
     }
 }
