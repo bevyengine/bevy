@@ -23,10 +23,6 @@ fn main() {
         line_count: 50_000,
         fancy: false,
     })
-    .insert_resource(GizmoConfig {
-        on_top: false,
-        ..default()
-    })
     .add_systems(Startup, setup)
     .add_systems(Update, (input, ui_system));
 

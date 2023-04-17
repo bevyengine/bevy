@@ -19,26 +19,30 @@
 use std::mem;
 
 use bevy_app::{Last, Plugin};
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
+use bevy_core::cast_slice;
 use bevy_ecs::{
     prelude::{Component, DetectChanges},
-    schedule::IntoSystemConfigs,
-    system::{Commands, Res, ResMut, Resource},
+    query::ROQueryItem,
+    system::{
+        lifetimeless::{Read, SRes},
+        Commands, Res, ResMut, Resource, SystemParamItem,
+    },
     world::{FromWorld, World},
 };
-use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    mesh::Mesh,
-    render_phase::AddRenderCommand,
-    render_resource::{PrimitiveTopology, Shader, SpecializedMeshPipelines},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    extract_component::UniformComponentPlugin,
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_resource::{
+        Buffer, BufferInitDescriptor, BufferUsages, Shader, ShaderType, VertexAttribute,
+        VertexBufferLayout, VertexFormat, VertexStepMode,
+    },
+    renderer::RenderDevice,
+    Extract, ExtractSchedule, RenderApp,
 };
-
-#[cfg(feature = "bevy_pbr")]
-use bevy_pbr::MeshUniform;
-#[cfg(feature = "bevy_sprite")]
-use bevy_sprite::{Mesh2dHandle, Mesh2dUniform};
+use bevy_utils::default;
 
 pub mod gizmos;
 
@@ -47,7 +51,7 @@ mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-use crate::gizmos::GizmoStorage;
+use gizmos::GizmoStorage;
 
 /// The `bevy_gizmos` prelude.
 pub mod prelude {
@@ -65,7 +69,15 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
-        app.init_resource::<MeshHandles>()
+        #[cfg(feature = "bevy_sprite")]
+        app.add_plugin(pipeline_2d::LineGizmo2dPlugin);
+        #[cfg(feature = "bevy_pbr")]
+        app.add_plugin(pipeline_3d::LineGizmo3dPlugin);
+
+        app.add_plugin(UniformComponentPlugin::<LineGizmoUniform>::default())
+            .add_asset::<LineGizmo>()
+            .add_plugin(RenderAssetPlugin::<LineGizmo>::default())
+            .init_resource::<LineGizmoHandles>()
             .init_resource::<GizmoConfig>()
             .init_resource::<GizmoStorage>()
             .add_systems(Last, update_gizmo_meshes);
@@ -73,30 +85,6 @@ impl Plugin for GizmoPlugin {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
         render_app.add_systems(ExtractSchedule, extract_gizmo_data);
-
-        #[cfg(feature = "bevy_sprite")]
-        {
-            use bevy_core_pipeline::core_2d::Transparent2d;
-            use pipeline_2d::*;
-
-            render_app
-                .add_render_command::<Transparent2d, DrawGizmoLines>()
-                .init_resource::<GizmoLinePipeline>()
-                .init_resource::<SpecializedMeshPipelines<GizmoLinePipeline>>()
-                .add_systems(Render, queue_gizmos_2d.in_set(RenderSet::Queue));
-        }
-
-        #[cfg(feature = "bevy_pbr")]
-        {
-            use bevy_core_pipeline::core_3d::Opaque3d;
-            use pipeline_3d::*;
-
-            render_app
-                .add_render_command::<Opaque3d, DrawGizmoLines>()
-                .init_resource::<GizmoPipeline>()
-                .init_resource::<SpecializedMeshPipelines<GizmoPipeline>>()
-                .add_systems(Render, queue_gizmos_3d.in_set(RenderSet::Queue));
-        }
     }
 }
 
@@ -107,68 +95,84 @@ pub struct GizmoConfig {
     ///
     /// Defaults to `true`.
     pub enabled: bool,
-    /// Draw gizmos on top of everything else, ignoring depth.
+    /// Line width specified in pixels.
     ///
-    /// This setting only affects 3D. In 2D, gizmos are always drawn on top.
+    /// If `line_perspective` is `true` then this is the size in pixels at the camera's near plane.
+    ///
+    /// Defaults to `2.0`.
+    pub line_width: f32,
+    /// Apply perspective to gizmo lines.
+    ///
+    /// This setting only affects 3D, non-orhographic cameras.
     ///
     /// Defaults to `false`.
-    pub on_top: bool,
+    pub line_perspective: bool,
+    /// How closer to the camera than real geometry the line should be.
+    ///
+    /// Value between -1 and 1 (inclusive).
+    /// * 0 means that there is no change to the line position when rendering
+    /// * 1 means it is furthest away from camera as possible
+    /// * -1 means that it will always render in front of other things.
+    ///
+    /// This is typically useful if you are drawing wireframes on top of polygons
+    /// and your wireframe is z-fighting (flickering on/off) with your main model.
+    /// You would set this value to a negative number close to 0.0.
+    pub depth_bias: f32,
 }
 
 impl Default for GizmoConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            on_top: false,
+            line_width: 2.,
+            line_perspective: false,
+            depth_bias: 0.,
         }
     }
 }
 
 #[derive(Resource)]
-struct MeshHandles {
-    list: Handle<Mesh>,
-    strip: Handle<Mesh>,
+struct LineGizmoHandles {
+    list: Handle<LineGizmo>,
+    strip: Handle<LineGizmo>,
 }
 
-impl FromWorld for MeshHandles {
+impl FromWorld for LineGizmoHandles {
     fn from_world(world: &mut World) -> Self {
-        let mut meshes = world.resource_mut::<Assets<Mesh>>();
+        let mut line_gizmos = world.resource_mut::<Assets<LineGizmo>>();
 
-        MeshHandles {
-            list: meshes.add(Mesh::new(PrimitiveTopology::LineList)),
-            strip: meshes.add(Mesh::new(PrimitiveTopology::LineStrip)),
+        LineGizmoHandles {
+            list: line_gizmos.add(LineGizmo {
+                strip: false,
+                ..default()
+            }),
+            strip: line_gizmos.add(LineGizmo {
+                strip: true,
+                ..default()
+            }),
         }
     }
 }
 
-#[derive(Component)]
-struct GizmoMesh;
-
 fn update_gizmo_meshes(
-    mut meshes: ResMut<Assets<Mesh>>,
-    handles: Res<MeshHandles>,
+    mut meshes: ResMut<Assets<LineGizmo>>,
+    handles: Res<LineGizmoHandles>,
     mut storage: ResMut<GizmoStorage>,
 ) {
-    let list_mesh = meshes.get_mut(&handles.list).unwrap();
+    let list = meshes.get_mut(&handles.list).unwrap();
 
-    let positions = mem::take(&mut storage.list_positions);
-    list_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    list.positions = mem::take(&mut storage.list_positions);
+    list.colors = mem::take(&mut storage.list_colors);
 
-    let colors = mem::take(&mut storage.list_colors);
-    list_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    let strip = meshes.get_mut(&handles.strip).unwrap();
 
-    let strip_mesh = meshes.get_mut(&handles.strip).unwrap();
-
-    let positions = mem::take(&mut storage.strip_positions);
-    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-
-    let colors = mem::take(&mut storage.strip_colors);
-    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    strip.positions = mem::take(&mut storage.strip_positions);
+    strip.colors = mem::take(&mut storage.strip_colors);
 }
 
 fn extract_gizmo_data(
     mut commands: Commands,
-    handles: Extract<Res<MeshHandles>>,
+    handles: Extract<Res<LineGizmoHandles>>,
     config: Extract<Res<GizmoConfig>>,
 ) {
     if config.is_changed() {
@@ -179,30 +183,147 @@ fn extract_gizmo_data(
         return;
     }
 
-    let transform = Mat4::IDENTITY;
-    let inverse_transpose_model = transform.inverse().transpose();
-    commands.spawn_batch([&handles.list, &handles.strip].map(|handle| {
+    commands.spawn_batch([&handles.strip, &handles.list].map(|handle| {
         (
-            GizmoMesh,
-            #[cfg(feature = "bevy_pbr")]
-            (
-                handle.clone(),
-                MeshUniform {
-                    flags: 0,
-                    transform,
-                    previous_transform: transform,
-                    inverse_transpose_model,
-                },
-            ),
-            #[cfg(feature = "bevy_sprite")]
-            (
-                Mesh2dHandle(handle.clone()),
-                Mesh2dUniform {
-                    flags: 0,
-                    transform,
-                    inverse_transpose_model,
-                },
-            ),
+            LineGizmoUniform {
+                thickness: config.line_width,
+                depth_bias: config.depth_bias,
+            },
+            handle.clone(),
         )
     }));
+}
+
+#[derive(Component, ShaderType, Clone, Copy)]
+struct LineGizmoUniform {
+    thickness: f32,
+    depth_bias: f32,
+}
+
+#[derive(Debug, Default, Component, Clone, TypeUuid)]
+#[uuid = "02b99cbf-bb26-4713-829a-aee8e08dedc0"]
+struct LineGizmo {
+    positions: Vec<[f32; 3]>,
+    colors: Vec<[f32; 4]>,
+    /// Whether this gizmo's topology is a line-strip or line-list
+    strip: bool,
+}
+
+#[derive(Debug, Clone)]
+struct GpuLineGizmo {
+    position_buffer: Buffer,
+    color_buffer: Buffer,
+    vertex_count: u32,
+    strip: bool,
+}
+
+impl RenderAsset for LineGizmo {
+    type ExtractedAsset = LineGizmo;
+
+    type PreparedAsset = GpuLineGizmo;
+
+    type Param = SRes<RenderDevice>;
+
+    fn extract_asset(&self) -> Self::ExtractedAsset {
+        self.clone()
+    }
+
+    fn prepare_asset(
+        line_gizmo: Self::ExtractedAsset,
+        render_device: &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+        let position_buffer_data = cast_slice(&line_gizmo.positions);
+        let position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            usage: BufferUsages::VERTEX,
+            label: Some("LineGizmo Position Buffer"),
+            contents: position_buffer_data,
+        });
+
+        let color_buffer_data = cast_slice(&line_gizmo.colors);
+        let color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            usage: BufferUsages::VERTEX,
+            label: Some("LineGizmo Color Buffer"),
+            contents: color_buffer_data,
+        });
+
+        Ok(GpuLineGizmo {
+            position_buffer,
+            color_buffer,
+            vertex_count: line_gizmo.positions.len() as u32,
+            strip: line_gizmo.strip,
+        })
+    }
+}
+
+struct DrawLineGizmo;
+impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<Handle<LineGizmo>>;
+    type Param = SRes<RenderAssets<LineGizmo>>;
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
+        handle: ROQueryItem<'w, Self::ItemWorldQuery>,
+        polylines: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let Some(line_gizmo) = polylines.into_inner().get(handle) else {
+            return RenderCommandResult::Failure;
+        };
+
+        pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
+        pass.set_vertex_buffer(1, line_gizmo.color_buffer.slice(..));
+
+        let instances = if line_gizmo.strip {
+            u32::max(line_gizmo.vertex_count, 1) - 1
+        } else {
+            line_gizmo.vertex_count / 2
+        };
+
+        pass.draw(0..6, 0..instances);
+
+        RenderCommandResult::Success
+    }
+}
+
+fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
+    let stride_multiplier = if strip { 1 } else { 2 };
+    vec![
+        // Positions
+        VertexBufferLayout {
+            array_stride: 12 * stride_multiplier,
+            step_mode: VertexStepMode::Instance,
+            attributes: vec![
+                VertexAttribute {
+                    format: VertexFormat::Float32x3,
+                    offset: 0,
+                    shader_location: 0,
+                },
+                VertexAttribute {
+                    format: VertexFormat::Float32x3,
+                    offset: 12,
+                    shader_location: 1,
+                },
+            ],
+        },
+        // Colors
+        VertexBufferLayout {
+            array_stride: 16 * stride_multiplier,
+            step_mode: VertexStepMode::Instance,
+            attributes: vec![
+                VertexAttribute {
+                    format: VertexFormat::Float32x4,
+                    offset: 0,
+                    shader_location: 2,
+                },
+                VertexAttribute {
+                    format: VertexFormat::Float32x4,
+                    offset: 16,
+                    shader_location: 3,
+                },
+            ],
+        },
+    ]
 }
