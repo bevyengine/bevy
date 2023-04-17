@@ -148,7 +148,7 @@ impl DynamicEnum {
     ///
     /// This is functionally the same as [`DynamicEnum::from`] except it takes a reference.
     pub fn from_ref<TEnum: Enum>(value: &TEnum) -> Self {
-        let type_info = value.represented_type_info();
+        let type_info = value.get_represented_type_info();
         let mut dyn_enum = match value.variant_type() {
             VariantType::Unit => DynamicEnum::new_with_index(
                 value.variant_index(),
@@ -281,7 +281,7 @@ impl Reflect for DynamicEnum {
     }
 
     #[inline]
-    fn represented_type_info(&self) -> Option<&'static TypeInfo> {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
     }
 

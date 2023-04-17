@@ -304,7 +304,7 @@ impl Reflect for DynamicTuple {
     }
 
     #[inline]
-    fn represented_type_info(&self) -> Option<&'static TypeInfo> {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
     }
 
@@ -497,7 +497,7 @@ macro_rules! impl_reflect_tuple {
 
             #[inline]
             fn clone_dynamic(&self) -> DynamicTuple {
-                let info = self.represented_type_info();
+                let info = self.get_represented_type_info();
                 DynamicTuple {
                     name: Cow::Borrowed(::core::any::type_name::<Self>()),
                     represented_type: info,
@@ -514,7 +514,7 @@ macro_rules! impl_reflect_tuple {
                 std::any::type_name::<Self>()
             }
 
-            fn represented_type_info(&self) -> Option<&'static TypeInfo> {
+            fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                 Some(<Self as Typed>::type_info())
             }
 
