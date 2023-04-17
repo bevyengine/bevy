@@ -226,8 +226,20 @@ pub struct DynamicTupleStruct {
 impl DynamicTupleStruct {
     /// Sets the [type] to be represented by this `DynamicTupleStruct`.
     ///
+    /// # Panics
+    ///
+    /// Panics if the given [type] is not a [`TypeInfo::TupleStruct`].
+    ///
     /// [type]: TypeInfo
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::TupleStruct(_)),
+                "expected TypeInfo::TupleStruct but received: {:?}",
+                represented_type
+            );
+        }
+
         self.represented_type = represented_type;
     }
 

@@ -190,8 +190,20 @@ impl DynamicArray {
 
     /// Sets the [type] to be represented by this `DynamicArray`.
     ///
+    /// # Panics
+    ///
+    /// Panics if the given [type] is not a [`TypeInfo::Array`].
+    ///
     /// [type]: TypeInfo
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::Array(_)),
+                "expected TypeInfo::Array but received: {:?}",
+                represented_type
+            );
+        }
+
         self.represented_type = represented_type;
     }
 }

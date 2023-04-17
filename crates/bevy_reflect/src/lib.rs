@@ -1297,6 +1297,21 @@ mod tests {
         assert!(info.is::<MyValue>());
     }
 
+    #[test]
+    fn should_permit_valid_represented_type_for_dynamic() {
+        let type_info = <[i32; 2] as Typed>::type_info();
+        let mut dynamic_array = [123; 2].clone_dynamic();
+        dynamic_array.set_represented_type(Some(type_info));
+    }
+
+    #[test]
+    #[should_panic(expected = "expected TypeInfo::Array but received")]
+    fn should_prohibit_invalid_represented_type_for_dynamic() {
+        let type_info = <(i32, i32) as Typed>::type_info();
+        let mut dynamic_array = [123; 2].clone_dynamic();
+        dynamic_array.set_represented_type(Some(type_info));
+    }
+
     #[cfg(feature = "documentation")]
     mod docstrings {
         use super::*;

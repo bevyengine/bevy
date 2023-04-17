@@ -114,8 +114,20 @@ impl DynamicEnum {
 
     /// Sets the [type] to be represented by this `DynamicEnum`.
     ///
+    /// # Panics
+    ///
+    /// Panics if the given [type] is not a [`TypeInfo::Enum`].
+    ///
     /// [type]: TypeInfo
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::Enum(_)),
+                "expected TypeInfo::Enum but received: {:?}",
+                represented_type
+            );
+        }
+
         self.represented_type = represented_type;
     }
 

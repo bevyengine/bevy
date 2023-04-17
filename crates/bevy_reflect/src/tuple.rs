@@ -215,10 +215,20 @@ pub struct DynamicTuple {
 impl DynamicTuple {
     /// Sets the [type] to be represented by this `DynamicTuple`.
     ///
+    /// # Panics
+    ///
+    /// Panics if the given [type] is not a [`TypeInfo::Tuple`].
+    ///
     /// [type]: TypeInfo
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
-        if let Some(info) = represented_type {
-            self.name = Cow::Borrowed(info.type_name());
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::Tuple(_)),
+                "expected TypeInfo::Tuple but received: {:?}",
+                represented_type
+            );
+
+            self.name = Cow::Borrowed(represented_type.type_name());
         }
         self.represented_type = represented_type;
     }

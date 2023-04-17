@@ -181,9 +181,20 @@ pub struct DynamicList {
 
 impl DynamicList {
     /// Sets the [type] to be represented by this `DynamicList`.
+    /// # Panics
+    ///
+    /// Panics if the given [type] is not a [`TypeInfo::List`].
     ///
     /// [type]: TypeInfo
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::List(_)),
+                "expected TypeInfo::List but received: {:?}",
+                represented_type
+            );
+        }
+
         self.represented_type = represented_type;
     }
 
