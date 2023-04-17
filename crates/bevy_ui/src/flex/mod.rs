@@ -188,12 +188,8 @@ without UI components as a child of an entity with UI components, results may be
                 *node,
                 taffy::style::Style {
                     size: taffy::geometry::Size {
-                        width: taffy::style::Dimension::Points(
-                            logical_size.x
-                        ),
-                        height: taffy::style::Dimension::Points(
-                            logical_size.y
-                        ),
+                        width: taffy::style::Dimension::Points(logical_size.x),
+                        height: taffy::style::Dimension::Points(logical_size.y),
                     },
                     ..Default::default()
                 },
@@ -351,10 +347,7 @@ pub fn flex_node_system(
     // PERF: try doing this incrementally
     for (entity, mut node, mut transform, parent) in &mut node_transform_query {
         let layout = flex_surface.get_layout(entity).unwrap();
-        let new_size = Vec2::new(
-            layout.size.width,
-            layout.size.height,
-        );
+        let new_size = Vec2::new(layout.size.width, layout.size.height);
         // only trigger change detection when the new value is different
         if node.calculated_size != new_size {
             node.calculated_size = new_size;
