@@ -14,7 +14,7 @@ use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
-use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
+use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{
     prelude::{AvailableSpace, Size},
@@ -22,9 +22,11 @@ use taffy::{
     Taffy,
 };
 
+#[derive(Debug)]
 pub struct LayoutContext {
     pub scale_factor: f64,
     pub physical_size: Vec2,
+    pub logical_size: Vec2,
     pub min_size: f32,
     pub max_size: f32,
 }
@@ -32,11 +34,13 @@ pub struct LayoutContext {
 impl LayoutContext {
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
     fn new(scale_factor: f64, physical_size: Vec2) -> Self {
+        let logical_size = physical_size / scale_factor as f32;
         Self {
             scale_factor,
             physical_size,
-            min_size: physical_size.x.min(physical_size.y),
-            max_size: physical_size.x.max(physical_size.y),
+            logical_size,
+            min_size: logical_size.min_element(),
+            max_size: logical_size.max_element(),
         }
     }
 }
@@ -102,12 +106,11 @@ impl FlexSurface {
     ) {
         let taffy = &mut self.taffy;
         let taffy_style = convert::from_style(context, style);
-        let scale_factor = context.scale_factor;
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, _available: Size<AvailableSpace>| {
                 let mut size = Size {
-                    width: (scale_factor * calculated_size.size.x as f64) as f32,
-                    height: (scale_factor * calculated_size.size.y as f64) as f32,
+                    width: calculated_size.size.x as f32,
+                    height: calculated_size.size.y as f32,
                 };
                 match (constraints.width, constraints.height) {
                     (None, None) => {}
@@ -173,7 +176,7 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    pub fn update_window(&mut self, window: Entity, window_resolution: &WindowResolution) {
+    pub fn update_window(&mut self, window: Entity, logical_size: Vec2) {
         let taffy = &mut self.taffy;
         let node = self
             .window_nodes
@@ -186,10 +189,10 @@ without UI components as a child of an entity with UI components, results may be
                 taffy::style::Style {
                     size: taffy::geometry::Size {
                         width: taffy::style::Dimension::Points(
-                            window_resolution.physical_width() as f32
+                            logical_size.x
                         ),
                         height: taffy::style::Dimension::Points(
-                            window_resolution.physical_height() as f32,
+                            logical_size.y
                         ),
                     },
                     ..Default::default()
@@ -251,7 +254,7 @@ pub enum FlexError {
 #[allow(clippy::too_many_arguments)]
 pub fn flex_node_system(
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    windows: Query<(Entity, &Window)>,
+    windows: Query<Entity, With<Window>>,
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
@@ -284,19 +287,17 @@ pub fn flex_node_system(
         } else {
             return;
         };
+    let scale_factor = logical_to_physical_factor * ui_scale.scale;
+    let layout_context = LayoutContext::new(scale_factor, physical_size);
 
     let resized = resize_events
         .iter()
         .any(|resized_window| resized_window.window == primary_window_entity);
 
     // update window root nodes
-    for (entity, window) in windows.iter() {
-        flex_surface.update_window(entity, &window.resolution);
+    for entity in windows.iter() {
+        flex_surface.update_window(entity, layout_context.logical_size);
     }
-
-    let scale_factor = logical_to_physical_factor * ui_scale.scale;
-
-    let viewport_values = LayoutContext::new(scale_factor, physical_size);
 
     fn update_changed<F: ReadOnlyWorldQuery>(
         flex_surface: &mut FlexSurface,
@@ -316,13 +317,13 @@ pub fn flex_node_system(
 
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
         scale_factor_events.clear();
-        update_changed(&mut flex_surface, &viewport_values, full_node_query);
+        update_changed(&mut flex_surface, &layout_context, full_node_query);
     } else {
-        update_changed(&mut flex_surface, &viewport_values, node_query);
+        update_changed(&mut flex_surface, &layout_context, node_query);
     }
 
     for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, &viewport_values);
+        flex_surface.upsert_leaf(entity, style, *calculated_size, &layout_context);
     }
 
     // clean up removed nodes
@@ -347,28 +348,24 @@ pub fn flex_node_system(
     // compute layouts
     flex_surface.compute_window_layouts();
 
-    let physical_to_logical_factor = 1. / logical_to_physical_factor;
-
-    let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
-
     // PERF: try doing this incrementally
     for (entity, mut node, mut transform, parent) in &mut node_transform_query {
         let layout = flex_surface.get_layout(entity).unwrap();
         let new_size = Vec2::new(
-            to_logical(layout.size.width),
-            to_logical(layout.size.height),
+            layout.size.width,
+            layout.size.height,
         );
         // only trigger change detection when the new value is different
         if node.calculated_size != new_size {
             node.calculated_size = new_size;
         }
         let mut new_position = transform.translation;
-        new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-        new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
+        new_position.x = layout.location.x + layout.size.width / 2.0;
+        new_position.y = layout.location.y + layout.size.height / 2.0;
         if let Some(parent) = parent {
             if let Ok(parent_layout) = flex_surface.get_layout(**parent) {
-                new_position.x -= to_logical(parent_layout.size.width / 2.0);
-                new_position.y -= to_logical(parent_layout.size.height / 2.0);
+                new_position.x -= parent_layout.size.width / 2.0;
+                new_position.y -= parent_layout.size.height / 2.0;
             }
         }
         // only trigger change detection when the new value is different

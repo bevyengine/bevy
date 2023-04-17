@@ -13,9 +13,7 @@ impl Val {
         match self {
             Val::Auto => taffy::style::LengthPercentageAuto::Auto,
             Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.),
-            Val::Px(value) => taffy::style::LengthPercentageAuto::Points(
-                (context.scale_factor * value as f64) as f32,
-            ),
+            Val::Px(value) => taffy::style::LengthPercentageAuto::Points(value),
             Val::VMin(value) => {
                 taffy::style::LengthPercentageAuto::Points(context.min_size * value / 100.)
             }
@@ -23,10 +21,10 @@ impl Val {
                 taffy::style::LengthPercentageAuto::Points(context.max_size * value / 100.)
             }
             Val::Vw(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.physical_size.x * value / 100.)
+                taffy::style::LengthPercentageAuto::Points(context.logical_size.x * value / 100.)
             }
             Val::Vh(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.physical_size.y * value / 100.)
+                taffy::style::LengthPercentageAuto::Points(context.logical_size.y * value / 100.)
             }
         }
     }
