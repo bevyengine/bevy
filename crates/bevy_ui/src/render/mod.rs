@@ -124,7 +124,7 @@ pub fn build_ui_render(app: &mut App) {
             RunGraphOnViewNode::new(draw_ui_graph::NAME),
         );
         graph_3d.add_node_edge(
-            bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+            bevy_core_pipeline::core_3d::graph::node::END_MAIN_PASS,
             draw_ui_graph::node::UI_PASS,
         );
         graph_3d.add_node_edge(
@@ -296,7 +296,7 @@ pub fn extract_text_uinodes(
         .map(|window| window.resolution.scale_factor() as f32)
         .unwrap_or(1.0);
 
-    let scaling = Mat4::from_scale(Vec3::splat(scale_factor.recip()));
+    let inverse_scale_factor = scale_factor.recip();
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
@@ -306,10 +306,8 @@ pub fn extract_text_uinodes(
             if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {
                 continue;
             }
-
             let transform = global_transform.compute_matrix()
-                * Mat4::from_translation(-0.5 * uinode.size().extend(0.))
-                * scaling;
+                * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
@@ -326,13 +324,17 @@ pub fn extract_text_uinodes(
                 }
                 let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
+                let mut rect = atlas.textures[atlas_info.glyph_index];
+                rect.min *= inverse_scale_factor;
+                rect.max *= inverse_scale_factor;
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
-                    transform: transform * Mat4::from_translation(position.extend(0.)),
+                    transform: transform
+                        * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
                     color,
-                    rect: atlas.textures[atlas_info.glyph_index],
+                    rect,
                     image: atlas.texture.clone_weak(),
-                    atlas_size: Some(atlas.size),
+                    atlas_size: Some(atlas.size * inverse_scale_factor),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,

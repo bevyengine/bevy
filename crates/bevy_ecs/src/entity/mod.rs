@@ -234,10 +234,12 @@ impl fmt::Debug for Entity {
 }
 
 impl SparseSetIndex for Entity {
+    #[inline]
     fn sparse_set_index(&self) -> usize {
         self.index() as usize
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Entity::from_raw(value as u32)
     }
@@ -570,6 +572,7 @@ impl Entities {
 
     /// Returns the location of an [`Entity`].
     /// Note: for pending entities, returns `Some(EntityLocation::INVALID)`.
+    #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if let Some(meta) = self.meta.get(entity.index as usize) {
             if meta.generation != entity.generation
@@ -590,6 +593,7 @@ impl Entities {
     ///  - `index` must be a valid entity index.
     ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
+    #[inline]
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
         self.meta.get_unchecked_mut(index as usize).location = location;

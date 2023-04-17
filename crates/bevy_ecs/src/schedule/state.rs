@@ -4,7 +4,7 @@ use std::mem;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
-use crate::schedule::{ScheduleLabel, SystemSet};
+use crate::schedule::ScheduleLabel;
 use crate::system::Resource;
 use crate::world::World;
 
@@ -20,8 +20,6 @@ pub use bevy_ecs_macros::States;
 ///
 /// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T:Variant>`] schedules,
 /// which can be run via the [`apply_state_transition::<T>`] system.
-/// Systems that run each frame in various states are typically stored in the main schedule,
-/// and are conventionally part of the [`OnUpdate(T::Variant)`] system set.
 ///
 /// # Example
 ///
@@ -66,14 +64,6 @@ pub struct OnTransition<S: States> {
     pub to: S,
 }
 
-/// A [`SystemSet`] that will run within `CoreSet::Update` when this state is active.
-///
-/// This set, when created via `App::add_state`, is configured with both a base set and a run condition.
-/// If all you want is the run condition, use the [`in_state`](crate::schedule::common_conditions::in_state)
-/// [condition](super::Condition) directly.
-#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OnUpdate<S: States>(pub S);
-
 /// A finite-state machine whose transitions have associated schedules
 /// ([`OnEnter(state)`] and [`OnExit(state)`]).
 ///
@@ -83,7 +73,27 @@ pub struct OnUpdate<S: States>(pub S);
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
 #[derive(Resource, Default, Debug)]
-pub struct State<S: States>(pub S);
+pub struct State<S: States>(S);
+
+impl<S: States> State<S> {
+    /// Creates a new state with a specific value.
+    ///
+    /// To change the state use [`NextState<S>`] rather than using this to modify the `State<S>`.
+    pub fn new(state: S) -> Self {
+        Self(state)
+    }
+
+    /// Get the current state.
+    pub fn get(&self) -> &S {
+        &self.0
+    }
+}
+
+impl<S: States> PartialEq<S> for State<S> {
+    fn eq(&self, other: &S) -> bool {
+        self.get() == other
+    }
+}
 
 /// The next state of [`State<S>`].
 ///
@@ -119,16 +129,18 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
     if let Some(entered) = next_state_resource.bypass_change_detection().0.take() {
         next_state_resource.set_changed();
 
-        let exited = mem::replace(&mut world.resource_mut::<State<S>>().0, entered.clone());
-
-        // Try to run the schedules if they exist.
-        world.try_run_schedule(OnExit(exited.clone())).ok();
-        world
-            .try_run_schedule(OnTransition {
-                from: exited,
-                to: entered.clone(),
-            })
-            .ok();
-        world.try_run_schedule(OnEnter(entered)).ok();
+        let mut state_resource = world.resource_mut::<State<S>>();
+        if *state_resource != entered {
+            let exited = mem::replace(&mut state_resource.0, entered.clone());
+            // Try to run the schedules if they exist.
+            world.try_run_schedule(OnExit(exited.clone())).ok();
+            world
+                .try_run_schedule(OnTransition {
+                    from: exited,
+                    to: entered.clone(),
+                })
+                .ok();
+            world.try_run_schedule(OnEnter(entered)).ok();
+        }
     }
 }

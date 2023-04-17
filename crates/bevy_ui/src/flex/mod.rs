@@ -97,45 +97,35 @@ impl FlexSurface {
         &mut self,
         entity: Entity,
         style: &Style,
-        calculated_size: CalculatedSize,
+        calculated_size: &CalculatedSize,
         context: &LayoutContext,
     ) {
         let taffy = &mut self.taffy;
         let taffy_style = convert::from_style(context, style);
-        let scale_factor = context.scale_factor;
-        let measure = taffy::node::MeasureFunc::Boxed(Box::new(
-            move |constraints: Size<Option<f32>>, _available: Size<AvailableSpace>| {
-                let mut size = Size {
-                    width: (scale_factor * calculated_size.size.x as f64) as f32,
-                    height: (scale_factor * calculated_size.size.y as f64) as f32,
-                };
-                match (constraints.width, constraints.height) {
-                    (None, None) => {}
-                    (Some(width), None) => {
-                        if calculated_size.preserve_aspect_ratio {
-                            size.height = width * size.height / size.width;
-                        }
-                        size.width = width;
-                    }
-                    (None, Some(height)) => {
-                        if calculated_size.preserve_aspect_ratio {
-                            size.width = height * size.width / size.height;
-                        }
-                        size.height = height;
-                    }
-                    (Some(width), Some(height)) => {
-                        size.width = width;
-                        size.height = height;
-                    }
+        let measure = calculated_size.measure.dyn_clone();
+        let measure_func = taffy::node::MeasureFunc::Boxed(Box::new(
+            move |constraints: Size<Option<f32>>, available: Size<AvailableSpace>| {
+                let size = measure.measure(
+                    constraints.width,
+                    constraints.height,
+                    available.width,
+                    available.height,
+                );
+                taffy::geometry::Size {
+                    width: size.x,
+                    height: size.y,
                 }
-                size
             },
         ));
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
             self.taffy.set_style(*taffy_node, taffy_style).unwrap();
-            self.taffy.set_measure(*taffy_node, Some(measure)).unwrap();
+            self.taffy
+                .set_measure(*taffy_node, Some(measure_func))
+                .unwrap();
         } else {
-            let taffy_node = taffy.new_leaf_with_measure(taffy_style, measure).unwrap();
+            let taffy_node = taffy
+                .new_leaf_with_measure(taffy_style, measure_func)
+                .unwrap();
             self.entity_to_taffy.insert(entity, taffy_node);
         }
     }
@@ -163,6 +153,13 @@ without UI components as a child of an entity with UI components, results may be
     pub fn try_remove_children(&mut self, entity: Entity) {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
             self.taffy.set_children(*taffy_node, &[]).unwrap();
+        }
+    }
+
+    /// Removes the measure from the entity's taffy node if it exists. Does nothing otherwise.
+    pub fn try_remove_measure(&mut self, entity: Entity) {
+        if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
+            self.taffy.set_measure(*taffy_node, None).unwrap();
         }
     }
 
@@ -258,6 +255,7 @@ pub fn flex_node_system(
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
+    mut removed_calculated_sizes: RemovedComponents<CalculatedSize>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
@@ -299,7 +297,7 @@ pub fn flex_node_system(
         for (entity, style, calculated_size) in &query {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, style, *calculated_size, viewport_values);
+                flex_surface.upsert_leaf(entity, style, calculated_size, viewport_values);
             } else {
                 flex_surface.upsert_node(entity, style, viewport_values);
             }
@@ -314,11 +312,16 @@ pub fn flex_node_system(
     }
 
     for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, &viewport_values);
+        flex_surface.upsert_leaf(entity, style, calculated_size, &viewport_values);
     }
 
     // clean up removed nodes
     flex_surface.remove_entities(removed_nodes.iter());
+
+    // When a `CalculatedSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    for entity in removed_calculated_sizes.iter() {
+        flex_surface.try_remove_measure(entity);
+    }
 
     // update window children (for now assuming all Nodes live in the primary window)
     flex_surface.set_window_children(primary_window_entity, root_node_query.iter());

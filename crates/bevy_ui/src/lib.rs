@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
 //! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
@@ -12,6 +14,7 @@ mod ui_node;
 #[cfg(feature = "bevy_text")]
 mod accessibility;
 pub mod camera_config;
+pub mod measurement;
 pub mod node_bundles;
 pub mod update;
 pub mod widget;
@@ -22,6 +25,7 @@ use bevy_render::extract_component::ExtractComponentPlugin;
 pub use flex::*;
 pub use focus::*;
 pub use geometry::*;
+pub use measurement::*;
 pub use render::*;
 pub use ui_node::*;
 
@@ -29,10 +33,12 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::*, Interaction, UiScale,
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, widget::Label,
+        Interaction, UiScale,
     };
 }
 
+use crate::prelude::UiCameraConfig;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
@@ -40,8 +46,6 @@ use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::update_clipping_system;
-
-use crate::prelude::UiCameraConfig;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -112,7 +116,7 @@ impl Plugin for UiPlugin {
         #[cfg(feature = "bevy_text")]
         app.add_systems(
             PostUpdate,
-            widget::text_system
+            widget::measure_text_system
                 .before(UiSystem::Flex)
                 // Potential conflict: `Assets<Image>`
                 // In practice, they run independently since `bevy_render::camera_update_system`
@@ -147,6 +151,7 @@ impl Plugin for UiPlugin {
                     .before(TransformSystem::TransformPropagate),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
+                widget::text_system.after(UiSystem::Flex),
             ),
         );
 

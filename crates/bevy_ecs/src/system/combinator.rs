@@ -164,6 +164,8 @@ where
             // so the caller will guarantee that no other systems will conflict with `a` or `b`.
             // Since these closures are `!Send + !Sync + !'static`, they can never be called
             // in parallel, so their world accesses will not conflict with each other.
+            // Additionally, `update_archetype_component_access` has been called,
+            // which forwards to the implementations for `self.a` and `self.b`.
             |input| self.a.run_unsafe(input, world),
             |input| self.b.run_unsafe(input, world),
         )

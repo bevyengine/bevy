@@ -293,6 +293,7 @@ impl From<NodeId> for NodeLabel {
 /// A [`Node`] without any inputs, outputs and subgraphs, which does nothing when run.
 /// Used (as a label) to bundle multiple dependencies into one inside
 /// the [`RenderGraph`](super::RenderGraph).
+#[derive(Default)]
 pub struct EmptyNode;
 
 impl Node for EmptyNode {
