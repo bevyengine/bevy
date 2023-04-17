@@ -2,6 +2,9 @@
 //!
 //! To start the demo without text run
 //! `cargo run --example many_buttons --release no-text`
+//!
+//! To have the demo perform a full UI update each frame run
+//! `cargo run --example many_buttons --release full-update`
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -15,20 +18,31 @@ const FONT_SIZE: f32 = 7.0;
 
 /// This example shows what happens when there is a lot of buttons on screen.
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                present_mode: PresentMode::Immediate,
-                ..default()
-            }),
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            present_mode: PresentMode::Immediate,
             ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .init_resource::<UiFont>()
-        .add_systems(Startup, setup)
-        .add_systems(Update, button_system)
-        .run();
+        }),
+        ..default()
+    }))
+    .add_plugin(FrameTimeDiagnosticsPlugin::default())
+    .add_plugin(LogDiagnosticsPlugin::default())
+    .init_resource::<UiFont>()
+    .add_systems(Startup, setup)
+    .add_systems(Update, button_system);
+
+    if std::env::args().any(|arg| arg == "full-update") {
+        app.add_systems(Update, force_full_update);
+    }
+
+    app.run();
+}
+
+/// Modifying the `UiScale` triggers a full UI relayout and recomputation of all text
+fn force_full_update(mut ui_scale: ResMut<UiScale>) {
+    ui_scale.scale = if ui_scale.scale == 1. { 1.0001 } else { 1. };
 }
 
 #[derive(Component)]
@@ -73,7 +87,7 @@ fn setup(mut commands: Commands, font: Res<UiFont>) {
             ..default()
         })
         .with_children(|commands| {
-            let spawn_text = std::env::args().nth(1).as_deref() != Some("no-text");
+            let spawn_text = std::env::args().all(|arg| arg != "no-text");
             for i in 0..count {
                 for j in 0..count {
                     let color = as_rainbow(j % i.max(1)).into();
