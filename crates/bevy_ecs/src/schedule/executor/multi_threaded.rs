@@ -706,7 +706,7 @@ fn apply_system_buffers(
 /// # Safety
 /// - `world` must have permission to read any world data
 ///   required by `conditions`.
-/// `update_archetype_component_access` must have been called
+/// - `update_archetype_component_access` must have been called
 ///   with `world` for each condition in `conditions`.
 unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
