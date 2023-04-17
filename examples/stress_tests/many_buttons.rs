@@ -38,13 +38,13 @@ fn main() {
 
     if std::env::args().any(|arg| arg == "recompute-layout") {
         app.add_systems(Update, |mut ui_scale: ResMut<UiScale>| {
-            ui_scale.set_changed()
+            ui_scale.set_changed();
         });
     }
 
     if std::env::args().any(|arg| arg == "recompute-text") {
         app.add_systems(Update, |mut text_query: Query<&mut Text>| {
-            text_query.for_each_mut(|mut text| text.set_changed())
+            text_query.for_each_mut(|mut text| text.set_changed());
         });
     }
 
