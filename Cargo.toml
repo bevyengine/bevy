@@ -108,6 +108,9 @@ trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 # Tracing support, exposing a port for Tracy
 trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 
+# Tracing support, with memory profiling, exposing a port for Tracy
+trace_tracy_memory = ["trace", "bevy_internal/trace_tracy", "bevy_internal/trace_tracy_memory"]
+
 # Tracing support
 trace = ["bevy_internal/trace"]
 
