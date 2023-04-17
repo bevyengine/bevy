@@ -2,6 +2,12 @@
 //!
 //! To start the demo without text run
 //! `cargo run --example many_buttons --release no-text`
+//!
+//| To do a full layout update each frame run
+//! `cargo run --example many_buttons --release recompute-layout`
+//!
+//! To recompute all text each frame run
+//! `cargo run --example many_buttons --release recompute-text`
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -15,20 +21,34 @@ const FONT_SIZE: f32 = 7.0;
 
 /// This example shows what happens when there is a lot of buttons on screen.
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                present_mode: PresentMode::Immediate,
-                ..default()
-            }),
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            present_mode: PresentMode::Immediate,
             ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .init_resource::<UiFont>()
-        .add_systems(Startup, setup)
-        .add_systems(Update, button_system)
-        .run();
+        }),
+        ..default()
+    }))
+    .add_plugin(FrameTimeDiagnosticsPlugin::default())
+    .add_plugin(LogDiagnosticsPlugin::default())
+    .init_resource::<UiFont>()
+    .add_systems(Startup, setup)
+    .add_systems(Update, button_system);
+
+    if std::env::args().any(|arg| arg == "recompute-layout") {
+        app.add_systems(Update, |mut ui_scale: ResMut<UiScale>| {
+            ui_scale.set_changed();
+        });
+    }
+
+    if std::env::args().any(|arg| arg == "recompute-text") {
+        app.add_systems(Update, |mut text_query: Query<&mut Text>| {
+            text_query.for_each_mut(|mut text| text.set_changed());
+        });
+    }
+
+    app.run();
 }
 
 #[derive(Component)]
@@ -73,7 +93,7 @@ fn setup(mut commands: Commands, font: Res<UiFont>) {
             ..default()
         })
         .with_children(|commands| {
-            let spawn_text = std::env::args().nth(1).as_deref() != Some("no-text");
+            let spawn_text = std::env::args().all(|arg| arg != "no-text");
             for i in 0..count {
                 for j in 0..count {
                     let color = as_rainbow(j % i.max(1)).into();
