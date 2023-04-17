@@ -3,8 +3,11 @@
 //! To start the demo without text run
 //! `cargo run --example many_buttons --release no-text`
 //!
-//! To have the demo perform a full UI update each frame run
-//! `cargo run --example many_buttons --release full-update`
+//| To do a full layout update each frame run
+//! `cargo run --example many_buttons --release recompute-layout`
+//!
+//! To recompute all text each frame run
+//! `cargo run --example many_buttons --release recompute-text`
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -33,16 +36,19 @@ fn main() {
     .add_systems(Startup, setup)
     .add_systems(Update, button_system);
 
-    if std::env::args().any(|arg| arg == "full-update") {
-        app.add_systems(Update, force_full_update);
+    if std::env::args().any(|arg| arg == "recompute-layout") {
+        app.add_systems(Update, |mut ui_scale: ResMut<UiScale>| {
+            ui_scale.set_changed()
+        });
+    }
+
+    if std::env::args().any(|arg| arg == "recompute-text") {
+        app.add_systems(Update, |mut text_query: Query<&mut Text>| {
+            text_query.for_each_mut(|mut text| text.set_changed())
+        });
     }
 
     app.run();
-}
-
-/// Modifying the `UiScale` triggers a full UI relayout and recomputation of all text
-fn force_full_update(mut ui_scale: ResMut<UiScale>) {
-    ui_scale.scale = if ui_scale.scale == 1. { 1.0001 } else { 1. };
 }
 
 #[derive(Component)]
