@@ -402,8 +402,9 @@ pub fn extract_sprites(
                     .get(atlas_sprite.index)
                     .unwrap_or_else(|| {
                         panic!(
-                            "Sprite index {} does not exist for texture atlas.",
-                            atlas_sprite.index
+                            "Sprite index {:?} does not exist for texture atlas handle {:?}.",
+                            atlas_sprite.index,
+                            texture_atlas_handle.id(),
                         )
                     }),
             );
