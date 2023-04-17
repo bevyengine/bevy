@@ -562,6 +562,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "parallax_mapping"
+path = "examples/3d/parallax_mapping.rs"
+
+[package.metadata.example.parallax_mapping]
+name = "Parallax Mapping"
+description = "Demonstrates use of a normal map and depth map for parallax mapping"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "render_to_texture"
 path = "examples/3d/render_to_texture.rs"
 
@@ -1405,16 +1415,6 @@ name = "post_processing"
 path = "examples/shader/post_processing.rs"
 
 [package.metadata.example.post_processing]
-name = "Post Processing - Render To Texture"
-description = "A custom post processing effect, using two cameras, with one reusing the render texture of the first one"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "post_process_pass"
-path = "examples/shader/post_process_pass.rs"
-
-[package.metadata.example.post_process_pass]
 name = "Post Processing - Custom Render Pass"
 description = "A custom post processing effect, using a custom render pass that runs after the main pass"
 category = "Shaders"
@@ -1670,7 +1670,7 @@ path = "examples/ecs/nondeterministic_system_order.rs"
 
 [package.metadata.example.nondeterministic_system_order]
 name = "Nondeterministic System Order"
-description = "Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this."
+description = "Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this."
 category = "ECS (Entity Component System)"
 wasm = false
 

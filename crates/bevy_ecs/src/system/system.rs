@@ -45,15 +45,20 @@ pub trait System: Send + Sync + 'static {
     ///
     /// # Safety
     ///
-    /// The caller must ensure that `world` has permission to access any world data
-    /// registered in [`Self::archetype_component_access`]. No systems with conflicting
-    /// data access may run at the same time.
+    /// - The caller must ensure that `world` has permission to access any world data
+    ///   registered in [`Self::archetype_component_access`]. No systems with conflicting
+    ///   data access may run at the same time.
+    /// - The method [`Self::update_archetype_component_access`] must be called at some
+    ///   point before this one, with the same exact [`World`]. If `update_archetype_component_access`
+    ///   panics (or otherwise does not return for any reason), this method must not be called.
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out;
     /// Runs the system with the given input in the world.
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         let world = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world);
-        // SAFETY: We have exclusive access to the entire world.
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world) }
     }
     fn apply_buffers(&mut self, world: &mut World);

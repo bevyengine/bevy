@@ -321,8 +321,9 @@ impl MultiThreadedExecutor {
 
             self.ready_systems.set(system_index, false);
 
-            // SAFETY: `can_run` returned true, so there can be no systems
-            // running whose accesses would conflict with any conditions.
+            // SAFETY: `can_run` returned true, which means that:
+            // - It must have called `update_archetype_component_access` for each run condition.
+            // - There can be no systems running whose accesses would conflict with any conditions.
             if !self.should_run(system_index, system, conditions, world_cell) {
                 self.skip_system_and_signal_dependents(system_index);
                 continue;
@@ -345,8 +346,8 @@ impl MultiThreadedExecutor {
 
             // SAFETY:
             // - No other reference to this system exists.
-            // - `can_run` returned true, so no systems with conflicing world access
-            //   are running.
+            // - `can_run` has been called, which calls `update_archetype_component_access` with this system.
+            // - `can_run` returned true, so no systems with conflicing world access are running.
             unsafe {
                 self.spawn_system_task(scope, system_index, systems, world_cell);
             }
@@ -417,9 +418,11 @@ impl MultiThreadedExecutor {
     }
 
     /// # Safety
-    /// `world` must have permission to read any world data required by
-    /// the system's conditions: this includes conditions for the system
-    /// itself, and conditions for any of the system's sets.
+    /// * `world` must have permission to read any world data required by
+    ///   the system's conditions: this includes conditions for the system
+    ///   itself, and conditions for any of the system's sets.
+    /// * `update_archetype_component` must have been called with `world`
+    ///   for each run condition in `conditions`.
     unsafe fn should_run(
         &mut self,
         system_index: usize,
@@ -434,8 +437,10 @@ impl MultiThreadedExecutor {
             }
 
             // Evaluate the system set's conditions.
-            // SAFETY: The caller ensures that `world` has permission to read
-            // any data required by the conditions.
+            // SAFETY:
+            // - The caller ensures that `world` has permission to read any data
+            //   required by the conditions.
+            // - `update_archetype_component_access` has been called for each run condition.
             let set_conditions_met =
                 evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world);
 
@@ -449,8 +454,10 @@ impl MultiThreadedExecutor {
         }
 
         // Evaluate the system's conditions.
-        // SAFETY: The caller ensures that `world` has permission to read
-        // any data required by the conditions.
+        // SAFETY:
+        // - The caller ensures that `world` has permission to read any data
+        //   required by the conditions.
+        // - `update_archetype_component_access` has been called for each run condition.
         let system_conditions_met =
             evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world);
 
@@ -467,6 +474,8 @@ impl MultiThreadedExecutor {
     /// - Caller must not alias systems that are running.
     /// - `world` must have permission to access the world data
     ///   used by the specified system.
+    /// - `update_archetype_component_access` must have been called with `world`
+    ///   on the system assocaited with `system_index`.
     unsafe fn spawn_system_task<'scope>(
         &mut self,
         scope: &Scope<'_, 'scope, ()>,
@@ -488,8 +497,10 @@ impl MultiThreadedExecutor {
             #[cfg(feature = "trace")]
             let system_guard = system_span.enter();
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                // SAFETY: The caller ensures that we have permission to
+                // SAFETY:
+                // - The caller ensures that we have permission to
                 // access the world data used by the system.
+                // - `update_archetype_component_access` has been called.
                 unsafe { system.run_unsafe((), world) };
             }));
             #[cfg(feature = "trace")]
@@ -693,8 +704,10 @@ fn apply_system_buffers(
 }
 
 /// # Safety
-/// `world` must have permission to read any world data
-/// required by `conditions`.
+/// - `world` must have permission to read any world data
+///   required by `conditions`.
+/// `update_archetype_component_access` must have been called
+///   with `world` for each condition in `conditions`.
 unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
     world: UnsafeWorldCell,

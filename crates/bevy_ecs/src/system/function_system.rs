@@ -480,9 +480,10 @@ where
         let change_tick = world.increment_change_tick();
 
         // SAFETY:
-        // - We have registered all world accesses used by `F::Param`, so the caller
-        //   will ensure that `world` has permission to access those data.
-        // - World validation: FIXME (see https://github.com/bevyengine/bevy/pull/7778).
+        // - The caller has invoked `update_archetype_component_access`, which will panic
+        //   if the world does not match.
+        // - All world accesses used by `F::Param` have been registered, so the caller
+        //   will ensure that there are no data access conflicts.
         let params = F::Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
