@@ -388,6 +388,7 @@ impl App {
             schedule.add_systems(systems);
         } else {
             let mut new_schedule = Schedule::new();
+            new_schedule.set_label(schedule.dyn_clone());
             new_schedule.add_systems(systems);
             schedules.insert(schedule, new_schedule);
         }
@@ -459,6 +460,7 @@ impl App {
             schedule.configure_set(set);
         } else {
             let mut new_schedule = Schedule::new();
+            new_schedule.set_label(schedule.dyn_clone());
             new_schedule.configure_set(set);
             schedules.insert(schedule, new_schedule);
         }
@@ -476,6 +478,7 @@ impl App {
             schedule.configure_sets(sets);
         } else {
             let mut new_schedule = Schedule::new();
+            new_schedule.set_label(schedule.dyn_clone());
             new_schedule.configure_sets(sets);
             schedules.insert(schedule, new_schedule);
         }
@@ -869,12 +872,11 @@ impl App {
     /// # Warning
     /// This method will overwrite any existing schedule at that label.
     /// To avoid this behavior, use the `init_schedule` method instead.
-    pub fn add_schedule<Label>(&mut self, label: Label, mut schedule: Schedule) -> &mut Self
-    where
-        Label: ScheduleLabel + Clone,
-    {
-        schedule.set_label(label.clone());
+    pub fn add_schedule(&mut self, label: impl ScheduleLabel, mut schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
+        if schedule.label().is_none() {
+            schedule.set_label(label.dyn_clone());
+        }
         schedules.insert(label, schedule);
 
         self
@@ -886,7 +888,9 @@ impl App {
     pub fn init_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
         if !schedules.contains(&label) {
-            schedules.insert(label, Schedule::new());
+            let mut schedule = Schedule::new();
+            schedule.set_label(label.dyn_clone());
+            schedules.insert(label, schedule);
         }
         self
     }
@@ -916,7 +920,9 @@ impl App {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if schedules.get(&label).is_none() {
-            schedules.insert(label.dyn_clone(), Schedule::new());
+            let mut schedule = Schedule::new();
+            schedule.set_label(label.dyn_clone());
+            schedules.insert(label.dyn_clone(), schedule);
         }
 
         let schedule = schedules.get_mut(&label).unwrap();

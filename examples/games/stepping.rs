@@ -45,36 +45,27 @@ impl Plugin for SteppingPlugin {
         // create our stepping resource
         let mut stepping = Stepping::new();
         for label in self.schedule_labels.iter() {
-            stepping.add_schedule(label.clone());
+            stepping.add_schedule(label.dyn_clone());
         }
+        assert!(!stepping.is_enabled());
         app.insert_resource(stepping);
 
         // add our startup & stepping systems
         app.insert_resource(State {
             ui_top: self.top,
             ui_left: self.left,
-            status: Status::Init,
             schedule_text_map: HashMap::new(),
         })
         .add_systems(
             Debug,
             (
                 build_ui.run_if(not(initialized)),
-                handle_input.run_if(initialized),
+                handle_input,
                 update_ui.run_if(initialized),
-            ),
+            )
+                .chain(),
         );
     }
-}
-
-#[derive(Debug, PartialEq)]
-enum Status {
-    // initial state, waiting for build_ui() to complete successfully
-    Init,
-    // game running normally
-    Run,
-    // stepping enabled; value is index into State.schedule_labels
-    Step,
 }
 
 /// Struct for maintaining stepping state
@@ -84,9 +75,6 @@ struct State {
     // This is used to draw the position indicator as we step
     schedule_text_map: HashMap<BoxedScheduleLabel, Vec<usize>>,
 
-    // status of the stepping plugin
-    status: Status,
-
     // ui positioning
     ui_top: Val,
     ui_left: Val,
@@ -94,7 +82,7 @@ struct State {
 
 /// condition to check if the stepping UI has been constructed
 fn initialized(state: Res<State>) -> bool {
-    !matches!(state.status, Status::Init)
+    !state.schedule_text_map.is_empty()
 }
 
 const FONT_SIZE: f32 = 20.0;
@@ -114,14 +102,23 @@ fn build_ui(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     schedules: Res<Schedules>,
-    stepping: Res<Stepping>,
+    mut stepping: ResMut<Stepping>,
     mut state: ResMut<State>,
 ) {
+    debug_assert!(state.schedule_text_map.is_empty());
+
     let mut text_sections = Vec::new();
+    let mut always_run = Vec::new();
+
+    let schedule_order = match stepping.schedules() {
+        Ok(s) => s,
+        Err(_) => return,
+    };
 
     // go through the stepping schedules and construct a list of systems for
     // each label
-    for label in stepping.schedules() {
+    for label in schedule_order {
+        println!("schedule {:?}", label);
         let schedule = schedules.get(&**label).unwrap();
         text_sections.push(TextSection::new(
             format!("{:?}\n", label),
@@ -141,7 +138,13 @@ fn build_ui(
 
         let mut system_index = Vec::new();
 
-        for (_node_id, system) in systems {
+        for (node_id, system) in systems {
+            if system.name().starts_with("bevy") {
+                always_run.push((label.dyn_clone(), node_id));
+                println!("skipping {:?}", system.name());
+                continue;
+            }
+
             system_index.push(text_sections.len());
             text_sections.push(TextSection::new(
                 "   ",
@@ -152,6 +155,7 @@ fn build_ui(
                 },
             ));
 
+            println!("found system: {:?}/{}\n", label, system.name());
             text_sections.push(TextSection::new(
                 format!("{}\n", system.name()),
                 TextStyle {
@@ -165,7 +169,9 @@ fn build_ui(
         state.schedule_text_map.insert(label.clone(), system_index);
     }
 
-    state.status = Status::Run;
+    for (label, node) in always_run.drain(..) {
+        stepping.always_run_node(label, node);
+    }
 
     commands.spawn((
         SteppingUi,
@@ -201,27 +207,22 @@ fn build_ui(
     }),));
 }
 
-fn handle_input(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut stepping: ResMut<Stepping>,
-    mut state: ResMut<State>,
-) {
+fn handle_input(keyboard_input: Res<Input<KeyCode>>, mut stepping: ResMut<Stepping>) {
+    if keyboard_input.just_pressed(KeyCode::Slash) {
+        debug!("stepping: {:#?}", stepping);
+    }
     // grave key to toggle stepping mode for the FixedUpdate schedule
     if keyboard_input.just_pressed(KeyCode::Grave) {
-        match state.status {
-            Status::Init => return,
-            Status::Run => {
-                state.status = Status::Step;
-                stepping.enable();
-            }
-            Status::Step => {
-                state.status = Status::Run;
-                stepping.disable();
-            }
+        if stepping.is_enabled() {
+            stepping.disable();
+            debug!("disabled stepping");
+        } else {
+            stepping.enable();
+            debug!("enabled stepping");
         }
     }
 
-    if state.status == Status::Run {
+    if !stepping.is_enabled() {
         return;
     }
 
@@ -229,7 +230,6 @@ fn handle_input(
     if keyboard_input.just_pressed(KeyCode::Space) {
         debug!("continue");
         stepping.continue_frame();
-        return;
     } else if keyboard_input.just_pressed(KeyCode::S) {
         debug!("stepping frame");
         stepping.step_frame();
@@ -246,26 +246,26 @@ fn update_ui(
         return;
     }
 
-    // If we're stepping, ensure the UI is visibile, and grab the current
-    // schedule label.  Otherwise, hide the UI and just return.
-    let (entity, mut text, vis) = ui.single_mut();
-    match state.status {
-        Status::Step => {
-            if vis == Visibility::Hidden {
-                commands.entity(entity).insert(Visibility::Inherited);
-            };
+    // ensure the UI is only visible when stepping is enabled
+    let (ui, mut text, vis) = ui.single_mut();
+    match (vis, stepping.is_enabled()) {
+        (Visibility::Hidden, true) => {
+            commands.entity(ui).insert(Visibility::Inherited);
         }
-        _ => {
-            // ensure the UI is hidden if we're not stepping
-            if vis != Visibility::Hidden {
-                commands.entity(entity).insert(Visibility::Hidden);
-            }
-            return;
+        (Visibility::Hidden, false) => (),
+        (_, true) => (),
+        (_, false) => {
+            commands.entity(ui).insert(Visibility::Hidden);
         }
-    };
+    }
+
+    // if we're not stepping, there's nothing more to be done here.
+    if !stepping.is_enabled() {
+        return;
+    }
 
     let cursor = stepping.cursor();
-    for (schedule, label) in stepping.schedules().iter().enumerate() {
+    for (schedule, label) in stepping.schedules().unwrap().iter().enumerate() {
         for (system, text_index) in state
             .schedule_text_map
             .get(label)

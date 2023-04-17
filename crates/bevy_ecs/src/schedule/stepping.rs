@@ -7,6 +7,7 @@ use crate::{
     schedule::{BoxedScheduleLabel, NodeId, Schedule, ScheduleLabel},
     system::{IntoSystem, ResMut, Resource, System},
 };
+use bevy_utils::thiserror::Error;
 
 use crate as bevy_ecs;
 
@@ -36,6 +37,14 @@ enum SystemBehavior {
     Break,
 }
 
+#[derive(Debug, Default, Clone)]
+pub enum SystemCursor {
+    #[default]
+    First,
+    Index(usize, NodeId),
+    None,
+}
+
 // schedule_order index, and schedule start point
 #[derive(Debug, Default, Clone)]
 pub struct Cursor {
@@ -58,6 +67,10 @@ enum Update {
     ClearBehavior(BoxedScheduleLabel, SystemIdentifier),
 }
 
+#[derive(Error, Debug)]
+#[error("not available until all configured schedules have been run; try again next frame")]
+pub struct NotReady;
+
 #[derive(Resource, Default)]
 pub struct Stepping {
     // [`ScheduleState`] for each [`Schedule`] with stepping enabled
@@ -79,6 +92,26 @@ pub struct Stepping {
     updates: Vec<Update>,
 }
 
+impl std::fmt::Debug for Stepping {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Stepping {{ action: {:?}, schedules: {:?}, order: {:?}",
+            self.action,
+            self.schedule_states.keys(),
+            self.schedule_order
+        )?;
+        if self.action != Action::RunAll {
+            let Cursor { schedule, system } = self.cursor;
+            match self.schedule_order.get(schedule) {
+                Some(label) => write!(f, "cursor: {:?}[{}], ", label, system)?,
+                None => write!(f, "cursor: None, ")?,
+            };
+        }
+        write!(f, "}}")
+    }
+}
+
 impl Stepping {
     pub fn new() -> Self {
         Stepping::default()
@@ -92,8 +125,18 @@ impl Stepping {
 
     /// Return the list of schedules with stepping enabled in the order
     /// they are executed in.
-    pub fn schedules(&self) -> &Vec<BoxedScheduleLabel> {
-        &self.schedule_order
+    pub fn schedules(&self) -> Result<&Vec<BoxedScheduleLabel>, NotReady> {
+        /*
+        println!(
+            "schedule_order {:?}, schedule_states {:?}",
+            self.schedule_order.len(),
+            self.schedule_states.len()
+        ); */
+        if self.schedule_order.len() == self.schedule_states.len() {
+            Ok(&self.schedule_order)
+        } else {
+            Err(NotReady)
+        }
     }
 
     /// Return our current position within the stepping frame
@@ -102,11 +145,8 @@ impl Stepping {
     }
 
     /// Enable stepping for the provided schedule
-    pub fn add_schedule<Label>(&mut self, schedule: Label) -> &mut Self
-    where
-        Label: ScheduleLabel + Clone,
-    {
-        self.updates.push(Update::AddSchedule(Box::new(schedule)));
+    pub fn add_schedule(&mut self, schedule: impl ScheduleLabel) -> &mut Self {
+        self.updates.push(Update::AddSchedule(schedule.dyn_clone()));
         self
     }
 
@@ -152,7 +192,10 @@ impl Stepping {
         self
     }
 
-    /// Ensure these systems always run when stepping is enabled
+    /// Ensure this system always runs when stepping is enabled
+    ///
+    /// Note: if the system is run multiple times in the [`Schedule`], this
+    /// will apply for all instances of the system.
     pub fn always_run<Marker>(
         &mut self,
         schedule: impl ScheduleLabel,
@@ -160,11 +203,21 @@ impl Stepping {
     ) -> &mut Self {
         let type_id = IntoSystem::into_system(system).type_id();
         self.updates.push(Update::SetBehavior(
-            Box::new(schedule),
+            schedule.dyn_clone(),
             SystemIdentifier::Type(type_id),
             SystemBehavior::AlwaysRun,
         ));
 
+        self
+    }
+
+    /// Ensure this system always runs when stepping is enabled
+    pub fn always_run_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
+        self.updates.push(Update::SetBehavior(
+            schedule.dyn_clone(),
+            SystemIdentifier::Node(node),
+            SystemBehavior::AlwaysRun,
+        ));
         self
     }
 
@@ -228,20 +281,23 @@ impl Stepping {
 
     /// Advance schedule states for the next render frame
     fn next_frame(&mut self) {
-        println!("next_frame(): resetting action");
-        self.action = Action::Waiting;
-        self.previous_schedule = None;
+        // if stepping is enabled; reset our internal state for the start of
+        // the next frame
+        if self.action != Action::RunAll {
+            self.action = Action::Waiting;
+            self.previous_schedule = None;
 
-        let Cursor {
-            schedule: schedule_index,
-            ..
-        } = self.cursor;
-        if schedule_index >= self.schedule_order.len() {
-            println!("next_frame(): begin new stepping frame");
-            self.cursor = Cursor {
-                schedule: 0,
-                system: 0,
-            };
+            // if the cursor passed the last schedule, reset it
+            let Cursor {
+                schedule: schedule_index,
+                ..
+            } = self.cursor;
+            if schedule_index >= self.schedule_order.len() {
+                self.cursor = Cursor {
+                    schedule: 0,
+                    system: 0,
+                };
+            }
         }
 
         if self.updates.is_empty() {
@@ -318,6 +374,24 @@ impl Stepping {
 
         // grab the label and state for the schedule if they've been added to
         // stepping
+        let mut found = false;
+        for label in self.schedule_states.keys() {
+            match schedule.label() {
+                Some(l) => {
+                    if l == label {
+                        found = true;
+                    }
+                }
+                None => (),
+            }
+        }
+        assert!(
+            !found
+                || self
+                    .schedule_states
+                    .get_mut(schedule.label().as_ref().unwrap())
+                    .is_some()
+        );
         let (label, state) = match schedule.label() {
             None => return None,
             Some(label) => (label, self.schedule_states.get_mut(label)?),
@@ -342,7 +416,7 @@ impl Stepping {
         };
         self.previous_schedule = Some(index);
         println!(
-            "skipped_systems(): cursor {:?}, label {:?}, index {}",
+            "Stepping::skipped_systems(): cursor {:?}, label {:?}, index {}",
             self.cursor, label, index
         );
 
@@ -363,7 +437,10 @@ impl Stepping {
             }
             o
         } else {
-            state.skipped_systems(schedule, start, Action::Waiting)
+            // we're not supposed to run any systems in this schedule, so pull
+            // the skip list, but ignore any changes it makes to the cursor.
+            let (skip, _) = state.skipped_systems(schedule, 0, Action::Waiting);
+            (skip, Some(start))
         };
 
         // update the stepping frame cursor based on if there are any systems
@@ -374,6 +451,11 @@ impl Stepping {
         // cursor.
         match resume {
             None => {
+                println!(
+                    "Stepping::skipped_systems(): next schedule {} -> {}",
+                    schedule_index,
+                    schedule_index + 1
+                );
                 self.cursor = Cursor {
                     schedule: schedule_index + 1,
                     system: 0,
@@ -460,16 +542,17 @@ impl ScheduleState {
         if !self.updates.is_empty() {
             self.apply_updates(schedule);
         }
-        let mut skip = FixedBitSet::with_capacity(schedule.systems_len());
 
+        let mut skip = FixedBitSet::with_capacity(schedule.systems_len());
         let mut pos = start;
+
         for (i, (node_id, system)) in schedule.systems().unwrap().enumerate() {
             let behavior = self
                 .systems
                 .get(&node_id)
                 .unwrap_or(&SystemBehavior::Continue);
             println!(
-                "skipped_systems(): systems[{}], cursor {}, Action::{:?}, Behavior::{:?}, {}",
+                "skipped_systems(): systems[{}], pos {}, Action::{:?}, Behavior::{:?}, {}",
                 i,
                 pos,
                 action,
@@ -579,14 +662,10 @@ mod tests {
         (schedule, world)
     }
 
-    // Helper for verifying the expected systems will be run by the schedule
-    //
-    // This macro will construct an expected FixedBitSet for the systems that
-    // should be skipped, and compare it with the results from stepping the
-    // provided schedule.  If they don't match, it generates a human-readable
-    // error message and asserts.
-    macro_rules! assert_schedule_runs {
-        ($schedule:expr, $stepping:expr, $($system:expr),*) => {
+    // Helper for verifying that a set of systems will be run for a given skip
+    // list
+    macro_rules! assert_systems_run {
+        ($schedule:expr, $skipped_systems:expr, $($system:expr),*) => {
             // pull an ordered list of systems in the schedule, and save the
             // system TypeId, and name.
             let systems: Vec<(TypeId, std::borrow::Cow<'static, str>)> = $schedule.systems().unwrap()
@@ -609,10 +688,8 @@ mod tests {
             // flip the run list to get our skip list
             expected.toggle_range(..);
 
-            // advance stepping to the next frame, and build the skip list for
-            // this schedule
-            $stepping.next_frame();
-            let actual = match $stepping.skipped_systems($schedule) {
+            // grab the list of skipped systems
+            let actual = match $skipped_systems {
                 None => FixedBitSet::with_capacity(systems.len()),
                 Some(b) => b,
             };
@@ -638,6 +715,21 @@ mod tests {
                 }
                 assert_eq!(actual, expected, "{}", msg);
             }
+        };
+    }
+
+    // Helper for verifying the expected systems will be run by the schedule
+    //
+    // This macro will construct an expected FixedBitSet for the systems that
+    // should be skipped, and compare it with the results from stepping the
+    // provided schedule.  If they don't match, it generates a human-readable
+    // error message and asserts.
+    macro_rules! assert_schedule_runs {
+        ($schedule:expr, $stepping:expr, $($system:expr),*) => {
+            // advance stepping to the next frame, and build the skip list for
+            // this schedule
+            $stepping.next_frame();
+            assert_systems_run!($schedule, $stepping.skipped_systems($schedule), $($system),*);
         };
     }
 
@@ -893,6 +985,50 @@ mod tests {
         assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
     }
 
+    // Schedules such as FixedUpdate can be called multiple times in a single
+    // render frame.  Ensure we only run steppable systems the first time the
+    // schedule is run
+    #[test]
+    fn multiple_calls_per_frame_continue() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .always_run(TestSchedule, second_system)
+            .continue_frame();
+
+        // start a new frame, then run the schedule three times; first system
+        // should only run on the first one
+        stepping.next_frame();
+        assert_systems_run!(
+            &schedule,
+            stepping.skipped_systems(&schedule),
+            first_system,
+            second_system
+        );
+        assert_systems_run!(
+            &schedule,
+            stepping.skipped_systems(&schedule),
+            second_system
+        );
+    }
+    #[test]
+    fn multiple_calls_per_frame_step() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping.add_schedule(TestSchedule).enable().step_frame();
+
+        // start a new frame, then run the schedule three times; first system
+        // should only run on the first one
+        stepping.next_frame();
+        assert_systems_run!(&schedule, stepping.skipped_systems(&schedule), first_system);
+        assert_systems_run!(&schedule, stepping.skipped_systems(&schedule),);
+    }
+
+    // verify that Stepping can construct an ordered list of schedules
     #[test]
     fn schedules() {
         let mut world = World::new();
@@ -921,44 +1057,28 @@ mod tests {
             .enable()
             .next_frame();
 
-        stepping.skipped_systems(&schedule_b);
-        stepping.skipped_systems(&schedule_a);
-        stepping.skipped_systems(&schedule_c);
-        assert_eq!(
-            &stepping.schedules()[0],
-            schedule_b.label().as_ref().unwrap()
-        );
-        assert_eq!(
-            &stepping.schedules()[1],
-            schedule_a.label().as_ref().unwrap()
-        );
-        assert_eq!(
-            &stepping.schedules()[2],
-            schedule_c.label().as_ref().unwrap()
-        );
+        assert!(stepping.schedules().is_err());
 
-        // make it complicated, run schedule_d after schedule_b and confirm it
-        // was inserted correctly
-        stepping.next_frame();
         stepping.skipped_systems(&schedule_b);
-        stepping.skipped_systems(&schedule_d);
+        assert!(stepping.schedules().is_err());
         stepping.skipped_systems(&schedule_a);
+        assert!(stepping.schedules().is_err());
         stepping.skipped_systems(&schedule_c);
+        assert!(stepping.schedules().is_err());
+
+        // when we call the last schedule, Stepping should have enough data to
+        // return an ordered list of schedules
+        stepping.skipped_systems(&schedule_d);
+        assert!(stepping.schedules().is_ok());
+
         assert_eq!(
-            &stepping.schedules()[0],
-            schedule_b.label().as_ref().unwrap()
-        );
-        assert_eq!(
-            &stepping.schedules()[1],
-            schedule_d.label().as_ref().unwrap()
-        );
-        assert_eq!(
-            &stepping.schedules()[2],
-            schedule_a.label().as_ref().unwrap()
-        );
-        assert_eq!(
-            &stepping.schedules()[3],
-            schedule_c.label().as_ref().unwrap()
+            *stepping.schedules().unwrap(),
+            vec![
+                TestScheduleB.dyn_clone(),
+                TestScheduleA.dyn_clone(),
+                TestScheduleC.dyn_clone(),
+                TestScheduleD.dyn_clone(),
+            ]
         );
     }
 }

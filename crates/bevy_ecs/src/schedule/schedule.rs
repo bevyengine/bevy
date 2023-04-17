@@ -186,7 +186,7 @@ impl Schedule {
     /// Set the label for this schedule
     pub fn set_label(&mut self, label: impl ScheduleLabel) -> &mut Self {
         debug_assert!(self.label.is_none());
-        self.label = Some(Box::new(label));
+        self.label = Some(label.dyn_clone());
         self
     }
 
