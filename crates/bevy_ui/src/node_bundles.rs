@@ -1,8 +1,8 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style,
-    UiImage, ZIndex,
+    widget::{Button, UiImageSize},
+    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -10,7 +10,7 @@ use bevy_render::{
     view::Visibility,
 };
 #[cfg(feature = "bevy_text")]
-use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
+use bevy_text::{Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -76,6 +76,10 @@ pub struct ImageBundle {
     pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
+    /// The size of the image in pixels
+    ///
+    /// This field is set automatically
+    pub image_size: UiImageSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -106,6 +110,8 @@ pub struct TextBundle {
     pub style: Style,
     /// Contains the text of the node
     pub text: Text,
+    /// Text layout information
+    pub text_layout_info: TextLayoutInfo,
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
     /// Whether this node should block interaction with lower nodes
@@ -135,6 +141,7 @@ impl Default for TextBundle {
     fn default() -> Self {
         Self {
             text: Default::default(),
+            text_layout_info: Default::default(),
             calculated_size: Default::default(),
             // Transparent background
             background_color: BackgroundColor(Color::NONE),
