@@ -263,6 +263,7 @@ impl SparseSetIndex for BundleId {
         self.index()
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Self(value)
     }

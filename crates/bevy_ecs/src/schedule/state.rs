@@ -129,16 +129,18 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
     if let Some(entered) = next_state_resource.bypass_change_detection().0.take() {
         next_state_resource.set_changed();
 
-        let exited = mem::replace(&mut world.resource_mut::<State<S>>().0, entered.clone());
-
-        // Try to run the schedules if they exist.
-        world.try_run_schedule(OnExit(exited.clone())).ok();
-        world
-            .try_run_schedule(OnTransition {
-                from: exited,
-                to: entered.clone(),
-            })
-            .ok();
-        world.try_run_schedule(OnEnter(entered)).ok();
+        let mut state_resource = world.resource_mut::<State<S>>();
+        if *state_resource != entered {
+            let exited = mem::replace(&mut state_resource.0, entered.clone());
+            // Try to run the schedules if they exist.
+            world.try_run_schedule(OnExit(exited.clone())).ok();
+            world
+                .try_run_schedule(OnTransition {
+                    from: exited,
+                    to: entered.clone(),
+                })
+                .ok();
+            world.try_run_schedule(OnEnter(entered)).ok();
+        }
     }
 }

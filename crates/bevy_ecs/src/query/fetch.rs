@@ -550,6 +550,7 @@ unsafe impl<T: Component> WorldQuery for &T {
 
     const IS_ARCHETYPAL: bool = true;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
@@ -695,6 +696,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 
     const IS_ARCHETYPAL: bool = true;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
@@ -856,6 +858,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
     const IS_ARCHETYPAL: bool = true;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
@@ -1000,6 +1003,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 
     const IS_ARCHETYPAL: bool = T::IS_ARCHETYPAL;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         state: &T::State,
@@ -1104,6 +1108,7 @@ macro_rules! impl_tuple_fetch {
                 )*)
             }
 
+            #[inline]
             #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
@@ -1213,6 +1218,7 @@ macro_rules! impl_anytuple_fetch {
                 )*)
             }
 
+            #[inline]
             #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
@@ -1275,34 +1281,21 @@ macro_rules! impl_anytuple_fetch {
             fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
                 let ($($name,)*) = state;
 
-                // We do not unconditionally add `$name`'s `with`/`without` accesses to `_access`
-                // as this would be unsound. For example the following two queries should conflict:
-                // - Query<(AnyOf<(&A, ())>, &mut B)>
-                // - Query<&mut B, Without<A>>
-                //
-                // If we were to unconditionally add `$name`'s `with`/`without` accesses then `AnyOf<(&A, ())>`
-                // would have a `With<A>` access which is incorrect as this `WorldQuery` will match entities that
-                // do not have the `A` component. This is the same logic as the `Or<...>: WorldQuery` impl.
-                //
-                // The correct thing to do here is to only add a `with`/`without` access to `_access` if all
-                // `$name` params have that `with`/`without` access. More jargony put- we add the intersection
-                // of all `with`/`without` accesses of the `$name` params to `_access`.
-                let mut _intersected_access = _access.clone();
+                let mut _new_access = _access.clone();
                 let mut _not_first = false;
                 $(
                     if _not_first {
                         let mut intermediate = _access.clone();
                         $name::update_component_access($name, &mut intermediate);
-                        _intersected_access.extend_intersect_filter(&intermediate);
-                        _intersected_access.extend_access(&intermediate);
+                        _new_access.append_or(&intermediate);
+                        _new_access.extend_access(&intermediate);
                     } else {
-
-                        $name::update_component_access($name, &mut _intersected_access);
+                        $name::update_component_access($name, &mut _new_access);
                         _not_first = true;
                     }
                 )*
 
-                *_access = _intersected_access;
+                *_access = _new_access;
             }
 
             fn update_archetype_component_access(state: &Self::State, _archetype: &Archetype, _access: &mut Access<ArchetypeComponentId>) {
