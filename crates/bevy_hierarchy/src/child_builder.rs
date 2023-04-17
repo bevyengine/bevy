@@ -656,6 +656,7 @@ mod tests {
         );
     }
 
+    // regression test for https://github.com/bevyengine/bevy/pull/8346
     #[test]
     fn set_parent_of_orphan() {
         let world = &mut World::new();
