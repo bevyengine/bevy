@@ -2,7 +2,7 @@
 //!
 //! ```no_run
 //! # use bevy_ecs::prelude::*;
-//! # use bevy_audio::{AudioBundle, AudioPlugin};
+//! # use bevy_audio::{AudioBundle, AudioPlugin, PlaybackSettings};
 //! # use bevy_asset::{AssetPlugin, AssetServer};
 //! # use bevy_app::{App, AppExit, NoopPluginGroup as MinimalPlugins, Startup};
 //! fn main() {
