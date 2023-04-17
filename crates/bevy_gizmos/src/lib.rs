@@ -186,7 +186,7 @@ fn extract_gizmo_data(
     commands.spawn_batch([&handles.strip, &handles.list].map(|handle| {
         (
             LineGizmoUniform {
-                thickness: config.line_width,
+                line_width: config.line_width,
                 depth_bias: config.depth_bias,
             },
             handle.clone(),
@@ -196,7 +196,7 @@ fn extract_gizmo_data(
 
 #[derive(Component, ShaderType, Clone, Copy)]
 struct LineGizmoUniform {
-    thickness: f32,
+    line_width: f32,
     depth_bias: f32,
 }
 
