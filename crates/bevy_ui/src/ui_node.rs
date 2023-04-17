@@ -1541,6 +1541,7 @@ pub struct CalculatedClip {
 ///
 /// Nodes without this component will be treated as if they had a value of [`ZIndex::Local(0)`].
 #[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
 pub enum ZIndex {
     /// Indicates the order in which this node should be rendered relative to its siblings.
     Local(i32),
