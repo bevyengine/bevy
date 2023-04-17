@@ -1765,6 +1765,8 @@ path = "examples/ui/overflow.rs"
 [package.metadata.example.overflow]
 name = "Overflow"
 description = "Simple example demonstrating overflow behavior"
+category = "UI (User Interface)"
+wasm = true
 
 [[example]]
 name = "overflow_debug"
