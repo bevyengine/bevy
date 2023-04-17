@@ -1,7 +1,9 @@
 //! Demonstrates how to work with Cubic curves.
-//!
 
-use bevy::{math::{cubic_splines::CubicCurve, vec3}, prelude::*};
+use bevy::{
+    math::{cubic_splines::CubicCurve, vec3},
+    prelude::*,
+};
 
 #[derive(Component)]
 pub struct Curve(CubicCurve<Vec3>);
