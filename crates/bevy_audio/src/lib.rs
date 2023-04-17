@@ -47,6 +47,8 @@ use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Asset};
 use bevy_ecs::prelude::*;
 
+use audio_output::*;
+
 /// Set for the audio playback systems, so they can share a run condition
 #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 struct AudioPlaySet;
@@ -63,11 +65,12 @@ pub struct AudioPlugin {
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(self.global_volume)
-            .configure_set(
+            .configure_set(PostUpdate, AudioPlaySet.run_if(audio_output_available))
+            .init_resource::<AudioOutput>()
+            .add_systems(
                 PostUpdate,
-                AudioPlaySet.run_if(crate::audio_output::audio_output_available),
-            )
-            .init_resource::<crate::audio_output::AudioOutput>();
+                despawn_finished_audio_entities.in_set(AudioPlaySet),
+            );
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
         {
@@ -85,7 +88,7 @@ impl AddAudioSource for App {
     {
         self.add_asset::<T>().add_systems(
             PostUpdate,
-            crate::audio_output::play_queued_audio_system::<T>.in_set(AudioPlaySet),
+            play_queued_audio_system::<T>.in_set(AudioPlaySet),
         )
     }
 }

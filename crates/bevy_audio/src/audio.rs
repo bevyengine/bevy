@@ -53,14 +53,25 @@ impl VolumeLevel {
     }
 }
 
+/// How should Bevy manage the sound playback?
+#[derive(Debug, Clone, Copy)]
+pub enum PlaybackMode {
+    /// Play the sound once. Do nothing when it ends.
+    Once,
+    /// Repeat the sound forever.
+    Loop,
+    /// Despawn the entity when the sound finishes playing.
+    Despawn,
+}
+
 /// Initial settings to be used when audio starts playing.
 /// If you would like to control the audio while it is playing, query for the
 /// [`AudioSink`] or [`SpatialAudioSink`] components.
 /// Changes to this component will *not* be applied to already-playing audio.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PlaybackSettings {
-    /// Repeat/loop the sound.
-    pub repeat: bool,
+    /// The desired playback behavior.
+    pub mode: PlaybackMode,
     /// Volume to play at.
     pub volume: Volume,
     /// Speed to play at.
@@ -73,6 +84,7 @@ pub struct PlaybackSettings {
 
 impl Default for PlaybackSettings {
     fn default() -> Self {
+        // TODO: should the default be ONCE or DESPAWN?
         Self::ONCE
     }
 }
@@ -80,7 +92,7 @@ impl Default for PlaybackSettings {
 impl PlaybackSettings {
     /// Will play the associated audio source once.
     pub const ONCE: PlaybackSettings = PlaybackSettings {
-        repeat: false,
+        mode: PlaybackMode::Once,
         volume: Volume::Relative(VolumeLevel(1.0)),
         speed: 1.0,
         paused: false,
@@ -88,7 +100,15 @@ impl PlaybackSettings {
 
     /// Will play the associated audio source in a loop.
     pub const LOOP: PlaybackSettings = PlaybackSettings {
-        repeat: true,
+        mode: PlaybackMode::Loop,
+        volume: Volume::Relative(VolumeLevel(1.0)),
+        speed: 1.0,
+        paused: false,
+    };
+
+    /// Will play the associated audio source once and despawn the entity.
+    pub const DESPAWN: PlaybackSettings = PlaybackSettings {
+        mode: PlaybackMode::Despawn,
         volume: Volume::Relative(VolumeLevel(1.0)),
         speed: 1.0,
         paused: false,
