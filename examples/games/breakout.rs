@@ -415,7 +415,7 @@ fn play_collision_sound(
         commands.spawn(
             AudioBundle::from_audio_source(sound.0.clone())
                 // auto-despawn the entity when playback finishes
-                .with_settings(PlaybackSettings::DESPAWN)
+                .with_settings(PlaybackSettings::DESPAWN),
         );
     }
 }
