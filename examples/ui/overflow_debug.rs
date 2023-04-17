@@ -10,16 +10,18 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // TODO: Remove once #8144 is fixed
-        .insert_resource(GizmoConfig {
-            enabled: false,
-            ..default()
-        })
-        .insert_resource(AnimationState {
-            playing: false,
-            paused_at: 0.0,
-            paused_total: 0.0,
-            t: 0.0,
-        })
+        .insert_resources((
+            GizmoConfig {
+                enabled: false,
+                ..default()
+            },
+            AnimationState {
+                playing: false,
+                paused_at: 0.0,
+                paused_total: 0.0,
+                t: 0.0,
+            },
+        ))
         .add_systems(Startup, setup)
         .add_systems(
             Update,

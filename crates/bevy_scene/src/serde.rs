@@ -494,7 +494,7 @@ mod tests {
         let b = world.spawn((Foo(123), Bar(345))).id();
         let c = world.spawn((Foo(123), Bar(345), Baz(789))).id();
 
-        world.insert_resource(MyResource { foo: 123 });
+        world.insert_resources(MyResource { foo: 123 });
 
         let mut builder = DynamicSceneBuilder::from_world(&world);
         builder.extract_entities([a, b, c].into_iter());

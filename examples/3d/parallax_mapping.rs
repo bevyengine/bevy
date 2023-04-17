@@ -8,7 +8,7 @@ use bevy::{prelude::*, render::render_resource::TextureFormat, window::close_on_
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(Normal(None))
+        .insert_resources(Normal(None))
         .add_systems(Startup, setup)
         .add_systems(
             Update,

@@ -19,14 +19,16 @@ fn main() {
         ..default()
     }))
     .add_plugin(FrameTimeDiagnosticsPlugin::default())
-    .insert_resource(Config {
-        line_count: 50_000,
-        fancy: false,
-    })
-    .insert_resource(GizmoConfig {
-        on_top: false,
-        ..default()
-    })
+    .insert_resources((
+        Config {
+            line_count: 50_000,
+            fancy: false,
+        },
+        GizmoConfig {
+            on_top: false,
+            ..default()
+        },
+    ))
     .add_systems(Startup, setup)
     .add_systems(Update, (input, ui_system));
 

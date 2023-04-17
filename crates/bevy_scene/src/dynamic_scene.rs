@@ -188,7 +188,7 @@ where
 mod tests {
     use bevy_app::AppTypeRegistry;
     use bevy_ecs::{entity::EntityMap, system::Command, world::World};
-    use bevy_hierarchy::{AddChild, Parent};
+    use bevy_hierarchy::{AddChildCommand, Parent};
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
@@ -198,14 +198,14 @@ mod tests {
 
         // First, we create a simple world with a parent and a child relationship
         let mut world = World::new();
-        world.init_resource::<AppTypeRegistry>();
+        world.init_resources::<AppTypeRegistry>();
         world
             .resource_mut::<AppTypeRegistry>()
             .write()
             .register::<Parent>();
         let original_parent_entity = world.spawn_empty().id();
         let original_child_entity = world.spawn_empty().id();
-        AddChild {
+        AddChildCommand {
             parent: original_parent_entity,
             child: original_child_entity,
         }
@@ -226,7 +226,7 @@ mod tests {
         // We then add the parent from the scene as a child of the original child
         // Hierarchy should look like:
         // Original Parent <- Original Child <- Scene Parent <- Scene Child
-        AddChild {
+        AddChildCommand {
             parent: original_child_entity,
             child: from_scene_parent_entity,
         }

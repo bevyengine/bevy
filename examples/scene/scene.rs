@@ -111,7 +111,7 @@ fn save_scene_system(world: &mut World) {
         Transform::IDENTITY,
     ));
     scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
-    scene_world.insert_resource(ResourceA { score: 1 });
+    scene_world.insert_resources(ResourceA { score: 1 });
 
     // The TypeRegistry resource contains information about all registered types (including
     // components). This is used to construct scenes.

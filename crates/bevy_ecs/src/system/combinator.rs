@@ -257,7 +257,7 @@ where
 ///
 /// fn main() {
 ///     let mut world = World::default();
-///     world.insert_resource(Message("42".to_string()));
+///     world.insert_resources(Message("42".to_string()));
 ///
 ///     // pipe the `parse_message_system`'s output into the `filter_system`s input
 ///     let mut piped_system = parse_message_system.pipe(filter_system);

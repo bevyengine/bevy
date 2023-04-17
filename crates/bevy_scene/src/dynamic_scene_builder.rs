@@ -172,8 +172,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// struct MyResource;
     ///
     /// # let mut world = World::default();
-    /// # world.init_resource::<AppTypeRegistry>();
-    /// world.insert_resource(MyResource);
+    /// # world.init_resources::<AppTypeRegistry>();
+    /// world.insert_resources(MyResource);
     ///
     /// let mut builder = DynamicSceneBuilder::from_world(&world);
     /// builder.extract_resources();
@@ -374,9 +374,7 @@ mod tests {
 
         let atr = AppTypeRegistry::default();
         atr.write().register::<ResourceA>();
-        world.insert_resource(atr);
-
-        world.insert_resource(ResourceA);
+        world.insert_resources((atr, ResourceA));
 
         let mut builder = DynamicSceneBuilder::from_world(&world);
         builder.extract_resources();
@@ -392,9 +390,7 @@ mod tests {
 
         let atr = AppTypeRegistry::default();
         atr.write().register::<ResourceA>();
-        world.insert_resource(atr);
-
-        world.insert_resource(ResourceA);
+        world.insert_resources((atr, ResourceA));
 
         let mut builder = DynamicSceneBuilder::from_world(&world);
         builder.extract_resources();

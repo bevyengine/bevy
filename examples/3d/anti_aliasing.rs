@@ -20,7 +20,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(Msaa::Off)
+        .insert_resources(Msaa::Off)
         .add_plugins(DefaultPlugins)
         .add_plugin(TemporalAntiAliasPlugin)
         .add_systems(Startup, setup)

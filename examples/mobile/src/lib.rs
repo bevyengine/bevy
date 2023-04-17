@@ -18,7 +18,7 @@ fn main() {
     // MSAA makes some Android devices panic, this is under investigation
     // https://github.com/bevyengine/bevy/issues/8229
     #[cfg(target_os = "android")]
-    app.insert_resource(Msaa::Off);
+    app.insert_resources(Msaa::Off);
 
     app.run();
 }
