@@ -296,8 +296,6 @@ pub enum ProcessShaderError {
         "Not enough '# endif' lines. Each if statement should be followed by an endif statement."
     )]
     NotEnoughEndIfs,
-    #[error("This Shader's format does not support processing shader defs.")]
-    ShaderFormatDoesNotSupportShaderDefs,
     #[error("This Shader's format does not support imports.")]
     ShaderFormatDoesNotSupportImports,
     #[error("Unresolved import: {0:?}.")]
@@ -477,10 +475,7 @@ impl ShaderProcessor {
             Source::Wgsl(source) => source.deref(),
             Source::Glsl(source, _stage) => source.deref(),
             Source::SpirV(source) => {
-                if shader_defs_unique.is_empty() {
-                    return Ok(ProcessedShader::SpirV(source.clone()));
-                }
-                return Err(ProcessShaderError::ShaderFormatDoesNotSupportShaderDefs);
+                return Ok(ProcessedShader::SpirV(source.clone()));
             }
         };
 

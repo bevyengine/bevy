@@ -35,14 +35,14 @@ fn main() {
                 scoreboard_system,
                 spawn_bonus,
             )
-                .in_set(OnUpdate(GameState::Playing)),
+                .run_if(in_state(GameState::Playing)),
         )
         .add_systems(OnExit(GameState::Playing), teardown)
         .add_systems(OnEnter(GameState::GameOver), display_score)
         .add_systems(
             Update,
             (
-                gameover_keyboard.in_set(OnUpdate(GameState::GameOver)),
+                gameover_keyboard.run_if(in_state(GameState::GameOver)),
                 bevy::window::close_on_esc,
             ),
         )
@@ -182,8 +182,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     );
 }
 
-// remove all entities that are not a camera
-fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
+// remove all entities that are not a camera or window
+fn teardown(mut commands: Commands, entities: Query<Entity, (Without<Camera>, Without<Window>)>) {
     for entity in &entities {
         commands.entity(entity).despawn();
     }

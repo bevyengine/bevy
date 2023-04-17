@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 /// Common run conditions
 pub mod common_conditions;
 pub mod fixed_timestep;

@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod axis;
 /// Common run conditions
 pub mod common_conditions;

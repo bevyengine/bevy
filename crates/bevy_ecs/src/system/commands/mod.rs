@@ -448,9 +448,7 @@ impl<'w, 's> Commands<'w, 's> {
         note = "Please use `init_resources::<YourResource>()` instead."
     )]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        self.queue.push(InitResourceCommand::<R> {
-            _phantom: PhantomData::<R>::default(),
-        });
+        self.queue.push(InitResourceCommand::<R>::new());
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
@@ -484,9 +482,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboards);
     /// ```
     pub fn init_resources<R: InitResources>(&mut self) {
-        self.queue.push(InitResourcesCommand::<R> {
-            _phantom: PhantomData::<R>::default(),
-        });
+        self.queue.push(InitResourcesCommand::<R>::new());
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
@@ -572,9 +568,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn remove_resource<R: Resource>(&mut self) {
-        self.queue.push(RemoveResourceCommand::<R> {
-            phantom: PhantomData,
-        });
+        self.queue.push(RemoveResourceCommand::<R>::new());
     }
 
     /// Pushes a generic [`Command`] to the command queue.
@@ -821,10 +815,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     where
         T: Bundle,
     {
-        self.commands.add(RemoveCommand::<T> {
-            entity: self.entity,
-            phantom: PhantomData,
-        });
+        self.commands.add(RemoveCommand::<T>::new(self.entity));
         self
     }
 
@@ -1029,6 +1020,16 @@ where
     }
 }
 
+impl<T> RemoveCommand<T> {
+    /// Creates a [`Command`] which will remove the specified [`Entity`] when flushed
+    pub const fn new(entity: Entity) -> Self {
+        Self {
+            entity,
+            phantom: PhantomData::<T>,
+        }
+    }
+}
+
 pub struct InitResourceCommand<R: Resource + FromWorld> {
     _phantom: PhantomData<R>,
 }
@@ -1039,6 +1040,15 @@ impl<R: Resource + FromWorld> Command for InitResourceCommand<R> {
     }
 }
 
+impl<R: Resource + FromWorld> InitResourceCommand<R> {
+    /// Creates a [`Command`] which will insert a default created [`Resource`] into the [`World`]
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData::<R>,
+        }
+    }
+}
+
 pub struct InitResourcesCommand<R: InitResources> {
     _phantom: PhantomData<R>,
 }
@@ -1046,6 +1056,15 @@ pub struct InitResourcesCommand<R: InitResources> {
 impl<R: InitResources> Command for InitResourcesCommand<R> {
     fn write(self, world: &mut World) {
         world.init_resources::<R>();
+    }
+}
+
+impl<R: InitResources> InitResourcesCommand<R> {
+    /// Creates a [`Command`] which will insert a default created [`Resource`] into the [`World`]
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData::<R>,
+        }
     }
 }
 
@@ -1076,6 +1095,15 @@ pub struct RemoveResourceCommand<R: Resource> {
 impl<R: Resource> Command for RemoveResourceCommand<R> {
     fn write(self, world: &mut World) {
         world.remove_resource::<R>();
+    }
+}
+
+impl<R: Resource> RemoveResourceCommand<R> {
+    /// Creates a [`Command`] which will remove a [`Resource`] from the [`World`]
+    pub const fn new() -> Self {
+        Self {
+            phantom: PhantomData::<R>,
+        }
     }
 }
 

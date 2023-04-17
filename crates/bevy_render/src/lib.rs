@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
@@ -255,7 +257,7 @@ impl Plugin for RenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        // This set applies the commands from the extract stage while the render schedule
+                        // This set applies the commands from the extract schedule while the render schedule
                         // is running in parallel with the main app.
                         apply_extract_commands.in_set(RenderSet::ExtractCommands),
                         (

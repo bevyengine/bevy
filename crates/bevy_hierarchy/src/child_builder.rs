@@ -41,12 +41,15 @@ fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option
 ///
 /// Removes the [`Children`] component from the parent if it's empty.
 fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
-    let mut parent = world.entity_mut(parent);
-    if let Some(mut children) = parent.get_mut::<Children>() {
-        children.0.retain(|x| *x != child);
-        if children.is_empty() {
-            parent.remove::<Children>();
-        }
+    let Some(mut parent) = world.get_entity_mut(parent) else {
+        return;
+    };
+    let Some(mut children) = parent.get_mut::<Children>() else {
+        return;
+    };
+    children.0.retain(|x| *x != child);
+    if children.is_empty() {
+        parent.remove::<Children>();
     }
 }
 
@@ -651,6 +654,23 @@ mod tests {
                 new_parent: c,
             }],
         );
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/8346
+    #[test]
+    fn set_parent_of_orphan() {
+        let world = &mut World::new();
+
+        let [a, b, c] = std::array::from_fn(|_| world.spawn_empty().id());
+        world.entity_mut(a).set_parent(b);
+        assert_parent(world, a, Some(b));
+        assert_children(world, b, Some(&[a]));
+
+        world.entity_mut(b).despawn();
+        world.entity_mut(a).set_parent(c);
+
+        assert_parent(world, a, Some(c));
+        assert_children(world, c, Some(&[a]));
     }
 
     #[test]

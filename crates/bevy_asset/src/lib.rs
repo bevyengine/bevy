@@ -9,6 +9,7 @@
 //! [asset storage]: struct.Assets.html
 
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 mod asset_server;
 mod assets;

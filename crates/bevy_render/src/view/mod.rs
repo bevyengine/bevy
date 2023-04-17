@@ -6,7 +6,7 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
@@ -18,7 +18,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec4, Vec3, Vec4};
+use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -161,6 +161,7 @@ impl Default for ColorGrading {
 #[derive(Clone, ShaderType)]
 pub struct ViewUniform {
     view_proj: Mat4,
+    unjittered_view_proj: Mat4,
     inverse_view_proj: Mat4,
     view: Mat4,
     inverse_view: Mat4,
@@ -307,31 +308,41 @@ pub struct ViewDepthTexture {
     pub view: TextureView,
 }
 
-fn prepare_view_uniforms(
+pub fn prepare_view_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut view_uniforms: ResMut<ViewUniforms>,
-    views: Query<(Entity, &ExtractedView)>,
+    views: Query<(Entity, &ExtractedView, Option<&TemporalJitter>)>,
 ) {
     view_uniforms.uniforms.clear();
-    for (entity, camera) in &views {
-        let projection = camera.projection;
+
+    for (entity, camera, temporal_jitter) in &views {
+        let viewport = camera.viewport.as_vec4();
+        let unjittered_projection = camera.projection;
+        let mut projection = unjittered_projection;
+
+        if let Some(temporal_jitter) = temporal_jitter {
+            temporal_jitter.jitter_projection(&mut projection, viewport.zw());
+        }
+
         let inverse_projection = projection.inverse();
         let view = camera.transform.compute_matrix();
         let inverse_view = view.inverse();
+
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
                 view_proj: camera
                     .view_projection
                     .unwrap_or_else(|| projection * inverse_view),
+                unjittered_view_proj: unjittered_projection * inverse_view,
                 inverse_view_proj: view * inverse_projection,
                 view,
                 inverse_view,
                 projection,
                 inverse_projection,
                 world_position: camera.transform.translation(),
-                viewport: camera.viewport.as_vec4(),
+                viewport,
                 color_grading: camera.color_grading,
             }),
         };

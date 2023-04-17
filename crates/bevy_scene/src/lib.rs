@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod bundle;
 mod dynamic_scene;
 mod dynamic_scene_builder;

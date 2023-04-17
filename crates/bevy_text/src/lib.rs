@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod error;
 mod font;
 mod font_atlas;
@@ -70,11 +72,12 @@ impl Plugin for TextPlugin {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
             .register_type::<Text>()
+            .register_type::<Text2dBounds>()
             .register_type::<TextSection>()
             .register_type::<Vec<TextSection>>()
             .register_type::<TextStyle>()
-            .register_type::<Text>()
             .register_type::<TextAlignment>()
+            .register_type::<BreakLineOn>()
             .init_asset_loader::<FontLoader>()
             .init_resources::<(TextSettings, FontAtlasWarning)>()
             .insert_resources(TextPipeline::default())

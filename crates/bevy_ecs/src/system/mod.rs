@@ -123,17 +123,40 @@ pub use system::*;
 pub use system_param::*;
 pub use system_piping::*;
 
+use crate::world::World;
+
 /// Ensure that a given function is a [system](System).
 ///
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
 /// valid systems.
-pub fn assert_is_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S) {
-    if false {
-        // Check it can be converted into a system
-        // TODO: This should ensure that the system has no conflicting system params
-        IntoSystem::into_system(sys);
-    }
+///
+/// # Examples
+///
+/// The following example will panic when run since the
+/// system's parameters mutably access the same component
+/// multiple times.
+///
+/// ```should_panic
+/// # use bevy_ecs::{prelude::*, system::assert_is_system};
+/// #
+/// # #[derive(Component)]
+/// # struct Transform;
+/// #
+/// fn my_system(query1: Query<&mut Transform>, query2: Query<&mut Transform>) {
+///     // ...
+/// }
+///
+/// assert_is_system(my_system);
+/// ```
+pub fn assert_is_system<In: 'static, Out: 'static, Marker>(
+    system: impl IntoSystem<In, Out, Marker>,
+) {
+    let mut system = IntoSystem::into_system(system);
+
+    // Initialize the system, which will panic if the system has access conflicts.
+    let mut world = World::new();
+    system.initialize(&mut world);
 }
 
 /// Ensure that a given function is a [read-only system](ReadOnlySystem).
@@ -141,15 +164,30 @@ pub fn assert_is_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S)
 /// This should be used when writing doc examples,
 /// to confirm that systems used in an example are
 /// valid systems.
-pub fn assert_is_read_only_system<In, Out, Marker, S: IntoSystem<In, Out, Marker>>(sys: S)
+///
+/// # Examples
+///
+/// The following example will fail to compile
+/// since the system accesses a component mutably.
+///
+/// ```compile_fail
+/// # use bevy_ecs::{prelude::*, system::assert_is_read_only_system};
+/// #
+/// # #[derive(Component)]
+/// # struct Transform;
+/// #
+/// fn my_system(query: Query<&mut Transform>) {
+///     // ...
+/// }
+///
+/// assert_is_read_only_system(my_system);
+/// ```
+pub fn assert_is_read_only_system<In: 'static, Out: 'static, Marker, S>(system: S)
 where
+    S: IntoSystem<In, Out, Marker>,
     S::System: ReadOnlySystem,
 {
-    if false {
-        // Check it can be converted into a system
-        // TODO: This should ensure that the system has no conflicting system params
-        IntoSystem::into_system(sys);
-    }
+    assert_is_system(system);
 }
 
 #[cfg(test)]
@@ -444,6 +482,13 @@ mod tests {
     }
 
     #[test]
+    fn any_of_and_without() {
+        fn sys(_: Query<(AnyOf<(&A, &B)>, &mut C)>, _: Query<&mut C, (Without<A>, Without<B>)>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     #[should_panic = "error[B0001]"]
     fn or_has_no_filter_with() {
         fn sys(_: Query<&mut B, Or<(With<A>, With<B>)>>, _: Query<&mut B, Without<A>>) {}
@@ -454,6 +499,113 @@ mod tests {
     #[test]
     fn or_has_filter_with_when_both_have_it() {
         fn sys(_: Query<&mut B, Or<(With<A>, With<A>)>>, _: Query<&mut B, Without<A>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn or_has_filter_with() {
+        fn sys(
+            _: Query<&mut C, Or<(With<A>, With<B>)>>,
+            _: Query<&mut C, (Without<A>, Without<B>)>,
+        ) {
+        }
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn or_expanded_with_and_without_common() {
+        fn sys(_: Query<&mut D, (With<A>, Or<(With<B>, With<C>)>)>, _: Query<&mut D, Without<A>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn or_expanded_nested_with_and_without_common() {
+        fn sys(
+            _: Query<&mut E, (Or<((With<B>, With<C>), (With<C>, With<D>))>, With<A>)>,
+            _: Query<&mut E, (Without<B>, Without<D>)>,
+        ) {
+        }
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn or_expanded_nested_with_and_disjoint_without() {
+        fn sys(
+            _: Query<&mut E, (Or<((With<B>, With<C>), (With<C>, With<D>))>, With<A>)>,
+            _: Query<&mut E, Without<D>>,
+        ) {
+        }
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn or_expanded_nested_or_with_and_disjoint_without() {
+        fn sys(
+            _: Query<&mut D, Or<(Or<(With<A>, With<B>)>, Or<(With<A>, With<C>)>)>>,
+            _: Query<&mut D, Without<A>>,
+        ) {
+        }
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn or_expanded_nested_with_and_common_nested_without() {
+        fn sys(
+            _: Query<&mut D, Or<((With<A>, With<B>), (With<B>, With<C>))>>,
+            _: Query<&mut D, Or<(Without<D>, Without<B>)>>,
+        ) {
+        }
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn or_with_without_and_compatible_with_without() {
+        fn sys(
+            _: Query<&mut C, Or<(With<A>, Without<B>)>>,
+            _: Query<&mut C, (With<B>, Without<A>)>,
+        ) {
+        }
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn with_and_disjoint_or_empty_without() {
+        fn sys(_: Query<&mut B, With<A>>, _: Query<&mut B, Or<((), Without<A>)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn or_expanded_with_and_disjoint_nested_without() {
+        fn sys(
+            _: Query<&mut D, Or<(With<A>, With<B>)>>,
+            _: Query<&mut D, Or<(Without<A>, Without<B>)>>,
+        ) {
+        }
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn or_expanded_nested_with_and_disjoint_nested_without() {
+        fn sys(
+            _: Query<&mut D, Or<((With<A>, With<B>), (With<B>, With<C>))>>,
+            _: Query<&mut D, Or<(Without<A>, Without<B>)>>,
+        ) {
+        }
         let mut world = World::default();
         run_system(&mut world, sys);
     }

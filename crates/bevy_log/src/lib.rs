@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
 //! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
@@ -16,6 +17,11 @@ use std::panic;
 
 #[cfg(target_os = "android")]
 mod android_tracing;
+
+#[cfg(feature = "trace_tracy_memory")]
+#[global_allocator]
+static GLOBAL: tracy_client::ProfiledAllocator<std::alloc::System> =
+    tracy_client::ProfiledAllocator::new(std::alloc::System, 100);
 
 pub mod prelude {
     //! The Bevy Log Prelude.

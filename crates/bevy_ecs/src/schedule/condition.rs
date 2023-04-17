@@ -684,14 +684,14 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
-    /// *world.resource_mut::<State<GameState>>() = State(GameState::Paused);
+    /// *world.resource_mut::<State<GameState>>() = State::new(GameState::Paused);
     ///
     /// // Now that we are in `GameState::Pause`, `pause_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
     pub fn in_state<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool + Clone {
-        move |current_state: Res<State<S>>| current_state.0 == state
+        move |current_state: Res<State<S>>| *current_state == state
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -740,7 +740,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
-    /// *world.resource_mut::<State<GameState>>() = State(GameState::Paused);
+    /// *world.resource_mut::<State<GameState>>() = State::new(GameState::Paused);
     ///
     /// // Now that we are in `GameState::Pause`, `pause_system` will run
     /// app.run(&mut world);
@@ -750,7 +750,7 @@ pub mod common_conditions {
         state: S,
     ) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
         move |current_state: Option<Res<State<S>>>| match current_state {
-            Some(current_state) => current_state.0 == state,
+            Some(current_state) => *current_state == state,
             None => false,
         }
     }
@@ -802,7 +802,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
-    /// *world.resource_mut::<State<GameState>>() = State(GameState::Paused);
+    /// *world.resource_mut::<State<GameState>>() = State::new(GameState::Paused);
     ///
     /// // Now that `GameState` has been updated `my_system` will run
     /// app.run(&mut world);
@@ -842,7 +842,7 @@ pub mod common_conditions {
     ///
     /// world.resource_mut::<Events<MyEvent>>().send(MyEvent);
     ///
-    /// // A `MyEvent` event has been push so `my_system` will run
+    /// // A `MyEvent` event has been pushed so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
