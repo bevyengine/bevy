@@ -1,5 +1,4 @@
-use crate::system::{IntoSystem, System};
-use std::borrow::Cow;
+use crate::system::System;
 
 use super::{CombinatorSystem, Combine};
 
@@ -62,37 +61,6 @@ where
     ) -> Self::Out {
         let value = a(input);
         b(value)
-    }
-}
-
-/// An extension trait providing the [`IntoPipeSystem::pipe`] method to pass input from one system into the next.
-///
-/// The first system must have return type `T`
-/// and the second system must have [`In<T>`](crate::system::In) as its first system parameter.
-///
-/// This trait is blanket implemented for all system pairs that fulfill the type requirements.
-///
-/// See [`PipeSystem`].
-pub trait IntoPipeSystem<ParamA, Payload, SystemB, ParamB, Out>:
-    IntoSystem<(), Payload, ParamA> + Sized
-where
-    SystemB: IntoSystem<Payload, Out, ParamB>,
-{
-    /// Pass the output of this system `A` into a second system `B`, creating a new compound system.
-    fn pipe(self, system: SystemB) -> PipeSystem<Self::System, SystemB::System>;
-}
-
-impl<SystemA, ParamA, Payload, SystemB, ParamB, Out>
-    IntoPipeSystem<ParamA, Payload, SystemB, ParamB, Out> for SystemA
-where
-    SystemA: IntoSystem<(), Payload, ParamA>,
-    SystemB: IntoSystem<Payload, Out, ParamB>,
-{
-    fn pipe(self, system: SystemB) -> PipeSystem<SystemA::System, SystemB::System> {
-        let system_a = IntoSystem::into_system(self);
-        let system_b = IntoSystem::into_system(system);
-        let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
-        PipeSystem::new(system_a, system_b, Cow::Owned(name))
     }
 }
 
@@ -313,7 +281,7 @@ mod tests {
     use bevy_utils::default;
 
     use super::adapter::*;
-    use crate::{self as bevy_ecs, prelude::*, system::PipeSystem};
+    use crate::{self as bevy_ecs, prelude::*};
 
     #[test]
     fn assert_systems() {
@@ -384,11 +352,7 @@ mod tests {
 
         let mut world = World::new();
         world.init_resource::<Flag>();
-        let mut sys = PipeSystem::new(
-            IntoSystem::into_system(first),
-            IntoSystem::into_system(second),
-            "".into(),
-        );
+        let mut sys = first.pipe(second);
         sys.initialize(&mut world);
 
         sys.run(default(), &mut world);
