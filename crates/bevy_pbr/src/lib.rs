@@ -8,6 +8,7 @@ mod environment_map;
 mod fog;
 mod light;
 mod material;
+mod parallax;
 mod pbr_material;
 mod prepass;
 mod render;
@@ -18,6 +19,7 @@ pub use environment_map::EnvironmentMapLight;
 pub use fog::*;
 pub use light::*;
 pub use material::*;
+pub use parallax::*;
 pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
@@ -34,6 +36,7 @@ pub mod prelude {
         fog::{FogFalloff, FogSettings},
         light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         material::{Material, MaterialPlugin},
+        parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
     };
 }
@@ -82,6 +85,8 @@ pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16550102964439850292);
 pub const PBR_AMBIENT_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2441520459096337034);
+pub const PARALLAX_MAPPING_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17035894873630133905);
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -148,6 +153,12 @@ impl Plugin for PbrPlugin {
             app,
             PBR_PREPASS_SHADER_HANDLE,
             "render/pbr_prepass.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            PARALLAX_MAPPING_SHADER_HANDLE,
+            "render/parallax_mapping.wgsl",
             Shader::from_wgsl
         );
 

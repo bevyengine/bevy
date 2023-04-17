@@ -260,7 +260,7 @@ impl Mesh {
     }
 
     /// Computes and returns the vertex data of the mesh as bytes.
-    /// Therefore the attributes are located in alphabetical order.
+    /// Therefore the attributes are located in the order of their [`MeshVertexAttribute::id`].
     /// This is used to transform the vertex data into a GPU friendly format.
     ///
     /// # Panics

@@ -109,11 +109,13 @@ impl World {
     }
 
     /// Creates a new [`UnsafeWorldCell`] view with complete read+write access.
+    #[inline]
     pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
         UnsafeWorldCell::new_mutable(self)
     }
 
     /// Creates a new [`UnsafeWorldCell`] view with only read access to everything.
+    #[inline]
     pub fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCell<'_> {
         UnsafeWorldCell::new_readonly(self)
     }
@@ -121,6 +123,7 @@ impl World {
     /// Creates a new [`UnsafeWorldCell`] with read+write access from a [&World](World).
     /// This is only a temporary measure until every `&World` that is semantically a [`UnsafeWorldCell`]
     /// has been replaced.
+    #[inline]
     pub(crate) fn as_unsafe_world_cell_migration_internal(&self) -> UnsafeWorldCell<'_> {
         UnsafeWorldCell::new_readonly(self)
     }
@@ -1708,12 +1711,141 @@ impl World {
 
 // Schedule-related methods
 impl World {
-    /// Runs the [`Schedule`] associated with the `label` a single time.
+    /// Adds the specified [`Schedule`] to the world. The schedule can later be run
+    /// by calling [`.run_schedule(label)`](Self::run_schedule) or by directly
+    /// accessing the [`Schedules`] resource.
     ///
-    /// The [`Schedule`] is fetched from the
+    /// The `Schedules` resource will be initialized if it does not already exist.
     pub fn add_schedule(&mut self, schedule: Schedule, label: impl ScheduleLabel) {
-        let mut schedules = self.resource_mut::<Schedules>();
+        let mut schedules = self.get_resource_or_insert_with(Schedules::default);
         schedules.insert(label, schedule);
+    }
+
+    /// Temporarily removes the schedule associated with `label` from the world,
+    /// runs user code, and finally re-adds the schedule.
+    /// This returns a [`TryRunScheduleError`] if there is no schedule
+    /// associated with `label`.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple cases where you just need to call the schedule once,
+    /// consider using [`World::try_run_schedule`] instead.
+    /// For other use cases, see the example on [`World::schedule_scope`].
+    pub fn try_schedule_scope<R>(
+        &mut self,
+        label: impl ScheduleLabel,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+    ) -> Result<R, TryRunScheduleError> {
+        self.try_schedule_scope_ref(&label, f)
+    }
+
+    /// Temporarily removes the schedule associated with `label` from the world,
+    /// runs user code, and finally re-adds the schedule.
+    /// This returns a [`TryRunScheduleError`] if there is no schedule
+    /// associated with `label`.
+    ///
+    /// Unlike the `try_run_schedule` method, this method takes the label by reference, which can save a clone.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple cases where you just need to call the schedule once,
+    /// consider using [`World::try_run_schedule_ref`] instead.
+    /// For other use cases, see the example on [`World::schedule_scope`].
+    pub fn try_schedule_scope_ref<R>(
+        &mut self,
+        label: &dyn ScheduleLabel,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+    ) -> Result<R, TryRunScheduleError> {
+        let Some((extracted_label, mut schedule))
+            = self.get_resource_mut::<Schedules>().and_then(|mut s| s.remove_entry(label))
+        else {
+            return Err(TryRunScheduleError(label.dyn_clone()));
+        };
+
+        // TODO: move this span to Schedule::run
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
+        let value = f(self, &mut schedule);
+
+        let old = self
+            .resource_mut::<Schedules>()
+            .insert(extracted_label, schedule);
+        if old.is_some() {
+            warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
+        }
+
+        Ok(value)
+    }
+
+    /// Temporarily removes the schedule associated with `label` from the world,
+    /// runs user code, and finally re-adds the schedule.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+    /// # #[derive(ScheduleLabel, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    /// # pub struct MySchedule;
+    /// # #[derive(Resource)]
+    /// # struct Counter(usize);
+    /// #
+    /// # let mut world = World::new();
+    /// # world.insert_resource(Counter(0));
+    /// # let mut schedule = Schedule::new();
+    /// # schedule.add_systems(tick_counter);
+    /// # world.init_resource::<Schedules>();
+    /// # world.add_schedule(schedule, MySchedule);
+    /// # fn tick_counter(mut counter: ResMut<Counter>) { counter.0 += 1; }
+    /// // Run the schedule five times.
+    /// world.schedule_scope(MySchedule, |world, schedule| {
+    ///     for _ in 0..5 {
+    ///         schedule.run(world);
+    ///     }
+    /// });
+    /// # assert_eq!(world.resource::<Counter>().0, 5);
+    /// ```
+    ///
+    /// For simple cases where you just need to call the schedule once,
+    /// consider using [`World::run_schedule`] instead.
+    ///
+    /// # Panics
+    ///
+    /// If the requested schedule does not exist.
+    pub fn schedule_scope<R>(
+        &mut self,
+        label: impl ScheduleLabel,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+    ) -> R {
+        self.schedule_scope_ref(&label, f)
+    }
+
+    /// Temporarily removes the schedule associated with `label` from the world,
+    /// runs user code, and finally re-adds the schedule.
+    ///
+    /// Unlike the `run_schedule` method, this method takes the label by reference, which can save a clone.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple cases where you just need to call the schedule,
+    /// consider using [`World::run_schedule_ref`] instead.
+    /// For other use cases, see the example on [`World::schedule_scope`].
+    ///
+    /// # Panics
+    ///
+    /// If the requested schedule does not exist.
+    pub fn schedule_scope_ref<R>(
+        &mut self,
+        label: &dyn ScheduleLabel,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+    ) -> R {
+        self.try_schedule_scope_ref(label, f)
+            .unwrap_or_else(|e| panic!("{e}"))
     }
 
     /// Attempts to run the [`Schedule`] associated with the `label` a single time,
@@ -1743,18 +1875,7 @@ impl World {
         &mut self,
         label: &dyn ScheduleLabel,
     ) -> Result<(), TryRunScheduleError> {
-        let Some((extracted_label, mut schedule)) = self.resource_mut::<Schedules>().remove_entry(label) else {
-            return Err(TryRunScheduleError(label.dyn_clone()));
-        };
-
-        // TODO: move this span to Schedule::run
-        #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
-        schedule.run(self);
-        self.resource_mut::<Schedules>()
-            .insert(extracted_label, schedule);
-
-        Ok(())
+        self.try_schedule_scope_ref(label, |world, sched| sched.run(world))
     }
 
     /// Runs the [`Schedule`] associated with the `label` a single time.
@@ -1766,7 +1887,7 @@ impl World {
     ///
     /// # Panics
     ///
-    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
+    /// If the requested schedule does not exist.
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.run_schedule_ref(&label);
     }
@@ -1782,10 +1903,9 @@ impl World {
     ///
     /// # Panics
     ///
-    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
+    /// If the requested schedule does not exist.
     pub fn run_schedule_ref(&mut self, label: &dyn ScheduleLabel) {
-        self.try_run_schedule_ref(label)
-            .unwrap_or_else(|e| panic!("{}", e));
+        self.schedule_scope_ref(label, |world, sched| sched.run(world));
     }
 }
 
