@@ -876,18 +876,83 @@ impl Default for FlexDirection {
 /// Whether to show or hide overflowing items
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(PartialEq, Serialize, Deserialize)]
-pub enum Overflow {
-    /// Show overflowing items.
-    Visible,
-    /// Hide overflowing items.
-    Hidden,
+pub struct Overflow {
+    /// Whether to show or clip overflowing items on the x axis        
+    pub x: OverflowAxis,
+    /// Whether to show or clip overflowing items on the y axis
+    pub y: OverflowAxis,
 }
 
 impl Overflow {
-    pub const DEFAULT: Self = Self::Visible;
+    pub const DEFAULT: Self = Self {
+        x: OverflowAxis::DEFAULT,
+        y: OverflowAxis::DEFAULT,
+    };
+
+    /// Show overflowing items on both axes
+    pub const fn visible() -> Self {
+        Self {
+            x: OverflowAxis::Visible,
+            y: OverflowAxis::Visible,
+        }
+    }
+
+    /// Clip overflowing items on both axes
+    pub const fn clip() -> Self {
+        Self {
+            x: OverflowAxis::Clip,
+            y: OverflowAxis::Clip,
+        }
+    }
+
+    /// Clip overflowing items on the x axis
+    pub const fn clip_x() -> Self {
+        Self {
+            x: OverflowAxis::Clip,
+            y: OverflowAxis::Visible,
+        }
+    }
+
+    /// Clip overflowing items on the y axis
+    pub const fn clip_y() -> Self {
+        Self {
+            x: OverflowAxis::Visible,
+            y: OverflowAxis::Clip,
+        }
+    }
+
+    /// Overflow is visible on both axes
+    pub const fn is_visible(&self) -> bool {
+        self.x.is_visible() && self.y.is_visible()
+    }
 }
 
 impl Default for Overflow {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// Whether to show or hide overflowing items
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+pub enum OverflowAxis {
+    /// Show overflowing items.
+    Visible,
+    /// Hide overflowing items.
+    Clip,
+}
+
+impl OverflowAxis {
+    pub const DEFAULT: Self = Self::Visible;
+
+    /// Overflow is visible on this axis
+    pub const fn is_visible(&self) -> bool {
+        matches!(self, Self::Visible)
+    }
+}
+
+impl Default for OverflowAxis {
     fn default() -> Self {
         Self::DEFAULT
     }
