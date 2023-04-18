@@ -1878,6 +1878,16 @@ description = "Illustrates how to scale the UI"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "viewport_debug"
+path = "examples/ui/viewport_debug.rs"
+
+[package.metadata.example.viewport_debug]
+name = "Viewport Debug"
+description = "An example for debugging viewport coordinates"
+category = "UI (User Interface)"
+wasm = true
+
 # Window
 [[example]]
 name = "clear_color"

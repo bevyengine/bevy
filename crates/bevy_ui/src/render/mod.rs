@@ -208,7 +208,7 @@ pub fn extract_uinode_borders(
             Vec2::new(
                 window.resolution.physical_width() as f32,
                 window.resolution.physical_height() as f32,
-            ) * (window.resolution.scale_factor() * ui_scale.scale) as f32
+            ) / (window.resolution.scale_factor() * ui_scale.scale) as f32
         })
         .unwrap_or(Vec2::ZERO);
 
@@ -225,7 +225,6 @@ pub fn extract_uinode_borders(
                 continue;
             }
 
-            // calculate border rects, ensuring no overlap
             let parent_width = parent
                 .and_then(|parent| parent_node_query.get(parent.get()).ok())
                 .map(|parent_node| parent_node.size().x)
@@ -234,6 +233,9 @@ pub fn extract_uinode_borders(
             let right = resolve_border_thickness(style.border.right, parent_width, viewport_size);
             let top = resolve_border_thickness(style.border.top, parent_width, viewport_size);
             let bottom = resolve_border_thickness(style.border.bottom, parent_width, viewport_size);
+
+            // Calculate the border rects, ensuring no overlap.
+            // The border occupies the space between the node's bounding rect and the node's bounding rect inset in each direction by the node's corresponding border value.
             let max = 0.5 * node.size();
             let min = -max;
             let inner_min = min + Vec2::new(left, top);
@@ -261,7 +263,6 @@ pub fn extract_uinode_borders(
                 },
             ];
 
-            // calculate border rects, ensuring that they don't overlap
             let transform = global_transform.compute_matrix();
 
             for edge in border_rects {
