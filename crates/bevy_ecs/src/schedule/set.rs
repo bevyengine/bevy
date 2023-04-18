@@ -186,8 +186,9 @@ mod tests {
 
         let mut world = World::new();
         world.add_schedule(Default::default(), A);
-        world
-            .try_run_schedule(Box::new(A) as BoxedScheduleLabel)
-            .unwrap();
+
+        let boxed: Box<dyn ScheduleLabel> = Box::new(A);
+        world.try_run_schedule_ref(&boxed).unwrap();
+        world.try_run_schedule(boxed).unwrap();
     }
 }
