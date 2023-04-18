@@ -183,7 +183,7 @@ fn extract_gizmo_data(
         return;
     }
 
-    commands.spawn_batch([&handles.strip, &handles.list].map(|handle| {
+    commands.spawn_batch([&handles.list, &handles.strip].map(|handle| {
         (
             LineGizmoUniform {
                 line_width: config.line_width,
