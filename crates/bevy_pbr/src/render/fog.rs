@@ -53,11 +53,8 @@ pub fn prepare_fog(
     mut fog_meta: ResMut<FogMeta>,
     views: Query<(Entity, Option<&FogSettings>), With<ExtractedView>>,
 ) {
-    let view_iter = views.iter();
-    let capacity = view_iter.len();
-    let Some(mut writer) = fog_meta.gpu_fogs.get_writer(capacity, &render_device, &render_queue) else  { return };
-
-    for (entity, fog) in view_iter {
+    let mut writer = fog_meta.gpu_fogs.get_writer(&render_device, &render_queue);
+    for (entity, fog) in views.iter() {
         let gpu_fog = if let Some(fog) = fog {
             match &fog.falloff {
                 FogFalloff::Linear { start, end } => GpuFog {

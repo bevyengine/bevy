@@ -671,9 +671,7 @@ pub fn prepare_lights(
     point_lights: Query<(Entity, &ExtractedPointLight)>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
 ) {
-    let view_iter = views.iter();
-    let capacity = view_iter.len();
-    let Some(mut writer) = light_meta.view_gpu_lights.get_writer(capacity, &render_device, &render_queue) else  { return };
+    let mut writer = light_meta.view_gpu_lights.get_writer(&render_device, &render_queue);
 
     // Pre-calculate for PointLights
     let cube_face_projection =

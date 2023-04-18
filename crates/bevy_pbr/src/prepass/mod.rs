@@ -702,10 +702,7 @@ pub fn prepare_previous_view_projection_uniforms(
         With<MotionVectorPrepass>,
     >,
 ) {
-    let view_iter = views.iter();
-    let capacity = view_iter.len();
-    let Some(mut writer) = view_uniforms.uniforms.get_writer(capacity, &render_device, &render_queue) else  { return };
-
+    let mut writer = view_uniforms.uniforms.get_writer(&render_device, &render_queue);
     for (entity, camera, maybe_previous_view_proj) in &views {
         let view_projection = match maybe_previous_view_proj {
             Some(previous_view) => previous_view.clone(),
