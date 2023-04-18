@@ -81,10 +81,17 @@ macro_rules! define_boxed_label {
                 std::any::TypeId::of::<Self>()
             }
 
+            /// Clones this `
+            #[doc = stringify!($label_trait_name)]
+            /// `
             fn dyn_clone(&self) -> Box<dyn $label_trait_name>;
 
+            /// Casts this value to a form where it can be compared with other type-erased values.
             fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq;
 
+            /// Feeds this value into the given [`Hasher`].
+            ///
+            /// [`Hash`]: std::hash::Hasher
             fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher);
         }
 
