@@ -1278,6 +1278,16 @@ impl GamepadRumbleIntensity {
         strong: 1.0,
         weak: 0.0,
     };
+
+    /// Creates a new rumble intensity with weak motor intensity set to the given value
+    pub fn weak(weak: f32) -> Self {
+        Self { weak, strong: 0.0 }
+    }
+
+    /// Creates a new rumble intensity with strong motor intensity set to the given value
+    pub fn strong(strong: f32) -> Self {
+        Self { strong, weak: 0.0 }
+    }
 }
 
 /// An event that controls force-feedback rumbling of a [`Gamepad`]

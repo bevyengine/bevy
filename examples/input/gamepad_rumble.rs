@@ -26,41 +26,53 @@ fn gamepad_system(
                 button_type: button,
             })
         };
+
         if button_pressed(GamepadButtonType::South) {
-            info!("(S) South face button: weak rumble for 0.5 seconds");
+            info!("(S) South face button: low-intensity rumble on the weak motor for 0.5 seconds");
             rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad,
                 duration: Duration::from_secs_f32(0.5),
-                intensity: GamepadRumbleIntensity {
-                    strong: 0.0,
-                    weak: 0.25,
-                },
+                intensity: GamepadRumbleIntensity::weak(0.25),
             });
-        } else if button_pressed(GamepadButtonType::West) {
-            info!("(W) West face button: maximum rumble for 5 second");
+        }
+
+        if button_pressed(GamepadButtonType::Start) {
+            info!("(S) Start button: maximum rumble on both motors for 5 seconds");
+            rumble_requests.send(GamepadRumbleRequest::Add {
+                gamepad,
+                duration: Duration::from_secs(5),
+                intensity: GamepadRumbleIntensity::MAX,
+            });
+        }
+
+        if button_pressed(GamepadButtonType::West) {
+            info!("(W) West face button: custom rumble intensity for 5 second");
             rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad,
                 intensity: GamepadRumbleIntensity {
-                    strong: 1.0,
-                    weak: 1.0,
+                    // intensity low-frequency motor, usually on the left-hand side
+                    strong: 0.5,
+                    // intensity of high-frequency motor, usually on the right-hand side
+                    weak: 0.25,
                 },
                 duration: Duration::from_secs(5),
             });
-        } else if button_pressed(GamepadButtonType::North) {
+        }
+
+        if button_pressed(GamepadButtonType::North) {
             info!(
-                "(N) North face button: Low-intensity, strong (low-frequency)
-                rumble for 5 seconds. Press multiple times for increased
-                intensity."
+                "(N) North face button: strong (low-frequency) with low
+                intensity for rumble for 5 seconds. Press multiple times to
+                increase intensity."
             );
             rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad,
-                intensity: GamepadRumbleIntensity {
-                    strong: 0.1,
-                    weak: 0.0,
-                },
+                intensity: GamepadRumbleIntensity::strong(0.1),
                 duration: Duration::from_secs(5),
-            });
-        } else if button_pressed(GamepadButtonType::East) {
+            })
+        }
+
+        if button_pressed(GamepadButtonType::East) {
             info!("(E) East face button: Interrupt the current rumble");
             rumble_requests.send(GamepadRumbleRequest::Stop { gamepad });
         }
