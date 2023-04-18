@@ -42,7 +42,7 @@ pub trait DynHash: DynEq {
 
     /// Feeds this value into the given [`Hasher`].
     ///
-    /// [`Hash`]: std::hash::Hasher
+    /// [`Hasher`]: std::hash::Hasher
     fn dyn_hash(&self, state: &mut dyn Hasher);
 }
 
@@ -73,10 +73,12 @@ macro_rules! define_boxed_label {
     ($label_trait_name:ident) => {
         /// A strongly-typed label.
         pub trait $label_trait_name: 'static + Send + Sync + ::std::fmt::Debug {
-            /// Return's the TypeId of this label, or the the ID of the
+            /// Return's the [TypeId] of this label, or the the ID of the
             /// wrappped label type for `Box<dyn
             #[doc = stringify!($label_trait_name)]
             /// >`
+            ///
+            /// [TypeId]: std::any::TypeId
             fn inner_type_id(&self) -> ::std::any::TypeId {
                 std::any::TypeId::of::<Self>()
             }
@@ -91,7 +93,7 @@ macro_rules! define_boxed_label {
 
             /// Feeds this value into the given [`Hasher`].
             ///
-            /// [`Hash`]: std::hash::Hasher
+            /// [`Hasher`]: std::hash::Hasher
             fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher);
         }
 
