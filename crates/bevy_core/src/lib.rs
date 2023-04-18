@@ -95,7 +95,8 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::Mat3A>()
         .register_type::<bevy_math::Mat4>()
         .register_type::<bevy_math::DQuat>()
-        .register_type::<bevy_math::Quat>();
+        .register_type::<bevy_math::Quat>()
+        .register_type::<bevy_math::Rect>();
 }
 
 /// Setup of default task pools: `AsyncComputeTaskPool`, `ComputeTaskPool`, `IoTaskPool`.
