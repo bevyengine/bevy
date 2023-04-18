@@ -203,16 +203,14 @@ fn extract_gizmo_data(
         return;
     }
 
-    for handle in [&handles.list, &handles.strip] {
-        if let Some(handle) = handle {
-            commands.spawn((
-                LineGizmoUniform {
-                    line_width: config.line_width,
-                    depth_bias: config.depth_bias,
-                },
-                handle.clone_weak(),
-            ));
-        }
+    for handle in [&handles.list, &handles.strip].into_iter().flatten() {
+        commands.spawn((
+            LineGizmoUniform {
+                line_width: config.line_width,
+                depth_bias: config.depth_bias,
+            },
+            handle.clone_weak(),
+        ));
     }
 }
 
