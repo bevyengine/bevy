@@ -296,8 +296,6 @@ pub enum ProcessShaderError {
         "Not enough '# endif' lines. Each if statement should be followed by an endif statement."
     )]
     NotEnoughEndIfs,
-    #[error("This Shader's format does not support processing shader defs.")]
-    ShaderFormatDoesNotSupportShaderDefs,
     #[error("This Shader's format does not support imports.")]
     ShaderFormatDoesNotSupportImports,
     #[error("Unresolved import: {0:?}.")]
@@ -477,10 +475,7 @@ impl ShaderProcessor {
             Source::Wgsl(source) => source.deref(),
             Source::Glsl(source, _stage) => source.deref(),
             Source::SpirV(source) => {
-                if shader_defs_unique.is_empty() {
-                    return Ok(ProcessedShader::SpirV(source.clone()));
-                }
-                return Err(ProcessShaderError::ShaderFormatDoesNotSupportShaderDefs);
+                return Ok(ProcessedShader::SpirV(source.clone()));
             }
         };
 
@@ -561,26 +556,6 @@ impl ShaderProcessor {
                 let current_valid = scopes.last().unwrap().is_accepting_lines();
 
                 scopes.push(Scope::new(current_valid && new_scope));
-            } else if let Some(cap) = self.define_regex.captures(line) {
-                let def = cap.get(1).unwrap();
-                let name = def.as_str().to_string();
-
-                if let Some(val) = cap.get(2) {
-                    if let Ok(val) = val.as_str().parse::<u32>() {
-                        shader_defs_unique.insert(name.clone(), ShaderDefVal::UInt(name, val));
-                    } else if let Ok(val) = val.as_str().parse::<i32>() {
-                        shader_defs_unique.insert(name.clone(), ShaderDefVal::Int(name, val));
-                    } else if let Ok(val) = val.as_str().parse::<bool>() {
-                        shader_defs_unique.insert(name.clone(), ShaderDefVal::Bool(name, val));
-                    } else {
-                        return Err(ProcessShaderError::InvalidShaderDefDefinitionValue {
-                            shader_def_name: name,
-                            value: val.as_str().to_string(),
-                        });
-                    }
-                } else {
-                    shader_defs_unique.insert(name.clone(), ShaderDefVal::Bool(name, true));
-                }
             } else if let Some(cap) = self.else_ifdef_regex.captures(line) {
                 // When should we accept the code in an
                 //
@@ -685,6 +660,26 @@ impl ShaderProcessor {
                     .is_match(line)
                 {
                     // ignore import path lines
+                } else if let Some(cap) = self.define_regex.captures(line) {
+                    let def = cap.get(1).unwrap();
+                    let name = def.as_str().to_string();
+
+                    if let Some(val) = cap.get(2) {
+                        if let Ok(val) = val.as_str().parse::<u32>() {
+                            shader_defs_unique.insert(name.clone(), ShaderDefVal::UInt(name, val));
+                        } else if let Ok(val) = val.as_str().parse::<i32>() {
+                            shader_defs_unique.insert(name.clone(), ShaderDefVal::Int(name, val));
+                        } else if let Ok(val) = val.as_str().parse::<bool>() {
+                            shader_defs_unique.insert(name.clone(), ShaderDefVal::Bool(name, val));
+                        } else {
+                            return Err(ProcessShaderError::InvalidShaderDefDefinitionValue {
+                                shader_def_name: name,
+                                value: val.as_str().to_string(),
+                            });
+                        }
+                    } else {
+                        shader_defs_unique.insert(name.clone(), ShaderDefVal::Bool(name, true));
+                    }
                 } else {
                     let mut line_with_defs = line.to_string();
                     for capture in self.def_regex.captures_iter(line) {
@@ -2495,6 +2490,34 @@ defined at end
         #[rustfmt::skip]
         const EXPECTED: &str = r"
 defined at end
+";
+        let processor = ShaderProcessor::default();
+        let result = processor
+            .process(
+                &Shader::from_wgsl(WGSL),
+                &[],
+                &HashMap::default(),
+                &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED);
+    }
+
+    #[test]
+    fn process_shader_define_only_in_accepting_scopes() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+#define GUARD
+#ifndef GUARD
+#define GUARDED
+#endif
+#ifdef GUARDED
+This should not be part of the result
+#endif
+";
+
+        #[rustfmt::skip]
+        const EXPECTED: &str = r"
 ";
         let processor = ShaderProcessor::default();
         let result = processor

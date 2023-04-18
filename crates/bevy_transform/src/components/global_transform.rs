@@ -24,8 +24,8 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs during [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate). If you
-/// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
+/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
+/// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 ///
 /// # Examples

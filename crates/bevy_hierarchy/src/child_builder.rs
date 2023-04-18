@@ -41,12 +41,15 @@ fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option
 ///
 /// Removes the [`Children`] component from the parent if it's empty.
 fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
-    let mut parent = world.entity_mut(parent);
-    if let Some(mut children) = parent.get_mut::<Children>() {
-        children.0.retain(|x| *x != child);
-        if children.is_empty() {
-            parent.remove::<Children>();
-        }
+    let Some(mut parent) = world.get_entity_mut(parent) else {
+        return;
+    };
+    let Some(mut children) = parent.get_mut::<Children>() else {
+        return;
+    };
+    children.0.retain(|x| *x != child);
+    if children.is_empty() {
+        parent.remove::<Children>();
     }
 }
 
@@ -141,7 +144,7 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
 }
 
 fn clear_children(parent: Entity, world: &mut World) {
-    if let Some(children) = world.entity_mut(parent).remove::<Children>() {
+    if let Some(children) = world.entity_mut(parent).take::<Children>() {
         for &child in &children.0 {
             world.entity_mut(child).remove::<Parent>();
         }
@@ -532,7 +535,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn remove_parent(&mut self) -> &mut Self {
         let child = self.id();
-        if let Some(parent) = self.remove::<Parent>().map(|p| p.get()) {
+        if let Some(parent) = self.take::<Parent>().map(|p| p.get()) {
             self.world_scope(|world| {
                 remove_from_children(world, parent, child);
                 push_events(world, [HierarchyEvent::ChildRemoved { child, parent }]);
@@ -651,6 +654,23 @@ mod tests {
                 new_parent: c,
             }],
         );
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/8346
+    #[test]
+    fn set_parent_of_orphan() {
+        let world = &mut World::new();
+
+        let [a, b, c] = std::array::from_fn(|_| world.spawn_empty().id());
+        world.entity_mut(a).set_parent(b);
+        assert_parent(world, a, Some(b));
+        assert_children(world, b, Some(&[a]));
+
+        world.entity_mut(b).despawn();
+        world.entity_mut(a).set_parent(c);
+
+        assert_parent(world, a, Some(c));
+        assert_children(world, c, Some(&[a]));
     }
 
     #[test]

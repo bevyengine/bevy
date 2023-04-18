@@ -172,6 +172,7 @@ impl ImageSampler {
 pub struct DefaultImageSampler(pub(crate) Sampler);
 
 impl Default for Image {
+    /// default is a 1x1x1 all '1.0' texture
     fn default() -> Self {
         let format = wgpu::TextureFormat::bevy_default();
         let data = vec![255; format.pixel_size()];

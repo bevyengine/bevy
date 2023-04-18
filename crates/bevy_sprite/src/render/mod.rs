@@ -91,12 +91,7 @@ impl FromWorld for SpritePipeline {
             label: Some("sprite_material_layout"),
         });
         let dummy_white_gpu_image = {
-            let image = Image::new_fill(
-                Extent3d::default(),
-                TextureDimension::D2,
-                &[255u8; 4],
-                TextureFormat::bevy_default(),
-            );
+            let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
                 ImageSampler::Default => (**default_sampler).clone(),
@@ -401,7 +396,18 @@ pub fn extract_sprites(
             continue;
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-            let rect = Some(texture_atlas.textures[atlas_sprite.index]);
+            let rect = Some(
+                *texture_atlas
+                    .textures
+                    .get(atlas_sprite.index)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Sprite index {:?} does not exist for texture atlas handle {:?}.",
+                            atlas_sprite.index,
+                            texture_atlas_handle.id(),
+                        )
+                    }),
+            );
             extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
                 color: atlas_sprite.color,

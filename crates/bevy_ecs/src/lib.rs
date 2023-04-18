@@ -1,4 +1,5 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
+#![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(target_pointer_width = "16")]
@@ -26,9 +27,6 @@ pub use bevy_ptr as ptr;
 /// Most commonly used re-exported types.
 pub mod prelude {
     #[doc(hidden)]
-    #[allow(deprecated)]
-    pub use crate::query::ChangeTrackers;
-    #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{ReflectComponent, ReflectResource};
     #[doc(hidden)]
@@ -42,15 +40,14 @@ pub mod prelude {
         removal_detection::RemovedComponents,
         schedule::{
             apply_state_transition, apply_system_buffers, common_conditions::*, Condition,
-            IntoSystemConfig, IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig,
-            IntoSystemSetConfigs, NextState, OnEnter, OnExit, OnUpdate, Schedule, Schedules, State,
-            States, SystemSet,
+            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
+            OnEnter, OnExit, OnTransition, Schedule, Schedules, State, States, SystemSet,
         },
         system::{
             adapter as system_adapter,
             adapter::{dbg, error, ignore, info, unwrap, warn},
-            Commands, Deferred, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut,
-            ParallelCommands, ParamSet, Query, Res, ResMut, Resource, System, SystemParamFunction,
+            Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
+            ParamSet, Query, Res, ResMut, Resource, System, SystemParamFunction,
         },
         world::{FromWorld, World},
     };
@@ -191,7 +188,7 @@ mod tests {
         assert_eq!(world.get::<SparseStored>(e2).unwrap().0, 42);
 
         assert_eq!(
-            world.entity_mut(e1).remove::<FooBundle>().unwrap(),
+            world.entity_mut(e1).take::<FooBundle>().unwrap(),
             FooBundle {
                 x: TableStored("xyz"),
                 y: SparseStored(123),
@@ -240,7 +237,7 @@ mod tests {
         assert_eq!(world.get::<A>(e3).unwrap().0, 1);
         assert_eq!(world.get::<B>(e3).unwrap().0, 2);
         assert_eq!(
-            world.entity_mut(e3).remove::<NestedBundle>().unwrap(),
+            world.entity_mut(e3).take::<NestedBundle>().unwrap(),
             NestedBundle {
                 a: A(1),
                 foo: FooBundle {
@@ -283,7 +280,7 @@ mod tests {
         assert_eq!(world.get::<Ignored>(e4), None);
 
         assert_eq!(
-            world.entity_mut(e4).remove::<BundleWithIgnored>().unwrap(),
+            world.entity_mut(e4).take::<BundleWithIgnored>().unwrap(),
             BundleWithIgnored {
                 c: C,
                 ignored: Ignored,
@@ -596,7 +593,7 @@ mod tests {
             &[(e1, A(1), B(3)), (e2, A(2), B(4))]
         );
 
-        assert_eq!(world.entity_mut(e1).remove::<A>(), Some(A(1)));
+        assert_eq!(world.entity_mut(e1).take::<A>(), Some(A(1)));
         assert_eq!(
             world
                 .query::<(Entity, &A, &B)>()
@@ -656,7 +653,7 @@ mod tests {
         }
 
         for (i, entity) in entities.iter().cloned().enumerate() {
-            assert_eq!(world.entity_mut(entity).remove::<A>(), Some(A(i)));
+            assert_eq!(world.entity_mut(entity).take::<A>(), Some(A(i)));
         }
     }
 
@@ -675,7 +672,7 @@ mod tests {
 
         for (i, entity) in entities.iter().cloned().enumerate() {
             assert_eq!(
-                world.entity_mut(entity).remove::<SparseStored>(),
+                world.entity_mut(entity).take::<SparseStored>(),
                 Some(SparseStored(i as u32))
             );
         }
@@ -685,7 +682,7 @@ mod tests {
     fn remove_missing() {
         let mut world = World::new();
         let e = world.spawn((TableStored("abc"), A(123))).id();
-        assert!(world.entity_mut(e).remove::<B>().is_none());
+        assert!(world.entity_mut(e).take::<B>().is_none());
     }
 
     #[test]
@@ -1187,7 +1184,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_intersection() {
+    fn remove() {
         let mut world = World::default();
         let e1 = world.spawn((A(1), B(1), TableStored("a"))).id();
 
@@ -1201,7 +1198,7 @@ mod tests {
             "C is not in the entity, so it should not exist"
         );
 
-        e.remove_intersection::<(A, B, C)>();
+        e.remove::<(A, B, C)>();
         assert_eq!(
             e.get::<TableStored>(),
             Some(&TableStored("a")),
@@ -1225,7 +1222,7 @@ mod tests {
     }
 
     #[test]
-    fn remove() {
+    fn take() {
         let mut world = World::default();
         world.spawn((A(1), B(1), TableStored("1")));
         let e2 = world.spawn((A(2), B(2), TableStored("2"))).id();
@@ -1238,7 +1235,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(results, vec![(1, "1"), (2, "2"), (3, "3"),]);
 
-        let removed_bundle = world.entity_mut(e2).remove::<(B, TableStored)>().unwrap();
+        let removed_bundle = world.entity_mut(e2).take::<(B, TableStored)>().unwrap();
         assert_eq!(removed_bundle, (B(2), TableStored("2")));
 
         let results = query
@@ -1297,33 +1294,6 @@ mod tests {
         })
         .join()
         .unwrap();
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn trackers_query() {
-        use crate::prelude::ChangeTrackers;
-
-        let mut world = World::default();
-        let e1 = world.spawn((A(0), B(0))).id();
-        world.spawn(B(0));
-
-        let mut trackers_query = world.query::<Option<ChangeTrackers<A>>>();
-        let trackers = trackers_query.iter(&world).collect::<Vec<_>>();
-        let a_trackers = trackers[0].as_ref().unwrap();
-        assert!(trackers[1].is_none());
-        assert!(a_trackers.is_added());
-        assert!(a_trackers.is_changed());
-        world.clear_trackers();
-        let trackers = trackers_query.iter(&world).collect::<Vec<_>>();
-        let a_trackers = trackers[0].as_ref().unwrap();
-        assert!(!a_trackers.is_added());
-        assert!(!a_trackers.is_changed());
-        *world.get_mut(e1).unwrap() = A(1);
-        let trackers = trackers_query.iter(&world).collect::<Vec<_>>();
-        let a_trackers = trackers[0].as_ref().unwrap();
-        assert!(!a_trackers.is_added());
-        assert!(a_trackers.is_changed());
     }
 
     #[test]
