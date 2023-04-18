@@ -77,8 +77,8 @@ macro_rules! define_boxed_label {
             /// wrappped label type for `Box<dyn
             #[doc = stringify!($label_trait_name)]
             /// >`
-            fn inner_type_id(&self) -> TypeId {
-                TypeId::of::<Self>()
+            fn inner_type_id(&self) -> ::std::any::TypeId {
+                std::any::TypeId::of::<Self>()
             }
 
             fn dyn_clone(&self) -> Box<dyn $label_trait_name>;
@@ -109,7 +109,7 @@ macro_rules! define_boxed_label {
         }
 
         impl $label_trait_name for Box<dyn $label_trait_name> {
-            fn inner_type_id(&self) -> TypeId {
+            fn inner_type_id(&self) -> ::std::any::TypeId {
                 (**self).inner_type_id()
             }
 
