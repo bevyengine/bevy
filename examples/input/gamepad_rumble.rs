@@ -27,30 +27,27 @@ fn gamepad_system(
         };
         if button_pressed(GamepadButtonType::South) {
             info!("(S) South face button: weak rumble for 1 second");
-            // Use the simplified API provided by Bevy
-            rumble_requests.send(GamepadRumbleRequest {
+            rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad,
                 duration_seconds: 1.0,
                 intensity: GamepadRumbleIntensity {
                     strong: 0.0,
                     weak: 0.25,
                 },
-                additive: true,
             });
         } else if button_pressed(GamepadButtonType::West) {
             info!("(W) West face button: maximum rumble for 5 second");
-            rumble_requests.send(GamepadRumbleRequest {
+            rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad,
                 intensity: GamepadRumbleIntensity {
                     strong: 1.0,
                     weak: 1.0,
                 },
                 duration_seconds: 5.0,
-                additive: true,
             });
         } else if button_pressed(GamepadButtonType::North) {
             info!("(N) North face button: Interrupt the current rumble");
-            rumble_requests.send(GamepadRumbleRequest::stop(gamepad));
+            rumble_requests.send(GamepadRumbleRequest::Stop { gamepad });
         }
     }
 }

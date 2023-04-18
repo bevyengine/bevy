@@ -1277,70 +1277,54 @@ impl GamepadRumbleIntensity {
         strong: 1.0,
         weak: 0.0,
     };
-
-    /// Don't rumble at all, only makes sense when `additive` is `false`
-    pub const ZERO: Self = GamepadRumbleIntensity {
-        strong: 0.0,
-        weak: 0.0,
-    };
 }
 
-/// Request that `gamepad` should rumble with `intensity` for `duration_seconds`
+/// An event that controls force-feedback rumbling of a [`Gamepad`]
 ///
 /// # Notes
 ///
-/// Does nothing if the `gamepad` or platform does not support rumble.
-///
-/// If a new `GamepadRumbleRequest` is sent while another one is still
-/// executing, it's intensity is added to the existing one.
-///
-/// This means if two rumbles at half intensity are added at the same time,
-/// their intensities will be added up, and the controller will rumble at full
-/// intensity until one of the rumbles finishes, then the rumble will continue
-/// at the intensity of the other event.
+/// Does nothing if the gamepad or platform does not support rumble.
 ///
 /// # Example
 ///
 /// ```
 /// # use bevy_input::gamepad::{Gamepad, Gamepads, GamepadRumbleRequest, GamepadRumbleIntensity};
 /// # use bevy_ecs::prelude::{EventWriter, Res};
-/// fn rumble_gamepad_system(mut rumble_requests: EventWriter<GamepadRumbleRequest>, gamepads: Res<Gamepads>) {
+/// fn rumble_gamepad_system(
+///     mut rumble_requests: EventWriter<GamepadRumbleRequest>,
+///     gamepads: Res<Gamepads>
+/// ) {
 ///     for gamepad in gamepads.iter() {
-///         let request = GamepadRumbleRequest {
+///         rumble_requests.send(GamepadRumbleRequest::Add {
 ///             gamepad,
 ///             intensity: GamepadRumbleIntensity::MAX,
 ///             duration_seconds: 0.5,
-///             additive: true,
-///         };
-///         rumble_requests.send(request);
+///         });
 ///     }
 /// }
 /// ```
 #[derive(Clone)]
-pub struct GamepadRumbleRequest {
-    /// The duration in seconds of the rumble
-    pub duration_seconds: f32,
-    /// How intense the rumble should be
-    pub intensity: GamepadRumbleIntensity,
-    /// The gamepad to rumble
-    pub gamepad: Gamepad,
-    /// Whether the rumble effects should add up, or replace any existing effects
-    pub additive: bool,
-}
-
-impl GamepadRumbleRequest {
+pub enum GamepadRumbleRequest {
+    /// Add a rumble to the given gamepad.
+    ///
+    /// Simultaneous rumble effects add up to the sum of their strengths.
+    ///
+    /// Consequently, if two rumbles at half intensity are added at the same
+    /// time, their intensities will be added up, and the controller will rumble
+    /// at full intensity until one of the rumbles finishes, then the rumble
+    /// will continue at the intensity of the remaining event.
+    ///
+    /// To replace an existing rumble, send a [`GamepadRumbleRequest::Stop`] event first.
+    Add {
+        /// The duration in seconds of the rumble
+        duration_seconds: f32,
+        /// How intense the rumble should be
+        intensity: GamepadRumbleIntensity,
+        /// The gamepad to rumble
+        gamepad: Gamepad,
+    },
     /// Stop all running rumbles on the given `Gamepad`
-    pub fn stop(gamepad: Gamepad) -> Self {
-        Self {
-            duration_seconds: 0.0,
-            intensity: GamepadRumbleIntensity {
-                strong: 0.0,
-                weak: 0.0,
-            },
-            gamepad,
-            additive: false,
-        }
-    }
+    Stop { gamepad: Gamepad },
 }
 
 #[cfg(test)]
