@@ -396,7 +396,18 @@ pub fn extract_sprites(
             continue;
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-            let rect = Some(texture_atlas.textures[atlas_sprite.index]);
+            let rect = Some(
+                *texture_atlas
+                    .textures
+                    .get(atlas_sprite.index)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Sprite index {:?} does not exist for texture atlas handle {:?}.",
+                            atlas_sprite.index,
+                            texture_atlas_handle.id(),
+                        )
+                    }),
+            );
             extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
                 color: atlas_sprite.color,

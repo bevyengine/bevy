@@ -1,4 +1,5 @@
 <!-- MD024 - The Headers from the Platform-Specific Examples should be identical  -->
+<!-- Use 'cargo run -p build-templated-pages -- build-example-page' to generate the final example README.md -->
 <!-- markdownlint-disable-file MD024 -->
 
 # Examples

@@ -313,7 +313,7 @@ fn update_image_viewer(
                 *drop_hovered = false;
             }
             FileDragAndDrop::HoveredFile { .. } => *drop_hovered = true,
-            FileDragAndDrop::HoveredFileCancelled { .. } => *drop_hovered = false,
+            FileDragAndDrop::HoveredFileCanceled { .. } => *drop_hovered = false,
         }
     }
 
