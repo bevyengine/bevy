@@ -20,7 +20,6 @@ pub(crate) struct GizmoStorage {
     pub list_colors: Vec<ColorItem>,
     pub strip_positions: Vec<PositionItem>,
     pub strip_colors: Vec<ColorItem>,
-    pub in_use: bool,
 }
 
 /// A [`SystemParam`](bevy_ecs::system::SystemParam) for drawing gizmos.

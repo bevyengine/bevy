@@ -126,17 +126,15 @@ impl Default for GizmoConfig {
 
 #[derive(Resource)]
 struct MeshHandles {
-    list: Handle<Mesh>,
-    strip: Handle<Mesh>,
+    list: Option<Handle<Mesh>>,
+    strip: Option<Handle<Mesh>>,
 }
 
 impl FromWorld for MeshHandles {
-    fn from_world(world: &mut World) -> Self {
-        let mut meshes = world.resource_mut::<Assets<Mesh>>();
-
+    fn from_world(_world: &mut World) -> Self {
         MeshHandles {
-            list: meshes.add(Mesh::new(PrimitiveTopology::LineList)),
-            strip: meshes.add(Mesh::new(PrimitiveTopology::LineStrip)),
+            list: None,
+            strip: None,
         }
     }
 }
@@ -146,33 +144,51 @@ struct GizmoMesh;
 
 fn update_gizmo_meshes(
     mut meshes: ResMut<Assets<Mesh>>,
-    handles: Res<MeshHandles>,
+    mut handles: ResMut<MeshHandles>,
     mut storage: ResMut<GizmoStorage>,
 ) {
-    let list_mesh = meshes.get_mut(&handles.list).unwrap();
-
-    storage.in_use = false;
-
-    if !storage.list_positions.is_empty() {
-        storage.in_use = true;
+    if storage.list_positions.is_empty() {
+        handles.list = None;
+    } else if let Some(handle) = handles.list.as_ref() {
+        let list_mesh = meshes.get_mut(handle).unwrap();
 
         let positions = mem::take(&mut storage.list_positions);
         list_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
 
         let colors = mem::take(&mut storage.list_colors);
         list_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    } else {
+        let mut list_mesh = Mesh::new(PrimitiveTopology::LineList);
+
+        let positions = mem::take(&mut storage.list_positions);
+        list_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+
+        let colors = mem::take(&mut storage.list_colors);
+        list_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+
+        handles.list = Some(meshes.add(list_mesh));
     }
 
-    if !storage.strip_positions.is_empty() {
-        storage.in_use = true;
-
-        let strip_mesh = meshes.get_mut(&handles.strip).unwrap();
+    if storage.strip_positions.is_empty() {
+        handles.strip = None;
+    } else if let Some(handle) = handles.strip.as_ref() {
+        let strip_mesh = meshes.get_mut(handle).unwrap();
 
         let positions = mem::take(&mut storage.strip_positions);
         strip_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
 
         let colors = mem::take(&mut storage.strip_colors);
         strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    } else {
+        let mut strip_mesh = Mesh::new(PrimitiveTopology::LineStrip);
+
+        let positions = mem::take(&mut storage.strip_positions);
+        strip_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+
+        let colors = mem::take(&mut storage.strip_colors);
+        strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+
+        handles.strip = Some(meshes.add(strip_mesh));
     }
 }
 
@@ -180,40 +196,44 @@ fn extract_gizmo_data(
     mut commands: Commands,
     handles: Extract<Res<MeshHandles>>,
     config: Extract<Res<GizmoConfig>>,
-    storage: Extract<Res<GizmoStorage>>,
 ) {
     if config.is_changed() {
         commands.insert_resource(**config);
     }
 
-    if !config.enabled || !storage.in_use {
+    if !config.enabled {
         return;
     }
 
     let transform = Mat4::IDENTITY;
     let inverse_transpose_model = transform.inverse().transpose();
-    commands.spawn_batch([&handles.list, &handles.strip].map(|handle| {
-        (
-            GizmoMesh,
-            #[cfg(feature = "bevy_pbr")]
-            (
-                handle.clone_weak(),
-                MeshUniform {
-                    flags: 0,
-                    transform,
-                    previous_transform: transform,
-                    inverse_transpose_model,
-                },
-            ),
-            #[cfg(feature = "bevy_sprite")]
-            (
-                Mesh2dHandle(handle.clone_weak()),
-                Mesh2dUniform {
-                    flags: 0,
-                    transform,
-                    inverse_transpose_model,
-                },
-            ),
-        )
-    }));
+    commands.spawn_batch(
+        [handles.list.clone(), handles.strip.clone()]
+            .into_iter()
+            .flatten()
+            .map(move |handle| {
+                (
+                    GizmoMesh,
+                    #[cfg(feature = "bevy_pbr")]
+                    (
+                        handle.clone_weak(),
+                        MeshUniform {
+                            flags: 0,
+                            transform,
+                            previous_transform: transform,
+                            inverse_transpose_model,
+                        },
+                    ),
+                    #[cfg(feature = "bevy_sprite")]
+                    (
+                        Mesh2dHandle(handle),
+                        Mesh2dUniform {
+                            flags: 0,
+                            transform,
+                            inverse_transpose_model,
+                        },
+                    ),
+                )
+            }),
+    );
 }
