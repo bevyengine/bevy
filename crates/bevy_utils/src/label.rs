@@ -85,7 +85,7 @@ macro_rules! define_boxed_label {
 
             fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq;
 
-            fn dyn_hash(&self, state: &mut dyn Hasher);
+            fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher);
         }
 
         impl PartialEq for dyn $label_trait_name {
@@ -123,7 +123,7 @@ macro_rules! define_boxed_label {
                 (**self).as_dyn_eq()
             }
 
-            fn dyn_hash(&self, state: &mut dyn Hasher) {
+            fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher) {
                 (**self).dyn_hash(state);
             }
         }
