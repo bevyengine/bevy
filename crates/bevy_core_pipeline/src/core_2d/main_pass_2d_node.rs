@@ -26,8 +26,8 @@ pub struct MainPass2dNode {
     >,
 }
 
-impl MainPass2dNode {
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for MainPass2dNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             query: world.query_filtered(),
         }

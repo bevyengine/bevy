@@ -4,6 +4,7 @@
 //! matrices like [`Mat2`], [`Mat3`] and [`Mat4`] and orientation representations
 //! like [`Quat`].
 
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
 pub mod cubic_splines;

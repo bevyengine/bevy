@@ -60,6 +60,9 @@ pub trait AudioSinkPlayback {
     ///
     /// It won't be possible to restart it afterwards.
     fn stop(&self);
+
+    /// Returns true if this sink has no more sounds to play.
+    fn empty(&self) -> bool;
 }
 
 /// Asset controlling the playback of a sound
@@ -130,6 +133,10 @@ impl AudioSinkPlayback for AudioSink {
     fn stop(&self) {
         self.sink.as_ref().unwrap().stop();
     }
+
+    fn empty(&self) -> bool {
+        self.sink.as_ref().unwrap().empty()
+    }
 }
 
 /// Asset controlling the playback of a sound, or the locations of its listener and emitter.
@@ -196,6 +203,10 @@ impl AudioSinkPlayback for SpatialAudioSink {
 
     fn stop(&self) {
         self.sink.as_ref().unwrap().stop();
+    }
+
+    fn empty(&self) -> bool {
+        self.sink.as_ref().unwrap().empty()
     }
 }
 
