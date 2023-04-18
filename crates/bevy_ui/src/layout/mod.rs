@@ -1,6 +1,6 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, Style, UiScale};
+use crate::{ContentSize, Node, Style, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -91,7 +91,7 @@ impl UiSurface {
         }
     }
 
-    pub fn update_measure(&mut self, entity: Entity, calculated_size: &CalculatedSize) {
+    pub fn update_measure(&mut self, entity: Entity, calculated_size: &ContentSize) {
         let measure = calculated_size.measure.dyn_clone();
         let measure_func = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, available: Size<AvailableSpace>| {
@@ -230,10 +230,10 @@ pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     style_query: Query<(Entity, Ref<Style>), With<Node>>,
-    measure_query: Query<(Entity, Ref<CalculatedSize>)>,
+    measure_query: Query<(Entity, Ref<ContentSize>)>,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
-    mut removed_calculated_sizes: RemovedComponents<CalculatedSize>,
+    mut removed_calculated_sizes: RemovedComponents<ContentSize>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {

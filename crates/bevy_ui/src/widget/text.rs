@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Measure, Node, UiScale};
+use crate::{ContentSize, Measure, Node, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -70,7 +70,7 @@ pub fn measure_text_system(
     mut text_queries: ParamSet<(
         Query<Entity, Changed<Text>>,
         Query<Entity, (With<Text>, With<Node>)>,
-        Query<(&Text, &mut CalculatedSize)>,
+        Query<(&Text, &mut ContentSize)>,
     )>,
 ) {
     let window_scale_factor = windows

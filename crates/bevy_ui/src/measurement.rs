@@ -4,7 +4,7 @@ use bevy_reflect::Reflect;
 use std::fmt::Formatter;
 pub use taffy::style::AvailableSpace;
 
-impl std::fmt::Debug for CalculatedSize {
+impl std::fmt::Debug for ContentSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CalculatedSize").finish()
     }
@@ -52,14 +52,14 @@ impl Measure for FixedMeasure {
 /// A node with a `CalculatedSize` component is a node where its size
 /// is based on its content.
 #[derive(Component, Reflect)]
-pub struct CalculatedSize {
+pub struct ContentSize {
     /// The `Measure` used to compute the intrinsic size
     #[reflect(ignore)]
     pub measure: Box<dyn Measure>,
 }
 
 #[allow(clippy::derivable_impls)]
-impl Default for CalculatedSize {
+impl Default for ContentSize {
     fn default() -> Self {
         Self {
             // Default `FixedMeasure` always returns zero size.
@@ -68,7 +68,7 @@ impl Default for CalculatedSize {
     }
 }
 
-impl Clone for CalculatedSize {
+impl Clone for ContentSize {
     fn clone(&self) -> Self {
         Self {
             measure: self.measure.dyn_clone(),
