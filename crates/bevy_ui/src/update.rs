@@ -11,7 +11,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_input::mouse::{MouseScrollUnit, MouseWheel};
-use bevy_math::Rect;
+use bevy_math::{Rect, Vec2};
 use bevy_transform::components::GlobalTransform;
 
 /// Updates clipping for all nodes
@@ -120,25 +120,26 @@ pub fn update_scroll_position(
         };
 
         for (mut scroll_container, style, children, list_node) in &mut query_list {
-            if scroll_container.is_hovered {
-                if style.overflow.x == OverflowAxis::Scroll {
-                    let container_width = list_node.size().x;
-                    let items_width: f32 = children
-                        .iter()
-                        .map(|child| query_node.get(*child).unwrap().size().x)
-                        .sum();
+            let is_scrollable = (style.overflow.x == OverflowAxis::Scroll)
+                | (style.overflow.y == OverflowAxis::Scroll);
+            if is_scrollable && scroll_container.is_hovered {
+                // Compute container content sizes
+                let Vec2 {
+                    x: container_width,
+                    y: container_height,
+                } = list_node.size();
+                let (items_width, items_height): (f32, f32) =
+                    children.iter().fold((0.0, 0.0), |sum, child| {
+                        let size = query_node.get(*child).unwrap().size();
+                        (sum.0 + size.x, sum.1 + size.y)
+                    });
 
+                if style.overflow.x == OverflowAxis::Scroll {
                     let max_scroll_x = (items_width - container_width).max(0.);
                     scroll_container.offset_x =
                         (scroll_container.offset_x + dx).clamp(-max_scroll_x, 0.);
                 }
                 if style.overflow.y == OverflowAxis::Scroll {
-                    let container_height = list_node.size().y;
-                    let items_height: f32 = children
-                        .iter()
-                        .map(|child| query_node.get(*child).unwrap().size().y)
-                        .sum();
-
                     let max_scroll_y = (items_height - container_height).max(0.);
                     scroll_container.offset_y =
                         (scroll_container.offset_y + dy).clamp(-max_scroll_y, 0.);
