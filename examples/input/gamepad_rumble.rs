@@ -69,7 +69,7 @@ fn gamepad_system(
                 gamepad,
                 intensity: GamepadRumbleIntensity::strong(0.1),
                 duration: Duration::from_secs(5),
-            })
+            });
         }
 
         if button_pressed(GamepadButtonType::East) {
