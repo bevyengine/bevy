@@ -72,16 +72,21 @@ where
 macro_rules! define_boxed_label {
     ($label_trait_name:ident) => {
         /// A strongly-typed label.
-        pub trait $label_trait_name:
-            'static + Send + Sync + ::std::fmt::Debug + ::bevy_utils::label::DynHash
-        {
-            #[doc(hidden)]
+        pub trait $label_trait_name: 'static + Send + Sync + ::std::fmt::Debug {
+            fn inner_type_id(&self) -> TypeId {
+                TypeId::of::<Self>()
+            }
+
             fn dyn_clone(&self) -> Box<dyn $label_trait_name>;
+
+            fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq;
+
+            fn dyn_hash(&self, state: &mut dyn Hasher);
         }
 
         impl PartialEq for dyn $label_trait_name {
             fn eq(&self, other: &Self) -> bool {
-                self.dyn_eq(other.as_dyn_eq())
+                self.as_dyn_eq().dyn_eq(other.as_dyn_eq())
             }
         }
 
@@ -100,10 +105,22 @@ macro_rules! define_boxed_label {
         }
 
         impl $label_trait_name for Box<dyn $label_trait_name> {
+            fn inner_type_id(&self) -> TypeId {
+                (**self).inner_type_id()
+            }
+
             fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
                 // Be explicit that we want to use the inner value
                 // to avoid infinite recursion.
                 (**self).dyn_clone()
+            }
+
+            fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq {
+                (**self).as_dyn_eq()
+            }
+
+            fn dyn_hash(&self, state: &mut dyn Hasher) {
+                (**self).dyn_hash(state);
             }
         }
     };

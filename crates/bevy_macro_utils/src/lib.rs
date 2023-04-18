@@ -178,6 +178,14 @@ pub fn derive_boxed_label(input: syn::DeriveInput, trait_path: &syn::Path) -> To
             fn dyn_clone(&self) -> std::boxed::Box<dyn #trait_path> {
                 std::boxed::Box::new(std::clone::Clone::clone(self))
             }
+
+            fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq {
+                self
+            }
+
+            fn dyn_hash(&self, mut state: &mut dyn ::std::hash::Hasher) {
+                std::hash::Hash::hash(self, &mut state);
+            }
         }
     })
     .into()
