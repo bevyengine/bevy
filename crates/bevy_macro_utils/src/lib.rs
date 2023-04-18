@@ -184,7 +184,9 @@ pub fn derive_boxed_label(input: syn::DeriveInput, trait_path: &syn::Path) -> To
             }
 
             fn dyn_hash(&self, mut state: &mut dyn ::std::hash::Hasher) {
-                std::hash::Hash::hash(self, &mut state);
+                let ty_id = #trait_path::inner_type_id(self);
+                ::std::hash::Hash::hash(&ty_id, &mut state);
+                ::std::hash::Hash::hash(self, &mut state);
             }
         }
     })
