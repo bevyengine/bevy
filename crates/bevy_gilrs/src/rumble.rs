@@ -85,11 +85,11 @@ fn handle_rumble_request(
             manager.rumbles.remove(&gamepad_id);
         }
         GamepadRumbleRequest::Add {
-            duration_seconds,
+            duration,
             intensity,
             ..
         } => {
-            let deadline = current_time + duration_seconds;
+            let deadline = current_time + duration.as_secs_f32();
 
             let mut effect_builder = ff::EffectBuilder::new();
 

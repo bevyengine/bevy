@@ -4,6 +4,7 @@
 use bevy::{
     input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest},
     prelude::*,
+    utils::Duration,
 };
 
 fn main() {
@@ -26,10 +27,10 @@ fn gamepad_system(
             })
         };
         if button_pressed(GamepadButtonType::South) {
-            info!("(S) South face button: weak rumble for 1 second");
+            info!("(S) South face button: weak rumble for 0.5 seconds");
             rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad,
-                duration_seconds: 1.0,
+                duration: Duration::from_secs_f32(0.5),
                 intensity: GamepadRumbleIntensity {
                     strong: 0.0,
                     weak: 0.25,
@@ -43,7 +44,21 @@ fn gamepad_system(
                     strong: 1.0,
                     weak: 1.0,
                 },
-                duration_seconds: 5.0,
+                duration: Duration::from_secs(5),
+            });
+        } else if button_pressed(GamepadButtonType::North) {
+            info!(
+                "(N) North face button: Low-intensity, strong (low-frequency)
+                rumble for 5 seconds. Press multiple times for increased
+                intensity."
+            );
+            rumble_requests.send(GamepadRumbleRequest::Add {
+                gamepad,
+                intensity: GamepadRumbleIntensity {
+                    strong: 0.1,
+                    weak: 0.0,
+                },
+                duration: Duration::from_secs(5),
             });
         } else if button_pressed(GamepadButtonType::East) {
             info!("(E) East face button: Interrupt the current rumble");

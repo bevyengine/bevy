@@ -5,6 +5,7 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
 };
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_utils::Duration;
 use bevy_utils::{tracing::info, HashMap};
 use thiserror::Error;
 
@@ -1316,8 +1317,8 @@ pub enum GamepadRumbleRequest {
     ///
     /// To replace an existing rumble, send a [`GamepadRumbleRequest::Stop`] event first.
     Add {
-        /// The duration in seconds of the rumble
-        duration_seconds: f32,
+        /// How long the gamepad should rumble
+        duration: Duration,
         /// How intense the rumble should be
         intensity: GamepadRumbleIntensity,
         /// The gamepad to rumble
