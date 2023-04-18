@@ -64,6 +64,8 @@ impl Default for Node {
 #[reflect(Component, Default)]
 pub struct ScrollPosition {
     pub is_hovered: bool,
+    /// How far accross the node is scrolled (0 = not scrolled / scrolled to right)
+    pub offset_x: f32,
     /// How far down the node is scrolled (0 = not scrolled / scrolled to top)
     pub offset_y: f32,
 }
@@ -71,6 +73,7 @@ pub struct ScrollPosition {
 impl ScrollPosition {
     pub const DEFAULT: Self = Self {
         is_hovered: false,
+        offset_x: 0.0,
         offset_y: 0.0,
     };
 }

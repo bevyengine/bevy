@@ -84,7 +84,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         flex_direction: FlexDirection::Column,
                                         align_self: AlignSelf::Stretch,
                                         size: Size::height(Val::Percent(50.)),
-                                        overflow: Overflow::scroll_y(),
+                                        align_items: AlignItems::Start,
+                                        overflow: Overflow::scroll(),
                                         ..default()
                                     },
                                     background_color: Color::rgb(0.10, 0.10, 0.10).into(),
@@ -97,7 +98,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             NodeBundle {
                                                 style: Style {
                                                     flex_direction: FlexDirection::Column,
-                                                    align_items: AlignItems::Center,
+                                                    align_items: AlignItems::Start,
+                                                    size: Size::width(Val::Px(600.)),
                                                     ..default()
                                                 },
                                                 ..default()
@@ -109,7 +111,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             for i in 0..100 {
                                                 parent.spawn((
                                                     TextBundle::from_section(
-                                                        format!("Item {}", i + 1),
+                                                        format!("Item {} rhgiuherwiofhioewhfgioewhgioewhioghweioghiowhewiohgio", i + 1),
                                                         TextStyle {
                                                             font: asset_server
                                                                 .load("fonts/FiraSans-Bold.ttf"),

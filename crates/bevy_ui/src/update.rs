@@ -114,22 +114,35 @@ pub fn update_scroll_position(
     query_node: Query<&Node>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.iter() {
+        let (dx, dy) = match mouse_wheel_event.unit {
+            MouseScrollUnit::Line => (mouse_wheel_event.x * 20., mouse_wheel_event.y * 20.),
+            MouseScrollUnit::Pixel => (mouse_wheel_event.x, mouse_wheel_event.y),
+        };
+
         for (mut scroll_container, style, children, list_node) in &mut query_list {
-            if style.overflow.y == OverflowAxis::Scroll && scroll_container.is_hovered {
-                let container_height = list_node.size().y;
-                let items_height: f32 = children
-                    .iter()
-                    .map(|child| query_node.get(*child).unwrap().size().y)
-                    .sum();
+            if scroll_container.is_hovered {
+                if style.overflow.x == OverflowAxis::Scroll {
+                    let container_width = list_node.size().x;
+                    let items_width: f32 = children
+                        .iter()
+                        .map(|child| query_node.get(*child).unwrap().size().x)
+                        .sum();
 
-                let max_scroll = (items_height - container_height).max(0.);
+                    let max_scroll_x = (items_width - container_width).max(0.);
+                    scroll_container.offset_x =
+                        (scroll_container.offset_x + dx).clamp(-max_scroll_x, 0.);
+                }
+                if style.overflow.y == OverflowAxis::Scroll {
+                    let container_height = list_node.size().y;
+                    let items_height: f32 = children
+                        .iter()
+                        .map(|child| query_node.get(*child).unwrap().size().y)
+                        .sum();
 
-                let dy = match mouse_wheel_event.unit {
-                    MouseScrollUnit::Line => mouse_wheel_event.y * 20.,
-                    MouseScrollUnit::Pixel => mouse_wheel_event.y,
-                };
-
-                scroll_container.offset_y = (scroll_container.offset_y + dy).clamp(-max_scroll, 0.);
+                    let max_scroll_y = (items_height - container_height).max(0.);
+                    scroll_container.offset_y =
+                        (scroll_container.offset_y + dy).clamp(-max_scroll_y, 0.);
+                }
             }
         }
     }

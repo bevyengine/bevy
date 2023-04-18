@@ -324,13 +324,12 @@ pub fn ui_layout_system(
             }
 
             // Adjust position by the scroll offset of the parent
-            let x_scroll_position = 0.0; // TODO: implement horizontal scrolling
-            new_position.x += x_scroll_position;
-            let y_scroll_position = scroll_position_query
+            let (x_scroll_position, y_scroll_position) = scroll_position_query
                 .get(**parent)
                 .ok()
-                .and_then(|(_, p)| p.map(|p| p.offset_y))
-                .unwrap_or(0.0);
+                .and_then(|(_, p)| p.map(|p| (p.offset_x, p.offset_y)))
+                .unwrap_or((0.0, 0.0));
+            new_position.x += x_scroll_position;
             new_position.y += y_scroll_position;
         }
         // only trigger change detection when the new value is different
