@@ -19,14 +19,14 @@ use thiserror::Error;
 pub struct Node {
     /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
-    pub(crate) calculated_size: Vec2,
+    pub(crate) content_size: Vec2,
 }
 
 impl Node {
     /// The calculated node size as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub fn size(&self) -> Vec2 {
-        self.calculated_size
+        self.content_size
     }
 
     /// Returns the logical pixel coordinates of the UI node, based on its `GlobalTransform`.
@@ -48,7 +48,7 @@ impl Node {
 
 impl Node {
     pub const DEFAULT: Self = Self {
-        calculated_size: Vec2::ZERO,
+        content_size: Vec2::ZERO,
     };
 }
 

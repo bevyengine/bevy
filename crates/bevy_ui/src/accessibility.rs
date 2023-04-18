@@ -47,8 +47,8 @@ fn calc_bounds(
                 let bounds = Rect::new(
                     translation.x.into(),
                     translation.y.into(),
-                    (translation.x + node.calculated_size.x).into(),
-                    (translation.y + node.calculated_size.y).into(),
+                    (translation.x + node.content_size.x).into(),
+                    (translation.y + node.content_size.y).into(),
                 );
                 accessible.set_bounds(bounds);
             }

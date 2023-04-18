@@ -91,8 +91,8 @@ impl UiSurface {
         }
     }
 
-    pub fn update_measure(&mut self, entity: Entity, calculated_size: &ContentSize) {
-        let measure = calculated_size.measure.dyn_clone();
+    pub fn update_measure(&mut self, entity: Entity, content_size: &ContentSize) {
+        let measure = content_size.measure.dyn_clone();
         let measure_func = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, available: Size<AvailableSpace>| {
                 let size = measure.measure(
@@ -233,7 +233,7 @@ pub fn ui_layout_system(
     measure_query: Query<(Entity, Ref<ContentSize>)>,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
-    mut removed_calculated_sizes: RemovedComponents<ContentSize>,
+    mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
@@ -280,17 +280,17 @@ pub fn ui_layout_system(
         }
     }
 
-    for (entity, calculated_size) in measure_query.iter() {
-        if calculated_size.is_changed() {
-            ui_surface.update_measure(entity, &calculated_size);
+    for (entity, content_size) in measure_query.iter() {
+        if content_size.is_changed() {
+            ui_surface.update_measure(entity, &content_size);
         }
     }
 
     // clean up removed nodes
     ui_surface.remove_entities(removed_nodes.iter());
 
-    // When a `CalculatedSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_calculated_sizes.iter() {
+    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    for entity in removed_content_sizes.iter() {
         ui_surface.try_remove_measure(entity);
     }
 
@@ -320,8 +320,8 @@ pub fn ui_layout_system(
             to_logical(layout.size.height),
         );
         // only trigger change detection when the new value is different
-        if node.calculated_size != new_size {
-            node.calculated_size = new_size;
+        if node.content_size != new_size {
+            node.content_size = new_size;
         }
         let mut new_position = transform.translation;
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);

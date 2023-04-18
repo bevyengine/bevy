@@ -203,7 +203,7 @@ pub fn extract_uinodes(
                 color: color.0,
                 rect: Rect {
                     min: Vec2::ZERO,
-                    max: uinode.calculated_size,
+                    max: uinode.content_size,
                 },
                 image,
                 atlas_size: None,

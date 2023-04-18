@@ -6,7 +6,7 @@ pub use taffy::style::AvailableSpace;
 
 impl std::fmt::Debug for ContentSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CalculatedSize").finish()
+        f.debug_struct("ContentSize").finish()
     }
 }
 
@@ -49,7 +49,7 @@ impl Measure for FixedMeasure {
     }
 }
 
-/// A node with a `CalculatedSize` component is a node where its size
+/// A node with a `ContentSize` component is a node where its size
 /// is based on its content.
 #[derive(Component, Reflect)]
 pub struct ContentSize {
