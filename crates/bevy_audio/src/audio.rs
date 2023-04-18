@@ -66,8 +66,8 @@ pub enum PlaybackMode {
 
 /// Initial settings to be used when audio starts playing.
 /// If you would like to control the audio while it is playing, query for the
-/// [`AudioSink`] or [`SpatialAudioSink`] components.
-/// Changes to this component will *not* be applied to already-playing audio.
+/// [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink]
+/// components. Changes to this component will *not* be applied to already-playing audio.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PlaybackSettings {
     /// The desired playback behavior.
@@ -188,8 +188,8 @@ impl GlobalVolume {
 /// If the handle refers to an unavailable asset (such as if it has not finished loading yet),
 /// the audio will not begin playing immediately. The audio will play when the asset is ready.
 ///
-/// When Bevy begins the audio playback, an [`AudioSink`] component will be added to the
-/// entity. You can use that component to control the audio settings during playback.
+/// When Bevy begins the audio playback, an [`AudioSink`][crate::AudioSink] component will be
+/// added to the entity. You can use that component to control the audio settings during playback.
 #[derive(Bundle, Default)]
 pub struct AudioBundle<Source = AudioSource>
 where
@@ -199,7 +199,7 @@ where
     pub source: Handle<Source>,
     /// Initial settings that the audio starts playing with.
     /// If you would like to control the audio while it is playing,
-    /// query for the [`AudioSink`] component.
+    /// query for the [`AudioSink`][crate::AudioSink] component.
     /// Changes to this component will *not* be applied to already-playing audio.
     pub settings: PlaybackSettings,
 }
@@ -259,8 +259,9 @@ where
 /// If the handle refers to an unavailable asset (such as if it has not finished loading yet),
 /// the audio will not begin playing immediately. The audio will play when the asset is ready.
 ///
-/// When Bevy begins the audio playback, a [`SpatialAudioSink`] component will be added to the
-/// entity. You can use that component to control the audio settings during playback.
+/// When Bevy begins the audio playback, a [`SpatialAudioSink`][crate::SpatialAudioSink]
+/// component will be added to the entity. You can use that component to control the audio
+/// settings during playback.
 #[derive(Bundle)]
 pub struct SpatialAudioBundle<Source = AudioSource>
 where
@@ -270,7 +271,7 @@ where
     pub source: Handle<Source>,
     /// Initial settings that the audio starts playing with.
     /// If you would like to control the audio while it is playing,
-    /// query for the [`SpatialAudioSink`] component.
+    /// query for the [`SpatialAudioSink`][crate::SpatialAudioSink] component.
     /// Changes to this component will *not* be applied to already-playing audio.
     pub settings: PlaybackSettings,
     /// Spatial audio configuration. Specifies the positions of the source and listener.

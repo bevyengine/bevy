@@ -68,7 +68,7 @@ pub trait AudioSinkPlayback {
 /// Used to control audio during playback.
 ///
 /// Bevy inserts this component onto your entities when it begins playing an audio source.
-/// Use [`AudioBundle`] to trigger that to happen.
+/// Use [`AudioBundle`][crate::AudioBundle] to trigger that to happen.
 ///
 /// You can use this component to modify the playback settings while the audio is playing.
 #[derive(Component)]
@@ -125,7 +125,7 @@ impl AudioSinkPlayback for AudioSink {
 /// Used to control spatial audio during playback.
 ///
 /// Bevy inserts this component onto your entities when it begins playing an audio source.
-/// Use [`SpatialAudioBundle`] to trigger that to happen.
+/// Use [`SpatialAudioBundle`][crate::SpatialAudioBundle] to trigger that to happen.
 ///
 /// You can use this component to modify the playback settings while the audio is playing.
 #[derive(Component)]
