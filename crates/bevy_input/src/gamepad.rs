@@ -1301,6 +1301,7 @@ impl GamepadRumbleIntensity {
 /// ```
 /// # use bevy_input::gamepad::{Gamepad, Gamepads, GamepadRumbleRequest, GamepadRumbleIntensity};
 /// # use bevy_ecs::prelude::{EventWriter, Res};
+/// # use bevy_utils::Duration;
 /// fn rumble_gamepad_system(
 ///     mut rumble_requests: EventWriter<GamepadRumbleRequest>,
 ///     gamepads: Res<Gamepads>
@@ -1309,7 +1310,7 @@ impl GamepadRumbleIntensity {
 ///         rumble_requests.send(GamepadRumbleRequest::Add {
 ///             gamepad,
 ///             intensity: GamepadRumbleIntensity::MAX,
-///             duration_seconds: 0.5,
+///             duration: Duration::from_secs_f32(0.5),
 ///         });
 ///     }
 /// }
