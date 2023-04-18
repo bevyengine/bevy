@@ -111,7 +111,8 @@ mod query;
 #[allow(clippy::module_inception)]
 mod system;
 mod system_param;
-mod system_piping;
+
+use std::borrow::Cow;
 
 pub use combinator::*;
 pub use commands::*;
@@ -121,7 +122,6 @@ pub use function_system::*;
 pub use query::*;
 pub use system::*;
 pub use system_param::*;
-pub use system_piping::*;
 
 use crate::world::World;
 
@@ -190,9 +190,296 @@ where
     assert_is_system(system);
 }
 
+/// Conversion trait to turn something into a [`System`].
+///
+/// Use this to get a system from a function. Also note that every system implements this trait as
+/// well.
+///
+/// # Examples
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// fn my_system_function(a_usize_local: Local<usize>) {}
+///
+/// let system = IntoSystem::into_system(my_system_function);
+/// ```
+// This trait has to be generic because we have potentially overlapping impls, in particular
+// because Rust thinks a type could impl multiple different `FnMut` combinations
+// even though none can currently
+pub trait IntoSystem<In, Out, Marker>: Sized {
+    type System: System<In = In, Out = Out>;
+    /// Turns this value into its corresponding [`System`].
+    fn into_system(this: Self) -> Self::System;
+
+    /// Pass the output of this system `A` into a second system `B`, creating a new compound system.
+    ///
+    /// The second system must have `In<T>` as its first parameter, where `T`
+    /// is the return type of the first system.
+    fn pipe<B, Final, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
+    where
+        B: IntoSystem<Out, Final, MarkerB>,
+    {
+        let system_a = IntoSystem::into_system(self);
+        let system_b = IntoSystem::into_system(system);
+        let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
+        PipeSystem::new(system_a, system_b, Cow::Owned(name))
+    }
+}
+
+// All systems implicitly implement IntoSystem.
+impl<T: System> IntoSystem<T::In, T::Out, ()> for T {
+    type System = T;
+    fn into_system(this: Self) -> Self {
+        this
+    }
+}
+
+/// Wrapper type to mark a [`SystemParam`] as an input.
+///
+/// [`System`]s may take an optional input which they require to be passed to them when they
+/// are being [`run`](System::run). For [`FunctionSystems`](FunctionSystem) the input may be marked
+/// with this `In` type, but only the first param of a function may be tagged as an input. This also
+/// means a system can only have one or zero input parameters.
+///
+/// # Examples
+///
+/// Here is a simple example of a system that takes a [`usize`] returning the square of it.
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// fn main() {
+///     let mut square_system = IntoSystem::into_system(square);
+///
+///     let mut world = World::default();
+///     square_system.initialize(&mut world);
+///     assert_eq!(square_system.run(12, &mut world), 144);
+/// }
+///
+/// fn square(In(input): In<usize>) -> usize {
+///     input * input
+/// }
+/// ```
+pub struct In<In>(pub In);
+
+/// A collection of common adapters for [piping](crate::system::PipeSystem) the result of a system.
+pub mod adapter {
+    use crate::system::In;
+    use bevy_utils::tracing;
+    use std::fmt::Debug;
+
+    /// Converts a regular function into a system adapter.
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// fn return1() -> u64 { 1 }
+    ///
+    /// return1
+    ///     .pipe(system_adapter::new(u32::try_from))
+    ///     .pipe(system_adapter::unwrap)
+    ///     .pipe(print);
+    ///
+    /// fn print(In(x): In<impl std::fmt::Debug>) {
+    ///     println!("{x:?}");
+    /// }
+    /// ```
+    pub fn new<T, U>(mut f: impl FnMut(T) -> U) -> impl FnMut(In<T>) -> U {
+        move |In(x)| f(x)
+    }
+
+    /// System adapter that unwraps the `Ok` variant of a [`Result`].
+    /// This is useful for fallible systems that should panic in the case of an error.
+    ///
+    /// There is no equivalent adapter for [`Option`]. Instead, it's best to provide
+    /// an error message and convert to a `Result` using `ok_or{_else}`.
+    ///
+    /// # Examples
+    ///
+    /// Panicking on error
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// // Building a new schedule/app...
+    /// let mut sched = Schedule::default();
+    /// sched.add_systems(
+    ///         // Panic if the load system returns an error.
+    ///         load_save_system.pipe(system_adapter::unwrap)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A system which may fail irreparably.
+    /// fn load_save_system() -> Result<(), std::io::Error> {
+    ///     let save_file = open_file("my_save.json")?;
+    ///     dbg!(save_file);
+    ///     Ok(())
+    /// }
+    /// # fn open_file(name: &str) -> Result<&'static str, std::io::Error>
+    /// # { Ok("hello world") }
+    /// ```
+    pub fn unwrap<T, E: Debug>(In(res): In<Result<T, E>>) -> T {
+        res.unwrap()
+    }
+
+    /// System adapter that utilizes the [`bevy_utils::tracing::info!`] macro to print system information.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// // Building a new schedule/app...
+    /// let mut sched = Schedule::default();
+    /// sched.add_systems(
+    ///         // Prints system information.
+    ///         data_pipe_system.pipe(system_adapter::info)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A system that returns a String output.
+    /// fn data_pipe_system() -> String {
+    ///     "42".to_string()
+    /// }
+    /// ```
+    pub fn info<T: Debug>(In(data): In<T>) {
+        tracing::info!("{:?}", data);
+    }
+
+    /// System adapter that utilizes the [`bevy_utils::tracing::debug!`] macro to print the output of a system.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// // Building a new schedule/app...
+    /// let mut sched = Schedule::default();
+    /// sched.add_systems(
+    ///         // Prints debug data from system.
+    ///         parse_message_system.pipe(system_adapter::dbg)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A system that returns a Result<usize, String> output.
+    /// fn parse_message_system() -> Result<usize, std::num::ParseIntError> {
+    ///     Ok("42".parse()?)
+    /// }
+    /// ```
+    pub fn dbg<T: Debug>(In(data): In<T>) {
+        tracing::debug!("{:?}", data);
+    }
+
+    /// System adapter that utilizes the [`bevy_utils::tracing::warn!`] macro to print the output of a system.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// // Building a new schedule/app...
+    /// # let mut sched = Schedule::default();
+    /// sched.add_systems(
+    ///         // Prints system warning if system returns an error.
+    ///         warning_pipe_system.pipe(system_adapter::warn)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A system that returns a Result<(), String> output.
+    /// fn warning_pipe_system() -> Result<(), String> {
+    ///     Err("Got to rusty?".to_string())
+    /// }
+    /// ```
+    pub fn warn<E: Debug>(In(res): In<Result<(), E>>) {
+        if let Err(warn) = res {
+            tracing::warn!("{:?}", warn);
+        }
+    }
+
+    /// System adapter that utilizes the [`bevy_utils::tracing::error!`] macro to print the output of a system.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// // Building a new schedule/app...
+    /// let mut sched = Schedule::default();
+    /// sched.add_systems(
+    ///         // Prints system error if system fails.
+    ///         parse_error_message_system.pipe(system_adapter::error)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A system that returns a Result<())> output.
+    /// fn parse_error_message_system() -> Result<(), String> {
+    ///    Err("Some error".to_owned())
+    /// }
+    /// ```
+    pub fn error<E: Debug>(In(res): In<Result<(), E>>) {
+        if let Err(error) = res {
+            tracing::error!("{:?}", error);
+        }
+    }
+
+    /// System adapter that ignores the output of the previous system in a pipe.
+    /// This is useful for fallible systems that should simply return early in case of an `Err`/`None`.
+    ///
+    /// # Examples
+    ///
+    /// Returning early
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// // Marker component for an enemy entity.
+    /// #[derive(Component)]
+    /// struct Monster;
+    ///
+    /// // Building a new schedule/app...
+    /// # let mut sched = Schedule::default(); sched
+    ///     .add_systems(
+    ///         // If the system fails, just move on and try again next frame.
+    ///         fallible_system.pipe(system_adapter::ignore)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A system which may return early. It's more convenient to use the `?` operator for this.
+    /// fn fallible_system(
+    ///     q: Query<Entity, With<Monster>>
+    /// ) -> Option<()> {
+    ///     let monster_id = q.iter().next()?;
+    ///     println!("Monster entity is {monster_id:?}");
+    ///     Some(())
+    /// }
+    /// ```
+    pub fn ignore<T>(In(_): In<T>) {}
+}
+
 #[cfg(test)]
 mod tests {
     use std::any::TypeId;
+
+    use bevy_utils::default;
 
     use crate::{
         self as bevy_ecs,
@@ -206,8 +493,8 @@ mod tests {
         removal_detection::RemovedComponents,
         schedule::{apply_system_buffers, IntoSystemConfigs, Schedule},
         system::{
-            Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
-            Res, ResMut, Resource, System, SystemState,
+            adapter::new, Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
+            QueryComponentError, Res, ResMut, Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -1444,5 +1731,106 @@ mod tests {
     fn panic_inside_system() {
         let mut world = World::new();
         run_system(&mut world, || panic!("this system panics"));
+    }
+
+    #[test]
+    fn assert_systems() {
+        use std::str::FromStr;
+
+        use crate::{prelude::*, system::assert_is_system};
+
+        /// Mocks a system that returns a value of type `T`.
+        fn returning<T>() -> T {
+            unimplemented!()
+        }
+
+        /// Mocks an exclusive system that takes an input and returns an output.
+        fn exclusive_in_out<A, B>(_: In<A>, _: &mut World) -> B {
+            unimplemented!()
+        }
+
+        fn not(In(val): In<bool>) -> bool {
+            !val
+        }
+
+        assert_is_system(returning::<Result<u32, std::io::Error>>.pipe(unwrap));
+        assert_is_system(returning::<Option<()>>.pipe(ignore));
+        assert_is_system(returning::<&str>.pipe(new(u64::from_str)).pipe(unwrap));
+        assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.pipe(error));
+        assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
+
+        returning::<()>.run_if(returning::<bool>.pipe(not));
+    }
+
+    #[test]
+    fn pipe_change_detection() {
+        #[derive(Resource, Default)]
+        struct Flag;
+
+        #[derive(Default)]
+        struct Info {
+            // If true, the respective system will mutate `Flag`.
+            do_first: bool,
+            do_second: bool,
+
+            // Will be set to true if the respective system saw that `Flag` changed.
+            first_flag: bool,
+            second_flag: bool,
+        }
+
+        fn first(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
+            if flag.is_changed() {
+                info.first_flag = true;
+            }
+            if info.do_first {
+                *flag = Flag;
+            }
+
+            info
+        }
+
+        fn second(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
+            if flag.is_changed() {
+                info.second_flag = true;
+            }
+            if info.do_second {
+                *flag = Flag;
+            }
+
+            info
+        }
+
+        let mut world = World::new();
+        world.init_resource::<Flag>();
+        let mut sys = first.pipe(second);
+        sys.initialize(&mut world);
+
+        sys.run(default(), &mut world);
+
+        // The second system should observe a change made in the first system.
+        let info = sys.run(
+            Info {
+                do_first: true,
+                ..default()
+            },
+            &mut world,
+        );
+        assert!(!info.first_flag);
+        assert!(info.second_flag);
+
+        // When a change is made in the second system, the first system
+        // should observe it the next time they are run.
+        let info1 = sys.run(
+            Info {
+                do_second: true,
+                ..default()
+            },
+            &mut world,
+        );
+        let info2 = sys.run(default(), &mut world);
+        assert!(!info1.first_flag);
+        assert!(!info1.second_flag);
+        assert!(info2.first_flag);
+        assert!(!info2.second_flag);
     }
 }

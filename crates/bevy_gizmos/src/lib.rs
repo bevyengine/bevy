@@ -133,41 +133,61 @@ impl Default for GizmoConfig {
 
 #[derive(Resource)]
 struct LineGizmoHandles {
-    list: Handle<LineGizmo>,
-    strip: Handle<LineGizmo>,
+    list: Option<Handle<LineGizmo>>,
+    strip: Option<Handle<LineGizmo>>,
 }
 
 impl FromWorld for LineGizmoHandles {
-    fn from_world(world: &mut World) -> Self {
-        let mut line_gizmos = world.resource_mut::<Assets<LineGizmo>>();
-
+    fn from_world(_world: &mut World) -> Self {
         LineGizmoHandles {
-            list: line_gizmos.add(LineGizmo {
-                strip: false,
-                ..default()
-            }),
-            strip: line_gizmos.add(LineGizmo {
-                strip: true,
-                ..default()
-            }),
+            list: None,
+            strip: None,
         }
     }
 }
 
 fn update_gizmo_meshes(
-    mut meshes: ResMut<Assets<LineGizmo>>,
-    handles: Res<LineGizmoHandles>,
+    mut line_gizmos: ResMut<Assets<LineGizmo>>,
+    mut handles: ResMut<LineGizmoHandles>,
     mut storage: ResMut<GizmoStorage>,
 ) {
-    let list = meshes.get_mut(&handles.list).unwrap();
+    if storage.list_positions.is_empty() {
+        handles.list = None;
+    } else if let Some(handle) = handles.list.as_ref() {
+        let list = line_gizmos.get_mut(handle).unwrap();
 
-    list.positions = mem::take(&mut storage.list_positions);
-    list.colors = mem::take(&mut storage.list_colors);
+        list.positions = mem::take(&mut storage.list_positions);
+        list.colors = mem::take(&mut storage.list_colors);
+    } else {
+        let mut list = LineGizmo {
+            strip: false,
+            ..default()
+        };
 
-    let strip = meshes.get_mut(&handles.strip).unwrap();
+        list.positions = mem::take(&mut storage.list_positions);
+        list.colors = mem::take(&mut storage.list_colors);
 
-    strip.positions = mem::take(&mut storage.strip_positions);
-    strip.colors = mem::take(&mut storage.strip_colors);
+        handles.list = Some(line_gizmos.add(list));
+    }
+
+    if storage.strip_positions.is_empty() {
+        handles.strip = None;
+    } else if let Some(handle) = handles.strip.as_ref() {
+        let strip = line_gizmos.get_mut(handle).unwrap();
+
+        strip.positions = mem::take(&mut storage.strip_positions);
+        strip.colors = mem::take(&mut storage.strip_colors);
+    } else {
+        let mut strip = LineGizmo {
+            strip: true,
+            ..default()
+        };
+
+        strip.positions = mem::take(&mut storage.strip_positions);
+        strip.colors = mem::take(&mut storage.strip_colors);
+
+        handles.strip = Some(line_gizmos.add(strip));
+    }
 }
 
 fn extract_gizmo_data(
@@ -183,15 +203,17 @@ fn extract_gizmo_data(
         return;
     }
 
-    commands.spawn_batch([&handles.list, &handles.strip].map(|handle| {
-        (
-            LineGizmoUniform {
-                line_width: config.line_width,
-                depth_bias: config.depth_bias,
-            },
-            handle.clone(),
-        )
-    }));
+    for handle in [&handles.list, &handles.strip] {
+        if let Some(handle) = handle {
+            commands.spawn((
+                LineGizmoUniform {
+                    line_width: config.line_width,
+                    depth_bias: config.depth_bias,
+                },
+                handle.clone_weak(),
+            ));
+        }
+    }
 }
 
 #[derive(Component, ShaderType, Clone, Copy)]

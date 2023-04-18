@@ -222,7 +222,7 @@ fn queue_line_gizmos_3d(
             | MeshPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle) in &line_gizmos {
-            let line_gizmo = line_gizmo_assets.get(handle).unwrap();
+            let Some(line_gizmo) = line_gizmo_assets.get(handle) else { continue };
 
             let pipeline = pipelines.specialize(
                 &pipeline_cache,

@@ -58,6 +58,7 @@ impl Plugin for SpritePlugin {
         app.add_asset::<TextureAtlas>()
             .register_asset_reflect::<TextureAtlas>()
             .register_type::<Sprite>()
+            .register_type::<TextureAtlasSprite>()
             .register_type::<Anchor>()
             .register_type::<Mesh2dHandle>()
             .add_plugin(Mesh2dRenderPlugin)

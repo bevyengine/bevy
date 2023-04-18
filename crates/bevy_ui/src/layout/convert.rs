@@ -452,7 +452,7 @@ mod tests {
                 height: Val::Px(0.),
             },
             aspect_ratio: None,
-            overflow: crate::Overflow::Hidden,
+            overflow: crate::Overflow::clip(),
             gap: Size {
                 width: Val::Px(0.),
                 height: Val::Percent(0.),
