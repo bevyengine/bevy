@@ -71,8 +71,9 @@ fn handle_rumble_request(
     current_time: f32,
 ) -> Result<(), RumbleError> {
     let gamepad = match rumble {
-        GamepadRumbleRequest::Add { gamepad, .. } => gamepad,
-        GamepadRumbleRequest::Stop { gamepad } => gamepad,
+        GamepadRumbleRequest::Add { gamepad, .. } | GamepadRumbleRequest::Stop { gamepad } => {
+            gamepad
+        }
     };
     let (gamepad_id, _) = gilrs
         .gamepads()
@@ -126,8 +127,9 @@ pub(crate) fn play_gilrs_rumble(
     // Add new effects.
     for rumble in requests.iter().cloned() {
         let gamepad = match rumble {
-            GamepadRumbleRequest::Add { gamepad, .. } => gamepad,
-            GamepadRumbleRequest::Stop { gamepad } => gamepad,
+            GamepadRumbleRequest::Add { gamepad, .. } | GamepadRumbleRequest::Stop { gamepad } => {
+                gamepad
+            }
         };
         match handle_rumble_request(&mut manager, &mut gilrs, rumble, current_time) {
             Ok(()) => {}
