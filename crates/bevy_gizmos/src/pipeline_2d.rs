@@ -195,13 +195,13 @@ fn queue_line_gizmos_2d(
         for (entity, handle) in &line_gizmos {
             let line_gizmo = line_gizmo_assets.get(handle).unwrap();
 
-            let pipeline_id =
+            let pipeline =
                 pipelines.specialize(&pipeline_cache, &pipeline, (line_gizmo.strip, key));
 
             transparent_phase.add(Transparent2d {
                 entity,
                 draw_function,
-                pipeline: pipeline_id,
+                pipeline,
                 sort_key: FloatOrd(0.),
                 batch_range: None,
             });

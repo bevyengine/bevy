@@ -224,7 +224,7 @@ fn queue_line_gizmos_3d(
         for (entity, handle) in &line_gizmos {
             let line_gizmo = line_gizmo_assets.get(handle).unwrap();
 
-            let pipeline_id = pipelines.specialize(
+            let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
                 (config.line_perspective, line_gizmo.strip, polyline_key),
@@ -233,7 +233,7 @@ fn queue_line_gizmos_3d(
             transparent_phase.add(Transparent3d {
                 entity,
                 draw_function,
-                pipeline: pipeline_id,
+                pipeline,
                 distance: 0.,
             });
         }
