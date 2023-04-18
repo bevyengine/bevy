@@ -172,3 +172,22 @@ where
         SystemTypeSet::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_boxed_label() {
+        use crate::{self as bevy_ecs, world::World};
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct A;
+
+        let mut world = World::new();
+        world.add_schedule(Default::default(), A);
+        world
+            .try_run_schedule(Box::new(A) as BoxedScheduleLabel)
+            .unwrap();
+    }
+}
