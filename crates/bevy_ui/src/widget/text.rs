@@ -208,7 +208,7 @@ pub fn text_system(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
-//<<<<<<< HEAD
+                    //<<<<<<< HEAD
                     // calculated_size.size = Vec2::new(
                     //     info.size.x,
                     //    info.size.y,
@@ -219,9 +219,9 @@ pub fn text_system(
                     //         commands.entity(entity).insert(info);
                     //     }
                     // }
-//=======
+                    //=======
                     *text_layout_info = info;
-//>>>>>>> main
+                    //>>>>>>> main
                 }
             }
         }

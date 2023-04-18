@@ -7,7 +7,8 @@ use bevy_ecs::{
     event::EventReader,
     query::{Changed, With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, Resource}, world::Ref,
+    system::{Query, Res, ResMut, Resource},
+    world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -90,12 +91,7 @@ impl UiSurface {
         }
     }
 
-    pub fn update_measure(
-        &mut self,
-        entity: Entity,
-        calculated_size: &CalculatedSize,
-    ) {
-
+    pub fn update_measure(&mut self, entity: Entity, calculated_size: &CalculatedSize) {
         let measure = calculated_size.measure.dyn_clone();
         let measure_func = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, available: Size<AvailableSpace>| {
@@ -269,7 +265,6 @@ pub fn ui_layout_system(
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
     let layout_context = LayoutContext::new(scale_factor, physical_size);
-
 
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
         scale_factor_events.clear();
