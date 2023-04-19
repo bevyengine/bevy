@@ -12,6 +12,7 @@
 //! | `Left` / `Right`   | Rotate Camera                             |
 //! | `O` / `P`          | Decrease / Increase Transmission Steps    |
 //! | `H`                | Toggle HDR                                |
+//! | `D`                | Toggle Depth Prepass                      |
 //! | `C`                | Randomize Colors                          |
 
 use std::f32::consts::PI;
@@ -360,7 +361,7 @@ fn setup(
 
     commands.spawn(
         TextBundle::from_section(
-            "1 / 2 - Decrease / Increase Diffuse Transmission\nQ / W - Decrease / Increase Transmission\nA / S - Decrease / Increase Thickness\nZ / X - Decrease / Increase IOR\nDown / Up - Decrease / Increase Perceptual Roughness\nLeft / Right - Rotate Camera\nO / P - Decrease / Increase Transmission Steps\nH - Toggle HDR\nC - Randomize Colors",
+            "1 / 2 - Decrease / Increase Diffuse Transmission\nQ / W - Decrease / Increase Transmission\nA / S - Decrease / Increase Thickness\nZ / X - Decrease / Increase IOR\nDown / Up - Decrease / Increase Perceptual Roughness\nLeft / Right - Rotate Camera\nO / P - Decrease / Increase Transmission Steps\nH - Toggle HDR\nD - Toggle Depth Prepass\nC - Randomize Colors",
             text_style.clone(),
         )
         .with_style(Style {
@@ -417,9 +418,19 @@ impl Default for ExampleState {
 
 #[allow(clippy::too_many_arguments)]
 fn example_control_system(
+    mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     controllable: Query<(&Handle<StandardMaterial>, &ExampleControls)>,
-    mut camera: Query<(&mut Camera, &mut Camera3d, &mut Transform), With<Camera3d>>,
+    mut camera: Query<
+        (
+            Entity,
+            &mut Camera,
+            &mut Camera3d,
+            &mut Transform,
+            Option<&DepthPrepass>,
+        ),
+        With<Camera3d>,
+    >,
     mut display: Query<&mut Text, With<ExampleDisplay>>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
@@ -477,10 +488,19 @@ fn example_control_system(
         }
     }
 
-    let (mut camera, mut camera_3d, mut camera_transform) = camera.single_mut();
+    let (camera_entity, mut camera, mut camera_3d, mut camera_transform, depth_prepass) =
+        camera.single_mut();
 
     if input.just_pressed(KeyCode::H) {
         camera.hdr = !camera.hdr;
+    }
+
+    if input.just_pressed(KeyCode::D) {
+        if depth_prepass.is_none() {
+            commands.entity(camera_entity).insert(DepthPrepass);
+        } else {
+            commands.entity(camera_entity).remove::<DepthPrepass>();
+        }
     }
 
     if input.just_pressed(KeyCode::O) && camera_3d.transmissive_steps > 0 {
@@ -506,8 +526,9 @@ fn example_control_system(
 
     let mut display = display.single_mut();
     display.sections[0].value = format!(
-        "HDR: {}\nDiffuse Transmission: {:.2}\nTransmission: {:.2}\nThickness: {:.2}\nIOR: {:.2}\nPerceptual Roughness: {:.2}\nTransmissive Steps: {}",
+        "HDR: {}\nDepth Prepass: {}\nDiffuse Transmission: {:.2}\nTransmission: {:.2}\nThickness: {:.2}\nIOR: {:.2}\nPerceptual Roughness: {:.2}\nTransmissive Steps: {}",
         if camera.hdr { "ON " } else { "OFF" },
+        if depth_prepass.is_some() { "ON " } else { "OFF" },
         state.diffuse_transmission,
         state.transmission,
         state.thickness,
