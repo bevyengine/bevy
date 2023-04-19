@@ -423,7 +423,7 @@ impl NormalizedRenderTarget {
         match self {
             NormalizedRenderTarget::Window(window_ref) => windows
                 .get(&window_ref.entity())
-                .and_then(|window| window.swap_chain_texture.as_ref()),
+                .and_then(|window| window.swap_chain_texture_view.as_ref()),
             NormalizedRenderTarget::Image(image_handle) => {
                 images.get(image_handle).map(|image| &image.texture_view)
             }

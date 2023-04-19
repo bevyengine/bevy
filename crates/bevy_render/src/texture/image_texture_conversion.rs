@@ -174,6 +174,7 @@ impl Image {
     /// - `TextureFormat::R8Unorm`
     /// - `TextureFormat::Rg8Unorm`
     /// - `TextureFormat::Rgba8UnormSrgb`
+    /// - `TextureFormat::Bgra8UnormSrgb`
     ///
     /// To convert [`Image`] to a different format see: [`Image::convert`].
     pub fn try_into_dynamic(self) -> anyhow::Result<DynamicImage> {
@@ -194,6 +195,20 @@ impl Image {
                 self.texture_descriptor.size.width,
                 self.texture_descriptor.size.height,
                 self.data,
+            )
+            .map(DynamicImage::ImageRgba8),
+            // This format is commonly used as the format for the swapchain texture
+            // This conversion is added here to support screenshots
+            TextureFormat::Bgra8UnormSrgb => ImageBuffer::from_raw(
+                self.texture_descriptor.size.width,
+                self.texture_descriptor.size.height,
+                {
+                    let mut data = self.data;
+                    for bgra in data.chunks_exact_mut(4) {
+                        bgra.swap(0, 2);
+                    }
+                    data
+                },
             )
             .map(DynamicImage::ImageRgba8),
             // Throw and error if conversion isn't supported
