@@ -201,7 +201,7 @@ mod tests {
         let boxed: Box<dyn ScheduleLabel> = Box::new(A);
 
         world.insert_resource(Flag(false));
-        world.run_schedule_ref(&boxed);
+        world.run_schedule(&boxed);
         assert!(world.resource::<Flag>().0);
 
         world.insert_resource(Flag(false));

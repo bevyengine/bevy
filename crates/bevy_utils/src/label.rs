@@ -111,6 +111,13 @@ macro_rules! define_boxed_label {
             }
         }
 
+        impl ::std::convert::AsRef<dyn $label_trait_name> for dyn $label_trait_name {
+            #[inline]
+            fn as_ref(&self) -> &Self {
+                self
+            }
+        }
+
         impl Clone for Box<dyn $label_trait_name> {
             fn clone(&self) -> Self {
                 self.dyn_clone()
