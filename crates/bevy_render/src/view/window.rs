@@ -40,11 +40,16 @@ impl Plugin for WindowRenderPlugin {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
-                .init_resource::<ScreenshotToScreenPipeline>()
                 .init_non_send_resource::<NonSendMarker>()
                 .add_systems(ExtractSchedule, extract_windows)
                 .configure_set(Render, WindowSystem::Prepare.in_set(RenderSet::Prepare))
                 .add_systems(Render, prepare_windows.in_set(WindowSystem::Prepare));
+        }
+    }
+
+    fn finish(&self, app: &mut App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<ScreenshotToScreenPipeline>();
         }
     }
 }
