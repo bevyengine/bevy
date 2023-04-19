@@ -23,8 +23,8 @@ struct FragmentInput {
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     let is_orthographic = view.projection[3].w == 1.0;
     let V = calculate_view(in.world_position, is_orthographic);
-    var uv = in.uv;
 #ifdef VERTEX_UVS
+    var uv = in.uv;
 #ifdef VERTEX_TANGENTS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
         let N = in.world_normal;

@@ -320,6 +320,8 @@ impl MultiThreadedExecutor {
 
             self.ready_systems.set(system_index, false);
 
+            // SAFETY: Since `self.can_run` returned true earlier, it must have called
+            // `update_archetype_component_access` for each run condition.
             if !self.should_run(system_index, system, conditions, world) {
                 self.skip_system_and_signal_dependents(system_index);
                 continue;
@@ -338,7 +340,9 @@ impl MultiThreadedExecutor {
                 break;
             }
 
-            // SAFETY: No other reference to this system exists.
+            // SAFETY:
+            // - No other reference to this system exists.
+            // - `self.can_run` has been called, which calls `update_archetype_component_access` with this system.
             unsafe {
                 self.spawn_system_task(scope, system_index, systems, world);
             }
@@ -408,7 +412,11 @@ impl MultiThreadedExecutor {
         true
     }
 
-    fn should_run(
+    /// # Safety
+    ///
+    /// `update_archetype_component` must have been called with `world`
+    /// for each run condition in `conditions`.
+    unsafe fn should_run(
         &mut self,
         system_index: usize,
         _system: &BoxedSystem,
@@ -421,7 +429,8 @@ impl MultiThreadedExecutor {
                 continue;
             }
 
-            // evaluate system set's conditions
+            // Evaluate the system set's conditions.
+            // SAFETY: `update_archetype_component_access` has been called for each run condition.
             let set_conditions_met =
                 evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world);
 
@@ -434,7 +443,8 @@ impl MultiThreadedExecutor {
             self.evaluated_sets.insert(set_idx);
         }
 
-        // evaluate system's conditions
+        // Evaluate the system's conditions.
+        // SAFETY: `update_archetype_component_access` has been called for each run condition.
         let system_conditions_met =
             evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world);
 
@@ -448,7 +458,9 @@ impl MultiThreadedExecutor {
     }
 
     /// # Safety
-    /// Caller must not alias systems that are running.
+    /// - Caller must not alias systems that are running.
+    /// - `update_archetype_component_access` must have been called with `world`
+    ///   on the system assocaited with `system_index`.
     unsafe fn spawn_system_task<'scope>(
         &mut self,
         scope: &Scope<'_, 'scope, ()>,
@@ -470,7 +482,9 @@ impl MultiThreadedExecutor {
             #[cfg(feature = "trace")]
             let system_guard = system_span.enter();
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                // SAFETY: access is compatible
+                // SAFETY:
+                // - Access: TODO.
+                // - `update_archetype_component_access` has been called.
                 unsafe { system.run_unsafe((), world) };
             }));
             #[cfg(feature = "trace")]
@@ -673,7 +687,11 @@ fn apply_system_buffers(
     Ok(())
 }
 
-fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World) -> bool {
+/// # Safety
+///
+/// `update_archetype_component_access` must have been called
+/// with `world` for each condition in `conditions`.
+unsafe fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World) -> bool {
     // not short-circuiting is intentional
     #[allow(clippy::unnecessary_fold)]
     conditions
