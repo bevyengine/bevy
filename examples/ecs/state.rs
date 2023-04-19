@@ -12,7 +12,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_state::<AppState>()
         .add_systems(Startup, setup)
-        // This system runs when we enter `AppState::Menu`, during the `StateTransitions` schedule.
+        // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
         .add_systems(OnEnter(AppState::Menu), setup_menu)
