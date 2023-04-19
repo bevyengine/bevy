@@ -139,7 +139,7 @@ impl Plugin for UiPlugin {
         #[cfg(feature = "bevy_text")]
         app.add_plugin(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
-            let system = widget::update_image_calculated_size_system.before(UiSystem::Layout);
+            let system = widget::update_image_content_size_system.before(UiSystem::Layout);
             // Potential conflicts: `Assets<Image>`
             // They run independently since `widget::image_node_system` will only ever observe
             // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
