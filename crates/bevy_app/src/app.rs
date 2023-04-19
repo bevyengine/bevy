@@ -1023,7 +1023,7 @@ mod tests {
         app.add_state::<AppState>()
             .add_systems(OnEnter(AppState::MainMenu), (foo, bar));
 
-        app.world.run_schedule(&OnEnter(AppState::MainMenu));
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world.entities().len(), 2);
     }
 
@@ -1033,7 +1033,7 @@ mod tests {
         app.add_systems(OnEnter(AppState::MainMenu), (foo, bar))
             .add_state::<AppState>();
 
-        app.world.run_schedule(&OnEnter(AppState::MainMenu));
+        app.world.run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world.entities().len(), 2);
     }
 }
