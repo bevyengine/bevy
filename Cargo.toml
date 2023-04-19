@@ -52,6 +52,7 @@ default = [
   "bevy_gizmos",
   "android_shared_stdcxx",
   "tonemapping_luts",
+  "default_font",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -224,6 +225,9 @@ accesskit_unix = ["bevy_internal/accesskit_unix"]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_internal/glam_assert"]
+
+# Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
+default_font = ["bevy_internal/default_font"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.0-dev", default-features = false, optional = true }

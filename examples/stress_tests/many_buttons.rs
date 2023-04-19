@@ -32,7 +32,6 @@ fn main() {
     }))
     .add_plugin(FrameTimeDiagnosticsPlugin::default())
     .add_plugin(LogDiagnosticsPlugin::default())
-    .init_resource::<UiFont>()
     .add_systems(Startup, setup)
     .add_systems(Update, button_system);
 
@@ -69,17 +68,7 @@ fn button_system(
     }
 }
 
-#[derive(Resource)]
-struct UiFont(Handle<Font>);
-
-impl FromWorld for UiFont {
-    fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-        UiFont(asset_server.load("fonts/FiraSans-Bold.ttf"))
-    }
-}
-
-fn setup(mut commands: Commands, font: Res<UiFont>) {
+fn setup(mut commands: Commands) {
     let count = ROW_COLUMN_COUNT;
     let count_f = count as f32;
     let as_rainbow = |i: usize| Color::hsl((i as f32 / count_f) * 360.0, 0.9, 0.8);
@@ -97,15 +86,7 @@ fn setup(mut commands: Commands, font: Res<UiFont>) {
             for i in 0..count {
                 for j in 0..count {
                     let color = as_rainbow(j % i.max(1)).into();
-                    spawn_button(
-                        commands,
-                        font.0.clone_weak(),
-                        color,
-                        count_f,
-                        i,
-                        j,
-                        spawn_text,
-                    );
+                    spawn_button(commands, color, count_f, i, j, spawn_text);
                 }
             }
         });
@@ -113,7 +94,6 @@ fn setup(mut commands: Commands, font: Res<UiFont>) {
 
 fn spawn_button(
     commands: &mut ChildBuilder,
-    font: Handle<Font>,
     color: BackgroundColor,
     total: f32,
     i: usize,
@@ -142,9 +122,9 @@ fn spawn_button(
             commands.spawn(TextBundle::from_section(
                 format!("{i}, {j}"),
                 TextStyle {
-                    font,
                     font_size: FONT_SIZE,
                     color: Color::rgb(0.2, 0.2, 0.2),
+                    ..default()
                 },
             ));
         });

@@ -10,6 +10,8 @@ mod pipeline;
 mod text;
 mod text2d;
 
+#[cfg(feature = "default_font")]
+use bevy_reflect::TypeUuid;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
@@ -26,7 +28,11 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+#[cfg(feature = "default_font")]
+use bevy_asset::load_internal_binary_asset;
 use bevy_asset::AddAsset;
+#[cfg(feature = "default_font")]
+use bevy_asset::HandleUntyped;
 use bevy_ecs::prelude::*;
 use bevy_render::{camera::CameraUpdateSystem, ExtractSchedule, RenderApp};
 use bevy_sprite::SpriteSystem;
@@ -67,6 +73,10 @@ pub enum YAxisOrientation {
     BottomToTop,
 }
 
+#[cfg(feature = "default_font")]
+pub const DEFAULT_FONT_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Font::TYPE_UUID, 1491772431825224042);
+
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<Font>()
@@ -98,5 +108,13 @@ impl Plugin for TextPlugin {
                 extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
             );
         }
+
+        #[cfg(feature = "default_font")]
+        load_internal_binary_asset!(
+            app,
+            DEFAULT_FONT_HANDLE,
+            "FiraMono-subset.ttf",
+            |bytes: &[u8]| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
+        );
     }
 }
