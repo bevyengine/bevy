@@ -8,6 +8,7 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_math::Vec2;
+use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 #[cfg(feature = "bevy_text")]
 use bevy_text::Text;
@@ -15,7 +16,7 @@ use bevy_text::Text;
 /// The size of the image in pixels
 ///
 /// This field is set automatically
-#[derive(Component, Copy, Clone, Debug, Default)]
+#[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 pub struct UiImageSize {
     size: Vec2,
 }

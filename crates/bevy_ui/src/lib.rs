@@ -28,6 +28,7 @@ pub use layout::*;
 pub use measurement::*;
 pub use render::*;
 pub use ui_node::*;
+use widget::UiImageSize;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -113,6 +114,7 @@ impl Plugin for UiPlugin {
             .register_type::<Style>()
             .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
+            .register_type::<UiImageSize>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
