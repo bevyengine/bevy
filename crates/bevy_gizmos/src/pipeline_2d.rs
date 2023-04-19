@@ -65,7 +65,7 @@ impl FromWorld for GizmoLinePipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(LineGizmoUniform::min_size().into()),
+                    min_binding_size: Some(LineGizmoUniform::min_size()),
                 },
                 count: None,
             }],
@@ -91,18 +91,23 @@ impl SpecializedRenderPipeline for GizmoLinePipeline {
             TextureFormat::bevy_default()
         };
 
+        let shader_defs = vec![
+            #[cfg(feature = "webgl")]
+            "SIXTEEN_BYTE_ALIGNMENT".into(),
+        ];
+
         let layout = vec![self.mesh_pipeline.view_layout.clone(), self.layout.clone()];
 
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: LINE_SHADER_HANDLE.typed(),
                 entry_point: "vertex".into(),
-                shader_defs: vec![],
+                shader_defs: shader_defs.clone(),
                 buffers: line_gizmo_vertex_buffer_layouts(strip),
             },
             fragment: Some(FragmentState {
                 shader: LINE_SHADER_HANDLE.typed(),
-                shader_defs: vec![],
+                shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,

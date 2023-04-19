@@ -66,7 +66,7 @@ impl FromWorld for GizmoLinePipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(LineGizmoUniform::min_size().into()),
+                    min_binding_size: Some(LineGizmoUniform::min_size()),
                 },
                 count: None,
             }],
@@ -86,7 +86,11 @@ impl SpecializedRenderPipeline for GizmoLinePipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let (perspective, strip, key) = key;
 
-        let mut shader_defs = vec!["GIZMO_3D".into()];
+        let mut shader_defs = vec![
+            "GIZMO_3D".into(),
+            #[cfg(feature = "webgl")]
+            "SIXTEEN_BYTE_ALIGNMENT".into(),
+        ];
 
         shader_defs.push(ShaderDefVal::Int(
             "MAX_DIRECTIONAL_LIGHTS".to_string(),

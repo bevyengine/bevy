@@ -208,6 +208,8 @@ fn extract_gizmo_data(
             LineGizmoUniform {
                 line_width: config.line_width,
                 depth_bias: config.depth_bias,
+                #[cfg(feature = "webgl")]
+                _padding: Default::default(),
             },
             handle.clone_weak(),
         ));
@@ -218,6 +220,9 @@ fn extract_gizmo_data(
 struct LineGizmoUniform {
     line_width: f32,
     depth_bias: f32,
+    /// WebGL2 structs must be 16 byte aligned.
+    #[cfg(feature = "webgl")]
+    _padding: bevy_math::Vec2,
 }
 
 #[derive(Debug, Default, Component, Clone, TypeUuid)]
