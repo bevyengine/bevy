@@ -135,9 +135,9 @@ impl Main {
     /// A system that runs the "main schedule"
     pub fn run_main(world: &mut World, mut run_at_least_once: Local<bool>) {
         if !*run_at_least_once {
-            let _ = world.try_run_schedule(&PreStartup);
-            let _ = world.try_run_schedule(&Startup);
-            let _ = world.try_run_schedule(&PostStartup);
+            let _ = world.try_run_schedule(PreStartup);
+            let _ = world.try_run_schedule(Startup);
+            let _ = world.try_run_schedule(PostStartup);
             *run_at_least_once = true;
         }
 
