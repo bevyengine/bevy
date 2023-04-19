@@ -336,13 +336,18 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         // Magic numbers have been empirically chosen to produce blurry results that look “smooth”
         let dither = screen_space_dither(frag_coord.xy + vec2<f32>(f32(i) * 4773.0, f32(i) * 1472.0));
         let dither_offset = (blur_intensity * 7.0) * (blur_intensity * 7.0) * (30.0 * dither.yz + 0.03 * normalize(dither).xy) * vec2<f32>(1.0, -aspect);
+        let offset_position_with_dither = offset_position + dither_offset;
+
+        // Use depth prepass data to reject values that are in front of the current fragment
+        if (prepass_depth(vec4<f32>(offset_position_with_dither * view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z) {
+            continue;
+        }
 
         // Sample the view transmission texture at the offset position + dither offset, to get the background color
-        // TODO: Use depth prepass data to reject values that are in front of the current fragment
         result += textureSample(
             view_transmission_texture,
             view_transmission_sampler,
-            offset_position + dither_offset,
+            offset_position_with_dither,
         );
     }
 

@@ -17,7 +17,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping},
+    core_pipeline::{bloom::BloomSettings, prepass::DepthPrepass, tonemapping::Tonemapping},
     pbr::{NotShadowCaster, NotTransmittedShadowReceiver, PointLightShadowMap},
     prelude::*,
     render::view::ColorGrading,
@@ -343,6 +343,7 @@ fn setup(
             tonemapping: Tonemapping::TonyMcMapface,
             ..default()
         },
+        DepthPrepass,
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),

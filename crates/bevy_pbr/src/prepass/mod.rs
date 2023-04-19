@@ -988,12 +988,14 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 rangefinder.distance(&mesh_uniform.transform) + material.properties.depth_bias;
             match alpha_mode {
                 AlphaMode::Opaque => {
-                    opaque_phase.add(Opaque3dPrepass {
-                        entity: *visible_entity,
-                        draw_function: opaque_draw_prepass,
-                        pipeline_id,
-                        distance,
-                    });
+                    if !material.properties.is_transmissive {
+                        opaque_phase.add(Opaque3dPrepass {
+                            entity: *visible_entity,
+                            draw_function: opaque_draw_prepass,
+                            pipeline_id,
+                            distance,
+                        });
+                    }
                 }
                 AlphaMode::Mask(_) => {
                     alpha_mask_phase.add(AlphaMask3dPrepass {
