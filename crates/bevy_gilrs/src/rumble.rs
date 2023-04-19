@@ -14,6 +14,7 @@ use gilrs::{
 
 use crate::converter::convert_gamepad_id;
 
+/// A rumble effect that is currently in effect.
 struct RunningRumble {
     deadline: f32,
     // We use `effect.drop()` to interact with this, but rustc can't know
