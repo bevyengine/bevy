@@ -44,10 +44,10 @@ impl FromWorld for WorldId {
     }
 }
 
-// SAFETY: No world data access is required.
+// SAFETY: No world data is accessed.
 unsafe impl ReadOnlySystemParam for WorldId {}
 
-// SAFETY: No world data access is required.
+// SAFETY: No world data is accessed.
 unsafe impl SystemParam for WorldId {
     type State = ();
 
