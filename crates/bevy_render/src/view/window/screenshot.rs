@@ -3,7 +3,7 @@ use std::{borrow::Cow, num::NonZeroU32, path::Path};
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_log::{error, info_span};
+use bevy_log::{error, info, info_span};
 use bevy_reflect::TypeUuid;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::HashMap;
@@ -71,8 +71,9 @@ impl ScreenshotManager {
                     // discard the alpha channel which stores brightness values when HDR is enabled to make sure
                     // the screenshot looks right
                     let img = dyn_img.to_rgb8();
-                    if let Err(e) = img.save_with_format(path, format) {
-                        error!("Cannot save screenshot, IO error: {e}");
+                    match img.save_with_format(&path, format) {
+                        Ok(_) => info!("Screenshot saved to {}", path.display()),
+                        Err(e) => error!("Cannot save screenshot, IO error: {e}"),
                     }
                 }
                 Err(e) => error!("Cannot save screenshot, requested format not recognized: {e}"),
