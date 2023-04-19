@@ -191,6 +191,12 @@ pub fn derive_boxed_label(input: syn::DeriveInput, trait_path: &syn::Path) -> To
                 ::std::hash::Hash::hash(self, &mut state);
             }
         }
+
+        impl #impl_generics ::std::convert::AsRef<dyn #trait_path> for #ident #ty_generics #where_clause {
+            fn as_ref(&self) -> &dyn #trait_path {
+                self
+            }
+        }
     })
     .into()
 }
