@@ -172,3 +172,40 @@ where
         SystemTypeSet::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        schedule::{tests::ResMut, Schedule},
+        system::Resource,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_boxed_label() {
+        use crate::{self as bevy_ecs, world::World};
+
+        #[derive(Resource)]
+        struct Flag(bool);
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct A;
+
+        let mut world = World::new();
+
+        let mut schedule = Schedule::new();
+        schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
+        world.add_schedule(schedule, A);
+
+        let boxed: Box<dyn ScheduleLabel> = Box::new(A);
+
+        world.insert_resource(Flag(false));
+        world.run_schedule_ref(&boxed);
+        assert!(world.resource::<Flag>().0);
+
+        world.insert_resource(Flag(false));
+        world.run_schedule(boxed);
+        assert!(world.resource::<Flag>().0);
+    }
+}
