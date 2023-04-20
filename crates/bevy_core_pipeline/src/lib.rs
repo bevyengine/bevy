@@ -15,6 +15,7 @@ mod taa;
 pub mod tonemapping;
 pub mod upscaling;
 
+use bevy_reflect::TypeUuid;
 pub use skybox::Skybox;
 
 /// Experimental features that are not yet finished. Please report any issues you encounter!
@@ -48,8 +49,11 @@ use crate::{
     upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::load_internal_asset;
+use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_render::{extract_resource::ExtractResourcePlugin, prelude::Shader};
+
+pub const DEBUG_GRADIENT_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17293936987160423658);
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;
@@ -60,6 +64,12 @@ impl Plugin for CorePipelinePlugin {
             app,
             FULLSCREEN_SHADER_HANDLE,
             "fullscreen_vertex_shader/fullscreen.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            DEBUG_GRADIENT_HANDLE,
+            "debug_gradient.wgsl",
             Shader::from_wgsl
         );
 
