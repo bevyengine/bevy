@@ -17,11 +17,7 @@ use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
-use taffy::{
-    prelude::Size,
-    style_helpers::TaffyMaxContent,
-    Taffy,
-};
+use taffy::{node::Measurable, prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
 pub struct LayoutContext {
     pub scale_factor: f64,
@@ -91,11 +87,14 @@ impl UiSurface {
         }
     }
 
-    pub fn update_measure(&mut self, entity: Entity, content_size: &mut ContentSize) {
-        if let Some(measure_func) = content_size.measure_func.take() {
-            let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
-            self.taffy.set_measure(*taffy_node, Some(taffy::node::MeasureFunc::Boxed(measure_func))).ok();
-        }
+    pub fn update_measure(&mut self, entity: Entity, measure_func: Box<dyn Measurable>) {
+        let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
+        self.taffy
+            .set_measure(
+                *taffy_node,
+                Some(taffy::node::MeasureFunc::Boxed(measure_func)),
+            )
+            .ok();
     }
 
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
@@ -267,8 +266,8 @@ pub fn ui_layout_system(
     }
 
     for (entity, mut content_size) in measure_query.iter_mut() {
-        if content_size.is_changed() {
-            ui_surface.update_measure(entity, &mut content_size);
+        if let Some(measure_func) = content_size.measure_func.take() {
+            ui_surface.update_measure(entity, measure_func);
         }
     }
 
