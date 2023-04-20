@@ -10,6 +10,7 @@
 #import bevy_pbr::fog
 #import bevy_pbr::pbr_functions
 #import bevy_pbr::parallax_mapping
+#import bevy_core_pipeline::debug_gradient
 
 #import bevy_pbr::prepass_utils
 
@@ -32,7 +33,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         let B = in.world_tangent.w * cross(N, T);
         // Transform V from fragment to camera in world space to tangent space.
         let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
-        uv = parallaxed_uv(
+        let parallaxed = parallaxed_uv(
             material.parallax_depth_scale,
             material.max_parallax_layer_count,
             material.max_relief_mapping_search_steps,
@@ -42,6 +43,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             // about.
             -Vt,
         );
+        uv = parallaxed.xy;
     }
 #endif
 #endif
@@ -151,5 +153,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef PREMULTIPLY_ALPHA
     output_color = premultiply_alpha(material.flags, output_color);
 #endif
+    output_color = vec4(debug_gradient(pow(in.frag_coord.z, 0.1)), 1.0);
     return output_color;
 }

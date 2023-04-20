@@ -1,5 +1,7 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::mesh_functions
+#import bevy_pbr::pbr_bindings
+#import bevy_pbr::parallax_mapping
 
 // Most of these attributes are not used in the default prepass fragment shader, but they are still needed so we can
 // pass them to custom prepass shaders like pbr_prepass.wgsl.
@@ -84,6 +86,9 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
 #ifdef PREPASS_FRAGMENT
 struct FragmentInput {
+#ifdef VERTEX_UVS
+    @location(0) uv: vec2<f32>,
+#endif // VERTEX_UVS
 #ifdef NORMAL_PREPASS
     @location(1) world_normal: vec3<f32>,
 #endif // NORMAL_PREPASS
@@ -95,6 +100,7 @@ struct FragmentInput {
 }
 
 struct FragmentOutput {
+    @builtin(frag_depth) depth: f32,
 #ifdef NORMAL_PREPASS
     @location(0) normal: vec4<f32>,
 #endif // NORMAL_PREPASS
@@ -107,6 +113,28 @@ struct FragmentOutput {
 @fragment
 fn fragment(in: FragmentInput) -> FragmentOutput {
     var out: FragmentOutput;
+#ifdef VERTEX_UVS
+#ifdef VERTEX_TANGENTS
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
+        let N = in.world_normal;
+        let T = in.world_tangent.xyz;
+        let B = in.world_tangent.w * cross(N, T);
+        // Transform V from fragment to camera in world space to tangent space.
+        let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
+        let parallaxed = parallaxed_uv(
+            material.parallax_depth_scale,
+            material.max_parallax_layer_count,
+            material.max_relief_mapping_search_steps,
+            in.uv,
+            // Flip the direction of Vt to go toward the surface to make the
+            // parallax mapping algorithm easier to understand and reason
+            // about.
+            -Vt,
+        );
+        out.depth = parallaxed.z;
+    }
+#endif
+#endif
 
 #ifdef NORMAL_PREPASS
     out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);

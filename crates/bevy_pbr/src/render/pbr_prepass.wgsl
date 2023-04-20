@@ -85,6 +85,28 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     prepass_alpha_discard(in);
 
     var out: FragmentOutput;
+#ifdef VERTEX_UVS
+#ifdef VERTEX_TANGENTS
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
+        let N = in.world_normal;
+        let T = in.world_tangent.xyz;
+        let B = in.world_tangent.w * cross(N, T);
+        // Transform V from fragment to camera in world space to tangent space.
+        let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
+        let parallaxed = parallaxed_uv(
+            material.parallax_depth_scale,
+            material.max_parallax_layer_count,
+            material.max_relief_mapping_search_steps,
+            in.uv,
+            // Flip the direction of Vt to go toward the surface to make the
+            // parallax mapping algorithm easier to understand and reason
+            // about.
+            -Vt,
+        );
+        out.depth = parallaxed.z;
+    }
+#endif
+#endif
 
 #ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit

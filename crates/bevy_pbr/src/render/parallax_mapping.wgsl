@@ -24,9 +24,9 @@ fn parallaxed_uv(
     uv: vec2<f32>,
     // The vector from the camera to the fragment at the surface in tangent space
     Vt: vec3<f32>,
-) -> vec2<f32> {
+) -> vec3<f32> {
     if max_layer_count < 1.0 {
-        return uv;
+        return vec3(uv, 0.0);
     }
     var uv = uv;
 
@@ -110,7 +110,5 @@ fn parallaxed_uv(
     current_layer_depth += mix(next_depth, previous_depth, weight);
 #endif
 
-    // Note: `current_layer_depth` is not returned, but may be useful
-    // for light computation later on in future improvements of the pbr shader.
-    return uv;
+    return vec3<f32>(uv, current_layer_depth);
 }
