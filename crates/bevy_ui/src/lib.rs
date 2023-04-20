@@ -170,7 +170,7 @@ impl Plugin for UiPlugin {
             (
                 update_ui_windows
                     .in_set(UiSystem::Windows)
-                    .before(UiSystem::Flex),
+                    .before(UiSystem::Layout),
                 clean_up_removed_ui_nodes
                     .in_set(UiSystem::Removal)
                     .before(UiSystem::Insertion),
@@ -179,15 +179,12 @@ impl Plugin for UiPlugin {
                     .before(UiSystem::Children),
                 synchonise_ui_children
                     .in_set(UiSystem::Children)
-                    .before(UiSystem::Flex),
+                    .before(UiSystem::Layout),
                 update_ui_layout
-                    .in_set(UiSystem::Flex)
+                    .in_set(UiSystem::Layout)
                     .before(UiSystem::Transforms),
                 update_ui_node_transforms
                     .in_set(UiSystem::Transforms),
-                ui_layout_system
-                    .in_set(UiSystem::Layout)
-                    .before(TransformSystem::TransformPropagate),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             ),
