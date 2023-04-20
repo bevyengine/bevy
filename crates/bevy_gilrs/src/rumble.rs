@@ -34,13 +34,15 @@ enum RumbleError {
     GilrsError(#[from] ff::Error),
 }
 
+/// Contains the gilrs rumble effects that are currently running for each gamepad
 #[derive(Default)]
-pub(crate) struct RumblesManager {
+pub(crate) struct RunningRumbleEffects {
     /// If multiple rumbles are running at the same time, their resulting rumble
     /// will be the saturated sum of their strengths up until [`u16::MAX`]
     rumbles: HashMap<GamepadId, Vec<RunningRumble>>,
 }
 
+/// gilrs uses magnitudes from 0 to u16::MAX, while ours go from 0.0 to 1.0 (f32)
 fn to_gilrs_magnitude(ratio: f32) -> u16 {
     (ratio * u16::MAX as f32) as u16
 }
@@ -77,7 +79,7 @@ fn get_base_effects(
 }
 
 fn handle_rumble_request(
-    manager: &mut RumblesManager,
+    running_rumbles: &mut RunningRumbleEffects,
     gilrs: &mut Gilrs,
     rumble: GamepadRumbleRequest,
     current_time: Duration,
@@ -92,7 +94,7 @@ fn handle_rumble_request(
     match rumble {
         GamepadRumbleRequest::Stop { .. } => {
             // `ff::Effect` uses RAII, dropping = deactivating
-            manager.rumbles.remove(&gamepad_id);
+            running_rumbles.rumbles.remove(&gamepad_id);
         }
         GamepadRumbleRequest::Add {
             duration,
@@ -109,7 +111,7 @@ fn handle_rumble_request(
             let effect = effect_builder.gamepads(&[gamepad_id]).finish(gilrs)?;
             effect.play()?;
 
-            let gamepad_rumbles = manager.rumbles.entry(gamepad_id).or_default();
+            let gamepad_rumbles = running_rumbles.rumbles.entry(gamepad_id).or_default();
             let deadline = current_time + duration;
             gamepad_rumbles.push(RunningRumble { deadline, effect });
         }
@@ -121,22 +123,22 @@ pub(crate) fn play_gilrs_rumble(
     time: Res<Time>,
     mut gilrs: NonSendMut<Gilrs>,
     mut requests: EventReader<GamepadRumbleRequest>,
-    mut manager: NonSendMut<RumblesManager>,
+    mut running_rumbles: NonSendMut<RunningRumbleEffects>,
 ) {
     let current_time = time.raw_elapsed();
     // Remove outdated rumble effects.
-    for rumbles in manager.rumbles.values_mut() {
+    for rumbles in running_rumbles.rumbles.values_mut() {
         // `ff::Effect` uses RAII, dropping = deactivating
         rumbles.retain(|RunningRumble { deadline, .. }| *deadline >= current_time);
     }
-    manager
+    running_rumbles
         .rumbles
         .retain(|_gamepad, rumbles| !rumbles.is_empty());
 
     // Add new effects.
     for rumble in requests.iter().cloned() {
         let gamepad = rumble.gamepad();
-        match handle_rumble_request(&mut manager, &mut gilrs, rumble, current_time) {
+        match handle_rumble_request(&mut running_rumbles, &mut gilrs, rumble, current_time) {
             Ok(()) => {}
             Err(RumbleError::GilrsError(err)) => {
                 if let ff::Error::FfNotSupported(_) = err {

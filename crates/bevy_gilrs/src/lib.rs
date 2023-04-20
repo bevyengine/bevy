@@ -10,7 +10,7 @@ use bevy_input::InputSystem;
 use bevy_utils::tracing::error;
 use gilrs::GilrsBuilder;
 use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
-use rumble::{play_gilrs_rumble, RumblesManager};
+use rumble::{play_gilrs_rumble, RunningRumbleEffects};
 
 #[derive(Default)]
 pub struct GilrsPlugin;
@@ -28,7 +28,7 @@ impl Plugin for GilrsPlugin {
         {
             Ok(gilrs) => {
                 app.insert_non_send_resource(gilrs)
-                    .init_non_send_resource::<RumblesManager>()
+                    .init_non_send_resource::<RunningRumbleEffects>()
                     .add_systems(PreStartup, gilrs_event_startup_system)
                     .add_systems(PreUpdate, gilrs_event_system.before(InputSystem))
                     .add_systems(PostUpdate, play_gilrs_rumble.in_set(RumbleSystem));
