@@ -15,8 +15,8 @@ use rumble::{play_gilrs_rumble, RunningRumbleEffects};
 #[derive(Default)]
 pub struct GilrsPlugin;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 /// Updates the running gamepad rumble effects.
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct RumbleSystem;
 
 impl Plugin for GilrsPlugin {
