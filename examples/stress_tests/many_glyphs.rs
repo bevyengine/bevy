@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn force_text_recomputation(mut text_query: Query<&mut Text>) {
-    for mut text in text_query.iter_mut() {
+    for mut text in &mut text_query {
         text.set_changed();
     }
 }
