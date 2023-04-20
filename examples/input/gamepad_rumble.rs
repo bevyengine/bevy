@@ -27,12 +27,14 @@ fn gamepad_system(
             })
         };
 
-        if button_pressed(GamepadButtonType::South) {
-            info!("South face button: low-intensity rumble on the weak motor for 0.5 seconds");
+        if button_pressed(GamepadButtonType::North) {
+            info!(
+                "North face button: strong (low-frequency) with low intensity for rumble for 5 seconds. Press multiple times to increase intensity."
+            );
             rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad,
-                duration: Duration::from_secs_f32(0.5),
-                intensity: GamepadRumbleIntensity::weak_motor(0.25),
+                intensity: GamepadRumbleIntensity::strong_motor(0.1),
+                duration: Duration::from_secs(5),
             });
         }
 
@@ -42,6 +44,15 @@ fn gamepad_system(
                 gamepad,
                 duration: Duration::from_secs(5),
                 intensity: GamepadRumbleIntensity::MAX,
+            });
+        }
+
+        if button_pressed(GamepadButtonType::South) {
+            info!("South face button: low-intensity rumble on the weak motor for 0.5 seconds");
+            rumble_requests.send(GamepadRumbleRequest::Add {
+                gamepad,
+                duration: Duration::from_secs_f32(0.5),
+                intensity: GamepadRumbleIntensity::weak_motor(0.25),
             });
         }
 
@@ -55,17 +66,6 @@ fn gamepad_system(
                     // intensity of high-frequency motor, usually on the right-hand side
                     weak_motor: 0.25,
                 },
-                duration: Duration::from_secs(5),
-            });
-        }
-
-        if button_pressed(GamepadButtonType::North) {
-            info!(
-                "North face button: strong (low-frequency) with low intensity for rumble for 5 seconds. Press multiple times to increase intensity."
-            );
-            rumble_requests.send(GamepadRumbleRequest::Add {
-                gamepad,
-                intensity: GamepadRumbleIntensity::strong_motor(0.1),
                 duration: Duration::from_secs(5),
             });
         }
