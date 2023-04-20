@@ -20,3 +20,4 @@ bevy_time = { path = "../bevy_time", version = "0.11.0-dev" }
 
 # other
 gilrs = "0.10.1"
+thiserror = "1.0"

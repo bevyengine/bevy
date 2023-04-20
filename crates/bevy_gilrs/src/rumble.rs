@@ -11,6 +11,7 @@ use gilrs::{
     ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
     GamepadId, Gilrs,
 };
+use thiserror::Error;
 
 use crate::converter::convert_gamepad_id;
 
@@ -25,14 +26,12 @@ struct RunningRumble {
     effect: ff::Effect,
 }
 
+#[derive(Error, Debug)]
 enum RumbleError {
+    #[error("gamepad not found")]
     GamepadNotFound,
-    GilrsError(ff::Error),
-}
-impl From<ff::Error> for RumbleError {
-    fn from(err: ff::Error) -> Self {
-        RumbleError::GilrsError(err)
-    }
+    #[error("gilrs error while rumbling gamepad: {0}")]
+    GilrsError(#[from] ff::Error),
 }
 
 #[derive(Default)]
