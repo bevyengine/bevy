@@ -28,7 +28,7 @@ fn gamepad_system(
         };
 
         if button_pressed(GamepadButtonType::South) {
-            info!("(S) South face button: low-intensity rumble on the weak motor for 0.5 seconds");
+            info!("South face button: low-intensity rumble on the weak motor for 0.5 seconds");
             rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad,
                 duration: Duration::from_secs_f32(0.5),
@@ -36,8 +36,8 @@ fn gamepad_system(
             });
         }
 
-        if button_pressed(GamepadButtonType::Start) {
-            info!("(S) Start button: maximum rumble on both motors for 5 seconds");
+        if button_pressed(GamepadButtonType::East) {
+            info!("East face button: maximum rumble on both motors for 5 seconds");
             rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad,
                 duration: Duration::from_secs(5),
@@ -46,7 +46,7 @@ fn gamepad_system(
         }
 
         if button_pressed(GamepadButtonType::West) {
-            info!("(W) West face button: custom rumble intensity for 5 second");
+            info!("West face button: custom rumble intensity for 5 second");
             rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad,
                 intensity: GamepadRumbleIntensity {
@@ -61,9 +61,7 @@ fn gamepad_system(
 
         if button_pressed(GamepadButtonType::North) {
             info!(
-                "(N) North face button: strong (low-frequency) with low
-                intensity for rumble for 5 seconds. Press multiple times to
-                increase intensity."
+                "North face button: strong (low-frequency) with low intensity for rumble for 5 seconds. Press multiple times to increase intensity."
             );
             rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad,
@@ -72,8 +70,8 @@ fn gamepad_system(
             });
         }
 
-        if button_pressed(GamepadButtonType::East) {
-            info!("(E) East face button: Interrupt the current rumble");
+        if button_pressed(GamepadButtonType::Start) {
+            info!("Start button: Interrupt the current rumble");
             rumble_requests.send(GamepadRumbleRequest::Stop { gamepad });
         }
     }
