@@ -349,6 +349,10 @@ impl SystemSetNode {
     pub fn is_system_type(&self) -> bool {
         self.inner.system_type().is_some()
     }
+
+    pub fn is_anonymous(&self) -> bool {
+        self.inner.is_anonymous()
+    }
 }
 
 /// A [`BoxedSystem`] with metadata, stored in a [`ScheduleGraph`].
@@ -525,7 +529,27 @@ impl ScheduleGraph {
                     }
                 }
             }
-            SystemConfigs::Configs { configs, chained } => {
+            SystemConfigs::Configs {
+                mut configs,
+                collective_conditions,
+                chained,
+            } => {
+                let more_than_one_entry = configs.len() > 1;
+                if !collective_conditions.is_empty() {
+                    if more_than_one_entry {
+                        let set = AnonymousSet::new();
+                        for config in &mut configs {
+                            config.in_set_inner(set.dyn_clone());
+                        }
+                        let mut set_config = set.into_config();
+                        set_config.conditions.extend(collective_conditions);
+                        self.configure_set(set_config);
+                    } else {
+                        for condition in collective_conditions {
+                            configs[0].run_if_inner(condition);
+                        }
+                    }
+                }
                 let mut config_iter = configs.into_iter();
                 let mut nodes_in_scope = Vec::new();
                 let mut densely_chained = true;
@@ -607,7 +631,6 @@ impl ScheduleGraph {
                         nodes_in_scope.append(&mut previous_result.nodes);
                     }
                 } else {
-                    let more_than_one_entry = config_iter.len() > 1;
                     for config in config_iter {
                         let result = self.add_systems_inner(config, ancestor_chained);
                         densely_chained = densely_chained && result.densely_chained;
@@ -705,8 +728,7 @@ impl ScheduleGraph {
         match self.system_set_ids.get(set) {
             Some(set_id) => {
                 if id == set_id {
-                    let string = format!("{:?}", &set);
-                    return Err(ScheduleBuildError::HierarchyLoop(string));
+                    return Err(ScheduleBuildError::HierarchyLoop(self.get_node_name(id)));
                 }
             }
             None => {
@@ -742,8 +764,7 @@ impl ScheduleGraph {
             match self.system_set_ids.get(set) {
                 Some(set_id) => {
                     if id == set_id {
-                        let string = format!("{:?}", &set);
-                        return Err(ScheduleBuildError::DependencyLoop(string));
+                        return Err(ScheduleBuildError::DependencyLoop(self.get_node_name(id)));
                     }
                 }
                 None => {
@@ -1257,12 +1278,31 @@ impl ScheduleGraph {
                     name
                 }
             }
-            NodeId::Set(_) => self.system_sets[id.index()].name(),
+            NodeId::Set(_) => {
+                let set = &self.system_sets[id.index()];
+                if set.is_anonymous() {
+                    self.anonymous_set_name(id)
+                } else {
+                    set.name()
+                }
+            }
         };
         if self.settings.use_shortnames {
             name = bevy_utils::get_short_name(&name);
         }
         name
+    }
+
+    fn anonymous_set_name(&self, id: &NodeId) -> String {
+        format!(
+            "({})",
+            self.hierarchy
+                .graph
+                .edges_directed(*id, Direction::Outgoing)
+                .map(|(_, member_id, _)| self.get_node_name(&member_id))
+                .reduce(|a, b| format!("{a}, {b}"))
+                .unwrap_or_default()
+        )
     }
 
     fn get_node_kind(&self, id: &NodeId) -> &'static str {
@@ -1495,20 +1535,6 @@ pub enum ScheduleBuildError {
     /// Tried to run a schedule before all of its systems have been initialized.
     #[error("Systems in schedule have not been initialized.")]
     Uninitialized,
-    /// Tried to add a system to multiple base sets.
-    #[error("System `{system:?}` is in the base sets {first_set:?} and {second_set:?}, but systems can only belong to one base set.")]
-    SystemInMultipleBaseSets {
-        system: String,
-        first_set: String,
-        second_set: String,
-    },
-    /// Tried to add a set to multiple base sets.
-    #[error("Set `{set:?}` is in the base sets {first_set:?} and {second_set:?}, but sets can only belong to one base set.")]
-    SetInMultipleBaseSets {
-        set: String,
-        first_set: String,
-        second_set: String,
-    },
 }
 
 /// Specifies how schedule construction should respond to detecting a certain kind of issue.

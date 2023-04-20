@@ -36,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
         }],
         alignment: TextAlignment::Left,
-        linebreak_behaviour: BreakLineOn::AnyCharacter,
+        linebreak_behavior: BreakLineOn::AnyCharacter,
     };
 
     commands

@@ -1,5 +1,6 @@
 use crate::{AudioSink, AudioSource, Decodable, SpatialAudioSink};
 use bevy_asset::{Asset, Handle, HandleId};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::Resource;
 use bevy_math::Vec3;
 use bevy_transform::prelude::Transform;
@@ -97,12 +98,12 @@ where
     /// ```
     /// # use bevy_ecs::system::Res;
     /// # use bevy_asset::AssetServer;
-    /// # use bevy_audio::Audio;
+    /// # use bevy_audio::{Audio, Volume};
     /// # use bevy_audio::PlaybackSettings;
     /// fn play_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     ///     audio.play_with_settings(
     ///         asset_server.load("my_sound.ogg"),
-    ///         PlaybackSettings::LOOP.with_volume(0.75),
+    ///         PlaybackSettings::LOOP.with_volume(Volume::new_relative(0.75)),
     ///     );
     /// }
     /// ```
@@ -210,14 +211,14 @@ where
     /// ```
     /// # use bevy_ecs::system::Res;
     /// # use bevy_asset::AssetServer;
-    /// # use bevy_audio::Audio;
+    /// # use bevy_audio::{Audio, Volume};
     /// # use bevy_audio::PlaybackSettings;
     /// # use bevy_math::Vec3;
     /// # use bevy_transform::prelude::Transform;
     /// fn play_spatial_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     ///     audio.play_spatial_with_settings(
     ///         asset_server.load("my_sound.ogg"),
-    ///         PlaybackSettings::LOOP.with_volume(0.75),
+    ///         PlaybackSettings::LOOP.with_volume(Volume::new_relative(0.75)),
     ///         Transform::IDENTITY,
     ///         1.0,
     ///         Vec3::new(-2.0, 0.0, 1.0),
@@ -251,13 +252,61 @@ where
     }
 }
 
+/// Defines the volume to play an audio source at.
+#[derive(Clone, Copy, Debug)]
+pub enum Volume {
+    /// A volume level relative to the global volume.
+    Relative(VolumeLevel),
+    /// A volume level that ignores the global volume.
+    Absolute(VolumeLevel),
+}
+
+impl Default for Volume {
+    fn default() -> Self {
+        Self::Relative(VolumeLevel::default())
+    }
+}
+
+impl Volume {
+    /// Create a new volume level relative to the global volume.
+    pub fn new_relative(volume: f32) -> Self {
+        Self::Relative(VolumeLevel::new(volume))
+    }
+    /// Create a new volume level that ignores the global volume.
+    pub fn new_absolute(volume: f32) -> Self {
+        Self::Absolute(VolumeLevel::new(volume))
+    }
+}
+
+/// A volume level equivalent to a positive only float.
+#[derive(Clone, Copy, Deref, DerefMut, Debug)]
+pub struct VolumeLevel(pub(crate) f32);
+
+impl Default for VolumeLevel {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+impl VolumeLevel {
+    /// Create a new volume level.
+    pub fn new(volume: f32) -> Self {
+        debug_assert!(volume >= 0.0);
+        Self(volume)
+    }
+    /// Get the value of the volume level.
+    pub fn get(&self) -> f32 {
+        self.0
+    }
+}
+
 /// Settings to control playback from the start.
 #[derive(Clone, Copy, Debug)]
 pub struct PlaybackSettings {
     /// Play in repeat
     pub repeat: bool,
     /// Volume to play at.
-    pub volume: f32,
+    pub volume: Volume,
     /// Speed to play at.
     pub speed: f32,
 }
@@ -272,19 +321,19 @@ impl PlaybackSettings {
     /// Will play the associate audio source once.
     pub const ONCE: PlaybackSettings = PlaybackSettings {
         repeat: false,
-        volume: 1.0,
+        volume: Volume::Relative(VolumeLevel(1.0)),
         speed: 1.0,
     };
 
     /// Will play the associate audio source in a loop.
     pub const LOOP: PlaybackSettings = PlaybackSettings {
         repeat: true,
-        volume: 1.0,
+        volume: Volume::Relative(VolumeLevel(1.0)),
         speed: 1.0,
     };
 
     /// Helper to set the volume from start of playback.
-    pub const fn with_volume(mut self, volume: f32) -> Self {
+    pub const fn with_volume(mut self, volume: Volume) -> Self {
         self.volume = volume;
         self
     }
@@ -324,5 +373,23 @@ where
             .field("source_handle", &self.source_handle)
             .field("settings", &self.settings)
             .finish()
+    }
+}
+
+/// Use this [`Resource`] to control the global volume of all audio with a [`Volume::Relative`] volume.
+///
+/// Keep in mind that changing this value will not affect already playing audio.
+#[derive(Resource, Default, Clone, Copy)]
+pub struct GlobalVolume {
+    /// The global volume of all audio.
+    pub volume: VolumeLevel,
+}
+
+impl GlobalVolume {
+    /// Create a new [`GlobalVolume`] with the given volume.
+    pub fn new(volume: f32) -> Self {
+        Self {
+            volume: VolumeLevel::new(volume),
+        }
     }
 }

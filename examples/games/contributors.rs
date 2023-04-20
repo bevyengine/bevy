@@ -221,7 +221,7 @@ fn select(
     text.sections[1].style.color = sprite.color;
 }
 
-/// Change the modulate color to the "deselected" colour and push
+/// Change the modulate color to the "deselected" color and push
 /// the object to the back.
 fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Transform) {
     sprite.color = Color::hsla(

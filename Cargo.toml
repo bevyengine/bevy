@@ -108,6 +108,9 @@ trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 # Tracing support, exposing a port for Tracy
 trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 
+# Tracing support, with memory profiling, exposing a port for Tracy
+trace_tracy_memory = ["trace", "bevy_internal/trace_tracy", "bevy_internal/trace_tracy_memory"]
+
 # Tracing support
 trace = ["bevy_internal/trace"]
 
@@ -131,6 +134,9 @@ jpeg = ["bevy_internal/jpeg"]
 
 # BMP image format support
 bmp = ["bevy_internal/bmp"]
+
+# WebP image format support
+webp = ["bevy_internal/webp"]
 
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
@@ -215,6 +221,9 @@ tonemapping_luts = ["bevy_internal/tonemapping_luts"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
+
+# Enable assertions to check the validity of parameters passed to glam
+glam_assert = ["bevy_internal/glam_assert"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.0-dev", default-features = false, optional = true }
@@ -425,6 +434,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "anti_aliasing"
+path = "examples/3d/anti_aliasing.rs"
+
+[package.metadata.example.anti_aliasing]
+name = "Anti-aliasing"
+description = "Compares different anti-aliasing methods"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "3d_gizmos"
 path = "examples/3d/3d_gizmos.rs"
 
@@ -526,26 +545,6 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "fxaa"
-path = "examples/3d/fxaa.rs"
-
-[package.metadata.example.fxaa]
-name = "FXAA"
-description = "Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "msaa"
-path = "examples/3d/msaa.rs"
-
-[package.metadata.example.msaa]
-name = "MSAA"
-description = "Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
 name = "orthographic"
 path = "examples/3d/orthographic.rs"
 
@@ -572,6 +571,16 @@ path = "examples/3d/pbr.rs"
 [package.metadata.example.pbr]
 name = "Physically Based Rendering"
 description = "Demonstrates use of Physically Based Rendering (PBR) properties"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "parallax_mapping"
+path = "examples/3d/parallax_mapping.rs"
+
+[package.metadata.example.parallax_mapping]
+name = "Parallax Mapping"
+description = "Demonstrates use of a normal map and depth map for parallax mapping"
 category = "3D Rendering"
 wasm = true
 
@@ -720,6 +729,16 @@ path = "examples/animation/animated_transform.rs"
 [package.metadata.example.animated_transform]
 name = "Animated Transform"
 description = "Create and play an animation defined by code that operates on the `Transform` component"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "cubic_curve"
+path = "examples/animation/cubic_curve.rs"
+
+[package.metadata.example.cubic_curve]
+name = "Cubic Curve"
+description = "Bezier curve example showing a cube following a cubic curve"
 category = "Animation"
 wasm = true
 
@@ -1419,16 +1438,6 @@ name = "post_processing"
 path = "examples/shader/post_processing.rs"
 
 [package.metadata.example.post_processing]
-name = "Post Processing - Render To Texture"
-description = "A custom post processing effect, using two cameras, with one reusing the render texture of the first one"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "post_process_pass"
-path = "examples/shader/post_process_pass.rs"
-
-[package.metadata.example.post_process_pass]
 name = "Post Processing - Custom Render Pass"
 description = "A custom post processing effect, using a custom render pass that runs after the main pass"
 category = "Shaders"
@@ -1684,7 +1693,7 @@ path = "examples/ecs/nondeterministic_system_order.rs"
 
 [package.metadata.example.nondeterministic_system_order]
 name = "Nondeterministic System Order"
-description = "Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this."
+description = "Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this."
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1760,6 +1769,26 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overflow"
+path = "examples/ui/overflow.rs"
+
+[package.metadata.example.overflow]
+name = "Overflow"
+description = "Simple example demonstrating overflow behavior"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "overflow_debug"
+path = "examples/ui/overflow_debug.rs"
+
+[package.metadata.example.overflow_debug]
+name = "Overflow and Clipping Debug"
+description = "An example to debug overflow and clipping behavior"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "relative_cursor_position"
 path = "examples/ui/relative_cursor_position.rs"
 
@@ -1797,7 +1826,17 @@ path = "examples/ui/flex_layout.rs"
 name = "Flex Layout"
 description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text"
 category = "UI (User Interface)"
-wasm = false
+wasm = true
+
+[[example]]
+name = "grid"
+path = "examples/ui/grid.rs"
+
+[package.metadata.example.grid]
+name = "CSS Grid"
+description = "An example for CSS Grid layout"
+category = "UI (User Interface)"
+wasm = true
 
 [[example]]
 name = "transparency_ui"
@@ -1879,6 +1918,16 @@ name = "Scale Factor Override"
 description = "Illustrates how to customize the default window settings"
 category = "Window"
 wasm = true
+
+[[example]]
+name = "screenshot"
+path = "examples/window/screenshot.rs"
+
+[package.metadata.example.screenshot]
+name = "Screenshot"
+description = "Shows how to save screenshots to disk"
+category = "Window"
+wasm = false
 
 [[example]]
 name = "transparent_window"

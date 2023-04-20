@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
 //!
@@ -153,7 +154,7 @@ impl Plugin for WinitPlugin {
             ) = create_window_system_state.get_mut(&mut app.world);
 
             // Here we need to create a winit-window and give it a WindowHandle which the renderer can use.
-            // It needs to be spawned before the start of the startup-stage, so we cannot use a regular system.
+            // It needs to be spawned before the start of the startup schedule, so we cannot use a regular system.
             // Instead we need to create the window and spawn it using direct world access
             create_window(
                 commands,
@@ -434,11 +435,7 @@ pub fn winit_runner(mut app: App) {
                             .send(converters::convert_keyboard_input(input));
                     }
                     WindowEvent::CursorMoved { position, .. } => {
-                        let physical_position = DVec2::new(
-                            position.x,
-                            // Flip the coordinate space from winit's context to our context.
-                            window.resolution.physical_height() as f64 - position.y,
-                        );
+                        let physical_position = DVec2::new(position.x, position.y);
 
                         window.set_physical_cursor_position(Some(physical_position));
 
@@ -567,7 +564,7 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                     WindowEvent::HoveredFileCancelled => {
-                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCancelled {
+                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCanceled {
                             window: window_entity,
                         });
                     }

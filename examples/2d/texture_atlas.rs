@@ -9,24 +9,16 @@ fn main() {
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
         .add_state::<AppState>()
         .add_systems(OnEnter(AppState::Setup), load_textures)
-        .add_systems(Update, check_textures.in_set(OnUpdate(AppState::Setup)))
+        .add_systems(Update, check_textures.run_if(in_state(AppState::Setup)))
         .add_systems(OnEnter(AppState::Finished), setup)
         .run();
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, States)]
 enum AppState {
     #[default]
     Setup,
     Finished,
-}
-
-impl States for AppState {
-    type Iter = std::array::IntoIter<AppState, 2>;
-
-    fn variants() -> Self::Iter {
-        [AppState::Setup, AppState::Finished].into_iter()
-    }
 }
 
 #[derive(Resource, Default)]
