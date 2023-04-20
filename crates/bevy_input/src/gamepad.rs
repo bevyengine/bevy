@@ -1339,6 +1339,15 @@ pub enum GamepadRumbleRequest {
     Stop { gamepad: Gamepad },
 }
 
+impl GamepadRumbleRequest {
+    /// Get the [`Gamepad`] associated with this request
+    pub fn gamepad(&self) -> Gamepad {
+        match self {
+            Self::Add { gamepad, .. } | Self::Stop { gamepad } => *gamepad,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::gamepad::{AxisSettingsError, ButtonSettingsError};
