@@ -18,7 +18,7 @@ use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{
-    prelude::{AvailableSpace, Size},
+    prelude::Size,
     style_helpers::TaffyMaxContent,
     Taffy,
 };
@@ -91,25 +91,11 @@ impl UiSurface {
         }
     }
 
-    pub fn update_measure(&mut self, entity: Entity, content_size: &ContentSize) {
-        let measure = content_size.measure.dyn_clone();
-        let measure_func = taffy::node::MeasureFunc::Boxed(Box::new(
-            move |constraints: Size<Option<f32>>, available: Size<AvailableSpace>| {
-                let size = measure.measure(
-                    constraints.width,
-                    constraints.height,
-                    available.width,
-                    available.height,
-                );
-                taffy::geometry::Size {
-                    width: size.x,
-                    height: size.y,
-                }
-            },
-        ));
-
-        let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
-        self.taffy.set_measure(*taffy_node, Some(measure_func)).ok();
+    pub fn update_measure(&mut self, entity: Entity, content_size: &mut ContentSize) {
+        if let Some(measure_func) = content_size.measure_func.take() {
+            let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
+            self.taffy.set_measure(*taffy_node, Some(taffy::node::MeasureFunc::Boxed(measure_func))).ok();
+        }
     }
 
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
@@ -230,7 +216,7 @@ pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     style_query: Query<(Entity, Ref<Style>), With<Node>>,
-    measure_query: Query<(Entity, Ref<ContentSize>)>,
+    mut measure_query: Query<(Entity, &mut ContentSize)>,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
@@ -280,9 +266,9 @@ pub fn ui_layout_system(
         }
     }
 
-    for (entity, content_size) in measure_query.iter() {
+    for (entity, mut content_size) in measure_query.iter_mut() {
         if content_size.is_changed() {
-            ui_surface.update_measure(entity, &content_size);
+            ui_surface.update_measure(entity, &mut content_size);
         }
     }
 

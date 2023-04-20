@@ -63,7 +63,7 @@ impl Default for NodeBundle {
 }
 
 /// A UI node that is an image
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
     ///
@@ -107,7 +107,7 @@ pub struct ImageBundle {
 
 #[cfg(feature = "bevy_text")]
 /// A UI node that is text
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Debug)]
 pub struct TextBundle {
     /// Describes the logical size of the node
     pub node: Node,
