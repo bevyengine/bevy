@@ -13,7 +13,6 @@ type PositionItem = [f32; 3];
 type ColorItem = [f32; 4];
 
 const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
-const DEFAULT_ARC_SEGMENTS: usize = 32;
 
 #[derive(Resource, Default)]
 pub(crate) struct GizmoStorage {
@@ -460,7 +459,7 @@ impl<'s> Gizmos<'s> {
         }
     }
 
-    /// Draw an arc.
+    /// Draw an arc, which is a part of the circumference of a circle.
     ///
     /// # Example
     /// ```
@@ -495,7 +494,7 @@ impl<'s> Gizmos<'s> {
             arc_angle,
             radius,
             color,
-            segments: DEFAULT_ARC_SEGMENTS,
+            segments: None,
         }
     }
 
@@ -630,6 +629,9 @@ impl Drop for Circle2dBuilder<'_, '_> {
 }
 
 /// A builder returned by [`Gizmos::arc_2d`].
+/// `center_angle` is the angle where the arc will be centered. `0.0`
+/// `arc_angle` is defining the amount of the underlying circle
+/// being drawn. With the `radius`, it will define the length of the arc.
 pub struct Arc2dBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
     position: Vec2,
@@ -637,26 +639,30 @@ pub struct Arc2dBuilder<'a, 's> {
     arc_angle: f32,
     radius: f32,
     color: Color,
-    segments: usize,
+    segments: Option<usize>,
 }
 
 impl Arc2dBuilder<'_, '_> {
     /// Set the number of line-segements for this arc.
     pub fn segments(mut self, segments: usize) -> Self {
-        self.segments = segments;
+        self.segments = Some(segments);
         self
     }
 }
 
 impl Drop for Arc2dBuilder<'_, '_> {
     fn drop(&mut self) {
-        let positions = arc_inner(
-            self.center_angle,
-            self.arc_angle,
-            self.radius,
-            self.segments,
-        )
-        .map(|vec2| (vec2 + self.position));
+        let segments = match self.segments {
+            Some(segments) => segments,
+
+            // Do a linear interpolation between 1 and `DEFAULT_CIRCLE_SEGMENTS`
+            // using the arc angle as scalar.
+            None => (1. + (self.arc_angle.abs() / TAU) * (DEFAULT_CIRCLE_SEGMENTS as f32 - 1.))
+                .round() as usize,
+        };
+
+        let positions = arc_inner(self.center_angle, self.arc_angle, self.radius, segments)
+            .map(|vec2| (vec2 + self.position));
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
