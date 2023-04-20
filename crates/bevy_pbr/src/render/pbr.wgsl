@@ -17,6 +17,7 @@
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
+    @builtin(sample_index) sample_index: u32,
     #import bevy_pbr::mesh_vertex_output
 };
 
@@ -32,7 +33,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         let T = in.world_tangent.xyz;
         let B = in.world_tangent.w * cross(N, T);
         // Transform V from fragment to camera in world space to tangent space.
-        let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
+        let TBN = mat3x3(T, B, N);
+        let Vt = V * TBN; //vec3(dot(V, T), dot(V, B), dot(V, N));
         let parallaxed = parallaxed_uv(
             material.parallax_depth_scale,
             material.max_parallax_layer_count,
@@ -153,6 +155,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef PREMULTIPLY_ALPHA
     output_color = premultiply_alpha(material.flags, output_color);
 #endif
-    output_color = vec4(debug_gradient(pow(in.frag_coord.z, 0.1)), 1.0);
+    // output_color = debug_gradient((0.9 - pow(prepass_depth(in.frag_coord, in.sample_index), 0.1)) * 15.0);
+    output_color = debug_gradient(1.0 - prepass_depth(in.frag_coord, in.sample_index) * 15.0);
     return output_color;
 }

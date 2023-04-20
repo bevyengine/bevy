@@ -410,13 +410,6 @@ where
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
-        if key
-            .mesh_key
-            .intersects(MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::MOTION_VECTOR_PREPASS)
-        {
-            shader_defs.push("PREPASS_FRAGMENT".into());
-        }
-
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
@@ -431,39 +424,35 @@ where
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
+        let has_normal = key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS);
+        let has_motion_vectors = key
+            .mesh_key
+            .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS);
+        let has_prepass_fragment = has_normal || has_motion_vectors;
         let mut targets = vec![];
-        targets.push(
-            key.mesh_key
-                .contains(MeshPipelineKey::NORMAL_PREPASS)
-                .then_some(ColorTargetState {
-                    format: NORMAL_PREPASS_FORMAT,
-                    blend: Some(BlendState::REPLACE),
-                    write_mask: ColorWrites::ALL,
-                }),
-        );
-        targets.push(
-            key.mesh_key
-                .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
-                .then_some(ColorTargetState {
-                    format: MOTION_VECTOR_PREPASS_FORMAT,
-                    blend: Some(BlendState::REPLACE),
-                    write_mask: ColorWrites::ALL,
-                }),
-        );
-        if targets.iter().all(Option::is_none) {
-            // if no targets are required then clear the list, so that no fragment shader is required
-            // (though one may still be used for discarding depth buffer writes)
-            targets.clear();
-        }
+        targets.push(has_normal.then_some(ColorTargetState {
+            format: NORMAL_PREPASS_FORMAT,
+            blend: Some(BlendState::REPLACE),
+            write_mask: ColorWrites::ALL,
+        }));
+        targets.push(has_motion_vectors.then_some(ColorTargetState {
+            format: MOTION_VECTOR_PREPASS_FORMAT,
+            blend: Some(BlendState::REPLACE),
+            write_mask: ColorWrites::ALL,
+        }));
 
         // The fragment shader is only used when the normal prepass or motion vectors prepass
         // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
         // prepass shader
-        let fragment_required = !targets.is_empty()
-            || ((key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
-                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
-                || blend_key == MeshPipelineKey::BLEND_ALPHA)
-                && self.material_fragment_shader.is_some());
+        let has_alpha = key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
+            || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
+            || blend_key == MeshPipelineKey::BLEND_ALPHA;
+        let has_prepass_material = has_alpha && self.material_fragment_shader.is_some();
+        let fragment_required = has_prepass_fragment || has_prepass_material;
+
+        if fragment_required {
+            shader_defs.push("PREPASS_FRAGMENT".into());
+        }
 
         let fragment = fragment_required.then(|| {
             // Use the fragment shader from the material

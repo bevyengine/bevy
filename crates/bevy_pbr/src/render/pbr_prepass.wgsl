@@ -2,6 +2,7 @@
 #import bevy_pbr::pbr_bindings
 #ifdef NORMAL_PREPASS
 #import bevy_pbr::pbr_functions
+#import bevy_pbr::parallax_mapping
 #endif // NORMAL_PREPASS
 
 struct FragmentInput {
@@ -71,6 +72,7 @@ fn prepass_alpha_discard(in: FragmentInput) {
 
 #ifdef PREPASS_FRAGMENT
 struct FragmentOutput {
+    @builtin(frag_depth) depth: f32,
 #ifdef NORMAL_PREPASS
     @location(0) normal: vec4<f32>,
 #endif // NORMAL_PREPASS
@@ -82,17 +84,20 @@ struct FragmentOutput {
 
 @fragment
 fn fragment(in: FragmentInput) -> FragmentOutput {
+    var out: FragmentOutput;
+    out.depth = in.frag_coord.z;
     prepass_alpha_discard(in);
 
-    var out: FragmentOutput;
-#ifdef VERTEX_UVS
+    let is_orthographic = view.projection[3].w == 1.0;
+    let V = calculate_view(in.world_position, is_orthographic);
+
 #ifdef VERTEX_TANGENTS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
         let N = in.world_normal;
         let T = in.world_tangent.xyz;
         let B = in.world_tangent.w * cross(N, T);
         // Transform V from fragment to camera in world space to tangent space.
-        let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
+        var Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
         let parallaxed = parallaxed_uv(
             material.parallax_depth_scale,
             material.max_parallax_layer_count,
@@ -103,9 +108,11 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
             // about.
             -Vt,
         );
-        out.depth = parallaxed.z;
+        let NBT = transpose(mat3x3(T,B,N));
+        Vt = Vt * (1.0 + additional_depth(in.uv, parallaxed.xy, parallaxed.z));
+        Vt = vec3(dot(Vt, -N), dot(Vt, -B), dot(Vt, -T));
+        // out.depth -= Vt.z;
     }
-#endif
 #endif
 
 #ifdef NORMAL_PREPASS
