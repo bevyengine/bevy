@@ -155,3 +155,18 @@ pub(crate) fn play_gilrs_rumble(
         };
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::to_gilrs_magnitude;
+
+    #[test]
+    fn magnitude_conversion() {
+        assert_eq!(to_gilrs_magnitude(1.0), u16::MAX);
+        assert_eq!(to_gilrs_magnitude(0.0), 0);
+
+        // bevy magnitudes of 2.0 don't really make sense, but just make sure
+        // they convert to something sensible in gilrs anyway.
+        assert_eq!(to_gilrs_magnitude(2.0), u16::MAX);
+    }
+}
