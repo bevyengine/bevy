@@ -52,6 +52,10 @@ impl Measure for TextMeasure {
             )
             .ceil()
     }
+
+    fn dyn_clone(&self) -> Box<dyn Measure> {
+        Box::new(self.clone())
+    }
 }
 
 /// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space
@@ -99,7 +103,7 @@ pub fn measure_text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text.drain(..) {
-        if let Ok((text, mut content_size)) = query.get_mut(entity) {
+        if let Ok((text, mut calculated_size)) = query.get_mut(entity) {
             match text_pipeline.create_text_measure(
                 &fonts,
                 &text.sections,
@@ -108,7 +112,7 @@ pub fn measure_text_system(
                 text.linebreak_behavior,
             ) {
                 Ok(measure) => {
-                    *content_size = ContentSize::new(TextMeasure { info: measure });
+                    calculated_size.measure = Box::new(TextMeasure { info: measure });
                 }
                 Err(TextError::NoSuchFont) => {
                     new_queue.push(entity);

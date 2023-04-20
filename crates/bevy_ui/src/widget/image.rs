@@ -58,10 +58,14 @@ impl Measure for ImageMeasure {
         }
         size
     }
+
+    fn dyn_clone(&self) -> Box<dyn Measure> {
+        Box::new(self.clone())
+    }
 }
 
-/// Updates content size of the node based on the image provided
-pub fn update_image_content_size_system(
+/// Updates calculated size of the node based on the image provided
+pub fn update_image_calculated_size_system(
     textures: Res<Assets<Image>>,
     #[cfg(feature = "bevy_text")] mut query: Query<
         (&mut ContentSize, &UiImage, &mut UiImageSize),
@@ -72,7 +76,7 @@ pub fn update_image_content_size_system(
         With<Node>,
     >,
 ) {
-    for (mut content_size, image, mut image_size) in &mut query {
+    for (mut calculated_size, image, mut image_size) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
             let size = Vec2::new(
                 texture.texture_descriptor.size.width as f32,
@@ -81,7 +85,7 @@ pub fn update_image_content_size_system(
             // Update only if size has changed to avoid needless layout calculations
             if size != image_size.size {
                 image_size.size = size;
-                *content_size = ContentSize::new(ImageMeasure { size });
+                calculated_size.measure = Box::new(ImageMeasure { size });
             }
         }
     }
