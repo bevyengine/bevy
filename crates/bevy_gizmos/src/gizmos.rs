@@ -482,7 +482,7 @@ impl<'s> Gizmos<'s> {
     pub fn arc_2d(
         &mut self,
         position: Vec2,
-        center_angle: f32,
+        direction_angle: f32,
         arc_angle: f32,
         radius: f32,
         color: Color,
@@ -490,7 +490,7 @@ impl<'s> Gizmos<'s> {
         Arc2dBuilder {
             gizmos: self,
             position,
-            center_angle,
+            direction_angle,
             arc_angle,
             radius,
             color,
@@ -629,13 +629,13 @@ impl Drop for Circle2dBuilder<'_, '_> {
 }
 
 /// A builder returned by [`Gizmos::arc_2d`].
-/// `center_angle` is the angle where the arc will be centered. `0.0`
+/// `direction_angle` is the angle where the arc will be centered. `0.0`
 /// `arc_angle` is defining the amount of the underlying circle
 /// being drawn. With the `radius`, it will define the length of the arc.
 pub struct Arc2dBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
     position: Vec2,
-    center_angle: f32,
+    direction_angle: f32,
     arc_angle: f32,
     radius: f32,
     color: Color,
@@ -661,20 +661,20 @@ impl Drop for Arc2dBuilder<'_, '_> {
                 .round() as usize,
         };
 
-        let positions = arc_inner(self.center_angle, self.arc_angle, self.radius, segments)
+        let positions = arc_inner(self.direction_angle, self.arc_angle, self.radius, segments)
             .map(|vec2| (vec2 + self.position));
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
 
 fn arc_inner(
-    center_angle: f32,
+    direction_angle: f32,
     arc_angle: f32,
     radius: f32,
     segments: usize,
 ) -> impl Iterator<Item = Vec2> {
     (0..segments + 1).map(move |i| {
-        let start = center_angle - arc_angle / 2.;
+        let start = direction_angle - arc_angle / 2.;
 
         let angle = start + (i as f32 * (arc_angle / segments as f32));
         Vec2::from(angle.sin_cos()) * radius
