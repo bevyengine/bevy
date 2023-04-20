@@ -6,9 +6,9 @@ use bevy_ecs::{
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy_log::{debug, warn};
 use bevy_time::Time;
-use bevy_utils::HashMap;
+use bevy_utils::{Duration, HashMap};
 use gilrs::{
-    ff::{self, BaseEffect, BaseEffectType},
+    ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
     GamepadId, Gilrs,
 };
 
@@ -16,7 +16,7 @@ use crate::converter::convert_gamepad_id;
 
 /// A rumble effect that is currently in effect.
 struct RunningRumble {
-    deadline: f32,
+    deadline: Duration,
     // We use `effect.drop()` to interact with this, but rustc can't know
     // gilrs uses Drop as an API feature.
     #[allow(dead_code)]
@@ -44,12 +44,17 @@ fn to_gilrs_magnitude(ratio: f32) -> u16 {
 
 fn get_base_effects(
     GamepadRumbleIntensity { weak, strong }: GamepadRumbleIntensity,
+    duration: Duration,
 ) -> Vec<ff::BaseEffect> {
     let mut effects = Vec::new();
     if strong > 0. {
         effects.push(BaseEffect {
             kind: BaseEffectType::Strong {
                 magnitude: to_gilrs_magnitude(strong),
+            },
+            scheduling: Replay {
+                play_for: duration.into(),
+                ..Default::default()
             },
             ..Default::default()
         });
@@ -69,7 +74,7 @@ fn handle_rumble_request(
     manager: &mut RumblesManager,
     gilrs: &mut Gilrs,
     rumble: GamepadRumbleRequest,
-    current_time: f32,
+    current_time: Duration,
 ) -> Result<(), RumbleError> {
     let gamepad = rumble.gamepad();
 
@@ -88,18 +93,18 @@ fn handle_rumble_request(
             intensity,
             ..
         } => {
-            let deadline = current_time + duration.as_secs_f32();
-
             let mut effect_builder = ff::EffectBuilder::new();
 
-            for effect in get_base_effects(intensity) {
+            for effect in get_base_effects(intensity, duration) {
                 effect_builder.add_effect(effect);
+                effect_builder.repeat(Repeat::For(duration.into()));
             }
 
             let effect = effect_builder.gamepads(&[gamepad_id]).finish(gilrs)?;
             effect.play()?;
 
             let gamepad_rumbles = manager.rumbles.entry(gamepad_id).or_default();
+            let deadline = current_time + duration;
             gamepad_rumbles.push(RunningRumble { deadline, effect });
         }
     }
@@ -112,7 +117,7 @@ pub(crate) fn play_gilrs_rumble(
     mut requests: EventReader<GamepadRumbleRequest>,
     mut manager: NonSendMut<RumblesManager>,
 ) {
-    let current_time = time.elapsed_seconds();
+    let current_time = time.elapsed();
     // Remove outdated rumble effects.
     for (_gamepad, rumbles) in manager.rumbles.iter_mut() {
         // `ff::Effect` uses RAII, dropping = deactivating
