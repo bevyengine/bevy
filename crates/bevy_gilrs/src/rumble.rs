@@ -42,7 +42,7 @@ pub(crate) struct RunningRumbleEffects {
     rumbles: HashMap<GamepadId, Vec<RunningRumble>>,
 }
 
-/// gilrs uses magnitudes from 0 to u16::MAX, while ours go from 0.0 to 1.0 (f32)
+/// gilrs uses magnitudes from 0 to [`u16::MAX`], while ours go from `0.0` to `1.0` ([`f32`])
 fn to_gilrs_magnitude(ratio: f32) -> u16 {
     (ratio * u16::MAX as f32) as u16
 }
