@@ -13,6 +13,7 @@ type PositionItem = [f32; 3];
 type ColorItem = [f32; 4];
 
 const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
+const DEFAULT_ARC_SEGMENTS: usize = 32;
 
 #[derive(Resource, Default)]
 pub(crate) struct GizmoStorage {
@@ -459,6 +460,45 @@ impl<'s> Gizmos<'s> {
         }
     }
 
+    /// Draw an arc.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use std::f32::consts::PI;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., Color::GREEN);
+    ///
+    ///     // Arcs have 32 line-segments by default.
+    ///     // You may want to increase this for larger arcs.
+    ///     gizmos
+    ///         .arc_2d(Vec2::ZERO, 0, PI / 4., 5., Color::RED)
+    ///         .segments(64);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn arc_2d(
+        &mut self,
+        position: Vec2,
+        center_angle: f32,
+        arc_angle: f32,
+        radius: f32,
+        color: Color,
+    ) -> Arc2dBuilder<'_, 's> {
+        Arc2dBuilder {
+            gizmos: self,
+            position,
+            center_angle,
+            arc_angle,
+            radius,
+            color,
+            segments: DEFAULT_ARC_SEGMENTS,
+        }
+    }
+
     /// Draw a wireframe rectangle.
     ///
     /// # Example
@@ -587,6 +627,52 @@ impl Drop for Circle2dBuilder<'_, '_> {
         let positions = circle_inner(self.radius, self.segments).map(|vec2| (vec2 + self.position));
         self.gizmos.linestrip_2d(positions, self.color);
     }
+}
+
+/// A builder returned by [`Gizmos::arc_2d`].
+pub struct Arc2dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+    position: Vec2,
+    center_angle: f32,
+    arc_angle: f32,
+    radius: f32,
+    color: Color,
+    segments: usize,
+}
+
+impl Arc2dBuilder<'_, '_> {
+    /// Set the number of line-segements for this arc.
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.segments = segments;
+        self
+    }
+}
+
+impl Drop for Arc2dBuilder<'_, '_> {
+    fn drop(&mut self) {
+        let positions = arc_inner(
+            self.center_angle,
+            self.arc_angle,
+            self.radius,
+            self.segments,
+        )
+        .map(|vec2| (vec2 + self.position));
+        self.gizmos.linestrip_2d(positions, self.color);
+    }
+}
+
+fn arc_inner(
+    center_angle: f32,
+    arc_angle: f32,
+    radius: f32,
+    segments: usize,
+) -> impl Iterator<Item = Vec2> {
+    (0..segments + 1).map(move |i| {
+        let start = center_angle - arc_angle / 2.;
+
+        let angle = start + (i as f32 * (arc_angle / segments as f32));
+        Vec2::from(angle.sin_cos()) * radius
+    })
 }
 
 fn circle_inner(radius: f32, segments: usize) -> impl Iterator<Item = Vec2> {
