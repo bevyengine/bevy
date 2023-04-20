@@ -1,35 +1,34 @@
 use xshell::{cmd, Shell};
 
-/// The checks that can be run in CI.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum Check {
-    Format,
-    Clippy,
-    CompileFail,
-    Test,
-    DocTest,
-    DocCheck,
-    BenchCheck,
-    ExampleCheck,
-    CompileCheck,
+/// The check that can be run in CI.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+struct Check {
+    format: bool,
+    clippy: bool,
+    compile_fail: bool,
+    test: bool,
+    doc_test: bool,
+    doc_check: bool,
+    bench_check: bool,
+    example_check: bool,
+    compile_check: bool,
 }
 
 impl Check {
-    /// Returns the complete set of checks.
-    fn all() -> Vec<Check> {
-        vec![
-            Check::Format,
-            Check::Clippy,
-            Check::CompileFail,
-            Check::Test,
-            Check::DocTest,
-            Check::DocCheck,
-            Check::BenchCheck,
-            Check::ExampleCheck,
-            Check::CompileCheck,
-        ]
+    /// Returns the complete check.
+    fn all() -> Self {
+        Self {
+            format: true,
+            clippy: true,
+            compile_fail: true,
+            test: true,
+            doc_test: true,
+            doc_check: true,
+            bench_check: true,
+            example_check: true,
+            compile_check: true,
+        }
     }
-
     /// Returns all supported arguments.
     fn all_arguments() -> Vec<&'static str> {
         vec![
@@ -47,25 +46,58 @@ impl Check {
         ]
     }
 
-    /// Returns the collection of [`Check`] that corresponds to the given argument.
-    fn from_argument(argument: &str) -> Option<Vec<Check>> {
+    /// Returns the [`Check`] that corresponds to the given argument.
+    fn from_argument(argument: &str) -> Option<Self> {
         match argument {
-            "lints" => Some(vec![Check::Format, Check::Clippy]),
-            "test" => Some(vec![Check::Test]),
-            "doc" => Some(vec![Check::DocTest, Check::DocCheck]),
-            "compile" => Some(vec![
-                Check::CompileFail,
-                Check::BenchCheck,
-                Check::ExampleCheck,
-                Check::CompileCheck,
-            ]),
-            "format" => Some(vec![Check::Format]),
-            "clippy" => Some(vec![Check::Clippy]),
-            "compile-fail" => Some(vec![Check::CompileFail]),
-            "bench-check" => Some(vec![Check::BenchCheck]),
-            "example-check" => Some(vec![Check::ExampleCheck]),
-            "dock-check" => Some(vec![Check::DocCheck]),
-            "doc-test" => Some(vec![Check::DocTest]),
+            "lints" => Some(Self {
+                format: true,
+                clippy: true,
+                ..Default::default()
+            }),
+            "test" => Some(Self {
+                test: true,
+                ..Default::default()
+            }),
+            "doc" => Some(Self {
+                doc_test: true,
+                doc_check: true,
+                ..Default::default()
+            }),
+            "compile" => Some(Self {
+                compile_fail: true,
+                bench_check: true,
+                example_check: true,
+                compile_check: true,
+                ..Default::default()
+            }),
+            "format" => Some(Self {
+                format: true,
+                ..Default::default()
+            }),
+            "clippy" => Some(Self {
+                clippy: true,
+                ..Default::default()
+            }),
+            "compile-fail" => Some(Self {
+                compile_fail: true,
+                ..Default::default()
+            }),
+            "bench-check" => Some(Self {
+                bench_check: true,
+                ..Default::default()
+            }),
+            "example-check" => Some(Self {
+                example_check: true,
+                ..Default::default()
+            }),
+            "dock-check" => Some(Self {
+                doc_check: true,
+                ..Default::default()
+            }),
+            "doc-test" => Some(Self {
+                doc_test: true,
+                ..Default::default()
+            }),
             _ => None,
         }
     }
@@ -104,14 +136,14 @@ fn main() {
 
     let sh = Shell::new().unwrap();
 
-    if what_to_run.contains(&Check::Format) {
+    if what_to_run.format {
         // See if any code needs to be formatted
         cmd!(sh, "cargo fmt --all -- --check")
             .run()
             .expect("Please run 'cargo fmt --all' to format your code.");
     }
 
-    if what_to_run.contains(&Check::Clippy) {
+    if what_to_run.clippy {
         // See if clippy has any complaints.
         // - Type complexity must be ignored because we use huge templates for queries
         cmd!(
@@ -122,7 +154,7 @@ fn main() {
         .expect("Please fix clippy errors in output above.");
     }
 
-    if what_to_run.contains(&Check::CompileFail) {
+    if what_to_run.compile_fail {
         {
             // ECS Compile Fail Tests
             // Run UI tests (they do not get executed with the workspace tests)
@@ -143,21 +175,21 @@ fn main() {
         }
     }
 
-    if what_to_run.contains(&Check::Test) {
+    if what_to_run.test {
         // Run tests (except doc tests and without building examples)
         cmd!(sh, "cargo test --workspace --lib --bins --tests --benches")
             .run()
             .expect("Please fix failing tests in output above.");
     }
 
-    if what_to_run.contains(&Check::DocTest) {
+    if what_to_run.doc_test {
         // Run doc tests
         cmd!(sh, "cargo test --workspace --doc")
             .run()
             .expect("Please fix failing doc-tests in output above.");
     }
 
-    if what_to_run.contains(&Check::DocCheck) {
+    if what_to_run.doc_check {
         // Check that building docs work and does not emit warnings
         std::env::set_var("RUSTDOCFLAGS", "-D warnings");
         cmd!(
@@ -168,7 +200,7 @@ fn main() {
         .expect("Please fix doc warnings in output above.");
     }
 
-    if what_to_run.contains(&Check::BenchCheck) {
+    if what_to_run.bench_check {
         let _subdir = sh.push_dir("benches");
         // Check that benches are building
         cmd!(sh, "cargo check --benches --target-dir ../target")
@@ -176,14 +208,14 @@ fn main() {
             .expect("Failed to check the benches.");
     }
 
-    if what_to_run.contains(&Check::ExampleCheck) {
+    if what_to_run.example_check {
         // Build examples and check they compile
         cmd!(sh, "cargo check --workspace --examples")
             .run()
             .expect("Please fix compiler errors for examples in output above.");
     }
 
-    if what_to_run.contains(&Check::CompileCheck) {
+    if what_to_run.compile_check {
         // Build bevy and check that it compiles
         cmd!(sh, "cargo check --workspace")
             .run()
