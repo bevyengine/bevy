@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Query, Res}, reflect::ReflectComponent,
 };
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, std_traits::ReflectDefault, FromReflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault, FromReflect, ReflectFromReflect};
 use bevy_render::texture::Image;
 #[cfg(feature = "bevy_text")]
 use bevy_text::Text;
@@ -17,7 +17,7 @@ use bevy_text::Text;
 ///
 /// This field is set automatically by `update_image_calculated_size_system`
 #[derive(Component, Debug, Copy, Clone, Default, Reflect, FromReflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, FromReflect)]
 pub struct UiImageSize {
     size: Vec2,
 }
