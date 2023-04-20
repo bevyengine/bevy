@@ -1348,7 +1348,7 @@ pub enum GamepadRumbleRequest {
         /// The gamepad to rumble
         gamepad: Gamepad,
     },
-    /// Stop all running rumbles on the given `Gamepad`
+    /// Stop all running rumbles on the given [`Gamepad`]
     Stop { gamepad: Gamepad },
 }
 
