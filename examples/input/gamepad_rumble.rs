@@ -32,7 +32,7 @@ fn gamepad_system(
             rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad,
                 duration: Duration::from_secs_f32(0.5),
-                intensity: GamepadRumbleIntensity::weak(0.25),
+                intensity: GamepadRumbleIntensity::weak_motor(0.25),
             });
         }
 
@@ -51,9 +51,9 @@ fn gamepad_system(
                 gamepad,
                 intensity: GamepadRumbleIntensity {
                     // intensity low-frequency motor, usually on the left-hand side
-                    strong: 0.5,
+                    strong_motor: 0.5,
                     // intensity of high-frequency motor, usually on the right-hand side
-                    weak: 0.25,
+                    weak_motor: 0.25,
                 },
                 duration: Duration::from_secs(5),
             });
@@ -67,7 +67,7 @@ fn gamepad_system(
             );
             rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad,
-                intensity: GamepadRumbleIntensity::strong(0.1),
+                intensity: GamepadRumbleIntensity::strong_motor(0.1),
                 duration: Duration::from_secs(5),
             });
         }

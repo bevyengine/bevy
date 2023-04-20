@@ -47,14 +47,17 @@ fn to_gilrs_magnitude(ratio: f32) -> u16 {
 }
 
 fn get_base_effects(
-    GamepadRumbleIntensity { weak, strong }: GamepadRumbleIntensity,
+    GamepadRumbleIntensity {
+        weak_motor,
+        strong_motor,
+    }: GamepadRumbleIntensity,
     duration: Duration,
 ) -> Vec<ff::BaseEffect> {
     let mut effects = Vec::new();
-    if strong > 0. {
+    if strong_motor > 0. {
         effects.push(BaseEffect {
             kind: BaseEffectType::Strong {
-                magnitude: to_gilrs_magnitude(strong),
+                magnitude: to_gilrs_magnitude(strong_motor),
             },
             scheduling: Replay {
                 play_for: duration.into(),
@@ -63,10 +66,10 @@ fn get_base_effects(
             ..Default::default()
         });
     }
-    if weak > 0. {
+    if weak_motor > 0. {
         effects.push(BaseEffect {
             kind: BaseEffectType::Strong {
-                magnitude: to_gilrs_magnitude(weak),
+                magnitude: to_gilrs_magnitude(weak_motor),
             },
             ..Default::default()
         });

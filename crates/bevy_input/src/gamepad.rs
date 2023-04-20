@@ -1250,43 +1250,49 @@ pub struct GamepadRumbleIntensity {
     ///
     /// By convention, this is usually a low-frequency motor on the left-hand
     /// side of the gamepad, though it may vary across platforms and hardware.
-    pub strong: f32,
+    pub strong_motor: f32,
     /// The rumble intensity of the weak gamepad motor
     ///
     /// Ranges from 0.0 to 1.0
     ///
     /// By convention, this is usually a high-frequency motor on the right-hand
     /// side of the gamepad, though it may vary across platforms and hardware.
-    pub weak: f32,
+    pub weak_motor: f32,
 }
 
 impl GamepadRumbleIntensity {
     /// Rumble both gamepad motors at maximum intensity
     pub const MAX: Self = GamepadRumbleIntensity {
-        strong: 1.0,
-        weak: 1.0,
+        strong_motor: 1.0,
+        weak_motor: 1.0,
     };
 
     /// Rumble the weak motor at maximum intensity
     pub const WEAK_MAX: Self = GamepadRumbleIntensity {
-        strong: 0.0,
-        weak: 1.0,
+        strong_motor: 0.0,
+        weak_motor: 1.0,
     };
 
     /// Rumble the strong motor at maximum intensity
     pub const STRONG_MAX: Self = GamepadRumbleIntensity {
-        strong: 1.0,
-        weak: 0.0,
+        strong_motor: 1.0,
+        weak_motor: 0.0,
     };
 
     /// Creates a new rumble intensity with weak motor intensity set to the given value
-    pub fn weak(weak: f32) -> Self {
-        Self { weak, strong: 0.0 }
+    pub fn weak_motor(intensity: f32) -> Self {
+        Self {
+            weak_motor: intensity,
+            strong_motor: 0.0,
+        }
     }
 
     /// Creates a new rumble intensity with strong motor intensity set to the given value
-    pub fn strong(strong: f32) -> Self {
-        Self { strong, weak: 0.0 }
+    pub fn strong_motor(intensity: f32) -> Self {
+        Self {
+            strong_motor: intensity,
+            weak_motor: 0.0,
+        }
     }
 }
 
