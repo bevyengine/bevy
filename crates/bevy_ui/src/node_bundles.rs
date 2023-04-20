@@ -1,8 +1,8 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, NodeSize,
-    Style, UiImage, ZIndex,
+    widget::{Button, UiImageSize}, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, NodeSize,
+        Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -10,7 +10,7 @@ use bevy_render::{
     view::Visibility,
 };
 #[cfg(feature = "bevy_text")]
-use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
+use bevy_text::{Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -22,7 +22,8 @@ pub struct NodeBundle {
     pub node: Node,
     /// Describes the logical size of the node
     pub node_size: NodeSize,
-    /// Describes the style including flexbox settings
+    /// Styles which control the layout (size and position) of the node and it's children
+    /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The background color, which serves as a "fill" for this nodet
     pub background_color: BackgroundColor,
@@ -70,8 +71,13 @@ pub struct ImageBundle {
     /// Identifier for the Node in the layout.
     pub node: Node,
     /// Describes the logical size of the node
+    /// 
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub node_size: NodeSize,
     /// Describes the style including flexbox settings
+    /// Styles which control the layout (size and position) of the node and it's children
+    /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
@@ -81,6 +87,10 @@ pub struct ImageBundle {
     pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
+    /// The size of the image in pixels
+    ///
+    /// This field is set automatically
+    pub image_size: UiImageSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -110,9 +120,13 @@ pub struct TextBundle {
     /// Describes the logical size of the node
     pub node_size: NodeSize,
     /// Describes the style including flexbox settings
+    /// Styles which control the layout (size and position) of the node and it's children
+    /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// Contains the text of the node
     pub text: Text,
+    /// Text layout information
+    pub text_layout_info: TextLayoutInfo,
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
     /// Whether this node should block interaction with lower nodes
@@ -143,6 +157,7 @@ impl Default for TextBundle {
         Self {
             node: Default::default(),
             text: Default::default(),
+            text_layout_info: Default::default(),
             calculated_size: Default::default(),
             // Transparent background
             background_color: BackgroundColor(Color::NONE),
@@ -187,7 +202,7 @@ impl TextBundle {
     }
 
     /// Returns this [`TextBundle`] with a new [`Style`].
-    pub const fn with_style(mut self, style: Style) -> Self {
+    pub fn with_style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
@@ -208,7 +223,8 @@ pub struct ButtonBundle {
     pub node_size: NodeSize,
     /// Marker component that signals this node is a button
     pub button: Button,
-    /// Describes the style including flexbox settings
+    /// Styles which control the layout (size and position) of the node and it's children
+    /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// Describes whether and how the button has been interacted with by the input
     pub interaction: Interaction,

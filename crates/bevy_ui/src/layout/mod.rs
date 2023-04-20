@@ -67,19 +67,16 @@ pub struct UiSurface {
     taffy: Taffy,
 }
 
-// SAFETY: as long as MeasureFunc is Send + Sync. https://github.com/DioxusLabs/taffy/issues/146
-unsafe impl Send for UiSurface {}
-unsafe impl Sync for UiSurface {}
-
-fn _assert_send_sync_flex_surface_impl_safe() {
+fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
     _assert_send_sync::<Taffy>();
+    _assert_send_sync::<UiSurface>();
 }
 
 impl fmt::Debug for UiSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("FlexSurface")
+        f.debug_struct("UiSurface")
             .field("entity_to_taffy", &self.entity_to_taffy)
             .field("window_node", &self.window_node)
             .finish()
@@ -97,6 +94,7 @@ impl Default for UiSurface {
 }
 
 impl UiSurface {
+
     pub fn insert_node(
         &mut self,
         entity: Entity,
@@ -130,13 +128,25 @@ impl UiSurface {
         &mut self,
         taffy_node: taffy::node::Node,
         style: &Style,
-        calculated_size: CalculatedSize,
+        calculated_size: &CalculatedSize,
         context: &LayoutContext,
     ) {
         let taffy_style = convert::from_style(context, style);
-        let measure = measure(calculated_size, context.scale_factor);
-        self.taffy.set_style(taffy_node, taffy_style).unwrap();
-        self.taffy.set_measure(taffy_node, Some(measure)).unwrap();
+        let measure = calculated_size.measure.dyn_clone();
+        let measure_func = taffy::node::MeasureFunc::Boxed(Box::new(
+            move |constraints: Size<Option<f32>>, available: Size<AvailableSpace>| {
+                let size = measure.measure(
+                    constraints.width,
+                    constraints.height,
+                    available.width,
+                    available.height,
+                );
+                taffy::geometry::Size {
+                    width: size.x,
+                    height: size.y,
+                }
+            },
+        ));
     }
 
     pub fn update_children(&mut self, parent: taffy::node::Node, children: &Children) {
@@ -209,23 +219,23 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    pub fn get_layout(&self, entity: Entity) -> Result<&taffy::layout::Layout, FlexError> {
+    pub fn get_layout(&self, entity: Entity) -> Result<&taffy::layout::Layout, LayoutError> {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
             self.taffy
                 .layout(*taffy_node)
-                .map_err(FlexError::TaffyError)
+                .map_err(LayoutError::TaffyError)
         } else {
             warn!(
                 "Styled child in a non-UI entity hierarchy. You are using an entity \
 with UI components as a child of an entity without UI components, results may be unexpected."
             );
-            Err(FlexError::InvalidHierarchy)
+            Err(LayoutError::InvalidHierarchy)
         }
     }
 }
 
 #[derive(Debug)]
-pub enum FlexError {
+pub enum LayoutError {
     InvalidHierarchy,
     TaffyError(taffy::error::TaffyError),
 }
@@ -309,6 +319,7 @@ pub fn update_ui_windows(
         || !scale_factor_events.is_empty()
         || ui_scale.is_changed();
     scale_factor_events.clear();
+
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
     let context = LayoutContext::new(scale_factor, physical_size, require_full_update);
     ui_context.0 = Some(context);
@@ -405,37 +416,6 @@ pub fn update_ui_node_transforms(
             transform.translation = new_position;
         }
     }
-}
-
-pub fn measure(calculated_size: CalculatedSize, scale_factor: f64) -> taffy::node::MeasureFunc {
-    taffy::node::MeasureFunc::Boxed(Box::new(
-        move |constraints: Size<Option<f32>>, _available: Size<AvailableSpace>| {
-            let mut size = Size {
-                width: (scale_factor * calculated_size.size.x as f64) as f32,
-                height: (scale_factor * calculated_size.size.y as f64) as f32,
-            };
-            match (constraints.width, constraints.height) {
-                (None, None) => {}
-                (Some(width), None) => {
-                    if calculated_size.preserve_aspect_ratio {
-                        size.height = width * size.height / size.width;
-                    }
-                    size.width = width;
-                }
-                (None, Some(height)) => {
-                    if calculated_size.preserve_aspect_ratio {
-                        size.width = height * size.width / size.height;
-                    }
-                    size.height = height;
-                }
-                (Some(width), Some(height)) => {
-                    size.width = width;
-                    size.height = height;
-                }
-            }
-            size
-        },
-    ))
 }
 
 #[cfg(test)]
