@@ -36,7 +36,7 @@ fn plasma_color_at_index(value: f32) -> vec3<f32> {
 // Return the color sampled from the plasma color map,
 // `value` is clamped between 0 and 1.
 fn debug_gradient(value: f32) -> vec4<f32> {
-    let colors_offset = clamp(value, 0.0, 1.0) * 5.0;
+    let colors_offset = saturate(value) * 5.0;
     let low_ratio = fract(colors_offset);
 
     let low_color_index = u32(floor(colors_offset));
