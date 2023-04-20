@@ -125,7 +125,7 @@ pub(crate) fn play_gilrs_rumble(
 ) {
     let current_time = time.raw_elapsed();
     // Remove outdated rumble effects.
-    for (_gamepad, rumbles) in manager.rumbles.iter_mut() {
+    for rumbles in manager.rumbles.values_mut() {
         // `ff::Effect` uses RAII, dropping = deactivating
         rumbles.retain(|RunningRumble { deadline, .. }| *deadline >= current_time);
     }
