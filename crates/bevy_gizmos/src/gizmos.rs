@@ -474,7 +474,7 @@ impl<'s> Gizmos<'s> {
     ///     // Arcs have 32 line-segments by default.
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
-    ///         .arc_2d(Vec2::ZERO, 0, PI / 4., 5., Color::RED)
+    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., Color::RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
