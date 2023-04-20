@@ -37,14 +37,6 @@ enum SystemBehavior {
     Break,
 }
 
-#[derive(Debug, Default, Clone)]
-pub enum SystemCursor {
-    #[default]
-    First,
-    Index(usize, NodeId),
-    None,
-}
-
 // schedule_order index, and schedule start point
 #[derive(Debug, Default, Clone)]
 pub struct Cursor {
@@ -140,8 +132,22 @@ impl Stepping {
     }
 
     /// Return our current position within the stepping frame
-    pub fn cursor(&self) -> Cursor {
-        self.cursor.clone()
+    pub fn cursor(&self) -> Option<(BoxedScheduleLabel, NodeId)> {
+        if self.action == Action::RunAll {
+            return None;
+        }
+        let label = match self.schedule_order.get(self.cursor.schedule) {
+            None => return None,
+            Some(label) => label,
+        };
+        let state = match self.schedule_states.get(label) {
+            None => return None,
+            Some(state) => state,
+        };
+        state
+            .node_ids
+            .get(self.cursor.system)
+            .map(|node_id| (label.dyn_clone(), *node_id))
     }
 
     /// Enable stepping for the provided schedule
@@ -279,6 +285,27 @@ impl Stepping {
         self
     }
 
+    /// lookup the first system for the supplied schedule index
+    fn first_system_index_for_schedule(&self, index: usize) -> usize {
+        let label = match self.schedule_order.get(index) {
+            None => return 0,
+            Some(label) => label,
+        };
+        let state = match self.schedule_states.get(label) {
+            None => return 0,
+            Some(state) => state,
+        };
+        state.first.unwrap_or(0)
+    }
+
+    /// Move the cursor to the start of the first schedule
+    fn reset_cursor(&mut self) {
+        self.cursor = Cursor {
+            schedule: 0,
+            system: self.first_system_index_for_schedule(0),
+        };
+    }
+
     /// Advance schedule states for the next render frame
     fn next_frame(&mut self) {
         // if stepping is enabled; reset our internal state for the start of
@@ -293,10 +320,7 @@ impl Stepping {
                 ..
             } = self.cursor;
             if schedule_index >= self.schedule_order.len() {
-                self.cursor = Cursor {
-                    schedule: 0,
-                    system: 0,
-                };
+                self.reset_cursor();
             }
         }
 
@@ -304,14 +328,12 @@ impl Stepping {
             return;
         }
 
+        let mut reset_cursor = false;
         for update in self.updates.drain(..) {
             match update {
                 Update::SetAction(Action::RunAll) => {
                     self.action = Action::RunAll;
-                    self.cursor = Cursor {
-                        schedule: 0,
-                        system: 0,
-                    };
+                    reset_cursor = true;
                 }
                 Update::SetAction(a) => self.action = a,
                 Update::AddSchedule(l) => {
@@ -322,10 +344,7 @@ impl Stepping {
                     if let Some(index) = self.schedule_order.iter().position(|l| l == &label) {
                         self.schedule_order.remove(index);
                     }
-                    self.cursor = Cursor {
-                        schedule: 0,
-                        system: 0,
-                    };
+                    reset_cursor = true;
                 }
                 Update::ClearSchedule(label) => match self.schedule_states.get_mut(&label) {
                     Some(state) => state.clear_behaviors(),
@@ -363,6 +382,10 @@ impl Stepping {
                 }
             }
         }
+
+        if reset_cursor {
+            self.reset_cursor();
+        }
     }
 
     /// get the list of systems this schedule should skip for this render
@@ -374,6 +397,7 @@ impl Stepping {
 
         // grab the label and state for the schedule if they've been added to
         // stepping
+        // XXX Take a second look at this
         let mut found = false;
         for label in self.schedule_states.keys() {
             match schedule.label() {
@@ -385,7 +409,7 @@ impl Stepping {
                 None => (),
             }
         }
-        assert!(
+        debug_assert!(
             !found
                 || self
                     .schedule_states
@@ -427,7 +451,7 @@ impl Stepping {
             schedule: schedule_index,
             system: start,
         } = self.cursor;
-        let (list, resume) = if index == schedule_index {
+        let (list, next_system) = if index == schedule_index {
             let o = state.skipped_systems(schedule, start, self.action);
 
             // if we just stepped this schedule, then we'll switch the action
@@ -449,19 +473,19 @@ impl Stepping {
         // schedule index.  We don't know all schedules have been added to the
         // schedule_order, so only next_frame() knows its safe to reset the
         // cursor.
-        match resume {
+        match next_system {
+            Some(i) => self.cursor.system = i,
             None => {
+                let index = schedule_index + 1;
                 println!(
                     "Stepping::skipped_systems(): next schedule {} -> {}",
-                    schedule_index,
-                    schedule_index + 1
+                    schedule_index, index,
                 );
                 self.cursor = Cursor {
-                    schedule: schedule_index + 1,
-                    system: 0,
+                    schedule: index,
+                    system: self.first_system_index_for_schedule(index),
                 }
             }
-            Some(resume) => self.cursor.system = resume,
         }
 
         Some(list)
@@ -471,19 +495,26 @@ impl Stepping {
 #[derive(Default)]
 struct ScheduleState {
     /// per-system [`SystemBehavior`]
-    systems: HashMap<NodeId, SystemBehavior>,
+    behaviors: HashMap<NodeId, SystemBehavior>,
+
+    /// order of NodeIds in the schedule
+    node_ids: Vec<NodeId>,
 
     /// changes to system behavior that should be applied the next time
     /// [`ScheduleState::progress()`] is called
     updates: HashMap<TypeId, Option<SystemBehavior>>,
+
+    /// This field contains the first steppable system in the schedule.
+    first: Option<usize>,
 }
 
 impl ScheduleState {
     // set the stepping behavior for a system in this schedule
     fn set_behavior(&mut self, system: SystemIdentifier, behavior: SystemBehavior) {
+        self.first = None;
         match system {
             SystemIdentifier::Node(node_id) => {
-                self.systems.insert(node_id, behavior);
+                self.behaviors.insert(node_id, behavior);
             }
             SystemIdentifier::Type(type_id) => {
                 self.updates.insert(type_id, Some(behavior));
@@ -493,9 +524,10 @@ impl ScheduleState {
 
     // clear the stepping behavior for a system in this schedule
     fn clear_behavior(&mut self, system: SystemIdentifier) {
+        self.first = None;
         match system {
             SystemIdentifier::Node(node_id) => {
-                self.systems.remove(&node_id);
+                self.behaviors.remove(&node_id);
             }
             SystemIdentifier::Type(type_id) => {
                 self.updates.insert(type_id, None);
@@ -505,7 +537,8 @@ impl ScheduleState {
 
     // clear all system behaviors
     fn clear_behaviors(&mut self) {
-        self.systems.clear();
+        self.behaviors.clear();
+        self.first = None;
     }
 
     // apply system behavior updates by looking up the node id of the system in
@@ -516,16 +549,16 @@ impl ScheduleState {
             match behavior {
                 None => continue,
                 Some(None) => {
-                    self.systems.remove(&node_id);
+                    self.behaviors.remove(&node_id);
                 }
                 Some(Some(behavior)) => {
-                    self.systems.insert(node_id, *behavior);
+                    self.behaviors.insert(node_id, *behavior);
                 }
             }
         }
         self.updates.clear();
 
-        println!("apply_updates(): {:?}", self.systems);
+        println!("apply_updates(): {:?}", self.behaviors);
     }
 
     fn skipped_systems(
@@ -536,6 +569,12 @@ impl ScheduleState {
     ) -> (FixedBitSet, Option<usize>) {
         use std::cmp::Ordering;
 
+        // if our NodeId list hasn't been populated, copy it over from the
+        // schedule
+        if self.node_ids.len() != schedule.systems_len() {
+            self.node_ids = schedule.executable().system_ids.clone();
+        }
+
         // Now that we have the schedule, apply any pending system behavior
         // updates.  The schedule is required to map from system `TypeId` to
         // `NodeId`.
@@ -543,12 +582,25 @@ impl ScheduleState {
             self.apply_updates(schedule);
         }
 
+        // if we don't have a first system set, set it now
+        if self.first.is_none() {
+            for (i, (node_id, _)) in schedule.systems().unwrap().enumerate() {
+                match self.behaviors.get(&node_id) {
+                    Some(SystemBehavior::AlwaysRun) | Some(SystemBehavior::NeverRun) => continue,
+                    Some(_) | None => {
+                        self.first = Some(i);
+                        break;
+                    }
+                }
+            }
+        }
+
         let mut skip = FixedBitSet::with_capacity(schedule.systems_len());
         let mut pos = start;
 
         for (i, (node_id, system)) in schedule.systems().unwrap().enumerate() {
             let behavior = self
-                .systems
+                .behaviors
                 .get(&node_id)
                 .unwrap_or(&SystemBehavior::Continue);
             println!(

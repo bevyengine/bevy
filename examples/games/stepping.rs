@@ -1,5 +1,4 @@
 use bevy::{app::MainScheduleOrder, ecs::schedule::*, prelude::*};
-use std::collections::HashMap;
 
 /// Independent [`Schedule`] for stepping systems.
 ///
@@ -54,7 +53,7 @@ impl Plugin for SteppingPlugin {
         app.insert_resource(State {
             ui_top: self.top,
             ui_left: self.left,
-            schedule_text_map: HashMap::new(),
+            systems: Vec::new(),
         })
         .add_systems(
             Debug,
@@ -71,9 +70,8 @@ impl Plugin for SteppingPlugin {
 /// Struct for maintaining stepping state
 #[derive(Resource, Debug)]
 struct State {
-    // map of Schedule/NodeId to TextSection index in UI entity
-    // This is used to draw the position indicator as we step
-    schedule_text_map: HashMap<BoxedScheduleLabel, Vec<usize>>,
+    // vector of schedule/nodeid -> text index offset
+    systems: Vec<(BoxedScheduleLabel, NodeId, usize)>,
 
     // ui positioning
     ui_top: Val,
@@ -82,7 +80,7 @@ struct State {
 
 /// condition to check if the stepping UI has been constructed
 fn initialized(state: Res<State>) -> bool {
-    !state.schedule_text_map.is_empty()
+    !state.systems.is_empty()
 }
 
 const FONT_SIZE: f32 = 20.0;
@@ -105,8 +103,6 @@ fn build_ui(
     mut stepping: ResMut<Stepping>,
     mut state: ResMut<State>,
 ) {
-    debug_assert!(state.schedule_text_map.is_empty());
-
     let mut text_sections = Vec::new();
     let mut always_run = Vec::new();
 
@@ -136,8 +132,6 @@ fn build_ui(
             Err(_) => return,
         };
 
-        let mut system_index = Vec::new();
-
         for (node_id, system) in systems {
             if system.name().starts_with("bevy") {
                 always_run.push((label.dyn_clone(), node_id));
@@ -145,7 +139,9 @@ fn build_ui(
                 continue;
             }
 
-            system_index.push(text_sections.len());
+            state
+                .systems
+                .push((label.dyn_clone(), node_id, text_sections.len()));
             text_sections.push(TextSection::new(
                 "   ",
                 TextStyle {
@@ -165,8 +161,6 @@ fn build_ui(
                 },
             ));
         }
-
-        state.schedule_text_map.insert(label.clone(), system_index);
     }
 
     for (label, node) in always_run.drain(..) {
@@ -250,11 +244,13 @@ fn update_ui(
     let (ui, mut text, vis) = ui.single_mut();
     match (vis, stepping.is_enabled()) {
         (Visibility::Hidden, true) => {
+            println!("showing UI");
             commands.entity(ui).insert(Visibility::Inherited);
         }
         (Visibility::Hidden, false) => (),
         (_, true) => (),
         (_, false) => {
+            println!("hiding UI");
             commands.entity(ui).insert(Visibility::Hidden);
         }
     }
@@ -264,26 +260,18 @@ fn update_ui(
         return;
     }
 
-    let cursor = stepping.cursor();
-    for (schedule, label) in stepping.schedules().unwrap().iter().enumerate() {
-        for (system, text_index) in state
-            .schedule_text_map
-            .get(label)
-            .unwrap()
-            .iter()
-            .enumerate()
-        {
-            let here = schedule == cursor.schedule && system == cursor.system;
-            debug!(
-                "schedule {:?} ({}), system {}, cursor {:?}",
-                label, schedule, system, here
-            );
-            let mark = if schedule == cursor.schedule && system == cursor.system {
-                "-> "
-            } else {
-                "   "
-            };
-            text.sections[*text_index].value = mark.to_string();
-        }
+    let (cursor_schedule, cursor_system) = match stepping.cursor() {
+        // no cursor means stepping isn't enabled, so we're done here
+        None => return,
+        Some(c) => c,
+    };
+
+    for (schedule, system, text_index) in &state.systems {
+        let mark = if &cursor_schedule == schedule && *system == cursor_system {
+            "-> "
+        } else {
+            "   "
+        };
+        text.sections[*text_index].value = mark.to_string();
     }
 }
