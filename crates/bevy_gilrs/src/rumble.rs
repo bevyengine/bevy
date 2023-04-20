@@ -168,5 +168,10 @@ mod tests {
         // bevy magnitudes of 2.0 don't really make sense, but just make sure
         // they convert to something sensible in gilrs anyway.
         assert_eq!(to_gilrs_magnitude(2.0), u16::MAX);
+
+        // negative bevy magnitudes don't really make sense, but just make sure
+        // they convert to something sensible in gilrs anyway.
+        assert_eq!(to_gilrs_magnitude(-1.0), 0);
+        assert_eq!(to_gilrs_magnitude(-0.1), 0);
     }
 }
