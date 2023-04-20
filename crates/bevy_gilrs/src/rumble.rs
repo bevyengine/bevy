@@ -16,9 +16,11 @@ use crate::converter::convert_gamepad_id;
 
 /// A rumble effect that is currently in effect.
 struct RunningRumble {
+    /// Duration from app startup when this effect will be finished
     deadline: Duration,
-    // We use `effect.drop()` to interact with this, but rustc can't know
-    // gilrs uses Drop as an API feature.
+    /// A ref-counted handle to the specific force-feedback effect
+    ///
+    /// Dropping it will cause the effect to stop
     #[allow(dead_code)]
     effect: ff::Effect,
 }
@@ -35,6 +37,8 @@ impl From<ff::Error> for RumbleError {
 
 #[derive(Default)]
 pub(crate) struct RumblesManager {
+    /// If multiple rumbles are running at the same time, their resulting rumble
+    /// will be the saturated sum of their strengths up until [`u16::MAX`]
     rumbles: HashMap<GamepadId, Vec<RunningRumble>>,
 }
 
