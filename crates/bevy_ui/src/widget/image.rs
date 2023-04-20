@@ -5,10 +5,11 @@ use bevy_ecs::query::Without;
 use bevy_ecs::{
     prelude::Component,
     query::With,
-    system::{Query, Res}, reflect::ReflectComponent,
+    reflect::ReflectComponent,
+    system::{Query, Res},
 };
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, std_traits::ReflectDefault, FromReflect, ReflectFromReflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 use bevy_render::texture::Image;
 #[cfg(feature = "bevy_text")]
 use bevy_text::Text;
