@@ -136,7 +136,7 @@ impl ProcessedShader {
         };
         const CAPABILITIES: &[(Features, Capabilities)] = &[
             (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
-            (Features::SHADER_FLOAT64, Capabilities::FLOAT64),
+            (Features::SHADER_F64, Capabilities::FLOAT64),
             (
                 Features::SHADER_PRIMITIVE_INDEX,
                 Capabilities::PRIMITIVE_INDEX,
