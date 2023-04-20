@@ -1280,17 +1280,21 @@ impl GamepadRumbleIntensity {
     };
 
     /// Creates a new rumble intensity with weak motor intensity set to the given value
+    ///
+    /// Clamped within the 0 to 1 range
     pub fn weak_motor(intensity: f32) -> Self {
         Self {
-            weak_motor: intensity,
+            weak_motor: f32::clamp(intensity, 0.0, 1.0),
             strong_motor: 0.0,
         }
     }
 
     /// Creates a new rumble intensity with strong motor intensity set to the given value
+    ///
+    /// Clamped within the 0 to 1 range
     pub fn strong_motor(intensity: f32) -> Self {
         Self {
-            strong_motor: intensity,
+            strong_motor: f32::clamp(intensity, 0.0, 1.0),
             weak_motor: 0.0,
         }
     }
