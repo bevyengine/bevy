@@ -61,7 +61,11 @@ fn input(mut config: ResMut<Config>, input: Res<Input<KeyCode>>) {
 }
 
 fn system(index: u32, config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
-    let mut rand_state = (time.elapsed_seconds() as i32 as f32 * (index + 1) as f32) as i32;
+    let mut rand_state = if !config.fancy {
+        index as i32
+    } else {
+        (time.elapsed_seconds() as i32 as f32 * (index + 1) as f32) as i32
+    };
 
     let mut rand = || -> f32 {
         rand_state = rand_state.wrapping_mul(1103515245).wrapping_add(12345) & 0x7fffffff;
@@ -70,13 +74,6 @@ fn system(index: u32, config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
 
     let line_count =
         config.line_count / SYSTEM_COUNT + (index < config.line_count % SYSTEM_COUNT) as u32;
-
-    draw.cuboid(
-        Vec3::ZERO,
-        Quat::IDENTITY,
-        Vec3::new(2., 2., 2.),
-        Color::BLACK,
-    );
 
     for i in 0..line_count {
         let start = Vec3::new(rand(), rand(), rand());
