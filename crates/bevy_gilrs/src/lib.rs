@@ -15,6 +15,10 @@ use rumble::{play_gilrs_rumble, RumblesManager};
 #[derive(Default)]
 pub struct GilrsPlugin;
 
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
+/// Updates the running gamepad rumble effects.
+pub struct RumbleSystem;
+
 impl Plugin for GilrsPlugin {
     fn build(&self, app: &mut App) {
         match GilrsBuilder::new()
@@ -27,7 +31,7 @@ impl Plugin for GilrsPlugin {
                     .init_non_send_resource::<RumblesManager>()
                     .add_systems(PreStartup, gilrs_event_startup_system)
                     .add_systems(PreUpdate, gilrs_event_system.before(InputSystem))
-                    .add_systems(PostUpdate, play_gilrs_rumble);
+                    .add_systems(PostUpdate, play_gilrs_rumble.in_set(RumbleSystem));
             }
             Err(err) => error!("Failed to start Gilrs. {}", err),
         }
