@@ -6,9 +6,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_event::<ButtonActivatedEvent>()
-        .add_startup_system(setup)
-        .add_system(update_buttons)
-        .add_system(update_radio_buttons_colors)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (update_buttons, update_radio_buttons_colors))
         .run();
 }
 
