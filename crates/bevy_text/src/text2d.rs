@@ -107,10 +107,10 @@ pub fn extract_text2d_sprite(
         }
 
         let text_anchor = -(anchor.as_vec() + 0.5);
-        let alignment_translation = text_layout_info.logical_size * scale_factor * text_anchor;
-        let transform = *global_transform
-            * scaling
-            * GlobalTransform::from_translation(alignment_translation.extend(0.));
+        let alignment_translation = text_layout_info.logical_size * text_anchor;
+        let transform = *global_transform            
+            * GlobalTransform::from_translation(alignment_translation.extend(0.))
+            * scaling;
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
         for PositionedGlyph {
@@ -204,7 +204,7 @@ pub fn update_text2d_layout(
                 }
                 Ok(mut info) => {
                     info.logical_size.x = scale_value(info.logical_size.x, inverse_scale_factor);
-                    info.logical_size.y = scale_value(info.logical_size.x, inverse_scale_factor);
+                    info.logical_size.y = scale_value(info.logical_size.y, inverse_scale_factor);
                     *text_layout_info = info;
                 }
             }
