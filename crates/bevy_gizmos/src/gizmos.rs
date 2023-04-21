@@ -460,6 +460,9 @@ impl<'s> Gizmos<'s> {
     }
 
     /// Draw an arc, which is a part of the circumference of a circle.
+    /// `direction_angle` is the angle where the arc will be centered. `0.0`
+    /// `arc_angle` is defining the amount of the underlying circle
+    /// being drawn. With the `radius`, it will define the length of the arc.
     ///
     /// # Example
     /// ```
@@ -629,9 +632,6 @@ impl Drop for Circle2dBuilder<'_, '_> {
 }
 
 /// A builder returned by [`Gizmos::arc_2d`].
-/// `direction_angle` is the angle where the arc will be centered. `0.0`
-/// `arc_angle` is defining the amount of the underlying circle
-/// being drawn. With the `radius`, it will define the length of the arc.
 pub struct Arc2dBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
     position: Vec2,
