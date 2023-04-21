@@ -115,7 +115,10 @@ impl TextPipeline {
             y_axis_orientation,
         )?;
 
-        Ok(TextLayoutInfo { glyphs, logical_size: size })
+        Ok(TextLayoutInfo {
+            glyphs,
+            logical_size: size,
+        })
     }
 
     pub fn create_text_measure(

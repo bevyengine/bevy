@@ -108,7 +108,7 @@ pub fn extract_text2d_sprite(
 
         let text_anchor = -(anchor.as_vec() + 0.5);
         let alignment_translation = text_layout_info.logical_size * text_anchor;
-        let transform = *global_transform            
+        let transform = *global_transform
             * GlobalTransform::from_translation(alignment_translation.extend(0.))
             * scaling;
         let mut color = Color::WHITE;
@@ -172,7 +172,7 @@ pub fn update_text2d_layout(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
 
-        let inverse_scale_factor = scale_factor.recip();
+    let inverse_scale_factor = scale_factor.recip();
 
     for (entity, text, bounds, mut text_layout_info) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
