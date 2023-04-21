@@ -3,7 +3,6 @@ use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use std::fmt::Formatter;
-use taffy::node::Measurable;
 pub use taffy::style::AvailableSpace;
 
 impl std::fmt::Debug for ContentSize {
@@ -23,6 +22,26 @@ pub trait Measure: Send + Sync + 'static {
         available_width: AvailableSpace,
         available_height: AvailableSpace,
     ) -> Vec2;
+}
+
+
+/// A `FixedMeasure` is a `Measure` that ignores all constraints and
+/// always returns the same size.
+#[derive(Default, Clone)]
+pub struct FixedMeasure {
+    size: Vec2,
+}
+
+impl Measure for FixedMeasure {
+    fn measure(
+        &self,
+        _: Option<f32>,
+        _: Option<f32>,
+        _: AvailableSpace,
+        _: AvailableSpace,
+    ) -> Vec2 {
+        self.size
+    }
 }
 
 /// A node with a `ContentSize` component is a node where its size
@@ -50,21 +69,14 @@ impl ContentSize {
             };
         self.measure_func = Some(taffy::node::MeasureFunc::Boxed(Box::new(measure_func)));
     }
-
-    /// Use an unboxed function to compute the size of this content
-    pub fn set_fn(
-        &mut self,
-        measure: impl Fn(Option<f32>, Option<f32>, AvailableSpace, AvailableSpace) -> Vec2,
-    ) {
-        self.measure_func = Some(taffy::node::MeasureFunc::Raw(measure));
-    }
 }
 
 #[allow(clippy::derivable_impls)]
 impl Default for ContentSize {
     fn default() -> Self {
         Self {
-            measure_func: Some(taffy::node::MeasureFunc::Raw(|_, _, _, _| Size::ZERO)),
+            measure_func: Some(taffy::node::MeasureFunc::Raw(|_, _| taffy::prelude::Size::ZERO)),
         }
     }
 }
+
