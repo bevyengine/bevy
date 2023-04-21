@@ -51,7 +51,7 @@ impl ContentSize {
         self.measure_func = Some(taffy::node::MeasureFunc::Boxed(Box::new(measure_func)));
     }
 
-    /// Use an unboxed function to determine the size for this content
+    /// Use an unboxed function to compute the size of this content
     pub fn set_fn(
         &mut self,
         measure: impl Fn(Option<f32>, Option<f32>, AvailableSpace, AvailableSpace) -> Vec2,
