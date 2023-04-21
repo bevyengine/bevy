@@ -26,7 +26,7 @@ pub struct TextPipeline {
 #[derive(Component, Clone, Default, Debug)]
 pub struct TextLayoutInfo {
     pub glyphs: Vec<PositionedGlyph>,
-    pub size: Vec2,
+    pub logical_size: Vec2,
 }
 
 impl TextPipeline {
@@ -115,7 +115,7 @@ impl TextPipeline {
             y_axis_orientation,
         )?;
 
-        Ok(TextLayoutInfo { glyphs, size })
+        Ok(TextLayoutInfo { glyphs, logical_size: size })
     }
 
     pub fn create_text_measure(

@@ -38,7 +38,7 @@ use crate::{
 #[reflect(Component)]
 pub struct Text2dBounds {
     /// The maximum width and height of text in logical pixels.
-    pub size: Vec2,
+    pub logical_size: Vec2,
 }
 
 impl Default for Text2dBounds {
@@ -51,7 +51,7 @@ impl Default for Text2dBounds {
 impl Text2dBounds {
     /// Unbounded text will not be truncated or wrapped.
     pub const UNBOUNDED: Self = Self {
-        size: Vec2::splat(f32::INFINITY),
+        logical_size: Vec2::splat(f32::INFINITY),
     };
 }
 
@@ -107,7 +107,7 @@ pub fn extract_text2d_sprite(
         }
 
         let text_anchor = -(anchor.as_vec() + 0.5);
-        let alignment_translation = text_layout_info.size * scale_factor * text_anchor;
+        let alignment_translation = text_layout_info.logical_size * scale_factor * text_anchor;
         let transform = *global_transform
             * scaling
             * GlobalTransform::from_translation(alignment_translation.extend(0.));
@@ -177,8 +177,8 @@ pub fn update_text2d_layout(
     for (entity, text, bounds, mut text_layout_info) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = Vec2::new(
-                scale_value(bounds.size.x, scale_factor),
-                scale_value(bounds.size.y, scale_factor),
+                scale_value(bounds.logical_size.x, scale_factor),
+                scale_value(bounds.logical_size.y, scale_factor),
             );
             match text_pipeline.queue_text(
                 &fonts,
@@ -203,8 +203,8 @@ pub fn update_text2d_layout(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(mut info) => {
-                    info.size.x = scale_value(info.size.x, inverse_scale_factor);
-                    info.size.y = scale_value(info.size.x, inverse_scale_factor);
+                    info.logical_size.x = scale_value(info.logical_size.x, inverse_scale_factor);
+                    info.logical_size.y = scale_value(info.logical_size.x, inverse_scale_factor);
                     *text_layout_info = info;
                 }
             }
