@@ -66,7 +66,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         text,
         text_anchor: bevy::sprite::Anchor::Center,
         text_2d_bounds: Text2dBounds {
-            logical_size: Vec2::new(1000., f32::INFINITY),
+            size: Vec2::new(1000., f32::INFINITY),
         },
         ..Default::default()
     });

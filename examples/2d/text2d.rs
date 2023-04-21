@@ -96,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle
-                    logical_size: box_size,
+                    size: box_size,
                 },
                 // ensure the text is drawn on top of the box
                 transform: Transform::from_translation(Vec3::Z),
@@ -128,7 +128,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle
-                    logical_size: other_box_size,
+                    size: other_box_size,
                 },
                 // ensure the text is drawn on top of the box
                 transform: Transform::from_translation(Vec3::Z),

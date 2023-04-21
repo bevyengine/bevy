@@ -38,7 +38,7 @@ use crate::{
 #[reflect(Component)]
 pub struct Text2dBounds {
     /// The maximum width and height of text in logical pixels.
-    pub logical_size: Vec2,
+    pub size: Vec2,
 }
 
 impl Default for Text2dBounds {
@@ -51,7 +51,7 @@ impl Default for Text2dBounds {
 impl Text2dBounds {
     /// Unbounded text will not be truncated or wrapped.
     pub const UNBOUNDED: Self = Self {
-        logical_size: Vec2::splat(f32::INFINITY),
+        size: Vec2::splat(f32::INFINITY),
     };
 }
 
@@ -177,8 +177,8 @@ pub fn update_text2d_layout(
     for (entity, text, bounds, mut text_layout_info) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = Vec2::new(
-                scale_value(bounds.logical_size.x, scale_factor),
-                scale_value(bounds.logical_size.y, scale_factor),
+                scale_value(bounds.size.x, scale_factor),
+                scale_value(bounds.size.y, scale_factor),
             );
             match text_pipeline.queue_text(
                 &fonts,
