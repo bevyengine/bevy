@@ -31,6 +31,7 @@ use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
+use bevy_render::view::calculate_bounds;
 use bevy_render::{
     mesh::Mesh,
     primitives::Aabb,
@@ -141,7 +142,6 @@ pub fn calculate_bounds_2d(
                 half_extents: (0.5 * size).extend(0.0).into(),
             };
             commands.entity(entity).insert(aabb);
-            }
         }
     }
 }
