@@ -33,7 +33,7 @@ pub use texture_cache::*;
 use crate::{
     render_asset::{PrepareAssetSet, RenderAssetPlugin},
     renderer::RenderDevice,
-    RenderApp, RenderSet,
+    Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Assets};
@@ -115,7 +115,10 @@ impl Plugin for ImagePlugin {
                 .init_resource::<FallbackImageCubemap>()
                 .init_resource::<FallbackImageMsaaCache>()
                 .init_resource::<FallbackImageDepthCache>()
-                .add_system(update_texture_cache_system.in_set(RenderSet::Cleanup));
+                .add_systems(
+                    Render,
+                    update_texture_cache_system.in_set(RenderSet::Cleanup),
+                );
         }
     }
 }

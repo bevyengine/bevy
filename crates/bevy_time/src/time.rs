@@ -121,7 +121,7 @@ impl Time {
     ///     world.insert_resource(Health { health_value: 0.2 });
     ///
     ///     let mut schedule = Schedule::new();
-    ///     schedule.add_system(health_system);
+    ///     schedule.add_systems(health_system);
     ///
     ///     // Simulate that 30 ms have passed
     ///     let mut time = world.resource_mut::<Time>();
@@ -405,7 +405,7 @@ impl Time {
 
     /// Stops the clock, preventing it from advancing until resumed.
     ///
-    /// **Note:** This does affect the `raw_*` measurements.
+    /// **Note:** This does not affect the `raw_*` measurements.
     #[inline]
     pub fn pause(&mut self) {
         self.paused = true;

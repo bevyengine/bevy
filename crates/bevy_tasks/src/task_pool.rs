@@ -112,7 +112,12 @@ pub struct TaskPool {
 impl TaskPool {
     thread_local! {
         static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
-        static THREAD_EXECUTOR: ThreadExecutor<'static> = ThreadExecutor::new();
+        static THREAD_EXECUTOR: Arc<ThreadExecutor<'static>> = Arc::new(ThreadExecutor::new());
+    }
+
+    /// Each thread should only create one `ThreadExecutor`, otherwise, there are good chances they will deadlock
+    pub fn get_thread_executor() -> Arc<ThreadExecutor<'static>> {
+        Self::THREAD_EXECUTOR.with(|executor| executor.clone())
     }
 
     /// Create a `TaskPool` with the default configuration.
@@ -223,7 +228,7 @@ impl TaskPool {
     ///
     /// // The ordering is deterministic if you only spawn directly from the closure function.
     /// let results = pool.scope(|s| {
-    ///     s.spawn(async { 0  });
+    ///     s.spawn(async { 0 });
     ///     s.spawn(async { 1 });
     /// });
     /// assert_eq!(&results[..], &[0, 1]);
@@ -345,7 +350,9 @@ impl TaskPool {
         let scope_executor: &'env ThreadExecutor<'env> = unsafe { mem::transmute(scope_executor) };
         let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
-        let spawned: &'env ConcurrentQueue<FallibleTask<T>> = unsafe { mem::transmute(&spawned) };
+        let spawned: &'env ConcurrentQueue<
+            FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>,
+        > = unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
             executor,
@@ -368,7 +375,14 @@ impl TaskPool {
                 let get_results = async {
                     let mut results = Vec::with_capacity(spawned.len());
                     while let Ok(task) = spawned.pop() {
-                        results.push(task.await.unwrap());
+                        if let Some(res) = task.await {
+                            match res {
+                                Ok(res) => results.push(res),
+                                Err(payload) => std::panic::resume_unwind(payload),
+                            }
+                        } else {
+                            panic!("Failed to catch panic!");
+                        }
                     }
                     results
                 };
@@ -376,9 +390,17 @@ impl TaskPool {
                 let tick_task_pool_executor = tick_task_pool_executor || self.threads.is_empty();
 
                 // we get this from a thread local so we should always be on the scope executors thread.
+                // note: it is possible `scope_executor` and `external_executor` is the same executor,
+                // in that case, we should only tick one of them, otherwise, it may cause deadlock.
                 let scope_ticker = scope_executor.ticker().unwrap();
-                if let Some(external_ticker) = external_executor.ticker() {
-                    if tick_task_pool_executor {
+                let external_ticker = if !external_executor.is_same(scope_executor) {
+                    external_executor.ticker()
+                } else {
+                    None
+                };
+
+                match (external_ticker, tick_task_pool_executor) {
+                    (Some(external_ticker), true) => {
                         Self::execute_global_external_scope(
                             executor,
                             external_ticker,
@@ -386,14 +408,16 @@ impl TaskPool {
                             get_results,
                         )
                         .await
-                    } else {
+                    }
+                    (Some(external_ticker), false) => {
                         Self::execute_external_scope(external_ticker, scope_ticker, get_results)
                             .await
                     }
-                } else if tick_task_pool_executor {
-                    Self::execute_global_scope(executor, scope_ticker, get_results).await
-                } else {
-                    Self::execute_scope(scope_ticker, get_results).await
+                    // either external_executor is none or it is same as scope_executor
+                    (None, true) => {
+                        Self::execute_global_scope(executor, scope_ticker, get_results).await
+                    }
+                    (None, false) => Self::execute_scope(scope_ticker, get_results).await,
                 }
             })
         }
@@ -486,7 +510,7 @@ impl TaskPool {
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
-    /// cancelled and "detached" allowing it to continue running without having to be polled by the
+    /// canceled and "detached" allowing it to continue running without having to be polled by the
     /// end-user.
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
@@ -499,7 +523,7 @@ impl TaskPool {
 
     /// Spawns a static future on the thread-local async executor for the current thread. The task
     /// will run entirely on the thread the task was spawned on.  The returned Task is a future.
-    /// It can also be cancelled and "detached" allowing it to continue running without having
+    /// It can also be canceled and "detached" allowing it to continue running without having
     /// to be polled by the end-user. Users should generally prefer to use [`TaskPool::spawn`]
     /// instead, unless the provided future is not `Send`.
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
@@ -556,7 +580,7 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
     external_executor: &'scope ThreadExecutor<'scope>,
     scope_executor: &'scope ThreadExecutor<'scope>,
-    spawned: &'scope ConcurrentQueue<FallibleTask<T>>,
+    spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
@@ -572,7 +596,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.executor.spawn(f).fallible();
+        let task = self
+            .executor
+            .spawn(AssertUnwindSafe(f).catch_unwind())
+            .fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
@@ -585,7 +612,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.scope_executor.spawn(f).fallible();
+        let task = self
+            .scope_executor
+            .spawn(AssertUnwindSafe(f).catch_unwind())
+            .fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
@@ -599,7 +629,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_external<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.external_executor.spawn(f).fallible();
+        let task = self
+            .external_executor
+            .spawn(AssertUnwindSafe(f).catch_unwind())
+            .fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
