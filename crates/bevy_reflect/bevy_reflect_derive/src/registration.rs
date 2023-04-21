@@ -31,6 +31,9 @@ pub(crate) fn impl_get_type_registration(
             }
         }
         SerializationDenylist::Enum(denylist) => {
+            // This will contain a list of tuples containing:
+            // 1. The name of the variant
+            // 2. An iterator of the skipped indices
             let mut indices = proc_macro2::TokenStream::new();
             for (variant_name, variant_fields) in denylist {
                 let variant_fields = variant_fields.into_iter();
