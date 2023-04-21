@@ -654,7 +654,6 @@ impl Drop for Arc2dBuilder<'_, '_> {
     fn drop(&mut self) {
         let segments = match self.segments {
             Some(segments) => segments,
-
             // Do a linear interpolation between 1 and `DEFAULT_CIRCLE_SEGMENTS`
             // using the arc angle as scalar.
             None => ((self.arc_angle.abs() / TAU) * DEFAULT_CIRCLE_SEGMENTS).ceil() as usize,
