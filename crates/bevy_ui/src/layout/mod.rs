@@ -17,7 +17,7 @@ use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
-use taffy::{node::Measurable, prelude::Size, style_helpers::TaffyMaxContent, Taffy};
+use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
 pub struct LayoutContext {
     pub scale_factor: f64,
@@ -90,12 +90,12 @@ impl UiSurface {
     }
 
     /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`].
-    pub fn update_measure(&mut self, entity: Entity, measure_func: Box<dyn Measurable>) {
+    pub fn update_measure(&mut self, entity: Entity, measure_func: taffy::node::MeasureFunc) {
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
         self.taffy
             .set_measure(
                 *taffy_node,
-                Some(taffy::node::MeasureFunc::Boxed(measure_func)),
+                Some(measure_func),
             )
             .ok();
     }
