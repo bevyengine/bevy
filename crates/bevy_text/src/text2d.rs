@@ -107,7 +107,7 @@ pub fn extract_text2d_sprite(
         }
 
         let text_anchor = -(anchor.as_vec() + 0.5);
-        let alignment_translation = text_layout_info.size * text_anchor;
+        let alignment_translation = text_layout_info.size * scale_factor * text_anchor;
         let transform = *global_transform
             * scaling
             * GlobalTransform::from_translation(alignment_translation.extend(0.));
@@ -172,6 +172,8 @@ pub fn update_text2d_layout(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
 
+        let inverse_scale_factor = scale_factor.recip();
+
     for (entity, text, bounds, mut text_layout_info) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = Vec2::new(
@@ -201,6 +203,8 @@ pub fn update_text2d_layout(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(mut info) => {
+                    info.size.x = scale_value(info.size.x, inverse_scale_factor);
+                    info.size.y = scale_value(info.size.x, inverse_scale_factor);
                     *text_layout_info = info;
                 }
             }
