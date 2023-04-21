@@ -92,12 +92,7 @@ impl UiSurface {
     /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`].
     pub fn update_measure(&mut self, entity: Entity, measure_func: taffy::node::MeasureFunc) {
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
-        self.taffy
-            .set_measure(
-                *taffy_node,
-                Some(measure_func),
-            )
-            .ok();
+        self.taffy.set_measure(*taffy_node, Some(measure_func)).ok();
     }
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].

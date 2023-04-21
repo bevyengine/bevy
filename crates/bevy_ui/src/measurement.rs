@@ -24,7 +24,6 @@ pub trait Measure: Send + Sync + 'static {
     ) -> Vec2;
 }
 
-
 /// A `FixedMeasure` is a `Measure` that ignores all constraints and
 /// always returns the same size.
 #[derive(Default, Clone)]
@@ -75,8 +74,9 @@ impl ContentSize {
 impl Default for ContentSize {
     fn default() -> Self {
         Self {
-            measure_func: Some(taffy::node::MeasureFunc::Raw(|_, _| taffy::prelude::Size::ZERO)),
+            measure_func: Some(taffy::node::MeasureFunc::Raw(|_, _| {
+                taffy::prelude::Size::ZERO
+            })),
         }
     }
 }
-
