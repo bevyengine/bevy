@@ -27,7 +27,7 @@ use crate::{
     TextPipeline, TextSettings, YAxisOrientation,
 };
 
-/// The maximum width and height of text. The text will wrap according to the specified size.
+/// The maximum width and height of text in logical pixels. The text will wrap according to the specified size.
 /// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
 /// specified `TextAlignment`.
 ///
@@ -37,6 +37,7 @@ use crate::{
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct Text2dBounds {
+    /// The maximum width and height of text in logical pixels.
     pub size: Vec2,
 }
 
@@ -200,10 +201,6 @@ pub fn update_text2d_layout(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(mut info) => {
-                    info.size = Vec2::new(
-                        scale_value(info.size.x, scale_factor.recip()),
-                        scale_value(info.size.y, scale_factor.recip()),
-                    );
                     *text_layout_info = info;
                 }
             }
