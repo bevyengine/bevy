@@ -95,7 +95,7 @@ impl Plugin for SpritePlugin {
     }
 }
 
-pub fn calculate_bounds(
+pub fn calculate_bounds_2d(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
@@ -110,16 +110,18 @@ pub fn calculate_bounds(
         (Without<Aabb>, Without<NoFrustumCulling>),
     >,
 ) {
-    for (entity, mesh_handle) in meshes_without_aabb.iter() {
+    for (entity, mesh_handle) in &meshes_without_aabb {
         if let Some(mesh) = meshes.get(&mesh_handle.0) {
             if let Some(aabb) = mesh.compute_aabb() {
                 commands.entity(entity).insert(aabb);
             }
         }
     }
-    for (entity, sprite, texture_handle) in sprites_without_aabb.iter() {
-        if let Some(image) = images.get(texture_handle) {
-            let size = sprite.custom_size.unwrap_or_else(|| image.size());
+    for (entity, sprite, texture_handle) in &sprites_without_aabb {
+        if let Some(size) = sprite
+            .custom_size
+            .or_else(|| images.get(texture_handle).map(|image| image.size()))
+        {
             let aabb = Aabb {
                 center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
                 half_extents: (0.5 * size).extend(0.0).into(),
@@ -127,17 +129,18 @@ pub fn calculate_bounds(
             commands.entity(entity).insert(aabb);
         }
     }
-    for (entity, atlas_sprite, atlas_handle) in atlases_without_aabb.iter() {
-        if let Some(atlas) = atlases.get(atlas_handle) {
-            if let Some(rect) = atlas.textures.get(atlas_sprite.index) {
-                let size = atlas_sprite
-                    .custom_size
-                    .unwrap_or_else(|| (rect.min - rect.max).abs());
-                let aabb = Aabb {
-                    center: (-atlas_sprite.anchor.as_vec() * size).extend(0.0).into(),
-                    half_extents: (0.5 * size).extend(0.0).into(),
-                };
-                commands.entity(entity).insert(aabb);
+    for (entity, atlas_sprite, atlas_handle) in &atlases_without_aabb {
+        if let Some(size) = atlas_sprite.custom_size.or_else(|| {
+            atlases
+                .get(atlas_handle)
+                .and_then(|atlas| atlas.textures.get(atlas_sprite.index))
+                .map(|rect| (rect.min - rect.max).abs())
+        }) {
+            let aabb = Aabb {
+                center: (-atlas_sprite.anchor.as_vec() * size).extend(0.0).into(),
+                half_extents: (0.5 * size).extend(0.0).into(),
+            };
+            commands.entity(entity).insert(aabb);
             }
         }
     }
