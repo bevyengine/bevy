@@ -68,9 +68,9 @@ impl From<Transform> for SpatialBundle {
 /// * To place or move an entity, you should set its [`Transform2d`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform2d`].
 /// * For hierarchies to work correctly, you must have all four components.
-///   * You may use the [`SpatialBundle2d`] to guarantee this.
+///   * You may use the [`Spatial2dBundle`] to guarantee this.
 #[derive(Bundle, Debug, Default)]
-pub struct SpatialBundle2d {
+pub struct Spatial2dBundle {
     /// The visibility of the entity.
     pub visibility: Visibility,
     /// The computed visibility of the entity.
@@ -81,34 +81,34 @@ pub struct SpatialBundle2d {
     pub global_transform: GlobalTransform2d,
 }
 
-impl SpatialBundle2d {
-    /// Creates a new [`SpatialBundle2d`] from a [`Transform`].
+impl Spatial2dBundle {
+    /// Creates a new [`Spatial2dBundle`] from a [`Transform`].
     ///
     /// This initializes [`GlobalTransform`] as identity, and visibility as visible
     #[inline]
     pub const fn from_transform(transform: Transform2d) -> Self {
-        SpatialBundle2d {
+        Spatial2dBundle {
             transform,
             ..Self::INHERITED_IDENTITY
         }
     }
 
-    /// A visible [`SpatialBundle2d`], with no translation, rotation, and a scale of 1 on all axes.
-    pub const INHERITED_IDENTITY: Self = SpatialBundle2d {
+    /// A visible [`Spatial2dBundle`], with no translation, rotation, and a scale of 1 on all axes.
+    pub const INHERITED_IDENTITY: Self = Spatial2dBundle {
         visibility: Visibility::Inherited,
         computed: ComputedVisibility::HIDDEN,
         transform: Transform2d::IDENTITY,
         global_transform: GlobalTransform2d::IDENTITY,
     };
 
-    /// An invisible [`SpatialBundle2d`], with no translation, rotation, and a scale of 1 on all axes.
-    pub const HIDDEN_IDENTITY: Self = SpatialBundle2d {
+    /// An invisible [`Spatial2dBundle`], with no translation, rotation, and a scale of 1 on all axes.
+    pub const HIDDEN_IDENTITY: Self = Spatial2dBundle {
         visibility: Visibility::Hidden,
         ..Self::INHERITED_IDENTITY
     };
 }
 
-impl From<Transform2d> for SpatialBundle2d {
+impl From<Transform2d> for Spatial2dBundle {
     #[inline]
     fn from(transform: Transform2d) -> Self {
         Self::from_transform(transform)
