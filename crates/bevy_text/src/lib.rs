@@ -30,7 +30,6 @@ use bevy_app::prelude::*;
 use bevy_asset::load_internal_binary_asset;
 use bevy_asset::{AddAsset, HandleUntyped};
 use bevy_ecs::prelude::*;
-#[cfg(feature = "default_font")]
 use bevy_reflect::TypeUuid;
 use bevy_render::{camera::CameraUpdateSystem, ExtractSchedule, RenderApp};
 use bevy_sprite::SpriteSystem;
