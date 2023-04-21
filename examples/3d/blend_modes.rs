@@ -236,6 +236,7 @@ fn setup(
                     TextBundle::from_section(label, label_text_style.clone()).with_style(Style {
                         position_type: PositionType::Absolute,
                         bottom: Val::Px(0.),
+                        size: Size::new(Val::Px(label.len() as f32 * 10.0), Val::Auto),
                         ..default()
                     }),
                 );
