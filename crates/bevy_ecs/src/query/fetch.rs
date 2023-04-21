@@ -41,7 +41,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///   Similar to change detection filters but it is used as a query fetch parameter.
 ///   It exposes methods to check for changes to the wrapped component.
 ///
-/// Implementing the trait manually can allow for a fundamentally new type of behaviour.
+/// Implementing the trait manually can allow for a fundamentally new type of behavior.
 ///
 /// # Trait derivation
 ///
@@ -55,8 +55,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// - Methods can be implemented for the query items.
 /// - There is no hardcoded limit on the number of elements.
 ///
-/// This trait can only be derived if each field also implements `WorldQuery`.
-/// The derive macro only supports regular structs (structs with named fields).
+/// This trait can only be derived for structs, if each field also implements `WorldQuery`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -551,6 +550,7 @@ unsafe impl<T: Component> WorldQuery for &T {
 
     const IS_ARCHETYPAL: bool = true;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
@@ -696,6 +696,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 
     const IS_ARCHETYPAL: bool = true;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
@@ -857,6 +858,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
     const IS_ARCHETYPAL: bool = true;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
@@ -1001,6 +1003,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 
     const IS_ARCHETYPAL: bool = T::IS_ARCHETYPAL;
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         state: &T::State,
@@ -1105,6 +1108,7 @@ macro_rules! impl_tuple_fetch {
                 )*)
             }
 
+            #[inline]
             #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
@@ -1153,8 +1157,8 @@ macro_rules! impl_tuple_fetch {
             }
 
             #[inline(always)]
-            unsafe fn filter_fetch<'w>(
-                _fetch: &mut Self::Fetch<'w>,
+            unsafe fn filter_fetch(
+                _fetch: &mut Self::Fetch<'_>,
                 _entity: Entity,
                 _table_row: TableRow
             ) -> bool {
@@ -1214,6 +1218,7 @@ macro_rules! impl_anytuple_fetch {
                 )*)
             }
 
+            #[inline]
             #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
@@ -1276,34 +1281,21 @@ macro_rules! impl_anytuple_fetch {
             fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
                 let ($($name,)*) = state;
 
-                // We do not unconditionally add `$name`'s `with`/`without` accesses to `_access`
-                // as this would be unsound. For example the following two queries should conflict:
-                // - Query<(AnyOf<(&A, ())>, &mut B)>
-                // - Query<&mut B, Without<A>>
-                //
-                // If we were to unconditionally add `$name`'s `with`/`without` accesses then `AnyOf<(&A, ())>`
-                // would have a `With<A>` access which is incorrect as this `WorldQuery` will match entities that
-                // do not have the `A` component. This is the same logic as the `Or<...>: WorldQuery` impl.
-                //
-                // The correct thing to do here is to only add a `with`/`without` access to `_access` if all
-                // `$name` params have that `with`/`without` access. More jargony put- we add the intersection
-                // of all `with`/`without` accesses of the `$name` params to `_access`.
-                let mut _intersected_access = _access.clone();
+                let mut _new_access = _access.clone();
                 let mut _not_first = false;
                 $(
                     if _not_first {
                         let mut intermediate = _access.clone();
                         $name::update_component_access($name, &mut intermediate);
-                        _intersected_access.extend_intersect_filter(&intermediate);
-                        _intersected_access.extend_access(&intermediate);
+                        _new_access.append_or(&intermediate);
+                        _new_access.extend_access(&intermediate);
                     } else {
-
-                        $name::update_component_access($name, &mut _intersected_access);
+                        $name::update_component_access($name, &mut _new_access);
                         _not_first = true;
                     }
                 )*
 
-                *_access = _intersected_access;
+                *_access = _new_access;
             }
 
             fn update_archetype_component_access(state: &Self::State, _archetype: &Archetype, _access: &mut Access<ArchetypeComponentId>) {
@@ -1468,10 +1460,36 @@ unsafe impl<T: ?Sized> ReadOnlyWorldQuery for PhantomData<T> {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{self as bevy_ecs, system::Query};
+    use crate::{
+        self as bevy_ecs,
+        system::{assert_is_system, Query},
+    };
 
     #[derive(Component)]
     pub struct A;
+
+    #[derive(Component)]
+    pub struct B;
+
+    // Tests that each variant of struct can be used as a `WorldQuery`.
+    #[test]
+    fn world_query_struct_variants() {
+        #[derive(WorldQuery)]
+        pub struct NamedQuery {
+            id: Entity,
+            a: &'static A,
+        }
+
+        #[derive(WorldQuery)]
+        pub struct TupleQuery(&'static A, &'static B);
+
+        #[derive(WorldQuery)]
+        pub struct UnitQuery;
+
+        fn my_system(_: Query<(NamedQuery, TupleQuery, UnitQuery)>) {}
+
+        assert_is_system(my_system);
+    }
 
     // Compile test for https://github.com/bevyengine/bevy/pull/8030.
     #[test]

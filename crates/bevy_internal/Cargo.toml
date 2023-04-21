@@ -21,6 +21,7 @@ trace = [
 ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy" ]
+trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
 wgpu_trace = ["bevy_render/wgpu_trace"]
 debug_asset_server = ["bevy_asset/debug_asset_server"]
 detailed_trace = ["bevy_utils/detailed_trace"]
@@ -92,6 +93,7 @@ accesskit_unix = ["bevy_winit/accesskit_unix"]
 
 bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
 
+bevy_render = ["dep:bevy_render", "bevy_scene?/bevy_render"]
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
 

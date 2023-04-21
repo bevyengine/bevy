@@ -52,7 +52,7 @@ impl Node for CameraDriverNode {
                 continue;
             }
 
-            let Some(swap_chain_texture) = &window.swap_chain_texture else {
+            let Some(swap_chain_texture) = &window.swap_chain_texture_view else {
                 continue;
             };
 

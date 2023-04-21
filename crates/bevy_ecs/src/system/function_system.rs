@@ -10,7 +10,7 @@ use crate::{
 use bevy_utils::all_tuples;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
-use super::ReadOnlySystem;
+use super::{In, IntoSystem, ReadOnlySystem};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -291,7 +291,12 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'w World,
         change_tick: Tick,
     ) -> SystemParamItem<'w, 's, Param> {
-        let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
+        let param = Param::get_param(
+            &mut self.param_state,
+            &self.meta,
+            world.as_unsafe_world_cell_migration_internal(),
+            change_tick,
+        );
         self.meta.last_run = change_tick;
         param
     }
@@ -302,65 +307,6 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
         Self::new(world)
     }
 }
-
-/// Conversion trait to turn something into a [`System`].
-///
-/// Use this to get a system from a function. Also note that every system implements this trait as
-/// well.
-///
-/// # Examples
-///
-/// ```
-/// use bevy_ecs::prelude::*;
-///
-/// fn my_system_function(a_usize_local: Local<usize>) {}
-///
-/// let system = IntoSystem::into_system(my_system_function);
-/// ```
-// This trait has to be generic because we have potentially overlapping impls, in particular
-// because Rust thinks a type could impl multiple different `FnMut` combinations
-// even though none can currently
-pub trait IntoSystem<In, Out, Marker>: Sized {
-    type System: System<In = In, Out = Out>;
-    /// Turns this value into its corresponding [`System`].
-    fn into_system(this: Self) -> Self::System;
-}
-
-// Systems implicitly implement IntoSystem
-impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, ()> for Sys {
-    type System = Sys;
-    fn into_system(this: Self) -> Sys {
-        this
-    }
-}
-
-/// Wrapper type to mark a [`SystemParam`] as an input.
-///
-/// [`System`]s may take an optional input which they require to be passed to them when they
-/// are being [`run`](System::run). For [`FunctionSystems`](FunctionSystem) the input may be marked
-/// with this `In` type, but only the first param of a function may be tagged as an input. This also
-/// means a system can only have one or zero input parameters.
-///
-/// # Examples
-///
-/// Here is a simple example of a system that takes a [`usize`] returning the square of it.
-///
-/// ```
-/// use bevy_ecs::prelude::*;
-///
-/// fn main() {
-///     let mut square_system = IntoSystem::into_system(square);
-///
-///     let mut world = World::default();
-///     square_system.initialize(&mut world);
-///     assert_eq!(square_system.run(12, &mut world), 144);
-/// }
-///
-/// fn square(In(input): In<usize>) -> usize {
-///     input * input
-/// }
-/// ```
-pub struct In<In>(pub In);
 
 /// The [`System`] counter part of an ordinary function.
 ///
@@ -474,14 +420,15 @@ where
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
         let change_tick = world.increment_change_tick();
 
-        // Safety:
-        // We update the archetype component access correctly based on `Param`'s requirements
-        // in `update_archetype_component_access`.
-        // Our caller upholds the requirements.
+        // SAFETY:
+        // - The caller has invoked `update_archetype_component_access`, which will panic
+        //   if the world does not match.
+        // - All world accesses used by `F::Param` have been registered, so the caller
+        //   will ensure that there are no data access conflicts.
         let params = F::Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
-            world,
+            world.as_unsafe_world_cell_migration_internal(),
             change_tick,
         );
         let out = self.func.run(input, params);
@@ -639,7 +586,7 @@ macro_rules! impl_system_function {
             #[inline]
             fn run(&mut self, _input: (), param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
-                // without using this function. It fails to recognise that `func`
+                // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(
