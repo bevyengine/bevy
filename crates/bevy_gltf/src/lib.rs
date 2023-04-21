@@ -4,6 +4,7 @@
 use bevy_animation::AnimationClip;
 use bevy_utils::HashMap;
 
+mod attrs;
 mod loader;
 pub use loader::*;
 
