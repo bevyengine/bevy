@@ -10,8 +10,6 @@ mod pipeline;
 mod text;
 mod text2d;
 
-#[cfg(feature = "default_font")]
-use bevy_reflect::TypeUuid;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
@@ -30,10 +28,10 @@ pub mod prelude {
 use bevy_app::prelude::*;
 #[cfg(feature = "default_font")]
 use bevy_asset::load_internal_binary_asset;
-use bevy_asset::AddAsset;
-#[cfg(feature = "default_font")]
-use bevy_asset::HandleUntyped;
+use bevy_asset::{AddAsset, HandleUntyped};
 use bevy_ecs::prelude::*;
+#[cfg(feature = "default_font")]
+use bevy_reflect::TypeUuid;
 use bevy_render::{camera::CameraUpdateSystem, ExtractSchedule, RenderApp};
 use bevy_sprite::SpriteSystem;
 use std::num::NonZeroUsize;
@@ -73,7 +71,6 @@ pub enum YAxisOrientation {
     BottomToTop,
 }
 
-#[cfg(feature = "default_font")]
 pub const DEFAULT_FONT_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Font::TYPE_UUID, 1491772431825224042);
 
