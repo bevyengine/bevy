@@ -94,7 +94,6 @@ impl Default for UiSurface {
 }
 
 impl UiSurface {
-
     pub fn insert_node(
         &mut self,
         entity: Entity,
@@ -104,8 +103,22 @@ impl UiSurface {
     ) -> taffy::node::Node {
         let style = convert::from_style(context, style);
         let taffy_node = if let Some(calculated_size) = calculated_size {
-            let measure = measure(*calculated_size, context.scale_factor);
-            self.taffy.new_leaf_with_measure(style, measure).unwrap()
+            let measure = calculated_size.measure.dyn_clone();
+            let measure_func = taffy::node::MeasureFunc::Boxed(Box::new(
+                move |constraints: Size<Option<f32>>, available: Size<AvailableSpace>| {
+                    let size = measure.measure(
+                        constraints.width,
+                        constraints.height,
+                        available.width,
+                        available.height,
+                    );
+                    taffy::geometry::Size {
+                        width: size.x,
+                        height: size.y,
+                    }
+                },
+            ));
+            self.taffy.new_leaf_with_measure(style, measure_func).unwrap()
         } else {
             self.taffy.new_leaf(style).unwrap()
         };
@@ -147,6 +160,8 @@ impl UiSurface {
                 }
             },
         ));
+        self.taffy.set_style(taffy_node, taffy_style).unwrap();
+        self.taffy.set_measure(taffy_node, Some(measure_func)).unwrap();
     }
 
     pub fn update_children(&mut self, parent: taffy::node::Node, children: &Children) {
@@ -347,7 +362,7 @@ pub fn update_ui_layout(
         for (node_key, style, calculated_size) in &query {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
-                ui_surface.update_leaf(node_key.key, style, *calculated_size, layout_context);
+                ui_surface.update_leaf(node_key.key, style, calculated_size, layout_context);
             } else {
                 ui_surface.update_node(node_key.key, style, layout_context);
             }
@@ -361,7 +376,7 @@ pub fn update_ui_layout(
     }
 
     for (node, style, calculated_size) in &changed_size_query {
-        ui_surface.update_leaf(node.key, style, *calculated_size, layout_context);
+        ui_surface.update_leaf(node.key, style, calculated_size, layout_context);
     }
 
     // update window root nodes
