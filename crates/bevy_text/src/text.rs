@@ -169,10 +169,7 @@ pub struct TextStyle {
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
-            #[cfg(feature = "default_font")]
             font: DEFAULT_FONT_HANDLE.typed(),
-            #[cfg(not(feature = "default_font"))]
-            font: Default::default(),
             font_size: 12.0,
             color: Color::WHITE,
         }
