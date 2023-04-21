@@ -308,7 +308,7 @@ pub fn ui_layout_system(
             ui_surface.upsert_leaf(entity, style, calculated_size, &layout_context);
         }
     }
-    
+
     // clean up removed nodes
     ui_surface.remove_entities(removed_nodes.iter());
 
