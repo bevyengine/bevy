@@ -44,6 +44,8 @@ pub struct ReflectComponent(ReflectComponentFns);
 /// world.
 #[derive(Clone)]
 pub struct ReflectComponentFns {
+    /// Function pointer implementing [`ReflectComponent::from_world()`].
+    pub from_world: fn(&mut World) -> Box<dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::insert()`].
     pub insert: fn(&mut EntityMut, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::apply()`].
@@ -79,6 +81,11 @@ impl ReflectComponentFns {
 }
 
 impl ReflectComponent {
+    /// Constructs default reflected [`Component`] from world using [`from_world()`](FromWorld::from_world).
+    pub fn from_world(&self, world: &mut World) -> Box<dyn Reflect> {
+        (self.0.from_world)(world)
+    }
+
     /// Insert a reflected [`Component`] into the entity like [`insert()`](crate::world::EntityMut::insert).
     pub fn insert(&self, entity: &mut EntityMut, component: &dyn Reflect) {
         (self.0.insert)(entity, component);
@@ -170,6 +177,7 @@ impl ReflectComponent {
 impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent(ReflectComponentFns {
+            from_world: |world| Box::new(C::from_world(world)),
             insert: |entity, reflected_component| {
                 let mut component = entity.world_scope(|world| C::from_world(world));
                 component.apply(reflected_component);
@@ -405,9 +413,19 @@ impl_from_reflect_value!(Entity);
 #[derive(Clone)]
 pub struct ReflectMapEntities {
     map_entities: fn(&mut World, &EntityMap) -> Result<(), MapEntitiesError>,
+    map_specific_entities: fn(&mut World, &EntityMap, &[Entity]) -> Result<(), MapEntitiesError>,
 }
 
 impl ReflectMapEntities {
+    /// A general method for applying [`MapEntities`] behavior to all elements in an [`EntityMap`].
+    ///
+    /// Be mindful in its usage: Works best in situations where the entities in the [`EntityMap`] are newly
+    /// created, before systems have a chance to add new components. If some of the entities referred to
+    /// by the [`EntityMap`] might already contain valid entity references, you should use [`map_entities`](Self::map_entities).
+    ///
+    /// An example of this: A scene can be loaded with `Parent` components, but then a `Parent` component can be added
+    /// to these entities after they have been loaded. If you reload the scene using [`map_entities`](Self::map_entities), those `Parent`
+    /// components with already valid entity references could be updated to point at something else entirely.
     pub fn map_entities(
         &self,
         world: &mut World,
@@ -415,11 +433,33 @@ impl ReflectMapEntities {
     ) -> Result<(), MapEntitiesError> {
         (self.map_entities)(world, entity_map)
     }
+
+    /// This is like [`map_entities`](Self::map_entities), but only applied to specific entities, not all values
+    /// in the [`EntityMap`].
+    ///
+    /// This is useful mostly for when you need to be careful not to update components that already contain valid entity
+    /// values. See [`map_entities`](Self::map_entities) for more details.
+    pub fn map_specific_entities(
+        &self,
+        world: &mut World,
+        entity_map: &EntityMap,
+        entities: &[Entity],
+    ) -> Result<(), MapEntitiesError> {
+        (self.map_specific_entities)(world, entity_map, entities)
+    }
 }
 
 impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
+            map_specific_entities: |world, entity_map, entities| {
+                for &entity in entities {
+                    if let Some(mut component) = world.get_mut::<C>(entity) {
+                        component.map_entities(entity_map)?;
+                    }
+                }
+                Ok(())
+            },
             map_entities: |world, entity_map| {
                 for entity in entity_map.values() {
                     if let Some(mut component) = world.get_mut::<C>(entity) {

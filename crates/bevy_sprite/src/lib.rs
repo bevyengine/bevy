@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
@@ -34,7 +36,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
-    ExtractSchedule, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
 #[derive(Default)]
@@ -56,6 +58,7 @@ impl Plugin for SpritePlugin {
         app.add_asset::<TextureAtlas>()
             .register_asset_reflect::<TextureAtlas>()
             .register_type::<Sprite>()
+            .register_type::<TextureAtlasSprite>()
             .register_type::<Anchor>()
             .register_type::<Mesh2dHandle>()
             .add_plugin(Mesh2dRenderPlugin)
@@ -71,13 +74,14 @@ impl Plugin for SpritePlugin {
                 .init_resource::<SpriteAssetEvents>()
                 .add_render_command::<Transparent2d, DrawSprite>()
                 .add_systems(
+                    ExtractSchedule,
                     (
                         extract_sprites.in_set(SpriteSystem::ExtractSprites),
                         extract_sprite_events,
-                    )
-                        .in_schedule(ExtractSchedule),
+                    ),
                 )
-                .add_system(
+                .add_systems(
+                    Render,
                     queue_sprites
                         .in_set(RenderSet::Queue)
                         .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),

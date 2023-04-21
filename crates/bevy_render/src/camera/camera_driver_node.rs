@@ -1,6 +1,6 @@
 use crate::{
     camera::{ExtractedCamera, NormalizedRenderTarget, SortedCameras},
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotValue},
+    render_graph::{Node, NodeRunError, RenderGraphContext},
     renderer::RenderContext,
     view::ExtractedWindows,
 };
@@ -39,7 +39,8 @@ impl Node for CameraDriverNode {
                 }
                 graph.run_sub_graph(
                     camera.render_graph.clone(),
-                    vec![SlotValue::Entity(sorted_camera.entity)],
+                    vec![],
+                    Some(sorted_camera.entity),
                 )?;
             }
         }
@@ -51,7 +52,7 @@ impl Node for CameraDriverNode {
                 continue;
             }
 
-            let Some(swap_chain_texture) = &window.swap_chain_texture else {
+            let Some(swap_chain_texture) = &window.swap_chain_texture_view else {
                 continue;
             };
 

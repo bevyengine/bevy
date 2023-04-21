@@ -4,8 +4,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(update_positions)
+        .add_systems(Startup, setup)
+        .add_systems(Update, update_positions)
         .run();
 }
 

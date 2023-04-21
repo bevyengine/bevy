@@ -17,10 +17,11 @@ trace = [
     "bevy_log/trace",
     "bevy_render?/trace",
     "bevy_hierarchy/trace",
-    "bevy_winit/trace"
+    "bevy_winit?/trace"
 ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy" ]
+trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
 wgpu_trace = ["bevy_render/wgpu_trace"]
 debug_asset_server = ["bevy_asset/debug_asset_server"]
 detailed_trace = ["bevy_utils/detailed_trace"]
@@ -32,6 +33,7 @@ png = ["bevy_render/png"]
 tga = ["bevy_render/tga"]
 jpeg = ["bevy_render/jpeg"]
 bmp = ["bevy_render/bmp"]
+webp = ["bevy_render/webp"]
 basis-universal = ["bevy_render/basis-universal"]
 dds = ["bevy_render/dds"]
 ktx2 = ["bevy_render/ktx2"]
@@ -71,10 +73,13 @@ subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl"]
 
 # enable systems that allow for automated testing on CI
-bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render/ci_limits"]
+bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render?/ci_limits"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
+
+bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite"]
+bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
@@ -87,6 +92,10 @@ android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
 accesskit_unix = ["bevy_winit/accesskit_unix"]
 
 bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
+
+bevy_render = ["dep:bevy_render", "bevy_scene?/bevy_render"]
+# Enable assertions to check the validity of parameters passed to glam
+glam_assert = ["bevy_math/glam_assert"]
 
 [dependencies]
 # bevy
@@ -122,3 +131,4 @@ bevy_text = { path = "../bevy_text", optional = true, version = "0.11.0-dev" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.11.0-dev" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.11.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.11.0-dev" }
+bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.11.0-dev", default-features = false }

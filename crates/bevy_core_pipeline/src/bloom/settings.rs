@@ -1,7 +1,7 @@
 use super::downsampling_pipeline::BloomUniforms;
-use bevy_ecs::{prelude::Component, query::QueryItem};
+use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
 use bevy_math::{UVec4, Vec4};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
@@ -26,6 +26,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
 #[allow(clippy::doc_markdown)]
 #[derive(Component, Reflect, Clone)]
+#[reflect(Component, Default)]
 pub struct BloomSettings {
     /// Controls the baseline of how much the image is scattered (default: 0.15).
     ///
@@ -49,7 +50,7 @@ pub struct BloomSettings {
     ///
     /// In this configuration:
     /// * 0.0 means no bloom
-    /// * > 0.0 means a proportionate amount of scattered light is added
+    /// * Greater than 0.0 means a proportionate amount of scattered light is added
     pub intensity: f32,
 
     /// Low frequency contribution boost.
@@ -69,7 +70,7 @@ pub struct BloomSettings {
     ///
     /// In this configuration:
     /// * 0.0 means no bloom
-    /// * > 0.0 means a proportionate amount of scattered light is added
+    /// * Greater than 0.0 means a proportionate amount of scattered light is added
     pub low_frequency_boost: f32,
 
     /// Low frequency contribution boost curve.

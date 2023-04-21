@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod error;
 mod font;
 mod font_atlas;
@@ -70,18 +72,19 @@ impl Plugin for TextPlugin {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
             .register_type::<Text>()
+            .register_type::<Text2dBounds>()
             .register_type::<TextSection>()
             .register_type::<Vec<TextSection>>()
             .register_type::<TextStyle>()
-            .register_type::<Text>()
             .register_type::<TextAlignment>()
+            .register_type::<BreakLineOn>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<TextSettings>()
             .init_resource::<FontAtlasWarning>()
             .insert_resource(TextPipeline::default())
-            .add_system(
+            .add_systems(
+                PostUpdate,
                 update_text2d_layout
-                    .in_base_set(CoreSet::PostUpdate)
                     // Potential conflict: `Assets<Image>`
                     // In practice, they run independently since `bevy_render::camera_update_system`
                     // will only ever observe its own render target, and `update_text2d_layout`
@@ -90,10 +93,9 @@ impl Plugin for TextPlugin {
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system(
-                extract_text2d_sprite
-                    .after(SpriteSystem::ExtractSprites)
-                    .in_schedule(ExtractSchedule),
+            render_app.add_systems(
+                ExtractSchedule,
+                extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
             );
         }
     }

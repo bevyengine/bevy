@@ -33,9 +33,9 @@ fn main() {
         // Insert as resource the initial value for the settings resources
         .insert_resource(DisplayQuality::Medium)
         .insert_resource(Volume(7))
-        .add_startup_system(setup)
         // Declare the game state, whose starting value is determined by the `Default` trait
         .add_state::<GameState>()
+        .add_systems(Startup, setup)
         // Adds the plugins for each state
         .add_plugin(splash::SplashPlugin)
         .add_plugin(menu::MenuPlugin)
@@ -60,13 +60,11 @@ mod splash {
             // As this plugin is managing the splash screen, it will focus on the state `GameState::Splash`
             app
                 // When entering the state, spawn everything needed for this screen
-                .add_system(splash_setup.in_schedule(OnEnter(GameState::Splash)))
+                .add_systems(OnEnter(GameState::Splash), splash_setup)
                 // While in this state, run the `countdown` system
-                .add_system(countdown.in_set(OnUpdate(GameState::Splash)))
+                .add_systems(Update, countdown.run_if(in_state(GameState::Splash)))
                 // When exiting the state, despawn everything that was spawned for this screen
-                .add_system(
-                    despawn_screen::<OnSplashScreen>.in_schedule(OnExit(GameState::Splash)),
-                );
+                .add_systems(OnExit(GameState::Splash), despawn_screen::<OnSplashScreen>);
         }
     }
 
@@ -132,11 +130,9 @@ mod game {
 
     impl Plugin for GamePlugin {
         fn build(&self, app: &mut App) {
-            app.add_systems((
-                game_setup.in_schedule(OnEnter(GameState::Game)),
-                game.in_set(OnUpdate(GameState::Game)),
-                despawn_screen::<OnGameScreen>.in_schedule(OnExit(GameState::Game)),
-            ));
+            app.add_systems(OnEnter(GameState::Game), game_setup)
+                .add_systems(Update, game.run_if(in_state(GameState::Game)))
+                .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
         }
     }
 
@@ -269,33 +265,47 @@ mod menu {
                 // entering the `GameState::Menu` state.
                 // Current screen in the menu is handled by an independent state from `GameState`
                 .add_state::<MenuState>()
-                .add_system(menu_setup.in_schedule(OnEnter(GameState::Menu)))
+                .add_systems(OnEnter(GameState::Menu), menu_setup)
                 // Systems to handle the main menu screen
-                .add_systems((
-                    main_menu_setup.in_schedule(OnEnter(MenuState::Main)),
-                    despawn_screen::<OnMainMenuScreen>.in_schedule(OnExit(MenuState::Main)),
-                ))
+                .add_systems(OnEnter(MenuState::Main), main_menu_setup)
+                .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
                 // Systems to handle the settings menu screen
-                .add_systems((
-                    settings_menu_setup.in_schedule(OnEnter(MenuState::Settings)),
-                    despawn_screen::<OnSettingsMenuScreen>.in_schedule(OnExit(MenuState::Settings)),
-                ))
+                .add_systems(OnEnter(MenuState::Settings), settings_menu_setup)
+                .add_systems(
+                    OnExit(MenuState::Settings),
+                    despawn_screen::<OnSettingsMenuScreen>,
+                )
                 // Systems to handle the display settings screen
-                .add_systems((
-                    display_settings_menu_setup.in_schedule(OnEnter(MenuState::SettingsDisplay)),
-                    setting_button::<DisplayQuality>.in_set(OnUpdate(MenuState::SettingsDisplay)),
-                    despawn_screen::<OnDisplaySettingsMenuScreen>
-                        .in_schedule(OnExit(MenuState::SettingsDisplay)),
-                ))
+                .add_systems(
+                    OnEnter(MenuState::SettingsDisplay),
+                    display_settings_menu_setup,
+                )
+                .add_systems(
+                    Update,
+                    (
+                        setting_button::<DisplayQuality>
+                            .run_if(in_state(MenuState::SettingsDisplay)),
+                    ),
+                )
+                .add_systems(
+                    OnExit(MenuState::SettingsDisplay),
+                    despawn_screen::<OnDisplaySettingsMenuScreen>,
+                )
                 // Systems to handle the sound settings screen
-                .add_systems((
-                    sound_settings_menu_setup.in_schedule(OnEnter(MenuState::SettingsSound)),
-                    setting_button::<Volume>.in_set(OnUpdate(MenuState::SettingsSound)),
-                    despawn_screen::<OnSoundSettingsMenuScreen>
-                        .in_schedule(OnExit(MenuState::SettingsSound)),
-                ))
-                // Common systems to all screens that handles buttons behaviour
-                .add_systems((menu_action, button_system).in_set(OnUpdate(GameState::Menu)));
+                .add_systems(OnEnter(MenuState::SettingsSound), sound_settings_menu_setup)
+                .add_systems(
+                    Update,
+                    setting_button::<Volume>.run_if(in_state(MenuState::SettingsSound)),
+                )
+                .add_systems(
+                    OnExit(MenuState::SettingsSound),
+                    despawn_screen::<OnSoundSettingsMenuScreen>,
+                )
+                // Common systems to all screens that handles buttons behavior
+                .add_systems(
+                    Update,
+                    (menu_action, button_system).run_if(in_state(GameState::Menu)),
+                );
         }
     }
 
@@ -402,12 +412,8 @@ mod menu {
             // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
-            position: UiRect {
-                left: Val::Px(10.0),
-                right: Val::Auto,
-                top: Val::Auto,
-                bottom: Val::Auto,
-            },
+            left: Val::Px(10.0),
+            right: Val::Auto,
             ..default()
         };
         let button_text_style = TextStyle {
