@@ -657,8 +657,7 @@ impl Drop for Arc2dBuilder<'_, '_> {
 
             // Do a linear interpolation between 1 and `DEFAULT_CIRCLE_SEGMENTS`
             // using the arc angle as scalar.
-            None => (1. + (self.arc_angle.abs() / TAU) * (DEFAULT_CIRCLE_SEGMENTS as f32 - 1.))
-                .round() as usize,
+            None => ((self.arc_angle.abs() / TAU) * DEFAULT_CIRCLE_SEGMENTS).ceil() as usize,
         };
 
         let positions = arc_inner(self.direction_angle, self.arc_angle, self.radius, segments)
