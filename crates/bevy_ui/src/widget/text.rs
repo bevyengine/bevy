@@ -159,6 +159,7 @@ pub fn text_system(
         .unwrap_or(1.);
 
     let scale_factor = ui_scale.scale * window_scale_factor;
+    let inverse_scale_factor = scale_factor.recip();
 
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
@@ -207,7 +208,9 @@ pub fn text_system(
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
-                Ok(info) => {
+                Ok(mut info) => {
+                    info.logical_size.x = scale_value(info.logical_size.x, inverse_scale_factor);
+                    info.logical_size.y = scale_value(info.logical_size.y, inverse_scale_factor);
                     *text_layout_info = info;
                 }
             }
