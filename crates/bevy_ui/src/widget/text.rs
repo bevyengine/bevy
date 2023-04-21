@@ -108,7 +108,7 @@ pub fn measure_text_system(
                 text.linebreak_behavior,
             ) {
                 Ok(measure) => {
-                    *content_size = ContentSize::new(TextMeasure { info: measure });
+                    content_size.set(TextMeasure { info: measure });
                 }
                 Err(TextError::NoSuchFont) => {
                     new_queue.push(entity);

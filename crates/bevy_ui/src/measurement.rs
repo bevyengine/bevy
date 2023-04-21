@@ -25,25 +25,6 @@ pub trait Measure: Send + Sync + 'static {
     ) -> Vec2;
 }
 
-/// A `FixedMeasure` is a `Measure` that ignores all constraints and
-/// always returns the same size.
-#[derive(Default, Clone)]
-pub struct FixedMeasure {
-    size: Vec2,
-}
-
-impl Measure for FixedMeasure {
-    fn measure(
-        &self,
-        _: Option<f32>,
-        _: Option<f32>,
-        _: AvailableSpace,
-        _: AvailableSpace,
-    ) -> Vec2 {
-        self.size
-    }
-}
-
 /// A node with a `ContentSize` component is a node where its size
 /// is based on its content.
 #[derive(Component, Reflect)]
@@ -51,11 +32,12 @@ impl Measure for FixedMeasure {
 pub struct ContentSize {
     /// The `Measure` used to compute the intrinsic size
     #[reflect(ignore)]
-    pub(crate) measure_func: Option<Box<dyn Measurable>>,
+    pub(crate) measure_func: Option<taffy::node::MeasureFunc>,
 }
 
 impl ContentSize {
-    pub fn new(measure: impl Measure) -> Self {
+    /// Set a `Measure` for this function
+    pub fn set(&mut self, measure: impl Measure) {
         let measure_func =
             move |size: taffy::prelude::Size<Option<f32>>,
                   available: taffy::prelude::Size<AvailableSpace>| {
@@ -66,15 +48,23 @@ impl ContentSize {
                     height: size.y,
                 }
             };
-        Self {
-            measure_func: Some(Box::new(measure_func)),
-        }
+        self.measure_func = Some(taffy::node::MeasureFunc::Boxed(Box::new(measure_func)));
+    }
+
+    /// Use an unboxed function to determine the size for this content
+    pub fn set_fn(
+        &mut self,
+        measure: impl Fn(Option<f32>, Option<f32>, AvailableSpace, AvailableSpace) -> Vec2,
+    ) {
+        self.measure_func = Some(taffy::node::MeasureFunc::Raw(measure));
     }
 }
 
 #[allow(clippy::derivable_impls)]
 impl Default for ContentSize {
     fn default() -> Self {
-        Self::new(FixedMeasure::default())
+        Self {
+            measure_func: Some(taffy::node::MeasureFunc::Raw(|_, _, _, _| Size::ZERO)),
+        }
     }
 }

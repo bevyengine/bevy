@@ -81,7 +81,7 @@ pub fn update_image_content_size_system(
             // Update only if size has changed to avoid needless layout calculations
             if size != image_size.size {
                 image_size.size = size;
-                *content_size = ContentSize::new(ImageMeasure { size });
+                content_size.set(ImageMeasure { size });
             }
         }
     }
