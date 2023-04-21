@@ -1,5 +1,4 @@
-//! This example illustrates how to create a button that changes color and text based on its
-//! interaction state.
+//! Demonstrates how the to use the size constraints to control the size of a UI node.
 
 use bevy::prelude::*;
 
