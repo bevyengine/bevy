@@ -328,8 +328,8 @@ macro_rules! impl_query_filter_tuple {
             }
 
             #[inline(always)]
-            unsafe fn filter_fetch<'w>(
-                fetch: &mut Self::Fetch<'w>,
+            unsafe fn filter_fetch(
+                fetch: &mut Self::Fetch<'_>,
                 entity: Entity,
                 table_row: TableRow
             ) -> bool {
@@ -504,8 +504,8 @@ macro_rules! impl_tick_filter {
             }
 
             #[inline(always)]
-            unsafe fn filter_fetch<'w>(
-                fetch: &mut Self::Fetch<'w>,
+            unsafe fn filter_fetch(
+                fetch: &mut Self::Fetch<'_>,
                 entity: Entity,
                 table_row: TableRow
             ) -> bool {
