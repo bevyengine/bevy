@@ -31,7 +31,6 @@ use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
-use bevy_render::view::calculate_bounds;
 use bevy_render::{
     mesh::Mesh,
     primitives::Aabb,
@@ -67,7 +66,7 @@ impl Plugin for SpritePlugin {
             .add_plugin(ColorMaterialPlugin)
             .add_systems(
                 PostUpdate,
-                calculate_bounds.in_set(VisibilitySystems::CalculateBounds),
+                calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
