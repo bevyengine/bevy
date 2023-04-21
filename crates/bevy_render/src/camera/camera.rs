@@ -585,7 +585,7 @@ pub fn extract_cameras(
         entity,
         camera,
         camera_render_graph,
-        transform,
+        (transform_3d, transform_2d),
         visible_entities,
         color_grading,
         temporal_jitter,
@@ -608,11 +608,9 @@ pub fn extract_cameras(
 
             let mut commands = commands.get_or_spawn(entity);
 
-            let transform = if let Some(transform) = transform.0 {
-                *transform
-            } else {
-                GlobalTransform::from(*transform.1.unwrap())
-            };
+            let transform = transform_3d
+                .copied()
+                .unwrap_or_else(|| GlobalTransform::from(*transform_2d.unwrap()));
 
             commands.insert((
                 ExtractedCamera {

@@ -150,8 +150,8 @@ fn player_movement_system(
     transform.translation += translation_delta;
 
     // bound the ship within the invisible level bounds
-    // let extents = BOUNDS / 2.;
-    // transform.translation = transform.translation.clamp(-extents, extents);
+    let extents = BOUNDS / 2.;
+    transform.translation = transform.translation.clamp(-extents, extents);
 }
 
 /// Demonstrates snapping the enemy ship to face the player ship immediately.

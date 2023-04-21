@@ -272,19 +272,17 @@ pub fn calculate_bounds(
     }
 }
 
-pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
+pub fn update_frusta<T: Component + CameraProjection>(
     mut views: Query<(
         AnyOf<(&GlobalTransform, &GlobalTransform2d)>,
         &T,
         &mut Frustum,
     )>,
 ) {
-    for (transform, projection, mut frustum) in &mut views {
-        let transform = if let Some(transform) = transform.0 {
-            *transform
-        } else {
-            GlobalTransform::from(*transform.1.unwrap())
-        };
+    for ((transform_3d, transform_2d), projection, mut frustum) in &mut views {
+        let transform = transform_3d
+            .copied()
+            .unwrap_or_else(|| GlobalTransform::from(*transform_2d.unwrap()));
         let view_projection =
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
         *frustum = Frustum::from_view_projection_custom_far(
