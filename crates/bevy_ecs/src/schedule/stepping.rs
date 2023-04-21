@@ -132,6 +132,11 @@ impl Stepping {
     }
 
     /// Return our current position within the stepping frame
+    ///
+    /// NOTE: This function **will** return `None` during normal execution with
+    /// stepping enabled.  This can happen at the end of the stepping frame
+    /// after the last system has been run, but before the start of the next
+    /// render frame.
     pub fn cursor(&self) -> Option<(BoxedScheduleLabel, NodeId)> {
         if self.action == Action::RunAll {
             return None;
@@ -217,7 +222,7 @@ impl Stepping {
         self
     }
 
-    /// Ensure this system always runs when stepping is enabled
+    /// Ensure this system instance always runs when stepping is enabled
     pub fn always_run_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
         self.updates.push(Update::SetBehavior(
             schedule.dyn_clone(),
@@ -243,6 +248,16 @@ impl Stepping {
         self
     }
 
+    /// Ensure this system instance never runs when stepping is enabled
+    pub fn never_run_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
+        self.updates.push(Update::SetBehavior(
+            schedule.dyn_clone(),
+            SystemIdentifier::Node(node),
+            SystemBehavior::NeverRun,
+        ));
+        self
+    }
+
     /// Add a breakpoint for system
     pub fn set_breakpoint<Marker>(
         &mut self,
@@ -259,6 +274,16 @@ impl Stepping {
         self
     }
 
+    /// Add a breakpoint for system instance
+    pub fn set_breakpoint_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
+        self.updates.push(Update::SetBehavior(
+            schedule.dyn_clone(),
+            SystemIdentifier::Node(node),
+            SystemBehavior::Break,
+        ));
+        self
+    }
+
     /// Clear a breakpoint for the system
     pub fn clear_breakpoint<Marker>(
         &mut self,
@@ -270,6 +295,16 @@ impl Stepping {
         self
     }
 
+    /// clear a breakpoint for system instance
+    pub fn clear_breakpoint_node(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        node: NodeId,
+    ) -> &mut Self {
+        self.clear_node(schedule, node);
+        self
+    }
+
     /// Clear any behavior set for the system
     pub fn clear_system<Marker>(
         &mut self,
@@ -278,10 +313,19 @@ impl Stepping {
     ) -> &mut Self {
         let type_id = IntoSystem::into_system(system).type_id();
         self.updates.push(Update::ClearBehavior(
-            Box::new(schedule),
+            schedule.dyn_clone(),
             SystemIdentifier::Type(type_id),
         ));
 
+        self
+    }
+
+    /// clear a breakpoint for system instance
+    pub fn clear_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
+        self.updates.push(Update::ClearBehavior(
+            schedule.dyn_clone(),
+            SystemIdentifier::Node(node),
+        ));
         self
     }
 
@@ -617,10 +661,21 @@ impl ScheduleState {
             match (action, behavior) {
                 // regardless of which action we're performing, if the system
                 // is marked as NeverRun, add it to the skip list
-                (_, SystemBehavior::NeverRun) => skip.insert(i),
+                (_, SystemBehavior::NeverRun) => {
+                    skip.insert(i);
+                    // always advance the position past this sytem
+                    if i == pos {
+                        pos += 1;
+                    }
+                }
                 // similarly, ignore any system marked as AlwaysRun; they should
                 // never be added to the skip list
-                (_, SystemBehavior::AlwaysRun) => (),
+                (_, SystemBehavior::AlwaysRun) => {
+                    // always advance the position past this sytem
+                    if i == pos {
+                        pos += 1;
+                    }
+                }
                 // if we're waiting, no other systems besides AlwaysRun should
                 // be run, so add systems to the skip list
                 (Action::Waiting, _) => skip.insert(i),
@@ -793,6 +848,7 @@ mod tests {
         stepping.add_schedule(TestSchedule).disable().next_frame();
 
         assert!(stepping.skipped_systems(&schedule).is_none());
+        assert!(stepping.cursor().is_none());
     }
 
     #[test]
@@ -1130,6 +1186,119 @@ mod tests {
                 TestScheduleA.dyn_clone(),
                 TestScheduleC.dyn_clone(),
                 TestScheduleD.dyn_clone(),
+            ]
+        );
+    }
+
+    // Helper to verify cursor position
+    /*
+    macro_rules! assert_cursor_at {
+        ($stepping:expr, $schedule:expr, $system:expr) => {
+            let type_id = IntoSystem::into_system($system).type_id();
+            let node_id = $schedule
+                .systems()
+                .unwrap()
+                .find(|t| t.1.type_id() == type_id)
+                .unwrap()
+                .0;
+            let label = $schedule.label().as_ref().unwrap();
+            assert_eq!($stepping.cursor(), Some((label.dyn_clone(), node_id)));
+        };
+    } */
+
+    #[test]
+    fn verify_cursor() {
+        // helper to build a cursor tuple for the supplied schedule
+        fn cursor(schedule: &Schedule, index: usize) -> (BoxedScheduleLabel, NodeId) {
+            let node_id = schedule.executable().system_ids[index];
+            (schedule.label().as_ref().unwrap().clone(), node_id)
+        }
+
+        let mut world = World::new();
+
+        // create two schedules with a number of systems in them
+        let mut schedule_a = Schedule::default();
+        schedule_a
+            .set_label(TestScheduleA)
+            .add_systems((|| {}, || {}, || {}, || {}).chain());
+        schedule_a.initialize(&mut world).unwrap();
+        let mut schedule_b = Schedule::default();
+        schedule_b
+            .set_label(TestScheduleB)
+            .add_systems((|| {}, || {}, || {}, || {}).chain());
+        schedule_b.initialize(&mut world).unwrap();
+
+        // setup stepping and add all three schedules
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestScheduleA)
+            .add_schedule(TestScheduleB)
+            .enable();
+
+        assert!(stepping.cursor().is_none());
+
+        // step the system nine times, and verify the cursor before & after
+        // each step
+        let mut cursors = Vec::new();
+        for _ in 0..9 {
+            stepping.step_frame().next_frame();
+            cursors.push(stepping.cursor());
+            stepping.skipped_systems(&schedule_a);
+            stepping.skipped_systems(&schedule_b);
+            cursors.push(stepping.cursor());
+        }
+
+        #[rustfmt::skip]
+        assert_eq!(
+            cursors,
+            vec![
+                // before render frame        // after render frame
+                None,                         Some(cursor(&schedule_a, 1)),
+                Some(cursor(&schedule_a, 1)), Some(cursor(&schedule_a, 2)),
+                Some(cursor(&schedule_a, 2)), Some(cursor(&schedule_a, 3)),
+                Some(cursor(&schedule_a, 3)), Some(cursor(&schedule_b, 0)),
+                Some(cursor(&schedule_b, 0)), Some(cursor(&schedule_b, 1)),
+                Some(cursor(&schedule_b, 1)), Some(cursor(&schedule_b, 2)),
+                Some(cursor(&schedule_b, 2)), Some(cursor(&schedule_b, 3)),
+                Some(cursor(&schedule_b, 3)), None,
+                Some(cursor(&schedule_a, 0)), Some(cursor(&schedule_a, 1)),
+            ]
+        );
+
+        // reset our cursor (disable/enable), and update stepping to test if the
+        // cursor properly skips over AlwaysRun & NeverRun systems.  Also set
+        // a Break system to ensure that shows properly in the cursor
+        stepping
+            // disable/enable to reset cursor
+            .disable()
+            .enable()
+            .set_breakpoint_node(TestScheduleA, NodeId::System(1))
+            .always_run_node(TestScheduleA, NodeId::System(3))
+            .never_run_node(TestScheduleB, NodeId::System(0));
+
+        let mut cursors = Vec::new();
+        for _ in 0..9 {
+            stepping.step_frame().next_frame();
+            cursors.push(stepping.cursor());
+            stepping.skipped_systems(&schedule_a);
+            stepping.skipped_systems(&schedule_b);
+            cursors.push(stepping.cursor());
+        }
+
+        #[rustfmt::skip]
+        assert_eq!(
+            cursors,
+            vec![
+                // before render frame        // after render frame
+                Some(cursor(&schedule_a, 0)), Some(cursor(&schedule_a, 1)),
+                Some(cursor(&schedule_a, 1)), Some(cursor(&schedule_a, 2)),
+                Some(cursor(&schedule_a, 2)), Some(cursor(&schedule_b, 1)),
+                Some(cursor(&schedule_b, 1)), Some(cursor(&schedule_b, 2)),
+                Some(cursor(&schedule_b, 2)), Some(cursor(&schedule_b, 3)),
+                Some(cursor(&schedule_b, 3)), None,
+                Some(cursor(&schedule_a, 0)), Some(cursor(&schedule_a, 1)),
+                Some(cursor(&schedule_a, 1)), Some(cursor(&schedule_a, 2)),
+                Some(cursor(&schedule_a, 2)), Some(cursor(&schedule_b, 1)),
             ]
         );
     }
