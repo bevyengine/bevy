@@ -460,9 +460,12 @@ impl<'s> Gizmos<'s> {
     }
 
     /// Draw an arc, which is a part of the circumference of a circle.
-    /// `direction_angle` is the angle where the arc will be centered. `0.0`
-    /// `arc_angle` is defining the amount of the underlying circle
-    /// being drawn. With the `radius`, it will define the length of the arc.
+    ///
+    /// # Arguments
+    /// - `position` sets the center of this circle.
+    /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
+    /// - `direction_angle` sets the angle in radians between `position` and the midpoint of the arc.
+    /// -`arc_angle` sets the length of this arc, in radians.
     ///
     /// # Example
     /// ```
