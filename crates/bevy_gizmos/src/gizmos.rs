@@ -1,13 +1,14 @@
 //! A module for the [`Gizmos`](crate::gizmos::Gizmos) [`SystemParam`](bevy_ecs::system::SystemParam).
 
-use std::{f32::consts::TAU, iter, ops::Mul};
+use std::{f32::consts::TAU, iter};
 
 use bevy_ecs::{
     system::{Deferred, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::World,
 };
-use bevy_math::{Mat2, Quat, Vec2, Vec3, Vec3A};
+use bevy_math::{Mat2, Mat4, Quat, Vec2, Vec3, Vec3A};
 use bevy_render::{prelude::Color, primitives::Aabb};
+use bevy_transform::components::{GlobalTransform, Transform};
 
 type PositionItem = [f32; 3];
 type ColorItem = [f32; 4];
@@ -318,12 +319,7 @@ impl<'s> Gizmos<'s> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn bounding_box(
-        &mut self,
-        aabb: Aabb,
-        transform: impl Mul<Vec3, Output = Vec3> + Copy,
-        color: Color,
-    ) {
+    pub fn bounding_box(&mut self, aabb: Aabb, transform: impl TransformPoint, color: Color) {
         let Aabb {
             center,
             half_extents,
@@ -340,20 +336,20 @@ impl<'s> Gizmos<'s> {
             center + half_extents * Vec3A::new(-1.0, 1.0, -1.0),
             center + half_extents * Vec3A::new(1.0, 1.0, -1.0),
         ];
-        self.linestrip(strip.map(|v| transform * Vec3::from(v)), color);
+        self.linestrip(strip.map(|v| transform.transform_point(v)), color);
         self.line(
-            transform * Vec3::from(center + half_extents * Vec3A::new(1.0, -1.0, -1.0)),
-            transform * Vec3::from(center + half_extents * Vec3A::new(1.0, -1.0, 1.0)),
+            transform.transform_point(center + half_extents * Vec3A::new(1.0, -1.0, -1.0)),
+            transform.transform_point(center + half_extents * Vec3A::new(1.0, -1.0, 1.0)),
             color,
         );
         self.line(
-            transform * Vec3::from(center + half_extents * Vec3A::new(-1.0, -1.0, -1.0)),
-            transform * Vec3::from(center + half_extents * Vec3A::new(-1.0, -1.0, 1.0)),
+            transform.transform_point(center + half_extents * Vec3A::new(-1.0, -1.0, -1.0)),
+            transform.transform_point(center + half_extents * Vec3A::new(-1.0, -1.0, 1.0)),
             color,
         );
         self.line(
-            transform * Vec3::from(center + half_extents * Vec3A::new(-1.0, 1.0, -1.0)),
-            transform * Vec3::from(center + half_extents * Vec3A::new(-1.0, 1.0, 1.0)),
+            transform.transform_point(center + half_extents * Vec3A::new(-1.0, 1.0, -1.0)),
+            transform.transform_point(center + half_extents * Vec3A::new(-1.0, 1.0, 1.0)),
             color,
         );
     }
@@ -751,4 +747,28 @@ fn rect_inner(size: Vec2) -> [Vec2; 4] {
     let bl = Vec2::new(-half_size.x, -half_size.y);
     let br = Vec2::new(half_size.x, -half_size.y);
     [tl, tr, br, bl]
+}
+
+/// Trait for the point transformation methods for [`Transform`], [`GlobalTransform`], and [`Mat4`].
+pub trait TransformPoint {
+    /// Transform a point.
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3;
+}
+
+impl TransformPoint for Transform {
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
+        self.transform_point(point.into())
+    }
+}
+
+impl TransformPoint for GlobalTransform {
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
+        self.transform_point(point.into())
+    }
+}
+
+impl TransformPoint for Mat4 {
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
+        self.transform_point3(point.into())
+    }
 }
