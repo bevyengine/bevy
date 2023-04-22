@@ -229,7 +229,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &SystemMeta,
-                    world: &'w World,
+                    world: UnsafeWorldCell<'w>,
                     change_tick: Tick,
                 ) -> Self::Item<'w, 's> {
                     ParamSet {
@@ -407,7 +407,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
-                    world: &'w #path::world::World,
+                    world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                     change_tick: #path::component::Tick,
                 ) -> Self::Item<'w, 's> {
                     let (#(#tuple_patterns,)*) = <

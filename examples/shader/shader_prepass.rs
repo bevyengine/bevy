@@ -126,9 +126,9 @@ fn setup(
     });
 
     let style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 18.0,
         color: Color::WHITE,
+        ..default()
     };
 
     commands.spawn(

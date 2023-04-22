@@ -18,9 +18,11 @@ pub mod graph {
         pub const TONEMAPPING: &str = "tonemapping";
         pub const FXAA: &str = "fxaa";
         pub const UPSCALING: &str = "upscaling";
+        pub const CONTRAST_ADAPTIVE_SHARPENING: &str = "contrast_adaptive_sharpening";
         pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
     }
 }
+pub const CORE_3D: &str = graph::NAME;
 
 use std::cmp::Reverse;
 
@@ -34,7 +36,7 @@ use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
-    render_graph::{EmptyNode, RenderGraph},
+    render_graph::{EmptyNode, RenderGraphApp},
     render_phase::{
         sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
         RenderPhase,
@@ -52,6 +54,7 @@ use bevy_utils::{FloatOrd, HashMap};
 
 use crate::{
     prepass::{node::PrepassNode, DepthPrepass},
+    skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
     upscaling::UpscalingNode,
 };
@@ -62,6 +65,7 @@ impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera3d>()
             .register_type::<Camera3dDepthLoadOp>()
+            .add_plugin(SkyboxPlugin)
             .add_plugin(ExtractComponentPlugin::<Camera3d>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
@@ -86,43 +90,30 @@ impl Plugin for Core3dPlugin {
                 ),
             );
 
-        let prepass_node = PrepassNode::new(&mut render_app.world);
-        let opaque_node_3d = MainOpaquePass3dNode::new(&mut render_app.world);
-        let transparent_node_3d = MainTransparentPass3dNode::new(&mut render_app.world);
-        let tonemapping = TonemappingNode::new(&mut render_app.world);
-        let upscaling = UpscalingNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
-
-        let mut draw_3d_graph = RenderGraph::default();
-        draw_3d_graph.add_node(graph::node::PREPASS, prepass_node);
-        draw_3d_graph.add_node(graph::node::START_MAIN_PASS, EmptyNode);
-        draw_3d_graph.add_node(graph::node::MAIN_OPAQUE_PASS, opaque_node_3d);
-        draw_3d_graph.add_node(graph::node::MAIN_TRANSPARENT_PASS, transparent_node_3d);
-        draw_3d_graph.add_node(graph::node::END_MAIN_PASS, EmptyNode);
-        draw_3d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
-        draw_3d_graph.add_node(graph::node::END_MAIN_PASS_POST_PROCESSING, EmptyNode);
-        draw_3d_graph.add_node(graph::node::UPSCALING, upscaling);
-
-        draw_3d_graph.add_node_edge(graph::node::PREPASS, graph::node::START_MAIN_PASS);
-        draw_3d_graph.add_node_edge(graph::node::START_MAIN_PASS, graph::node::MAIN_OPAQUE_PASS);
-        draw_3d_graph.add_node_edge(
-            graph::node::MAIN_OPAQUE_PASS,
-            graph::node::MAIN_TRANSPARENT_PASS,
-        );
-        draw_3d_graph.add_node_edge(
-            graph::node::MAIN_TRANSPARENT_PASS,
-            graph::node::END_MAIN_PASS,
-        );
-        draw_3d_graph.add_node_edge(graph::node::END_MAIN_PASS, graph::node::TONEMAPPING);
-        draw_3d_graph.add_node_edge(
-            graph::node::TONEMAPPING,
-            graph::node::END_MAIN_PASS_POST_PROCESSING,
-        );
-        draw_3d_graph.add_node_edge(
-            graph::node::END_MAIN_PASS_POST_PROCESSING,
-            graph::node::UPSCALING,
-        );
-        graph.add_sub_graph(graph::NAME, draw_3d_graph);
+        use graph::node::*;
+        render_app
+            .add_render_sub_graph(CORE_3D)
+            .add_render_graph_node::<PrepassNode>(CORE_3D, PREPASS)
+            .add_render_graph_node::<EmptyNode>(CORE_3D, START_MAIN_PASS)
+            .add_render_graph_node::<MainOpaquePass3dNode>(CORE_3D, MAIN_OPAQUE_PASS)
+            .add_render_graph_node::<MainTransparentPass3dNode>(CORE_3D, MAIN_TRANSPARENT_PASS)
+            .add_render_graph_node::<EmptyNode>(CORE_3D, END_MAIN_PASS)
+            .add_render_graph_node::<TonemappingNode>(CORE_3D, TONEMAPPING)
+            .add_render_graph_node::<EmptyNode>(CORE_3D, END_MAIN_PASS_POST_PROCESSING)
+            .add_render_graph_node::<UpscalingNode>(CORE_3D, UPSCALING)
+            .add_render_graph_edges(
+                CORE_3D,
+                &[
+                    PREPASS,
+                    START_MAIN_PASS,
+                    MAIN_OPAQUE_PASS,
+                    MAIN_TRANSPARENT_PASS,
+                    END_MAIN_PASS,
+                    TONEMAPPING,
+                    END_MAIN_PASS_POST_PROCESSING,
+                    UPSCALING,
+                ],
+            );
     }
 }
 

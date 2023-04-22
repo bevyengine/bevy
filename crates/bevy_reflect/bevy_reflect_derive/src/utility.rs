@@ -177,7 +177,7 @@ impl<T> ResultSifter<T> {
     }
 }
 
-/// Converts an iterator over ignore behaviour of members to a bitset of ignored members.
+/// Converts an iterator over ignore behavior of members to a bitset of ignored members.
 ///
 /// Takes into account the fact that always ignored (non-reflected) members are skipped.
 ///
