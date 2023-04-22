@@ -17,6 +17,8 @@ fn push_events(world: &mut World, events: impl IntoIterator<Item = HierarchyEven
 }
 
 /// Adds `child` to `parent`'s [`Children`], without checking if it is already present there.
+///
+/// This might cause unexpected results when removing duplicate children.
 fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
     let mut parent = world.entity_mut(parent);
     if let Some(mut children) = parent.get_mut::<Children>() {
