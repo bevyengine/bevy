@@ -1,13 +1,13 @@
 //! A module for the [`Gizmos`](crate::gizmos::Gizmos) [`SystemParam`](bevy_ecs::system::SystemParam).
 
-use std::{f32::consts::TAU, iter};
+use std::{f32::consts::TAU, iter, ops::Mul};
 
 use bevy_ecs::{
     system::{Deferred, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::World,
 };
-use bevy_math::{Mat2, Quat, Vec2, Vec3};
-use bevy_render::prelude::Color;
+use bevy_math::{Mat2, Quat, Vec2, Vec3, Vec3A};
+use bevy_render::{prelude::Color, primitives::Aabb};
 
 type PositionItem = [f32; 3];
 type ColorItem = [f32; 4];
@@ -301,6 +301,61 @@ impl<'s> Gizmos<'s> {
         ];
         self.extend_list_positions(positions);
         self.add_list_color(color, 24);
+    }
+
+    /// Draw a bounding box.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::{prelude::*, primitives::Aabb};
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_transform::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     let aabb = Aabb::from_min_max(Vec3::NEG_ONE, Vec3::ONE);
+    ///     gizmos.bounding_box(aabb, Transform::IDENTITY, Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn bounding_box(
+        &mut self,
+        aabb: Aabb,
+        transform: impl Mul<Vec3, Output = Vec3> + Copy,
+        color: Color,
+    ) {
+        let Aabb {
+            center,
+            half_extents,
+        } = aabb;
+        let strip = &[
+            center + half_extents,
+            center + half_extents * Vec3A::new(1.0, -1.0, 1.0),
+            center + half_extents * Vec3A::new(-1.0, -1.0, 1.0),
+            center + half_extents * Vec3A::new(-1.0, 1.0, 1.0),
+            center + half_extents,
+            center + half_extents * Vec3A::new(1.0, 1.0, -1.0),
+            center + half_extents * Vec3A::new(1.0, -1.0, -1.0),
+            center + half_extents * Vec3A::new(-1.0, -1.0, -1.0),
+            center + half_extents * Vec3A::new(-1.0, 1.0, -1.0),
+            center + half_extents * Vec3A::new(1.0, 1.0, -1.0),
+        ];
+        self.linestrip(strip.map(|v| transform * Vec3::from(v)), color);
+        self.line(
+            transform * Vec3::from(center + half_extents * Vec3A::new(1.0, -1.0, -1.0)),
+            transform * Vec3::from(center + half_extents * Vec3A::new(1.0, -1.0, 1.0)),
+            color,
+        );
+        self.line(
+            transform * Vec3::from(center + half_extents * Vec3A::new(-1.0, -1.0, -1.0)),
+            transform * Vec3::from(center + half_extents * Vec3A::new(-1.0, -1.0, 1.0)),
+            color,
+        );
+        self.line(
+            transform * Vec3::from(center + half_extents * Vec3A::new(-1.0, 1.0, -1.0)),
+            transform * Vec3::from(center + half_extents * Vec3A::new(-1.0, 1.0, 1.0)),
+            color,
+        );
     }
 
     /// Draw a line from `start` to `end`.
