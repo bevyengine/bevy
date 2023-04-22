@@ -1,5 +1,5 @@
 use bevy_render::{
-    mesh::{MeshVertexAttribute, VertexAttributeValues},
+    mesh::{MeshVertexAttribute, VertexAttributeValues as Values},
     prelude::Mesh,
     render_resource::VertexFormat,
 };
@@ -136,107 +136,91 @@ impl<'a> VertexAttributeIter<'a> {
     }
 
     /// Materializes values for any supported format of vertex attribute
-    fn into_any_values(self) -> Result<VertexAttributeValues, AccessFailed> {
+    fn into_any_values(self) -> Result<Values, AccessFailed> {
         match self {
-            VertexAttributeIter::F32(it) => Ok(VertexAttributeValues::Float32(it.collect())),
-            VertexAttributeIter::U32(it) => Ok(VertexAttributeValues::Uint32(it.collect())),
-            VertexAttributeIter::F32x2(it) => Ok(VertexAttributeValues::Float32x2(it.collect())),
-            VertexAttributeIter::U32x2(it) => Ok(VertexAttributeValues::Uint32x2(it.collect())),
-            VertexAttributeIter::F32x3(it) => Ok(VertexAttributeValues::Float32x3(it.collect())),
-            VertexAttributeIter::U32x3(it) => Ok(VertexAttributeValues::Uint32x3(it.collect())),
-            VertexAttributeIter::F32x4(it) => Ok(VertexAttributeValues::Float32x4(it.collect())),
-            VertexAttributeIter::U32x4(it) => Ok(VertexAttributeValues::Uint32x4(it.collect())),
-            VertexAttributeIter::S16x2(it, n) => Ok(n.apply_either(
-                it.collect(),
-                VertexAttributeValues::Snorm16x2,
-                VertexAttributeValues::Sint16x2,
-            )),
-            VertexAttributeIter::U16x2(it, n) => Ok(n.apply_either(
-                it.collect(),
-                VertexAttributeValues::Unorm16x2,
-                VertexAttributeValues::Uint16x2,
-            )),
-            VertexAttributeIter::S16x4(it, n) => Ok(n.apply_either(
-                it.collect(),
-                VertexAttributeValues::Snorm16x4,
-                VertexAttributeValues::Sint16x4,
-            )),
-            VertexAttributeIter::U16x4(it, n) => Ok(n.apply_either(
-                it.collect(),
-                VertexAttributeValues::Unorm16x4,
-                VertexAttributeValues::Uint16x4,
-            )),
-            VertexAttributeIter::S8x2(it, n) => Ok(n.apply_either(
-                it.collect(),
-                VertexAttributeValues::Snorm8x2,
-                VertexAttributeValues::Sint8x2,
-            )),
-            VertexAttributeIter::U8x2(it, n) => Ok(n.apply_either(
-                it.collect(),
-                VertexAttributeValues::Unorm8x2,
-                VertexAttributeValues::Uint8x2,
-            )),
-            VertexAttributeIter::S8x4(it, n) => Ok(n.apply_either(
-                it.collect(),
-                VertexAttributeValues::Snorm8x4,
-                VertexAttributeValues::Sint8x4,
-            )),
-            VertexAttributeIter::U8x4(it, n) => Ok(n.apply_either(
-                it.collect(),
-                VertexAttributeValues::Unorm8x4,
-                VertexAttributeValues::Uint8x4,
-            )),
+            VertexAttributeIter::F32(it) => Ok(Values::Float32(it.collect())),
+            VertexAttributeIter::U32(it) => Ok(Values::Uint32(it.collect())),
+            VertexAttributeIter::F32x2(it) => Ok(Values::Float32x2(it.collect())),
+            VertexAttributeIter::U32x2(it) => Ok(Values::Uint32x2(it.collect())),
+            VertexAttributeIter::F32x3(it) => Ok(Values::Float32x3(it.collect())),
+            VertexAttributeIter::U32x3(it) => Ok(Values::Uint32x3(it.collect())),
+            VertexAttributeIter::F32x4(it) => Ok(Values::Float32x4(it.collect())),
+            VertexAttributeIter::U32x4(it) => Ok(Values::Uint32x4(it.collect())),
+            VertexAttributeIter::S16x2(it, n) => {
+                Ok(n.apply_either(it.collect(), Values::Snorm16x2, Values::Sint16x2))
+            }
+            VertexAttributeIter::U16x2(it, n) => {
+                Ok(n.apply_either(it.collect(), Values::Unorm16x2, Values::Uint16x2))
+            }
+            VertexAttributeIter::S16x4(it, n) => {
+                Ok(n.apply_either(it.collect(), Values::Snorm16x4, Values::Sint16x4))
+            }
+            VertexAttributeIter::U16x4(it, n) => {
+                Ok(n.apply_either(it.collect(), Values::Unorm16x4, Values::Uint16x4))
+            }
+            VertexAttributeIter::S8x2(it, n) => {
+                Ok(n.apply_either(it.collect(), Values::Snorm8x2, Values::Sint8x2))
+            }
+            VertexAttributeIter::U8x2(it, n) => {
+                Ok(n.apply_either(it.collect(), Values::Unorm8x2, Values::Uint8x2))
+            }
+            VertexAttributeIter::S8x4(it, n) => {
+                Ok(n.apply_either(it.collect(), Values::Snorm8x4, Values::Sint8x4))
+            }
+            VertexAttributeIter::U8x4(it, n) => {
+                Ok(n.apply_either(it.collect(), Values::Unorm8x4, Values::Uint8x4))
+            }
             _ => Err(AccessFailed::UnsupportedFormat),
         }
     }
 
     /// Materializes RGBA values, converting compatible formats to Float32x4
-    fn into_rgba_values(self) -> Result<VertexAttributeValues, AccessFailed> {
+    fn into_rgba_values(self) -> Result<Values, AccessFailed> {
         match self {
-            VertexAttributeIter::U8x3(it, Normalization(true)) => Ok(
-                VertexAttributeValues::Float32x4(ReadColors::RgbU8(it).into_rgba_f32().collect()),
-            ),
-            VertexAttributeIter::U16x3(it, Normalization(true)) => Ok(
-                VertexAttributeValues::Float32x4(ReadColors::RgbU16(it).into_rgba_f32().collect()),
-            ),
-            VertexAttributeIter::F32x3(it) => Ok(VertexAttributeValues::Float32x4(
+            VertexAttributeIter::U8x3(it, Normalization(true)) => Ok(Values::Float32x4(
+                ReadColors::RgbU8(it).into_rgba_f32().collect(),
+            )),
+            VertexAttributeIter::U16x3(it, Normalization(true)) => Ok(Values::Float32x4(
+                ReadColors::RgbU16(it).into_rgba_f32().collect(),
+            )),
+            VertexAttributeIter::F32x3(it) => Ok(Values::Float32x4(
                 ReadColors::RgbF32(it).into_rgba_f32().collect(),
             )),
-            VertexAttributeIter::U8x4(it, Normalization(true)) => Ok(
-                VertexAttributeValues::Float32x4(ReadColors::RgbaU8(it).into_rgba_f32().collect()),
-            ),
-            VertexAttributeIter::U16x4(it, Normalization(true)) => Ok(
-                VertexAttributeValues::Float32x4(ReadColors::RgbaU16(it).into_rgba_f32().collect()),
-            ),
+            VertexAttributeIter::U8x4(it, Normalization(true)) => Ok(Values::Float32x4(
+                ReadColors::RgbaU8(it).into_rgba_f32().collect(),
+            )),
+            VertexAttributeIter::U16x4(it, Normalization(true)) => Ok(Values::Float32x4(
+                ReadColors::RgbaU16(it).into_rgba_f32().collect(),
+            )),
             s => s.into_any_values(),
         }
     }
 
     /// Materializes joint index values, converting compatible formats to Uint16x4
-    fn into_joint_index_values(self) -> Result<VertexAttributeValues, AccessFailed> {
+    fn into_joint_index_values(self) -> Result<Values, AccessFailed> {
         match self {
-            VertexAttributeIter::U8x4(it, Normalization(false)) => Ok(
-                VertexAttributeValues::Uint16x4(ReadJoints::U8(it).into_u16().collect()),
-            ),
+            VertexAttributeIter::U8x4(it, Normalization(false)) => {
+                Ok(Values::Uint16x4(ReadJoints::U8(it).into_u16().collect()))
+            }
             s => s.into_any_values(),
         }
     }
 
     /// Materializes texture coordinate values, converting compatible formats to Float32x2
-    fn into_tex_coord_values(self) -> Result<VertexAttributeValues, AccessFailed> {
+    fn into_tex_coord_values(self) -> Result<Values, AccessFailed> {
         match self {
-            VertexAttributeIter::U8x2(it, Normalization(true)) => Ok(
-                VertexAttributeValues::Float32x2(ReadTexCoords::U8(it).into_f32().collect()),
-            ),
-            VertexAttributeIter::U16x2(it, Normalization(true)) => Ok(
-                VertexAttributeValues::Float32x2(ReadTexCoords::U16(it).into_f32().collect()),
-            ),
+            VertexAttributeIter::U8x2(it, Normalization(true)) => Ok(Values::Float32x2(
+                ReadTexCoords::U8(it).into_f32().collect(),
+            )),
+            VertexAttributeIter::U16x2(it, Normalization(true)) => Ok(Values::Float32x2(
+                ReadTexCoords::U16(it).into_f32().collect(),
+            )),
             s => s.into_any_values(),
         }
     }
 }
 
-enum VertexAttributeConversion {
+enum ConversionMode {
     Any,
     Rgba,
     JointIndex,
@@ -258,35 +242,28 @@ pub(crate) fn convert_attribute(
     accessor: gltf::Accessor,
     buffer_data: &Vec<Vec<u8>>,
     custom_vertex_attributes: &HashMap<String, MeshVertexAttribute>,
-) -> Result<(MeshVertexAttribute, VertexAttributeValues), ConvertAttributeError> {
+) -> Result<(MeshVertexAttribute, Values), ConvertAttributeError> {
     if let Some((attribute, conversion)) = match &semantic {
-        gltf::Semantic::Positions => {
-            Some((Mesh::ATTRIBUTE_POSITION, VertexAttributeConversion::Any))
+        gltf::Semantic::Positions => Some((Mesh::ATTRIBUTE_POSITION, ConversionMode::Any)),
+        gltf::Semantic::Normals => Some((Mesh::ATTRIBUTE_NORMAL, ConversionMode::Any)),
+        gltf::Semantic::Tangents => Some((Mesh::ATTRIBUTE_TANGENT, ConversionMode::Any)),
+        gltf::Semantic::Colors(0) => Some((Mesh::ATTRIBUTE_COLOR, ConversionMode::Rgba)),
+        gltf::Semantic::TexCoords(0) => Some((Mesh::ATTRIBUTE_UV_0, ConversionMode::TexCoord)),
+        gltf::Semantic::Joints(0) => {
+            Some((Mesh::ATTRIBUTE_JOINT_INDEX, ConversionMode::JointIndex))
         }
-        gltf::Semantic::Normals => Some((Mesh::ATTRIBUTE_NORMAL, VertexAttributeConversion::Any)),
-        gltf::Semantic::Tangents => Some((Mesh::ATTRIBUTE_TANGENT, VertexAttributeConversion::Any)),
-        gltf::Semantic::Colors(0) => Some((Mesh::ATTRIBUTE_COLOR, VertexAttributeConversion::Rgba)),
-        gltf::Semantic::TexCoords(0) => {
-            Some((Mesh::ATTRIBUTE_UV_0, VertexAttributeConversion::TexCoord))
-        }
-        gltf::Semantic::Joints(0) => Some((
-            Mesh::ATTRIBUTE_JOINT_INDEX,
-            VertexAttributeConversion::JointIndex,
-        )),
-        gltf::Semantic::Weights(0) => {
-            Some((Mesh::ATTRIBUTE_JOINT_WEIGHT, VertexAttributeConversion::Any))
-        }
+        gltf::Semantic::Weights(0) => Some((Mesh::ATTRIBUTE_JOINT_WEIGHT, ConversionMode::Any)),
         gltf::Semantic::Extras(name) => custom_vertex_attributes
             .get(name)
-            .map(|attr| (attr.clone(), VertexAttributeConversion::Any)),
+            .map(|attr| (attr.clone(), ConversionMode::Any)),
         _ => None,
     } {
         let raw_iter = VertexAttributeIter::from_accessor(accessor.clone(), buffer_data);
         let converted_values = raw_iter.and_then(|iter| match conversion {
-            VertexAttributeConversion::Any => iter.into_any_values(),
-            VertexAttributeConversion::Rgba => iter.into_rgba_values(),
-            VertexAttributeConversion::TexCoord => iter.into_tex_coord_values(),
-            VertexAttributeConversion::JointIndex => iter.into_joint_index_values(),
+            ConversionMode::Any => iter.into_any_values(),
+            ConversionMode::Rgba => iter.into_rgba_values(),
+            ConversionMode::TexCoord => iter.into_tex_coord_values(),
+            ConversionMode::JointIndex => iter.into_joint_index_values(),
         });
         match converted_values {
             Ok(values) => {
