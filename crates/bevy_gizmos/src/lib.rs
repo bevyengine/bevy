@@ -28,7 +28,6 @@ use bevy_ecs::{
         lifetimeless::{Read, SRes},
         Commands, Res, ResMut, Resource, SystemParamItem,
     },
-    world::{FromWorld, World},
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -131,19 +130,10 @@ impl Default for GizmoConfig {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 struct LineGizmoHandles {
     list: Option<Handle<LineGizmo>>,
     strip: Option<Handle<LineGizmo>>,
-}
-
-impl FromWorld for LineGizmoHandles {
-    fn from_world(_world: &mut World) -> Self {
-        LineGizmoHandles {
-            list: None,
-            strip: None,
-        }
-    }
 }
 
 fn update_gizmo_meshes(
