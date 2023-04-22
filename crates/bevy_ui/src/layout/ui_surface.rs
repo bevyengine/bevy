@@ -156,7 +156,7 @@ impl UiSurface {
 
         let _ = self
             .children
-            .insert(children.iter().copied().collect::<_>());
+            .insert(children.to_vec());
         let _ = self.parents.insert(None);
 
         Ok(id)
@@ -230,7 +230,7 @@ impl UiSurface {
             self.parents[*child] = Some(parent);
         }
 
-        self.children[parent] = children.iter().copied().collect::<_>();
+        self.children[parent] = children.to_vec();
 
         self.mark_dirty_internal(parent)?;
 
@@ -325,7 +325,7 @@ impl UiSurface {
 
     /// Returns a list of children that belong to the parent [`Node`]
     pub fn children(&self, parent: Node) -> taffy::error::TaffyResult<Vec<Node>> {
-        Ok(self.children[parent].iter().copied().collect::<_>())
+        Ok(self.children[parent].to_vec())
     }
 
     /// Sets the [`Style`] of the provided `node`
