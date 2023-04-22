@@ -2,13 +2,13 @@
 
 use crate::{
     self as bevy_ecs,
-    component::{Component, ComponentId, ComponentIdFor},
+    component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
     event::{EventId, Events, ManualEventIterator, ManualEventIteratorWithId, ManualEventReader},
     prelude::Local,
     storage::SparseSet,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam},
-    world::World,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
 use std::{
@@ -264,9 +264,9 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
-        _change_tick: u32,
+        world: UnsafeWorldCell<'w>,
+        _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        world.removed_components()
+        world.world_metadata().removed_components()
     }
 }

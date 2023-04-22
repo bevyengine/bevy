@@ -4,9 +4,14 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_startup_system(setup)
-        .add_system(sprite_movement)
+        .add_plugins(DefaultPlugins.set(
+            // This sets image filtering to nearest
+            // This is done to prevent textures with low resolution (e.g. pixel art) from being blurred
+            // by linear filtering.
+            ImagePlugin::default_nearest(),
+        ))
+        .add_systems(Startup, setup)
+        .add_systems(Update, sprite_movement)
         .run();
 }
 

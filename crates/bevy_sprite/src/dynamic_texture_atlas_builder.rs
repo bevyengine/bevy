@@ -4,12 +4,22 @@ use bevy_math::{IVec2, Rect, Vec2};
 use bevy_render::texture::{Image, TextureFormatPixelInfo};
 use guillotiere::{size2, Allocation, AtlasAllocator};
 
+/// Helper utility to update [`TextureAtlas`] on the fly.
+///
+/// Helpful in cases when texture is created procedurally,
+/// e.g: in a font glyph [`TextureAtlas`], only add the [`Image`] texture for letters to be rendered.
 pub struct DynamicTextureAtlasBuilder {
-    pub atlas_allocator: AtlasAllocator,
-    pub padding: i32,
+    atlas_allocator: AtlasAllocator,
+    padding: i32,
 }
 
 impl DynamicTextureAtlasBuilder {
+    /// Create a new [`DynamicTextureAtlasBuilder`]
+    ///
+    /// # Arguments
+    ///
+    /// * `size` - total size for the atlas
+    /// * `padding` - gap added between textures in the atlas, both in x axis and y axis
     pub fn new(size: Vec2, padding: i32) -> Self {
         Self {
             atlas_allocator: AtlasAllocator::new(to_size2(size)),
@@ -17,6 +27,8 @@ impl DynamicTextureAtlasBuilder {
         }
     }
 
+    /// Add a new texture to [`TextureAtlas`].
+    /// It is user's responsibility to pass in the correct [`TextureAtlas`]
     pub fn add_texture(
         &mut self,
         texture_atlas: &mut TextureAtlas,
@@ -37,29 +49,6 @@ impl DynamicTextureAtlasBuilder {
             None
         }
     }
-
-    // fn resize(
-    //     &mut self,
-    //     texture_atlas: &mut TextureAtlas,
-    //     textures: &mut Assets<Texture>,
-    //     size: Vec2,
-    // ) {
-    //     let new_size2 = to_size2(new_size);
-    //     self.atlas_texture = Texture::new_fill(new_size, &[0,0,0,0]);
-    //     let change_list = self.atlas_allocator.resize_and_rearrange(new_size2);
-
-    //     for change in change_list.changes {
-    //         if let Some(changed_texture_handle) = self.allocation_textures.remove(&change.old.id)
-    // {             let changed_texture = textures.get(&changed_texture_handle).unwrap();
-    //             self.place_texture(change.new, changed_texture_handle, changed_texture);
-    //         }
-    //     }
-
-    //     for failure in change_list.failures {
-    //         let failed_texture = self.allocation_textures.remove(&failure.id).unwrap();
-    //         queued_textures.push(failed_texture);
-    //     }
-    // }
 
     fn place_texture(
         &mut self,

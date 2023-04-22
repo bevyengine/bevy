@@ -1,7 +1,7 @@
 use crate::{
-    environment_map, queue_shadow_view_bind_group, EnvironmentMapLight, FogMeta, GlobalLightMeta,
-    GpuFog, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
-    ShadowPipeline, ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset,
+    environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
+    GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
+    ShadowSamplers, ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset,
     ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
     MAX_DIRECTIONAL_LIGHTS,
 };
@@ -37,7 +37,7 @@ use bevy_render::{
         FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 use std::num::NonZeroU64;
@@ -108,13 +108,14 @@ impl Plugin for MeshRenderPlugin {
             render_app
                 .init_resource::<MeshPipeline>()
                 .init_resource::<SkinnedMeshUniform>()
-                .add_systems_to_schedule(ExtractSchedule, (extract_meshes, extract_skinned_meshes))
-                .add_system(prepare_skinned_meshes.in_set(RenderSet::Prepare))
-                .add_system(queue_mesh_bind_group.in_set(RenderSet::Queue))
-                .add_system(
-                    queue_mesh_view_bind_groups
-                        .in_set(RenderSet::Queue)
-                        .ambiguous_with(queue_shadow_view_bind_group), // queue_mesh_view_bind_groups does not read `shadow_view_bind_group`
+                .add_systems(ExtractSchedule, (extract_meshes, extract_skinned_meshes))
+                .add_systems(
+                    Render,
+                    (
+                        prepare_skinned_meshes.in_set(RenderSet::Prepare),
+                        queue_mesh_bind_group.in_set(RenderSet::Queue),
+                        queue_mesh_view_bind_groups.in_set(RenderSet::Queue),
+                    ),
                 );
         }
     }
@@ -123,6 +124,7 @@ impl Plugin for MeshRenderPlugin {
 #[derive(Component, ShaderType, Clone)]
 pub struct MeshUniform {
     pub transform: Mat4,
+    pub previous_transform: Mat4,
     pub inverse_transpose_model: Mat4,
     pub flags: u32,
 }
@@ -149,6 +151,7 @@ pub fn extract_meshes(
             Entity,
             &ComputedVisibility,
             &GlobalTransform,
+            Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
             Option<With<NotShadowReceiver>>,
             Option<With<NotShadowCaster>>,
@@ -159,8 +162,11 @@ pub fn extract_meshes(
     let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
     let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.is_visible());
 
-    for (entity, _, transform, handle, not_receiver, not_caster) in visible_meshes {
+    for (entity, _, transform, previous_transform, handle, not_receiver, not_caster) in
+        visible_meshes
+    {
         let transform = transform.compute_matrix();
+        let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
         let mut flags = if not_receiver.is_some() {
             MeshFlags::empty()
         } else {
@@ -172,6 +178,7 @@ pub fn extract_meshes(
         let uniform = MeshUniform {
             flags: flags.bits,
             transform,
+            previous_transform,
             inverse_transpose_model: transform.inverse().transpose(),
         };
         if not_caster.is_some() {
@@ -432,29 +439,11 @@ impl FromWorld for MeshPipeline {
             let tonemapping_lut_entries = get_lut_bind_group_layout_entries([14, 15]);
             entries.extend_from_slice(&tonemapping_lut_entries);
 
-            if cfg!(not(feature = "webgl")) {
-                // Depth texture
-                entries.push(BindGroupLayoutEntry {
-                    binding: 16,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled,
-                        sample_type: TextureSampleType::Depth,
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                });
-                // Normal texture
-                entries.push(BindGroupLayoutEntry {
-                    binding: 17,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                });
+            if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && !multisampled) {
+                entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
+                    [16, 17, 18],
+                    multisampled,
+                ));
             }
 
             entries
@@ -507,12 +496,7 @@ impl FromWorld for MeshPipeline {
 
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
-            let image = Image::new_fill(
-                Extent3d::default(),
-                TextureDimension::D2,
-                &[255u8; 4],
-                TextureFormat::bevy_default(),
-            );
+            let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
                 ImageSampler::Default => (**default_sampler).clone(),
@@ -595,12 +579,15 @@ bitflags::bitflags! {
         const DEBAND_DITHER                     = (1 << 2);
         const DEPTH_PREPASS                     = (1 << 3);
         const NORMAL_PREPASS                    = (1 << 4);
-        const ALPHA_MASK                        = (1 << 5);
-        const ENVIRONMENT_MAP                   = (1 << 6);
+        const MOTION_VECTOR_PREPASS             = (1 << 5);
+        const ALPHA_MASK                        = (1 << 6);
+        const ENVIRONMENT_MAP                   = (1 << 7);
+        const DEPTH_CLAMP_ORTHO                 = (1 << 8);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
         const BLEND_MULTIPLY                    = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
+        const BLEND_ALPHA                       = (3 << Self::BLEND_SHIFT_BITS);
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -678,6 +665,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
+            shader_defs.push("LOAD_PREPASS_NORMALS".into());
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
@@ -735,7 +726,13 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
-        if pass == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
+        if pass == MeshPipelineKey::BLEND_ALPHA {
+            label = "alpha_blend_mesh_pipeline".into();
+            blend = Some(BlendState::ALPHA_BLENDING);
+            // For the transparent pass, fragments that are closer will be alpha blended
+            // but their depth is not written to the depth buffer
+            depth_write_enabled = false;
+        } else if pass == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
             label = "premultiplied_alpha_mesh_pipeline".into();
             blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);
             shader_defs.push("PREMULTIPLY_ALPHA".into());
@@ -955,7 +952,7 @@ pub fn queue_mesh_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mesh_pipeline: Res<MeshPipeline>,
-    shadow_pipeline: Res<ShadowPipeline>,
+    shadow_samplers: Res<ShadowSamplers>,
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
     fog_meta: Res<FogMeta>,
@@ -1021,7 +1018,7 @@ pub fn queue_mesh_view_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 3,
-                    resource: BindingResource::Sampler(&shadow_pipeline.point_light_sampler),
+                    resource: BindingResource::Sampler(&shadow_samplers.point_light_sampler),
                 },
                 BindGroupEntry {
                     binding: 4,
@@ -1031,7 +1028,7 @@ pub fn queue_mesh_view_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 5,
-                    resource: BindingResource::Sampler(&shadow_pipeline.directional_light_sampler),
+                    resource: BindingResource::Sampler(&shadow_samplers.directional_light_sampler),
                 },
                 BindGroupEntry {
                     binding: 6,
@@ -1067,34 +1064,15 @@ pub fn queue_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
             entries.extend_from_slice(&tonemapping_luts);
 
-            // When using WebGL with MSAA, we can't create the fallback textures required by the prepass
-            // When using WebGL, and MSAA is disabled, we can't bind the textures either
-            if cfg!(not(feature = "webgl")) {
-                let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
-                    Some(texture) => &texture.default_view,
-                    None => {
-                        &fallback_depths
-                            .image_for_samplecount(msaa.samples())
-                            .texture_view
-                    }
-                };
-                entries.push(BindGroupEntry {
-                    binding: 16,
-                    resource: BindingResource::TextureView(depth_view),
-                });
-
-                let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
-                    Some(texture) => &texture.default_view,
-                    None => {
-                        &fallback_images
-                            .image_for_samplecount(msaa.samples())
-                            .texture_view
-                    }
-                };
-                entries.push(BindGroupEntry {
-                    binding: 17,
-                    resource: BindingResource::TextureView(normal_view),
-                });
+            // When using WebGL, we can't have a depth texture with multisampling
+            if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && msaa.samples() == 1) {
+                entries.extend_from_slice(&prepass::get_bindings(
+                    prepass_textures,
+                    &mut fallback_images,
+                    &mut fallback_depths,
+                    &msaa,
+                    [16, 17, 18],
+                ));
             }
 
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -1199,8 +1177,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                     pass.set_index_buffer(buffer.slice(..), 0, *index_format);
                     pass.draw_indexed(0..*count, 0, 0..1);
                 }
-                GpuBufferInfo::NonIndexed { vertex_count } => {
-                    pass.draw(0..*vertex_count, 0..1);
+                GpuBufferInfo::NonIndexed => {
+                    pass.draw(0..gpu_mesh.vertex_count, 0..1);
                 }
             }
             RenderCommandResult::Success
