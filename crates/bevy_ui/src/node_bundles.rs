@@ -1,8 +1,9 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::{Button, UiImageSize}, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, NodeSize,
-        Style, UiImage, ZIndex,
+    widget::{Button, UiImageSize},
+    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, NodeSize, Style, UiImage,
+    ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -71,7 +72,7 @@ pub struct ImageBundle {
     /// Identifier for the Node in the layout.
     pub node: Node,
     /// Describes the logical size of the node
-    /// 
+    ///
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub node_size: NodeSize,

@@ -183,8 +183,7 @@ impl Plugin for UiPlugin {
                 update_ui_layout
                     .in_set(UiSystem::Layout)
                     .before(UiSystem::Transforms),
-                update_ui_node_transforms
-                    .in_set(UiSystem::Transforms),
+                update_ui_node_transforms.in_set(UiSystem::Transforms),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             ),

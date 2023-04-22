@@ -118,7 +118,9 @@ impl UiSurface {
                     }
                 },
             ));
-            self.taffy.new_leaf_with_measure(style, measure_func).unwrap()
+            self.taffy
+                .new_leaf_with_measure(style, measure_func)
+                .unwrap()
         } else {
             self.taffy.new_leaf(style).unwrap()
         };
@@ -161,7 +163,9 @@ impl UiSurface {
             },
         ));
         self.taffy.set_style(taffy_node, taffy_style).unwrap();
-        self.taffy.set_measure(taffy_node, Some(measure_func)).unwrap();
+        self.taffy
+            .set_measure(taffy_node, Some(measure_func))
+            .unwrap();
     }
 
     pub fn update_children(&mut self, parent: taffy::node::Node, children: &Children) {
@@ -405,32 +409,35 @@ pub fn update_ui_node_transforms(
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
     // PERF: try doing this incrementally
-    for (node, mut node_size, mut transform) in &mut node_transform_query {
-        let layout = ui_surface.taffy.layout(node.key).unwrap();
-        let new_size = Vec2::new(
-            to_logical(layout.size.width),
-            to_logical(layout.size.height),
-        );
-        // only trigger change detection when the new value is different
-        if node_size.calculated_size != new_size {
-            node_size.calculated_size = new_size;
-        }
-        let mut new_position = transform.translation;
-        new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-        new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
+    //for (node, mut node_size, mut transform) in &mut node_transform_query {
+    node_transform_query
+        .par_iter_mut()
+        .for_each_mut(|(node, mut node_size, mut transform)| {
+            let layout = ui_surface.taffy.layout(node.key).unwrap();
+            let new_size = Vec2::new(
+                to_logical(layout.size.width),
+                to_logical(layout.size.height),
+            );
+            // only trigger change detection when the new value is different
+            if node_size.calculated_size != new_size {
+                node_size.calculated_size = new_size;
+            }
+            let mut new_position = transform.translation;
+            new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
+            new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
 
-        let parent_key = ui_surface.taffy.parent(node.key).unwrap();
-        if parent_key != ui_surface.window_node {
-            let parent_layout = ui_surface.taffy.layout(parent_key).unwrap();
-            new_position.x -= to_logical(parent_layout.size.width / 2.0);
-            new_position.y -= to_logical(parent_layout.size.height / 2.0);
-        }
+            let parent_key = ui_surface.taffy.parent(node.key).unwrap();
+            if parent_key != ui_surface.window_node {
+                let parent_layout = ui_surface.taffy.layout(parent_key).unwrap();
+                new_position.x -= to_logical(parent_layout.size.width / 2.0);
+                new_position.y -= to_logical(parent_layout.size.height / 2.0);
+            }
 
-        // only trigger change detection when the new value is different
-        if transform.translation != new_position {
-            transform.translation = new_position;
-        }
-    }
+            // only trigger change detection when the new value is different
+            if transform.translation != new_position {
+                transform.translation = new_position;
+            }
+        });
 }
 
 #[cfg(test)]
