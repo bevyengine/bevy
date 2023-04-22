@@ -1,4 +1,3 @@
-use bevy_log::warn;
 use bevy_render::{
     mesh::{MeshVertexAttribute, VertexAttributeValues},
     prelude::Mesh,
@@ -9,6 +8,7 @@ use gltf::{
     accessor::{DataType, Dimensions},
     mesh::util::{ReadColors, ReadJoints, ReadTexCoords},
 };
+use thiserror::Error;
 
 /// Represents whether integer data requires normalization
 #[derive(Copy, Clone)]
@@ -30,8 +30,11 @@ impl Normalization {
 }
 
 /// An error that occurs when accessing buffer data
-enum AccessFailed {
+#[derive(Error, Debug)]
+pub(crate) enum AccessFailed {
+    #[error("Malformed vertex attribute data")]
     MalformedData,
+    #[error("Unsupported vertex attribute format")]
     UnsupportedFormat,
 }
 
@@ -240,12 +243,22 @@ enum VertexAttributeConversion {
     TexCoord,
 }
 
+#[derive(Error, Debug)]
+pub(crate) enum ConvertAttributeError {
+    #[error("Vertex attribute {0} has format {1:?} but expected {3:?} for target attribute {2}")]
+    WrongFormat(String, VertexFormat, String, VertexFormat),
+    #[error("{0} in accessor {1}")]
+    AccessFailed(AccessFailed, usize),
+    #[error("Unknown vertex attribute {0}")]
+    UnknownName(String),
+}
+
 pub(crate) fn convert_attribute(
     semantic: gltf::Semantic,
     accessor: gltf::Accessor,
     buffer_data: &Vec<Vec<u8>>,
     custom_vertex_attributes: &HashMap<String, MeshVertexAttribute>,
-) -> Option<(MeshVertexAttribute, VertexAttributeValues)> {
+) -> Result<(MeshVertexAttribute, VertexAttributeValues), ConvertAttributeError> {
     if let Some((attribute, conversion)) = match &semantic {
         gltf::Semantic::Positions => {
             Some((Mesh::ATTRIBUTE_POSITION, VertexAttributeConversion::Any))
@@ -279,34 +292,19 @@ pub(crate) fn convert_attribute(
             Ok(values) => {
                 let loaded_format = VertexFormat::from(&values);
                 if attribute.format == loaded_format {
-                    Some((attribute, values))
+                    Ok((attribute, values))
                 } else {
-                    warn!("Vertex attribute {:?} has format {:?} but expected {:?} for target attribute {}",
-                                    semantic, loaded_format, attribute.format, attribute.name
-                                );
-                    None
+                    Err(ConvertAttributeError::WrongFormat(
+                        semantic.to_string(),
+                        loaded_format,
+                        attribute.name.to_string(),
+                        attribute.format,
+                    ))
                 }
             }
-            Err(AccessFailed::MalformedData) => {
-                warn!(
-                    "Malformed vertex attribute data in accessor {}",
-                    accessor.index()
-                );
-                None
-            }
-            Err(AccessFailed::UnsupportedFormat) => {
-                warn!(
-                    "Unsupported vertex attribute format {:?},{:?},normalized={} in accessor {}",
-                    accessor.data_type(),
-                    accessor.dimensions(),
-                    accessor.normalized(),
-                    accessor.index()
-                );
-                None
-            }
+            Err(err) => Err(ConvertAttributeError::AccessFailed(err, accessor.index())),
         }
     } else {
-        warn!("Unrecognised vertex attribute {:?}", semantic);
-        None
+        Err(ConvertAttributeError::UnknownName(semantic.to_string()))
     }
 }

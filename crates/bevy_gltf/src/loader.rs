@@ -225,13 +225,14 @@ async fn load_gltf<'a, 'b>(
 
             // Read vertex attributes
             for (semantic, accessor) in primitive.attributes() {
-                if let Some((attribute, values)) = convert_attribute(
+                match convert_attribute(
                     semantic,
                     accessor,
                     &buffer_data,
                     &loader.custom_vertex_attributes,
                 ) {
-                    mesh.insert_attribute(attribute, values);
+                    Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
+                    Err(err) => warn!("{}", err),
                 }
             }
 
