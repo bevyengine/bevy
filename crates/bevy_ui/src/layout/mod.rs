@@ -1,4 +1,5 @@
 mod convert;
+pub mod ui_surface;
 
 use crate::{CalculatedSize, Node, Style, UiScale};
 use bevy_ecs::{
@@ -7,7 +8,7 @@ use bevy_ecs::{
     event::EventReader,
     query::{Changed, Or, With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -15,12 +16,14 @@ use bevy_math::Vec2;
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
-use std::fmt;
+
 use taffy::{
     prelude::{AvailableSpace, Size},
     style_helpers::TaffyMaxContent,
     Taffy,
 };
+
+use self::ui_surface::UiSurface;
 
 pub struct LayoutContext {
     pub scale_factor: f64,
@@ -41,52 +44,24 @@ impl LayoutContext {
     }
 }
 
-#[derive(Resource)]
-pub struct UiSurface {
-    entity_to_taffy: HashMap<Entity, taffy::node::Node>,
-    window_nodes: HashMap<Entity, taffy::node::Node>,
-    taffy: Taffy,
-}
 
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
     _assert_send_sync::<Taffy>();
-    _assert_send_sync::<UiSurface>();
+    _assert_send_sync::<ui_surface::UiSurface>();
 }
 
-impl fmt::Debug for UiSurface {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("UiSurface")
-            .field("entity_to_taffy", &self.entity_to_taffy)
-            .field("window_nodes", &self.window_nodes)
-            .finish()
-    }
-}
-
-impl Default for UiSurface {
-    fn default() -> Self {
-        Self {
-            entity_to_taffy: Default::default(),
-            window_nodes: Default::default(),
-            taffy: Taffy::new(),
-        }
-    }
-}
 
 impl UiSurface {
-    pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {
-        let mut added = false;
-        let taffy = &mut self.taffy;
-        let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
-            added = true;
-            taffy.new_leaf(convert::from_style(context, style)).unwrap()
-        });
-
-        if !added {
-            self.taffy
-                .set_style(*taffy_node, convert::from_style(context, style))
+    pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {        
+        if let Some(key) = self.entity_to_taffy.get(&entity).copied() {
+            self
+                .set_style(key, convert::from_style(context, style))
                 .unwrap();
+        } else {
+            let key = self.new_leaf(convert::from_style(context, style)).unwrap();
+            self.entity_to_taffy.insert(entity, key);
         }
     }
 
@@ -97,7 +72,6 @@ impl UiSurface {
         calculated_size: &CalculatedSize,
         context: &LayoutContext,
     ) {
-        let taffy = &mut self.taffy;
         let taffy_style = convert::from_style(context, style);
         let measure = calculated_size.measure.dyn_clone();
         let measure_func = taffy::node::MeasureFunc::Boxed(Box::new(
@@ -114,13 +88,13 @@ impl UiSurface {
                 }
             },
         ));
-        if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
-            self.taffy.set_style(*taffy_node, taffy_style).unwrap();
-            self.taffy
-                .set_measure(*taffy_node, Some(measure_func))
+        if let Some(&taffy_node) = self.entity_to_taffy.get(&entity) {
+            self.set_style(taffy_node, taffy_style).unwrap();
+            self
+                .set_measure(taffy_node, Some(measure_func))
                 .unwrap();
         } else {
-            let taffy_node = taffy
+            let taffy_node = self
                 .new_leaf_with_measure(taffy_style, measure_func)
                 .unwrap();
             self.entity_to_taffy.insert(entity, taffy_node);
@@ -141,7 +115,7 @@ without UI components as a child of an entity with UI components, results may be
         }
 
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
-        self.taffy
+        self
             .set_children(*taffy_node, &taffy_children)
             .unwrap();
     }
@@ -149,27 +123,30 @@ without UI components as a child of an entity with UI components, results may be
     /// Removes children from the entity's taffy node if it exists. Does nothing otherwise.
     pub fn try_remove_children(&mut self, entity: Entity) {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
-            self.taffy.set_children(*taffy_node, &[]).unwrap();
+            self.set_children(*taffy_node, &[]).unwrap();
         }
     }
 
     /// Removes the measure from the entity's taffy node if it exists. Does nothing otherwise.
     pub fn try_remove_measure(&mut self, entity: Entity) {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
-            self.taffy.set_measure(*taffy_node, None).unwrap();
+            self.set_measure(*taffy_node, None).unwrap();
         }
     }
 
-    pub fn update_window(&mut self, window: Entity, window_resolution: &WindowResolution) {
-        let taffy = &mut self.taffy;
-        let node = self
-            .window_nodes
-            .entry(window)
-            .or_insert_with(|| taffy.new_leaf(taffy::style::Style::default()).unwrap());
+    pub fn update_window(&mut self, window: Entity, window_resolution: &WindowResolution) {        
+        let node =
+            if let Some( node) = self.window_nodes.get(&window).copied() {
+                node
+            } else {
+                let node = self.new_leaf(taffy::style::Style::default()).unwrap();
+                self.window_nodes.insert(window, node);
+                node
+            };            
 
-        taffy
+        self
             .set_style(
-                *node,
+                node,
                 taffy::style::Style {
                     size: taffy::geometry::Size {
                         width: taffy::style::Dimension::Points(
@@ -194,13 +171,13 @@ without UI components as a child of an entity with UI components, results may be
         let child_nodes = children
             .map(|e| *self.entity_to_taffy.get(&e).unwrap())
             .collect::<Vec<taffy::node::Node>>();
-        self.taffy.set_children(*taffy_node, &child_nodes).unwrap();
+        self.set_children(*taffy_node, &child_nodes).unwrap();
     }
 
     pub fn compute_window_layouts(&mut self) {
-        for window_node in self.window_nodes.values() {
-            self.taffy
-                .compute_layout(*window_node, Size::MAX_CONTENT)
+        if let Some(&window_node) = self.window_nodes.values().next() {
+            self
+                .compute_layout(window_node, Size::MAX_CONTENT)
                 .unwrap();
         }
     }
@@ -209,14 +186,14 @@ without UI components as a child of an entity with UI components, results may be
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
-                self.taffy.remove(node).unwrap();
+                self.remove(node).unwrap();
             }
         }
     }
 
     pub fn get_layout(&self, entity: Entity) -> Result<&taffy::layout::Layout, LayoutError> {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
-            self.taffy
+            self
                 .layout(*taffy_node)
                 .map_err(LayoutError::TaffyError)
         } else {

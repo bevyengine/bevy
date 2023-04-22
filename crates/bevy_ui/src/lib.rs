@@ -25,6 +25,7 @@ use bevy_render::extract_component::ExtractComponentPlugin;
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
+use layout::ui_surface::UiSurface;
 pub use measurement::*;
 pub use render::*;
 pub use ui_node::*;
