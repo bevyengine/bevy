@@ -87,7 +87,6 @@ async-channel = "1.8"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = [
     'Blob',
-    # 'BlobPropertyBag',
     'Document',
     'Element',
     'HtmlElement',
