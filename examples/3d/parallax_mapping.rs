@@ -315,9 +315,9 @@ fn setup(
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., -45.)));
 
     let style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 18.0,
         color: Color::WHITE,
+        ..default()
     };
 
     commands.spawn(

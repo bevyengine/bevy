@@ -73,7 +73,7 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     warn!(include_str!("warning_string.txt"));
 
     commands.spawn(Camera3dBundle {
@@ -84,7 +84,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(TextBundle::from_section(
         "",
         TextStyle {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 30.,
             ..default()
         },

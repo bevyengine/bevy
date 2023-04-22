@@ -143,7 +143,7 @@ impl Main {
 
         world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
             for label in &order.labels {
-                let _ = world.try_run_schedule_ref(&**label);
+                let _ = world.try_run_schedule(&**label);
             }
         });
     }

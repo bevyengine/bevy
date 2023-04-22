@@ -162,9 +162,7 @@ impl SubApp {
 
     /// Runs the `SubApp`'s default schedule.
     pub fn run(&mut self) {
-        self.app
-            .world
-            .run_schedule_ref(&*self.app.main_schedule_label);
+        self.app.world.run_schedule(&*self.app.main_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -241,7 +239,7 @@ impl App {
         {
             #[cfg(feature = "trace")]
             let _bevy_frame_update_span = info_span!("main app").entered();
-            self.world.run_schedule_ref(&*self.main_schedule_label);
+            self.world.run_schedule(&*self.main_schedule_label);
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]

@@ -329,9 +329,9 @@ fn setup(
         TextBundle::from_section(
             "",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 20.0,
                 color: Color::BLACK,
+                ..default()
             },
         )
         .with_style(Style {

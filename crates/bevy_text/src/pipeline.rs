@@ -7,7 +7,7 @@ use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::HashMap;
 
-use glyph_brush_layout::{FontId, SectionText};
+use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText};
 
 use crate::{
     error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font, FontAtlasSet,
@@ -54,7 +54,7 @@ impl TextPipeline {
         font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
     ) -> Result<TextLayoutInfo, TextError> {
-        let mut scaled_fonts = Vec::new();
+        let mut scaled_fonts = Vec::with_capacity(sections.len());
         let sections = sections
             .iter()
             .map(|section| {
@@ -92,6 +92,9 @@ impl TextPipeline {
         for sg in &section_glyphs {
             let scaled_font = scaled_fonts[sg.section_index];
             let glyph = &sg.glyph;
+            // The fonts use a coordinate system increasing upwards so ascent is a positive value
+            // and descent is negative, but Bevy UI uses a downwards increasing coordinate system,
+            // so we have to subtract from the baseline position to get the minimum and maximum values.
             min_x = min_x.min(glyph.position.x);
             min_y = min_y.min(glyph.position.y - scaled_font.ascent());
             max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
@@ -113,5 +116,141 @@ impl TextPipeline {
         )?;
 
         Ok(TextLayoutInfo { glyphs, size })
+    }
+
+    pub fn create_text_measure(
+        &mut self,
+        fonts: &Assets<Font>,
+        sections: &[TextSection],
+        scale_factor: f64,
+        text_alignment: TextAlignment,
+        linebreak_behaviour: BreakLineOn,
+    ) -> Result<TextMeasureInfo, TextError> {
+        let mut auto_fonts = Vec::with_capacity(sections.len());
+        let mut scaled_fonts = Vec::with_capacity(sections.len());
+        let sections = sections
+            .iter()
+            .enumerate()
+            .map(|(i, section)| {
+                let font = fonts
+                    .get(&section.style.font)
+                    .ok_or(TextError::NoSuchFont)?;
+                let font_size = scale_value(section.style.font_size, scale_factor);
+                auto_fonts.push(font.font.clone());
+                let px_scale_font = ab_glyph::Font::into_scaled(font.font.clone(), font_size);
+                scaled_fonts.push(px_scale_font);
+
+                let section = TextMeasureSection {
+                    font_id: FontId(i),
+                    scale: PxScale::from(font_size),
+                    text: section.value.clone(),
+                };
+
+                Ok(section)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(TextMeasureInfo::new(
+            auto_fonts,
+            scaled_fonts,
+            sections,
+            text_alignment,
+            linebreak_behaviour.into(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TextMeasureSection {
+    pub text: String,
+    pub scale: PxScale,
+    pub font_id: FontId,
+}
+
+#[derive(Debug, Clone)]
+pub struct TextMeasureInfo {
+    pub fonts: Vec<ab_glyph::FontArc>,
+    pub scaled_fonts: Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>,
+    pub sections: Vec<TextMeasureSection>,
+    pub text_alignment: TextAlignment,
+    pub linebreak_behaviour: glyph_brush_layout::BuiltInLineBreaker,
+    pub min_width_content_size: Vec2,
+    pub max_width_content_size: Vec2,
+}
+
+impl TextMeasureInfo {
+    fn new(
+        fonts: Vec<ab_glyph::FontArc>,
+        scaled_fonts: Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>,
+        sections: Vec<TextMeasureSection>,
+        text_alignment: TextAlignment,
+        linebreak_behaviour: glyph_brush_layout::BuiltInLineBreaker,
+    ) -> Self {
+        let mut info = Self {
+            fonts,
+            scaled_fonts,
+            sections,
+            text_alignment,
+            linebreak_behaviour,
+            min_width_content_size: Vec2::ZERO,
+            max_width_content_size: Vec2::ZERO,
+        };
+
+        let section_texts = info.prepare_section_texts();
+        let min =
+            info.compute_size_from_section_texts(&section_texts, Vec2::new(0.0, f32::INFINITY));
+        let max = info.compute_size_from_section_texts(
+            &section_texts,
+            Vec2::new(f32::INFINITY, f32::INFINITY),
+        );
+        info.min_width_content_size = min;
+        info.max_width_content_size = max;
+        info
+    }
+
+    fn prepare_section_texts(&self) -> Vec<SectionText> {
+        self.sections
+            .iter()
+            .map(|section| SectionText {
+                font_id: section.font_id,
+                scale: section.scale,
+                text: &section.text,
+            })
+            .collect::<Vec<_>>()
+    }
+
+    fn compute_size_from_section_texts(&self, sections: &[SectionText], bounds: Vec2) -> Vec2 {
+        let geom = SectionGeometry {
+            bounds: (bounds.x, bounds.y),
+            ..Default::default()
+        };
+        let section_glyphs = glyph_brush_layout::Layout::default()
+            .h_align(self.text_alignment.into())
+            .line_breaker(self.linebreak_behaviour)
+            .calculate_glyphs(&self.fonts, &geom, sections);
+
+        let mut min_x: f32 = std::f32::MAX;
+        let mut min_y: f32 = std::f32::MAX;
+        let mut max_x: f32 = std::f32::MIN;
+        let mut max_y: f32 = std::f32::MIN;
+
+        for sg in section_glyphs {
+            let scaled_font = &self.scaled_fonts[sg.section_index];
+            let glyph = &sg.glyph;
+            // The fonts use a coordinate system increasing upwards so ascent is a positive value
+            // and descent is negative, but Bevy UI uses a downwards increasing coordinate system,
+            // so we have to subtract from the baseline position to get the minimum and maximum values.
+            min_x = min_x.min(glyph.position.x);
+            min_y = min_y.min(glyph.position.y - scaled_font.ascent());
+            max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
+            max_y = max_y.max(glyph.position.y - scaled_font.descent());
+        }
+
+        Vec2::new(max_x - min_x, max_y - min_y)
+    }
+
+    pub fn compute_size(&self, bounds: Vec2) -> Vec2 {
+        let sections = self.prepare_section_texts();
+        self.compute_size_from_section_texts(&sections, bounds)
     }
 }
