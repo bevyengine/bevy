@@ -393,7 +393,7 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
 
-        if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
+        if true || key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(2));
             shader_defs.push("NORMAL_PREPASS".into());
 
@@ -428,7 +428,7 @@ where
         let has_motion_vectors = key
             .mesh_key
             .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS);
-        let has_prepass_fragment = has_normal || has_motion_vectors;
+        let has_prepass_fragment = true || has_normal || has_motion_vectors;
         let mut targets = vec![];
         targets.push(has_normal.then_some(ColorTargetState {
             format: NORMAL_PREPASS_FORMAT,
@@ -440,6 +440,9 @@ where
             blend: Some(BlendState::REPLACE),
             write_mask: ColorWrites::ALL,
         }));
+        if targets.iter().all(|opt| opt.is_none()) {
+            targets.clear();
+        }
 
         // The fragment shader is only used when the normal prepass or motion vectors prepass
         // is enabled or the material uses alpha cutoff values and doesn't rely on the standard

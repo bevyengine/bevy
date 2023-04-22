@@ -4,9 +4,7 @@
 use std::fmt;
 
 use bevy::{
-    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    prelude::*,
-    render::render_resource::TextureFormat,
+    core_pipeline::prepass::DepthPrepass, prelude::*, render::render_resource::TextureFormat,
     window::close_on_esc,
 };
 
@@ -14,6 +12,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(Normal(None))
+        .insert_resource(Msaa::Off)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -266,7 +265,7 @@ fn setup(
             reflectance: 0.18,
             ..Color::rgb_u8(0, 80, 0).into()
         }),
-        transform: Transform::from_xyz(0.0, -1.0, 0.0),
+        transform: Transform::from_xyz(0.0, -0.1, 0.0),
         ..default()
     });
 

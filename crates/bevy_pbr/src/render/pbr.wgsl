@@ -25,6 +25,7 @@ struct FragmentInput {
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     let is_orthographic = view.projection[3].w == 1.0;
     let V = calculate_view(in.world_position, is_orthographic);
+    var my_depth = 0.0;
 #ifdef VERTEX_UVS
     var uv = in.uv;
 #ifdef VERTEX_TANGENTS
@@ -46,6 +47,12 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             -Vt,
         );
         uv = parallaxed.xy;
+        let NBT = transpose(mat3x3(T, B, N));
+        let tangent_extra_depth = normalize(Vt) * additional_depth(in.uv, parallaxed.xy, parallaxed.z);
+        let extra_depth = tangent_extra_depth * NBT;
+        let parallaxed_view_position = view.view_proj * (in.world_position - vec4(extra_depth, 0.0));
+        // let parallaxed_view_position = view.view_proj * in.world_position;
+        my_depth = parallaxed_view_position.z / parallaxed_view_position.w ;
     }
 #endif
 #endif
@@ -155,7 +162,14 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef PREMULTIPLY_ALPHA
     output_color = premultiply_alpha(material.flags, output_color);
 #endif
-    // output_color = debug_gradient((0.9 - pow(prepass_depth(in.frag_coord, in.sample_index), 0.1)) * 15.0);
-    output_color = debug_gradient(1.0 - prepass_depth(in.frag_coord, in.sample_index) * 15.0);
+    let depth = prepass_depth(in.frag_coord, in.sample_index);
+    if my_depth != 0.0 {
+        discard;
+    }
+    // var depth = my_depth;
+    // if depth == 0.0 {
+    //     depth = in.frag_coord.z;
+    // }
+    // output_color = debug_gradient(1.0 - depth * 14.0);
     return output_color;
 }

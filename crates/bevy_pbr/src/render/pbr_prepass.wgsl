@@ -1,13 +1,28 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::pbr_bindings
-#ifdef NORMAL_PREPASS
 #import bevy_pbr::pbr_functions
 #import bevy_pbr::parallax_mapping
+#ifdef NORMAL_PREPASS
 #endif // NORMAL_PREPASS
+
+
+// This is a workaround since the preprocessor does not support
+// #if defined(ALPHA_MASK) || defined(BLEND_PREMULTIPLIED_ALPHA)
+#ifndef ALPHA_MASK
+#ifndef BLEND_PREMULTIPLIED_ALPHA
+#ifndef BLEND_ALPHA
+
+#define NO_ALPHA_DISCARD
+
+#endif // BLEND_ALPHA
+#endif // BLEND_PREMULTIPLIED_ALPHA not defined
+#endif // ALPHA_MASK not defined
+
 
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
+    @location(3) world_position: vec4<f32>,
 #ifdef VERTEX_UVS
     @location(0) uv: vec2<f32>,
 #endif // VERTEX_UVS
@@ -20,55 +35,9 @@ struct FragmentInput {
 #endif // NORMAL_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
-    @location(3) world_position: vec4<f32>,
     @location(4) previous_world_position: vec4<f32>,
 #endif // MOTION_VECTOR_PREPASS
 };
-
-// Cutoff used for the premultiplied alpha modes BLEND and ADD.
-const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
-
-// We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
-fn prepass_alpha_discard(in: FragmentInput) {
-
-// This is a workaround since the preprocessor does not support
-// #if defined(ALPHA_MASK) || defined(BLEND_PREMULTIPLIED_ALPHA)
-#ifndef ALPHA_MASK
-#ifndef BLEND_PREMULTIPLIED_ALPHA
-#ifndef BLEND_ALPHA
-
-#define EMPTY_PREPASS_ALPHA_DISCARD
-
-#endif // BLEND_ALPHA
-#endif // BLEND_PREMULTIPLIED_ALPHA not defined
-#endif // ALPHA_MASK not defined
-
-#ifndef EMPTY_PREPASS_ALPHA_DISCARD
-    var output_color: vec4<f32> = material.base_color;
-
-#ifdef VERTEX_UVS
-    if (material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
-        output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
-    }
-#endif // VERTEX_UVS
-
-#ifdef ALPHA_MASK
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) && output_color.a < material.alpha_cutoff {
-        discard;
-    }
-#else // BLEND_PREMULTIPLIED_ALPHA || BLEND_ALPHA
-    let alpha_mode = material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD)
-        && output_color.a < PREMULTIPLIED_ALPHA_CUTOFF {
-        discard;
-    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED
-        && all(output_color < vec4(PREMULTIPLIED_ALPHA_CUTOFF)) {
-        discard;
-    }
-#endif // !ALPHA_MASK
-
-#endif // EMPTY_PREPASS_ALPHA_DISCARD not defined
-}
 
 #ifdef PREPASS_FRAGMENT
 struct FragmentOutput {
@@ -80,19 +49,58 @@ struct FragmentOutput {
 #ifdef MOTION_VECTOR_PREPASS
     @location(1) motion_vector: vec2<f32>,
 #endif // MOTION_VECTOR_PREPASS
+};
+#endif PREPASS_FRAGMENT
+
+
+// Cutoff used for the premultiplied alpha modes BLEND and ADD.
+const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
+
+// We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
+fn prepass_alpha_discard(in: FragmentInput) {
+
+#ifndef NO_ALPHA_DISCARD
+    var output_color: vec4<f32> = material.base_color;
+
+#ifdef VERTEX_UVS
+    if (material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
+        output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
+    }
+#endif // VERTEX_UVS
+
+#ifdef ALPHA_MASK
+    let has_alpha = (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u;
+    if has_alpha && output_color.a < material.alpha_cutoff {
+        discard;
+    }
+#else // BLEND_PREMULTIPLIED_ALPHA || BLEND_ALPHA
+    let alpha_mode = material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    let blend_or_add = STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND | STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD;
+    let cuts_off = output_color.a < PREMULTIPLIED_ALPHA_CUTOFF;
+    if ((alpha_mode & blend_or_add) != 0u) && cuts_off {
+        discard;
+    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED
+        && all(output_color < vec4(PREMULTIPLIED_ALPHA_CUTOFF)) {
+        discard;
+    }
+#endif // ALPHA_MASK
+
+#endif // NO_ALPHA_DISCARD not defined
 }
 
+#ifdef PREPASS_FRAGMENT
 @fragment
 fn fragment(in: FragmentInput) -> FragmentOutput {
     var out: FragmentOutput;
     out.depth = in.frag_coord.z;
-    prepass_alpha_discard(in);
 
-    let is_orthographic = view.projection[3].w == 1.0;
-    let V = calculate_view(in.world_position, is_orthographic);
+    prepass_alpha_discard(in);
 
 #ifdef VERTEX_TANGENTS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
+        let is_orthographic = view.projection[3].w == 1.0;
+        let V = calculate_view(in.world_position, is_orthographic);
+
         let N = in.world_normal;
         let T = in.world_tangent.xyz;
         let B = in.world_tangent.w * cross(N, T);
@@ -108,10 +116,14 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
             // about.
             -Vt,
         );
-        let NBT = transpose(mat3x3(T,B,N));
-        Vt = Vt * (1.0 + additional_depth(in.uv, parallaxed.xy, parallaxed.z));
-        Vt = vec3(dot(Vt, -N), dot(Vt, -B), dot(Vt, -T));
-        // out.depth -= Vt.z;
+        if parallaxed.z != 0.0 {
+        let NBT = transpose(mat3x3(T, B, N));
+        let tangent_extra_depth = Vt * additional_depth(in.uv, parallaxed.xy, parallaxed.z);
+        let extra_depth = tangent_extra_depth * NBT;
+        let parallaxed_view_position = view.view_proj * (in.world_position - vec4(extra_depth, 0.0));
+        // let parallaxed_view_position = view.view_proj * in.world_position;
+        out.depth = (parallaxed_view_position.z / parallaxed_view_position.w)  * 0.9999;
+        }
     }
 #endif
 
@@ -161,7 +173,8 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 }
 #else
 @fragment
-fn fragment(in: FragmentInput) {
+fn fragment(in: FragmentInput) -> @builtin(frag_depth) f32 {
     prepass_alpha_discard(in);
+    return in.frag_coord.z;
 }
 #endif // PREPASS_FRAGMENT

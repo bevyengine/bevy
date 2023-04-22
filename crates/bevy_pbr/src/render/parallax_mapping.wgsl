@@ -110,13 +110,12 @@ fn parallaxed_uv(
     current_layer_depth += mix(next_depth, previous_depth, weight);
 #endif
 
-    return vec3<f32>(uv, sample_depth_map(uv));
+    return vec3<f32>(uv, sample_depth_map(uv) * depth_scale);
 }
 
 /// Additional depth in tangent space resulting from parallaxing.
 ///
 /// This is a simple pythagorean theorem.
 fn additional_depth(old_uv: vec2<f32>, new_uv: vec2<f32>, depth: f32) -> f32 {
-    let traversed = distance(old_uv, new_uv);
-    return sqrt(traversed*traversed + depth*depth);
+    return length(vec3(new_uv - old_uv, depth));
 }

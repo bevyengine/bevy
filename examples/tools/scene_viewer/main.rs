@@ -6,6 +6,7 @@
 //! With no arguments it will load the `FlightHelmet` glTF model from the repository assets subdirectory.
 
 use bevy::{
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
     math::Vec3A,
     prelude::*,
     render::primitives::{Aabb, Sphere},
@@ -63,6 +64,7 @@ fn parse_scene(scene_path: String) -> (String, usize) {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(Msaa::Off);
     let scene_path = std::env::args()
         .nth(1)
         .unwrap_or_else(|| "assets/models/FlightHelmet/FlightHelmet.gltf".to_string());
@@ -135,6 +137,9 @@ fn setup_scene_after_load(
                     .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             },
             camera_controller,
+            DepthPrepass,
+            NormalPrepass,
+            MotionVectorPrepass,
         ));
 
         // Spawn a default light if the scene does not have one

@@ -26,6 +26,7 @@ struct Vertex {
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
+    @location(3) world_position: vec4<f32>,
 
 #ifdef VERTEX_UVS
     @location(0) uv: vec2<f32>,
@@ -39,7 +40,6 @@ struct VertexOutput {
 #endif // NORMAL_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
-    @location(3) world_position: vec4<f32>,
     @location(4) previous_world_position: vec4<f32>,
 #endif // MOTION_VECTOR_PREPASS
 }
@@ -54,6 +54,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var model = mesh.model;
 #endif // SKINNED
 
+    out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
     out.clip_position = mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
 #ifdef DEPTH_CLAMP_ORTHO
         out.clip_position.z = min(out.clip_position.z, 1.0);
@@ -76,7 +77,6 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #endif // NORMAL_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
-    out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
     out.previous_world_position = mesh_position_local_to_world(mesh.previous_model, vec4<f32>(vertex.position, 1.0));
 #endif // MOTION_VECTOR_PREPASS
 
