@@ -10,9 +10,9 @@ use taffy::tree::LayoutTree;
 #[derive(Resource, Default)]
 pub struct UiSurface {
     pub entity_to_taffy: HashMap<Entity, taffy::node::Node>,
-    
+
     pub window_nodes: HashMap<Entity, taffy::node::Node>,
-    
+
     pub nodes: SlotMap<Node, UiNodeData>,
 
     /// Functions/closures that compute the intrinsic size of leaf nodes
@@ -34,65 +34,66 @@ impl LayoutTree for UiSurface {
     where
         Self: 'a;
 
-        fn children(&self, node: Node) -> Self::ChildIter<'_> {
-            self.children[node].iter()
-        }
-    
-        fn child_count(&self, node: Node) -> usize {
-            self.children[node].len()
-        }
-    
-        fn is_childless(&self, node: Node) -> bool {
-            self.children[node].is_empty()
-        }
-    
-        fn parent(&self, node: Node) -> Option<Node> {
-            self.parents.get(node).copied().flatten()
-        }
-    
-        fn style(&self, node: Node) -> &taffy::style::Style {
-            &self.nodes[node].style
-        }
-    
-        fn layout(&self, node: Node) -> &taffy::prelude::Layout {
-            &self.nodes[node].layout
-        }
-    
-        fn layout_mut(&mut self, node: Node) -> &mut taffy::prelude::Layout {
-            &mut self.nodes[node].layout
-        }
-    
-        #[inline(always)]
-        fn mark_dirty(&mut self, node: Node) -> taffy::error::TaffyResult<()> {
-            self.mark_dirty_internal(node)
-        }
-    
-        fn measure_node(
-            &self,
-            node: Node,
-            known_dimensions: taffy::prelude::Size<Option<f32>>,
-            available_space: taffy::prelude::Size<taffy::style::AvailableSpace>,
-        ) -> taffy::prelude::Size<f32> {
-            match &self.measure_funcs[node] {
-                taffy::node::MeasureFunc::Raw(measure) => measure(known_dimensions, available_space),
-    
-                taffy::node::MeasureFunc::Boxed(measure) => (measure as &dyn Fn(_, _) -> _)(known_dimensions, available_space),
+    fn children(&self, node: Node) -> Self::ChildIter<'_> {
+        self.children[node].iter()
+    }
+
+    fn child_count(&self, node: Node) -> usize {
+        self.children[node].len()
+    }
+
+    fn is_childless(&self, node: Node) -> bool {
+        self.children[node].is_empty()
+    }
+
+    fn parent(&self, node: Node) -> Option<Node> {
+        self.parents.get(node).copied().flatten()
+    }
+
+    fn style(&self, node: Node) -> &taffy::style::Style {
+        &self.nodes[node].style
+    }
+
+    fn layout(&self, node: Node) -> &taffy::prelude::Layout {
+        &self.nodes[node].layout
+    }
+
+    fn layout_mut(&mut self, node: Node) -> &mut taffy::prelude::Layout {
+        &mut self.nodes[node].layout
+    }
+
+    #[inline(always)]
+    fn mark_dirty(&mut self, node: Node) -> taffy::error::TaffyResult<()> {
+        self.mark_dirty_internal(node)
+    }
+
+    fn measure_node(
+        &self,
+        node: Node,
+        known_dimensions: taffy::prelude::Size<Option<f32>>,
+        available_space: taffy::prelude::Size<taffy::style::AvailableSpace>,
+    ) -> taffy::prelude::Size<f32> {
+        match &self.measure_funcs[node] {
+            taffy::node::MeasureFunc::Raw(measure) => measure(known_dimensions, available_space),
+
+            taffy::node::MeasureFunc::Boxed(measure) => {
+                (measure as &dyn Fn(_, _) -> _)(known_dimensions, available_space)
             }
         }
-    
-        fn needs_measure(&self, node: Node) -> bool {
-            self.nodes[node].needs_measure && self.measure_funcs.get(node).is_some()
-        }
-    
-        fn cache_mut(&mut self, node: Node, index: usize) -> &mut Option<taffy::layout::Cache> {
-            &mut self.nodes[node].size_cache[index]
-        }
-    
-        fn child(&self, node: Node, id: usize) -> Node {
-            self.children[node][id]
-        }
-}
+    }
 
+    fn needs_measure(&self, node: Node) -> bool {
+        self.nodes[node].needs_measure && self.measure_funcs.get(node).is_some()
+    }
+
+    fn cache_mut(&mut self, node: Node, index: usize) -> &mut Option<taffy::layout::Cache> {
+        &mut self.nodes[node].size_cache[index]
+    }
+
+    fn child(&self, node: Node, id: usize) -> Node {
+        self.children[node][id]
+    }
+}
 
 impl UiSurface {
     #[must_use]
@@ -124,7 +125,11 @@ impl UiSurface {
     /// Creates and adds a new unattached leaf node to the tree, and returns the [`Node`] of the new node
     ///
     /// Creates and adds a new leaf node with a supplied [`MeasureFunc`]
-    pub fn new_leaf_with_measure(&mut self, layout: taffy::style::Style, measure: MeasureFunc) -> taffy::error::TaffyResult<Node> {
+    pub fn new_leaf_with_measure(
+        &mut self,
+        layout: taffy::style::Style,
+        measure: MeasureFunc,
+    ) -> taffy::error::TaffyResult<Node> {
         let mut data = UiNodeData::new(layout);
         data.needs_measure = true;
 
@@ -138,14 +143,20 @@ impl UiSurface {
     }
 
     /// Creates and adds a new node, which may have any number of `children`
-    pub fn new_with_children(&mut self, layout: taffy::style::Style, children: &[Node]) -> taffy::error::TaffyResult<Node> {
+    pub fn new_with_children(
+        &mut self,
+        layout: taffy::style::Style,
+        children: &[Node],
+    ) -> taffy::error::TaffyResult<Node> {
         let id = self.nodes.insert(UiNodeData::new(layout));
 
         for child in children {
             self.parents[*child] = Some(id);
         }
 
-        let _ = self.children.insert(children.iter().copied().collect::<_>());
+        let _ = self
+            .children
+            .insert(children.iter().copied().collect::<_>());
         let _ = self.parents.insert(None);
 
         Ok(id)
@@ -176,7 +187,11 @@ impl UiSurface {
     }
 
     /// Sets the [`MeasureFunc`] of the associated node
-    pub fn set_measure(&mut self, node: Node, measure: Option<MeasureFunc>) -> taffy::error::TaffyResult<()> {
+    pub fn set_measure(
+        &mut self,
+        node: Node,
+        measure: Option<MeasureFunc>,
+    ) -> taffy::error::TaffyResult<()> {
         if let Some(measure) = measure {
             self.nodes[node].needs_measure = true;
             self.measure_funcs.insert(node, measure);
@@ -200,7 +215,11 @@ impl UiSurface {
     }
 
     /// Directly sets the `children` of the supplied `parent`
-    pub fn set_children(&mut self, parent: Node, children: &[Node]) -> taffy::error::TaffyResult<()> {
+    pub fn set_children(
+        &mut self,
+        parent: Node,
+        children: &[Node],
+    ) -> taffy::error::TaffyResult<()> {
         // Remove node as parent from all its current children.
         for child in &self.children[parent] {
             self.parents[*child] = None;
@@ -222,17 +241,28 @@ impl UiSurface {
     ///
     /// The child is not removed from the tree entirely, it is simply no longer attached to its previous parent.
     pub fn remove_child(&mut self, parent: Node, child: Node) -> taffy::error::TaffyResult<Node> {
-        let index = self.children[parent].iter().position(|n| *n == child).unwrap();
+        let index = self.children[parent]
+            .iter()
+            .position(|n| *n == child)
+            .unwrap();
         self.remove_child_at_index(parent, index)
     }
 
     /// Removes the child at the given `index` from the `parent`
     ///
     /// The child is not removed from the tree entirely, it is simply no longer attached to its previous parent.
-    pub fn remove_child_at_index(&mut self, parent: Node, child_index: usize) -> taffy::error::TaffyResult<Node> {
+    pub fn remove_child_at_index(
+        &mut self,
+        parent: Node,
+        child_index: usize,
+    ) -> taffy::error::TaffyResult<Node> {
         let child_count = self.children[parent].len();
         if child_index >= child_count {
-            return Err(taffy::error::TaffyError::ChildIndexOutOfBounds { parent, child_index, child_count });
+            return Err(taffy::error::TaffyError::ChildIndexOutOfBounds {
+                parent,
+                child_index,
+                child_count,
+            });
         }
 
         let child = self.children[parent].remove(child_index);
@@ -246,10 +276,19 @@ impl UiSurface {
     /// Replaces the child at the given `child_index` from the `parent` node with the new `child` node
     ///
     /// The child is not removed from the tree entirely, it is simply no longer attached to its previous parent.
-    pub fn replace_child_at_index(&mut self, parent: Node, child_index: usize, new_child: Node) -> taffy::error::TaffyResult<Node> {
+    pub fn replace_child_at_index(
+        &mut self,
+        parent: Node,
+        child_index: usize,
+        new_child: Node,
+    ) -> taffy::error::TaffyResult<Node> {
         let child_count = self.children[parent].len();
         if child_index >= child_count {
-            return Err(taffy::error::TaffyError::ChildIndexOutOfBounds { parent, child_index, child_count });
+            return Err(taffy::error::TaffyError::ChildIndexOutOfBounds {
+                parent,
+                child_index,
+                child_count,
+            });
         }
 
         self.parents[new_child] = Some(parent);
@@ -262,10 +301,18 @@ impl UiSurface {
     }
 
     /// Returns the child [`Node`] of the parent `node` at the provided `child_index`
-    pub fn child_at_index(&self, parent: Node, child_index: usize) -> taffy::error::TaffyResult<Node> {
+    pub fn child_at_index(
+        &self,
+        parent: Node,
+        child_index: usize,
+    ) -> taffy::error::TaffyResult<Node> {
         let child_count = self.children[parent].len();
         if child_index >= child_count {
-            return Err(taffy::error::TaffyError::ChildIndexOutOfBounds { parent, child_index, child_count });
+            return Err(taffy::error::TaffyError::ChildIndexOutOfBounds {
+                parent,
+                child_index,
+                child_count,
+            });
         }
 
         Ok(self.children[parent][child_index])
@@ -282,7 +329,11 @@ impl UiSurface {
     }
 
     /// Sets the [`Style`] of the provided `node`
-    pub fn set_style(&mut self, node: Node, style: taffy::style::Style) -> taffy::error::TaffyResult<()> {
+    pub fn set_style(
+        &mut self,
+        node: Node,
+        style: taffy::style::Style,
+    ) -> taffy::error::TaffyResult<()> {
         self.nodes[node].style = style;
         self.mark_dirty_internal(node)?;
         Ok(())
@@ -324,11 +375,18 @@ impl UiSurface {
 
     /// Indicates whether the layout of this node (and its children) need to be recomputed
     pub fn dirty(&self, node: Node) -> taffy::error::TaffyResult<bool> {
-        Ok(self.nodes[node].size_cache.iter().all(|entry| entry.is_none()))
+        Ok(self.nodes[node]
+            .size_cache
+            .iter()
+            .all(|entry| entry.is_none()))
     }
 
     /// Updates the stored layout of the provided `node` and its children
-    pub fn compute_layout(&mut self, node: Node, available_space: taffy::prelude::Size<taffy::style::AvailableSpace>) -> Result<(), taffy::error::TaffyError> {
+    pub fn compute_layout(
+        &mut self,
+        node: Node,
+        available_space: taffy::prelude::Size<taffy::style::AvailableSpace>,
+    ) -> Result<(), taffy::error::TaffyError> {
         //self.compute_layout(node, taffy::prelude::Size::MAX_CONTENT)
         let size_and_baselines = taffy::prelude::layout_flexbox(
             self,
@@ -338,16 +396,16 @@ impl UiSurface {
             available_space,
             taffy::layout::SizingMode::InherentSize,
         );
-    
+
         let layout = taffy::prelude::Layout {
             order: 0,
             size: size_and_baselines.size,
             location: taffy::geometry::Point::ZERO,
         };
         *self.layout_mut(node) = layout;
-    
+
         round_layout(self, node, 0., 0.);
-    
+
         Ok(())
     }
 }
@@ -375,7 +433,12 @@ impl UiNodeData {
     /// Create the data for a new node
     #[must_use]
     pub const fn new(style: taffy::style::Style) -> Self {
-        Self { style, size_cache: [None; CACHE_SIZE], layout: taffy::prelude::Layout::new(), needs_measure: false }
+        Self {
+            style,
+            size_cache: [None; CACHE_SIZE],
+            layout: taffy::prelude::Layout::new(),
+            needs_measure: false,
+        }
     }
 
     /// Marks a node and all of its parents (recursively) as dirty

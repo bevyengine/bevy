@@ -44,7 +44,6 @@ impl LayoutContext {
     }
 }
 
-
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
@@ -52,12 +51,10 @@ fn _assert_send_sync_ui_surface_impl_safe() {
     _assert_send_sync::<ui_surface::UiSurface>();
 }
 
-
 impl UiSurface {
-    pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {        
+    pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {
         if let Some(key) = self.entity_to_taffy.get(&entity).copied() {
-            self
-                .set_style(key, convert::from_style(context, style))
+            self.set_style(key, convert::from_style(context, style))
                 .unwrap();
         } else {
             let key = self.new_leaf(convert::from_style(context, style)).unwrap();
@@ -90,9 +87,7 @@ impl UiSurface {
         ));
         if let Some(&taffy_node) = self.entity_to_taffy.get(&entity) {
             self.set_style(taffy_node, taffy_style).unwrap();
-            self
-                .set_measure(taffy_node, Some(measure_func))
-                .unwrap();
+            self.set_measure(taffy_node, Some(measure_func)).unwrap();
         } else {
             let taffy_node = self
                 .new_leaf_with_measure(taffy_style, measure_func)
@@ -115,9 +110,7 @@ without UI components as a child of an entity with UI components, results may be
         }
 
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
-        self
-            .set_children(*taffy_node, &taffy_children)
-            .unwrap();
+        self.set_children(*taffy_node, &taffy_children).unwrap();
     }
 
     /// Removes children from the entity's taffy node if it exists. Does nothing otherwise.
@@ -134,32 +127,30 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    pub fn update_window(&mut self, window: Entity, window_resolution: &WindowResolution) {        
-        let node =
-            if let Some( node) = self.window_nodes.get(&window).copied() {
-                node
-            } else {
-                let node = self.new_leaf(taffy::style::Style::default()).unwrap();
-                self.window_nodes.insert(window, node);
-                node
-            };            
+    pub fn update_window(&mut self, window: Entity, window_resolution: &WindowResolution) {
+        let node = if let Some(node) = self.window_nodes.get(&window).copied() {
+            node
+        } else {
+            let node = self.new_leaf(taffy::style::Style::default()).unwrap();
+            self.window_nodes.insert(window, node);
+            node
+        };
 
-        self
-            .set_style(
-                node,
-                taffy::style::Style {
-                    size: taffy::geometry::Size {
-                        width: taffy::style::Dimension::Points(
-                            window_resolution.physical_width() as f32
-                        ),
-                        height: taffy::style::Dimension::Points(
-                            window_resolution.physical_height() as f32,
-                        ),
-                    },
-                    ..Default::default()
+        self.set_style(
+            node,
+            taffy::style::Style {
+                size: taffy::geometry::Size {
+                    width: taffy::style::Dimension::Points(
+                        window_resolution.physical_width() as f32
+                    ),
+                    height: taffy::style::Dimension::Points(
+                        window_resolution.physical_height() as f32
+                    ),
                 },
-            )
-            .unwrap();
+                ..Default::default()
+            },
+        )
+        .unwrap();
     }
 
     pub fn set_window_children(
@@ -176,9 +167,7 @@ without UI components as a child of an entity with UI components, results may be
 
     pub fn compute_window_layouts(&mut self) {
         if let Some(&window_node) = self.window_nodes.values().next() {
-            self
-                .compute_layout(window_node, Size::MAX_CONTENT)
-                .unwrap();
+            self.compute_layout(window_node, Size::MAX_CONTENT).unwrap();
         }
     }
 
@@ -193,9 +182,7 @@ without UI components as a child of an entity with UI components, results may be
 
     pub fn get_layout(&self, entity: Entity) -> Result<&taffy::layout::Layout, LayoutError> {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
-            self
-                .layout(*taffy_node)
-                .map_err(LayoutError::TaffyError)
+            self.layout(*taffy_node).map_err(LayoutError::TaffyError)
         } else {
             warn!(
                 "Styled child in a non-UI entity hierarchy. You are using an entity \
