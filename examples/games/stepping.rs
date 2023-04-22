@@ -7,19 +7,19 @@ use bevy::{app::MainScheduleOrder, ecs::schedule::*, prelude::*};
 /// executing schedule is removed from the [`Schedules`] resource while it is
 /// being run.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
-struct Debug;
+struct DebugSchedule;
 
 /// Plugin to add a stepping UI to an example
 #[derive(Default)]
 pub struct SteppingPlugin {
-    schedule_labels: Vec<Box<dyn ScheduleLabel>>,
+    schedule_labels: Vec<BoxedScheduleLabel>,
     top: Val,
     left: Val,
 }
 
 impl SteppingPlugin {
     /// Initialize the plugin to step the schedules specified in `labels`
-    pub fn for_schedules(labels: Vec<Box<dyn ScheduleLabel>>) -> SteppingPlugin {
+    pub fn for_schedules(labels: Vec<BoxedScheduleLabel>) -> SteppingPlugin {
         SteppingPlugin {
             schedule_labels: labels,
             ..default()
@@ -37,16 +37,15 @@ impl Plugin for SteppingPlugin {
         // create and insert our debug schedule into the main schedule order.
         // We need an independent schedule so we have access to all other
         // schedules through the `Stepping` resource
-        app.init_schedule(Debug);
+        app.init_schedule(DebugSchedule);
         let mut order = app.world.resource_mut::<MainScheduleOrder>();
-        order.insert_after(Update, Debug);
+        order.insert_after(Update, DebugSchedule);
 
         // create our stepping resource
         let mut stepping = Stepping::new();
-        for label in self.schedule_labels.iter() {
+        for label in &self.schedule_labels {
             stepping.add_schedule(label.dyn_clone());
         }
-        assert!(!stepping.is_enabled());
         app.insert_resource(stepping);
 
         // add our startup & stepping systems
@@ -56,7 +55,7 @@ impl Plugin for SteppingPlugin {
             systems: Vec::new(),
         })
         .add_systems(
-            Debug,
+            DebugSchedule,
             (
                 build_ui.run_if(not(initialized)),
                 handle_input,
@@ -114,7 +113,6 @@ fn build_ui(
     // go through the stepping schedules and construct a list of systems for
     // each label
     for label in schedule_order {
-        println!("schedule {:?}", label);
         let schedule = schedules.get(&**label).unwrap();
         text_sections.push(TextSection::new(
             format!("{:?}\n", label),
@@ -133,15 +131,19 @@ fn build_ui(
         };
 
         for (node_id, system) in systems {
+            // skip bevy default systems; we don't want to step those
             if system.name().starts_with("bevy") {
                 always_run.push((label.dyn_clone(), node_id));
-                println!("skipping {:?}", system.name());
                 continue;
             }
 
+            // Add an entry to our systems list so we can find where to draw
+            // the cursor when the stepping cursor is at this system
             state
                 .systems
                 .push((label.dyn_clone(), node_id, text_sections.len()));
+
+            // Add a text section for displaying the cursor for this system
             text_sections.push(TextSection::new(
                 "   ",
                 TextStyle {
@@ -151,7 +153,7 @@ fn build_ui(
                 },
             ));
 
-            println!("found system: {:?}/{}\n", label, system.name());
+            // add the name of the system to the ui
             text_sections.push(TextSection::new(
                 format!("{}\n", system.name()),
                 TextStyle {
@@ -203,7 +205,7 @@ fn build_ui(
 
 fn handle_input(keyboard_input: Res<Input<KeyCode>>, mut stepping: ResMut<Stepping>) {
     if keyboard_input.just_pressed(KeyCode::Slash) {
-        debug!("stepping: {:#?}", stepping);
+        info!("{:#?}", stepping);
     }
     // grave key to toggle stepping mode for the FixedUpdate schedule
     if keyboard_input.just_pressed(KeyCode::Grave) {
@@ -244,13 +246,10 @@ fn update_ui(
     let (ui, mut text, vis) = ui.single_mut();
     match (vis, stepping.is_enabled()) {
         (Visibility::Hidden, true) => {
-            println!("showing UI");
             commands.entity(ui).insert(Visibility::Inherited);
         }
-        (Visibility::Hidden, false) => (),
-        (_, true) => (),
+        (Visibility::Hidden, false) | (_, true) => (),
         (_, false) => {
-            println!("hiding UI");
             commands.entity(ui).insert(Visibility::Hidden);
         }
     }

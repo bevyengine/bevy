@@ -185,7 +185,10 @@ impl Schedule {
 
     /// Set the label for this schedule
     pub fn set_label(&mut self, label: impl ScheduleLabel) -> &mut Self {
-        debug_assert!(self.label.is_none());
+        #[cfg(debug_assertions)]
+        if let Some(existing) = &self.label {
+            debug_assert!(existing.dyn_eq(&label));
+        }
         self.label = Some(label.dyn_clone());
         self
     }

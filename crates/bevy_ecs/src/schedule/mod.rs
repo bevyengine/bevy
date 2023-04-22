@@ -717,94 +717,52 @@ mod tests {
         #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
         pub struct TestSchedule;
 
+        macro_rules! assert_executor_supports_stepping {
+            ($executor:expr) => {
+                // create a test schedule
+                let mut schedule = Schedule::default();
+                schedule
+                    .set_label(TestSchedule)
+                    .set_executor_kind($executor)
+                    .add_systems(|| panic!("Executor ignored Stepping"));
+
+                // Add our schedule to stepping & and enable stepping; this should
+                // prevent any systems in the schedule from running
+                let mut stepping = Stepping::default();
+                stepping.add_schedule(TestSchedule).enable();
+
+                // create a world, and add the stepping resource
+                let mut world = World::default();
+                world.insert_resource(stepping);
+
+                // start a new frame by running ihe begin_frame() system
+                let mut system_state: SystemState<Option<ResMut<Stepping>>> =
+                    SystemState::new(&mut world);
+                let res = system_state.get_mut(&mut world);
+                Stepping::begin_frame(res);
+
+                // now run the schedule; this will panic if the executor doesn't
+                // handle stepping
+                schedule.run(&mut world);
+            };
+        }
+
         /// verify the [`SimpleExecutor`] supports stepping
         #[test]
         fn simple_executor() {
-            // create a test schedule
-            let mut schedule = Schedule::default();
-            schedule
-                .set_label(TestSchedule)
-                .set_executor_kind(ExecutorKind::Simple)
-                .add_systems(|| panic!("test failed; system should not run"));
-
-            // Add our schedule to stepping & and enable stepping; this should
-            // prevent any systems in the schedule from running
-            let mut stepping = Stepping::default();
-            stepping.add_schedule(TestSchedule).enable();
-
-            // create a world, and add the stepping resource
-            let mut world = World::default();
-            world.insert_resource(stepping);
-
-            // start a new frame by running ihe begin_frame() system
-            let mut system_state: SystemState<Option<ResMut<Stepping>>> =
-                SystemState::new(&mut world);
-            let res = system_state.get_mut(&mut world);
-            Stepping::begin_frame(res);
-
-            // now run the schedule; this will panic if the executor doesn't
-            // handle stepping
-            schedule.run(&mut world);
+            assert_executor_supports_stepping!(ExecutorKind::Simple);
         }
 
         /// verify the [`SingleThreadedExecutor`] supports stepping
         #[test]
         fn single_threaded_executor() {
-            // create a test schedule
-            let mut schedule = Schedule::default();
-            schedule
-                .set_label(TestSchedule)
-                .set_executor_kind(ExecutorKind::SingleThreaded)
-                .add_systems(|| panic!("test failed; system should not run"));
-
-            // Add our schedule to stepping & and enable stepping; this should
-            // prevent any systems in the schedule from running
-            let mut stepping = Stepping::default();
-            stepping.add_schedule(TestSchedule).enable();
-
-            // create a world, and add the stepping resource
-            let mut world = World::default();
-            world.insert_resource(stepping);
-
-            // start a new frame by running ihe begin_frame() system
-            let mut system_state: SystemState<Option<ResMut<Stepping>>> =
-                SystemState::new(&mut world);
-            let res = system_state.get_mut(&mut world);
-            Stepping::begin_frame(res);
-
-            // now run the schedule; this will panic if the executor doesn't
-            // handle stepping
-            schedule.run(&mut world);
+            assert_executor_supports_stepping!(ExecutorKind::SingleThreaded);
         }
 
         /// verify the [`MultiThreadedExecutor`] supports stepping
         #[test]
         fn multi_threaded_executor() {
-            // create a test schedule
-            let mut schedule = Schedule::default();
-            schedule
-                .set_label(TestSchedule)
-                .set_executor_kind(ExecutorKind::MultiThreaded)
-                .add_systems(|| panic!("test failed; system should not run"));
-
-            // Add our schedule to stepping & and enable stepping; this should
-            // prevent any systems in the schedule from running
-            let mut stepping = Stepping::default();
-            stepping.add_schedule(TestSchedule).enable();
-
-            // create a world, and add the stepping resource
-            let mut world = World::default();
-            world.insert_resource(stepping);
-
-            // start a new frame by running ihe begin_frame() system
-            let mut system_state: SystemState<Option<ResMut<Stepping>>> =
-                SystemState::new(&mut world);
-            let res = system_state.get_mut(&mut world);
-            Stepping::begin_frame(res);
-
-            // now run the schedule; this will panic if the executor doesn't
-            // handle stepping
-            schedule.run(&mut world);
+            assert_executor_supports_stepping!(ExecutorKind::MultiThreaded);
         }
     }
 }

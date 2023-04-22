@@ -874,9 +874,7 @@ impl App {
     /// To avoid this behavior, use the `init_schedule` method instead.
     pub fn add_schedule(&mut self, label: impl ScheduleLabel, mut schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
-        if schedule.label().is_none() {
-            schedule.set_label(label.dyn_clone());
-        }
+        schedule.set_label(label.dyn_clone());
         schedules.insert(label, schedule);
 
         self
