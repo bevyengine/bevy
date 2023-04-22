@@ -5,9 +5,7 @@ use bevy_render::color::Color;
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
-use crate::Font;
-#[cfg(feature = "default_font")]
-use crate::DEFAULT_FONT_HANDLE;
+use crate::{Font, DEFAULT_FONT_HANDLE};
 
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
