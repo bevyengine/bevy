@@ -187,7 +187,7 @@ impl Schedule {
     pub fn set_label(&mut self, label: impl ScheduleLabel) -> &mut Self {
         #[cfg(debug_assertions)]
         if let Some(existing) = &self.label {
-            debug_assert!(existing.dyn_eq(&label));
+            debug_assert!(existing.inner_type_id() == label.inner_type_id());
         }
         self.label = Some(label.dyn_clone());
         self
