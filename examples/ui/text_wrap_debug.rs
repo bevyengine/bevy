@@ -8,7 +8,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(WinitSettings::desktop_app())
-        .add_startup_system(spawn)
+        .add_systems(Startup, spawn)
         .run();
 }
 
@@ -33,7 +33,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .id();
 
-    for linebreak_behaviour in [BreakLineOn::AnyCharacter, BreakLineOn::WordBoundary] {
+    for linebreak_behavior in [BreakLineOn::AnyCharacter, BreakLineOn::WordBoundary] {
         let row_id = commands
             .spawn(NodeBundle {
                 style: Style {
@@ -64,7 +64,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         justify_content: justification,
                         flex_direction: FlexDirection::Column,
                         size: Size::new(Val::Percent(16.), Val::Percent(95.)),
-                        overflow: Overflow::Hidden,
+                        overflow: Overflow::clip(),
                         ..Default::default()
                     },
                     background_color: Color::rgb(0.5, c, 1.0 - c).into(),
@@ -74,7 +74,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             let messages = [
                 format!("JustifyContent::{justification:?}"),
-                format!("LineBreakOn::{linebreak_behaviour:?}"),
+                format!("LineBreakOn::{linebreak_behavior:?}"),
                 "Line 1\nLine 2\nLine 3".to_string(),
                 "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas auctor, nunc ac faucibus fringilla.".to_string(),
             ];
@@ -86,7 +86,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         style: text_style.clone(),
                     }],
                     alignment: TextAlignment::Left,
-                    linebreak_behaviour,
+                    linebreak_behavior,
                 };
                 let text_id = commands
                     .spawn((
