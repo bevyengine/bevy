@@ -19,7 +19,7 @@ pub enum Collision {
 ///
 /// The return value is the side of `B` that `A` has collided with. [`Collision::Left`] means that
 /// `A` collided with `B`'s left side. [`Collision::Top`] means that `A` collided with `B`'s top side.
-/// If the collision occurs on multiple sides, the side with the deepest penetration is returned.
+/// If the collision occurs on multiple sides, the side with the shallowest penetration is returned.
 /// If all sides are involved, [`Collision::Inside`] is returned.
 pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<Collision> {
     let a_min = a_pos.truncate() - a_size / 2.0;
