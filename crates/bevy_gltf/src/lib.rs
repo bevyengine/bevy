@@ -4,8 +4,8 @@
 use bevy_animation::AnimationClip;
 use bevy_utils::HashMap;
 
-mod vertex_attributes;
 mod loader;
+mod vertex_attributes;
 pub use loader::*;
 
 use bevy_app::prelude::*;
