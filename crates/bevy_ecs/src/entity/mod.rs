@@ -148,7 +148,7 @@ impl Entity {
     /// // ... replace the entities with valid ones.
     /// ```
     ///
-    /// Deriving `Reflect` for a component that has an `Entity` field:
+    /// Deriving [`Reflect`](bevy_reflect::Reflect) for a component that has an `Entity` field:
     ///
     /// ```no_run
     /// # use bevy_ecs::{prelude::*, component::*};
@@ -301,15 +301,15 @@ pub struct Entities {
     /// that have been freed or are in the process of being allocated:
     ///
     /// - The `freelist` IDs, previously freed by `free()`. These IDs are available to any of
-    ///   `alloc()`, `reserve_entity()` or `reserve_entities()`. Allocation will always prefer
+    ///   [`alloc`], [`reserve_entity`] or [`reserve_entities`]. Allocation will always prefer
     ///   these over brand new IDs.
     ///
     /// - The `reserved` list of IDs that were once in the freelist, but got reserved by
-    ///   `reserve_entities` or `reserve_entity()`. They are now waiting for `flush()` to make them
+    ///   [`reserve_entities`] or [`reserve_entity`]. They are now waiting for [`flush`] to make them
     ///   fully allocated.
     ///
     /// - The count of new IDs that do not yet exist in `self.meta`, but which we have handed out
-    ///   and reserved. `flush()` will allocate room for them in `self.meta`.
+    ///   and reserved. [`flush`] will allocate room for them in `self.meta`.
     ///
     /// The contents of `pending` look like this:
     ///
@@ -331,7 +331,12 @@ pub struct Entities {
     /// This formulation allows us to reserve any number of IDs first from the freelist
     /// and then from the new IDs, using only a single atomic subtract.
     ///
-    /// Once `flush()` is done, `free_cursor` will equal `pending.len()`.
+    /// Once [`flush`] is done, `free_cursor` will equal `pending.len()`.
+    ///
+    /// [`alloc`]: Entities::alloc
+    /// [`reserve_entity`]: Entities::reserve_entity
+    /// [`reserve_entities`]: Entities::reserve_entities
+    /// [`flush`]: Entities::flush
     pending: Vec<u32>,
     free_cursor: AtomicIdCursor,
     /// Stores the number of free entities for [`len`](Entities::len)
@@ -350,7 +355,7 @@ impl Entities {
 
     /// Reserve entity IDs concurrently.
     ///
-    /// Storage for entity generation and location is lazily allocated by calling `flush`.
+    /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
@@ -626,8 +631,8 @@ impl Entities {
         *self.free_cursor.get_mut() != self.pending.len() as IdCursor
     }
 
-    /// Allocates space for entities previously reserved with `reserve_entity` or
-    /// `reserve_entities`, then initializes each one using the supplied function.
+    /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
+    /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
     ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]

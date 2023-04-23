@@ -84,6 +84,10 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
 #ifdef PREPASS_FRAGMENT
 struct FragmentInput {
+#ifdef VERTEX_UVS
+    @location(0) uv: vec2<f32>,
+#endif // VERTEX_UVS
+
 #ifdef NORMAL_PREPASS
     @location(1) world_normal: vec3<f32>,
 #endif // NORMAL_PREPASS
