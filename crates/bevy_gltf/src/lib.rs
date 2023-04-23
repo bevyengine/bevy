@@ -8,10 +8,10 @@ mod loader;
 pub use loader::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, Handle};
+use bevy_asset::{Asset, AssetApp, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::mesh::Mesh;
 use bevy_scene::Scene;
 
@@ -23,16 +23,15 @@ impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset_loader::<GltfLoader>()
             .register_type::<GltfExtras>()
-            .add_asset::<Gltf>()
-            .add_asset::<GltfNode>()
-            .add_asset::<GltfPrimitive>()
-            .add_asset::<GltfMesh>();
+            .init_asset::<Gltf>()
+            .init_asset::<GltfNode>()
+            .init_asset::<GltfPrimitive>()
+            .init_asset::<GltfMesh>();
     }
 }
 
 /// Representation of a loaded glTF file.
-#[derive(Debug, TypeUuid)]
-#[uuid = "5c7d5f8a-f7b0-4e45-a09e-406c0372fea2"]
+#[derive(Asset, Debug)]
 pub struct Gltf {
     pub scenes: Vec<Handle<Scene>>,
     pub named_scenes: HashMap<String, Handle<Scene>>,
@@ -51,8 +50,7 @@ pub struct Gltf {
 
 /// A glTF node with all of its child nodes, its [`GltfMesh`],
 /// [`Transform`](bevy_transform::prelude::Transform) and an optional [`GltfExtras`].
-#[derive(Debug, Clone, TypeUuid)]
-#[uuid = "dad74750-1fd6-460f-ac51-0a7937563865"]
+#[derive(Asset, Debug, Clone)]
 pub struct GltfNode {
     pub children: Vec<GltfNode>,
     pub mesh: Option<Handle<GltfMesh>>,
@@ -62,16 +60,14 @@ pub struct GltfNode {
 
 /// A glTF mesh, which may consist of multiple [`GltfPrimitives`](GltfPrimitive)
 /// and an optional [`GltfExtras`].
-#[derive(Debug, Clone, TypeUuid)]
-#[uuid = "8ceaec9a-926a-4f29-8ee3-578a69f42315"]
+#[derive(Asset, Debug, Clone)]
 pub struct GltfMesh {
     pub primitives: Vec<GltfPrimitive>,
     pub extras: Option<GltfExtras>,
 }
 
 /// Part of a [`GltfMesh`] that consists of a [`Mesh`], an optional [`StandardMaterial`] and [`GltfExtras`].
-#[derive(Debug, Clone, TypeUuid)]
-#[uuid = "cbfca302-82fd-41cb-af77-cab6b3d50af1"]
+#[derive(Asset, Debug, Clone)]
 pub struct GltfPrimitive {
     pub mesh: Handle<Mesh>,
     pub material: Option<Handle<StandardMaterial>>,

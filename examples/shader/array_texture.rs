@@ -1,7 +1,6 @@
 use bevy::{
-    asset::LoadState,
+    asset::on_loaded::on_loaded,
     prelude::*,
-    reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
@@ -10,25 +9,30 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .init_asset::<ArrayTexture>()
         .add_plugin(MaterialPlugin::<ArrayTextureMaterial>::default())
         .add_systems(Startup, setup)
-        .add_systems(Update, create_array_texture)
+        // TODO: this was ported to on_loaded for illustrative purposes only
+        .add_systems(Update, on_loaded(create_array_texture))
         .run();
 }
 
-#[derive(Resource)]
-struct LoadingTexture {
-    is_loaded: bool,
+#[derive(Asset, Clone)]
+struct ArrayTexture {
+    #[dependency]
     handle: Handle<Image>,
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Start loading the texture.
-    commands.insert_resource(LoadingTexture {
-        is_loaded: false,
-        handle: asset_server.load("textures/array_texture.png"),
-    });
+impl FromWorld for ArrayTexture {
+    fn from_world(world: &mut World) -> Self {
+        let server = world.resource::<AssetServer>();
+        Self {
+            handle: server.load("textures/array_texture.png"),
+        }
+    }
+}
 
+fn setup(mut commands: Commands) {
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
@@ -55,20 +59,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn create_array_texture(
+    In(array_texture): In<ArrayTexture>,
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut loading_texture: ResMut<LoadingTexture>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ArrayTextureMaterial>>,
 ) {
-    if loading_texture.is_loaded
-        || asset_server.get_load_state(loading_texture.handle.clone()) != LoadState::Loaded
-    {
-        return;
-    }
-    loading_texture.is_loaded = true;
-    let image = images.get_mut(&loading_texture.handle).unwrap();
+    let image = images.get_mut(&array_texture.handle).unwrap();
 
     // Create a new array texture asset from the loaded texture.
     let array_layers = 4;
@@ -77,7 +74,7 @@ fn create_array_texture(
     // Spawn some cubes using the array texture
     let mesh_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     let material_handle = materials.add(ArrayTextureMaterial {
-        array_texture: loading_texture.handle.clone(),
+        array_texture: array_texture.handle.clone(),
     });
     for x in -5..=5 {
         commands.spawn(MaterialMeshBundle {
@@ -89,8 +86,7 @@ fn create_array_texture(
     }
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
-#[uuid = "9c5a0ddf-1eaf-41b4-9832-ed736fd26af3"]
+#[derive(Asset, AsBindGroup, Debug, Clone)]
 struct ArrayTextureMaterial {
     #[texture(0, dimension = "2d_array")]
     #[sampler(1)]

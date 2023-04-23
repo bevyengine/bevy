@@ -29,7 +29,7 @@ impl FromWorld for GizmoLinePipeline {
     fn from_world(render_world: &mut World) -> Self {
         GizmoLinePipeline {
             mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
-            shader: LINE_SHADER_HANDLE.typed(),
+            shader: LINE_SHADER_HANDLE,
         }
     }
 }

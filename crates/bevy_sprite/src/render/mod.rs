@@ -4,7 +4,7 @@ use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
     Sprite, SPRITE_SHADER_HANDLE,
 };
-use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
+use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
     tonemapping::{DebandDither, Tonemapping},
@@ -14,7 +14,6 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::Uuid;
 use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
@@ -263,13 +262,13 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
+                shader: SPRITE_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
+                shader: SPRITE_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -310,8 +309,8 @@ pub struct ExtractedSprite {
     /// Change the on-screen size of the sprite
     pub custom_size: Option<Vec2>,
     /// Handle to the `Image` of this sprite
-    /// PERF: storing a `HandleId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
-    pub image_handle_id: HandleId,
+    /// PERF: storing an `AssetId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
+    pub image_handle_id: AssetId<Image>,
     pub flip_x: bool,
     pub flip_y: bool,
     pub anchor: Vec2,
@@ -334,19 +333,8 @@ pub fn extract_sprite_events(
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
 
-    for image in image_events.iter() {
-        // AssetEvent: !Clone
-        images.push(match image {
-            AssetEvent::Created { handle } => AssetEvent::Created {
-                handle: handle.clone_weak(),
-            },
-            AssetEvent::Modified { handle } => AssetEvent::Modified {
-                handle: handle.clone_weak(),
-            },
-            AssetEvent::Removed { handle } => AssetEvent::Removed {
-                handle: handle.clone_weak(),
-            },
-        });
+    for event in image_events.iter() {
+        images.push(event.clone());
     }
 }
 
@@ -475,13 +463,13 @@ const QUAD_UVS: [Vec2; 4] = [
 
 #[derive(Component, Eq, PartialEq, Copy, Clone)]
 pub struct SpriteBatch {
-    image_handle_id: HandleId,
+    image_handle_id: AssetId<Image>,
     colored: bool,
 }
 
 #[derive(Resource, Default)]
 pub struct ImageBindGroups {
-    values: HashMap<Handle<Image>, BindGroup>,
+    values: HashMap<AssetId<Image>, BindGroup>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -512,10 +500,11 @@ pub fn queue_sprites(
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
         match event {
-            AssetEvent::Created { .. } => None,
-            AssetEvent::Modified { handle } | AssetEvent::Removed { handle } => {
-                image_bind_groups.values.remove(handle)
+            AssetEvent::Added { .. } => {}
+            AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
+                image_bind_groups.values.remove(id);
             }
+            AssetEvent::LoadedWithDependencies { .. } => { /* images don't have dependencies */ }
         };
     }
 
@@ -608,7 +597,7 @@ pub fn queue_sprites(
 
             // Impossible starting values that will be replaced on the first iteration
             let mut current_batch = SpriteBatch {
-                image_handle_id: HandleId::Id(Uuid::nil(), u64::MAX),
+                image_handle_id: AssetId::invalid(),
                 colored: false,
             };
             let mut current_batch_entity = Entity::PLACEHOLDER;
@@ -628,16 +617,14 @@ pub fn queue_sprites(
                 };
                 if new_batch != current_batch {
                     // Set-up a new possible batch
-                    if let Some(gpu_image) =
-                        gpu_images.get(&Handle::weak(new_batch.image_handle_id))
-                    {
+                    if let Some(gpu_image) = gpu_images.get(new_batch.image_handle_id) {
                         current_batch = new_batch;
                         current_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
                         current_batch_entity = commands.spawn(current_batch).id();
 
                         image_bind_groups
                             .values
-                            .entry(Handle::weak(current_batch.image_handle_id))
+                            .entry(current_batch.image_handle_id)
                             .or_insert_with(|| {
                                 render_device.create_bind_group(&BindGroupDescriptor {
                                     entries: &[
@@ -800,7 +787,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
             I,
             image_bind_groups
                 .values
-                .get(&Handle::weak(sprite_batch.image_handle_id))
+                .get(&sprite_batch.image_handle_id)
                 .unwrap(),
             &[],
         );

@@ -101,7 +101,8 @@ pub fn basis_buffer_to_image(
         width: image0_info.m_orig_width,
         height: image0_info.m_orig_height,
         depth_or_array_layers: image_count,
-    };
+    }
+    .physical_size(texture_format);
     image.texture_descriptor.mip_level_count = image0_mip_level_count;
     image.texture_descriptor.format = texture_format;
     image.texture_descriptor.dimension = match texture_type {

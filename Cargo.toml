@@ -48,7 +48,6 @@ default = [
   "zstd",
   "vorbis",
   "x11",
-  "filesystem_watcher",
   "bevy_gizmos",
   "android_shared_stdcxx",
   "tonemapping_luts",
@@ -187,9 +186,6 @@ symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
 # WAV audio format support (through symphonia)
 symphonia-wav = ["bevy_internal/symphonia-wav"]
 
-# Enable watching file system for asset hot reload
-filesystem_watcher = ["bevy_internal/filesystem_watcher"]
-
 # Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
 
@@ -204,9 +200,6 @@ subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
-
-# Enable the "debug asset server" for hot reloading internal assets
-debug_asset_server = ["bevy_internal/debug_asset_server"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_internal/animation", "bevy_animation"]
@@ -899,12 +892,12 @@ category = "Assets"
 wasm = true
 
 [[example]]
-name = "custom_asset_io"
-path = "examples/asset/custom_asset_io.rs"
+name = "custom_asset_reader"
+path = "examples/asset/custom_asset_reader.rs"
 
-[package.metadata.example.custom_asset_io]
+[package.metadata.example.custom_asset_reader]
 name = "Custom Asset IO"
-description = "Implements a custom asset io loader"
+description = "Implements a custom AssetReader"
 category = "Assets"
 wasm = true
 

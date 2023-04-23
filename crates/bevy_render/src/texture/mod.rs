@@ -1,5 +1,7 @@
 #[cfg(feature = "basis-universal")]
 mod basis;
+#[cfg(feature = "basis-universal")]
+mod compressed_image_saver;
 #[cfg(feature = "dds")]
 mod dds;
 #[cfg(feature = "exr")]
@@ -9,7 +11,7 @@ mod fallback_image;
 mod hdr_texture_loader;
 #[allow(clippy::module_inception)]
 mod image;
-mod image_texture_loader;
+mod image_loader;
 #[cfg(feature = "ktx2")]
 mod ktx2;
 mod texture_cache;
@@ -26,8 +28,10 @@ pub use exr_texture_loader::*;
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
 
+#[cfg(feature = "basis-universal")]
+pub use compressed_image_saver::*;
 pub use fallback_image::*;
-pub use image_texture_loader::*;
+pub use image_loader::*;
 pub use texture_cache::*;
 
 use crate::{
@@ -36,7 +40,7 @@ use crate::{
     Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{AddAsset, Assets};
+use bevy_asset::{AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 
 // TODO: replace Texture names with Image names?
@@ -80,7 +84,7 @@ impl Plugin for ImagePlugin {
             feature = "ktx2",
         ))]
         {
-            app.init_asset_loader::<ImageTextureLoader>();
+            app.init_asset_loader::<ImageLoader>();
         }
 
         #[cfg(feature = "exr")]
@@ -97,11 +101,22 @@ impl Plugin for ImagePlugin {
             PrepareAssetSet::PreAssetPrepare,
         ))
         .register_type::<Image>()
-        .add_asset::<Image>()
+        .init_asset::<Image>()
         .register_asset_reflect::<Image>();
         app.world
             .resource_mut::<Assets<Image>>()
-            .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
+            .insert(Handle::default(), Image::default());
+        #[cfg(feature = "basis-universal")]
+        if let Some(processor) = app
+            .world
+            .get_resource::<bevy_asset::processor::AssetProcessor>()
+        {
+            processor.register_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>(
+                CompressedImageSaver.into(),
+            );
+            processor
+                .set_default_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>("png");
+        }
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {

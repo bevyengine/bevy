@@ -3,7 +3,6 @@
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    reflect::TypeUuid,
     render::{
         mesh::MeshVertexBufferLayout,
         render_resource::{
@@ -47,8 +46,7 @@ fn setup(
 }
 
 // This is the struct that will be passed to your shader
-#[derive(AsBindGroup, Clone, TypeUuid)]
-#[uuid = "4ee9c363-1124-4113-890e-199d81b00281"]
+#[derive(Asset, AsBindGroup, Clone)]
 pub struct CustomMaterial {
     #[uniform(0)]
     color: Color,

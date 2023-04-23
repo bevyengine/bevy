@@ -1,12 +1,13 @@
 use anyhow::Result;
-use bevy_asset::{Asset, AssetLoader, LoadContext, LoadedAsset};
-use bevy_reflect::TypeUuid;
+use bevy_asset::{
+    io::{AsyncReadExt, Reader},
+    Asset, AssetLoader, LoadContext,
+};
 use bevy_utils::BoxedFuture;
 use std::{io::Cursor, sync::Arc};
 
 /// A source of audio data
-#[derive(Debug, Clone, TypeUuid)]
-#[uuid = "7a14806a-672b-443b-8d16-4f18afefa463"]
+#[derive(Asset, Debug, Clone)]
 pub struct AudioSource {
     /// Raw data of the audio source.
     ///
@@ -38,11 +39,22 @@ impl AsRef<[u8]> for AudioSource {
 pub struct AudioLoader;
 
 impl AssetLoader for AudioLoader {
-    fn load(&self, bytes: &[u8], load_context: &mut LoadContext) -> BoxedFuture<Result<()>> {
-        load_context.set_default_asset(LoadedAsset::new(AudioSource {
-            bytes: bytes.into(),
-        }));
-        Box::pin(async move { Ok(()) })
+    type Asset = AudioSource;
+    type Settings = ();
+
+    fn load<'a>(
+        &'a self,
+        reader: &'a mut Reader,
+        _settings: &'a Self::Settings,
+        _load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<AudioSource, anyhow::Error>> {
+        Box::pin(async move {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            Ok(AudioSource {
+                bytes: bytes.into(),
+            })
+        })
     }
 
     fn extensions(&self) -> &[&str] {

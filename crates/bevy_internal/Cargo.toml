@@ -23,7 +23,6 @@ trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy" ]
 trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
 wgpu_trace = ["bevy_render/wgpu_trace"]
-debug_asset_server = ["bevy_asset/debug_asset_server"]
 detailed_trace = ["bevy_utils/detailed_trace"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
@@ -56,9 +55,6 @@ symphonia-flac = ["bevy_audio/symphonia-flac"]
 symphonia-isomp4 = ["bevy_audio/symphonia-isomp4"]
 symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
-
-# Enable watching file system for asset hot reload
-filesystem_watcher = ["bevy_asset/filesystem_watcher"]
 
 serialize = ["bevy_core/serialize", "bevy_input/serialize", "bevy_time/serialize", "bevy_window/serialize", "bevy_transform/serialize", "bevy_math/serialize", "bevy_scene/serialize"]
 

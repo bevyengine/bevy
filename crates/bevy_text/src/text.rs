@@ -6,8 +6,6 @@ use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
 use crate::Font;
-#[cfg(feature = "default_font")]
-use crate::DEFAULT_FONT_HANDLE;
 
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
@@ -169,7 +167,7 @@ pub struct TextStyle {
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
-            font: DEFAULT_FONT_HANDLE.typed(),
+            font: Default::default(),
             font_size: 12.0,
             color: Color::WHITE,
         }

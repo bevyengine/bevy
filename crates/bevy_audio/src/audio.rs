@@ -1,7 +1,10 @@
 use crate::{AudioSink, AudioSource, Decodable, SpatialAudioSink};
-use bevy_asset::{Asset, Handle, HandleId};
+use bevy_asset::{Asset, AssetHandleProvider, Assets, Handle, UntypedAssetId};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::Resource;
+use bevy_ecs::{
+    system::Resource,
+    world::{FromWorld, World},
+};
 use bevy_math::Vec3;
 use bevy_transform::prelude::Transform;
 use parking_lot::RwLock;
@@ -22,6 +25,8 @@ pub struct Audio<Source = AudioSource>
 where
     Source: Asset + Decodable,
 {
+    sink_handle_provider: AssetHandleProvider,
+    spatial_sink_handle_provider: AssetHandleProvider,
     /// Queue for playing audio from asset handles
     pub(crate) queue: RwLock<VecDeque<AudioToPlay<Source>>>,
 }
@@ -35,12 +40,16 @@ where
     }
 }
 
-impl<Source> Default for Audio<Source>
+impl<Source> FromWorld for Audio<Source>
 where
     Source: Asset + Decodable,
 {
-    fn default() -> Self {
+    fn from_world(world: &mut World) -> Self {
         Self {
+            sink_handle_provider: world.resource::<Assets<AudioSink>>().get_handle_provider(),
+            spatial_sink_handle_provider: world
+                .resource::<Assets<SpatialAudioSink>>()
+                .get_handle_provider(),
             queue: Default::default(),
         }
     }
@@ -61,9 +70,7 @@ where
     /// }
     /// ```
     ///
-    /// Returns a weak [`Handle`] to the [`AudioSink`]. If this handle isn't changed to a
-    /// strong one, the sink will be detached and the sound will continue playing. Changing it
-    /// to a strong handle allows you to control the playback through the [`AudioSink`] asset.
+    /// Returns a strong [`Handle`] to the [`AudioSink`]. The strong handle allows you to control the playback through the [`AudioSink`] asset.
     ///
     /// ```
     /// # use bevy_ecs::system::Res;
@@ -81,15 +88,18 @@ where
     /// }
     /// ```
     pub fn play(&self, audio_source: Handle<Source>) -> Handle<AudioSink> {
-        let id = HandleId::random::<AudioSink>();
+        let handle = self
+            .sink_handle_provider
+            .reserve_handle()
+            .typed_debug_checked();
         let config = AudioToPlay {
             settings: PlaybackSettings::ONCE,
-            sink_handle: id,
+            sink_asset: handle.id().untyped(),
             source_handle: audio_source,
             spatial: None,
         };
         self.queue.write().push_back(config);
-        Handle::<AudioSink>::weak(id)
+        handle
     }
 
     /// Play audio from a [`Handle`] to the audio source with [`PlaybackSettings`] that
@@ -114,15 +124,18 @@ where
         audio_source: Handle<Source>,
         settings: PlaybackSettings,
     ) -> Handle<AudioSink> {
-        let id = HandleId::random::<AudioSink>();
+        let handle = self
+            .sink_handle_provider
+            .reserve_handle()
+            .typed_debug_checked();
         let config = AudioToPlay {
             settings,
-            sink_handle: id,
+            sink_asset: handle.id().untyped(),
             source_handle: audio_source,
             spatial: None,
         };
         self.queue.write().push_back(config);
-        Handle::<AudioSink>::weak(id)
+        handle
     }
 
     /// Play audio from a [`Handle`] to the audio source, placing the listener at the given
@@ -150,9 +163,7 @@ where
     /// }
     /// ```
     ///
-    /// Returns a weak [`Handle`] to the [`SpatialAudioSink`]. If this handle isn't changed to a
-    /// strong one, the sink will be detached and the sound will continue playing. Changing it
-    /// to a strong handle allows you to control the playback, or move the listener and emitter
+    /// Returns a [`Handle`] to the [`SpatialAudioSink`], which allows you to control the playback, or move the listener and emitter
     /// through the [`SpatialAudioSink`] asset.
     ///
     /// ```
@@ -184,10 +195,13 @@ where
         gap: f32,
         emitter: Vec3,
     ) -> Handle<SpatialAudioSink> {
-        let id = HandleId::random::<SpatialAudioSink>();
+        let handle = self
+            .spatial_sink_handle_provider
+            .reserve_handle()
+            .typed_debug_checked();
         let config = AudioToPlay {
             settings: PlaybackSettings::ONCE,
-            sink_handle: id,
+            sink_asset: handle.id().untyped(),
             source_handle: audio_source,
             spatial: Some(SpatialSettings {
                 left_ear: (listener.translation + listener.left() * gap / 2.0).to_array(),
@@ -196,7 +210,7 @@ where
             }),
         };
         self.queue.write().push_back(config);
-        Handle::<SpatialAudioSink>::weak(id)
+        handle
     }
 
     /// Play spatial audio from a [`Handle`] to the audio source with [`PlaybackSettings`] that
@@ -236,10 +250,13 @@ where
         gap: f32,
         emitter: Vec3,
     ) -> Handle<SpatialAudioSink> {
-        let id = HandleId::random::<SpatialAudioSink>();
+        let handle = self
+            .spatial_sink_handle_provider
+            .reserve_handle()
+            .typed_debug_checked();
         let config = AudioToPlay {
             settings,
-            sink_handle: id,
+            sink_asset: handle.id().untyped(),
             source_handle: audio_source,
             spatial: Some(SpatialSettings {
                 left_ear: (listener.translation + listener.left() * gap / 2.0).to_array(),
@@ -248,7 +265,7 @@ where
             }),
         };
         self.queue.write().push_back(config);
-        Handle::<SpatialAudioSink>::weak(id)
+        handle
     }
 }
 
@@ -357,7 +374,7 @@ pub(crate) struct AudioToPlay<Source>
 where
     Source: Asset + Decodable,
 {
-    pub(crate) sink_handle: HandleId,
+    pub(crate) sink_asset: UntypedAssetId,
     pub(crate) source_handle: Handle<Source>,
     pub(crate) settings: PlaybackSettings,
     pub(crate) spatial: Option<SpatialSettings>,
@@ -369,7 +386,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AudioToPlay")
-            .field("sink_handle", &self.sink_handle)
+            .field("sink_asset", &self.sink_asset)
             .field("source_handle", &self.source_handle)
             .field("settings", &self.settings)
             .finish()

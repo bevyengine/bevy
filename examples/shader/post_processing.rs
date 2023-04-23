@@ -33,11 +33,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            // Hot reloading the shader works correctly
-            watch_for_changes: true,
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins.set(AssetPlugin::default().watch_for_changes()))
         .add_plugin(PostProcessPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, update_settings))

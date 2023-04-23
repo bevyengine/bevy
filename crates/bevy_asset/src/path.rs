@@ -3,15 +3,26 @@ use bevy_utils::AHasher;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
+    fmt::Display,
     hash::{Hash, Hasher},
     path::{Path, PathBuf},
 };
 
 /// Represents a path to an asset in the file system.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+#[derive(Debug, Hash, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct AssetPath<'a> {
-    path: Cow<'a, Path>,
-    label: Option<Cow<'a, str>>,
+    pub path: Cow<'a, Path>,
+    pub label: Option<Cow<'a, str>>,
+}
+
+impl<'a> Display for AssetPath<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.path.display())?;
+        if let Some(label) = &self.label {
+            write!(f, "#{label}")?;
+        }
+        Ok(())
+    }
 }
 
 impl<'a> AssetPath<'a> {
@@ -51,6 +62,28 @@ impl<'a> AssetPath<'a> {
         &self.path
     }
 
+    /// Gets the path to the asset in the filesystem.
+    #[inline]
+    pub fn without_label(&self) -> AssetPath<'_> {
+        AssetPath::new_ref(&self.path, None)
+    }
+
+    /// Gets the path to the asset in the filesystem.
+    #[inline]
+    pub fn remove_label(&mut self) -> Option<Cow<'a, str>> {
+        self.label.take()
+    }
+
+    /// Returns this asset path with the given label. This will replace the previous
+    /// label if it exists.
+    #[inline]
+    pub fn with_label(&self, label: impl Into<Cow<'a, str>>) -> AssetPath<'a> {
+        AssetPath {
+            path: self.path.clone(),
+            label: Some(label.into()),
+        }
+    }
+
     /// Converts the borrowed path data to owned.
     #[inline]
     pub fn to_owned(&self) -> AssetPath<'static> {
@@ -61,6 +94,23 @@ impl<'a> AssetPath<'a> {
                 .as_ref()
                 .map(|value| Cow::Owned(value.to_string())),
         }
+    }
+
+    pub fn get_full_extension(&self) -> Option<String> {
+        let file_name = self.path.file_name()?.to_str()?;
+        let index = file_name.find('.')?;
+        let extension = file_name[index + 1..].to_lowercase();
+        Some(extension)
+    }
+
+    pub(crate) fn iter_secondary_extensions(full_extension: &str) -> impl Iterator<Item = &str> {
+        full_extension.chars().enumerate().filter_map(|(i, c)| {
+            if c == '.' {
+                Some(&full_extension[i + 1..])
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -184,18 +234,6 @@ impl<'a> From<PathBuf> for AssetPath<'a> {
         AssetPath {
             path: Cow::Owned(path),
             label: None,
-        }
-    }
-}
-
-impl<'a> From<String> for AssetPath<'a> {
-    fn from(asset_path: String) -> Self {
-        let mut parts = asset_path.splitn(2, '#');
-        let path = PathBuf::from(parts.next().expect("Path must be set."));
-        let label = parts.next().map(String::from);
-        AssetPath {
-            path: Cow::Owned(path),
-            label: label.map(Cow::Owned),
         }
     }
 }

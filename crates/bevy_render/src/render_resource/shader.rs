@@ -1,12 +1,13 @@
 use super::ShaderDefVal;
 use crate::define_atomic_id;
-use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
-use bevy_reflect::TypeUuid;
+use bevy_asset::{
+    io::Reader, Asset, AssetId, AssetLoader, AssetPath, AsyncReadExt, Handle, LoadContext,
+};
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
 use naga::{back::wgsl::WriterFlags, valid::Capabilities, valid::ModuleInfo, Module};
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::{borrow::Cow, marker::Copy, ops::Deref, path::PathBuf, str::FromStr};
+use std::{borrow::Cow, marker::Copy, ops::Deref};
 use thiserror::Error;
 use wgpu::{util::make_spirv, Features, ShaderModuleDescriptor, ShaderSource};
 
@@ -25,8 +26,7 @@ pub enum ShaderReflectError {
 }
 /// A shader, as defined by its [`ShaderSource`] and [`ShaderStage`](naga::ShaderStage)
 /// This is an "unprocessed" shader. It can contain preprocessor directives.
-#[derive(Debug, Clone, TypeUuid)]
-#[uuid = "d95bc916-6c55-4de3-9622-37e7b6969fda"]
+#[derive(Asset, Debug, Clone)]
 pub struct Shader {
     source: Source,
     import_path: Option<ShaderImport>,
@@ -236,14 +236,19 @@ impl ShaderReflection {
 pub struct ShaderLoader;
 
 impl AssetLoader for ShaderLoader {
+    type Asset = Shader;
+    type Settings = ();
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
+        reader: &'a mut Reader,
+        _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<Shader, anyhow::Error>> {
         Box::pin(async move {
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
             let mut shader = match ext {
                 "spv" => Shader::from_spirv(Vec::from(bytes)),
                 "wgsl" => Shader::from_wgsl(String::from_utf8(Vec::from(bytes))?),
@@ -270,16 +275,15 @@ impl AssetLoader for ShaderLoader {
                     load_context.path().to_string_lossy().to_string(),
                 ));
             }
-            let mut asset = LoadedAsset::new(shader);
+
             for import in shader_imports.imports {
                 if let ShaderImport::AssetPath(asset_path) = import {
-                    let path = PathBuf::from_str(&asset_path)?;
-                    asset.add_dependency(path.into());
+                    let _handle: Handle<Shader> = load_context.load(&asset_path);
+                    // TODO: should we just allow this handle to be dropped?
                 }
             }
 
-            load_context.set_default_asset(asset);
-            Ok(())
+            Ok(shader)
         })
     }
 
@@ -452,8 +456,8 @@ impl ShaderProcessor {
         &self,
         shader: &Shader,
         shader_defs: &[ShaderDefVal],
-        shaders: &HashMap<Handle<Shader>, Shader>,
-        import_handles: &HashMap<ShaderImport, Handle<Shader>>,
+        shaders: &HashMap<AssetId<Shader>, Shader>,
+        import_handles: &HashMap<ShaderImport, AssetId<Shader>>,
     ) -> Result<ProcessedShader, ProcessShaderError> {
         let mut shader_defs_unique =
             HashMap::<String, ShaderDefVal>::from_iter(shader_defs.iter().map(|v| match v {
@@ -468,8 +472,8 @@ impl ShaderProcessor {
         &self,
         shader: &Shader,
         shader_defs_unique: &mut HashMap<String, ShaderDefVal>,
-        shaders: &HashMap<Handle<Shader>, Shader>,
-        import_handles: &HashMap<ShaderImport, Handle<Shader>>,
+        shaders: &HashMap<AssetId<Shader>, Shader>,
+        import_handles: &HashMap<ShaderImport, AssetId<Shader>>,
     ) -> Result<ProcessedShader, ProcessShaderError> {
         let shader_str = match &shader.source {
             Source::Wgsl(source) => source.deref(),
@@ -723,8 +727,8 @@ impl ShaderProcessor {
 
     fn apply_import(
         &self,
-        import_handles: &HashMap<ShaderImport, Handle<Shader>>,
-        shaders: &HashMap<Handle<Shader>, Shader>,
+        import_handles: &HashMap<ShaderImport, AssetId<Shader>>,
+        shaders: &HashMap<AssetId<Shader>, Shader>,
         import: &ShaderImport,
         shader: &Shader,
         shader_defs_unique: &mut HashMap<String, ShaderDefVal>,
@@ -791,8 +795,7 @@ impl From<&'static str> for ShaderRef {
 
 #[cfg(test)]
 mod tests {
-    use bevy_asset::{Handle, HandleUntyped};
-    use bevy_reflect::TypeUuid;
+    use bevy_asset::Handle;
     use bevy_utils::HashMap;
     use naga::ShaderStage;
 
@@ -1503,11 +1506,8 @@ fn bar() { }
         let mut shaders = HashMap::default();
         let mut import_handles = HashMap::default();
         let foo_handle = Handle::<Shader>::default();
-        shaders.insert(foo_handle.clone_weak(), Shader::from_wgsl(FOO));
-        import_handles.insert(
-            ShaderImport::Custom("FOO".to_string()),
-            foo_handle.clone_weak(),
-        );
+        shaders.insert(foo_handle.id(), Shader::from_wgsl(FOO));
+        import_handles.insert(ShaderImport::Custom("FOO".to_string()), foo_handle.id());
         let result = processor
             .process(&Shader::from_wgsl(INPUT), &[], &shaders, &import_handles)
             .unwrap();
@@ -1535,14 +1535,8 @@ void bar() { }
         let mut shaders = HashMap::default();
         let mut import_handles = HashMap::default();
         let foo_handle = Handle::<Shader>::default();
-        shaders.insert(
-            foo_handle.clone_weak(),
-            Shader::from_glsl(FOO, ShaderStage::Vertex),
-        );
-        import_handles.insert(
-            ShaderImport::Custom("FOO".to_string()),
-            foo_handle.clone_weak(),
-        );
+        shaders.insert(foo_handle.id(), Shader::from_glsl(FOO, ShaderStage::Vertex));
+        import_handles.insert(ShaderImport::Custom("FOO".to_string()), foo_handle.id());
         let result = processor
             .process(
                 &Shader::from_glsl(INPUT, ShaderStage::Vertex),
@@ -1829,11 +1823,8 @@ fn in_main_present() { }
         let mut shaders = HashMap::default();
         let mut import_handles = HashMap::default();
         let foo_handle = Handle::<Shader>::default();
-        shaders.insert(foo_handle.clone_weak(), Shader::from_wgsl(FOO));
-        import_handles.insert(
-            ShaderImport::Custom("FOO".to_string()),
-            foo_handle.clone_weak(),
-        );
+        shaders.insert(foo_handle.id(), Shader::from_wgsl(FOO));
+        import_handles.insert(ShaderImport::Custom("FOO".to_string()), foo_handle.id());
         let result = processor
             .process(
                 &Shader::from_wgsl(INPUT),
@@ -1875,19 +1866,13 @@ fn in_main() { }
         let mut import_handles = HashMap::default();
         {
             let bar_handle = Handle::<Shader>::default();
-            shaders.insert(bar_handle.clone_weak(), Shader::from_wgsl(BAR));
-            import_handles.insert(
-                ShaderImport::Custom("BAR".to_string()),
-                bar_handle.clone_weak(),
-            );
+            shaders.insert(bar_handle.id(), Shader::from_wgsl(BAR));
+            import_handles.insert(ShaderImport::Custom("BAR".to_string()), bar_handle.id());
         }
         {
-            let foo_handle = HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1).typed();
-            shaders.insert(foo_handle.clone_weak(), Shader::from_wgsl(FOO));
-            import_handles.insert(
-                ShaderImport::Custom("FOO".to_string()),
-                foo_handle.clone_weak(),
-            );
+            let foo_handle = Handle::<Shader>::weak_from_u128(1);
+            shaders.insert(foo_handle.id(), Shader::from_wgsl(FOO));
+            import_handles.insert(ShaderImport::Custom("FOO".to_string()), foo_handle.id());
         }
         let result = processor
             .process(
@@ -1933,19 +1918,13 @@ fn baz() { }
         let mut import_handles = HashMap::default();
         {
             let bar_handle = Handle::<Shader>::default();
-            shaders.insert(bar_handle.clone_weak(), Shader::from_wgsl(BAR));
-            import_handles.insert(
-                ShaderImport::Custom("BAR".to_string()),
-                bar_handle.clone_weak(),
-            );
+            shaders.insert(bar_handle.id(), Shader::from_wgsl(BAR));
+            import_handles.insert(ShaderImport::Custom("BAR".to_string()), bar_handle.id());
         }
         {
-            let baz_handle = HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1).typed();
-            shaders.insert(baz_handle.clone_weak(), Shader::from_wgsl(BAZ));
-            import_handles.insert(
-                ShaderImport::Custom("BAZ".to_string()),
-                baz_handle.clone_weak(),
-            );
+            let baz_handle = Handle::<Shader>::weak_from_u128(1);
+            shaders.insert(baz_handle.id(), Shader::from_wgsl(BAZ));
+            import_handles.insert(ShaderImport::Custom("BAZ".to_string()), baz_handle.id());
         }
         let result = processor
             .process(
@@ -2591,20 +2570,14 @@ true
         let mut shaders = HashMap::default();
         let mut import_handles = HashMap::default();
         {
-            let foo_handle = HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 0).typed();
-            shaders.insert(foo_handle.clone_weak(), Shader::from_wgsl(FOO));
-            import_handles.insert(
-                ShaderImport::Custom("FOO".to_string()),
-                foo_handle.clone_weak(),
-            );
+            let foo_handle = Handle::<Shader>::weak_from_u128(0);
+            shaders.insert(foo_handle.id(), Shader::from_wgsl(FOO));
+            import_handles.insert(ShaderImport::Custom("FOO".to_string()), foo_handle.id());
         }
         {
-            let bar_handle = HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1).typed();
-            shaders.insert(bar_handle.clone_weak(), Shader::from_wgsl(BAR));
-            import_handles.insert(
-                ShaderImport::Custom("BAR".to_string()),
-                bar_handle.clone_weak(),
-            );
+            let bar_handle = Handle::<Shader>::weak_from_u128(1);
+            shaders.insert(bar_handle.id(), Shader::from_wgsl(BAR));
+            import_handles.insert(ShaderImport::Custom("BAR".to_string()), bar_handle.id());
         }
         let result = processor
             .process(&Shader::from_wgsl(INPUT), &[], &shaders, &import_handles)

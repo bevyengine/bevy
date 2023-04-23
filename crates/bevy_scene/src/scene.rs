@@ -1,12 +1,11 @@
+use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 use bevy_app::AppTypeRegistry;
+use bevy_asset::Asset;
 use bevy_ecs::{
     entity::EntityMap,
     reflect::{ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
-use bevy_reflect::TypeUuid;
-
-use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
@@ -14,8 +13,7 @@ use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 /// * adding the [`Handle<Scene>`](bevy_asset::Handle) to an entity (the scene will only be
 /// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
-#[derive(Debug, TypeUuid)]
-#[uuid = "c156503c-edd9-4ec7-8d33-dab392df03cd"]
+#[derive(Asset, Debug)]
 pub struct Scene {
     pub world: World,
 }

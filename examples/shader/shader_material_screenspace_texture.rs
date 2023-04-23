@@ -2,7 +2,6 @@
 
 use bevy::{
     prelude::*,
-    reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
@@ -66,8 +65,7 @@ fn rotate_camera(mut camera: Query<&mut Transform, With<MainCamera>>, time: Res<
     cam_transform.look_at(Vec3::ZERO, Vec3::Y);
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
-#[uuid = "b62bb455-a72c-4b56-87bb-81e0554e234f"]
+#[derive(Asset, AsBindGroup, Debug, Clone)]
 pub struct CustomMaterial {
     #[texture(0)]
     #[sampler(1)]

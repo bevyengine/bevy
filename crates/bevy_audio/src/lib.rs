@@ -47,7 +47,7 @@ pub use rodio::Sample;
 pub use sinks::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, Asset};
+use bevy_asset::{Asset, AssetApp};
 
 /// Adds support for audio playback to a Bevy Application
 ///
@@ -61,15 +61,15 @@ pub struct AudioPlugin {
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<AudioOutput<AudioSource>>()
-            .add_asset::<AudioSource>()
-            .add_asset::<AudioSink>()
-            .add_asset::<SpatialAudioSink>()
+            .init_asset::<AudioSource>()
+            .init_asset::<AudioSink>()
+            .init_asset::<SpatialAudioSink>()
             .init_resource::<Audio<AudioSource>>()
             .insert_resource(self.global_volume)
             .add_systems(PostUpdate, play_queued_audio_system::<AudioSource>);
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
-        app.init_asset_loader::<AudioLoader>();
+        app.register_asset_loader(AudioLoader);
     }
 }
 
@@ -79,7 +79,7 @@ impl AddAudioSource for App {
         T: Decodable + Asset,
         f32: rodio::cpal::FromSample<T::DecoderItem>,
     {
-        self.add_asset::<T>()
+        self.init_asset::<T>()
             .init_resource::<Audio<T>>()
             .init_resource::<AudioOutput<T>>()
             .add_systems(PostUpdate, play_queued_audio_system::<T>)

@@ -54,7 +54,7 @@ use crate::{
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{AddAsset, AssetServer};
+use bevy_asset::{AssetApp, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
 use std::ops::{Deref, DerefMut};
@@ -191,10 +191,8 @@ pub struct RenderApp;
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`](RenderSet) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        app.add_asset::<Shader>()
-            .add_debug_asset::<Shader>()
-            .init_asset_loader::<ShaderLoader>()
-            .init_debug_asset_loader::<ShaderLoader>();
+        app.init_asset::<Shader>()
+            .init_asset_loader::<ShaderLoader>();
 
         let mut system_state: SystemState<Query<&RawHandleWrapper, With<PrimaryWindow>>> =
             SystemState::new(&mut app.world);

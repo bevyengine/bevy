@@ -459,6 +459,8 @@ mod impls {
     #[cfg(feature = "smallvec")]
     mod smallvec;
     mod std;
+    #[cfg(feature = "uuid")]
+    mod uuid;
 
     #[cfg(feature = "glam")]
     pub use self::glam::*;
@@ -467,6 +469,8 @@ mod impls {
     #[cfg(feature = "smallvec")]
     pub use self::smallvec::*;
     pub use self::std::*;
+    #[cfg(feature = "uuid")]
+    pub use self::uuid::*;
 }
 
 mod enums;

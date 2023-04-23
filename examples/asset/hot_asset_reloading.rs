@@ -6,11 +6,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            // Tell the asset server to watch for asset changes on disk:
-            watch_for_changes: true,
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins.set(AssetPlugin::default().watch_for_changes()))
         .add_systems(Startup, setup)
         .run();
 }

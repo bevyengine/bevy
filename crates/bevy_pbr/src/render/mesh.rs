@@ -6,7 +6,7 @@ use crate::{
     MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_core_pipeline::{
     prepass::ViewPrepassTextures,
     tonemapping::{
@@ -19,7 +19,6 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Mat3A, Mat4, Vec2};
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -49,22 +48,14 @@ const MAX_JOINTS: usize = 256;
 const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
-pub const MESH_VERTEX_OUTPUT: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2645551199423808407);
-pub const MESH_VIEW_TYPES_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8140454348013264787);
-pub const MESH_VIEW_BINDINGS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
-pub const MESH_TYPES_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2506024101911992377);
-pub const MESH_BINDINGS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16831548636314682308);
-pub const MESH_FUNCTIONS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6300874327833745635);
-pub const MESH_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
-pub const SKINNING_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13215291596265391738);
+pub const MESH_VERTEX_OUTPUT: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
+pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8140454348013264787);
+pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(9076678235888822571);
+pub const MESH_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(2506024101911992377);
+pub const MESH_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16831548636314682308);
+pub const MESH_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(6300874327833745635);
+pub const MESH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(3252377289100772450);
+pub const SKINNING_HANDLE: Handle<Shader> = Handle::weak_from_u128(13215291596265391738);
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -805,13 +796,13 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: MESH_SHADER_HANDLE.typed::<Shader>(),
+                shader: MESH_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
-                shader: MESH_SHADER_HANDLE.typed::<Shader>(),
+                shader: MESH_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

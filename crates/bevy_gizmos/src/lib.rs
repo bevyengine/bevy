@@ -19,7 +19,7 @@
 use std::mem;
 
 use bevy_app::{Last, Plugin};
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::{
     prelude::{Component, DetectChanges},
     schedule::IntoSystemConfigs,
@@ -27,7 +27,6 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::Mat4;
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     mesh::Mesh,
     render_phase::AddRenderCommand,
@@ -55,8 +54,7 @@ pub mod prelude {
     pub use crate::{gizmos::Gizmos, GizmoConfig};
 }
 
-const LINE_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7414812689238026784);
+const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 pub struct GizmoPlugin;

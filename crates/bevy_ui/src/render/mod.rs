@@ -10,11 +10,9 @@ pub use render_pass::*;
 
 use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
-use bevy_reflect::TypeUuid;
-use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
     camera::Camera,
     color::Color,
@@ -49,8 +47,7 @@ pub mod draw_ui_graph {
     }
 }
 
-pub const UI_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13012847047162779583);
+pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(13012847047162779583);
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
@@ -150,7 +147,7 @@ pub struct ExtractedUiNode {
     pub transform: Mat4,
     pub color: Color,
     pub rect: Rect,
-    pub image: Handle<Image>,
+    pub image: AssetId<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
     pub flip_x: bool,
@@ -192,9 +189,9 @@ pub fn extract_uinodes(
                 if !images.contains(&image.texture) {
                     continue;
                 }
-                (image.texture.clone_weak(), image.flip_x, image.flip_y)
+                (image.texture.id(), image.flip_x, image.flip_y)
             } else {
-                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+                (AssetId::default(), false, false)
             };
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
@@ -333,7 +330,7 @@ pub fn extract_text_uinodes(
                         * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
                     color,
                     rect,
-                    image: atlas.texture.clone_weak(),
+                    image: atlas.texture.id(),
                     atlas_size: Some(atlas.size * inverse_scale_factor),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
@@ -379,7 +376,7 @@ const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 #[derive(Component)]
 pub struct UiBatch {
     pub range: Range<u32>,
-    pub image: Handle<Image>,
+    pub image: AssetId<Image>,
     pub z: f32,
 }
 
@@ -399,19 +396,19 @@ pub fn prepare_uinodes(
 
     let mut start = 0;
     let mut end = 0;
-    let mut current_batch_handle = Default::default();
+    let mut current_batch_asset = AssetId::invalid();
     let mut last_z = 0.0;
     for extracted_uinode in &extracted_uinodes.uinodes {
-        if current_batch_handle != extracted_uinode.image {
+        if current_batch_asset != extracted_uinode.image {
             if start != end {
                 commands.spawn(UiBatch {
                     range: start..end,
-                    image: current_batch_handle,
+                    image: current_batch_asset,
                     z: last_z,
                 });
                 start = end;
             }
-            current_batch_handle = extracted_uinode.image.clone_weak();
+            current_batch_asset = extracted_uinode.image;
         }
 
         let mut uinode_rect = extracted_uinode.rect;
@@ -470,7 +467,7 @@ pub fn prepare_uinodes(
                 continue;
             }
         }
-        let uvs = if current_batch_handle.id() == DEFAULT_IMAGE_HANDLE.id() {
+        let uvs = if current_batch_asset == AssetId::default() {
             [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
         } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
@@ -526,7 +523,7 @@ pub fn prepare_uinodes(
     if start != end {
         commands.spawn(UiBatch {
             range: start..end,
-            image: current_batch_handle,
+            image: current_batch_asset,
             z: last_z,
         });
     }
@@ -536,7 +533,7 @@ pub fn prepare_uinodes(
 
 #[derive(Resource, Default)]
 pub struct UiImageBindGroups {
-    pub values: HashMap<Handle<Image>, BindGroup>,
+    pub values: HashMap<AssetId<Image>, BindGroup>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -557,9 +554,12 @@ pub fn queue_uinodes(
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
         match event {
-            AssetEvent::Created { .. } => None,
-            AssetEvent::Modified { handle } | AssetEvent::Removed { handle } => {
-                image_bind_groups.values.remove(handle)
+            AssetEvent::Added { .. } => {}
+            AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
+                image_bind_groups.values.remove(id);
+            }
+            AssetEvent::LoadedWithDependencies { .. } => {
+                // TODO: handle this
             }
         };
     }
@@ -583,9 +583,9 @@ pub fn queue_uinodes(
             for (entity, batch) in &ui_batches {
                 image_bind_groups
                     .values
-                    .entry(batch.image.clone_weak())
+                    .entry(batch.image)
                     .or_insert_with(|| {
-                        let gpu_image = gpu_images.get(&batch.image).unwrap();
+                        let gpu_image = gpu_images.get(batch.image).unwrap();
                         render_device.create_bind_group(&BindGroupDescriptor {
                             entries: &[
                                 BindGroupEntry {

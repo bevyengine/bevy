@@ -28,7 +28,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_winit|winit window and input backend|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
-|filesystem_watcher|Enable watching file system for asset hot reload|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
 |png|PNG image format support|

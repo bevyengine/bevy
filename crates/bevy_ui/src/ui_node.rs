@@ -3,10 +3,7 @@ use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    color::Color,
-    texture::{Image, DEFAULT_IMAGE_HANDLE},
-};
+use bevy_render::{color::Color, texture::Image};
 use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -1548,7 +1545,7 @@ pub struct UiImage {
 impl Default for UiImage {
     fn default() -> UiImage {
         UiImage {
-            texture: DEFAULT_IMAGE_HANDLE.typed(),
+            texture: Default::default(),
             flip_x: false,
             flip_y: false,
         }

@@ -36,13 +36,6 @@ fn setup(
         info!("sphere hasn't loaded yet");
     }
 
-    // You can load all assets in a folder like this. They will be loaded in parallel without
-    // blocking
-    let _scenes: Vec<HandleUntyped> = asset_server.load_folder("models/monkey").unwrap();
-
-    // Then any asset in the folder can be accessed like this:
-    let monkey_handle = asset_server.get_handle("models/monkey/Monkey.gltf#Mesh0/Primitive0");
-
     // You can also add assets directly to their Assets<T> storage:
     let material_handle = materials.add(StandardMaterial {
         base_color: Color::rgb(0.8, 0.7, 0.6),
@@ -51,7 +44,6 @@ fn setup(
 
     // monkey
     commands.spawn(PbrBundle {
-        mesh: monkey_handle,
         material: material_handle.clone(),
         transform: Transform::from_xyz(-3.0, 0.0, 0.0),
         ..default()
