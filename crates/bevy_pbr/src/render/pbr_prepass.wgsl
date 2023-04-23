@@ -92,9 +92,9 @@ fn prepass_alpha_discard(in: FragmentInput) {
 @fragment
 fn fragment(in: FragmentInput) -> FragmentOutput {
     var out: FragmentOutput;
-    out.depth = in.frag_coord.z;
-
     prepass_alpha_discard(in);
+
+    out.depth = in.frag_coord.z;
 
 #ifdef VERTEX_TANGENTS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
@@ -116,13 +116,13 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
             // about.
             -Vt,
         );
-        if parallaxed.z != 0.0 {
-        let NBT = transpose(mat3x3(T, B, N));
-        let tangent_extra_depth = Vt * additional_depth(in.uv, parallaxed.xy, parallaxed.z);
-        let extra_depth = tangent_extra_depth * NBT;
-        let parallaxed_view_position = view.view_proj * (in.world_position - vec4(extra_depth, 0.0));
-        // let parallaxed_view_position = view.view_proj * in.world_position;
-        out.depth = (parallaxed_view_position.z / parallaxed_view_position.w)  * 0.9999;
+        if parallaxed.z > 0.0001 {
+            let NBT = transpose(mat3x3(T, B, N));
+            let tangent_extra_depth = Vt * additional_depth(in.uv, parallaxed.xy, parallaxed.z);
+            let extra_depth = tangent_extra_depth * NBT;
+            let parallaxed_view_position = view.view_proj * (in.world_position - vec4(extra_depth, 0.0));
+            // let parallaxed_view_position = view.view_proj * in.world_position;
+            out.depth = parallaxed_view_position.z / parallaxed_view_position.w;
         }
     }
 #endif

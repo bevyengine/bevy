@@ -4,7 +4,9 @@
 use std::fmt;
 
 use bevy::{
-    core_pipeline::prepass::DepthPrepass, prelude::*, render::render_resource::TextureFormat,
+    core_pipeline::{core_3d::Camera3dDepthLoadOp, prepass::DepthPrepass},
+    prelude::*,
+    render::render_resource::TextureFormat,
     window::close_on_esc,
 };
 
@@ -219,6 +221,10 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
+            camera_3d: Camera3d {
+                depth_load_op: Camera3dDepthLoadOp::Load,
+                ..default()
+            },
             ..default()
         },
         CameraController,
