@@ -97,8 +97,7 @@ pub struct LogPlugin {
 
     /// Allows user-defined tracing subscriber layer rather than default formatting.
     /// See also: [`tracing_subscriber::fmt::Subscriber`]
-    pub layer:
-        Box<dyn (Fn() -> Box<dyn Layer<tracing_subscriber::Registry> + Send + Sync>) + Send + Sync>,
+    pub layer: Box<dyn (Fn() -> Box<dyn Layer<Registry> + Send + Sync>) + Send + Sync>,
 }
 
 impl Default for LogPlugin {
@@ -128,23 +127,12 @@ impl Plugin for LogPlugin {
 
         let finished_subscriber;
         let default_filter = { format!("{},{}", self.level, self.filter) };
-        let fmt_layer = (self.layer)();
-
-        // bevy_render::renderer logs a `tracy.frame_mark` event every frame
-        // at Level::INFO. Formatted logs should omit it.
-        #[cfg(feature = "tracing-tracy")]
-        let fmt_layer = fmt_layer.with_filter(tracing_subscriber::filter::FilterFn::new(|meta| {
-            meta.fields().field("tracy.frame_mark").is_none()
-        }));
 
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
 
-        let subscriber = Registry::default().with(fmt_layer).with(filter_layer);
-
-        #[cfg(feature = "trace")]
-        let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
+        let subscriber = Registry::default();
 
         #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
         {
@@ -175,25 +163,47 @@ impl Plugin for LogPlugin {
             #[cfg(feature = "tracing-tracy")]
             let tracy_layer = tracing_tracy::TracyLayer::new();
 
+            let fmt_layer = (self.layer)();
+
+            // bevy_render::renderer logs a `tracy.frame_mark` event every frame
+            // at Level::INFO. Formatted logs should omit it.
+            #[cfg(feature = "tracing-tracy")]
+            let fmt_layer =
+                fmt_layer.with_filter(tracing_subscriber::filter::FilterFn::new(|meta| {
+                    meta.fields().field("tracy.frame_mark").is_none()
+                }));
+
+            let subscriber = subscriber.with(fmt_layer).with(filter_layer);
+
             #[cfg(feature = "tracing-chrome")]
             let subscriber = subscriber.with(chrome_layer);
             #[cfg(feature = "tracing-tracy")]
             let subscriber = subscriber.with(tracy_layer);
+            #[cfg(feature = "trace")]
+            let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
 
             finished_subscriber = subscriber;
         }
 
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(any(target_arch = "wasm32", target_os = "android"))]
         {
-            console_error_panic_hook::set_once();
-            finished_subscriber = subscriber.with(tracing_wasm::WASMLayer::new(
-                tracing_wasm::WASMLayerConfig::default(),
-            ));
-        }
+            let subscriber = subscriber.with(filter_layer);
 
-        #[cfg(target_os = "android")]
-        {
-            finished_subscriber = subscriber.with(android_tracing::AndroidLayer::default());
+            #[cfg(feature = "trace")]
+            let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
+
+            #[cfg(target_arch = "wasm32")]
+            {
+                console_error_panic_hook::set_once();
+                finished_subscriber = subscriber.with(tracing_wasm::WASMLayer::new(
+                    tracing_wasm::WASMLayerConfig::default(),
+                ));
+            }
+
+            #[cfg(target_os = "android")]
+            {
+                finished_subscriber = subscriber.with(android_tracing::AndroidLayer::default());
+            }
         }
 
         let logger_already_set = LogTracer::init().is_err();
