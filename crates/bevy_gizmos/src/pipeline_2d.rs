@@ -79,13 +79,17 @@ impl FromWorld for GizmoLinePipeline {
     }
 }
 
+#[derive(PartialEq, Eq, Hash, Clone)]
+struct GizmoLinePipelineKey {
+    mesh_key: Mesh2dPipelineKey,
+    strip: bool,
+}
+
 impl SpecializedRenderPipeline for GizmoLinePipeline {
-    type Key = (bool, Mesh2dPipelineKey);
+    type Key = GizmoLinePipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let (strip, key) = key;
-
-        let format = if key.contains(Mesh2dPipelineKey::HDR) {
+        let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
@@ -103,7 +107,7 @@ impl SpecializedRenderPipeline for GizmoLinePipeline {
                 shader: LINE_SHADER_HANDLE.typed(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: line_gizmo_vertex_buffer_layouts(strip),
+                buffers: line_gizmo_vertex_buffer_layouts(key.strip),
             },
             fragment: Some(FragmentState {
                 shader: LINE_SHADER_HANDLE.typed(),
@@ -119,7 +123,7 @@ impl SpecializedRenderPipeline for GizmoLinePipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState {
-                count: key.msaa_samples(),
+                count: key.mesh_key.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -194,14 +198,20 @@ fn queue_line_gizmos_2d(
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
 
     for (view, mut transparent_phase) in &mut views {
-        let key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
+        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle) in &line_gizmos {
             let Some(line_gizmo) = line_gizmo_assets.get(handle) else { continue };
 
-            let pipeline =
-                pipelines.specialize(&pipeline_cache, &pipeline, (line_gizmo.strip, key));
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &pipeline,
+                GizmoLinePipelineKey {
+                    mesh_key,
+                    strip: line_gizmo.strip,
+                },
+            );
 
             transparent_phase.add(Transparent2d {
                 entity,

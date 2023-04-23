@@ -80,12 +80,17 @@ impl FromWorld for GizmoLinePipeline {
     }
 }
 
+#[derive(PartialEq, Eq, Hash, Clone)]
+struct GizmoLinePipelineKey {
+    mesh_key: MeshPipelineKey,
+    strip: bool,
+    perspective: bool,
+}
+
 impl SpecializedRenderPipeline for GizmoLinePipeline {
-    type Key = (bool, bool, MeshPipelineKey);
+    type Key = GizmoLinePipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let (perspective, strip, key) = key;
-
         let mut shader_defs = vec![
             "GIZMO_3D".into(),
             #[cfg(feature = "webgl")]
@@ -101,17 +106,17 @@ impl SpecializedRenderPipeline for GizmoLinePipeline {
             MAX_CASCADES_PER_LIGHT as i32,
         ));
 
-        if perspective {
+        if key.perspective {
             shader_defs.push("PERSPECTIVE".into());
         }
 
-        let format = if key.contains(MeshPipelineKey::HDR) {
+        let format = if key.mesh_key.contains(MeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
         };
 
-        let view_layout = if key.msaa_samples() == 1 {
+        let view_layout = if key.mesh_key.msaa_samples() == 1 {
             self.mesh_pipeline.view_layout.clone()
         } else {
             self.mesh_pipeline.view_layout_multisampled.clone()
@@ -124,7 +129,7 @@ impl SpecializedRenderPipeline for GizmoLinePipeline {
                 shader: LINE_SHADER_HANDLE.typed(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: line_gizmo_vertex_buffer_layouts(strip),
+                buffers: line_gizmo_vertex_buffer_layouts(key.strip),
             },
             fragment: Some(FragmentState {
                 shader: LINE_SHADER_HANDLE.typed(),
@@ -146,7 +151,7 @@ impl SpecializedRenderPipeline for GizmoLinePipeline {
                 bias: DepthBiasState::default(),
             }),
             multisample: MultisampleState {
-                count: key.msaa_samples(),
+                count: key.mesh_key.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -222,7 +227,7 @@ fn queue_line_gizmos_3d(
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
 
     for (view, mut transparent_phase) in &mut views {
-        let polyline_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
+        let mesh_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle) in &line_gizmos {
@@ -231,7 +236,11 @@ fn queue_line_gizmos_3d(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                (config.line_perspective, line_gizmo.strip, polyline_key),
+                GizmoLinePipelineKey {
+                    mesh_key,
+                    strip: line_gizmo.strip,
+                    perspective: config.line_perspective,
+                },
             );
 
             transparent_phase.add(Transparent3d {
