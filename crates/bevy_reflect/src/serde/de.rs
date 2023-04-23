@@ -393,17 +393,41 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 Ok(Box::new(dynamic_struct))
             }
             TypeInfo::TupleStruct(tuple_struct_info) => {
-                let mut dynamic_tuple_struct = deserializer.deserialize_tuple_struct(
-                    tuple_struct_info.name(),
-                    tuple_struct_info.field_len(),
-                    TupleStructVisitor {
-                        tuple_struct_info,
-                        registry: self.registry,
-                        registration: self.registration,
-                    },
-                )?;
-                dynamic_tuple_struct.set_name(tuple_struct_info.type_name().to_string());
-                Ok(Box::new(dynamic_tuple_struct))
+                let ignored_len = self
+                    .registration
+                    .data::<SerializationData>()
+                    .map(|data| data.len())
+                    .unwrap_or(0);
+                let field_len = tuple_struct_info.field_len().saturating_sub(ignored_len);
+
+                // Only treat this as a newtype if it has exactly 1 field and that field isn't
+                // ignored.
+                if field_len == 1 && tuple_struct_info.field_len() == 1 {
+                    let field = tuple_struct_info.field_at(0).unwrap();
+                    let field_registration =
+                        get_registration(field.type_id(), field.type_name(), self.registry)?;
+                    let mut dynamic_tuple_struct = deserializer.deserialize_newtype_struct(
+                        tuple_struct_info.name(),
+                        NewtypeStructVisitor {
+                            field_registration,
+                            registry: self.registry,
+                        },
+                    )?;
+                    dynamic_tuple_struct.set_name(tuple_struct_info.type_name().to_string());
+                    Ok(Box::new(dynamic_tuple_struct))
+                } else {
+                    let mut dynamic_tuple_struct = deserializer.deserialize_tuple_struct(
+                        tuple_struct_info.name(),
+                        tuple_struct_info.field_len(),
+                        TupleStructVisitor {
+                            tuple_struct_info,
+                            registry: self.registry,
+                            registration: self.registration,
+                        },
+                    )?;
+                    dynamic_tuple_struct.set_name(tuple_struct_info.type_name().to_string());
+                    Ok(Box::new(dynamic_tuple_struct))
+                }
             }
             TypeInfo::List(list_info) => {
                 let mut dynamic_list = deserializer.deserialize_seq(ListVisitor {
@@ -538,6 +562,34 @@ impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
     }
 }
 
+struct NewtypeStructVisitor<'a> {
+    field_registration: &'a TypeRegistration,
+    registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for NewtypeStructVisitor<'a> {
+    type Value = DynamicTupleStruct;
+
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+        formatter.write_str("reflected newtype struct value")
+    }
+
+    fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let mut tuple_struct = DynamicTupleStruct::default();
+
+        let de = TypedReflectDeserializer {
+            registration: self.field_registration,
+            registry: self.registry,
+        };
+        tuple_struct.insert_boxed(de.deserialize(deserializer)?);
+
+        Ok(tuple_struct)
+    }
+}
+
 struct TupleStructVisitor<'a> {
     tuple_struct_info: &'static TupleStructInfo,
     registry: &'a TypeRegistry,
@@ -595,12 +647,7 @@ impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
             }
         }
 
-        let ignored_len = self
-            .registration
-            .data::<SerializationData>()
-            .map(|data| data.len())
-            .unwrap_or(0);
-        if tuple_struct.field_len() != self.tuple_struct_info.field_len() - ignored_len {
+        if tuple_struct.field_len() != field_len {
             return Err(Error::invalid_length(
                 tuple_struct.field_len(),
                 &self.tuple_struct_info.field_len().to_string().as_str(),
@@ -1108,6 +1155,7 @@ mod tests {
         array_value: [i32; 5],
         map_value: HashMap<u8, usize>,
         struct_value: SomeStruct,
+        newtype_struct_value: SomeNewtypeStruct,
         tuple_struct_value: SomeTupleStruct,
         unit_struct: SomeUnitStruct,
         unit_enum: SomeEnum,
@@ -1127,7 +1175,10 @@ mod tests {
     }
 
     #[derive(Reflect, FromReflect, Debug, PartialEq)]
-    struct SomeTupleStruct(String);
+    struct SomeNewtypeStruct(String);
+
+    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    struct SomeTupleStruct(String, u32);
 
     #[derive(Reflect, FromReflect, Debug, PartialEq)]
     struct SomeUnitStruct;
@@ -1178,6 +1229,7 @@ mod tests {
         let mut registry = TypeRegistry::default();
         registry.register::<MyStruct>();
         registry.register::<SomeStruct>();
+        registry.register::<SomeNewtypeStruct>();
         registry.register::<SomeTupleStruct>();
         registry.register::<SomeUnitStruct>();
         registry.register::<SomeIgnoredStruct>();
@@ -1217,7 +1269,8 @@ mod tests {
             array_value: [-2, -1, 0, 1, 2],
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
-            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            newtype_struct_value: SomeNewtypeStruct(String::from("Newtype Struct")),
+            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct"), 2),
             unit_struct: SomeUnitStruct,
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
@@ -1259,7 +1312,8 @@ mod tests {
                 struct_value: (
                     foo: 999999999,
                 ),
-                tuple_struct_value: ("Tuple Struct"),
+                newtype_struct_value: ("Newtype Struct"),
+                tuple_struct_value: ("Tuple Struct", 2),
                 unit_struct: (),
                 unit_enum: Unit,
                 newtype_enum: NewType(123),
@@ -1476,7 +1530,8 @@ mod tests {
             array_value: [-2, -1, 0, 1, 2],
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
-            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            newtype_struct_value: SomeNewtypeStruct(String::from("Newtype Struct")),
+            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct"), 2),
             unit_struct: SomeUnitStruct,
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
@@ -1506,12 +1561,13 @@ mod tests {
             0, 0, 219, 15, 73, 64, 57, 5, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 254, 255, 255,
             255, 255, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 254, 255, 255, 255, 255,
             255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 32, 0,
-            0, 0, 0, 0, 0, 0, 255, 201, 154, 59, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 84, 117, 112,
-            108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0, 1, 0, 0, 0, 123, 0, 0, 0, 0, 0,
-            0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3, 0, 0, 0, 20, 0, 0, 0, 0, 0,
-            0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97,
-            108, 117, 101, 1, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 0,
-            0,
+            0, 0, 0, 0, 0, 0, 255, 201, 154, 59, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 0, 78, 101, 119,
+            116, 121, 112, 101, 32, 83, 116, 114, 117, 99, 116, 12, 0, 0, 0, 0, 0, 0, 0, 84, 117,
+            112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 123,
+            0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3, 0, 0, 0, 20,
+            0, 0, 0, 0, 0, 0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116,
+            32, 118, 97, 108, 117, 101, 1, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0,
+            0, 0, 0, 0, 0, 0,
         ];
 
         let deserializer = UntypedReflectDeserializer::new(&registry);
@@ -1539,7 +1595,8 @@ mod tests {
             array_value: [-2, -1, 0, 1, 2],
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
-            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            newtype_struct_value: SomeNewtypeStruct(String::from("Newtype Struct")),
+            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct"), 2),
             unit_struct: SomeUnitStruct,
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
@@ -1564,15 +1621,16 @@ mod tests {
         let input = vec![
             129, 217, 40, 98, 101, 118, 121, 95, 114, 101, 102, 108, 101, 99, 116, 58, 58, 115,
             101, 114, 100, 101, 58, 58, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
-            83, 116, 114, 117, 99, 116, 220, 0, 19, 123, 172, 72, 101, 108, 108, 111, 32, 119, 111,
+            83, 116, 114, 117, 99, 116, 220, 0, 20, 123, 172, 72, 101, 108, 108, 111, 32, 119, 111,
             114, 108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255, 0,
-            1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 145, 172, 84,
-            117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110, 105, 116, 129,
-            167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146, 202,
-            63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145,
-            180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108,
-            117, 101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165, 84, 117, 112,
-            108, 101, 144, 146, 100, 145, 101,
+            1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 174, 78, 101,
+            119, 116, 121, 112, 101, 32, 83, 116, 114, 117, 99, 116, 146, 172, 84, 117, 112, 108,
+            101, 32, 83, 116, 114, 117, 99, 116, 2, 144, 164, 85, 110, 105, 116, 129, 167, 78, 101,
+            119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146, 202, 63, 157, 112,
+            164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145, 180, 83, 116,
+            114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108, 117, 101,
+            144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165, 84, 117, 112, 108, 101,
+            144, 146, 100, 145, 101,
         ];
 
         let mut reader = std::io::BufReader::new(input.as_slice());
