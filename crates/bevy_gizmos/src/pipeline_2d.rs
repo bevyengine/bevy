@@ -40,22 +40,22 @@ impl Plugin for LineGizmo2dPlugin {
 
         render_app
             .add_render_command::<Transparent2d, DrawLineGizmo2d>()
-            .init_resource::<GizmoLinePipeline>()
-            .init_resource::<SpecializedRenderPipelines<GizmoLinePipeline>>()
+            .init_resource::<LineGizmoPipeline>()
+            .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
             .add_systems(
                 Render,
-                (queue_polyline_bind_group, queue_line_gizmos_2d).in_set(RenderSet::Queue),
+                (queue_line_gizmo_bind_group, queue_line_gizmos_2d).in_set(RenderSet::Queue),
             );
     }
 }
 
 #[derive(Clone, Resource)]
-struct GizmoLinePipeline {
+struct LineGizmoPipeline {
     mesh_pipeline: Mesh2dPipeline,
     layout: BindGroupLayout,
 }
 
-impl FromWorld for GizmoLinePipeline {
+impl FromWorld for LineGizmoPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let render_device = render_world.resource::<RenderDevice>();
         let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -69,10 +69,10 @@ impl FromWorld for GizmoLinePipeline {
                 },
                 count: None,
             }],
-            label: Some("polyline_layout"),
+            label: Some("LineGizmoUniform layout"),
         });
 
-        GizmoLinePipeline {
+        LineGizmoPipeline {
             mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
             layout,
         }
@@ -80,13 +80,13 @@ impl FromWorld for GizmoLinePipeline {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
-struct GizmoLinePipelineKey {
+struct LineGizmoPipelineKey {
     mesh_key: Mesh2dPipelineKey,
     strip: bool,
 }
 
-impl SpecializedRenderPipeline for GizmoLinePipeline {
-    type Key = GizmoLinePipelineKey;
+impl SpecializedRenderPipeline for LineGizmoPipeline {
+    type Key = LineGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
@@ -134,25 +134,25 @@ impl SpecializedRenderPipeline for GizmoLinePipeline {
 }
 
 #[derive(Resource)]
-struct GizmoLineBindGroup {
+struct LineGizmoBindGroup {
     value: BindGroup,
 }
 
-fn queue_polyline_bind_group(
+fn queue_line_gizmo_bind_group(
     mut commands: Commands,
-    polyline_pipeline: Res<GizmoLinePipeline>,
+    line_gizmo_pipeline: Res<LineGizmoPipeline>,
     render_device: Res<RenderDevice>,
-    polyline_uniforms: Res<ComponentUniforms<LineGizmoUniform>>,
+    line_gizmo_uniforms: Res<ComponentUniforms<LineGizmoUniform>>,
 ) {
-    if let Some(binding) = polyline_uniforms.uniforms().binding() {
-        commands.insert_resource(GizmoLineBindGroup {
+    if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
+        commands.insert_resource(LineGizmoBindGroup {
             value: render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[BindGroupEntry {
                     binding: 0,
                     resource: binding,
                 }],
-                label: Some("polyline_bind_group"),
-                layout: &polyline_pipeline.layout,
+                label: Some("LineGizmo bindgroup"),
+                layout: &line_gizmo_pipeline.layout,
             }),
         });
     }
@@ -162,17 +162,17 @@ struct SetLineGizmoBindGroup<const I: usize>;
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I> {
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<DynamicUniformIndex<LineGizmoUniform>>;
-    type Param = SRes<GizmoLineBindGroup>;
+    type Param = SRes<LineGizmoBindGroup>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        polyline_index: ROQueryItem<'w, Self::ItemWorldQuery>,
+        uniform_index: ROQueryItem<'w, Self::ItemWorldQuery>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(I, &bind_group.into_inner().value, &[polyline_index.index()]);
+        pass.set_bind_group(I, &bind_group.into_inner().value, &[uniform_index.index()]);
         RenderCommandResult::Success
     }
 }
@@ -187,8 +187,8 @@ type DrawLineGizmo2d = (
 #[allow(clippy::too_many_arguments)]
 fn queue_line_gizmos_2d(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
-    pipeline: Res<GizmoLinePipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<GizmoLinePipeline>>,
+    pipeline: Res<LineGizmoPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>)>,
@@ -207,7 +207,7 @@ fn queue_line_gizmos_2d(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                GizmoLinePipelineKey {
+                LineGizmoPipelineKey {
                     mesh_key,
                     strip: line_gizmo.strip,
                 },

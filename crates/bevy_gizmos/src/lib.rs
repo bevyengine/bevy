@@ -281,10 +281,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewWorldQuery>,
         handle: ROQueryItem<'w, Self::ItemWorldQuery>,
-        polylines: SystemParamItem<'w, '_, Self::Param>,
+        line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(line_gizmo) = polylines.into_inner().get(handle) else {
+        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
             return RenderCommandResult::Failure;
         };
 
