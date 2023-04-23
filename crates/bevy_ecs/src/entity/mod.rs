@@ -2,6 +2,11 @@
 //!
 //! An **entity** exclusively owns zero or more [component] instances, all of different types, and can dynamically acquire or lose them over its lifetime.
 //!
+//! **empty entity**: Entity with zero components.
+//! **pending entity**: Entity reserved, but not flushed yet (see [`Entities::flush`] docs for reference).
+//! **reserved entity**: same as **pending entity**.
+//! **invalid entity**: **pending entity** flushed with invalid (see [`Entities::flush_as_invalid`] docs for reference).
+//!
 //! See [`Entity`] to learn more.
 //!
 //! [component]: crate::component::Component
@@ -229,10 +234,12 @@ impl fmt::Debug for Entity {
 }
 
 impl SparseSetIndex for Entity {
+    #[inline]
     fn sparse_set_index(&self) -> usize {
         self.index() as usize
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Entity::from_raw(value as u32)
     }
@@ -498,7 +505,7 @@ impl Entities {
             self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
         } else {
-            let current_meta = &mut self.meta[entity.index as usize];
+            let current_meta = &self.meta[entity.index as usize];
             if current_meta.location.archetype_id == ArchetypeId::INVALID {
                 AllocAtWithoutReplacement::DidNotExist
             } else if current_meta.generation == entity.generation {
@@ -563,10 +570,11 @@ impl Entities {
         self.len = 0;
     }
 
-    /// Returns `Ok(Location { archetype: Archetype::invalid(), index: undefined })` for pending entities.
+    /// Returns the location of an [`Entity`].
+    /// Note: for pending entities, returns `Some(EntityLocation::INVALID)`.
+    #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
-        if (entity.index as usize) < self.meta.len() {
-            let meta = &self.meta[entity.index as usize];
+        if let Some(meta) = self.meta.get(entity.index as usize) {
             if meta.generation != entity.generation
                 || meta.location.archetype_id == ArchetypeId::INVALID
             {
@@ -585,6 +593,7 @@ impl Entities {
     ///  - `index` must be a valid entity index.
     ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
+    #[inline]
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
         self.meta.get_unchecked_mut(index as usize).location = location;
@@ -731,14 +740,10 @@ struct EntityMeta {
 }
 
 impl EntityMeta {
+    /// meta for **pending entity**
     const EMPTY: EntityMeta = EntityMeta {
         generation: 0,
-        location: EntityLocation {
-            archetype_id: ArchetypeId::INVALID,
-            archetype_row: ArchetypeRow::INVALID, // dummy value, to be filled in
-            table_id: TableId::INVALID,
-            table_row: TableRow::INVALID, // dummy value, to be filled in
-        },
+        location: EntityLocation::INVALID,
     };
 }
 
@@ -769,6 +774,16 @@ pub struct EntityLocation {
     ///
     /// [`Table`]: crate::storage::Table
     pub table_row: TableRow,
+}
+
+impl EntityLocation {
+    /// location for **pending entity** and **invalid entity**
+    const INVALID: EntityLocation = EntityLocation {
+        archetype_id: ArchetypeId::INVALID,
+        archetype_row: ArchetypeRow::INVALID,
+        table_id: TableId::INVALID,
+        table_row: TableRow::INVALID,
+    };
 }
 
 #[cfg(test)]

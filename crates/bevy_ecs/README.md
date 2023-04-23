@@ -150,7 +150,7 @@ fn main() {
     let mut schedule = Schedule::default();
 
     // Add our system to the schedule
-    schedule.add_system(movement);
+    schedule.add_systems(movement);
 
     // Run the schedule once. If your app has a "loop", you would run this once per loop
     schedule.run(&mut world);

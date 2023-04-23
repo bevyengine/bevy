@@ -4,7 +4,7 @@
 //! In Bevy each view (camera, or shadow-casting light, etc.) has one or multiple [`RenderPhase`]s
 //! (e.g. opaque, transparent, shadow, etc).
 //! They are used to queue entities for rendering.
-//! Multiple phases might be required due to different sorting/batching behaviours
+//! Multiple phases might be required due to different sorting/batching behaviors
 //! (e.g. opaque: front to back, transparent: back to front) or because one phase depends on
 //! the rendered texture of the previous phase (e.g. for screen-space reflections).
 //!
@@ -45,7 +45,7 @@ use std::ops::Range;
 ///
 /// Each view (camera, or shadow-casting light, etc.) can have one or multiple render phases.
 /// They are used to queue entities for rendering.
-/// Multiple phases might be required due to different sorting/batching behaviours
+/// Multiple phases might be required due to different sorting/batching behaviors
 /// (e.g. opaque: front to back, transparent: back to front) or because one phase depends on
 /// the rendered texture of the previous phase (e.g. for screen-space reflections).
 /// All [`PhaseItem`]s are then rendered using a single [`TrackedRenderPass`].

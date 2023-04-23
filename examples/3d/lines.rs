@@ -17,7 +17,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(MaterialPlugin::<LineMaterial>::default())
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 

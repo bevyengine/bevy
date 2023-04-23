@@ -174,6 +174,8 @@ impl<'a> LoadContext<'a> {
     /// Reads the contents of the file at the specified path through the [`AssetIo`] associated
     /// with this context.
     pub async fn read_asset_bytes<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>, AssetIoError> {
+        self.asset_io
+            .watch_path_for_changes(path.as_ref(), Some(self.path.to_owned()))?;
         self.asset_io.load_path(path.as_ref()).await
     }
 

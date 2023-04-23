@@ -8,7 +8,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         // You must manually register each instance of a generic type
         .register_type::<MyType<u32>>()
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 

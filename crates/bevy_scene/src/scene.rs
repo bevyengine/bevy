@@ -1,7 +1,7 @@
 use bevy_app::AppTypeRegistry;
 use bevy_ecs::{
     entity::EntityMap,
-    reflect::{ReflectComponent, ReflectMapEntities},
+    reflect::{ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
 use bevy_reflect::TypeUuid;
@@ -61,6 +61,33 @@ impl Scene {
         };
 
         let type_registry = type_registry.read();
+
+        // Resources archetype
+        for (component_id, _) in self.world.storages().resources.iter() {
+            let component_info = self
+                .world
+                .components()
+                .get_info(component_id)
+                .expect("component_ids in archetypes should have ComponentInfo");
+
+            let type_id = component_info
+                .type_id()
+                .expect("reflected resources must have a type_id");
+
+            let registration =
+                type_registry
+                    .get(type_id)
+                    .ok_or_else(|| SceneSpawnError::UnregisteredType {
+                        type_name: component_info.name().to_string(),
+                    })?;
+            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+                SceneSpawnError::UnregisteredResource {
+                    type_name: component_info.name().to_string(),
+                }
+            })?;
+            reflect_resource.copy(&self.world, world);
+        }
+
         for archetype in self.world.archetypes().iter() {
             for scene_entity in archetype.entities() {
                 let entity = *instance_info
@@ -90,6 +117,7 @@ impl Scene {
                 }
             }
         }
+
         for registration in type_registry.iter() {
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
                 map_entities_reflect

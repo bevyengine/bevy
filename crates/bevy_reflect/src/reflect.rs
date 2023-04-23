@@ -9,7 +9,6 @@ use std::{
 };
 
 use crate::utility::NonGenericTypeInfoCell;
-pub use bevy_utils::AHasher as ReflectHasher;
 
 /// An immutable enumeration of "kinds" of reflected type.
 ///
@@ -62,13 +61,19 @@ pub enum ReflectOwned {
     Value(Box<dyn Reflect>),
 }
 
-/// A partially reflected Rust type. See [`Reflect`] for fully reflected types.
+/// The core trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
 ///
-/// Methods for working with particular kinds of Rust type are available using the [`Array`], [`List`],
-/// [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits.
+/// This trait represents partially reflected types, see [`Reflect`] for fully reflected types.
 ///
-/// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
-/// type ([`Struct`], [`TupleStruct`] or [`Enum`]) is derived automatically.
+/// It's recommended to use the [derive macro] rather than manually implementing this trait.
+/// Doing so will automatically implement many other useful traits for reflection,
+/// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
+///
+/// See the [crate-level documentation] to see how this trait and its subtraits can be used.
+///
+/// [`bevy_reflect`]: crate
+/// [derive macro]: bevy_reflect_derive::Reflect
+/// [crate-level documentation]: crate
 pub trait PartialReflect: Any + Send + Sync {
     /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
@@ -237,6 +242,7 @@ impl dyn PartialReflect {
             .downcast()
             .map_err(PartialReflect::into_partial_reflect)
     }
+
     /// Downcasts the value to type `T`, unboxing and consuming the trait object.
     ///
     /// If the underlying value does not implement [`Reflect`]
@@ -286,9 +292,7 @@ impl dyn PartialReflect {
 /// so those types impement [`PartialReflect`] but not `Reflect`.
 ///
 /// Conversion between the two is provided by [`PartialReflect::try_as_reflect`] (fallible)
-/// and [`PartialReflect::as_partial_reflect`] (infallible) et al.
-///
-/// The `Reflect` trait also adds the requirement that the type must implement [`Typed`].
+/// and [`PartialReflect::as_partial_reflect`] (infallible) and their mutable and owned equivalents.
 ///
 /// [subtrait]: https://doc.rust-lang.org/rust-by-example/trait/supertraits.html
 /// [`reflect_ref`]: PartialReflect::reflect_ref

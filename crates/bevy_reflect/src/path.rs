@@ -18,6 +18,8 @@ pub enum ReflectPathError<'a> {
         index: usize,
         tuple_struct_index: usize,
     },
+    #[error("the current tuple doesn't have a field with the index {tuple_index}")]
+    InvalidTupleIndex { index: usize, tuple_index: usize },
     #[error("the current struct variant doesn't have a field with the name `{field}`")]
     InvalidStructVariantField { index: usize, field: &'a str },
     #[error("the current tuple variant doesn't have a field with the index {tuple_variant_index}")]
@@ -515,6 +517,12 @@ impl<'a> AccessRef<'a> {
                     },
                 )
             }
+            (Self::TupleIndex(tuple_index), ReflectRef::Tuple(reflect_tuple)) => reflect_tuple
+                .field(*tuple_index)
+                .ok_or(ReflectPathError::InvalidTupleIndex {
+                    index: current_index,
+                    tuple_index: *tuple_index,
+                }),
             (Self::ListIndex(list_index), ReflectRef::List(reflect_list)) => reflect_list
                 .get(*list_index)
                 .ok_or(ReflectPathError::InvalidListIndex {
@@ -603,6 +611,12 @@ impl<'a> AccessRef<'a> {
                     },
                 )
             }
+            (Self::TupleIndex(tuple_index), ReflectMut::Tuple(reflect_tuple)) => reflect_tuple
+                .field_mut(*tuple_index)
+                .ok_or(ReflectPathError::InvalidTupleIndex {
+                    index: current_index,
+                    tuple_index: *tuple_index,
+                }),
             (Self::ListIndex(list_index), ReflectMut::List(reflect_list)) => reflect_list
                 .get_mut(*list_index)
                 .ok_or(ReflectPathError::InvalidListIndex {
@@ -815,6 +829,7 @@ mod tests {
         tuple_variant: F,
         struct_variant: F,
         array: [i32; 3],
+        tuple: (bool, f32),
     }
 
     #[derive(Reflect)]
@@ -909,6 +924,7 @@ mod tests {
             tuple_variant: F::Tuple(123, 321),
             struct_variant: F::Struct { value: 'm' },
             array: [86, 75, 309],
+            tuple: (true, 1.23),
         };
 
         let b = ParsedPath::parse("w").unwrap();
@@ -923,6 +939,7 @@ mod tests {
         let k = ParsedPath::parse("struct_variant.value").unwrap();
         let l = ParsedPath::parse("struct_variant#0").unwrap();
         let m = ParsedPath::parse("array[2]").unwrap();
+        let n = ParsedPath::parse("tuple.1").unwrap();
 
         for _ in 0..30 {
             assert_eq!(*b.element::<usize>(&a).unwrap(), 1);
@@ -937,6 +954,7 @@ mod tests {
             assert_eq!(*k.element::<char>(&a).unwrap(), 'm');
             assert_eq!(*l.element::<char>(&a).unwrap(), 'm');
             assert_eq!(*m.element::<i32>(&a).unwrap(), 309);
+            assert_eq!(*n.element::<f32>(&a).unwrap(), 1.23);
         }
     }
 
@@ -996,6 +1014,7 @@ mod tests {
             tuple_variant: F::Tuple(123, 321),
             struct_variant: F::Struct { value: 'm' },
             array: [86, 75, 309],
+            tuple: (true, 1.23),
         };
 
         assert_eq!(*a.path::<usize>("w").unwrap(), 1);
@@ -1012,6 +1031,10 @@ mod tests {
         assert_eq!(*a.path::<char>("struct_variant#0").unwrap(), 'm');
 
         assert_eq!(*a.path::<i32>("array[2]").unwrap(), 309);
+
+        assert_eq!(*a.path::<f32>("tuple.1").unwrap(), 1.23);
+        *a.path_mut::<f32>("tuple.1").unwrap() = 3.21;
+        assert_eq!(*a.path::<f32>("tuple.1").unwrap(), 3.21);
 
         *a.path_mut::<f32>("y[1].baz").unwrap() = 3.0;
         assert_eq!(a.y[1].baz, 3.0);

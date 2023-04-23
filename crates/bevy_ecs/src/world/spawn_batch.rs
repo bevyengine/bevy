@@ -25,6 +25,8 @@ where
         // necessary
         world.flush();
 
+        let change_tick = world.change_tick();
+
         let (lower, upper) = iter.size_hint();
         let length = upper.unwrap_or(lower);
 
@@ -37,7 +39,7 @@ where
             &mut world.archetypes,
             &mut world.components,
             &mut world.storages,
-            *world.change_tick.get_mut(),
+            change_tick,
         );
         spawner.reserve_storage(length);
 

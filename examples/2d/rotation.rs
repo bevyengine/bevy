@@ -8,17 +8,17 @@ const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_systems_to_schedule(
-            CoreSchedule::FixedUpdate,
+        .insert_resource(FixedTime::new_from_secs(TIME_STEP))
+        .add_systems(Startup, setup)
+        .add_systems(
+            FixedUpdate,
             (
                 player_movement_system,
                 snap_to_player_system,
                 rotate_to_player_system,
             ),
         )
-        .insert_resource(FixedTime::new_from_secs(TIME_STEP))
-        .add_system(bevy::window::close_on_esc)
+        .add_systems(Update, bevy::window::close_on_esc)
         .run();
 }
 
@@ -69,7 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         Player {
-            movement_speed: 500.0,                  // metres per second
+            movement_speed: 500.0,                  // meters per second
             rotation_speed: f32::to_radians(360.0), // degrees per second
         },
     ));

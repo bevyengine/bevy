@@ -242,15 +242,16 @@ pub fn ktx2_buffer_to_image(
 
     let mut wgpu_data = vec![Vec::default(); (layer_count * face_count) as usize];
     for (level, level_data) in levels.iter().enumerate() {
-        let (level_width, level_height) = (
+        let (level_width, level_height, level_depth) = (
             (width as usize >> level).max(1),
             (height as usize >> level).max(1),
+            (depth as usize >> level).max(1),
         );
         let (num_blocks_x, num_blocks_y) = (
             ((level_width + block_width_pixels - 1) / block_width_pixels).max(1),
             ((level_height + block_height_pixels - 1) / block_height_pixels).max(1),
         );
-        let level_bytes = num_blocks_x * num_blocks_y * block_bytes;
+        let level_bytes = num_blocks_x * num_blocks_y * level_depth * block_bytes;
 
         let mut index = 0;
         for _layer in 0..layer_count {

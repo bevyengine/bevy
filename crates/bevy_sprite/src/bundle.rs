@@ -38,7 +38,7 @@ impl Default for SpriteBundle {
 /// to as a `TextureAtlas`)
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteSheetBundle {
-    /// The specific sprite from the texture atlas to be drawn
+    /// The specific sprite from the texture atlas to be drawn, defaulting to the sprite at index 0.
     pub sprite: TextureAtlasSprite,
     /// A handle to the texture atlas that holds the sprite images
     pub texture_atlas: Handle<TextureAtlas>,

@@ -34,6 +34,8 @@ const FILE_EXTENSIONS: &[&str] = &[
     "jpeg",
     #[cfg(feature = "ktx2")]
     "ktx2",
+    #[cfg(feature = "webp")]
+    "webp",
 ];
 
 impl AssetLoader for ImageTextureLoader {
@@ -93,17 +95,5 @@ impl std::fmt::Display for FileTextureError {
             "Error reading image file {}: {}, this is an error in `bevy_render`.",
             self.path, self.error
         )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_supported_file_extensions() {
-        for ext in FILE_EXTENSIONS {
-            assert!(image::ImageFormat::from_extension(ext).is_some());
-        }
     }
 }

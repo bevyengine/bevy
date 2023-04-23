@@ -1,5 +1,6 @@
 # if crate A depends on crate B, B must come before A in this list
 crates=(
+    bevy_utils/macros
     bevy_utils
     bevy_ptr
     bevy_macro_utils
@@ -33,7 +34,9 @@ crates=(
     bevy_gltf
     bevy_scene
     bevy_sprite
+    bevy_gizmos
     bevy_text
+    bevy_a11y
     bevy_ui
     bevy_winit
     bevy_internal
@@ -50,8 +53,8 @@ pushd crates
 for crate in "${crates[@]}"
 do
   echo "Publishing ${crate}"
-  cp ../docs/LICENSE-MIT "$crate"
-  cp ../docs/LICENSE-APACHE "$crate"
+  cp ../LICENSE-MIT "$crate"
+  cp ../LICENSE-APACHE "$crate"
   pushd "$crate"
   git add LICENSE-MIT LICENSE-APACHE
   cargo publish --no-verify --allow-dirty

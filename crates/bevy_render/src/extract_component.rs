@@ -2,7 +2,7 @@ use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ComputedVisibility,
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, Handle};
@@ -83,7 +83,10 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .insert_resource(ComponentUniforms::<C>::default())
-                .add_system(prepare_uniform_components::<C>.in_set(RenderSet::Prepare));
+                .add_systems(
+                    Render,
+                    prepare_uniform_components::<C>.in_set(RenderSet::Prepare),
+                );
         }
     }
 }
@@ -180,9 +183,9 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
-                render_app.add_system_to_schedule(ExtractSchedule, extract_visible_components::<C>);
+                render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
             } else {
-                render_app.add_system_to_schedule(ExtractSchedule, extract_components::<C>);
+                render_app.add_systems(ExtractSchedule, extract_components::<C>);
             }
         }
     }

@@ -1,6 +1,10 @@
 #import bevy_sprite::mesh2d_types
 #import bevy_sprite::mesh2d_view_bindings
 
+#ifdef TONEMAP_IN_SHADER
+#import bevy_core_pipeline::tonemapping
+#endif
+
 struct ColorMaterial {
     color: vec4<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
@@ -31,5 +35,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     if ((material.flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u) {
         output_color = output_color * textureSample(texture, texture_sampler, in.uv);
     }
+#ifdef TONEMAP_IN_SHADER
+    output_color = tone_mapping(output_color);
+#endif
     return output_color;
 }

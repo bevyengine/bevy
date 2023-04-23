@@ -13,7 +13,7 @@ fn main() {
     App::new()
         .insert_resource(ScheduleRunnerSettings::run_once())
         .add_plugins(MinimalPlugins)
-        .add_system(hello_world_system)
+        .add_systems(Update, hello_world_system)
         .run();
 
     // this app loops forever at 60 fps
@@ -22,7 +22,7 @@ fn main() {
             1.0 / 60.0,
         )))
         .add_plugins(MinimalPlugins)
-        .add_system(counter)
+        .add_systems(Update, counter)
         .run();
 }
 

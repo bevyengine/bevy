@@ -7,7 +7,10 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
-/// A reflected Rust tuple.
+/// A trait used to power [tuple-like] operations via [reflection].
+///
+/// This trait uses the [`Reflect`] trait to allow implementors to have their fields
+/// be dynamically addressed by index.
 ///
 /// This trait is automatically implemented for arbitrary tuples of up to 12
 /// elements, provided that each element implements [`Reflect`].
@@ -15,16 +18,17 @@ use std::slice::Iter;
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::Tuple;
+/// use bevy_reflect::{PartialReflect, Tuple};
 ///
-/// # fn main() {
-/// let foo = ("blue".to_string(), 42_i32);
+/// let foo = (123_u32, true);
 /// assert_eq!(foo.field_len(), 2);
 ///
-/// let first = foo.field(0).unwrap();
-/// assert_eq!(first.try_downcast_ref::<String>(), Some(&"blue".to_string()));
-/// # }
+/// let field: &dyn PartialReflect = foo.field(0).unwrap();
+/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
 /// ```
+///
+/// [tuple-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-tuple-type
+/// [reflection]: crate
 pub trait Tuple: PartialReflect {
     /// Returns a reference to the value of the field with index `index` as a
     /// `&dyn PartialReflect`.

@@ -1,0 +1,6 @@
+The pisa_*.ktx2 files were generated from https://github.com/KhronosGroup/glTF-Sample-Environments/blob/master/pisa.hdr using the following tools and commands:
+- IBL environment map prefiltering to cubemaps: https://github.com/KhronosGroup/glTF-IBL-Sampler
+  - Diffuse: ./cli -inputPath pisa.hdr -outCubeMap pisa_diffuse.ktx2 -distribution Lambertian -cubeMapResolution 32
+  - Specular: ./cli -inputPath pisa.hdr -outCubeMap pisa_specular.ktx2 -distribution GGX -cubeMapResolution 512
+- Converting to rgb9e5 format with zstd 'supercompression': https://github.com/DGriffin91/bevy_mod_environment_map_tools
+  - cargo run --release -- --inputs pisa_diffuse.ktx2,pisa_specular.ktx2 --outputs pisa_diffuse_rgb9e5_zstd.ktx2,pisa_specular_rgb9e5_zstd.ktx2

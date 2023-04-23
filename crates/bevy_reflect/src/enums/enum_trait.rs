@@ -3,7 +3,7 @@ use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
 use std::slice::Iter;
 
-/// A trait representing a [reflected] enum.
+/// A trait used to power [enum-like] operations via [reflection].
 ///
 /// This allows enums to be processed and modified dynamically at runtime without
 /// necessarily knowing the actual type.
@@ -39,7 +39,7 @@ use std::slice::Iter;
 ///
 /// # Implementation
 ///
-/// > 💡 This trait can be automatically implemented using the [`Reflect`] derive macro
+/// > 💡 This trait can be automatically implemented using [`#[derive(Reflect)]`](derive@crate::Reflect)
 /// > on an enum definition.
 ///
 /// Despite the fact that enums can represent multiple states, traits only exist in one state
@@ -52,7 +52,7 @@ use std::slice::Iter;
 /// accessing fields!
 /// Again, this is to account for _all three_ variant types.
 ///
-/// We recommend using the built-in [`Reflect`] derive macro to automatically handle all the
+/// We recommend using the built-in [`#[derive(Reflect)]`](derive@crate::Reflect) macro to automatically handle all the
 /// implementation details for you.
 /// However, if you _must_ implement this trait manually, there are a few things to keep in mind...
 ///
@@ -82,7 +82,8 @@ use std::slice::Iter;
 /// It's preferred that these strings be converted to their proper `usize` representations and
 /// the [`Enum::field_at[_mut]`](Enum::field_at) methods be used instead.
 ///
-/// [reflected]: crate
+/// [enum-like]: https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html
+/// [reflection]: crate
 /// [`None`]: core::option::Option<T>::None
 /// [`Some`]: core::option::Option<T>::Some
 /// [`Reflect`]: bevy_reflect_derive::Reflect

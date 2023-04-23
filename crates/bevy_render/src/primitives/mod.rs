@@ -209,7 +209,7 @@ impl Frustum {
             if idx == 5 && !intersect_far {
                 continue;
             }
-            let p_normal = Vec3A::from(plane.normal_d());
+            let p_normal = plane.normal();
             let relative_radius = aabb.relative_radius(&p_normal, &axes);
             if plane.normal_d().dot(aabb_center_world) + relative_radius <= 0.0 {
                 return false;

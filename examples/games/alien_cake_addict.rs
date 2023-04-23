@@ -5,19 +5,11 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use rand::Rng;
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash, Default)]
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 enum GameState {
     #[default]
     Playing,
     GameOver,
-}
-
-impl States for GameState {
-    type Iter = std::array::IntoIter<GameState, 2>;
-
-    fn variants() -> Self::Iter {
-        [GameState::Playing, GameState::GameOver].into_iter()
-    }
 }
 
 #[derive(Resource)]
@@ -25,16 +17,17 @@ struct BonusSpawnTimer(Timer);
 
 fn main() {
     App::new()
+        .add_plugins(DefaultPlugins)
         .init_resource::<Game>()
         .insert_resource(BonusSpawnTimer(Timer::from_seconds(
             5.0,
             TimerMode::Repeating,
         )))
-        .add_plugins(DefaultPlugins)
         .add_state::<GameState>()
-        .add_startup_system(setup_cameras)
-        .add_system_to_schedule(OnEnter(GameState::Playing), setup)
+        .add_systems(Startup, setup_cameras)
+        .add_systems(OnEnter(GameState::Playing), setup)
         .add_systems(
+            Update,
             (
                 move_player,
                 focus_camera,
@@ -42,13 +35,18 @@ fn main() {
                 scoreboard_system,
                 spawn_bonus,
             )
-                .on_update(GameState::Playing),
+                .run_if(in_state(GameState::Playing)),
         )
-        .add_system_to_schedule(OnExit(GameState::Playing), teardown)
-        .add_system_to_schedule(OnEnter(GameState::GameOver), display_score)
-        .add_system(gameover_keyboard.on_update(GameState::GameOver))
-        .add_system_to_schedule(OnExit(GameState::GameOver), teardown)
-        .add_system(bevy::window::close_on_esc)
+        .add_systems(OnExit(GameState::Playing), teardown)
+        .add_systems(OnEnter(GameState::GameOver), display_score)
+        .add_systems(
+            Update,
+            (
+                gameover_keyboard.run_if(in_state(GameState::GameOver)),
+                bevy::window::close_on_esc,
+            ),
+        )
+        .add_systems(OnExit(GameState::GameOver), teardown)
         .run();
 }
 
@@ -170,25 +168,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         TextBundle::from_section(
             "Score:",
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
                 color: Color::rgb(0.5, 0.5, 1.0),
+                ..default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
-                ..default()
-            },
+            top: Val::Px(5.0),
+            left: Val::Px(5.0),
             ..default()
         }),
     );
 }
 
-// remove all entities that are not a camera
-fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
+// remove all entities that are not a camera or window
+fn teardown(mut commands: Commands, entities: Query<Entity, (Without<Camera>, Without<Window>)>) {
     for entity in &entities {
         commands.entity(entity).despawn();
     }
@@ -389,7 +384,7 @@ fn gameover_keyboard(
 }
 
 // display the number of cake eaten before losing
-fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: Res<Game>) {
+fn display_score(mut commands: Commands, game: Res<Game>) {
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -404,9 +399,9 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
             parent.spawn(TextBundle::from_section(
                 format!("Cake eaten: {}", game.cake_eaten),
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 80.0,
                     color: Color::rgb(0.5, 0.5, 1.0),
+                    ..default()
                 },
             ));
         });

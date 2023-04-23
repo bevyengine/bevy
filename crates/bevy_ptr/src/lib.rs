@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 use core::fmt::{self, Formatter, Pointer};
 use core::{
@@ -368,12 +369,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
 
 impl<'a, T> Clone for ThinSlicePtr<'a, T> {
     fn clone(&self) -> Self {
-        Self {
-            ptr: self.ptr,
-            #[cfg(debug_assertions)]
-            len: self.len,
-            _marker: PhantomData,
-        }
+        *self
     }
 }
 

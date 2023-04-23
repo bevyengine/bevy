@@ -1,9 +1,11 @@
+mod app;
 mod context;
 mod edge;
 mod graph;
 mod node;
 mod node_slot;
 
+pub use app::*;
 pub use context::*;
 pub use edge::*;
 pub use graph::*;

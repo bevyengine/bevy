@@ -1,6 +1,7 @@
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
+use std::panic::AssertUnwindSafe;
 
 use crate::{
     schedule::{BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
@@ -78,9 +79,15 @@ impl SystemExecutor for SimpleExecutor {
             let system = &mut schedule.systems[system_index];
             #[cfg(feature = "trace")]
             let system_span = info_span!("system", name = &*name).entered();
-            system.run((), world);
+            let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                system.run((), world);
+            }));
             #[cfg(feature = "trace")]
             system_span.exit();
+            if let Err(payload) = res {
+                eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                std::panic::resume_unwind(payload);
+            }
 
             system.apply_buffers(world);
         }
