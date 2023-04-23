@@ -1325,6 +1325,7 @@ impl GamepadRumbleIntensity {
 ///     }
 /// }
 /// ```
+#[doc(alias = "haptic feedback")]
 #[doc(alias = "force feedback")]
 #[doc(alias = "vibration")]
 #[doc(alias = "vibrate")]
