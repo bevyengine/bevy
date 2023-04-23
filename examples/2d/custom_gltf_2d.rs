@@ -40,7 +40,7 @@ fn setup(
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
     // Add a mesh loaded from a glTF file. This mesh has data for `ATTRIBUTE_BARYCENTRIC`.
-    let mesh = asset_server.load("models/barycentric/barycentric.glb#Mesh0/Primitive0");
+    let mesh = asset_server.load("models/barycentric/barycentric.gltf#Mesh0/Primitive0");
     commands.spawn(MaterialMesh2dBundle {
         mesh: Mesh2dHandle(mesh),
         material: materials.add(CustomMaterial {}),
