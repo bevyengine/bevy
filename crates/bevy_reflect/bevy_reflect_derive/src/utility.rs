@@ -5,7 +5,7 @@ use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{LitStr, Member, Path, Type, WhereClause};
+use syn::{spanned::Spanned, LitStr, Member, Path, Type, WhereClause};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -267,13 +267,23 @@ pub(crate) enum StringExpr {
     Owned(proc_macro2::TokenStream),
 }
 
+impl<T: ToString + Spanned> From<T> for StringExpr {
+    fn from(value: T) -> Self {
+        Self::from_lit(&LitStr::new(&value.to_string(), value.span()))
+    }
+}
+
 impl StringExpr {
-    /// Creates a [`StringExpr`] by interpreting an [`Ident`] as a [`struct@LitStr`].
-    pub fn from_ident(ident: &Ident) -> Self {
-        Self::Const(LitStr::new(&ident.to_string(), ident.span()).into_token_stream())
+    /// Creates a [constant] [`StringExpr`] from a [`struct@LitStr`].
+    ///
+    /// [constant]: StringExpr::Const
+    pub fn from_lit(lit: &LitStr) -> Self {
+        Self::Const(lit.to_token_stream())
     }
 
-    /// Creates a [`StringExpr`] by interpreting a [string slice][str] as a [`struct@LitStr`].
+    /// Creates a [constant] [`StringExpr`] by interpreting a [string slice][str] as a [`struct@LitStr`].
+    ///
+    /// [constant]: StringExpr::Const
     pub fn from_str(string: &str) -> Self {
         Self::Const(string.into_token_stream())
     }
@@ -325,7 +335,7 @@ impl StringExpr {
 
 impl Default for StringExpr {
     fn default() -> Self {
-        StringExpr::Const("".to_string().to_token_stream())
+        StringExpr::from_str("")
     }
 }
 

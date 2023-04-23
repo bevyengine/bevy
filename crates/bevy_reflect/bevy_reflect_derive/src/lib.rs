@@ -59,6 +59,8 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// This macro comes with some helper attributes that can be added to the container item
 /// in order to provide additional functionality or alter the generated implementations.
 ///
+/// In addition to those listed, this macro can also use the attributes for [`TypePath`] derives.
+///
 /// ## `#[reflect(Ident)]`
 ///
 /// The `#[reflect(Ident)]` attribute is used to add type data registrations to the `GetTypeRegistration`
@@ -194,6 +196,21 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
     }
 }
 
+/// Derives the `TypePath` trait, providing a stable alternative to [`std::any::type_name`].
+///
+/// # Container Attributes
+///
+/// ## `#[type_path = "my_crate::foo"]`
+///
+/// Optionally specifies a custom module path to use instead of [`module_path`].
+///
+/// This path does not include the final identifier.
+///
+/// ## `#[type_name = "RenamedType"]`
+///
+/// Optionally specifies a new terminating identifier for `TypePath`.
+///
+/// To use this attribute, `#[type_path = "..."]` must also be specified.
 #[proc_macro_derive(TypePath, attributes(type_path, type_name))]
 pub fn derive_type_path(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -275,19 +292,28 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// The only reason for this macro's existence is so that `bevy_reflect` can easily implement the reflection traits
 /// on primitives and other Rust types internally.
 ///
+/// Since this macro also implements `TypePath`, the type path must be explicit.
+/// See [`impl_type_path!`] for the exact syntax.
+///
 /// # Examples
 ///
 /// Types can be passed with or without registering type data:
 ///
 /// ```ignore
-/// impl_reflect_value!(foo);
-/// impl_reflect_value!(bar(Debug, Default, Serialize, Deserialize));
+/// impl_reflect_value!(::my_crate::Foo);
+/// impl_reflect_value!(::my_crate::Bar(Debug, Default, Serialize, Deserialize));
 /// ```
 ///
 /// Generic types can also specify their parameters and bounds:
 ///
 /// ```ignore
-/// impl_reflect_value!(foo<T1, T2: Baz> where T1: Bar (Default, Serialize, Deserialize));
+/// impl_reflect_value!(::my_crate::Foo<T1, T2: Baz> where T1: Bar (Default, Serialize, Deserialize));
+/// ```
+///
+/// Custom type paths can be specified:
+///
+/// ```ignore
+/// impl_reflect_value!((in not_my_crate as NotFoo) Foo(Debug, Default));
 /// ```
 ///
 /// [deriving `Reflect`]: Reflect
@@ -323,10 +349,13 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 /// which have greater functionality. The type being reflected must be in scope, as you cannot
 /// qualify it in the macro as e.g. `bevy::prelude::Vec3`.
 ///
+/// It is necessary to add a `#[type_path = "my_crate::foo"]` attribute to all types.
+///
 /// It may be necessary to add `#[reflect(Default)]` for some types, specifically non-constructible
 /// foreign types. Without `Default` reflected for such types, you will usually get an arcane
 /// error message and fail to compile. If the type does not implement `Default`, it may not
 /// be possible to reflect without extending the macro.
+///
 ///
 /// # Example
 /// Implementing `Reflect` for `bevy::prelude::Vec3` as a struct type:
@@ -334,12 +363,13 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 /// use bevy::prelude::Vec3;
 ///
 /// impl_reflect_struct!(
-///    #[reflect(PartialEq, Serialize, Deserialize, Default)]
-///    struct Vec3 {
-///        x: f32,
-///        y: f32,
-///        z: f32
-///    }
+///     #[reflect(PartialEq, Serialize, Deserialize, Default)]
+///     #[type_path = "bevy::prelude"]
+///     struct Vec3 {
+///         x: f32,
+///         y: f32,
+///         z: f32
+///     }
 /// );
 /// ```
 #[proc_macro]
@@ -426,6 +456,42 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()))
 }
 
+/// A replacement for [deriving `TypePath`] for use on foreign types.
+///
+/// Since (unlike the derive) this macro may be invoked in a different module to where the type is defined,
+/// it requires an 'absolute' path definition.
+///
+/// Specifically, a leading `::` denoting a global path must be specified
+/// or a preceeding `(in my_crate::foo)` to specify the custom path must be used.
+///
+/// # Examples
+///
+/// Implementing `TypePath` on a foreign type:
+/// ```rust,ignore
+/// impl_type_path!(::foreign_crate::foo::bar::Baz);
+/// ```
+///
+/// On a generic type:
+/// ```rust,ignore
+/// impl_type_path!(::foreign_crate::Foo<T>);
+/// ```
+///
+/// On a primitive (note this will not compile for a non-primitive type):
+/// ```rust,ignore
+/// impl_type_path!(bool);
+/// ```
+///
+/// With a custom type path:
+/// ```rust,ignore
+/// impl_type_path!((in other_crate::foo::bar) Baz);
+/// ```
+///
+/// With a custom type path and a custom type name:
+/// ```rust,ignore
+/// impl_type_path!((in other_crate::foo as Baz) Bar);
+/// ```
+///
+/// [deriving `TypePath`]: TypePath
 #[proc_macro]
 pub fn impl_type_path(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as NamedTypePathDef);
@@ -451,6 +517,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
 
     impls::impl_type_path(&meta, &WhereClauseOptions::type_path_bounds(&meta)).into()
 }
+
 /// Derives `TypeUuid` for the given type. This is used internally to implement `TypeUuid` on foreign types, such as those in the std. This macro should be used in the format of `<[Generic Params]> [Type (Path)], [Uuid (String Literal)]`.
 #[proc_macro]
 pub fn impl_type_uuid(input: TokenStream) -> TokenStream {

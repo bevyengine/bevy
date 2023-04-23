@@ -9,7 +9,7 @@ use crate::{
     TypePath, TypeRegistration, Typed,
 };
 
-impl<T: smallvec::Array + TypePath + Send + Sync + 'static> List for SmallVec<T>
+impl<T: smallvec::Array + TypePath + Send + Sync> List for SmallVec<T>
 where
     T::Item: FromReflect,
 {

@@ -1,7 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
     tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
-    TypeInfo, TypePath, Typed, ValueInfo,
+    TypeInfo, Typed, ValueInfo,
 };
 use std::{
     any::{self, Any, TypeId},
@@ -90,6 +90,7 @@ pub trait Reflect: Any + Send + Sync {
     ///
     /// Methods on [`DynamicTypePath`] suffer the same performance concerns as [`get_type_info`].
     ///
+    /// [`TypePath`]: crate::TypePath
     /// [`get_type_info`]: Reflect::get_type_info
     fn get_type_path(&self) -> &dyn DynamicTypePath;
 
@@ -235,16 +236,6 @@ impl Typed for dyn Reflect {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
         CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
-    }
-}
-
-impl TypePath for dyn Reflect {
-    fn type_path() -> &'static str {
-        "dyn bevy_reflect::Reflect"
-    }
-
-    fn short_type_path() -> &'static str {
-        "dyn Reflect"
     }
 }
 

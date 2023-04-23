@@ -15,11 +15,22 @@
 /// for matching dynamic values to concrete types.
 ///
 /// Using [`std::any::type_name`], a scene containing `my_crate::foo::MyComponent` would break,
-/// failing to deserialize if the component was moved to be `my_crate::bar::MyComponent`.
+/// failing to deserialize if the component was moved from the `foo` module to the `bar` module,
+/// becoming `my_crate::bar::MyComponent`.
 /// This trait, through attributes when deriving itself or [`Reflect`], can ensure breaking changes are avoidable.
 ///
 /// The only external factor we rely on for stability when deriving is the [`module_path!`] macro,
 /// only if the derive does not provide a `#[type_path = "..."]` attribute.
+///
+/// # Anonymity
+///
+/// Some methods on this trait return `Option<&'static str>` over `&'static str`
+/// because not all types define all parts of a type path, for example the array type `[T; N]`.
+///
+/// Such types are 'anonymous' in that they have only a defined [`type_path`] and [`short_type_path`]
+/// and the methods [`crate_name`], [`module_path`] and [`type_ident`] all return `None`.
+///
+/// Primitives are treated like anonymous types, except they also have a defined [`type_ident`].
 ///
 /// # Example
 ///
@@ -61,34 +72,51 @@
 /// [utility]: crate::utility
 /// [(de)serialization]: crate::serde::UntypedReflectDeserializer
 /// [`Reflect`]: crate::Reflect
+/// [`type_path`]: TypePath::type_path
+/// [`short_type_path`]: TypePath::short_type_path
+/// [`crate_name`]: TypePath::crate_name
+/// [`module_path`]: TypePath::module_path
+/// [`type_ident`]: TypePath::type_ident
 pub trait TypePath: 'static {
     /// Returns the fully qualified path of the underlying type.
     ///
-    /// For [`Option<()>`], this is `"core::option::Option::<()>"`.
+    /// Generic parameter types are also fully expanded.
+    ///
+    /// For `Option<PhantomData>`, this is `"core::option::Option<core::marker::PhantomData>"`.
     fn type_path() -> &'static str;
 
-    /// Returns a short pretty-print enabled path to the type.
+    /// Returns a short, pretty-print enabled path to the type.
     ///
-    /// For [`Option<()>`], this is `"Option<()>"`.
+    /// Generic parameter types are also shortened.
+    ///
+    /// For `Option<PhantomData>`, this is `"Option<PhantomData>"`.
     fn short_type_path() -> &'static str;
 
-    /// Returns the name of the type, or [`None`] if it is anonymous.
+    /// Returns the name of the type, or [`None`] if it is [anonymous].
     ///
-    /// For [`Option<()>`], this is `"Option"`.
+    /// Primitive types will return [`Some`].
+    ///
+    /// For `Option<PhantomData>`, this is `"Option"`.
+    ///
+    /// [anonymous]: TypePath#anonymity
     fn type_ident() -> Option<&'static str> {
         None
     }
 
-    /// Returns the name of the crate the type is in, or [`None`] if it is anonymous or a primitive.
+    /// Returns the name of the crate the type is in, or [`None`] if it is [anonymous].
     ///
-    /// For [`Option<()>`], this is `"core"`.
+    /// For `Option<PhantomData>`, this is `"core"`.
+    ///
+    /// [anonymous]: TypePath#anonymity
     fn crate_name() -> Option<&'static str> {
         None
     }
 
-    /// Returns the path to the moudle the type is in, or [`None`] if it is anonymous or a primitive.
+    /// Returns the path to the moudle the type is in, or [`None`] if it is [anonymous].
     ///
-    /// For [`Option<()>`], this is `"core::option"`.
+    /// For `Option<PhantomData>`, this is `"core::option"`.
+    ///
+    /// [anonymous]: TypePath#anonymity
     fn module_path() -> Option<&'static str> {
         None
     }

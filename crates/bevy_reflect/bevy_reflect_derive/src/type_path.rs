@@ -6,7 +6,7 @@ use syn::{
     Generics, Path, PathSegment, Token,
 };
 
-pub fn parse_path_no_leading_colon(input: ParseStream) -> syn::Result<Path> {
+pub(crate) fn parse_path_no_leading_colon(input: ParseStream) -> syn::Result<Path> {
     if input.peek(Token![::]) {
         return Err(input.error("did not expect a leading double colon (`::`)"));
     }
@@ -23,7 +23,7 @@ pub fn parse_path_no_leading_colon(input: ParseStream) -> syn::Result<Path> {
 /// An alias for a `TypePath`.
 ///
 /// This is the parenthesized part of `(in my_crate::foo as MyType) SomeType`.
-pub struct CustomPathDef {
+pub(crate) struct CustomPathDef {
     path: Path,
     name: Option<Ident>,
 }
@@ -67,7 +67,7 @@ impl CustomPathDef {
     }
 }
 
-pub enum NamedTypePathDef {
+pub(crate) enum NamedTypePathDef {
     External {
         path: Path,
         generics: Generics,
@@ -89,7 +89,7 @@ impl Parse for NamedTypePathDef {
                 let ident = path.segments.into_iter().next().unwrap().ident;
                 Ok(NamedTypePathDef::Primtive(ident))
             } else {
-                Err(input.error("non-aliased paths must start with a double colon (`::`)"))
+                Err(input.error("non-customized paths must start with a double colon (`::`)"))
             }
         } else {
             Ok(NamedTypePathDef::External {

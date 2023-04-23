@@ -239,12 +239,12 @@ impl_from_reflect_value!(f64);
 impl_from_reflect_value!(String);
 impl_from_reflect_value!(PathBuf);
 impl_from_reflect_value!(OsString);
-impl_from_reflect_value!(HashSet<T: TypePath + Hash + Eq + Clone + Send + Sync + 'static>);
-impl_from_reflect_value!(Range<T: TypePath + Clone + Send + Sync + 'static>);
-impl_from_reflect_value!(RangeInclusive<T: TypePath + Clone + Send + Sync + 'static>);
-impl_from_reflect_value!(RangeFrom<T: TypePath + Clone + Send + Sync + 'static>);
-impl_from_reflect_value!(RangeTo<T: TypePath + Clone + Send + Sync + 'static>);
-impl_from_reflect_value!(RangeToInclusive<T: TypePath + Clone + Send + Sync + 'static>);
+impl_from_reflect_value!(HashSet<T: TypePath + Hash + Eq + Clone + Send + Sync>);
+impl_from_reflect_value!(Range<T: TypePath + Clone + Send + Sync>);
+impl_from_reflect_value!(RangeInclusive<T: TypePath + Clone + Send + Sync>);
+impl_from_reflect_value!(RangeFrom<T: TypePath + Clone + Send + Sync>);
+impl_from_reflect_value!(RangeTo<T: TypePath + Clone + Send + Sync>);
+impl_from_reflect_value!(RangeToInclusive<T: TypePath + Clone + Send + Sync>);
 impl_from_reflect_value!(RangeFull);
 impl_from_reflect_value!(Duration);
 impl_from_reflect_value!(Instant);
@@ -449,7 +449,7 @@ macro_rules! impl_reflect_for_hashmap {
         where
             K: FromReflect + TypePath + Eq + Hash,
             V: FromReflect + TypePath,
-            S: TypePath + BuildHasher + Send + Sync + 'static,
+            S: TypePath + BuildHasher + Send + Sync,
         {
             fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
                 key.downcast_ref::<K>()
@@ -537,7 +537,7 @@ macro_rules! impl_reflect_for_hashmap {
         where
             K: FromReflect + TypePath + Eq + Hash,
             V: FromReflect + TypePath,
-            S: TypePath + BuildHasher + Send + Sync + 'static,
+            S: TypePath + BuildHasher + Send + Sync,
         {
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
@@ -610,7 +610,7 @@ macro_rules! impl_reflect_for_hashmap {
         where
             K: FromReflect + TypePath + Eq + Hash,
             V: FromReflect + TypePath,
-            S: TypePath + BuildHasher + Send + Sync + 'static,
+            S: TypePath + BuildHasher + Send + Sync,
         {
             fn type_info() -> &'static TypeInfo {
                 static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
@@ -622,7 +622,7 @@ macro_rules! impl_reflect_for_hashmap {
         where
             K: FromReflect + TypePath + Eq + Hash,
             V: FromReflect + TypePath,
-            S: TypePath + BuildHasher + Send + Sync + 'static,
+            S: TypePath + BuildHasher + Send + Sync,
         {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<Self>();
@@ -635,7 +635,7 @@ macro_rules! impl_reflect_for_hashmap {
         where
             K: FromReflect + TypePath + Eq + Hash,
             V: FromReflect + TypePath,
-            S: TypePath + BuildHasher + Default + Send + Sync + 'static,
+            S: TypePath + BuildHasher + Default + Send + Sync,
         {
             fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
                 if let ReflectRef::Map(ref_map) = reflect.reflect_ref() {
@@ -654,20 +654,20 @@ macro_rules! impl_reflect_for_hashmap {
     };
 }
 
-impl_type_path!(::std::collections::hash_map::RandomState);
-impl_type_path!((in hashbrown::hash_map) bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
-
-impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
 impl_reflect_for_hashmap!(::std::collections::HashMap<K, V, S>);
+impl_type_path!(::std::collections::hash_map::RandomState);
 impl_type_path!(
-    (in hashbrown) bevy_utils::hashbrown::HashMap<K, V, S>
+    ::std::collections::HashMap<K, V, S>
     where
         K: FromReflect + Eq + Hash,
         V: FromReflect,
         S: BuildHasher + Send + Sync + 'static,
 );
+
+impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
+impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
 impl_type_path!(
-    ::std::collections::HashMap<K, V, S>
+    ::bevy_utils::hashbrown::HashMap<K, V, S>
     where
         K: FromReflect + Eq + Hash,
         V: FromReflect,
