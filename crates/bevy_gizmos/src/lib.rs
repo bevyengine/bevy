@@ -44,7 +44,6 @@ use bevy_render::{
     renderer::RenderDevice,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::default;
 
 pub mod gizmos;
 
@@ -173,7 +172,7 @@ fn update_gizmo_meshes(
     } else {
         let mut list = LineGizmo {
             strip: false,
-            ..default()
+            ..Default::default()
         };
 
         list.positions = mem::take(&mut storage.list_positions);
@@ -192,7 +191,7 @@ fn update_gizmo_meshes(
     } else {
         let mut strip = LineGizmo {
             strip: true,
-            ..default()
+            ..Default::default()
         };
 
         strip.positions = mem::take(&mut storage.strip_positions);
