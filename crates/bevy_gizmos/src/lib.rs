@@ -24,6 +24,7 @@ use bevy_core::cast_slice;
 use bevy_ecs::{
     prelude::{Component, DetectChanges},
     query::ROQueryItem,
+    schedule::IntoSystemConfigs,
     system::{
         lifetimeless::{Read, SRes},
         Commands, Res, ResMut, Resource, SystemParamItem,
@@ -31,15 +32,17 @@ use bevy_ecs::{
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    extract_component::UniformComponentPlugin,
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
-        Buffer, BufferInitDescriptor, BufferUsages, Shader, ShaderType, VertexAttribute,
-        VertexBufferLayout, VertexFormat, VertexStepMode,
+        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferInitDescriptor,
+        BufferUsages, Shader, ShaderStages, ShaderType, VertexAttribute, VertexBufferLayout,
+        VertexFormat, VertexStepMode,
     },
     renderer::RenderDevice,
-    Extract, ExtractSchedule, RenderApp,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::default;
 
@@ -68,11 +71,6 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
-        #[cfg(feature = "bevy_sprite")]
-        app.add_plugin(pipeline_2d::LineGizmo2dPlugin);
-        #[cfg(feature = "bevy_pbr")]
-        app.add_plugin(pipeline_3d::LineGizmo3dPlugin);
-
         app.add_plugin(UniformComponentPlugin::<LineGizmoUniform>::default())
             .add_asset::<LineGizmo>()
             .add_plugin(RenderAssetPlugin::<LineGizmo>::default())
@@ -83,7 +81,31 @@ impl Plugin for GizmoPlugin {
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
-        render_app.add_systems(ExtractSchedule, extract_gizmo_data);
+        let render_device = render_app.world.resource::<RenderDevice>();
+        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: Some(LineGizmoUniform::min_size()),
+                },
+                count: None,
+            }],
+            label: Some("LineGizmoUniform layout"),
+        });
+
+        render_app.insert_resource(LineGizmoUniformBindgroupLayout { layout });
+
+        render_app
+            .add_systems(ExtractSchedule, extract_gizmo_data)
+            .add_systems(Render, queue_line_gizmo_bind_group.in_set(RenderSet::Queue));
+
+        #[cfg(feature = "bevy_sprite")]
+        app.add_plugin(pipeline_2d::LineGizmo2dPlugin);
+        #[cfg(feature = "bevy_pbr")]
+        app.add_plugin(pipeline_3d::LineGizmo3dPlugin);
     }
 }
 
@@ -267,6 +289,59 @@ impl RenderAsset for LineGizmo {
             vertex_count: line_gizmo.positions.len() as u32,
             strip: line_gizmo.strip,
         })
+    }
+}
+
+#[derive(Resource)]
+struct LineGizmoUniformBindgroupLayout {
+    layout: BindGroupLayout,
+}
+
+#[derive(Resource)]
+struct LineGizmoUniformBindgroup {
+    bindgroup: BindGroup,
+}
+
+fn queue_line_gizmo_bind_group(
+    mut commands: Commands,
+    line_gizmo_uniform_layout: Res<LineGizmoUniformBindgroupLayout>,
+    render_device: Res<RenderDevice>,
+    line_gizmo_uniforms: Res<ComponentUniforms<LineGizmoUniform>>,
+) {
+    if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
+        commands.insert_resource(LineGizmoUniformBindgroup {
+            bindgroup: render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: binding,
+                }],
+                label: Some("LineGizmoUniform bindgroup"),
+                layout: &line_gizmo_uniform_layout.layout,
+            }),
+        });
+    }
+}
+
+struct SetLineGizmoBindGroup<const I: usize>;
+impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I> {
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<DynamicUniformIndex<LineGizmoUniform>>;
+    type Param = SRes<LineGizmoUniformBindgroup>;
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
+        uniform_index: ROQueryItem<'w, Self::ItemWorldQuery>,
+        bind_group: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        pass.set_bind_group(
+            I,
+            &bind_group.into_inner().bindgroup,
+            &[uniform_index.index()],
+        );
+        RenderCommandResult::Success
     }
 }
 

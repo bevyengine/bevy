@@ -1,6 +1,6 @@
 use crate::{
-    line_gizmo_vertex_buffer_layouts, DrawLineGizmo, GizmoConfig, LineGizmo, LineGizmoUniform,
-    LINE_SHADER_HANDLE,
+    line_gizmo_vertex_buffer_layouts, DrawLineGizmo, GizmoConfig, LineGizmo,
+    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -8,12 +8,8 @@ use bevy_core_pipeline::core_3d::Transparent3d;
 
 use bevy_ecs::{
     prelude::Entity,
-    query::ROQueryItem,
     schedule::IntoSystemConfigs,
-    system::{
-        lifetimeless::{Read, SRes},
-        Commands, Query, Res, ResMut, Resource, SystemParamItem,
-    },
+    system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_pbr::{
@@ -21,14 +17,9 @@ use bevy_pbr::{
     MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_render::{
-    extract_component::{ComponentUniforms, DynamicUniformIndex},
     render_asset::RenderAssets,
-    render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-        RenderPhase, SetItemPipeline, TrackedRenderPass,
-    },
+    render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
-    renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, ViewTarget},
     Render, RenderApp, RenderSet,
@@ -43,39 +34,24 @@ impl Plugin for LineGizmo3dPlugin {
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
             .init_resource::<LineGizmoPipeline>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
-            .add_systems(
-                Render,
-                (queue_line_gizmo_bind_group, queue_line_gizmos_3d).in_set(RenderSet::Queue),
-            );
+            .add_systems(Render, queue_line_gizmos_3d.in_set(RenderSet::Queue));
     }
 }
 
 #[derive(Clone, Resource)]
 struct LineGizmoPipeline {
     mesh_pipeline: MeshPipeline,
-    layout: BindGroupLayout,
+    uniform_layout: BindGroupLayout,
 }
 
 impl FromWorld for LineGizmoPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        let render_device = render_world.resource::<RenderDevice>();
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: Some(LineGizmoUniform::min_size()),
-                },
-                count: None,
-            }],
-            label: Some("LineGizmoUniform layout"),
-        });
-
         LineGizmoPipeline {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            layout,
+            uniform_layout: render_world
+                .resource::<LineGizmoUniformBindgroupLayout>()
+                .layout
+                .clone(),
         }
     }
 }
@@ -122,7 +98,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             self.mesh_pipeline.view_layout_multisampled.clone()
         };
 
-        let layout = vec![view_layout, self.layout.clone()];
+        let layout = vec![view_layout, self.uniform_layout.clone()];
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -158,50 +134,6 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             label: Some("LineGizmo Pipeline".into()),
             push_constant_ranges: vec![],
         }
-    }
-}
-
-#[derive(Resource)]
-struct LineGizmoBindGroup {
-    value: BindGroup,
-}
-
-fn queue_line_gizmo_bind_group(
-    mut commands: Commands,
-    line_gizmo_pipeline: Res<LineGizmoPipeline>,
-    render_device: Res<RenderDevice>,
-    line_gizmo_uniforms: Res<ComponentUniforms<LineGizmoUniform>>,
-) {
-    if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
-        commands.insert_resource(LineGizmoBindGroup {
-            value: render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: binding,
-                }],
-                label: Some("LineGizmoUniform bindgroup"),
-                layout: &line_gizmo_pipeline.layout,
-            }),
-        });
-    }
-}
-
-struct SetLineGizmoBindGroup<const I: usize>;
-impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I> {
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<DynamicUniformIndex<LineGizmoUniform>>;
-    type Param = SRes<LineGizmoBindGroup>;
-
-    #[inline]
-    fn render<'w>(
-        _item: &P,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        uniform_index: ROQueryItem<'w, Self::ItemWorldQuery>,
-        bind_group: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        pass.set_bind_group(I, &bind_group.into_inner().value, &[uniform_index.index()]);
-        RenderCommandResult::Success
     }
 }
 
