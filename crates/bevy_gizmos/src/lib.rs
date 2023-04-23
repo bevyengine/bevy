@@ -305,37 +305,38 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
 
 fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     let stride_multiplier = if strip { 1 } else { 2 };
+    use VertexFormat::*;
     vec![
         // Positions
         VertexBufferLayout {
-            array_stride: 12 * stride_multiplier,
+            array_stride: Float32x3.size() * stride_multiplier,
             step_mode: VertexStepMode::Instance,
             attributes: vec![
                 VertexAttribute {
-                    format: VertexFormat::Float32x3,
+                    format: Float32x3,
                     offset: 0,
                     shader_location: 0,
                 },
                 VertexAttribute {
-                    format: VertexFormat::Float32x3,
-                    offset: 12,
+                    format: Float32x3,
+                    offset: Float32x3.size(),
                     shader_location: 1,
                 },
             ],
         },
         // Colors
         VertexBufferLayout {
-            array_stride: 16 * stride_multiplier,
+            array_stride: Float32x4.size() * stride_multiplier,
             step_mode: VertexStepMode::Instance,
             attributes: vec![
                 VertexAttribute {
-                    format: VertexFormat::Float32x4,
+                    format: Float32x4,
                     offset: 0,
                     shader_location: 2,
                 },
                 VertexAttribute {
-                    format: VertexFormat::Float32x4,
-                    offset: 16,
+                    format: Float32x4,
+                    offset: Float32x4.size(),
                     shader_location: 3,
                 },
             ],
