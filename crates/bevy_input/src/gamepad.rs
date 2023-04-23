@@ -90,7 +90,7 @@ impl Gamepad {
     }
 }
 
-/// Metadata associated with a `Gamepad`.
+/// Metadata associated with a [`Gamepad`].
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -629,9 +629,9 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// Returns an `AxisSettingsError` if any restrictions on the zone values are not met.
-    /// If the zone restrictions are met, but the ``threshold`` value restrictions are not met,
-    /// returns `AxisSettingsError::Threshold`.
+    /// Returns an [`AxisSettingsError`] if any restrictions on the zone values are not met.
+    /// If the zone restrictions are met, but the `threshold` value restrictions are not met,
+    /// returns [`AxisSettingsError::Threshold`].
     pub fn new(
         livezone_lowerbound: f32,
         deadzone_lowerbound: f32,
@@ -875,7 +875,7 @@ impl AxisSettings {
     }
 
     /// Determines whether the change from `old_value` to `new_value` should
-    /// be registered as a change, according to the `AxisSettings`.
+    /// be registered as a change, according to the [`AxisSettings`].
     fn should_register_change(&self, new_value: f32, old_value: Option<f32>) -> bool {
         if old_value.is_none() {
             return true;
@@ -963,7 +963,7 @@ impl ButtonAxisSettings {
         f32::abs(new_value - old_value.unwrap()) > self.threshold
     }
 
-    /// Filters the `new_value` based on the `old_value`, according to the `ButtonAxisSettings`.
+    /// Filters the `new_value` based on the `old_value`, according to the [`ButtonAxisSettings`].
     ///
     /// Returns the clamped `new_value`, according to the [`ButtonAxisSettings`], if the change
     /// exceeds the settings threshold, and `None` otherwise.
@@ -1116,7 +1116,7 @@ impl GamepadButtonChangedEvent {
     }
 }
 
-/// Uses [`GamepadAxisChangedEvent`]s to update the relevant `Input` and `Axis` values.
+/// Uses [`GamepadAxisChangedEvent`]s to update the relevant [`Input`] and [`Axis`] values.
 pub fn gamepad_axis_event_system(
     mut gamepad_axis: ResMut<Axis<GamepadAxis>>,
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
@@ -1127,7 +1127,7 @@ pub fn gamepad_axis_event_system(
     }
 }
 
-/// Uses [`GamepadButtonChangedEvent`]s to update the relevant `Input` and `Axis` values.
+/// Uses [`GamepadButtonChangedEvent`]s to update the relevant [`Input`] and [`Axis`] values.
 pub fn gamepad_button_event_system(
     mut button_events: EventReader<GamepadButtonChangedEvent>,
     mut button_input: ResMut<Input<GamepadButton>>,
