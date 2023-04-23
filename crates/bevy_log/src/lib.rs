@@ -173,38 +173,33 @@ impl Plugin for LogPlugin {
                     meta.fields().field("tracy.frame_mark").is_none()
                 }));
 
-            let subscriber = subscriber.with(fmt_layer).with(filter_layer);
+            let subscriber = subscriber.with(fmt_layer);
 
             #[cfg(feature = "tracing-chrome")]
             let subscriber = subscriber.with(chrome_layer);
             #[cfg(feature = "tracing-tracy")]
             let subscriber = subscriber.with(tracy_layer);
-            #[cfg(feature = "trace")]
-            let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
 
             finished_subscriber = subscriber;
         }
 
-        #[cfg(any(target_arch = "wasm32", target_os = "android"))]
+        #[cfg(target_arch = "wasm32")]
         {
-            let subscriber = subscriber.with(filter_layer);
-
-            #[cfg(feature = "trace")]
-            let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
-
-            #[cfg(target_arch = "wasm32")]
-            {
-                console_error_panic_hook::set_once();
-                finished_subscriber = subscriber.with(tracing_wasm::WASMLayer::new(
-                    tracing_wasm::WASMLayerConfig::default(),
-                ));
-            }
-
-            #[cfg(target_os = "android")]
-            {
-                finished_subscriber = subscriber.with(android_tracing::AndroidLayer::default());
-            }
+            console_error_panic_hook::set_once();
+            finished_subscriber = subscriber.with(tracing_wasm::WASMLayer::new(
+                tracing_wasm::WASMLayerConfig::default(),
+            ));
         }
+
+        #[cfg(target_os = "android")]
+        {
+            finished_subscriber = subscriber.with(android_tracing::AndroidLayer::default());
+        }
+
+        let finished_subscriber = finished_subscriber.with(filter_layer);
+
+        #[cfg(feature = "trace")]
+        let finished_subscriber = finished_subscriber.with(tracing_error::ErrorLayer::default());
 
         let logger_already_set = LogTracer::init().is_err();
         let subscriber_already_set =
