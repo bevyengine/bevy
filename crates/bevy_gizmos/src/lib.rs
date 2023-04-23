@@ -215,7 +215,7 @@ struct LineGizmoUniform {
     _padding: bevy_math::Vec2,
 }
 
-#[derive(Debug, Default, Component, Clone, TypeUuid)]
+#[derive(Debug, Default, Clone, TypeUuid)]
 #[uuid = "02b99cbf-bb26-4713-829a-aee8e08dedc0"]
 struct LineGizmo {
     positions: Vec<[f32; 3]>,
