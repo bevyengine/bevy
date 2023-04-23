@@ -145,21 +145,15 @@ jobs:
 
   markdownlint:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 2
     needs: check-missing-features-in-docs
     if: always()
     steps:
       - uses: actions/checkout@v3
-        with:
-          # Full git history is needed to get a proper list of changed files within `super-linter`
-          fetch-depth: 0
       - name: Run Markdown Lint
-        uses: docker://ghcr.io/github/super-linter:slim-v4
-        env:
-          MULTI_STATUS: false
-          VALIDATE_ALL_CODEBASE: false
-          VALIDATE_MARKDOWN: true
-          DEFAULT_BRANCH: main
+        uses: DavidAnson/markdownlint-cli2-action@v9
+        with:
+          globs: '**/*.md'
 
   run-examples:
     runs-on: ubuntu-latest
