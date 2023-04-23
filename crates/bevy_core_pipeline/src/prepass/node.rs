@@ -33,8 +33,8 @@ pub struct PrepassNode {
     >,
 }
 
-impl PrepassNode {
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for PrepassNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             main_view_query: QueryState::new(world),
         }

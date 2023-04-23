@@ -162,9 +162,7 @@ impl SubApp {
 
     /// Runs the `SubApp`'s default schedule.
     pub fn run(&mut self) {
-        self.app
-            .world
-            .run_schedule_ref(&*self.app.main_schedule_label);
+        self.app.world.run_schedule(&*self.app.main_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -241,7 +239,7 @@ impl App {
         {
             #[cfg(feature = "trace")]
             let _bevy_frame_update_span = info_span!("main app").entered();
-            self.world.run_schedule_ref(&*self.main_schedule_label);
+            self.world.run_schedule(&*self.main_schedule_label);
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]
@@ -268,7 +266,7 @@ impl App {
     ///
     /// Windowed apps are typically driven by an *event loop* or *message loop* and
     /// some window-manager APIs expect programs to terminate when their primary
-    /// window is closed and that event loop terminates – behaviour of processes that
+    /// window is closed and that event loop terminates – behavior of processes that
     /// do not is often platform dependent or undocumented.
     ///
     /// By default, *Bevy* uses the `winit` crate for window creation. See

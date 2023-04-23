@@ -1,4 +1,5 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
+#![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(target_pointer_width = "16")]
@@ -45,8 +46,8 @@ pub mod prelude {
         system::{
             adapter as system_adapter,
             adapter::{dbg, error, ignore, info, unwrap, warn},
-            Commands, Deferred, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut,
-            ParallelCommands, ParamSet, Query, Res, ResMut, Resource, System, SystemParamFunction,
+            Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
+            ParamSet, Query, Res, ResMut, Resource, System, SystemParamFunction,
         },
         world::{FromWorld, World},
     };

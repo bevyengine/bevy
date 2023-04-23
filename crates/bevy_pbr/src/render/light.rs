@@ -641,7 +641,7 @@ pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
 }
 
 pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
-    // spot light projection FOV is 2x the angle from spot light centre to outer edge
+    // spot light projection FOV is 2x the angle from spot light center to outer edge
     Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
 }
 

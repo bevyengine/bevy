@@ -63,7 +63,8 @@ fn setup(
     });
 
     // A quad that shows the outputs of the prepass
-    // To make it easy, we just draw a big quad right in front of the camera. For a real application, this isn't ideal.
+    // To make it easy, we just draw a big quad right in front of the camera.
+    // For a real application, this isn't ideal.
     commands.spawn((
         MaterialMeshBundle {
             mesh: meshes.add(shape::Quad::new(Vec2::new(20.0, 20.0)).into()),
@@ -77,11 +78,15 @@ fn setup(
         NotShadowCaster,
     ));
 
-    // Opaque cube using the StandardMaterial
+    // Opaque cube
     commands.spawn((
-        PbrBundle {
+        MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: std_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+            material: materials.add(CustomMaterial {
+                color: Color::WHITE,
+                color_texture: Some(asset_server.load("branding/icon.png")),
+                alpha_mode: AlphaMode::Opaque,
+            }),
             transform: Transform::from_xyz(-1.0, 0.5, 0.0),
             ..default()
         },
@@ -96,7 +101,6 @@ fn setup(
             base_color_texture: Some(asset_server.load("branding/icon.png")),
             ..default()
         }),
-
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -126,9 +130,9 @@ fn setup(
     });
 
     let style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 18.0,
         color: Color::WHITE,
+        ..default()
     };
 
     commands.spawn(
