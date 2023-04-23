@@ -93,8 +93,8 @@ impl ScreenshotManager {
                             });
                             let blob = web_sys::Blob::new_with_u8_array_sequence(&parts)?;
                             let url = web_sys::Url::create_object_url_with_blob(&blob)?;
-                            let window = web_sys::window().expect("unable to get window");
-                            let document = window.document().expect("unable to get document");
+                            let window = web_sys::window().unwrap();
+                            let document = window.document().unwrap();
                             let link = document.create_element("a")?;
                             link.set_attribute("href", &url)?;
                             link.set_attribute(
