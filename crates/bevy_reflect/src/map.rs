@@ -17,7 +17,7 @@ use crate::{
 ///
 /// # Hashing
 ///
-/// All keys are expected to return a valid hash value from [`Reflect::reflect_hash`].
+/// All keys are expected to return a valid hash value from [`PartialReflect::reflect_hash`].
 /// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding `#[reflect(Hash)]`
 /// to the entire struct or enum.
 /// This is true even for manual implementors who do not use the hashed value,

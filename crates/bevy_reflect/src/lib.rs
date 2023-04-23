@@ -75,7 +75,7 @@
 //! For example, we can access our struct's fields by name using the [`Struct::field`] method.
 //!
 //! ```
-//! # use bevy_reflect::{Reflect, Struct};
+//! # use bevy_reflect::{Reflect, PartialReflect, Struct};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -83,8 +83,8 @@
 //! let my_struct: Box<dyn Struct> = Box::new(MyStruct {
 //!   foo: 123
 //! });
-//! let foo: &dyn Reflect = my_struct.field("foo").unwrap();
-//! assert_eq!(Some(&123), foo.downcast_ref::<i32>());
+//! let foo: &dyn PartialReflect = my_struct.field("foo").unwrap();
+//! assert_eq!(Some(&123), foo.try_downcast_ref::<i32>());
 //! ```
 //!
 //! Since most data is passed around as `dyn Reflect`,
@@ -96,8 +96,8 @@
 //! For example, we can get out a `dyn Tuple` from our reflected tuple type using one of these methods.
 //!
 //! ```
-//! # use bevy_reflect::{Reflect, ReflectRef};
-//! let my_tuple: Box<dyn Reflect> = Box::new((1, 2, 3));
+//! # use bevy_reflect::{Reflect, PartialReflect, ReflectRef};
+//! let my_tuple: Box<dyn PartialReflect> = Box::new((1, 2, 3));
 //! let ReflectRef::Tuple(my_tuple) = my_tuple.reflect_ref() else { unreachable!() };
 //! assert_eq!(3, my_tuple.field_len());
 //! ```
@@ -131,22 +131,24 @@
 //!
 //! These dynamic types may contain any arbitrary reflected data.
 //!
+//! They do not implement [`Reflect`], but only [`PartialReflect`].
+//!
 //! ```
-//! # use bevy_reflect::{DynamicStruct, Struct};
+//! # use bevy_reflect::{DynamicStruct, PartialReflect, Struct};
 //! let mut data = DynamicStruct::default();
 //! data.insert("foo", 123_i32);
-//! assert_eq!(Some(&123), data.field("foo").unwrap().downcast_ref::<i32>())
+//! assert_eq!(Some(&123), data.field("foo").unwrap().try_downcast_ref::<i32>())
 //! ```
 //!
 //! They are most commonly used as "proxies" for other types,
 //! where they contain the same data as— and therefore, represent— a concrete type.
 //! The [`Reflect::clone_value`] method will return a dynamic type for all non-value types,
 //! allowing all types to essentially be "cloned".
-//! And since dynamic types themselves implement [`Reflect`],
-//! we may pass them around just like any other reflected type.
+//! And since dynamic types themselves implement [`PartialReflect`],
+//! we may pass them around just like most other reflected types.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicStruct, Reflect};
+//! # use bevy_reflect::{DynamicStruct, PartialReflect, Reflect};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -156,18 +158,17 @@
 //! });
 //!
 //! // `cloned` will be a `DynamicStruct` representing a `MyStruct`
-//! let cloned: Box<dyn Reflect> = original.clone_value();
+//! let cloned: Box<dyn PartialReflect> = original.clone_value();
 //! assert!(cloned.represents::<MyStruct>());
-//! assert!(cloned.is::<DynamicStruct>());
 //! ```
 //!
 //! ## Patching
 //!
 //! These dynamic types come in handy when needing to apply multiple changes to another type.
-//! This is known as "patching" and is done using the [`Reflect::apply`] method.
+//! This is known as "patching" and is done using the [`PartialReflect::apply`] method.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicEnum, Reflect};
+//! # use bevy_reflect::{DynamicEnum, PartialReflect};
 //! let mut value = Some(123_i32);
 //! let patch = DynamicEnum::new(std::any::type_name::<Option<i32>>(), "None", ());
 //! value.apply(&patch);
@@ -181,7 +182,7 @@
 //! or when trying to make use of a reflected trait which expects the actual type.
 //!
 //! ```should_panic
-//! # use bevy_reflect::{DynamicStruct, Reflect};
+//! # use bevy_reflect::{DynamicStruct, PartialReflect, Reflect};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -190,8 +191,8 @@
 //!   foo: 123
 //! });
 //!
-//! let cloned: Box<dyn Reflect> = original.clone_value();
-//! let value = cloned.take::<MyStruct>().unwrap(); // PANIC!
+//! let cloned: Box<dyn PartialReflect> = original.clone_value();
+//! let value = cloned.try_take::<MyStruct>().unwrap(); // PANIC!
 //! ```
 //!
 //! To resolve this issue, we'll need to convert the dynamic type to the concrete one.
@@ -205,7 +206,7 @@
 //! This trait can be derived on any type whose fields and sub-elements also implement `FromReflect`.
 //!
 //! ```
-//! # use bevy_reflect::{Reflect, FromReflect};
+//! # use bevy_reflect::{PartialReflect, Reflect, FromReflect};
 //! #[derive(Reflect, FromReflect)]
 //! struct MyStruct {
 //!   foo: i32
@@ -214,7 +215,7 @@
 //!   foo: 123
 //! });
 //!
-//! let cloned: Box<dyn Reflect> = original.clone_value();
+//! let cloned: Box<dyn PartialReflect> = original.clone_value();
 //! let value = <MyStruct as FromReflect>::from_reflect(&*cloned).unwrap(); // OK!
 //! ```
 //!
@@ -237,7 +238,7 @@
 //! may be used dynamically.
 //!
 //! ```
-//! # use bevy_reflect::{Reflect, TypeRegistry, prelude::ReflectDefault};
+//! # use bevy_reflect::{PartialReflect, Reflect, TypeRegistry, prelude::ReflectDefault};
 //! #[derive(Reflect, Default)]
 //! struct MyStruct {
 //!   foo: i32
@@ -249,8 +250,8 @@
 //! let registration = registry.get(std::any::TypeId::of::<MyStruct>()).unwrap();
 //! let reflect_default = registration.data::<ReflectDefault>().unwrap();
 //!
-//! let new_value: Box<dyn Reflect> = reflect_default.default();
-//! assert!(new_value.is::<MyStruct>());
+//! let new_value: Box<dyn PartialReflect> = reflect_default.default();
+//! assert!(new_value.try_take::<MyStruct>().is_ok());
 //! ```
 //!
 //! Because this operation is so common, the derive macro actually has a shorthand for it.
@@ -322,7 +323,7 @@
 //! # use serde::de::DeserializeSeed;
 //! # use bevy_reflect::{
 //! #     serde::{ReflectSerializer, UntypedReflectDeserializer},
-//! #     Reflect, FromReflect, TypeRegistry
+//! #     Reflect, FromReflect, TypeRegistry, PartialReflect,
 //! # };
 //! #[derive(Reflect, FromReflect, PartialEq, Debug)]
 //! struct MyStruct {
@@ -343,7 +344,7 @@
 //!
 //! // Deserialize
 //! let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
-//! let deserialized_value: Box<dyn Reflect> = reflect_deserializer.deserialize(
+//! let deserialized_value: Box<dyn PartialReflect> = reflect_deserializer.deserialize(
 //!   &mut ron::Deserializer::from_str(&serialized_value).unwrap()
 //! ).unwrap();
 //!
@@ -427,7 +428,7 @@
 //! [`TypedReflectDeserializer`]: serde::TypedReflectDeserializer
 //! [registry]: TypeRegistry
 //! [type information]: TypeInfo
-//! [type name]: Reflect::type_name
+//! [type name]: PartialReflect::type_name
 //! [type registry]: TypeRegistry
 //! [`bevy_math`]: https://docs.rs/bevy_math/latest/bevy_math/
 //! [`glam`]: https://docs.rs/glam/latest/glam/
