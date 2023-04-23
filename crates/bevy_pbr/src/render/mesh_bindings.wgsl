@@ -5,11 +5,19 @@
 #ifdef MESH_BINDGROUP_1
 
 @group(1) @binding(0)
-var<uniform> mesh: Mesh;
-
+#ifdef MESH_BATCH_SIZE
+var<uniform> mesh: array<Mesh, #{MESH_BATCH_SIZE}u>;
 #else
+var<storage> mesh: array<Mesh>;
+#endif // MESH_BATCH_SIZE
+
+#else // MESH_BINDGROUP_1
 
 @group(2) @binding(0)
-var<uniform> mesh: Mesh;
+#ifdef MESH_BATCH_SIZE
+var<uniform> mesh: array<Mesh, #{MESH_BATCH_SIZE}u>;
+#else
+var<storage> mesh: array<Mesh>;
+#endif // MESH_BATCH_SIZE
 
-#endif
+#endif // MESH_BINDGROUP_1

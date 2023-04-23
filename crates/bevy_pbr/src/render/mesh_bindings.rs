@@ -3,8 +3,8 @@
 use bevy_render::{
     mesh::morph::MAX_MORPH_WEIGHTS,
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor, Buffer,
-        TextureView,
+        BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindingResource, Buffer, TextureView,
     },
     renderer::RenderDevice,
 };
@@ -17,9 +17,12 @@ mod layout_entry {
     use super::MORPH_BUFFER_SIZE;
     use crate::render::mesh::JOINT_BUFFER_SIZE;
     use crate::MeshUniform;
-    use bevy_render::render_resource::{
-        BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, ShaderStages, ShaderType,
-        TextureSampleType, TextureViewDimension,
+    use bevy_render::{
+        render_resource::{
+            BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, GpuArrayBuffer,
+            ShaderStages, TextureSampleType, TextureViewDimension,
+        },
+        renderer::RenderDevice,
     };
 
     fn buffer(binding: u32, size: u64, visibility: ShaderStages) -> BindGroupLayoutEntry {
@@ -34,9 +37,12 @@ mod layout_entry {
             },
         }
     }
-    pub(super) fn model(binding: u32) -> BindGroupLayoutEntry {
-        let size = MeshUniform::min_size().get();
-        buffer(binding, size, ShaderStages::VERTEX | ShaderStages::FRAGMENT)
+    pub(super) fn model(render_device: &RenderDevice, binding: u32) -> BindGroupLayoutEntry {
+        GpuArrayBuffer::<MeshUniform>::binding_layout(
+            binding,
+            ShaderStages::VERTEX_FRAGMENT,
+            render_device,
+        )
     }
     pub(super) fn skinning(binding: u32) -> BindGroupLayoutEntry {
         buffer(binding, JOINT_BUFFER_SIZE as u64, ShaderStages::VERTEX)
@@ -62,9 +68,8 @@ mod layout_entry {
 mod entry {
     use super::MORPH_BUFFER_SIZE;
     use crate::render::mesh::JOINT_BUFFER_SIZE;
-    use crate::MeshUniform;
     use bevy_render::render_resource::{
-        BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, ShaderType, TextureView,
+        BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, TextureView,
     };
 
     fn entry(binding: u32, size: u64, buffer: &Buffer) -> BindGroupEntry {
@@ -77,8 +82,8 @@ mod entry {
             }),
         }
     }
-    pub(super) fn model(binding: u32, buffer: &Buffer) -> BindGroupEntry {
-        entry(binding, MeshUniform::min_size().get(), buffer)
+    pub(super) fn model(binding: u32, resource: BindingResource) -> BindGroupEntry {
+        BindGroupEntry { binding, resource }
     }
     pub(super) fn skinning(binding: u32, buffer: &Buffer) -> BindGroupEntry {
         entry(binding, JOINT_BUFFER_SIZE as u64, buffer)
@@ -132,20 +137,23 @@ impl MeshLayouts {
 
     fn model_only_layout(render_device: &RenderDevice) -> BindGroupLayout {
         render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[layout_entry::model(0)],
+            entries: &[layout_entry::model(render_device, 0)],
             label: Some("mesh_layout"),
         })
     }
     fn skinned_layout(render_device: &RenderDevice) -> BindGroupLayout {
         render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[layout_entry::model(0), layout_entry::skinning(1)],
+            entries: &[
+                layout_entry::model(render_device, 0),
+                layout_entry::skinning(1),
+            ],
             label: Some("skinned_mesh_layout"),
         })
     }
     fn morphed_layout(render_device: &RenderDevice) -> BindGroupLayout {
         render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
-                layout_entry::model(0),
+                layout_entry::model(render_device, 0),
                 layout_entry::weights(2),
                 layout_entry::targets(3),
             ],
@@ -155,7 +163,7 @@ impl MeshLayouts {
     fn morphed_skinned_layout(render_device: &RenderDevice) -> BindGroupLayout {
         render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
-                layout_entry::model(0),
+                layout_entry::model(render_device, 0),
                 layout_entry::skinning(1),
                 layout_entry::weights(2),
                 layout_entry::targets(3),
@@ -166,9 +174,9 @@ impl MeshLayouts {
 
     // ---------- BindGroup methods ----------
 
-    pub fn model_only(&self, render_device: &RenderDevice, model: &Buffer) -> BindGroup {
+    pub fn model_only(&self, render_device: &RenderDevice, model: &BindingResource) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[entry::model(0, model)],
+            entries: &[entry::model(0, model.clone())],
             layout: &self.model_only,
             label: Some("model_only_mesh_bind_group"),
         })
@@ -176,11 +184,11 @@ impl MeshLayouts {
     pub fn skinned(
         &self,
         render_device: &RenderDevice,
-        model: &Buffer,
+        model: &BindingResource,
         skin: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[entry::model(0, model), entry::skinning(1, skin)],
+            entries: &[entry::model(0, model.clone()), entry::skinning(1, skin)],
             layout: &self.skinned,
             label: Some("skinned_mesh_bind_group"),
         })
@@ -188,13 +196,13 @@ impl MeshLayouts {
     pub fn morphed(
         &self,
         render_device: &RenderDevice,
-        model: &Buffer,
+        model: &BindingResource,
         weights: &Buffer,
         targets: &TextureView,
     ) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[
-                entry::model(0, model),
+                entry::model(0, model.clone()),
                 entry::weights(2, weights),
                 entry::targets(3, targets),
             ],
@@ -205,14 +213,14 @@ impl MeshLayouts {
     pub fn morphed_skinned(
         &self,
         render_device: &RenderDevice,
-        model: &Buffer,
+        model: &BindingResource,
         skin: &Buffer,
         weights: &Buffer,
         targets: &TextureView,
     ) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[
-                entry::model(0, model),
+                entry::model(0, model.clone()),
                 entry::skinning(1, skin),
                 entry::weights(2, weights),
                 entry::targets(3, targets),

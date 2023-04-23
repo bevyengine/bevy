@@ -31,8 +31,8 @@ use bevy_render::{
         BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
         DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState, PipelineCache,
-        PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages,
-        ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+        PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef,
+        ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
         SpecializedMeshPipelines, StencilFaceState, StencilState, TextureSampleType,
         TextureViewDimension, VertexState,
     },
@@ -226,6 +226,7 @@ pub struct PrepassPipeline<M: Material> {
     pub view_layout_motion_vectors: BindGroupLayout,
     pub view_layout_no_motion_vectors: BindGroupLayout,
     pub mesh_layouts: MeshLayouts,
+    pub mesh_buffer_batch_size: Option<u32>,
     pub material_layout: BindGroupLayout,
     pub material_vertex_shader: Option<Handle<Shader>>,
     pub material_fragment_shader: Option<Handle<Shader>>,
@@ -313,6 +314,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             view_layout_motion_vectors,
             view_layout_no_motion_vectors,
             mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
+            mesh_buffer_batch_size: mesh_pipeline.mesh_buffer_batch_size,
             material_vertex_shader: match M::prepass_vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
@@ -351,6 +353,10 @@ where
         }];
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
+
+        if let Some(batch_size) = self.mesh_buffer_batch_size {
+            shader_defs.push(ShaderDefVal::UInt("MESH_BATCH_SIZE".into(), batch_size));
+        }
 
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
         // The main limitation right now is that bind group order is hardcoded in shaders.
