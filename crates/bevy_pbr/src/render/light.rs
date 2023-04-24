@@ -30,10 +30,7 @@ use bevy_utils::{
     tracing::{error, warn},
     HashMap,
 };
-use std::{
-    hash::Hash,
-    num::{NonZeroU64},
-};
+use std::{hash::Hash, num::NonZeroU64};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderLightSystems {
