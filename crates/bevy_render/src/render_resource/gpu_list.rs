@@ -15,7 +15,8 @@ impl<T: ShaderType + ShaderSize + WriteInto + Clone> GpuListable for T {}
 /// Stores a list of elements to be transferred to the GPU and made accessible to shaders as a read-only array.
 ///
 /// On platforms that support storage buffers, this is equivalent to [`StorageBuffer<Vec<T>>`].
-/// Otherwise, this falls back to batched uniforms.
+/// Otherwise, this falls back to a dynamic offset uniform buffer with the largest
+/// array of T that fits within a uniform buffer binding.
 ///
 /// Other options for storing GPU-accessible data are:
 /// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
