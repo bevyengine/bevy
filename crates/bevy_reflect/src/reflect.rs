@@ -61,18 +61,15 @@ pub enum ReflectOwned {
     Value(Box<dyn Reflect>),
 }
 
-/// The core trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
+/// This trait along with [`Reflect`] make up the core traits of [`bevy_reflect`],
+/// used for accessing and modifying data dynamically.
 ///
-/// This trait represents partially reflected types, see [`Reflect`] for fully reflected types.
-///
-/// It's recommended to use the [derive macro] rather than manually implementing this trait.
-/// Doing so will automatically implement many other useful traits for reflection,
-/// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
+/// This trait represents only [partially reflected] types, see [`Reflect`] for fully reflected types.
 ///
 /// See the [crate-level documentation] to see how this trait and its subtraits can be used.
 ///
 /// [`bevy_reflect`]: crate
-/// [derive macro]: bevy_reflect_derive::Reflect
+/// [partially reflected]: crate#partialreflect-and-reflect
 /// [crate-level documentation]: crate
 pub trait PartialReflect: Any + Send + Sync {
     /// Returns the [type name][std::any::type_name] of the underlying type.
@@ -279,26 +276,24 @@ impl dyn PartialReflect {
     }
 }
 
-/// A fully reflected Rust type.
+/// This trait along with [`PartialReflect`] make up the core traits of [`bevy_reflect`],
+/// used for accessing and modifying data dynamically.
 ///
-/// # `PartialReflect` and `Reflect`
+/// Implementing this trait additionally provides downcasting functionality.
 ///
-/// `Reflect` is a [subtrait] of [`PartialReflect`].
-/// [`PartialReflect`] provides basic reflection functionality ([`reflect_ref`], [`apply`] etc.)
-/// and `Reflect` provides additional downcasting behavior.
+/// This trait represents fully reflected Rust types,
+/// see [`PartialReflect`] for [partially reflected] Rust types.
 ///
-/// The reason for this split is that [certain types] used for reflection may represent many Rust types.
-/// Downcasting a value that may represent multiple types is conceptually undefined
-/// so those types impement [`PartialReflect`] but not `Reflect`.
+/// It's recommended to use the [derive macro] rather than manually implementing this trait.
+/// Doing so will automatically implement many other useful traits for reflection,
+/// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
 ///
-/// Conversion between the two is provided by [`PartialReflect::try_as_reflect`] (fallible)
-/// and [`PartialReflect::as_partial_reflect`] (infallible) and their mutable and owned equivalents.
+/// See the [crate-level documentation] to see how this trait and its subtraits can be used.
 ///
-/// [subtrait]: https://doc.rust-lang.org/rust-by-example/trait/supertraits.html
-/// [`reflect_ref`]: PartialReflect::reflect_ref
-/// [`apply`]: PartialReflect::apply
-/// [certain types]: crate::DynamicStruct
-/// [`GetTypeRegistration`]: crate::GetTypeRegistration
+/// [`bevy_reflect`]: crate
+/// [partially reflected]: crate#partialreflect-and-reflect
+/// [derive macro]: bevy_reflect_derive::Reflect
+/// [crate-level documentation]: crate
 pub trait Reflect: PartialReflect {
     /// Returns the value as a [`Box<dyn Any>`](Any).
     fn into_any(self: Box<Self>) -> Box<dyn Any>;

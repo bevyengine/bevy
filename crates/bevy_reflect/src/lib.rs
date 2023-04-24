@@ -23,7 +23,7 @@
 //! At the core of [`bevy_reflect`] is the [`Reflect`] trait.
 //!
 //! One of its primary purposes is to allow all implementors to be passed around
-//! as a `dyn Reflect` trait object.
+//! as a `dyn PartialReflect` trait object.
 //! This allows any such type to be operated upon completely dynamically (at a small [runtime cost]).
 //!
 //! Implementing the trait is easily done using the provided [derive macro]:
@@ -39,6 +39,7 @@
 //! This will automatically generate the implementation of `Reflect` for any struct or enum.
 //!
 //! It will also generate other very important trait implementations used for reflection:
+//! * [`PartialReflect`]
 //! * [`GetTypeRegistration`]
 //! * [`Typed`]
 //! * [`Struct`], [`TupleStruct`], or [`Enum`] depending on the type
@@ -55,11 +56,55 @@
 //! * All fields and sub-elements must implement [`FromReflect`]—
 //! another important reflection trait discussed in a later section.
 //!
-//! # The `Reflect` Subtraits
+//! # `PartialReflect` and `Reflect`
 //!
-//! Since [`Reflect`] is meant to cover any and every type, this crate also comes with a few
-//! more traits to accompany `Reflect` and provide more specific interactions.
-//! We refer to these traits as the _reflection subtraits_ since they all have `Reflect` as a supertrait.
+//! `Reflect` is a [subtrait] of [`PartialReflect`].
+//! [`PartialReflect`] provides introspection and serialization functionality
+//! and [`Reflect`] additionally allows for downcasting and deserialization.
+//!
+//! The reason for this split is that [dynamic types] used for reflection
+//! may represent many Rust types at runtime.
+//! Downcasting a value that may not be, but only _represent_ the return type is not possible
+//! so those types impement [`PartialReflect`] but not [`Reflect`].
+//!
+//! Conversion between the two is provided by [`PartialReflect::try_as_reflect`] (fallible)
+//! and [`PartialReflect::as_partial_reflect`] (infallible) and their mutable and owned equivalents.
+//!
+//! ```
+//! # use bevy_reflect::{Reflect, PartialReflect};
+//! # #[derive(Reflect)]
+//! # struct MyStruct {
+//! #     foo: i32
+//! # }
+//! let concrete = MyStruct {
+//!     foo: 5,
+//! };
+//!
+//! // Cast the concrete reference to a trait object.
+//! let partial_reflect = &concrete as &dyn PartialReflect;
+//!
+//! // We can use introspection on any &dyn PartialReflect.
+//! let reflect_ref = partial_reflect.reflect_ref();
+//!
+//! // Fallible conversion from a &dyn PartialReflect into a &dyn Reflect.
+//! let full_reflect: &dyn Reflect = partial_reflect.try_as_reflect().unwrap();
+//!
+//! // Or we can get a reference directly if we have the concrete value available.
+//! let full_reflect = &concrete as &dyn Reflect;
+//!
+//! // If we have a &dyn Reflect, we can downcast!
+//! let concrete_ref: &MyStruct = full_reflect.downcast_ref().unwrap();
+//!
+//! // We can upcast a &dyn Reflect back to a &dyn PartialReflect if we need to.
+//! let partial_reflect: &dyn PartialReflect = concrete_ref.as_partial_reflect();
+//! ```
+//!
+//! # The Reflect Subtraits
+//!
+//! Since [`PartialReflect`] is meant to cover any and every type, this crate also comes with a few
+//! more traits to accompany `PartialReflect` and provide more specific interactions.
+//! We refer to these traits as the _reflection subtraits_
+//! since they all have `PartialReflect` as a supertrait.
 //! The current list of reflection subtraits include:
 //! * [`Tuple`]
 //! * [`Array`]
@@ -87,11 +132,12 @@
 //! assert_eq!(Some(&123), foo.try_downcast_ref::<i32>());
 //! ```
 //!
-//! Since most data is passed around as `dyn Reflect`,
-//! the `Reflect` trait has methods for going to and from these subtraits.
+//! Since most data is passed around as `dyn PartialReflect`,
+//! there are trait methods for going to and from these subtraits.
 //!
-//! [`Reflect::reflect_ref`], [`Reflect::reflect_mut`], and [`Reflect::reflect_owned`] all return
-//! an enum that respectively contains immutable, mutable, and owned access to the type as a subtrait object.
+//! [`PartialReflect::reflect_ref`], [`PartialReflect::reflect_mut`],
+//! and [`PartialReflect::reflect_owned`] all return an enum
+//! that respectively contains immutable, mutable, and owned access to the type as a subtrait object.
 //!
 //! For example, we can get out a `dyn Tuple` from our reflected tuple type using one of these methods.
 //!
@@ -102,9 +148,9 @@
 //! assert_eq!(3, my_tuple.field_len());
 //! ```
 //!
-//! And to go back to a general-purpose `dyn Reflect`,
-//! we can just use the matching [`Reflect::as_reflect`], [`Reflect::as_reflect_mut`],
-//! or [`Reflect::into_reflect`] methods.
+//! And to go back to a general-purpose `dyn PartialReflect`,
+//! we can just use the matching [`PartialReflect::as_partial_reflect`],
+//! [`PartialReflect::as_partial_reflect_mut`], or [`PartialReflect::into_partial_reflect`] methods.
 //!
 //! ## Value Types
 //!
@@ -112,8 +158,8 @@
 //! such as for primitives (e.g. `bool`, `usize`, etc.)
 //! and simple types (e.g. `String`, `Duration`),
 //! are referred to as _value_ types
-//! since methods like [`Reflect::reflect_ref`] return a [`ReflectRef::Value`] variant.
-//! While most other types contain their own `dyn Reflect` fields and data,
+//! since methods like [`PartialReflect::reflect_ref`] return a [`ReflectRef::Value`] variant.
+//! While most other types contain their own `dyn PartialReflect` fields and data,
 //! these types generally cannot be broken down any further.
 //!
 //! # Dynamic Types
@@ -142,7 +188,7 @@
 //!
 //! They are most commonly used as "proxies" for other types,
 //! where they contain the same data as— and therefore, represent— a concrete type.
-//! The [`Reflect::clone_value`] method will return a dynamic type for all non-value types,
+//! The [`PartialReflect::clone_value`] method will return a dynamic type for all non-value types,
 //! allowing all types to essentially be "cloned".
 //! And since dynamic types themselves implement [`PartialReflect`],
 //! we may pass them around just like most other reflected types.
@@ -177,7 +223,8 @@
 //!
 //! ## `FromReflect`
 //!
-//! It's important to remember that dynamic types are _not_ the concrete type they may be representing.
+//! It's important to remember that dynamic types are _not_ the concrete type they may be representing
+//! and they implement `PartialReflect`, but not `Reflect`.
 //! A common mistake is to treat them like such when trying to cast back to the original type
 //! or when trying to make use of a reflected trait which expects the actual type.
 //!
@@ -418,6 +465,10 @@
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
 //! [derive macro documentation]: derive@crate::Reflect
+//! [subtrait]: https://doc.rust-lang.org/rust-by-example/trait/supertraits.html
+//! [`reflect_ref`]: PartialReflect::reflect_ref
+//! [`apply`]: PartialReflect::apply
+//! [dynamic types]: #dynamic-types
 //! [type data]: TypeData
 //! [`ReflectDefault`]: std_traits::ReflectDefault
 //! [object-safe]: https://doc.rust-lang.org/reference/items/traits.html#object-safety
