@@ -154,7 +154,6 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 ///
 /// Other options for storing GPU-accessible data are:
 /// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
-/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`GpuList`](crate::render_resource::GpuList)
