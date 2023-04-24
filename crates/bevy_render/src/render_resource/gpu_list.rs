@@ -108,7 +108,7 @@ impl<T: GpuListable> GpuList<T> {
 
     pub fn batch_size(device: &RenderDevice) -> Option<u32> {
         let limits = device.limits();
-        if limits.max_storage_buffers_per_shader_stage < 3 {
+        if limits.max_storage_buffers_per_shader_stage < 1 {
             Some(BatchedUniformBuffer::<T>::batch_size(&limits) as u32)
         } else {
             None
