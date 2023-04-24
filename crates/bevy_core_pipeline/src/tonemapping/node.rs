@@ -24,8 +24,8 @@ pub struct TonemappingNode {
     last_tonemapping: Mutex<Option<Tonemapping>>,
 }
 
-impl FromWorld for TonemappingNode {
-    fn from_world(_world: &mut World) -> Self {
+impl Default for TonemappingNode {
+    fn default() -> Self {
         Self {
             cached_bind_group: Mutex::new(None),
             last_tonemapping: Mutex::new(None),

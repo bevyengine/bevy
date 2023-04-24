@@ -17,8 +17,8 @@ pub struct UpscalingNode {
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
-impl FromWorld for UpscalingNode {
-    fn from_world(_world: &mut World) -> Self {
+impl Default for UpscalingNode {
+    fn default() -> Self {
         Self {
             cached_texture_bind_group: Mutex::new(None),
         }
