@@ -224,4 +224,26 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn despawn_descendants() {
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+
+        let parent = commands.spawn_empty().id();
+        let child = commands.spawn_empty().id();
+
+        commands
+            .entity(parent)
+            .add_child(child)
+            .despawn_descendants();
+
+        queue.apply(&mut world);
+
+        // The parent's Children component should be removed.
+        assert!(world.entity(parent).get::<Children>().is_none());
+        // The child should be despawned.
+        assert!(world.get_entity(child).is_none());
+    }
 }
