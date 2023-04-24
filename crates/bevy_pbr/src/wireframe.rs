@@ -1,3 +1,5 @@
+use std::num::NonZeroU64;
+
 use crate::MeshPipeline;
 use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
 use bevy_app::Plugin;
@@ -12,6 +14,7 @@ use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::prelude::Color;
 use bevy_render::render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass};
+use bevy_render::render_resource::encase::private::SizeValue;
 use bevy_render::render_resource::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, BufferBindingType, BufferInitDescriptor, BufferUsages,
@@ -104,8 +107,7 @@ impl FromWorld for WireframePipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        //TODO: set a min_binding_size
-                        min_binding_size: None,
+                        min_binding_size: Some(SizeValue::new((std::mem::size_of::<f32>() * 4) as u64).0),
                     },
                     count: None,
                 }],
@@ -138,7 +140,7 @@ fn wireframes_bind_group(
     render_device: Res<RenderDevice>,
     pipeline: Res<WireframePipeline>,
     mut q_wireframes: ParamSet<(
-        Query<Entity, With<MeshUniform>>,
+        Query<Entity, (With<MeshUniform>, Without<Wireframe>)>,
         Query<(Entity, &Wireframe), With<MeshUniform>>,
     )>,
 ) {
@@ -166,29 +168,30 @@ fn wireframes_bind_group(
                 .entity(entity)
                 .insert(WireframeBindgroup(bind_group.clone()));
         }
-    } else {
-        let query = q_wireframes.p1();
+    }
 
-        for (entity, wireframe) in &query {
-            let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-                label: None,
-                contents: bytemuck::cast_slice(&[wireframe.color.as_rgba_f32()]),
-                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            });
+    // Set the buffer to entities explicitly having a `Wireframe` component.
+    let query = q_wireframes.p1();
 
-            let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                label: None,
-                layout: &pipeline.layout,
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: buffer.as_entire_binding(),
-                }],
-            });
+    for (entity, wireframe) in &query {
+        let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&[wireframe.color.as_rgba_f32()]),
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        });
 
-            commands
-                .entity(entity)
-                .insert(WireframeBindgroup(bind_group));
-        }
+        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: None,
+            layout: &pipeline.layout,
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: buffer.as_entire_binding(),
+            }],
+        });
+
+        commands
+            .entity(entity)
+            .insert(WireframeBindgroup(bind_group));
     }
 }
 
@@ -266,6 +269,7 @@ type DrawWireframes = (
     DrawMesh,
 );
 
+// A custom RenderCommand to set the color bind group
 pub struct SetWireframeBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetWireframeBindGroup<I> {
     type Param = ();
