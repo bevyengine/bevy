@@ -143,7 +143,7 @@ impl Default for GizmoConfig {
     }
 }
 
-/// Configuration for bounding box gizmos.
+/// Configuration for drawing the [`Aabb`] component on entities.
 #[derive(Clone, Default)]
 pub struct AabbGizmoConfig {
     /// Draws all bounding boxes in the scene when set to `true`.
