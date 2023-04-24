@@ -18,6 +18,10 @@ const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u32 = 1 << 20;
 
 /// Similar to [`DynamicUniformBuffer`], except every N elements (depending on size)
 /// are grouped into a batch as an `array<T, N>` in WGSL.
+///
+/// This reduces the number of rebindings required due to having to pass dynamic
+/// offsets to bind group commands, and if indices into the array can be passed
+/// in via other means, it enables batching of draw commands.
 pub struct BatchedUniformBuffer<T: GpuListable> {
     uniforms: DynamicUniformBuffer<MaxCapacityArray<Vec<T>>>,
     temp: MaxCapacityArray<Vec<T>>,
