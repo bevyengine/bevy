@@ -1,4 +1,4 @@
-//! Shows how to create a custom `Decodable` type by implementing a Sine wave.
+//! Shows how to create a custom [`Decodable`] type by implementing a Sine wave.
 use bevy::audio::AddAudioSource;
 use bevy::audio::AudioPlugin;
 use bevy::audio::Source;

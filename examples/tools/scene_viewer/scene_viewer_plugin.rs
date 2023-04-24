@@ -3,7 +3,10 @@
 //! - Copy the code for the `SceneViewerPlugin` and add the plugin to your App.
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
-use bevy::{asset::LoadState, gltf::Gltf, prelude::*, scene::InstanceId};
+use bevy::{
+    asset::LoadState, gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*,
+    scene::InstanceId,
+};
 
 use std::f32::consts::*;
 use std::fmt;
@@ -43,6 +46,7 @@ impl fmt::Display for SceneHandle {
 Scene Controls:
     L           - animate light direction
     U           - toggle shadows
+    B           - toggle bounding boxes
     C           - cycle through the camera controller and any cameras loaded from the scene
 
     Space       - Play/Pause animation
@@ -63,11 +67,16 @@ impl Plugin for SceneViewerPlugin {
                 (
                     update_lights,
                     camera_tracker,
+                    toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::B)),
                     #[cfg(feature = "animation")]
                     (start_animation, keyboard_animation_control),
                 ),
             );
     }
+}
+
+fn toggle_bounding_boxes(mut config: ResMut<GizmoConfig>) {
+    config.aabb.draw_all ^= true;
 }
 
 fn scene_load_check(

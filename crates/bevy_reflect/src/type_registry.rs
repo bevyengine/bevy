@@ -131,7 +131,7 @@ impl TypeRegistry {
     ///
     /// Most of the time [`TypeRegistry::register`] can be used instead to register a type you derived [`Reflect`] for.
     /// However, in cases where you want to add a piece of type data that was not included in the list of `#[reflect(...)]` type data in the derive,
-    /// or where the type is generic and cannot register e.g. `ReflectSerialize` unconditionally without knowing the specific type parameters,
+    /// or where the type is generic and cannot register e.g. [`ReflectSerialize`] unconditionally without knowing the specific type parameters,
     /// this method can be used to insert additional type data.
     ///
     /// # Example
@@ -220,7 +220,7 @@ impl TypeRegistry {
             .and_then(|id| self.registrations.get_mut(id))
     }
 
-    /// Returns a reference to the [`TypeData`] of type `T` associated with the given `TypeId`.
+    /// Returns a reference to the [`TypeData`] of type `T` associated with the given [`TypeId`].
     ///
     /// The returned value may be used to downcast [`Reflect`] trait objects to
     /// trait objects of the trait used to generate `T`, provided that the
@@ -234,7 +234,7 @@ impl TypeRegistry {
             .and_then(|registration| registration.data::<T>())
     }
 
-    /// Returns a mutable reference to the [`TypeData`] of type `T` associated with the given `TypeId`.
+    /// Returns a mutable reference to the [`TypeData`] of type `T` associated with the given [`TypeId`].
     ///
     /// If the specified type has not been registered, or if `T` is not present
     /// in its type registration, returns `None`.
@@ -243,7 +243,7 @@ impl TypeRegistry {
             .and_then(|registration| registration.data_mut::<T>())
     }
 
-    /// Returns the [`TypeInfo`] associated with the given `TypeId`.
+    /// Returns the [`TypeInfo`] associated with the given [`TypeId`].
     ///
     /// If the specified type has not been registered, returns `None`.
     pub fn get_type_info(&self, type_id: TypeId) -> Option<&'static TypeInfo> {

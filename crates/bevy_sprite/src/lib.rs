@@ -29,13 +29,17 @@ pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, Assets, HandleUntyped};
+use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    mesh::Mesh,
+    primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
+    texture::Image,
+    view::{NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -62,7 +66,11 @@ impl Plugin for SpritePlugin {
             .register_type::<Anchor>()
             .register_type::<Mesh2dHandle>()
             .add_plugin(Mesh2dRenderPlugin)
-            .add_plugin(ColorMaterialPlugin);
+            .add_plugin(ColorMaterialPlugin)
+            .add_systems(
+                PostUpdate,
+                calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
+            );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -87,5 +95,55 @@ impl Plugin for SpritePlugin {
                         .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
                 );
         };
+    }
+}
+
+pub fn calculate_bounds_2d(
+    mut commands: Commands,
+    meshes: Res<Assets<Mesh>>,
+    images: Res<Assets<Image>>,
+    atlases: Res<Assets<TextureAtlas>>,
+    meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    sprites_without_aabb: Query<
+        (Entity, &Sprite, &Handle<Image>),
+        (Without<Aabb>, Without<NoFrustumCulling>),
+    >,
+    atlases_without_aabb: Query<
+        (Entity, &TextureAtlasSprite, &Handle<TextureAtlas>),
+        (Without<Aabb>, Without<NoFrustumCulling>),
+    >,
+) {
+    for (entity, mesh_handle) in &meshes_without_aabb {
+        if let Some(mesh) = meshes.get(&mesh_handle.0) {
+            if let Some(aabb) = mesh.compute_aabb() {
+                commands.entity(entity).insert(aabb);
+            }
+        }
+    }
+    for (entity, sprite, texture_handle) in &sprites_without_aabb {
+        if let Some(size) = sprite
+            .custom_size
+            .or_else(|| images.get(texture_handle).map(|image| image.size()))
+        {
+            let aabb = Aabb {
+                center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
+                half_extents: (0.5 * size).extend(0.0).into(),
+            };
+            commands.entity(entity).insert(aabb);
+        }
+    }
+    for (entity, atlas_sprite, atlas_handle) in &atlases_without_aabb {
+        if let Some(size) = atlas_sprite.custom_size.or_else(|| {
+            atlases
+                .get(atlas_handle)
+                .and_then(|atlas| atlas.textures.get(atlas_sprite.index))
+                .map(|rect| (rect.min - rect.max).abs())
+        }) {
+            let aabb = Aabb {
+                center: (-atlas_sprite.anchor.as_vec() * size).extend(0.0).into(),
+                half_extents: (0.5 * size).extend(0.0).into(),
+            };
+            commands.entity(entity).insert(aabb);
+        }
     }
 }

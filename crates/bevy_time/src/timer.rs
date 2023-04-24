@@ -224,10 +224,17 @@ impl Timer {
 
         if self.finished() {
             if self.mode == TimerMode::Repeating {
-                self.times_finished_this_tick =
-                    (self.elapsed().as_nanos() / self.duration().as_nanos()) as u32;
-                // Duration does not have a modulo
-                self.set_elapsed(self.elapsed() - self.duration() * self.times_finished_this_tick);
+                self.times_finished_this_tick = self
+                    .elapsed()
+                    .as_nanos()
+                    .checked_div(self.duration().as_nanos())
+                    .map_or(u32::MAX, |x| x as u32);
+                self.set_elapsed(
+                    self.elapsed()
+                        .as_nanos()
+                        .checked_rem(self.duration().as_nanos())
+                        .map_or(Duration::ZERO, |x| Duration::from_nanos(x as u64)),
+                );
             } else {
                 self.times_finished_this_tick = 1;
                 self.set_elapsed(self.duration());
@@ -329,7 +336,11 @@ impl Timer {
     /// ```
     #[inline]
     pub fn percent(&self) -> f32 {
-        self.elapsed().as_secs_f32() / self.duration().as_secs_f32()
+        if self.duration == Duration::ZERO {
+            1.0
+        } else {
+            self.elapsed().as_secs_f32() / self.duration().as_secs_f32()
+        }
     }
 
     /// Returns the percentage of the timer remaining time (goes from 1.0 to 0.0).
@@ -515,6 +526,26 @@ mod tests {
         assert_eq!(t.times_finished_this_tick(), 1);
         t.tick(Duration::from_secs_f32(0.5));
         assert_eq!(t.times_finished_this_tick(), 0);
+    }
+
+    #[test]
+    fn times_finished_this_tick_repeating_zero_duration() {
+        let mut t = Timer::from_seconds(0.0, TimerMode::Repeating);
+        assert_eq!(t.times_finished_this_tick(), 0);
+        assert_eq!(t.elapsed(), Duration::ZERO);
+        assert_eq!(t.percent(), 1.0);
+        t.tick(Duration::from_secs(1));
+        assert_eq!(t.times_finished_this_tick(), u32::MAX);
+        assert_eq!(t.elapsed(), Duration::ZERO);
+        assert_eq!(t.percent(), 1.0);
+        t.tick(Duration::from_secs(2));
+        assert_eq!(t.times_finished_this_tick(), u32::MAX);
+        assert_eq!(t.elapsed(), Duration::ZERO);
+        assert_eq!(t.percent(), 1.0);
+        t.reset();
+        assert_eq!(t.times_finished_this_tick(), 0);
+        assert_eq!(t.elapsed(), Duration::ZERO);
+        assert_eq!(t.percent(), 1.0);
     }
 
     #[test]

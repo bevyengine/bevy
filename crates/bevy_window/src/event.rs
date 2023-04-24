@@ -74,7 +74,7 @@ pub struct WindowCloseRequested {
 }
 
 /// An event that is sent whenever a window is closed. This will be sent when
-/// the window entity loses its `Window` component or is despawned.
+/// the window entity loses its [`Window`](crate::window::Window) component or is despawned.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(

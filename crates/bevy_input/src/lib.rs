@@ -39,8 +39,8 @@ use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
     gamepad_event_system, AxisSettings, ButtonAxisSettings, ButtonSettings, Gamepad, GamepadAxis,
     GamepadAxisChangedEvent, GamepadAxisType, GamepadButton, GamepadButtonChangedEvent,
-    GamepadButtonType, GamepadConnection, GamepadConnectionEvent, GamepadEvent, GamepadSettings,
-    Gamepads,
+    GamepadButtonType, GamepadConnection, GamepadConnectionEvent, GamepadEvent,
+    GamepadRumbleRequest, GamepadSettings, Gamepads,
 };
 
 #[cfg(feature = "serialize")]
@@ -72,6 +72,7 @@ impl Plugin for InputPlugin {
             .add_event::<GamepadButtonChangedEvent>()
             .add_event::<GamepadAxisChangedEvent>()
             .add_event::<GamepadEvent>()
+            .add_event::<GamepadRumbleRequest>()
             .init_resource::<GamepadSettings>()
             .init_resource::<Gamepads>()
             .init_resource::<Input<GamepadButton>>()

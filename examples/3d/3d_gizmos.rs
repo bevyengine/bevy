@@ -56,9 +56,7 @@ fn setup(
 
 fn system(mut gizmos: Gizmos, time: Res<Time>) {
     gizmos.cuboid(
-        Vec3::Y * -0.5,
-        Quat::IDENTITY,
-        Vec3::new(5., 1., 2.),
+        Transform::from_translation(Vec3::Y * -0.5).with_scale(Vec3::new(5., 1., 2.)),
         Color::BLACK,
     );
     gizmos.rect(

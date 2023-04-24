@@ -46,9 +46,9 @@ fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
     }
 }
 
-fn despawn_children(world: &mut World, entity: Entity) {
-    if let Some(mut children) = world.get_mut::<Children>(entity) {
-        for e in std::mem::take(&mut children.0) {
+fn despawn_children_recursive(world: &mut World, entity: Entity) {
+    if let Some(children) = world.entity_mut(entity).take::<Children>() {
+        for e in children.0 {
             despawn_with_children_recursive_inner(world, e);
         }
     }
@@ -76,7 +76,7 @@ impl Command for DespawnChildrenRecursive {
             entity = bevy_utils::tracing::field::debug(self.entity)
         )
         .entered();
-        despawn_children(world, self.entity);
+        despawn_children_recursive(world, self.entity);
     }
 }
 
@@ -127,11 +127,9 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
         )
         .entered();
 
-        // SAFETY: The location is updated.
-        unsafe {
-            despawn_children(self.world_mut(), entity);
-            self.update_location();
-        }
+        self.world_scope(|world| {
+            despawn_children_recursive(world, entity);
+        });
     }
 }
 
@@ -225,5 +223,27 @@ mod tests {
                 (N("An innocent bystander".to_owned()), Idx(7))
             ]
         );
+    }
+
+    #[test]
+    fn despawn_descendants() {
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+
+        let parent = commands.spawn_empty().id();
+        let child = commands.spawn_empty().id();
+
+        commands
+            .entity(parent)
+            .add_child(child)
+            .despawn_descendants();
+
+        queue.apply(&mut world);
+
+        // The parent's Children component should be removed.
+        assert!(world.entity(parent).get::<Children>().is_none());
+        // The child should be despawned.
+        assert!(world.get_entity(child).is_none());
     }
 }

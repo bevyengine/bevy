@@ -45,7 +45,7 @@ impl Command for AddChildInPlace {
 /// You most likely want to use [`BuildChildrenTransformExt::remove_parent_in_place`]
 /// method on [`EntityCommands`] instead.
 pub struct RemoveParentInPlace {
-    /// `Entity` whose parent must be removed.
+    /// [`Entity`] whose parent must be removed.
     pub child: Entity,
 }
 impl Command for RemoveParentInPlace {

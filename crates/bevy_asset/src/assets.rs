@@ -276,7 +276,7 @@ pub trait AddAsset {
     where
         T: Asset;
 
-    /// Registers the asset type `T` using `[App::register]`,
+    /// Registers the asset type `T` using [`App::register_type`],
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
     ///
     /// This enables reflection code to access assets. For detailed information, see the docs on [`ReflectAsset`] and [`ReflectHandle`].
@@ -296,7 +296,7 @@ pub trait AddAsset {
 
     /// Adds an asset loader `T` using default values.
     ///
-    /// The default values may come from the `World` or from `T::default()`.
+    /// The default values may come from the [`World`] or from `T::default()`.
     fn init_asset_loader<T>(&mut self) -> &mut Self
     where
         T: AssetLoader + FromWorld;
@@ -306,7 +306,7 @@ pub trait AddAsset {
     /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
     /// using the conventional API. See `DebugAssetServerPlugin`.
     ///
-    /// The default values may come from the `World` or from `T::default()`.
+    /// The default values may come from the [`World`] or from `T::default()`.
     fn init_debug_asset_loader<T>(&mut self) -> &mut Self
     where
         T: AssetLoader + FromWorld;
@@ -407,7 +407,7 @@ impl AddAsset for App {
 /// Loads an internal asset.
 ///
 /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
-/// using the conventional API. See `DebugAssetServerPlugin`.
+/// using the conventional API. See [`DebugAssetServerPlugin`](crate::debug_asset_server::DebugAssetServerPlugin).
 #[cfg(feature = "debug_asset_server")]
 #[macro_export]
 macro_rules! load_internal_asset {

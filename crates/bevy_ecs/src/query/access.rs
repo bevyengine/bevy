@@ -147,7 +147,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if the access and `other` can be active at the same time.
     ///
-    /// `Access` instances are incompatible if one can write
+    /// [`Access`] instances are incompatible if one can write
     /// an element that the other can read or write.
     pub fn is_compatible(&self, other: &Access<T>) -> bool {
         // Only systems that do not write data are compatible with systems that operate on `&World`.
@@ -218,7 +218,7 @@ impl<T: SparseSetIndex> Access<T> {
 /// - `Query<&mut T>`  read/write `T`
 /// - `Query<Option<&T>>` accesses nothing
 ///
-/// See comments the `WorldQuery` impls of `AnyOf`/`Option`/`Or` for more information.
+/// See comments the [`WorldQuery`](super::WorldQuery) impls of [`AnyOf`](super::AnyOf)/`Option`/[`Or`](super::Or) for more information.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
@@ -438,7 +438,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     ///    compatible.
     /// 2. A "fine grained" check, it kicks in when the "coarse" check fails.
     ///    the two access sets might still be compatible if some of the accesses
-    ///    are restricted with the `With` or `Without` filters so that access is
+    ///    are restricted with the [`With`](super::With) or [`Without`](super::Without) filters so that access is
     ///    mutually exclusive. The fine grained phase iterates over all filters in
     ///    the `self` set and compares it to all the filters in the `other` set,
     ///    making sure they are all mutually compatible.

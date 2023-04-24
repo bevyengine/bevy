@@ -45,7 +45,7 @@ impl<T> Default for ReportHierarchyIssue<T> {
     }
 }
 
-/// System to print a warning for each `Entity` with a `T` component
+/// System to print a warning for each [`Entity`] with a `T` component
 /// which parent hasn't a `T` component.
 ///
 /// Hierarchy propagations are top-down, and limited only to entities

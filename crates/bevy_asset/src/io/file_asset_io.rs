@@ -82,7 +82,7 @@ impl FileAssetIo {
 
     /// Returns the root directory where assets are loaded from.
     ///
-    /// See `get_base_path`.
+    /// See [`get_base_path`](FileAssetIo::get_base_path).
     pub fn root_path(&self) -> &PathBuf {
         &self.root_path
     }

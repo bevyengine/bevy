@@ -79,27 +79,27 @@ pub enum RenderSet {
     ExtractCommands,
     /// Prepare render resources from the extracted data for the GPU.
     Prepare,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `Prepare`.
+    /// The copy of [`apply_system_buffers`] that runs immediately after [`Prepare`](RenderSet::Prepare).
     PrepareFlush,
-    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on
+    /// Create [`BindGroups`](render_resource::BindGroup) that depend on
     /// [`Prepare`](RenderSet::Prepare) data and queue up draw calls to run during the
     /// [`Render`](RenderSet::Render) step.
     Queue,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `Queue`.
+    /// The copy of [`apply_system_buffers`] that runs immediately after [`Queue`](RenderSet::Queue).
     QueueFlush,
     // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
-    /// Sort the [`RenderPhases`](crate::render_phase::RenderPhase) here.
+    /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
     PhaseSort,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `PhaseSort`.
+    /// The copy of [`apply_system_buffers`] that runs immediately after [`PhaseSort`](RenderSet::PhaseSort).
     PhaseSortFlush,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.
     Render,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `Render`.
+    /// The copy of [`apply_system_buffers`] that runs immediately after [`Render`](RenderSet::Render).
     RenderFlush,
     /// Cleanup render resources here.
     Cleanup,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `Cleanup`.
+    /// The copy of [`apply_system_buffers`] that runs immediately after [`Cleanup`](RenderSet::Cleanup).
     CleanupFlush,
 }
 

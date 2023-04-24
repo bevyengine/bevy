@@ -315,7 +315,7 @@ fn find_bone(
     Some(current_entity)
 }
 
-/// Verify that there are no ancestors of a given entity that have an `AnimationPlayer`.
+/// Verify that there are no ancestors of a given entity that have an [`AnimationPlayer`].
 fn verify_no_ancestor_player(
     player_parent: Option<&Parent>,
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,

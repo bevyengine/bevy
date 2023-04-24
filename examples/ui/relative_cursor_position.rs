@@ -1,4 +1,4 @@
-//! Showcases the `RelativeCursorPosition` component, used to check the position of the cursor relative to a UI node.
+//! Showcases the [`RelativeCursorPosition`] component, used to check the position of the cursor relative to a UI node.
 
 use bevy::{prelude::*, ui::RelativeCursorPosition, winit::WinitSettings};
 
