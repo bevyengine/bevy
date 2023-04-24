@@ -42,7 +42,7 @@ use bevy_render::{
     render_resource::{PrimitiveTopology, Shader, SpecializedMeshPipelines},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 
 #[cfg(feature = "bevy_pbr")]
 use bevy_pbr::MeshUniform;
@@ -160,11 +160,6 @@ pub struct AabbGizmoConfig {
     pub default_color: Option<Color>,
 }
 
-fn color_from_entity(entity: Entity) -> Color {
-    let hue = entity.to_bits() as f32 * 100_000. % 360.;
-    Color::hsl(hue, 1., 0.5)
-}
-
 /// Add this [`Component`] to an entity to draw its [`Aabb`] component.
 #[derive(Component, Reflect, FromReflect, Default, Debug)]
 #[reflect(Component, FromReflect, Default)]
@@ -185,7 +180,7 @@ fn draw_aabbs(
             .color
             .or(config.aabb.default_color)
             .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.bounding_box(aabb, transform, color);
+        gizmos.cuboid(aabb_transform(aabb, transform), color);
     }
 }
 
@@ -199,8 +194,21 @@ fn draw_all_aabbs(
             .aabb
             .default_color
             .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.bounding_box(aabb, transform, color);
+        gizmos.cuboid(aabb_transform(aabb, transform), color);
     }
+}
+
+fn color_from_entity(entity: Entity) -> Color {
+    let hue = entity.to_bits() as f32 * 100_000. % 360.;
+    Color::hsl(hue, 1., 0.5)
+}
+
+fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
+    transform
+        * GlobalTransform::from(
+            Transform::from_translation(aabb.center.into())
+                .with_scale((aabb.half_extents * 2.).into()),
+        )
 }
 
 #[derive(Resource)]
