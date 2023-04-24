@@ -119,7 +119,7 @@ impl<T: GpuListable> GpuList<T> {
 /// An index into a [`GpuList`] for a given element.
 #[derive(Component)]
 pub struct GpuListIndex<T: GpuListable> {
-    /// The index to use in a shader on the array.
+    /// The index to use in a shader into the array.
     pub index: u32,
     /// The dynamic offset to use when binding the list from Rust.
     /// Only used on platforms that don't support storage buffers.
