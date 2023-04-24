@@ -23,7 +23,6 @@ impl<T: ShaderType + ShaderSize + WriteInto + Clone> GpuListable for T {}
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
-/// * [`GpuList`](crate::render_resource::GpuList)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 #[derive(Resource)]
