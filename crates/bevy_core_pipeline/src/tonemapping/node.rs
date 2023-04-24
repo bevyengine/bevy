@@ -19,18 +19,10 @@ use bevy_render::{
 
 use super::{get_lut_bindings, Tonemapping};
 
+#[derive(Default)]
 pub struct TonemappingNode {
     cached_bind_group: Mutex<Option<(BufferId, TextureViewId, BindGroup)>>,
     last_tonemapping: Mutex<Option<Tonemapping>>,
-}
-
-impl Default for TonemappingNode {
-    fn default() -> Self {
-        Self {
-            cached_bind_group: Mutex::new(None),
-            last_tonemapping: Mutex::new(None),
-        }
-    }
 }
 
 impl ViewNode for TonemappingNode {

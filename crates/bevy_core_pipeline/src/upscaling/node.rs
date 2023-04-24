@@ -13,16 +13,9 @@ use bevy_render::{
 };
 use std::sync::Mutex;
 
+#[derive(Default)]
 pub struct UpscalingNode {
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
-}
-
-impl Default for UpscalingNode {
-    fn default() -> Self {
-        Self {
-            cached_texture_bind_group: Mutex::new(None),
-        }
-    }
 }
 
 impl ViewNode for UpscalingNode {
