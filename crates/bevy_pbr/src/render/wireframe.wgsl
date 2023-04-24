@@ -4,6 +4,9 @@
 @group(1) @binding(0)
 var<uniform> mesh: Mesh;
 
+@group(2) @binding(0)
+var<uniform> color: vec4<f32>;
+
 #ifdef SKINNED
 @group(1) @binding(1)
 var<uniform> joint_matrices: SkinnedMesh;
@@ -40,5 +43,5 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
 @fragment
 fn fragment() -> @location(0) vec4<f32> {
-    return vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    return color;
 }

@@ -43,7 +43,7 @@ fn setup(
             ..default()
         },
         // This enables wireframe drawing on this entity
-        Wireframe,
+        Wireframe::default(),
     ));
     // light
     commands.spawn(PointLightBundle {
