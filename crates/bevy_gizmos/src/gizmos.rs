@@ -7,7 +7,8 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
-use bevy_render::prelude::Color;
+use bevy_render::color::Color;
+use bevy_transform::TransformPoint;
 
 type PositionItem = [f32; 3];
 type ColorItem = [f32; 4];
@@ -280,27 +281,31 @@ impl<'s> Gizmos<'s> {
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
-    /// # use bevy_math::prelude::*;
+    /// # use bevy_transform::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cuboid(Vec3::ZERO, Quat::IDENTITY, Vec3::ONE, Color::GREEN);
+    ///     gizmos.cuboid(Transform::IDENTITY, Color::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn cuboid(&mut self, position: Vec3, rotation: Quat, size: Vec3, color: Color) {
-        let rect = rect_inner(size.truncate());
+    pub fn cuboid(&mut self, transform: impl TransformPoint, color: Color) {
+        let rect = rect_inner(Vec2::ONE);
         // Front
-        let [tlf, trf, brf, blf] = rect.map(|vec2| position + rotation * vec2.extend(size.z / 2.));
+        let [tlf, trf, brf, blf] = rect.map(|vec2| transform.transform_point(vec2.extend(0.5)));
         // Back
-        let [tlb, trb, brb, blb] = rect.map(|vec2| position + rotation * vec2.extend(-size.z / 2.));
+        let [tlb, trb, brb, blb] = rect.map(|vec2| transform.transform_point(vec2.extend(-0.5)));
 
-        let positions = [
-            tlf, trf, trf, brf, brf, blf, blf, tlf, // Front
-            tlb, trb, trb, brb, brb, blb, blb, tlb, // Back
-            tlf, tlb, trf, trb, brf, brb, blf, blb, // Front to back
+        let strip_positions = [
+            tlf, trf, brf, blf, tlf, // Front
+            tlb, trb, brb, blb, tlb, // Back
         ];
-        self.extend_list_positions(positions);
-        self.add_list_color(color, 24);
+        self.linestrip(strip_positions, color);
+
+        let list_positions = [
+            trf, trb, brf, brb, blf, blb, // Front to back
+        ];
+        self.extend_list_positions(list_positions);
+        self.add_list_color(color, 6);
     }
 
     /// Draw a line from `start` to `end`.
