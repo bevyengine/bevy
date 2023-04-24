@@ -13,6 +13,10 @@ use bevy_utils::tracing::info;
 pub struct CiTestingConfig {
     /// The number of frames after which Bevy should exit.
     pub exit_after: Option<u32>,
+    /// The time in seconds to update for each frame.
+    pub frame_time: Option<f32>,
+    /// Frames at which to capture a screenshot.
+    pub screenshot_frames: Vec<u32>,
 }
 
 fn ci_testing_exit_after(
