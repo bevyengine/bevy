@@ -534,12 +534,28 @@ impl Composer {
             )
             .map_err(ComposerErrorInner::WgslBackError),
             ShaderLanguage::Glsl => {
+                let vec4 = naga_module.types.insert(
+                    naga::Type {
+                        name: None,
+                        inner: naga::TypeInner::Vector {
+                            size: naga::VectorSize::Quad,
+                            kind: naga::ScalarKind::Float,
+                            width: 4,
+                        },
+                    },
+                    naga::Span::UNDEFINED,
+                );
                 // add a dummy entry point for glsl headers
                 let dummy_entry_point = "dummy_module_entry_point".to_owned();
                 let func = naga::Function {
                     name: Some(dummy_entry_point.clone()),
                     arguments: Default::default(),
-                    result: None,
+                    result: Some(naga::FunctionResult {
+                        ty: vec4,
+                        binding: Some(naga::Binding::BuiltIn(naga::BuiltIn::Position {
+                            invariant: false,
+                        })),
+                    }),
                     local_variables: Default::default(),
                     expressions: Default::default(),
                     named_expressions: Default::default(),
@@ -683,7 +699,7 @@ impl Composer {
                     source: ErrSource::Module(name.to_owned(), start_offset),
                 }
             })?,
-            ShaderLanguage::Glsl => naga::front::glsl::Parser::default()
+            ShaderLanguage::Glsl => naga::front::glsl::Frontend::default()
                 .parse(
                     &naga::front::glsl::Options {
                         stage: naga::ShaderStage::Vertex,
@@ -722,7 +738,7 @@ impl Composer {
 
         let recompiled = match lang {
             ShaderLanguage::Wgsl => naga::front::wgsl::parse_str(header).unwrap(),
-            ShaderLanguage::Glsl => naga::front::glsl::Parser::default()
+            ShaderLanguage::Glsl => naga::front::glsl::Frontend::default()
                 .parse(
                     &naga::front::glsl::Options {
                         stage: naga::ShaderStage::Vertex,

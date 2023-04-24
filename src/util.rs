@@ -55,6 +55,8 @@ pub fn copy_type(t: &naga::Type) -> naga::Type {
                 members: members.clone(),
                 span: *span,
             },
+            naga::TypeInner::AccelerationStructure => naga::TypeInner::AccelerationStructure,
+            naga::TypeInner::RayQuery => naga::TypeInner::RayQuery,
             naga::TypeInner::Image {
                 dim,
                 arrayed,
@@ -131,6 +133,7 @@ pub fn clone_module(module: &Module) -> Module {
         constants: clone_arena(&module.constants, clone_const),
         global_variables: clone_arena(&module.global_variables, Clone::clone),
         functions: clone_arena(&module.functions, copy_func),
+        special_types: module.special_types.clone(),
         entry_points,
     }
 }

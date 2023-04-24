@@ -161,6 +161,9 @@ impl ComposerError {
 
         let files = SimpleFile::new(path, source);
         let config = term::Config::default();
+        #[cfg(test)]
+        let mut writer = term::termcolor::NoColor::new(Vec::new());
+        #[cfg(not(test))]
         let mut writer = term::termcolor::Ansi::new(Vec::new());
 
         let (labels, notes) = match &self.inner {

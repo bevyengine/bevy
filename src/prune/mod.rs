@@ -57,7 +57,7 @@ impl FunctionReq {
             }
         }
 
-        let mut named_expressions = std::collections::HashMap::default();
+        let mut named_expressions = indexmap::IndexMap::default();
         for (h_expr, name) in &func.named_expressions {
             if let Some(new_h) = expr_map.get(h_expr) {
                 named_expressions.insert(*new_h, name.clone());
@@ -204,9 +204,10 @@ impl FunctionReq {
                 accept: expr_map[accept],
                 reject: expr_map[reject],
             },
-            Expression::Derivative { axis, expr } => Expression::Derivative {
+            Expression::Derivative { axis, expr, ctrl } => Expression::Derivative {
                 axis: *axis,
                 expr: expr_map[expr],
+                ctrl: *ctrl,
             },
             Expression::Relational { fun, argument } => Expression::Relational {
                 fun: *fun,
@@ -235,16 +236,15 @@ impl FunctionReq {
                 convert: *convert,
             },
             Expression::CallResult(f) => Expression::CallResult(*f),
-            Expression::AtomicResult {
-                kind,
-                width,
-                comparison,
-            } => Expression::AtomicResult {
-                kind: *kind,
-                width: *width,
-                comparison: *comparison,
-            },
+            Expression::AtomicResult { .. } => expr.clone(),
             Expression::ArrayLength(a) => Expression::ArrayLength(expr_map[a]),
+            Expression::RayQueryProceedResult => expr.clone(),
+            Expression::RayQueryGetIntersection { query, committed } => {
+                Expression::RayQueryGetIntersection {
+                    query: expr_map[query],
+                    committed: *committed,
+                }
+            }
         }
     }
 
@@ -340,7 +340,7 @@ impl FunctionReq {
                     .iter()
                     .zip(cases_req.iter())
                     .map(|(case, req)| SwitchCase {
-                        value: case.value.clone(),
+                        value: case.value,
                         body: self
                             .rewrite_block(&case.body, req, expr_map)
                             .unwrap_or_default(),
@@ -626,6 +626,7 @@ enum StatementReq {
         call_required: bool,
         result_required: bool,
     },
+    RayQuery(bool),
 }
 
 impl StatementReq {
@@ -645,7 +646,8 @@ impl StatementReq {
             StatementReq::Store(r) |
             StatementReq::ImageStore(r) |
             StatementReq::Atomic(r) => *r,
-            StatementReq::Call{ call_required, .. } => *call_required
+            StatementReq::Call{ call_required, .. } => *call_required,
+            StatementReq::RayQuery(r) => *r,
         }
     }
 }
@@ -1312,7 +1314,7 @@ impl<'a> Pruner<'a> {
                 self.add_expression(function, func_req, context, *accept, part);
                 self.add_expression(function, func_req, context, *reject, part);
             }
-            Expression::Derivative { axis: _axis, expr } => {
+            Expression::Derivative { expr, .. } => {
                 self.add_expression(function, func_req, context, *expr, &PartReq::All);
             }
             Expression::Relational {
@@ -1343,16 +1345,19 @@ impl<'a> Pruner<'a> {
             Expression::CallResult(_f) => {
                 // nothing, handled by the statement
             }
-            Expression::AtomicResult {
-                kind: _kind,
-                width: _width,
-                comparison: _comparison,
-            } => {
+            Expression::AtomicResult { .. } => {
                 // nothing, handled by the statement
             }
             Expression::ArrayLength(expr) => {
                 let part = PartReq::Exist;
                 self.add_expression(function, func_req, context, *expr, &part);
+            }
+            Expression::RayQueryProceedResult => (),
+            Expression::RayQueryGetIntersection {
+                query,
+                committed: _committed,
+            } => {
+                self.add_expression(function, func_req, context, *query, &PartReq::All);
             }
         }
 
@@ -1644,6 +1649,11 @@ impl<'a> Pruner<'a> {
                     }
                     _ => ImageStore(false),
                 }
+            }
+            Statement::RayQuery { query, fun: _fun } => {
+                let var_ref = Self::resolve_var(function, *query, Vec::default());
+                let required = self.store_required(context, &var_ref);
+                RayQuery(required.is_some())
             }
         }
     }

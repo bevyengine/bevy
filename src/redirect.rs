@@ -66,7 +66,8 @@ impl Redirector {
                 | Statement::Barrier(_)
                 | Statement::Store { .. }
                 | Statement::ImageStore { .. }
-                | Statement::Atomic { .. } => (),
+                | Statement::Atomic { .. }
+                | Statement::RayQuery { .. } => (),
             }
         }
     }

@@ -1,6 +1,6 @@
 [package]
 name = "naga_oil"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "a crate for combining and manipulating shaders using naga IR"
@@ -12,7 +12,7 @@ prune = ["dep:serde", "dep:serde_json", "naga/deserialize", "naga/serialize"]
 override_any = []
 
 [dependencies]
-naga = { version="0.11.*", features = ["wgsl-in", "wgsl-out", "glsl-in", "glsl-out", "clone"] }
+naga = { version="0.12", features = ["wgsl-in", "wgsl-out", "glsl-in", "glsl-out", "clone"] }
 tracing = "0.1"
 regex = "1.5"
 regex-syntax = "0.6"
@@ -26,8 +26,9 @@ rustc-hash = "1.1.0"
 serde = { version = "1", optional = true }
 serde_json = { version = "1", optional = true }
 once_cell = "1.17.0"
+indexmap = "1.9.3"
 
 [dev-dependencies]
-wgpu = { version = "0.15.*", features=["naga"] }
+wgpu = { version = "0.16", features=["naga"] }
 futures-lite = "1"
 tracing-subscriber = { version = "0.3", features = ["std", "fmt"] }
