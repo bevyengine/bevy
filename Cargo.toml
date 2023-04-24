@@ -1275,6 +1275,16 @@ category = "Input"
 wasm = false
 
 [[example]]
+name = "gamepad_rumble"
+path = "examples/input/gamepad_rumble.rs"
+
+[package.metadata.example.gamepad_rumble]
+name = "Gamepad Rumble"
+description = "Shows how to rumble a gamepad using force feedback"
+category = "Input"
+wasm = false
+
+[[example]]
 name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
 

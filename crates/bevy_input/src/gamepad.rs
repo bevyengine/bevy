@@ -5,6 +5,7 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
 };
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_utils::Duration;
 use bevy_utils::{tracing::info, HashMap};
 use thiserror::Error;
 
@@ -1239,6 +1240,127 @@ const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
     GamepadAxisType::RightStickY,
     GamepadAxisType::RightZ,
 ];
+
+/// The intensity at which a gamepad's force-feedback motors may rumble.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GamepadRumbleIntensity {
+    /// The rumble intensity of the strong gamepad motor
+    ///
+    /// Ranges from 0.0 to 1.0
+    ///
+    /// By convention, this is usually a low-frequency motor on the left-hand
+    /// side of the gamepad, though it may vary across platforms and hardware.
+    pub strong_motor: f32,
+    /// The rumble intensity of the weak gamepad motor
+    ///
+    /// Ranges from 0.0 to 1.0
+    ///
+    /// By convention, this is usually a high-frequency motor on the right-hand
+    /// side of the gamepad, though it may vary across platforms and hardware.
+    pub weak_motor: f32,
+}
+
+impl GamepadRumbleIntensity {
+    /// Rumble both gamepad motors at maximum intensity
+    pub const MAX: Self = GamepadRumbleIntensity {
+        strong_motor: 1.0,
+        weak_motor: 1.0,
+    };
+
+    /// Rumble the weak motor at maximum intensity
+    pub const WEAK_MAX: Self = GamepadRumbleIntensity {
+        strong_motor: 0.0,
+        weak_motor: 1.0,
+    };
+
+    /// Rumble the strong motor at maximum intensity
+    pub const STRONG_MAX: Self = GamepadRumbleIntensity {
+        strong_motor: 1.0,
+        weak_motor: 0.0,
+    };
+
+    /// Creates a new rumble intensity with weak motor intensity set to the given value
+    ///
+    /// Clamped within the 0 to 1 range
+    pub const fn weak_motor(intensity: f32) -> Self {
+        Self {
+            weak_motor: intensity,
+            strong_motor: 0.0,
+        }
+    }
+
+    /// Creates a new rumble intensity with strong motor intensity set to the given value
+    ///
+    /// Clamped within the 0 to 1 range
+    pub const fn strong_motor(intensity: f32) -> Self {
+        Self {
+            strong_motor: intensity,
+            weak_motor: 0.0,
+        }
+    }
+}
+
+/// An event that controls force-feedback rumbling of a [`Gamepad`]
+///
+/// # Notes
+///
+/// Does nothing if the gamepad or platform does not support rumble.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_input::gamepad::{Gamepad, Gamepads, GamepadRumbleRequest, GamepadRumbleIntensity};
+/// # use bevy_ecs::prelude::{EventWriter, Res};
+/// # use bevy_utils::Duration;
+/// fn rumble_gamepad_system(
+///     mut rumble_requests: EventWriter<GamepadRumbleRequest>,
+///     gamepads: Res<Gamepads>
+/// ) {
+///     for gamepad in gamepads.iter() {
+///         rumble_requests.send(GamepadRumbleRequest::Add {
+///             gamepad,
+///             intensity: GamepadRumbleIntensity::MAX,
+///             duration: Duration::from_secs_f32(0.5),
+///         });
+///     }
+/// }
+/// ```
+#[doc(alias = "haptic feedback")]
+#[doc(alias = "force feedback")]
+#[doc(alias = "vibration")]
+#[doc(alias = "vibrate")]
+#[derive(Clone)]
+pub enum GamepadRumbleRequest {
+    /// Add a rumble to the given gamepad.
+    ///
+    /// Simultaneous rumble effects add up to the sum of their strengths.
+    ///
+    /// Consequently, if two rumbles at half intensity are added at the same
+    /// time, their intensities will be added up, and the controller will rumble
+    /// at full intensity until one of the rumbles finishes, then the rumble
+    /// will continue at the intensity of the remaining event.
+    ///
+    /// To replace an existing rumble, send a [`GamepadRumbleRequest::Stop`] event first.
+    Add {
+        /// How long the gamepad should rumble
+        duration: Duration,
+        /// How intense the rumble should be
+        intensity: GamepadRumbleIntensity,
+        /// The gamepad to rumble
+        gamepad: Gamepad,
+    },
+    /// Stop all running rumbles on the given [`Gamepad`]
+    Stop { gamepad: Gamepad },
+}
+
+impl GamepadRumbleRequest {
+    /// Get the [`Gamepad`] associated with this request
+    pub fn gamepad(&self) -> Gamepad {
+        match self {
+            Self::Add { gamepad, .. } | Self::Stop { gamepad } => *gamepad,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
