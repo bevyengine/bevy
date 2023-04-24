@@ -82,7 +82,7 @@ impl<T: GpuListable> GpuList<T> {
         BindGroupLayoutEntry {
             binding,
             visibility,
-            ty: if device.limits().max_storage_buffers_per_shader_stage < 3 {
+            ty: if device.limits().max_storage_buffers_per_shader_stage < 1 {
                 BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
