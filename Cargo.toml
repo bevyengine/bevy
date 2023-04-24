@@ -698,6 +698,19 @@ description = "Showcases wireframe rendering"
 category = "3D Rendering"
 wasm = true
 
+
+[[example]]
+name = "colored_wireframe"
+path = "examples/3d/colored_wireframe.rs"
+
+
+[package.metadata.example.colored_wireframe]
+name = "Colored wireframe"
+description = "Showcases wireframe rendering with colors"
+category = "3D Rendering"
+wasm = true
+
+
 [[example]]
 name = "no_prepass"
 path = "tests/3d/no_prepass.rs"

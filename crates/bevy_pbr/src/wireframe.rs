@@ -1,5 +1,3 @@
-use std::num::NonZeroU64;
-
 use crate::MeshPipeline;
 use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
 use bevy_app::Plugin;
@@ -107,7 +105,9 @@ impl FromWorld for WireframePipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: Some(SizeValue::new((std::mem::size_of::<f32>() * 4) as u64).0),
+                        min_binding_size: Some(
+                            SizeValue::new((std::mem::size_of::<f32>() * 4) as u64).0,
+                        ),
                     },
                     count: None,
                 }],
