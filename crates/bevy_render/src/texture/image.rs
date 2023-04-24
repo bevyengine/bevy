@@ -230,7 +230,6 @@ impl Image {
     ///
     /// # Panics
     /// Panics if the size of the `format` is not a multiple of the length of the `pixel` data.
-    /// do not match.
     pub fn new_fill(
         size: Extent3d,
         dimension: TextureDimension,
