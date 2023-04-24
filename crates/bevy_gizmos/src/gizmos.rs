@@ -281,9 +281,9 @@ impl<'s> Gizmos<'s> {
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
-    /// # use bevy_math::prelude::*;
+    /// # use bevy_transform::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cuboid(Vec3::ZERO, Quat::IDENTITY, Vec3::ONE, Color::GREEN);
+    ///     gizmos.cuboid(Transform::IDENTITY, Color::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
