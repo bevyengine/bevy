@@ -1833,12 +1833,23 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_wrap_debug"
+path = "examples/ui/text_wrap_debug.rs"
+
+[package.metadata.example.text_wrap_debug]
+name = "Text Wrap Debug"
+description = "Demonstrates text wrapping"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "grid"
 path = "examples/ui/grid.rs"
 
 [package.metadata.example.grid]
 name = "CSS Grid"
 description = "An example for CSS Grid layout"
+
 category = "UI (User Interface)"
 wasm = true
 
