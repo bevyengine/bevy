@@ -17,7 +17,7 @@ use std::{
 /// [`Name`] should not be treated as a globally unique identifier for entities,
 /// as multiple entities can have the same name.  [`bevy_ecs::entity::Entity`] should be
 /// used instead as the default unique identifier.
-#[derive(Reflect, FromReflect, Component, Debug, Clone)]
+#[derive(Reflect, FromReflect, Component, Clone)]
 #[reflect(Component, Default)]
 pub struct Name {
     hash: u64, // TODO: Shouldn't be serialized
@@ -79,6 +79,13 @@ impl std::fmt::Display for Name {
     }
 }
 
+impl std::fmt::Debug for Name {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&self.name, f)
+    }
+}
+
 /// Convenient query for giving a human friendly name to an entity.
 ///
 /// ```rust
@@ -107,7 +114,7 @@ impl<'a> std::fmt::Debug for DebugNameItem<'a> {
     #[inline(always)]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.name {
-            Some(name) => write!(f, "{:?} ({:?})", name.as_str(), &self.entity),
+            Some(name) => write!(f, "{:?} ({:?})", &name, &self.entity),
             None => std::fmt::Debug::fmt(&self.entity, f),
         }
     }
