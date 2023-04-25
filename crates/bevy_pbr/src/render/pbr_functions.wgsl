@@ -366,6 +366,21 @@ fn pbr(
         transmitted_light += transmissive_light(in.world_position, in.frag_coord.xyz, in.N, in.V, ior, thickness, perceptual_roughness, transmissive_color, transmitted_environment_light_specular).rgb;
     }
 
+    if in.material.attenuation_distance < (1.0 / 0.0) /* f32::INFINITY */ {
+        // We reuse the `atmospheric_fog()` function here, as it's fundamentally
+        // equivalent to the attenuation that takes place inside the material volume,
+        // and will allow us to eventually hook up subsurface scattering more easily
+        var attenuation_fog: Fog;
+        attenuation_fog.base_color.a = 1.0;
+        attenuation_fog.be = pow(1.0 - in.material.attenuation_color.rgb, vec3<f32>(E)) / in.material.attenuation_distance;
+        // TODO: Add the subsurface scattering factor below
+        // attenuation_fog.bi = /* ... */
+        transmitted_light = atmospheric_fog(
+            attenuation_fog, vec4<f32>(transmitted_light, 1.0), thickness,
+            vec3<f32>(0.0) // TODO: Pass in (pre-attenuated) scatterd light contribution here
+        ).rgb;
+    }
+
     // Total light
     output_color = vec4<f32>(
         transmitted_light + direct_light + indirect_light + emissive_light,
