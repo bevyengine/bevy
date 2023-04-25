@@ -64,6 +64,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.material.base_color = output_color;
         pbr_input.material.reflectance = material.reflectance;
         pbr_input.material.ior = material.ior;
+        pbr_input.material.attenuation_color = material.attenuation_color;
+        pbr_input.material.attenuation_distance = material.attenuation_distance;
         pbr_input.material.flags = material.flags;
         pbr_input.material.alpha_cutoff = material.alpha_cutoff;
 

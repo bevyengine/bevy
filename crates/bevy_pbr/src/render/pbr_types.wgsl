@@ -10,6 +10,8 @@ struct StandardMaterial {
     transmission: f32,
     thickness: f32,
     ior: f32,
+    attenuation_distance: f32,
+    attenuation_color: vec4<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     alpha_cutoff: f32,
@@ -55,6 +57,8 @@ fn standard_material_new() -> StandardMaterial {
     material.transmission = 0.0;
     material.thickness = 0.0;
     material.ior = 1.5;
+    material.attenuation_distance = 1.0 / 0.0; // f32::INFINITY
+    material.attenuation_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
     material.flags = STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE;
     material.alpha_cutoff = 0.5;
     material.parallax_depth_scale = 0.1;

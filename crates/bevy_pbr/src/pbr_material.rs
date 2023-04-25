@@ -265,6 +265,31 @@ pub struct StandardMaterial {
     #[doc(alias = "refraction_index")]
     pub ior: f32,
 
+    /// How far, on average, light travels through the volume beneath the material's
+    /// surface before being absorbed.
+    ///
+    /// Defaults to [`f32::INFINITY`], i.e. light is never absorbed.
+    ///
+    /// **Note:** To have any effect, must be used in conjunction with:
+    /// - [`StandardMaterial::attenuation_color`];
+    /// - [`StandardMaterial::thickness`];
+    /// - [`StandardMaterial::diffuse_transmission`] or [`StandardMaterial::transmission`].
+    #[doc(alias = "absorption_distance")]
+    #[doc(alias = "extinction_distance")]
+    pub attenuation_distance: f32,
+
+    /// The resulting (non-absorbed) color after white light travels through the attenuation distance.
+    ///
+    /// Defaults to [`Color::WHITE`], i.e. no change.
+    ///
+    /// **Note:** To have any effect, must be used in conjunction with:
+    /// - [`StandardMaterial::attenuation_distance`];
+    /// - [`StandardMaterial::thickness`];
+    /// - [`StandardMaterial::diffuse_transmission`] or [`StandardMaterial::transmission`].
+    #[doc(alias = "absorption_color")]
+    #[doc(alias = "extinction_color")]
+    pub attenuation_color: Color,
+
     /// Used to fake the lighting of bumps and dents on a material.
     ///
     /// A typical usage would be faking cobblestones on a flat plane mesh in 3D.
@@ -464,6 +489,8 @@ impl Default for StandardMaterial {
             thickness: 0.0,
             thickness_texture: None,
             ior: 1.5,
+            attenuation_color: Color::WHITE,
+            attenuation_distance: f32::INFINITY,
             occlusion_texture: None,
             normal_map_texture: None,
             flip_normal_map_y: false,
@@ -565,6 +592,10 @@ pub struct StandardMaterialUniform {
     pub thickness: f32,
     /// Index of Refraction
     pub ior: f32,
+    /// How far light travels through the volume underneath the material surface before being absorbed
+    pub attenuation_distance: f32,
+    /// Color white light takes after travelling through the attenuation distance underneath the material surface
+    pub attenuation_color: Vec4,
     /// The [`StandardMaterialFlags`] accessible in the `wgsl` shader.
     pub flags: u32,
     /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
@@ -660,6 +691,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             transmission: self.transmission,
             thickness: self.thickness,
             ior: self.ior,
+            attenuation_distance: self.attenuation_distance,
+            attenuation_color: self.attenuation_color.as_linear_rgba_f32().into(),
             flags: flags.bits(),
             alpha_cutoff,
             parallax_depth_scale: self.parallax_depth_scale,
