@@ -686,15 +686,22 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             (transmission.transmission_factor(), transmission_texture)
         });
 
-    let (thickness, thickness_texture) = material.volume().map_or((0.0, None), |volume| {
-        let thickness_texture: Option<Handle<Image>> = volume.thickness_texture().map(|info| {
-            let label = texture_label(&info.texture());
-            let path = AssetPath::new_ref(load_context.path(), Some(&label));
-            load_context.get_handle(path)
-        });
+    let (thickness, thickness_texture, attenuation_distance, attenuation_color) = material
+        .volume()
+        .map_or((0.0, None, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
+            let thickness_texture: Option<Handle<Image>> = volume.thickness_texture().map(|info| {
+                let label = texture_label(&info.texture());
+                let path = AssetPath::new_ref(load_context.path(), Some(&label));
+                load_context.get_handle(path)
+            });
 
-        (volume.thickness_factor(), thickness_texture)
-    });
+            (
+                volume.thickness_factor(),
+                thickness_texture,
+                volume.attenuation_distance(),
+                volume.attenuation_color(),
+            )
+        });
 
     let ior = material.ior().unwrap_or(1.5);
 
@@ -721,6 +728,12 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             thickness,
             thickness_texture,
             ior,
+            attenuation_distance,
+            attenuation_color: Color::rgb_linear(
+                attenuation_color[0],
+                attenuation_color[1],
+                attenuation_color[2],
+            ),
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),
             ..Default::default()
