@@ -15,7 +15,7 @@ use bevy_render::extract_component::ExtractComponent;
 pub struct UiCameraConfig {
     /// Whether to output UI to this camera view.
     ///
-    /// When a `Camera` doesn't have the [`UiCameraConfig`] component,
+    /// When a [`Camera`] doesn't have the [`UiCameraConfig`] component,
     /// it will display the UI by default.
     pub show_ui: bool,
 }

@@ -111,9 +111,9 @@ impl GlobalTransform {
     /// Returns the [`Transform`] `self` would have if it was a child of an entity
     /// with the `parent` [`GlobalTransform`].
     ///
-    /// This is useful if you want to "reparent" an `Entity`. Say you have an entity
-    /// `e1` that you want to turn into a child of `e2`, but you want `e1` to keep the
-    /// same global transform, even after re-parenting. You would use:
+    /// This is useful if you want to "reparent" an [`Entity`](bevy_ecs::entity::Entity).
+    /// Say you have an entity `e1` that you want to turn into a child of `e2`,
+    /// but you want `e1` to keep the same global transform, even after re-parenting. You would use:
     ///
     /// ```rust
     /// # use bevy_transform::prelude::{GlobalTransform, Transform};

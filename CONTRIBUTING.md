@@ -265,6 +265,7 @@ Examples in Bevy should be:
 4. **Minimal:** They should be no larger or complex than is needed to meet the goals of the example.
 
 When you add a new example, be sure to update `examples/README.md` with the new example and add it to the root `Cargo.toml` file.
+Run `cargo run -p build-templated-pages -- build-example-page` to do this automatically.
 Use a generous sprinkling of keywords in your description: these are commonly used to search for a specific example.
 See the [example style guide](.github/contributing/example_style_guide.md) to help make sure the style of your example matches what we're already using.
 

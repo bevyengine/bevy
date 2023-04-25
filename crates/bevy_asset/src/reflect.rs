@@ -7,7 +7,8 @@ use crate::{Asset, Assets, Handle, HandleId, HandleUntyped};
 
 /// Type data for the [`TypeRegistry`](bevy_reflect::TypeRegistry) used to operate on reflected [`Asset`]s.
 ///
-/// This type provides similar methods to [`Assets<T>`] like `get`, `add` and `remove`, but can be used in situations where you don't know which asset type `T` you want
+/// This type provides similar methods to [`Assets<T>`] like [`get`](ReflectAsset::get),
+/// [`add`](ReflectAsset::add) and [`remove`](ReflectAsset::remove), but can be used in situations where you don't know which asset type `T` you want
 /// until runtime.
 ///
 /// [`ReflectAsset`] can be obtained via [`TypeRegistration::data`](bevy_reflect::TypeRegistration::data) if the asset was registered using [`register_asset_reflect`](crate::AddAsset::register_asset_reflect).
