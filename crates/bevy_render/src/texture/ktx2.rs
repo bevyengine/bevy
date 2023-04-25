@@ -154,12 +154,13 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::Uastc(data_format) => {
                     let (transcode_block_format, texture_format) =
                         get_transcoded_formats(supported_compressed_formats, data_format, is_srgb);
-                    let texture_format_info = texture_format.describe();
+                    let texture_format_info = texture_format;
                     let (block_width_pixels, block_height_pixels) = (
-                        texture_format_info.block_dimensions.0 as u32,
-                        texture_format_info.block_dimensions.1 as u32,
+                        texture_format_info.block_dimensions().0 as u32,
+                        texture_format_info.block_dimensions().1 as u32,
                     );
-                    let block_bytes = texture_format_info.block_size as u32;
+                    // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
+                    let block_bytes = texture_format_info.block_size(None).unwrap_or_default() as u32;
 
                     let transcoder = LowLevelUastcTranscoder::new();
                     for (level, level_data) in levels.iter().enumerate() {
