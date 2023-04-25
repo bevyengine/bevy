@@ -399,7 +399,10 @@ macro_rules! impl_reflect_for_hashmap {
                 let mut dynamic_map = DynamicMap::default();
                 dynamic_map.set_name(self.type_name().to_string());
                 for (k, v) in self {
-                    dynamic_map.insert_boxed(k.clone_value(), v.clone_value());
+                    let key = K::from_reflect(k).unwrap_or_else(|| {
+                        panic!("Attempted to clone invalid key of type {}.", k.type_name())
+                    });
+                    dynamic_map.insert_boxed(Box::new(key), v.clone_value());
                 }
                 dynamic_map
             }

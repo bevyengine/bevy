@@ -1,4 +1,5 @@
 <!-- MD024 - The Headers from the Platform-Specific Examples should be identical  -->
+<!-- Use 'cargo run -p build-templated-pages -- build-example-page' to generate the final example README.md -->
 <!-- markdownlint-disable-file MD024 -->
 
 # Examples
@@ -91,6 +92,7 @@ Example | Description
 [2D Gizmos](../examples/2d/2d_gizmos.rs) | A scene showcasing 2D gizmos
 [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders a rectangle, circle, and hexagon
+[Custom glTF vertex attribute 2D](../examples/2d/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
@@ -144,6 +146,7 @@ Example | Description
 --- | ---
 [Animated Fox](../examples/animation/animated_fox.rs) | Plays an animation from a skinned glTF
 [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
+[Cubic Curve](../examples/animation/cubic_curve.rs) | Bezier curve example showing a cube following a cubic curve
 [Custom Skinned Mesh](../examples/animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code
 [glTF Skinned Mesh](../examples/animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file
 
@@ -237,6 +240,7 @@ Example | Description
 [Char Input Events](../examples/input/char_input_events.rs) | Prints out all chars as they are inputted
 [Gamepad Input](../examples/input/gamepad_input.rs) | Shows handling of gamepad input, connections, and disconnections
 [Gamepad Input Events](../examples/input/gamepad_input_events.rs) | Iterates and prints gamepad input and connection events
+[Gamepad Rumble](../examples/input/gamepad_rumble.rs) | Shows how to rumble a gamepad using force feedback
 [Keyboard Input](../examples/input/keyboard_input.rs) | Demonstrates handling a key press/release
 [Keyboard Input Events](../examples/input/keyboard_input_events.rs) | Prints out all keyboard events
 [Keyboard Modifiers](../examples/input/keyboard_modifiers.rs) | Demonstrates using key modifiers (ctrl, shift)
@@ -330,12 +334,16 @@ Example | Description
 Example | Description
 --- | ---
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
+[CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
+[Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
+[Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
@@ -350,6 +358,7 @@ Example | Description
 [Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 [Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
 [Scale Factor Override](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings
+[Screenshot](../examples/window/screenshot.rs) | Shows how to save screenshots to disk
 [Transparent Window](../examples/window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
 [Window Resizing](../examples/window/window_resizing.rs) | Demonstrates resizing and responding to resizing a window
 [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings

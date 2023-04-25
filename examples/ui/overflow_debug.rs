@@ -212,7 +212,7 @@ fn spawn_container(
                     size: Size::new(Val::Px(CONTAINER_SIZE), Val::Px(CONTAINER_SIZE)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    overflow: Overflow::Hidden,
+                    overflow: Overflow::clip(),
                     ..default()
                 },
                 background_color: Color::DARK_GRAY.into(),
@@ -278,8 +278,19 @@ fn toggle_overflow(keys: Res<Input<KeyCode>>, mut containers: Query<&mut Style, 
     if keys.just_pressed(KeyCode::O) {
         for mut style in &mut containers {
             style.overflow = match style.overflow {
-                Overflow::Visible => Overflow::Hidden,
-                Overflow::Hidden => Overflow::Visible,
+                Overflow {
+                    x: OverflowAxis::Visible,
+                    y: OverflowAxis::Visible,
+                } => Overflow::clip_y(),
+                Overflow {
+                    x: OverflowAxis::Visible,
+                    y: OverflowAxis::Clip,
+                } => Overflow::clip_x(),
+                Overflow {
+                    x: OverflowAxis::Clip,
+                    y: OverflowAxis::Visible,
+                } => Overflow::clip(),
+                _ => Overflow::visible(),
             };
         }
     }

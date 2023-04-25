@@ -4,7 +4,7 @@ use bevy_asset::{
 };
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
-use bevy_ecs::{entity::Entity, prelude::FromWorld, world::World};
+use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
@@ -17,12 +17,11 @@ use bevy_render::{
     color::Color,
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, Mesh, VertexAttributeValues,
+        Indices, Mesh, MeshVertexAttribute, VertexAttributeValues,
     },
     prelude::SpatialBundle,
     primitives::Aabb,
     render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
-    renderer::RenderDevice,
     texture::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError},
 };
 use bevy_scene::Scene;
@@ -32,13 +31,14 @@ use bevy_transform::components::Transform;
 
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
-    mesh::Mode,
+    mesh::{util::ReadIndices, Mode},
     texture::{MagFilter, MinFilter, WrappingMode},
     Material, Node, Primitive,
 };
 use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
 
+use crate::vertex_attributes::*;
 use crate::{Gltf, GltfExtras, GltfNode};
 
 /// An error that occurs when loading a glTF file.
@@ -68,7 +68,8 @@ pub enum GltfError {
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
 pub struct GltfLoader {
-    supported_compressed_formats: CompressedImageFormats,
+    pub(crate) supported_compressed_formats: CompressedImageFormats,
+    pub(crate) custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
 }
 
 impl AssetLoader for GltfLoader {
@@ -77,9 +78,7 @@ impl AssetLoader for GltfLoader {
         bytes: &'a [u8],
         load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<()>> {
-        Box::pin(async move {
-            Ok(load_gltf(bytes, load_context, self.supported_compressed_formats).await?)
-        })
+        Box::pin(async move { Ok(load_gltf(bytes, load_context, self).await?) })
     }
 
     fn extensions(&self) -> &[&str] {
@@ -87,24 +86,11 @@ impl AssetLoader for GltfLoader {
     }
 }
 
-impl FromWorld for GltfLoader {
-    fn from_world(world: &mut World) -> Self {
-        let supported_compressed_formats = match world.get_resource::<RenderDevice>() {
-            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
-
-            None => CompressedImageFormats::all(),
-        };
-        Self {
-            supported_compressed_formats,
-        }
-    }
-}
-
 /// Loads an entire glTF file.
 async fn load_gltf<'a, 'b>(
     bytes: &'a [u8],
     load_context: &'a mut LoadContext<'b>,
-    supported_compressed_formats: CompressedImageFormats,
+    loader: &GltfLoader,
 ) -> Result<(), GltfError> {
     let gltf = gltf::Gltf::from_slice(bytes)?;
     let buffer_data = load_buffers(&gltf, load_context, load_context.path()).await?;
@@ -233,53 +219,31 @@ async fn load_gltf<'a, 'b>(
         let mut primitives = vec![];
         for primitive in mesh.primitives() {
             let primitive_label = primitive_label(&mesh, &primitive);
-            let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
             let mut mesh = Mesh::new(primitive_topology);
 
-            if let Some(vertex_attribute) = reader
-                .read_positions()
-                .map(|v| VertexAttributeValues::Float32x3(v.collect()))
-            {
-                mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertex_attribute);
+            // Read vertex attributes
+            for (semantic, accessor) in primitive.attributes() {
+                match convert_attribute(
+                    semantic,
+                    accessor,
+                    &buffer_data,
+                    &loader.custom_vertex_attributes,
+                ) {
+                    Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
+                    Err(err) => warn!("{}", err),
+                }
             }
 
-            if let Some(vertex_attribute) = reader
-                .read_normals()
-                .map(|v| VertexAttributeValues::Float32x3(v.collect()))
-            {
-                mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_attribute);
-            }
-
-            if let Some(vertex_attribute) = reader
-                .read_tex_coords(0)
-                .map(|v| VertexAttributeValues::Float32x2(v.into_f32().collect()))
-            {
-                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
-            }
-
-            if let Some(vertex_attribute) = reader
-                .read_colors(0)
-                .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
-            {
-                mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
-            }
-
-            if let Some(iter) = reader.read_joints(0) {
-                let vertex_attribute = VertexAttributeValues::Uint16x4(iter.into_u16().collect());
-                mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_INDEX, vertex_attribute);
-            }
-
-            if let Some(vertex_attribute) = reader
-                .read_weights(0)
-                .map(|v| VertexAttributeValues::Float32x4(v.into_f32().collect()))
-            {
-                mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, vertex_attribute);
-            }
-
+            // Read vertex indices
+            let reader = primitive.reader(|buffer| Some(buffer_data[buffer.index()].as_slice()));
             if let Some(indices) = reader.read_indices() {
-                mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
+                mesh.set_indices(Some(match indices {
+                    ReadIndices::U8(is) => Indices::U16(is.map(|x| x as u16).collect()),
+                    ReadIndices::U16(is) => Indices::U16(is.collect()),
+                    ReadIndices::U32(is) => Indices::U32(is.collect()),
+                }));
             };
 
             if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
@@ -403,7 +367,7 @@ async fn load_gltf<'a, 'b>(
                 &buffer_data,
                 &linear_textures,
                 load_context,
-                supported_compressed_formats,
+                loader.supported_compressed_formats,
             )
             .await?;
             load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
@@ -422,7 +386,7 @@ async fn load_gltf<'a, 'b>(
                             buffer_data,
                             linear_textures,
                             load_context,
-                            supported_compressed_formats,
+                            loader.supported_compressed_formats,
                         )
                         .await
                     });

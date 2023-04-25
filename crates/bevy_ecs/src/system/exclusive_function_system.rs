@@ -6,7 +6,7 @@ use crate::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, In, IntoSystem,
         System, SystemMeta,
     },
-    world::{World, WorldId},
+    world::World,
 };
 
 use bevy_utils::all_tuples;
@@ -25,7 +25,6 @@ where
     func: F,
     param_state: Option<<F::Param as ExclusiveSystemParam>::State>,
     system_meta: SystemMeta,
-    world_id: Option<WorldId>,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn() -> Marker>,
 }
@@ -43,7 +42,6 @@ where
             func,
             param_state: None,
             system_meta: SystemMeta::new::<F>(),
-            world_id: None,
             marker: PhantomData,
         }
     }
@@ -132,7 +130,6 @@ where
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
-        self.world_id = Some(world.id());
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
