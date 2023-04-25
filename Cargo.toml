@@ -229,6 +229,9 @@ glam_assert = ["bevy_internal/glam_assert"]
 # Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
 default_font = ["bevy_internal/default_font"]
 
+shader_format_glsl = ["bevy_internal/shader_format_glsl"]
+shader_format_spirv = ["bevy_internal/shader_format_spirv"]
+
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.0-dev", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.11.0-dev", default-features = false }
