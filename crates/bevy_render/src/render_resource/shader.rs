@@ -3,12 +3,16 @@ use crate::define_atomic_id;
 use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
 use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
-use naga::{back::wgsl::WriterFlags, valid::Capabilities, valid::ModuleInfo, Module};
+#[cfg(feature = "shader_format_glsl")]
+use naga::back::wgsl::WriterFlags;
+use naga::{valid::Capabilities, valid::ModuleInfo, Module};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{borrow::Cow, marker::Copy, ops::Deref, path::PathBuf, str::FromStr};
 use thiserror::Error;
-use wgpu::{util::make_spirv, Features, ShaderModuleDescriptor, ShaderSource};
+#[cfg(feature = "shader_format_spirv")]
+use wgpu::util::make_spirv;
+use wgpu::{Features, ShaderModuleDescriptor, ShaderSource};
 
 define_atomic_id!(ShaderId);
 
@@ -16,8 +20,10 @@ define_atomic_id!(ShaderId);
 pub enum ShaderReflectError {
     #[error(transparent)]
     WgslParse(#[from] naga::front::wgsl::ParseError),
+    #[cfg(feature = "shader_format_glsl")]
     #[error("GLSL Parse Error: {0:?}")]
     GlslParse(Vec<naga::front::glsl::Error>),
+    #[cfg(feature = "shader_format_spirv")]
     #[error(transparent)]
     SpirVParse(#[from] naga::front::spv::Error),
     #[error(transparent)]
@@ -120,12 +126,18 @@ impl ProcessedShader {
         let module = match &self {
             // TODO: process macros here
             ProcessedShader::Wgsl(source) => naga::front::wgsl::parse_str(source)?,
+            #[cfg(feature = "shader_format_glsl")]
             ProcessedShader::Glsl(source, shader_stage) => {
                 let mut parser = naga::front::glsl::Parser::default();
                 parser
                     .parse(&naga::front::glsl::Options::from(*shader_stage), source)
                     .map_err(ShaderReflectError::GlslParse)?
             }
+            #[cfg(not(feature = "shader_format_glsl"))]
+            ProcessedShader::Glsl(_source, _shader_stage) => {
+                unimplemented!("Enable feature \"shader_format_glsl\" to use GLSL shaders")
+            }
+            #[cfg(feature = "shader_format_spirv")]
             ProcessedShader::SpirV(source) => naga::front::spv::parse_u8_slice(
                 source,
                 &naga::front::spv::Options {
@@ -133,6 +145,10 @@ impl ProcessedShader {
                     ..naga::front::spv::Options::default()
                 },
             )?,
+            #[cfg(not(feature = "shader_format_spirv"))]
+            ProcessedShader::SpirV(_source) => {
+                unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
+            }
         };
         const CAPABILITIES: &[(Features, Capabilities)] = &[
             (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
@@ -172,7 +188,7 @@ impl ProcessedShader {
 
     pub fn get_module_descriptor(
         &self,
-        features: Features,
+        _features: Features,
     ) -> Result<ShaderModuleDescriptor, AsModuleDescriptorError> {
         Ok(ShaderModuleDescriptor {
             label: None,
@@ -182,18 +198,28 @@ impl ProcessedShader {
                     // Parse and validate the shader early, so that (e.g. while hot reloading) we can
                     // display nicely formatted error messages instead of relying on just displaying the error string
                     // returned by wgpu upon creating the shader module.
-                    let _ = self.reflect(features)?;
+                    let _ = self.reflect(_features)?;
 
                     ShaderSource::Wgsl(source.clone())
                 }
+                #[cfg(feature = "shader_format_glsl")]
                 ProcessedShader::Glsl(_source, _stage) => {
-                    let reflection = self.reflect(features)?;
+                    let reflection = self.reflect(_features)?;
                     // TODO: it probably makes more sense to convert this to spirv, but as of writing
                     // this comment, naga's spirv conversion is broken
                     let wgsl = reflection.get_wgsl()?;
                     ShaderSource::Wgsl(wgsl.into())
                 }
+                #[cfg(not(feature = "shader_format_glsl"))]
+                ProcessedShader::Glsl(_source, _stage) => {
+                    unimplemented!("Enable feature \"shader_format_glsl\" to use GLSL shaders")
+                }
+                #[cfg(feature = "shader_format_spirv")]
                 ProcessedShader::SpirV(source) => make_spirv(source),
+                #[cfg(not(feature = "shader_format_spirv"))]
+                ProcessedShader::SpirV(_source) => {
+                    unimplemented!()
+                }
             },
         })
     }
@@ -203,8 +229,10 @@ impl ProcessedShader {
 pub enum AsModuleDescriptorError {
     #[error(transparent)]
     ShaderReflectError(#[from] ShaderReflectError),
+    #[cfg(feature = "shader_format_glsl")]
     #[error(transparent)]
     WgslConversion(#[from] naga::back::wgsl::Error),
+    #[cfg(feature = "shader_format_spirv")]
     #[error(transparent)]
     SpirVConversion(#[from] naga::back::spv::Error),
 }
@@ -215,6 +243,7 @@ pub struct ShaderReflection {
 }
 
 impl ShaderReflection {
+    #[cfg(feature = "shader_format_spirv")]
     pub fn get_spirv(&self) -> Result<Vec<u32>, naga::back::spv::Error> {
         naga::back::spv::write_vec(
             &self.module,
@@ -227,6 +256,7 @@ impl ShaderReflection {
         )
     }
 
+    #[cfg(feature = "shader_format_glsl")]
     pub fn get_wgsl(&self) -> Result<String, naga::back::wgsl::Error> {
         naga::back::wgsl::write_string(&self.module, &self.module_info, WriterFlags::EXPLICIT_TYPES)
     }
