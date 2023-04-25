@@ -73,7 +73,7 @@ pub enum TimeUpdateStrategy {
     Automatic,
     // Update [`Time`] with an exact `Instant` value
     ManualInstant(Instant),
-    // Update [`Time`] with the current time + a specified `Duration`
+    // Update [`Time`] with the last update time + a specified `Duration`
     ManualDuration(Duration),
 }
 
