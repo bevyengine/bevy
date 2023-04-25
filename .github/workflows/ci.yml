@@ -205,7 +205,7 @@ jobs:
             fi
           done
           zip traces.zip trace*.json
-          zip screenshots.zip screenshots-*
+          zip -r screenshots.zip screenshots-*
       - name: save traces
         uses: actions/upload-artifact@v3
         with:
