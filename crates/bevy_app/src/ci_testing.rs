@@ -16,6 +16,7 @@ pub struct CiTestingConfig {
     /// The time in seconds to update for each frame.
     pub frame_time: Option<f32>,
     /// Frames at which to capture a screenshot.
+    #[serde(default)]
     pub screenshot_frames: Vec<u32>,
 }
 
