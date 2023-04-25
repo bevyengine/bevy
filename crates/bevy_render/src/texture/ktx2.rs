@@ -238,6 +238,7 @@ pub fn ktx2_buffer_to_image(
         texture_format_info.block_dimensions().0 as usize,
         texture_format_info.block_dimensions().1 as usize,
     );
+    // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
     let block_bytes = texture_format_info.block_size(None).unwrap_or_default() as usize;
 
     let mut wgpu_data = vec![Vec::default(); (layer_count * face_count) as usize];

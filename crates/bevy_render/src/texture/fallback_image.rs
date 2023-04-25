@@ -52,7 +52,7 @@ fn fallback_image_new(
     image.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
 
     // We can't create textures with data when it's a depth texture or when using multiple samples
-    let texture = if format.sample_type(None) == Some(TextureSampleType::Depth) || samples > 1 {
+    let texture = if format.is_depth_stencil_format() || samples > 1 {
         render_device.create_texture(&image.texture_descriptor)
     } else {
         render_device.create_texture_with_data(render_queue, &image.texture_descriptor, &image.data)
