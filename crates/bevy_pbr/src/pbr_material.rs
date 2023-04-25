@@ -255,7 +255,9 @@ pub struct StandardMaterial {
     #[sampler(16)]
     pub thickness_texture: Option<Handle<Image>>,
 
-    /// The index of refraction of the material
+    /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material.
+    ///
+    /// Defaults to 1.5.
     ///
     /// | Material        | Index of Refraction  |
     /// |:----------------|:---------------------|
@@ -281,6 +283,7 @@ pub struct StandardMaterial {
     /// **Note:** Typically used in conjunction with [`StandardMaterial::transmission`] and [`StandardMaterial::thickness`].
     #[doc(alias = "index_of_refraction")]
     #[doc(alias = "refraction_index")]
+    #[doc(alias = "refractive_index")]
     pub ior: f32,
 
     /// How far, on average, light travels through the volume beneath the material's
