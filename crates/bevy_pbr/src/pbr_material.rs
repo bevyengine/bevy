@@ -164,13 +164,19 @@ pub struct StandardMaterial {
     /// **Important:** The [`StandardMaterial::diffuse_transmission`] property must be set to a value higher than 0.0,
     /// or this texture won't have any effect.
     ///
-    /// **Note:** Due to how channels are mapped, you can more efficiently use a single shared texture image
+    /// ## Texture Packing
+    ///
+    /// Due to how channels are mapped, you can more efficiently use a single shared texture image
     /// for configuring the following:
     ///
     /// - R - `transmission_texture`
     /// - G - `thickness_texture`
     /// - B - _unused_
     /// - A - `diffuse_transmission_texture`
+    ///
+    /// The `KHR_materials_diffuse_transmission` glTF extension also defines a `diffuseTransmissionColorTexture`,
+    /// that _we don't currently support_. One might choose to pack the intensity and color textures together,
+    /// using RGB for the color and A for the intensity, in which case this packing advice doesn't really apply.
     #[texture(17)]
     #[sampler(18)]
     pub diffuse_transmission_texture: Option<Handle<Image>>,
@@ -196,13 +202,19 @@ pub struct StandardMaterial {
     /// **Important:** The [`StandardMaterial::transmission`] property must be set to a value higher than 0.0,
     /// or this texture won't have any effect.
     ///
-    /// **Note:** Due to how channels are mapped, you can more efficiently use a single shared texture image
+    /// ## Texture Packing
+    ///
+    /// Due to how channels are mapped, you can more efficiently use a single shared texture image
     /// for configuring the following:
     ///
     /// - R - `transmission_texture`
     /// - G - `thickness_texture`
     /// - B - _unused_
     /// - A - `diffuse_transmission_texture`
+    ///
+    /// The `KHR_materials_diffuse_transmission` glTF extension also defines a `diffuseTransmissionColorTexture`,
+    /// that _we don't currently support_. One might choose to pack the intensity and color textures together,
+    /// using RGB for the color and A for the intensity, in which case this packing advice doesn't really apply.
     #[texture(13)]
     #[sampler(14)]
     pub transmission_texture: Option<Handle<Image>>,
@@ -226,13 +238,19 @@ pub struct StandardMaterial {
     /// **Important:** The [`StandardMaterial::thickness`] property must be set to a value higher than 0.0,
     /// or this texture won't have any effect.
     ///
-    /// **Note:** Due to how channels are mapped, you can more efficiently use a single shared texture image
+    /// ## Texture Packing
+    ///
+    /// Due to how channels are mapped, you can more efficiently use a single shared texture image
     /// for configuring the following:
     ///
     /// - R - `transmission_texture`
     /// - G - `thickness_texture`
     /// - B - _unused_
     /// - A - `diffuse_transmission_texture`
+    ///
+    /// The `KHR_materials_diffuse_transmission` glTF extension also defines a `diffuseTransmissionColorTexture`,
+    /// that _we don't currently support_. One might choose to pack the intensity and color textures together,
+    /// using RGB for the color and A for the intensity, in which case this packing advice doesn't really apply.
     #[texture(15)]
     #[sampler(16)]
     pub thickness_texture: Option<Handle<Image>>,
