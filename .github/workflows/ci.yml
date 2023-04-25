@@ -201,7 +201,7 @@ jobs:
             sleep 10
             if [ `find ./ -maxdepth 1 -name 'screenshot-*.png' -print -quit` ]; then
               mkdir screenshots-$example_name
-              mv screenshots-*.png screenshots-$example_name
+              mv screenshot-*.png screenshots-$example_name/
             fi
           done
           zip traces.zip trace*.json
