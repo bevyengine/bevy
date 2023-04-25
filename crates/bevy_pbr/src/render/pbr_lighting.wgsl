@@ -330,7 +330,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
 
     // Number of taps scale with blur intensity
     // Minimum: 1, Maximum: 9
-    let num_taps = i32(max(blur_intensity * 300.0, 8.0)) + 1;
+    let num_taps = i32(min(blur_intensity * 300.0, 8.0)) + 1;
     var result = vec4<f32>(0.0);
     for (var i: i32 = 0; i < num_taps; i = i + 1) {
         // Magic numbers have been empirically chosen to produce blurry results that look “smooth”
