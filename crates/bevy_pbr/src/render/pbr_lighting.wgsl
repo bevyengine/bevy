@@ -313,6 +313,25 @@ fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<
     return transmissive_color * mix(transmitted_environment_light_specular, background_color.rgb, background_color.a);
 }
 
+// https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
+fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
+    let frame = f32(globals.frame_count % 64u);
+    let xy = pixel_coordinates + 5.588238 * frame;
+    return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
+}
+
+// https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
+const sample_offsets: array<vec2<f32>, 8> = array<vec2<f32>, 8>(
+    vec2<f32>(-0.7071,  0.7071),
+    vec2<f32>(-0.0000, -0.8750),
+    vec2<f32>( 0.5303,  0.5303),
+    vec2<f32>(-0.6250, -0.0000),
+    vec2<f32>( 0.3536, -0.3536),
+    vec2<f32>(-0.0000,  0.3750),
+    vec2<f32>(-0.1768, -0.1768),
+    vec2<f32>( 0.1250,  0.0000),
+);
+
 fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, perceptual_roughness: f32, distance: f32) -> vec4<f32> {
     // Calculate view aspect ratio, used to scale offset so that it's proportionate
     let aspect = view.viewport.z / view.viewport.w;
@@ -329,25 +348,45 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     let blur_intensity = perceptual_roughness / distance;
 
     // Number of taps scale with blur intensity
-    // Minimum: 1, Maximum: 9
-    let num_taps = i32(min(blur_intensity * 300.0, 8.0)) + 1;
+    // Minimum: 1, Maximum: 8
+
+    let num_taps = i32(min(blur_intensity * 90.0, 7.0)) + 1;
     var result = vec4<f32>(0.0);
     for (var i: i32 = 0; i < num_taps; i = i + 1) {
-        // Magic numbers have been empirically chosen to produce blurry results that look “smooth”
-        let dither = screen_space_dither(frag_coord.xy + vec2<f32>(f32(i) * 4773.0, f32(i) * 1472.0));
-        let dither_offset = (blur_intensity * 7.0) * (blur_intensity * 7.0) * (30.0 * dither.yz + 0.03 * normalize(dither).xy) * vec2<f32>(1.0, -aspect);
-        let offset_position_with_dither = offset_position + dither_offset;
+        let random_angle = 2.0 * PI * interleaved_gradient_noise(frag_coord.xy);
+        let m = vec2(sin(random_angle), cos(random_angle));
+        let rotation_matrix = mat2x2(
+            m.y, -m.x,
+            m.x, m.y
+        );
+
+        var sample_offset: vec2<f32>;
+        switch i {
+            // TODO: Figure out a more reasonable way of doing this, as WGSL
+            // seems to only allow constant indexes into the constant array
+            case 0: { sample_offset = sample_offsets[0]; }
+            case 1: { sample_offset = sample_offsets[1]; }
+            case 2: { sample_offset = sample_offsets[2]; }
+            case 3: { sample_offset = sample_offsets[3]; }
+            case 4: { sample_offset = sample_offsets[4]; }
+            case 5: { sample_offset = sample_offsets[5]; }
+            case 6: { sample_offset = sample_offsets[6]; }
+            case 7: { sample_offset = sample_offsets[7]; }
+            default: {}
+        }
+
+        let modified_offset_position = offset_position + (rotation_matrix * sample_offset) * blur_intensity * blur_intensity * 5.0;
 
         // Use depth prepass data to reject values that are in front of the current fragment
-        if (prepass_depth(vec4<f32>(offset_position_with_dither * view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z) {
+        if (prepass_depth(vec4<f32>(modified_offset_position * view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z) {
             continue;
         }
 
-        // Sample the view transmission texture at the offset position + dither offset, to get the background color
+        // Sample the view transmission texture at the offset position + noise offset, to get the background color
         result += textureSample(
             view_transmission_texture,
             view_transmission_sampler,
-            offset_position_with_dither,
+            modified_offset_position,
         );
     }
 
