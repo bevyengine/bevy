@@ -198,7 +198,7 @@ impl ProcessedShader {
                     // Parse and validate the shader early, so that (e.g. while hot reloading) we can
                     // display nicely formatted error messages instead of relying on just displaying the error string
                     // returned by wgpu upon creating the shader module.
-                    let _ = self.reflect(features)?;
+                    let _ = self.reflect(_features)?;
 
                     ShaderSource::Wgsl(source.clone())
                 }
