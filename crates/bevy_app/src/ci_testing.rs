@@ -1,3 +1,5 @@
+//! Utilities for testing in CI environments.
+
 use crate::{app::AppExit, App, Update};
 use serde::Deserialize;
 
