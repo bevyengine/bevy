@@ -89,13 +89,11 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     linebreak_behavior,
                 };
                 let text_id = commands
-                    .spawn((
-                        TextBundle {
-                            text,
-                            ..Default::default()
-                        },
-                        BackgroundColor(Color::rgb(0.8 - j as f32 * 0.2, 0., 0.)),
-                    ))
+                    .spawn(TextBundle {
+                        text,
+                        background_color: Color::rgb(0.8 - j as f32 * 0.2, 0., 0.).into(),
+                        ..Default::default()
+                    })
                     .id();
                 commands.entity(column_id).add_child(text_id);
             }
