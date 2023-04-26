@@ -479,7 +479,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         reflect_trait, FromReflect, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
-        ReflectSerialize, Struct, TupleStruct,
+        ReflectFromReflect, ReflectSerialize, Struct, TupleStruct,
     };
 }
 
