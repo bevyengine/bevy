@@ -16,7 +16,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
@@ -51,15 +50,18 @@ fn setup(
         Press 'P' to toggle perspective for line gizmos\n\
         Hold 'Left' or 'Right' to change the line width",
         TextStyle {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
             font_size: 24.,
             color: Color::WHITE,
+            ..default()
         },
     ));
 }
 
 fn system(mut gizmos: Gizmos, time: Res<Time>) {
-    gizmos.cuboid(Vec3::Y * 0.5, Quat::IDENTITY, Vec3::splat(1.), Color::BLACK);
+    gizmos.cuboid(
+        Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.)),
+        Color::BLACK,
+    );
     gizmos.rect(
         Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
         Quat::from_rotation_y(PI / 2.),

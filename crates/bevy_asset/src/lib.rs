@@ -80,7 +80,7 @@ impl Default for AssetPlugin {
 }
 
 impl AssetPlugin {
-    /// Creates an instance of the platform's default `AssetIo`.
+    /// Creates an instance of the platform's default [`AssetIo`].
     ///
     /// This is useful when providing a custom `AssetIo` instance that needs to
     /// delegate to the default `AssetIo` for the platform.

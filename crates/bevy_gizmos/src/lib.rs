@@ -18,21 +18,28 @@
 
 use std::mem;
 
-use bevy_app::{Last, Plugin};
+use bevy_app::{Last, Plugin, Update};
 use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_core::cast_slice;
 use bevy_ecs::{
-    prelude::{Component, DetectChanges},
-    query::ROQueryItem,
+    change_detection::DetectChanges,
+    component::Component,
+    entity::Entity,
+    query::{ROQueryItem, Without},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{
         lifetimeless::{Read, SRes},
-        Commands, Res, ResMut, Resource, SystemParamItem,
+        Commands, Query, Res, ResMut, Resource, SystemParamItem,
     },
 };
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{
+    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypeUuid,
+};
 use bevy_render::{
+    color::Color,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
+    primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
@@ -44,6 +51,7 @@ use bevy_render::{
     renderer::RenderDevice,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_transform::components::{GlobalTransform, Transform};
 
 pub mod gizmos;
 
@@ -52,12 +60,12 @@ mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-use gizmos::GizmoStorage;
+use gizmos::{GizmoStorage, Gizmos};
 
 /// The `bevy_gizmos` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{gizmos::Gizmos, GizmoConfig};
+    pub use crate::{gizmos::Gizmos, AabbGizmo, AabbGizmoConfig, GizmoConfig};
 }
 
 const LINE_SHADER_HANDLE: HandleUntyped =
@@ -76,7 +84,14 @@ impl Plugin for GizmoPlugin {
             .init_resource::<LineGizmoHandles>()
             .init_resource::<GizmoConfig>()
             .init_resource::<GizmoStorage>()
-            .add_systems(Last, update_gizmo_meshes);
+            .add_systems(Last, update_gizmo_meshes)
+            .add_systems(
+                Update,
+                (
+                    draw_aabbs,
+                    draw_all_aabbs.run_if(|config: Res<GizmoConfig>| config.aabb.draw_all),
+                ),
+            );
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
@@ -109,7 +124,7 @@ impl Plugin for GizmoPlugin {
 }
 
 /// A [`Resource`] that stores configuration for gizmos.
-#[derive(Resource, Clone, Copy)]
+#[derive(Resource, Clone)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
     ///
@@ -138,6 +153,8 @@ pub struct GizmoConfig {
     /// and your wireframe is z-fighting (flickering on/off) with your main model.
     /// You would set this value to a negative number close to 0.0.
     pub depth_bias: f32,
+    /// Configuration for the [`AabbGizmo`].
+    pub aabb: AabbGizmoConfig,
 }
 
 impl Default for GizmoConfig {
@@ -147,8 +164,77 @@ impl Default for GizmoConfig {
             line_width: 2.,
             line_perspective: false,
             depth_bias: 0.,
+            aabb: Default::default(),
         }
     }
+}
+
+/// Configuration for drawing the [`Aabb`] component on entities.
+#[derive(Clone, Default)]
+pub struct AabbGizmoConfig {
+    /// Draws all bounding boxes in the scene when set to `true`.
+    ///
+    /// To draw a specific entity's bounding box, you can add the [`AabbGizmo`] component.
+    ///
+    /// Defaults to `false`.
+    pub draw_all: bool,
+    /// The default color for bounding box gizmos.
+    ///
+    /// A random color is chosen per box if `None`.
+    ///
+    /// Defaults to `None`.
+    pub default_color: Option<Color>,
+}
+
+/// Add this [`Component`] to an entity to draw its [`Aabb`] component.
+#[derive(Component, Reflect, FromReflect, Default, Debug)]
+#[reflect(Component, FromReflect, Default)]
+pub struct AabbGizmo {
+    /// The color of the box.
+    ///
+    /// The default color from the [`GizmoConfig`] resource is used if `None`,
+    pub color: Option<Color>,
+}
+
+fn draw_aabbs(
+    query: Query<(Entity, &Aabb, &GlobalTransform, &AabbGizmo)>,
+    config: Res<GizmoConfig>,
+    mut gizmos: Gizmos,
+) {
+    for (entity, &aabb, &transform, gizmo) in &query {
+        let color = gizmo
+            .color
+            .or(config.aabb.default_color)
+            .unwrap_or_else(|| color_from_entity(entity));
+        gizmos.cuboid(aabb_transform(aabb, transform), color);
+    }
+}
+
+fn draw_all_aabbs(
+    query: Query<(Entity, &Aabb, &GlobalTransform), Without<AabbGizmo>>,
+    config: Res<GizmoConfig>,
+    mut gizmos: Gizmos,
+) {
+    for (entity, &aabb, &transform) in &query {
+        let color = config
+            .aabb
+            .default_color
+            .unwrap_or_else(|| color_from_entity(entity));
+        gizmos.cuboid(aabb_transform(aabb, transform), color);
+    }
+}
+
+fn color_from_entity(entity: Entity) -> Color {
+    let hue = entity.to_bits() as f32 * 100_000. % 360.;
+    Color::hsl(hue, 1., 0.5)
+}
+
+fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
+    transform
+        * GlobalTransform::from(
+            Transform::from_translation(aabb.center.into())
+                .with_scale((aabb.half_extents * 2.).into()),
+        )
 }
 
 #[derive(Resource, Default)]
@@ -207,7 +293,7 @@ fn extract_gizmo_data(
     config: Extract<Res<GizmoConfig>>,
 ) {
     if config.is_changed() {
-        commands.insert_resource(**config);
+        commands.insert_resource(config.clone());
     }
 
     if !config.enabled {

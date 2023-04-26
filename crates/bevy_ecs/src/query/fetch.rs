@@ -1157,8 +1157,8 @@ macro_rules! impl_tuple_fetch {
             }
 
             #[inline(always)]
-            unsafe fn filter_fetch<'w>(
-                _fetch: &mut Self::Fetch<'w>,
+            unsafe fn filter_fetch(
+                _fetch: &mut Self::Fetch<'_>,
                 _entity: Entity,
                 _table_row: TableRow
             ) -> bool {

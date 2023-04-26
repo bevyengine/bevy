@@ -5,7 +5,7 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     event::EventReader,
-    query::{Changed, ReadOnlyWorldQuery, With, Without},
+    query::{Changed, Or, With, Without},
     removal_detection::RemovedComponents,
     system::{Query, Res, ResMut, Resource},
 };
@@ -244,11 +244,14 @@ pub fn ui_layout_system(
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
     full_node_query: Query<(Entity, &Style, Option<&CalculatedSize>), With<Node>>,
+    changed_style_query: Query<
+        (Entity, &Style),
+        (With<Node>, Without<CalculatedSize>, Changed<Style>),
+    >,
     changed_size_query: Query<
         (Entity, &Style, &CalculatedSize),
-        (With<Node>, Changed<CalculatedSize>),
+        (With<Node>, Or<(Changed<CalculatedSize>, Changed<Style>)>),
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut removed_children: RemovedComponents<Children>,
@@ -282,34 +285,28 @@ pub fn ui_layout_system(
     }
 
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
-
-    let viewport_values = LayoutContext::new(scale_factor, physical_size);
-
-    fn update_changed<F: ReadOnlyWorldQuery>(
-        ui_surface: &mut UiSurface,
-        viewport_values: &LayoutContext,
-        query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
-    ) {
-        // update changed nodes
-        for (entity, style, calculated_size) in &query {
-            // TODO: remove node from old hierarchy if its root has changed
-            if let Some(calculated_size) = calculated_size {
-                ui_surface.upsert_leaf(entity, style, calculated_size, viewport_values);
-            } else {
-                ui_surface.upsert_node(entity, style, viewport_values);
-            }
-        }
-    }
+    let layout_context = LayoutContext::new(scale_factor, physical_size);
 
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
         scale_factor_events.clear();
-        update_changed(&mut ui_surface, &viewport_values, full_node_query);
+        // update all nodes
+        for (entity, style, calculated_size) in &full_node_query {
+            if let Some(calculated_size) = calculated_size {
+                ui_surface.upsert_leaf(entity, style, calculated_size, &layout_context);
+            } else {
+                ui_surface.upsert_node(entity, style, &layout_context);
+            }
+        }
     } else {
-        update_changed(&mut ui_surface, &viewport_values, node_query);
-    }
+        // update changed nodes without a calculated size
+        for (entity, style) in changed_style_query.iter() {
+            ui_surface.upsert_node(entity, style, &layout_context);
+        }
 
-    for (entity, style, calculated_size) in &changed_size_query {
-        ui_surface.upsert_leaf(entity, style, calculated_size, &viewport_values);
+        // update changed nodes with a calculated size
+        for (entity, style, calculated_size) in changed_size_query.iter() {
+            ui_surface.upsert_leaf(entity, style, calculated_size, &layout_context);
+        }
     }
 
     // clean up removed nodes
