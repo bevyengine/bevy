@@ -278,8 +278,7 @@ pub fn prepare_windows(
                 CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
                 CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
             },
-            // TODO: replace by `!surface_data.format.is_srgb()` once wgpu 0.16 is released
-            view_formats: if surface_data.format == surface_data.format.remove_srgb_suffix() {
+            view_formats: if !surface_data.format.is_srgb() {
                 vec![surface_data.format.add_srgb_suffix()]
             } else {
                 vec![]
