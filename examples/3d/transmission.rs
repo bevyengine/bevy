@@ -12,7 +12,7 @@
 //! | `Left` / `Right`   | Rotate Camera                             |
 //! | `O` / `P`          | Decrease / Increase Transmission Steps    |
 //! | `H`                | Toggle HDR                                |
-//! | `D`                | Toggle Depth Prepass                      |
+//! | `D`                | Toggle Depth Prepass (Also disables TAA)  |
 //! | `C`                | Randomize Colors                          |
 
 use std::f32::consts::PI;
@@ -364,7 +364,7 @@ fn setup(
 
     commands.spawn(
         TextBundle::from_section(
-            "1 / 2 - Decrease / Increase Diffuse Transmission\nQ / W - Decrease / Increase Transmission\nA / S - Decrease / Increase Thickness\nZ / X - Decrease / Increase IOR\nDown / Up - Decrease / Increase Perceptual Roughness\nLeft / Right - Rotate Camera\nO / P - Decrease / Increase Transmission Steps\nH - Toggle HDR\nD - Toggle Depth Prepass\nC - Randomize Colors",
+            "1 / 2 - Decrease / Increase Diffuse Transmission\nQ / W - Decrease / Increase Transmission\nA / S - Decrease / Increase Thickness\nZ / X - Decrease / Increase IOR\nDown / Up - Decrease / Increase Perceptual Roughness\nLeft / Right - Rotate Camera\nO / P - Decrease / Increase Transmission Steps\nH - Toggle HDR\nD - Toggle Depth Prepass (Also disables TAA)\nC - Randomize Colors",
             text_style.clone(),
         )
         .with_style(Style {
@@ -529,7 +529,7 @@ fn example_control_system(
 
     let mut display = display.single_mut();
     display.sections[0].value = format!(
-        "HDR: {}\nDepth Prepass: {}\nDiffuse Transmission: {:.2}\nTransmission: {:.2}\nThickness: {:.2}\nIOR: {:.2}\nPerceptual Roughness: {:.2}\nTransmissive Steps: {}",
+        "HDR: {}\nDepth Prepass+TAA: {}\nDiffuse Transmission: {:.2}\nTransmission: {:.2}\nThickness: {:.2}\nIOR: {:.2}\nPerceptual Roughness: {:.2}\nTransmissive Steps: {}",
         if camera.hdr { "ON " } else { "OFF" },
         if depth_prepass.is_some() { "ON " } else { "OFF" },
         state.diffuse_transmission,
