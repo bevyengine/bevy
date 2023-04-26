@@ -361,6 +361,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
             m.x, m.y
         );
 
+        // Get sample offset from array
         var sample_offset: vec2<f32>;
         switch i {
             // TODO: Figure out a more reasonable way of doing this, as WGSL
@@ -377,7 +378,14 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
             default: {}
         }
 
-        let modified_offset_position = offset_position + (rotation_matrix * sample_offset) * blur_intensity * blur_intensity * 5.0;
+        // Alternating pixel mesh: 0 or 1 on even/odd pixels, alternates every frame
+        let pixel_mesh = (i32(frag_coord.x) + i32(frag_coord.y) + i32(globals.frame_count)) % 2;
+
+        // Rotate and correct for aspect ratio
+        let rotated_sample_offset = (rotation_matrix * sample_offset) * vec2(1.0, aspect);
+
+        // Calucalte final offset position, with blur and sample offset
+        let modified_offset_position = offset_position + rotated_sample_offset * blur_intensity * blur_intensity * 5.0 * (1.0 - f32(pixel_mesh) * 0.1);
 
         // Use depth prepass data to reject values that are in front of the current fragment
         if (prepass_depth(vec4<f32>(modified_offset_position * view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z) {
@@ -385,11 +393,19 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         }
 
         // Sample the view transmission texture at the offset position + noise offset, to get the background color
-        result += textureSample(
+        let sample = textureSample(
             view_transmission_texture,
             view_transmission_sampler,
             modified_offset_position,
         );
+
+        // As blur intensity grows higher, gradually limit *very bright* color RGB values towards a
+        // maximum length of 1.0 to prevent stray “firefly” pixel artifacts. This can potentially make
+        // very strong emissive meshes appear much dimmer, but the artifacts are noticeable enough to
+        // warrant this treatment.
+        // TODO: We can probably conditionally disable this if TAA is on, as it masks the artifacts well
+        let normalized_rgb = normalize(sample.rgb);
+        result += vec4(min(sample.rgb, normalized_rgb / pow(clamp(blur_intensity * 4.0 - 0.25, 0.0, 1.0), 2.5)), sample.a);
     }
 
     result /= f32(num_taps);
