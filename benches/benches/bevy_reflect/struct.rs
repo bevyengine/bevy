@@ -9,6 +9,9 @@ criterion_group!(
     benches,
     concrete_struct_apply,
     concrete_struct_field,
+    concrete_struct_type_info,
+    concrete_struct_clone,
+    dynamic_struct_clone,
     dynamic_struct_apply,
     dynamic_struct_get_field,
     dynamic_struct_insert,
@@ -105,6 +108,128 @@ fn concrete_struct_apply(criterion: &mut Criterion) {
                     |(mut obj, patch)| obj.apply(black_box(&patch)),
                     BatchSize::SmallInput,
                 );
+            },
+        );
+    }
+}
+
+fn concrete_struct_type_info(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("concrete_struct_type_info");
+    group.warm_up_time(WARM_UP_TIME);
+    group.measurement_time(MEASUREMENT_TIME);
+
+    let structs: [(Box<dyn Struct>, Box<dyn Struct>); 5] = [
+        (
+            Box::new(Struct1::default()),
+            Box::new(GenericStruct1::<u32>::default()),
+        ),
+        (
+            Box::new(Struct16::default()),
+            Box::new(GenericStruct16::<u32>::default()),
+        ),
+        (
+            Box::new(Struct32::default()),
+            Box::new(GenericStruct32::<u32>::default()),
+        ),
+        (
+            Box::new(Struct64::default()),
+            Box::new(GenericStruct64::<u32>::default()),
+        ),
+        (
+            Box::new(Struct128::default()),
+            Box::new(GenericStruct128::<u32>::default()),
+        ),
+    ];
+
+    for (standard, generic) in structs {
+        let field_count = standard.field_len();
+
+        group.bench_with_input(
+            BenchmarkId::new("NonGeneric", field_count),
+            &standard,
+            |bencher, s| {
+                bencher.iter(|| black_box(s.get_represented_type_info()));
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("Generic", field_count),
+            &generic,
+            |bencher, s| {
+                bencher.iter(|| black_box(s.get_represented_type_info()));
+            },
+        );
+    }
+}
+
+fn concrete_struct_clone(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("concrete_struct_clone");
+    group.warm_up_time(WARM_UP_TIME);
+    group.measurement_time(MEASUREMENT_TIME);
+
+    let structs: [(Box<dyn Struct>, Box<dyn Struct>); 5] = [
+        (
+            Box::new(Struct1::default()),
+            Box::new(GenericStruct1::<u32>::default()),
+        ),
+        (
+            Box::new(Struct16::default()),
+            Box::new(GenericStruct16::<u32>::default()),
+        ),
+        (
+            Box::new(Struct32::default()),
+            Box::new(GenericStruct32::<u32>::default()),
+        ),
+        (
+            Box::new(Struct64::default()),
+            Box::new(GenericStruct64::<u32>::default()),
+        ),
+        (
+            Box::new(Struct128::default()),
+            Box::new(GenericStruct128::<u32>::default()),
+        ),
+    ];
+
+    for (standard, generic) in structs {
+        let field_count = standard.field_len();
+
+        group.bench_with_input(
+            BenchmarkId::new("NonGeneric", field_count),
+            &standard,
+            |bencher, s| {
+                bencher.iter(|| black_box(s.clone_dynamic()));
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("Generic", field_count),
+            &generic,
+            |bencher, s| {
+                bencher.iter(|| black_box(s.clone_dynamic()));
+            },
+        );
+    }
+}
+
+fn dynamic_struct_clone(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("dynamic_struct_clone");
+    group.warm_up_time(WARM_UP_TIME);
+    group.measurement_time(MEASUREMENT_TIME);
+
+    let structs: [Box<dyn Struct>; 5] = [
+        Box::new(Struct1::default().clone_dynamic()),
+        Box::new(Struct16::default().clone_dynamic()),
+        Box::new(Struct32::default().clone_dynamic()),
+        Box::new(Struct64::default().clone_dynamic()),
+        Box::new(Struct128::default().clone_dynamic()),
+    ];
+
+    for s in structs {
+        let field_count = s.field_len();
+
+        group.bench_with_input(
+            BenchmarkId::from_parameter(field_count),
+            &s,
+            |bencher, s| {
+                bencher.iter(|| black_box(s.clone_dynamic()));
             },
         );
     }
@@ -226,6 +351,11 @@ fn dynamic_struct_get_field(criterion: &mut Criterion) {
             },
         );
     }
+}
+
+#[derive(Clone, Default, Reflect)]
+struct Struct1 {
+    field_0: u32,
 }
 
 #[derive(Clone, Default, Reflect)]
@@ -482,4 +612,265 @@ struct Struct128 {
     field_125: u32,
     field_126: u32,
     field_127: u32,
+}
+
+#[derive(Clone, Default, Reflect)]
+struct GenericStruct1<T: Reflect + Default> {
+    field_0: T,
+}
+
+#[derive(Clone, Default, Reflect)]
+struct GenericStruct16<T: Reflect + Default> {
+    field_0: T,
+    field_1: T,
+    field_2: T,
+    field_3: T,
+    field_4: T,
+    field_5: T,
+    field_6: T,
+    field_7: T,
+    field_8: T,
+    field_9: T,
+    field_10: T,
+    field_11: T,
+    field_12: T,
+    field_13: T,
+    field_14: T,
+    field_15: T,
+}
+
+#[derive(Clone, Default, Reflect)]
+struct GenericStruct32<T: Reflect + Default> {
+    field_0: T,
+    field_1: T,
+    field_2: T,
+    field_3: T,
+    field_4: T,
+    field_5: T,
+    field_6: T,
+    field_7: T,
+    field_8: T,
+    field_9: T,
+    field_10: T,
+    field_11: T,
+    field_12: T,
+    field_13: T,
+    field_14: T,
+    field_15: T,
+    field_16: T,
+    field_17: T,
+    field_18: T,
+    field_19: T,
+    field_20: T,
+    field_21: T,
+    field_22: T,
+    field_23: T,
+    field_24: T,
+    field_25: T,
+    field_26: T,
+    field_27: T,
+    field_28: T,
+    field_29: T,
+    field_30: T,
+    field_31: T,
+}
+
+#[derive(Clone, Default, Reflect)]
+struct GenericStruct64<T: Reflect + Default> {
+    field_0: T,
+    field_1: T,
+    field_2: T,
+    field_3: T,
+    field_4: T,
+    field_5: T,
+    field_6: T,
+    field_7: T,
+    field_8: T,
+    field_9: T,
+    field_10: T,
+    field_11: T,
+    field_12: T,
+    field_13: T,
+    field_14: T,
+    field_15: T,
+    field_16: T,
+    field_17: T,
+    field_18: T,
+    field_19: T,
+    field_20: T,
+    field_21: T,
+    field_22: T,
+    field_23: T,
+    field_24: T,
+    field_25: T,
+    field_26: T,
+    field_27: T,
+    field_28: T,
+    field_29: T,
+    field_30: T,
+    field_31: T,
+    field_32: T,
+    field_33: T,
+    field_34: T,
+    field_35: T,
+    field_36: T,
+    field_37: T,
+    field_38: T,
+    field_39: T,
+    field_40: T,
+    field_41: T,
+    field_42: T,
+    field_43: T,
+    field_44: T,
+    field_45: T,
+    field_46: T,
+    field_47: T,
+    field_48: T,
+    field_49: T,
+    field_50: T,
+    field_51: T,
+    field_52: T,
+    field_53: T,
+    field_54: T,
+    field_55: T,
+    field_56: T,
+    field_57: T,
+    field_58: T,
+    field_59: T,
+    field_60: T,
+    field_61: T,
+    field_62: T,
+    field_63: T,
+}
+
+#[derive(Clone, Default, Reflect)]
+struct GenericStruct128<T: Reflect + Default> {
+    field_0: T,
+    field_1: T,
+    field_2: T,
+    field_3: T,
+    field_4: T,
+    field_5: T,
+    field_6: T,
+    field_7: T,
+    field_8: T,
+    field_9: T,
+    field_10: T,
+    field_11: T,
+    field_12: T,
+    field_13: T,
+    field_14: T,
+    field_15: T,
+    field_16: T,
+    field_17: T,
+    field_18: T,
+    field_19: T,
+    field_20: T,
+    field_21: T,
+    field_22: T,
+    field_23: T,
+    field_24: T,
+    field_25: T,
+    field_26: T,
+    field_27: T,
+    field_28: T,
+    field_29: T,
+    field_30: T,
+    field_31: T,
+    field_32: T,
+    field_33: T,
+    field_34: T,
+    field_35: T,
+    field_36: T,
+    field_37: T,
+    field_38: T,
+    field_39: T,
+    field_40: T,
+    field_41: T,
+    field_42: T,
+    field_43: T,
+    field_44: T,
+    field_45: T,
+    field_46: T,
+    field_47: T,
+    field_48: T,
+    field_49: T,
+    field_50: T,
+    field_51: T,
+    field_52: T,
+    field_53: T,
+    field_54: T,
+    field_55: T,
+    field_56: T,
+    field_57: T,
+    field_58: T,
+    field_59: T,
+    field_60: T,
+    field_61: T,
+    field_62: T,
+    field_63: T,
+    field_64: T,
+    field_65: T,
+    field_66: T,
+    field_67: T,
+    field_68: T,
+    field_69: T,
+    field_70: T,
+    field_71: T,
+    field_72: T,
+    field_73: T,
+    field_74: T,
+    field_75: T,
+    field_76: T,
+    field_77: T,
+    field_78: T,
+    field_79: T,
+    field_80: T,
+    field_81: T,
+    field_82: T,
+    field_83: T,
+    field_84: T,
+    field_85: T,
+    field_86: T,
+    field_87: T,
+    field_88: T,
+    field_89: T,
+    field_90: T,
+    field_91: T,
+    field_92: T,
+    field_93: T,
+    field_94: T,
+    field_95: T,
+    field_96: T,
+    field_97: T,
+    field_98: T,
+    field_99: T,
+    field_100: T,
+    field_101: T,
+    field_102: T,
+    field_103: T,
+    field_104: T,
+    field_105: T,
+    field_106: T,
+    field_107: T,
+    field_108: T,
+    field_109: T,
+    field_110: T,
+    field_111: T,
+    field_112: T,
+    field_113: T,
+    field_114: T,
+    field_115: T,
+    field_116: T,
+    field_117: T,
+    field_118: T,
+    field_119: T,
+    field_120: T,
+    field_121: T,
+    field_122: T,
+    field_123: T,
+    field_124: T,
+    field_125: T,
+    field_126: T,
+    field_127: T,
 }

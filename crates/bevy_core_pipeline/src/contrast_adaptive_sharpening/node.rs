@@ -28,8 +28,8 @@ pub struct CASNode {
     cached_bind_group: Mutex<Option<(BufferId, TextureViewId, BindGroup)>>,
 }
 
-impl CASNode {
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for CASNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),
             cached_bind_group: Mutex::new(None),

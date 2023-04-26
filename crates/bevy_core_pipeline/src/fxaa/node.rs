@@ -27,8 +27,8 @@ pub struct FxaaNode {
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
-impl FxaaNode {
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for FxaaNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),
             cached_texture_bind_group: Mutex::new(None),

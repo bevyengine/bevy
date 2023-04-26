@@ -30,10 +30,7 @@ use bevy_utils::{
     tracing::{error, warn},
     HashMap,
 };
-use std::{
-    hash::Hash,
-    num::{NonZeroU32, NonZeroU64},
-};
+use std::{hash::Hash, num::NonZeroU64};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderLightSystems {
@@ -641,7 +638,7 @@ pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
 }
 
 pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
-    // spot light projection FOV is 2x the angle from spot light centre to outer edge
+    // spot light projection FOV is 2x the angle from spot light center to outer edge
     Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
 }
 
@@ -998,7 +995,7 @@ pub fn prepare_lights(
                             base_mip_level: 0,
                             mip_level_count: None,
                             base_array_layer: (light_index * 6 + face_index) as u32,
-                            array_layer_count: NonZeroU32::new(1),
+                            array_layer_count: Some(1u32),
                         });
 
                 let view_light_entity = commands
@@ -1060,7 +1057,7 @@ pub fn prepare_lights(
                         base_mip_level: 0,
                         mip_level_count: None,
                         base_array_layer: (num_directional_cascades_enabled + light_index) as u32,
-                        array_layer_count: NonZeroU32::new(1),
+                        array_layer_count: Some(1u32),
                     });
 
             let view_light_entity = commands
@@ -1124,7 +1121,7 @@ pub fn prepare_lights(
                             base_mip_level: 0,
                             mip_level_count: None,
                             base_array_layer: directional_depth_texture_array_index,
-                            array_layer_count: NonZeroU32::new(1),
+                            array_layer_count: Some(1u32),
                         });
                 directional_depth_texture_array_index += 1;
 

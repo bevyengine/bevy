@@ -1,4 +1,6 @@
-use crate::{Audio, AudioSource, Decodable, SpatialAudioSink, SpatialSettings};
+use crate::{
+    Audio, AudioSource, Decodable, GlobalVolume, SpatialAudioSink, SpatialSettings, Volume,
+};
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_utils::tracing::warn;
@@ -109,6 +111,7 @@ where
         audio: &mut Audio<Source>,
         sinks: &mut Assets<AudioSink>,
         spatial_sinks: &mut Assets<SpatialAudioSink>,
+        global_volume: &GlobalVolume,
     ) {
         let mut queue = audio.queue.write();
         let len = queue.len();
@@ -121,7 +124,12 @@ where
                         self.play_spatial_source(audio_source, config.settings.repeat, spatial)
                     {
                         sink.set_speed(config.settings.speed);
-                        sink.set_volume(config.settings.volume);
+                        match config.settings.volume {
+                            Volume::Relative(vol) => {
+                                sink.set_volume(vol.0 * global_volume.volume.0);
+                            }
+                            Volume::Absolute(vol) => sink.set_volume(vol.0),
+                        }
 
                         // don't keep the strong handle. there is no way to return it to the user here as it is async
                         let _ = spatial_sinks
@@ -129,7 +137,11 @@ where
                     }
                 } else if let Some(sink) = self.play_source(audio_source, config.settings.repeat) {
                     sink.set_speed(config.settings.speed);
-                    sink.set_volume(config.settings.volume);
+
+                    match config.settings.volume {
+                        Volume::Relative(vol) => sink.set_volume(vol.0 * global_volume.volume.0),
+                        Volume::Absolute(vol) => sink.set_volume(vol.0),
+                    }
 
                     // don't keep the strong handle. there is no way to return it to the user here as it is async
                     let _ = sinks.set(config.sink_handle, AudioSink { sink: Some(sink) });
@@ -147,6 +159,7 @@ where
 pub fn play_queued_audio_system<Source: Asset + Decodable>(
     audio_output: Res<AudioOutput<Source>>,
     audio_sources: Option<Res<Assets<Source>>>,
+    global_volume: Res<GlobalVolume>,
     mut audio: ResMut<Audio<Source>>,
     mut sinks: ResMut<Assets<AudioSink>>,
     mut spatial_sinks: ResMut<Assets<SpatialAudioSink>>,
@@ -154,6 +167,12 @@ pub fn play_queued_audio_system<Source: Asset + Decodable>(
     f32: rodio::cpal::FromSample<Source::DecoderItem>,
 {
     if let Some(audio_sources) = audio_sources {
-        audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut sinks, &mut spatial_sinks);
+        audio_output.try_play_queued(
+            &*audio_sources,
+            &mut *audio,
+            &mut sinks,
+            &mut spatial_sinks,
+            &global_volume,
+        );
     };
 }

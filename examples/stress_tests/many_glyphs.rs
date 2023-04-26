@@ -24,19 +24,21 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
+    warn!(include_str!("warning_string.txt"));
+
     commands.spawn(Camera2dBundle::default());
     let mut text = Text {
         sections: vec![TextSection {
             value: "0123456789".repeat(10_000),
             style: TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 4.,
                 color: Color::WHITE,
+                ..default()
             },
         }],
         alignment: TextAlignment::Left,
-        linebreak_behaviour: BreakLineOn::AnyCharacter,
+        linebreak_behavior: BreakLineOn::AnyCharacter,
     };
 
     commands

@@ -31,7 +31,7 @@ pub(crate) enum ReflectIgnoreBehavior {
 }
 
 impl ReflectIgnoreBehavior {
-    /// Returns `true` if the ignoring behaviour implies member is included in the reflection API, and false otherwise.
+    /// Returns `true` if the ignoring behavior implies member is included in the reflection API, and false otherwise.
     pub fn is_active(self) -> bool {
         match self {
             ReflectIgnoreBehavior::None | ReflectIgnoreBehavior::IgnoreSerialization => true,
