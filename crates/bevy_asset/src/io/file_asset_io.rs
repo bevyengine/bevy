@@ -3,10 +3,10 @@ use crate::{filesystem_watcher::FilesystemWatcher, AssetServer};
 use crate::{AssetIo, AssetIoError, Metadata};
 use anyhow::Result;
 #[cfg(feature = "filesystem_watcher")]
-use bevy_ecs::system::Res;
+use bevy_ecs::system::{Local, Res};
 use bevy_utils::BoxedFuture;
 #[cfg(feature = "filesystem_watcher")]
-use bevy_utils::{default, HashSet};
+use bevy_utils::{default, Duration, HashMap, Instant};
 #[cfg(feature = "filesystem_watcher")]
 use crossbeam_channel::TryRecvError;
 use fs::File;
@@ -174,7 +174,10 @@ impl AssetIo for FileAssetIo {
     feature = "filesystem_watcher",
     all(not(target_arch = "wasm32"), not(target_os = "android"))
 ))]
-pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
+pub fn filesystem_watcher_system(
+    asset_server: Res<AssetServer>,
+    mut changed: Local<HashMap<PathBuf, Instant>>,
+) {
     let asset_io =
         if let Some(asset_io) = asset_server.server.asset_io.downcast_ref::<FileAssetIo>() {
             asset_io
@@ -182,14 +185,15 @@ pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
             return;
         };
     let watcher = asset_io.filesystem_watcher.read();
+
     if let Some(ref watcher) = *watcher {
-        let mut changed = HashSet::<&PathBuf>::default();
         loop {
             let event = match watcher.receiver.try_recv() {
                 Ok(result) => result.unwrap(),
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected."),
             };
+
             if let notify::event::Event {
                 kind: notify::event::EventKind::Modify(_),
                 paths,
@@ -199,12 +203,15 @@ pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
                 for path in &paths {
                     let Some(set) = watcher.path_map.get(path) else {continue};
                     for to_reload in set {
-                        if !changed.contains(to_reload) {
-                            changed.insert(to_reload);
-                            let _ = asset_server.load_untracked(to_reload.as_path().into(), true);
-                        }
+                        changed.insert(to_reload.to_owned(), Instant::now());
                     }
                 }
+            }
+
+            for (to_reload, _) in changed.drain_filter(|_, last_modified| {
+                last_modified.elapsed() >= Duration::from_millis(200)
+            }) {
+                let _ = asset_server.load_untracked(to_reload.as_path().into(), true);
             }
         }
     }
