@@ -18,7 +18,12 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{bloom::BloomSettings, prepass::DepthPrepass, tonemapping::Tonemapping},
+    core_pipeline::{
+        bloom::BloomSettings,
+        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+        prepass::DepthPrepass,
+        tonemapping::Tonemapping,
+    },
     pbr::{NotShadowCaster, NotTransmittedShadowReceiver, PointLightShadowMap},
     prelude::*,
     render::view::ColorGrading,
@@ -34,14 +39,12 @@ fn main() {
             brightness: 0.0,
             ..default()
         })
+        // *Note:* TAA is not _required_ for specular transmission, but
+        // it _greatly enhances_ the look of the resulting blur effects
+        .insert_resource(Msaa::Off)
+        .add_plugin(TemporalAntiAliasPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, (example_control_system, flicker_system));
-
-    // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.
-    // Since this example uses HDR, we must disable MSAA for WASM builds, at least
-    // until WebGPU is ready and no longer behind a feature flag in Web browsers.
-    #[cfg(target_arch = "wasm32")]
-    app.insert_resource(Msaa::Off);
 
     app.run();
 }
@@ -344,7 +347,7 @@ fn setup(
             tonemapping: Tonemapping::TonyMcMapface,
             ..default()
         },
-        DepthPrepass,
+        TemporalAntiAliasBundle::default(),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
