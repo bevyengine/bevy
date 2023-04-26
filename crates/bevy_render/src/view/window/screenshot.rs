@@ -1,4 +1,4 @@
-use std::{borrow::Cow, num::NonZeroU32, path::Path};
+use std::{borrow::Cow, path::Path};
 
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, HandleUntyped};
@@ -117,7 +117,7 @@ pub(crate) fn layout_data(width: u32, height: u32, format: TextureFormat) -> Ima
     ImageDataLayout {
         bytes_per_row: if height > 1 {
             // 1 = 1 row
-            NonZeroU32::new(get_aligned_size(width, 1, format.pixel_size() as u32))
+            Some(get_aligned_size(width, 1, format.pixel_size() as u32))
         } else {
             None
         },
