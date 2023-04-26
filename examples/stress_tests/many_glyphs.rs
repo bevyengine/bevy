@@ -2,6 +2,9 @@
 //!
 //! Creates a `Text` with a single `TextSection` containing `100_000` glyphs,
 //! and renders it with the UI in a white color and with Text2d in a red color.
+//!
+//! To recompute all text each frame run
+//! `cargo run --example many_glyphs --release recompute-text`
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
@@ -10,18 +13,23 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                present_mode: PresentMode::Immediate,
-                ..default()
-            }),
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            present_mode: PresentMode::Immediate,
             ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_systems(Startup, setup)
-        .run();
+        }),
+        ..default()
+    }))
+    .add_plugin(FrameTimeDiagnosticsPlugin::default())
+    .add_plugin(LogDiagnosticsPlugin::default())
+    .add_systems(Startup, setup);
+
+    if std::env::args().any(|arg| arg == "recompute-text") {
+        app.add_systems(Update, force_text_recomputation);
+    }
+
+    app.run();
 }
 
 fn setup(mut commands: Commands) {
@@ -72,4 +80,10 @@ fn setup(mut commands: Commands) {
         },
         ..Default::default()
     });
+}
+
+fn force_text_recomputation(mut text_query: Query<&mut Text>) {
+    for mut text in &mut text_query {
+        text.set_changed();
+    }
 }
