@@ -90,7 +90,6 @@ fn main() {
         let mut cmd = cmd!(
             sh,
             "cargo build {parameters...} --release --target wasm32-unknown-unknown --example {example}"
-            
         );
         if matches!(cli.api, Api::Webgpu) {
             cmd = cmd.env("RUSTFLAGS", "--cfg=web_sys_unstable_apis");
