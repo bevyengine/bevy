@@ -217,8 +217,10 @@ impl Plugin for RenderPlugin {
             .init_debug_asset_loader::<ShaderLoader>();
 
         if let Some(backends) = self.wgpu_settings.backends {
-            let stuff = Arc::new(Mutex::new(None));
-            app.insert_resource(FutureRendererResources(stuff.clone()));
+            let future_renderer_resources_wrapper = Arc::new(Mutex::new(None));
+            app.insert_resource(FutureRendererResources(
+                future_renderer_resources_wrapper.clone(),
+            ));
 
             let mut system_state: SystemState<Query<&RawHandleWrapper, With<PrimaryWindow>>> =
                 SystemState::new(&mut app.world);
@@ -254,8 +256,10 @@ impl Plugin for RenderPlugin {
                         .await;
                     debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
                     debug!("Configured wgpu adapter Features: {:#?}", device.features());
-                    let mut stuffed = stuff.lock().unwrap();
-                    *stuffed = Some((device, queue, adapter_info, render_adapter, instance));
+                    let mut future_renderer_resources_inner =
+                        future_renderer_resources_wrapper.lock().unwrap();
+                    *future_renderer_resources_inner =
+                        Some((device, queue, adapter_info, render_adapter, instance));
                 })
                 .detach();
 
