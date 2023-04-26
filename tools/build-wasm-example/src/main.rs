@@ -36,6 +36,7 @@ fn main() {
 
     assert!(!cli.examples.is_empty(), "must have at least one example");
 
+    let mut default_features = true;
     let mut features = vec![];
     if let Some(frames) = cli.frames {
         let mut file = File::create("ci_testing_config.ron").unwrap();
@@ -45,21 +46,51 @@ fn main() {
     }
 
     match cli.api {
-        Api::Webgl2 => features.push("webgl"),
-        Api::Webgpu => (),
+        Api::Webgl2 => (),
+        Api::Webgpu => {
+            features.push("animation");
+            features.push("bevy_asset");
+            features.push("bevy_audio");
+            features.push("bevy_gilrs");
+            features.push("bevy_scene");
+            features.push("bevy_winit");
+            features.push("bevy_core_pipeline");
+            features.push("bevy_pbr");
+            features.push("bevy_gltf");
+            features.push("bevy_render");
+            features.push("bevy_sprite");
+            features.push("bevy_text");
+            features.push("bevy_ui");
+            features.push("png");
+            features.push("hdr");
+            features.push("ktx2");
+            features.push("zstd");
+            features.push("vorbis");
+            features.push("x11");
+            features.push("filesystem_watcher");
+            features.push("bevy_gizmos");
+            features.push("android_shared_stdcxx");
+            features.push("tonemapping_luts");
+            features.push("default_font");
+            default_features = false;
+        }
     }
 
     for example in cli.examples {
         let sh = Shell::new().unwrap();
         let features_string = features.join(",");
-        let features = if !features.is_empty() {
-            vec!["--features", &features_string]
-        } else {
-            vec![]
-        };
+        let mut parameters = vec![];
+        if !default_features {
+            parameters.push("--no-default-features");
+        }
+        if !features.is_empty() {
+            parameters.push("--features");
+            parameters.push(&features_string);
+        }
         let mut cmd = cmd!(
             sh,
-            "cargo build {features...} --release --target wasm32-unknown-unknown --example {example}"
+            "cargo build {parameters...} --release --target wasm32-unknown-unknown --example {example}"
+            
         );
         if matches!(cli.api, Api::Webgpu) {
             cmd = cmd.env("RUSTFLAGS", "--cfg=web_sys_unstable_apis");
