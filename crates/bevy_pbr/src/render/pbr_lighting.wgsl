@@ -321,7 +321,7 @@ fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
 }
 
 // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
-const sample_offsets: array<vec2<f32>, 8> = array<vec2<f32>, 8>(
+const sample_offsets: array<vec2<f32>, 9> = array<vec2<f32>, 9>(
     vec2<f32>(-0.7071,  0.7071),
     vec2<f32>(-0.0000, -0.8750),
     vec2<f32>( 0.5303,  0.5303),
@@ -330,6 +330,7 @@ const sample_offsets: array<vec2<f32>, 8> = array<vec2<f32>, 8>(
     vec2<f32>(-0.0000,  0.3750),
     vec2<f32>(-0.1768, -0.1768),
     vec2<f32>( 0.1250,  0.0000),
+    vec2<f32>(-0.0404,  0.0404),
 );
 
 fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, perceptual_roughness: f32, distance: f32) -> vec4<f32> {
@@ -348,9 +349,9 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     let blur_intensity = perceptual_roughness / distance;
 
     // Number of taps scale with blur intensity
-    // Minimum: 1, Maximum: 8
+    // Minimum: 1, Maximum: 9
 
-    let num_taps = i32(min(blur_intensity * 90.0, 7.0)) + 1;
+    let num_taps = i32(min(blur_intensity * 300.0, 8.0)) + 1;
     var result = vec4<f32>(0.0);
     for (var i: i32 = 0; i < num_taps; i = i + 1) {
         let random_angle = 2.0 * PI * interleaved_gradient_noise(frag_coord.xy);
@@ -372,6 +373,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
             case 5: { sample_offset = sample_offsets[5]; }
             case 6: { sample_offset = sample_offsets[6]; }
             case 7: { sample_offset = sample_offsets[7]; }
+            case 8: { sample_offset = sample_offsets[8]; }
             default: {}
         }
 
