@@ -3,7 +3,7 @@ use crate::{filesystem_watcher::FilesystemWatcher, AssetServer};
 use crate::{AssetIo, AssetIoError, Metadata};
 use anyhow::Result;
 #[cfg(feature = "filesystem_watcher")]
-use bevy_ecs::system::Res;
+use bevy_ecs::system::{Res, Local};
 use bevy_utils::BoxedFuture;
 #[cfg(feature = "filesystem_watcher")]
 use bevy_utils::{default, Duration, HashMap, Instant};
@@ -174,7 +174,10 @@ impl AssetIo for FileAssetIo {
     feature = "filesystem_watcher",
     all(not(target_arch = "wasm32"), not(target_os = "android"))
 ))]
-pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
+pub fn filesystem_watcher_system(
+    asset_server: Res<AssetServer>,
+    mut changed: Local<HashMap<PathBuf, Instant>>,
+) {
     let asset_io =
         if let Some(asset_io) = asset_server.server.asset_io.downcast_ref::<FileAssetIo>() {
             asset_io
@@ -184,7 +187,6 @@ pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
     let watcher = asset_io.filesystem_watcher.read();
 
     if let Some(ref watcher) = *watcher {
-        let mut changed = HashMap::new();
         loop {
             let event = match watcher.receiver.try_recv() {
                 Ok(result) => result.unwrap(),
@@ -206,13 +208,13 @@ pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
                     }
                 }
             }
+        }
 
-            // Reload all assets whose last modification was at least 200ms ago
-            for (to_reload, _) in changed.drain_filter(|_, last_modified| {
-                last_modified.elapsed() >= Duration::from_millis(200)
-            }) {
-                let _ = asset_server.load_untracked(to_reload.as_path().into(), true);
-            }
+        // Reload all assets whose last modification was at least 50ms ago
+        for (to_reload, _) in changed.drain_filter(|_, last_modified| {
+            last_modified.elapsed() >= Duration::from_millis(50)
+        }) {
+            let _ = asset_server.load_untracked(to_reload.as_path().into(), true);
         }
     }
 }
