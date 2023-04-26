@@ -3,7 +3,7 @@ use crate::{filesystem_watcher::FilesystemWatcher, AssetServer};
 use crate::{AssetIo, AssetIoError, Metadata};
 use anyhow::Result;
 #[cfg(feature = "filesystem_watcher")]
-use bevy_ecs::system::{Res, Local};
+use bevy_ecs::system::{Local, Res};
 use bevy_utils::BoxedFuture;
 #[cfg(feature = "filesystem_watcher")]
 use bevy_utils::{default, Duration, HashMap, Instant};
@@ -215,9 +215,9 @@ pub fn filesystem_watcher_system(
         // When changing and then saving a shader, several modification events are sent in short succession.
         // Unless we wait until we are sure the shader is finished being modified (and that there will be no more events coming),
         // we will sometimes get a crash when trying to reload a partially-modified shader.
-        for (to_reload, _) in changed.drain_filter(|_, last_modified| {
-            last_modified.elapsed() >= Duration::from_millis(50)
-        }) {
+        for (to_reload, _) in changed
+            .drain_filter(|_, last_modified| last_modified.elapsed() >= Duration::from_millis(50))
+        {
             let _ = asset_server.load_untracked(to_reload.as_path().into(), true);
         }
     }
