@@ -14,7 +14,7 @@ use parking_lot::{Mutex, RwLock};
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
-/// Errors that occur while loading assets with an `AssetServer`.
+/// Errors that occur while loading assets with an [`AssetServer`].
 #[derive(Error, Debug)]
 pub enum AssetServerError {
     /// Asset folder is not a directory.

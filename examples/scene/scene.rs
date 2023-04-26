@@ -140,15 +140,15 @@ fn save_scene_system(world: &mut World) {
 
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
 // text example.
-fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn infotext_system(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn(
         TextBundle::from_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 50.0,
                 color: Color::WHITE,
+                ..default()
             },
         )
         .with_style(Style {

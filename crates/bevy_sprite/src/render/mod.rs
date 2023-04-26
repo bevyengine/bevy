@@ -304,7 +304,7 @@ pub struct ExtractedSprite {
     pub rect: Option<Rect>,
     /// Change the on-screen size of the sprite
     pub custom_size: Option<Vec2>,
-    /// Handle to the `Image` of this sprite
+    /// Handle to the [`Image`] of this sprite
     /// PERF: storing a `HandleId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
     pub image_handle_id: HandleId,
     pub flip_x: bool,

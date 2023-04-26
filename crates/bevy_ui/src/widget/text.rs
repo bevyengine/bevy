@@ -68,7 +68,7 @@ pub fn measure_text_system(
     ui_scale: Res<UiScale>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_queries: ParamSet<(
-        Query<Entity, Changed<Text>>,
+        Query<Entity, (Changed<Text>, With<Node>)>,
         Query<Entity, (With<Text>, With<Node>)>,
         Query<(&Text, &mut CalculatedSize)>,
     )>,
@@ -82,7 +82,7 @@ pub fn measure_text_system(
 
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
-        // Adds all entities where the text or the style has changed to the local queue
+        // Adds all entities where the text has changed to the local queue
         for entity in text_queries.p0().iter() {
             if !queued_text.contains(&entity) {
                 queued_text.push(entity);
