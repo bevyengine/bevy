@@ -296,7 +296,7 @@ impl Schedule {
     }
 
     /// Returns the [`SystemSchedule`].
-    pub fn executable(&self) -> &SystemSchedule {
+    pub(crate) fn executable(&self) -> &SystemSchedule {
         &self.executable
     }
 
