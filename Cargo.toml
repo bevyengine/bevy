@@ -53,6 +53,7 @@ default = [
   "android_shared_stdcxx",
   "tonemapping_luts",
   "default_font",
+  "bevy_debug_stepping",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -228,6 +229,9 @@ glam_assert = ["bevy_internal/glam_assert"]
 
 # Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
 default_font = ["bevy_internal/default_font"]
+
+# Enable stepping-based debugging of Bevy systems
+bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.0-dev", default-features = false, optional = true }

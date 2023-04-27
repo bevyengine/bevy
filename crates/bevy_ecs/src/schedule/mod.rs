@@ -710,6 +710,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "bevy_debug_stepping")]
     mod stepping {
         use super::*;
         use bevy_ecs::system::SystemState;

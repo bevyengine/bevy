@@ -6,12 +6,13 @@ use crate::{
     schedule::{BoxedScheduleLabel, NodeId, Schedule, ScheduleLabel},
     system::{IntoSystem, ResMut, Resource, System},
 };
-#[cfg(test)]
-use bevy_utils::tracing::debug;
 use bevy_utils::{
     thiserror::Error,
-    tracing::{info, warn},
+    tracing::{error, info, warn},
 };
+
+#[cfg(test)]
+use bevy_utils::tracing::debug;
 
 use crate as bevy_ecs;
 
@@ -203,7 +204,13 @@ impl Stepping {
 
     /// Begin stepping at the start of the next frame
     pub fn enable(&mut self) -> &mut Self {
+        #[cfg(feature = "bevy_debug_stepping")]
         self.updates.push(Update::SetAction(Action::Waiting));
+        #[cfg(not(feature = "bevy_debug_stepping"))]
+        error!(
+            "Stepping cannot be enabled; \
+            bevy was compiled without the bevy_debug_stepping feature"
+        );
         self
     }
 
@@ -812,7 +819,7 @@ impl ScheduleState {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "bevy_debug_stepping"))]
 mod tests {
     use super::*;
     use crate::prelude::*;

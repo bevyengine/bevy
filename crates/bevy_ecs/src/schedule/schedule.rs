@@ -252,6 +252,10 @@ impl Schedule {
         world.check_change_ticks();
         self.initialize(world).unwrap_or_else(|e| panic!("{e}"));
 
+        #[cfg(not(feature = "bevy_debug_stepping"))]
+        let skip_systems = None;
+
+        #[cfg(feature = "bevy_debug_stepping")]
         let skip_systems = match world.get_resource_mut::<Stepping>() {
             None => None,
             Some(mut stepping) => stepping.skipped_systems(self),
