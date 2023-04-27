@@ -239,8 +239,8 @@ To build for WebGPU, you'll need to disable default features and add all those y
 
 Bevy has an helper to build its examples:
 
-* Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
-* Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
+- Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
+- Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
 
 This helper will log the command used to build the examples.
 
