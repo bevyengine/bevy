@@ -694,16 +694,23 @@ pub enum MonitorSelection {
 
 /// Presentation mode for a window.
 ///
-/// The presentation mode specifies when a frame is presented to the window. The `Fifo`
+/// The presentation mode specifies when a frame is presented to the window. The [`Fifo`]
 /// option corresponds to a traditional `VSync`, where the framerate is capped by the
-/// display refresh rate. Both `Immediate` and `Mailbox` are low-latency and are not
+/// display refresh rate. Both [`Immediate`] and [`Mailbox`] are low-latency and are not
 /// capped by the refresh rate, but may not be available on all platforms. Tearing
-/// may be observed with `Immediate` mode, but will not be observed with `Mailbox` or
-/// `Fifo`.
+/// may be observed with [`Immediate`] mode, but will not be observed with [`Mailbox`] or
+/// [`Fifo`].
 ///
-/// `AutoVsync` or `AutoNoVsync` will gracefully fallback to `Fifo` when unavailable.
+/// [`AutoVsync`] or [`AutoNoVsync`] will gracefully fallback to [`Fifo`] when unavailable.
 ///
-/// `Immediate` or `Mailbox` will panic if not supported by the platform.
+/// [`Immediate`] or [`Mailbox`] will panic if not supported by the platform.
+///
+/// [`Fifo`]: PresentMode::Fifo
+/// [`Immediate`]: PresentMode::Immediate
+/// [`Mailbox`]: PresentMode::Mailbox
+/// [`AutoVsync`]: PresentMode::AutoVsync
+/// [`AutoNoVsync`]: PresentMode::AutoNoVsync
+///
 #[repr(C)]
 #[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[cfg_attr(
@@ -753,8 +760,8 @@ pub enum PresentMode {
 )]
 #[reflect(Debug, PartialEq, Hash)]
 pub enum CompositeAlphaMode {
-    /// Chooses either `Opaque` or `Inherit` automatically, depending on the
-    /// `alpha_mode` that the current surface can support.
+    /// Chooses either [`Opaque`](CompositeAlphaMode::Opaque) or [`Inherit`](CompositeAlphaMode::Inherit)
+    /// automatically, depending on the `alpha_mode` that the current surface can support.
     #[default]
     Auto = 0,
     /// The alpha channel, if it exists, of the textures is ignored in the

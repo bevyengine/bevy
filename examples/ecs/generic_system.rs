@@ -39,7 +39,7 @@ fn main() {
             Update,
             (
                 print_text_system,
-                transition_to_in_game_system.in_set(OnUpdate(AppState::MainMenu)),
+                transition_to_in_game_system.run_if(in_state(AppState::MainMenu)),
             ),
         )
         // Cleanup systems.

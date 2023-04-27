@@ -1,4 +1,8 @@
-use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state};
+use crate::{
+    core_2d::{self, CORE_2D},
+    core_3d::{self, CORE_3D},
+    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{prelude::*, query::QueryItem};
@@ -6,7 +10,7 @@ use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     prelude::Camera,
-    render_graph::RenderGraph,
+    render_graph::RenderGraphApp,
     render_resource::*,
     renderer::RenderDevice,
     texture::BevyDefault,
@@ -115,45 +119,34 @@ impl Plugin for CASPlugin {
             .init_resource::<CASPipeline>()
             .init_resource::<SpecializedRenderPipelines<CASPipeline>>()
             .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
+
         {
-            let cas_node = CASNode::new(&mut render_app.world);
-            let mut binding = render_app.world.resource_mut::<RenderGraph>();
-            let graph = binding.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
-
-            graph.add_node(core_3d::graph::node::CONTRAST_ADAPTIVE_SHARPENING, cas_node);
-
-            graph.add_node_edge(
-                core_3d::graph::node::TONEMAPPING,
-                core_3d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
-            );
-            graph.add_node_edge(
-                core_3d::graph::node::FXAA,
-                core_3d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
-            );
-            graph.add_node_edge(
-                core_3d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
-                core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-            );
+            use core_3d::graph::node::*;
+            render_app
+                .add_render_graph_node::<CASNode>(CORE_3D, CONTRAST_ADAPTIVE_SHARPENING)
+                .add_render_graph_edge(CORE_3D, TONEMAPPING, CONTRAST_ADAPTIVE_SHARPENING)
+                .add_render_graph_edges(
+                    CORE_3D,
+                    &[
+                        FXAA,
+                        CONTRAST_ADAPTIVE_SHARPENING,
+                        END_MAIN_PASS_POST_PROCESSING,
+                    ],
+                );
         }
         {
-            let cas_node = CASNode::new(&mut render_app.world);
-            let mut binding = render_app.world.resource_mut::<RenderGraph>();
-            let graph = binding.get_sub_graph_mut(core_2d::graph::NAME).unwrap();
-
-            graph.add_node(core_2d::graph::node::CONTRAST_ADAPTIVE_SHARPENING, cas_node);
-
-            graph.add_node_edge(
-                core_2d::graph::node::TONEMAPPING,
-                core_2d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
-            );
-            graph.add_node_edge(
-                core_2d::graph::node::FXAA,
-                core_2d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
-            );
-            graph.add_node_edge(
-                core_2d::graph::node::CONTRAST_ADAPTIVE_SHARPENING,
-                core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-            );
+            use core_2d::graph::node::*;
+            render_app
+                .add_render_graph_node::<CASNode>(CORE_2D, CONTRAST_ADAPTIVE_SHARPENING)
+                .add_render_graph_edge(CORE_2D, TONEMAPPING, CONTRAST_ADAPTIVE_SHARPENING)
+                .add_render_graph_edges(
+                    CORE_2D,
+                    &[
+                        FXAA,
+                        CONTRAST_ADAPTIVE_SHARPENING,
+                        END_MAIN_PASS_POST_PROCESSING,
+                    ],
+                );
         }
     }
 }

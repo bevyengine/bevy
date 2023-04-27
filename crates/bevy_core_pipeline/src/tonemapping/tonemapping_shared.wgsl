@@ -168,14 +168,14 @@ fn saturation(color: vec3<f32>, saturationAmount: f32) -> vec3<f32> {
     ref[0]
 */
 fn convertOpenDomainToNormalizedLog2(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32> {
-    let in_midgrey = 0.18;
+    let in_midgray = 0.18;
 
     // remove negative before log transform
     var color = max(vec3(0.0), color);
     // avoid infinite issue with log -- ref[1]
     color = select(color, 0.00001525878 + color, color  < 0.00003051757);
     color = clamp(
-        log2(color / in_midgrey),
+        log2(color / in_midgray),
         vec3(minimum_ev),
         vec3(maximum_ev)
     );
@@ -187,12 +187,12 @@ fn convertOpenDomainToNormalizedLog2(color: vec3<f32>, minimum_ev: f32, maximum_
 // Inverse of above
 fn convertNormalizedLog2ToOpenDomain(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32> {
     var color = color;
-    let in_midgrey = 0.18;
+    let in_midgray = 0.18;
     let total_exposure = maximum_ev - minimum_ev;
 
     color = (color * total_exposure) + minimum_ev;
     color = pow(vec3(2.0), color);
-    color = color * in_midgrey;
+    color = color * in_midgray;
 
     return color;
 }
