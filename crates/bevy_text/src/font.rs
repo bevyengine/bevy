@@ -5,7 +5,7 @@ use bevy_render::{
     texture::Image,
 };
 
-#[derive(Debug, TypeUuid)]
+#[derive(Debug, TypeUuid, Clone)]
 #[uuid = "97059ac6-c9ba-4da9-95b6-bed82c3ce198"]
 pub struct Font {
     pub font: FontArc,

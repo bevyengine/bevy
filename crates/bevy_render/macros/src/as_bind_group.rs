@@ -469,7 +469,7 @@ struct UniformBindingMeta {
 /// Represents the arguments for any general binding attribute.
 ///
 /// If parsed, represents an attribute
-/// like `#[foo(LitInt, ...)]` where the rest is optional `NestedMeta`.
+/// like `#[foo(LitInt, ...)]` where the rest is optional [`NestedMeta`].
 enum BindingMeta {
     IndexOnly(LitInt),
     IndexWithOptions(BindingIndexOptions),
