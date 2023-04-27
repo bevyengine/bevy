@@ -54,6 +54,7 @@ impl Plugin for SteppingPlugin {
             ui_left: self.left,
             systems: Vec::new(),
         })
+        .add_systems(Startup, build_help)
         .add_systems(
             DebugSchedule,
             (
@@ -185,13 +186,15 @@ fn build_ui(
             ..default()
         },
     ));
+}
 
+fn build_help(mut commands: Commands, asset_server: Res<AssetServer>) {
     // stepping description box
     commands.spawn((TextBundle::from_sections([TextSection::new(
         "Press ` to toggle stepping mode (S: step system, Space: step frame)",
         TextStyle {
             font: asset_server.load(FONT_MEDIUM),
-            font_size: 15.0,
+            font_size: 18.0,
             color: FONT_COLOR,
         },
     )])
