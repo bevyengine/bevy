@@ -2,6 +2,7 @@ use std::any::TypeId;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::define_boxed_label;
@@ -23,6 +24,10 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
         None
     }
 
+    /// Returns `true` if this system set is an [`AnonymousSet`].
+    fn is_anonymous(&self) -> bool {
+        false
+    }
     /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 }
@@ -102,6 +107,29 @@ impl<T> SystemSet for SystemTypeSet<T> {
     }
 }
 
+/// A [`SystemSet`] implicitly created when using
+/// [`Schedule::add_systems`](super::Schedule::add_systems).
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct AnonymousSet(usize);
+
+static NEXT_ANONYMOUS_SET_ID: AtomicUsize = AtomicUsize::new(0);
+
+impl AnonymousSet {
+    pub(crate) fn new() -> Self {
+        Self(NEXT_ANONYMOUS_SET_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
+impl SystemSet for AnonymousSet {
+    fn is_anonymous(&self) -> bool {
+        true
+    }
+
+    fn dyn_clone(&self) -> Box<dyn SystemSet> {
+        Box::new(*self)
+    }
+}
+
 /// Types that can be converted into a [`SystemSet`].
 pub trait IntoSystemSet<Marker>: Sized {
     type Set: SystemSet;
@@ -142,5 +170,42 @@ where
     #[inline]
     fn into_system_set(self) -> Self::Set {
         SystemTypeSet::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        schedule::{tests::ResMut, Schedule},
+        system::Resource,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_boxed_label() {
+        use crate::{self as bevy_ecs, world::World};
+
+        #[derive(Resource)]
+        struct Flag(bool);
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct A;
+
+        let mut world = World::new();
+
+        let mut schedule = Schedule::new();
+        schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
+        world.add_schedule(schedule, A);
+
+        let boxed: Box<dyn ScheduleLabel> = Box::new(A);
+
+        world.insert_resource(Flag(false));
+        world.run_schedule(&boxed);
+        assert!(world.resource::<Flag>().0);
+
+        world.insert_resource(Flag(false));
+        world.run_schedule(boxed);
+        assert!(world.resource::<Flag>().0);
     }
 }

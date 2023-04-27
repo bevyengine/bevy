@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
 //!
@@ -263,7 +264,8 @@ struct WinitPersistentState {
     low_power_event: bool,
     /// Tracks whether the event loop was started this frame because of a redraw request.
     redraw_request_sent: bool,
-    /// Tracks if the event loop was started this frame because of a `WaitUntil` timeout.
+    /// Tracks if the event loop was started this frame because of a [`ControlFlow::WaitUntil`]
+    /// timeout.
     timeout_reached: bool,
     last_update: Instant,
 }
@@ -434,11 +436,7 @@ pub fn winit_runner(mut app: App) {
                             .send(converters::convert_keyboard_input(input));
                     }
                     WindowEvent::CursorMoved { position, .. } => {
-                        let physical_position = DVec2::new(
-                            position.x,
-                            // Flip the coordinate space from winit's context to our context.
-                            window.resolution.physical_height() as f64 - position.y,
-                        );
+                        let physical_position = DVec2::new(position.x, position.y);
 
                         window.set_physical_cursor_position(Some(physical_position));
 
@@ -567,7 +565,7 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                     WindowEvent::HoveredFileCancelled => {
-                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCancelled {
+                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCanceled {
                             window: window_entity,
                         });
                     }
