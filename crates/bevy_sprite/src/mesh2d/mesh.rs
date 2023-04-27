@@ -422,8 +422,6 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 }
                 _ => {}
             }
-
-
             // Debanding is tied to tonemapping in the shader, cannot run without it.
             if key.contains(Mesh2dPipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".into());
