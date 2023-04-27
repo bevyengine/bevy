@@ -34,7 +34,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{prelude::default, tracing::warn};
-use std::{mem, num::NonZeroU32};
+use std::mem;
 
 pub mod draw_3d_graph {
     pub mod node {
@@ -772,7 +772,7 @@ fn queue_ssao_bind_groups(
         let preprocess_depth_mip_view_descriptor = TextureViewDescriptor {
             format: Some(TextureFormat::R16Float),
             dimension: Some(TextureViewDimension::D2),
-            mip_level_count: NonZeroU32::new(1),
+            mip_level_count: Some(1),
             ..default()
         };
         let preprocess_depth_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
