@@ -12,7 +12,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_state::<AppState>()
         .add_systems(Startup, setup)
-        // This system runs when we enter `AppState::Menu`, during the `StateTransitions` schedule.
+        // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
         .add_systems(OnEnter(AppState::Menu), setup_menu)
@@ -48,7 +48,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
-fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_menu(mut commands: Commands) {
     let button_entity = commands
         .spawn(NodeBundle {
             style: Style {
@@ -78,9 +78,9 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn(TextBundle::from_section(
                         "Play",
                         TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 40.0,
                             color: Color::rgb(0.9, 0.9, 0.9),
+                            ..default()
                         },
                     ));
                 });

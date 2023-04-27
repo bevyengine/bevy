@@ -223,15 +223,15 @@ fn setup(
             TextSection::new(
                 "Score: ",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: SCOREBOARD_FONT_SIZE,
                     color: TEXT_COLOR,
+                    ..default()
                 },
             ),
             TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: SCOREBOARD_FONT_SIZE,
                 color: SCORE_COLOR,
+                ..default()
             }),
         ])
         .with_style(Style {

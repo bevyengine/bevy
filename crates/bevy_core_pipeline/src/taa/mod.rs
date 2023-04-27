@@ -1,5 +1,5 @@
 use crate::{
-    core_3d,
+    core_3d::{self, CORE_3D},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
@@ -73,9 +73,9 @@ impl Plugin for TemporalAntiAliasPlugin {
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
                 ),
             )
-            .add_render_graph_node::<TAANode>(core_3d::graph::NAME, draw_3d_graph::node::TAA)
+            .add_render_graph_node::<TAANode>(CORE_3D, draw_3d_graph::node::TAA)
             .add_render_graph_edges(
-                core_3d::graph::NAME,
+                CORE_3D,
                 &[
                     core_3d::graph::node::END_MAIN_PASS,
                     draw_3d_graph::node::TAA,
