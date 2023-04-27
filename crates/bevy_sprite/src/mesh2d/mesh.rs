@@ -394,37 +394,35 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             shader_defs.push("TONEMAP_IN_SHADER".into());
 
             let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
-
-              
+            
             match method {
                 Mesh2dPipelineKey::TONEMAP_METHOD_NONE => {
                     shader_defs.push("TONEMAP_METHOD_NONE".into());
-                },
+                }
                 Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD => {
                     shader_defs.push("TONEMAP_METHOD_REINHARD".into());
-                },
+                }
                 Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE => {
                     shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
-                }, 
+                }
                 Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED => {
                     shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
-                }, 
+                }
                 Mesh2dPipelineKey::TONEMAP_METHOD_AGX => {
                     shader_defs.push("TONEMAP_METHOD_AGX".into());
-                },
-                Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-                => {
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM => {
                     shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
-                },
+                }
                 Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC => {
                     shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
-                },
+                }
                 Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE => {
                     shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
-                },
-                _ => {
                 }
+                _ => {}
             }
+
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
             if key.contains(Mesh2dPipelineKey::DEBAND_DITHER) {
