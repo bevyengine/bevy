@@ -232,12 +232,7 @@ impl FromWorld for Mesh2dPipeline {
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
-                        )
-                        .unwrap(),
-                    ),
+                    bytes_per_row: Some(image.texture_descriptor.size.width * format_size as u32),
                     rows_per_image: None,
                 },
                 image.texture_descriptor.size,
@@ -394,7 +389,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             shader_defs.push("TONEMAP_IN_SHADER".into());
 
             let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
-            
+
             match method {
                 Mesh2dPipelineKey::TONEMAP_METHOD_NONE => {
                     shader_defs.push("TONEMAP_METHOD_NONE".into());
