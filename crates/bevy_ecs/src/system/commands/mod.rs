@@ -62,7 +62,7 @@ pub trait Command: Send + 'static {
 /// * inserting resources
 /// * etc.
 ///
-/// For a version of Commands that works in parallel contexts (such as
+/// For a version of [`Commands`] that works in parallel contexts (such as
 /// within [`Query::par_iter`](crate::system::Query::par_iter)) see
 /// [`ParallelCommands`]
 ///
