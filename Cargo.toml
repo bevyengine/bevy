@@ -1968,7 +1968,7 @@ path = "examples/window/screenshot.rs"
 name = "Screenshot"
 description = "Shows how to save screenshots to disk"
 category = "Window"
-wasm = false
+wasm = true
 
 [[example]]
 name = "transparent_window"

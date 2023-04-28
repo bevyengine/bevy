@@ -71,9 +71,46 @@ impl ScreenshotManager {
                     // discard the alpha channel which stores brightness values when HDR is enabled to make sure
                     // the screenshot looks right
                     let img = dyn_img.to_rgb8();
+                    #[cfg(not(target_arch = "wasm32"))]
                     match img.save_with_format(&path, format) {
                         Ok(_) => info!("Screenshot saved to {}", path.display()),
                         Err(e) => error!("Cannot save screenshot, IO error: {e}"),
+                    }
+
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        match (|| {
+                            use image::EncodableLayout;
+                            use wasm_bindgen::{JsCast, JsValue};
+
+                            let mut image_buffer = std::io::Cursor::new(Vec::new());
+                            img.write_to(&mut image_buffer, format)
+                                .map_err(|e| JsValue::from_str(&format!("{e}")))?;
+                            // SAFETY: `image_buffer` only exist in this closure, and is not used after this line
+                            let parts = js_sys::Array::of1(&unsafe {
+                                js_sys::Uint8Array::view(image_buffer.into_inner().as_bytes())
+                                    .into()
+                            });
+                            let blob = web_sys::Blob::new_with_u8_array_sequence(&parts)?;
+                            let url = web_sys::Url::create_object_url_with_blob(&blob)?;
+                            let window = web_sys::window().unwrap();
+                            let document = window.document().unwrap();
+                            let link = document.create_element("a")?;
+                            link.set_attribute("href", &url)?;
+                            link.set_attribute(
+                                "download",
+                                path.file_name()
+                                    .and_then(|filename| filename.to_str())
+                                    .ok_or_else(|| JsValue::from_str("Invalid filename"))?,
+                            )?;
+                            let html_element = link.dyn_into::<web_sys::HtmlElement>()?;
+                            html_element.click();
+                            web_sys::Url::revoke_object_url(&url)?;
+                            Ok::<(), JsValue>(())
+                        })() {
+                            Ok(_) => info!("Screenshot saved to {}", path.display()),
+                            Err(e) => error!("Cannot save screenshot, error: {e:?}"),
+                        };
                     }
                 }
                 Err(e) => error!("Cannot save screenshot, requested format not recognized: {e}"),

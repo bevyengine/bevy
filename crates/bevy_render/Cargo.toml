@@ -82,3 +82,16 @@ encase = { version = "0.5", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = ["profile-with-tracing"], optional = true }
 async-channel = "1.8"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    'Blob',
+    'Document',
+    'Element',
+    'HtmlElement',
+    'Node',
+    'Url',
+    'Window',
+] }
+wasm-bindgen = "0.2"
