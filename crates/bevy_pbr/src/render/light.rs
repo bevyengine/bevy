@@ -216,7 +216,14 @@ pub struct GpuLights {
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
+
+//NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
+// when loading the wgsl "pbr_functions.wgsl" in the function apply_fog.
+#[cfg(feature = "webgl")]
+pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
+#[cfg(not(feature = "webgl"))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
+
 #[cfg(not(feature = "webgl"))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 4;
 #[cfg(feature = "webgl")]
