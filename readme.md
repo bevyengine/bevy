@@ -45,13 +45,13 @@ fn main() -> f32 {
 }
 ```
 
-or import a comma-separated list of individual items with a `#from` directive. at point of use, imported items must be prefixed with `::` :
+or import a comma-separated list of individual items with a `#from` directive :
 
 ```wgsl
 #from my_module import my_func, my_const
 
 fn main() -> f32 {
-    return ::my_func(::my_const);
+    return my_func(my_const);
 }
 ```
 

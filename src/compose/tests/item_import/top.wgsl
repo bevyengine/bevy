@@ -2,9 +2,9 @@
 #from consts import Y
 
 fn main() -> u32 {
-    return ::double(::X);
+    return double(X);
 } 
 
 fn other() -> u32 {
-    return ::double(::Y);
+    return double(Y);
 }
