@@ -45,10 +45,10 @@ fn main() -> f32 {
 }
 ```
 
-or import a comma-separated list of individual items with a `#from` directive :
+or import a comma-separated list of individual items :
 
 ```wgsl
-#from my_module import my_func, my_const
+#import my_module my_func, my_const
 
 fn main() -> f32 {
     return my_func(my_const);
@@ -59,7 +59,7 @@ imports can be nested - modules may import other modules, but not recursively. w
 the same module can be imported multiple times by different modules in the import tree.
 there is no overlap of namespaces, so the same function names (or type, constant, or variable names) may be used in different modules.
 
-note: when importing an item with the `#from` directive, the final shader will include the required dependencies (bindings, globals, consts, other functions) of the imported item, but will not include the rest of the imported module. it will however still include all of any modules imported by the imported module. this is probably not desired in general and may be fixed in a future version. currently for a more complete culling of unused dependencies the `prune` module can be used.
+note: when importing an item with the `#import module item` directive, the final shader will include the required dependencies (bindings, globals, consts, other functions) of the imported item, but will not include the rest of the imported module. it will however still include all of any modules imported by the imported module. this is probably not desired in general and may be fixed in a future version. currently for a more complete culling of unused dependencies the `prune` module can be used.
 
 ## overriding functions
 

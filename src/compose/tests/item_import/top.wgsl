@@ -1,5 +1,5 @@
-#from consts import X, double
-#from consts import Y
+#import consts X, double
+#import consts Y
 
 fn main() -> u32 {
     return double(X);
