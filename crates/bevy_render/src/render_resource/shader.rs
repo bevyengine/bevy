@@ -13,8 +13,10 @@ define_atomic_id!(ShaderId);
 pub enum ShaderReflectError {
     #[error(transparent)]
     WgslParse(#[from] naga::front::wgsl::ParseError),
+    #[cfg(feature = "shader_format_glsl")]
     #[error("GLSL Parse Error: {0:?}")]
     GlslParse(Vec<naga::front::glsl::Error>),
+    #[cfg(feature = "shader_format_spirv")]
     #[error(transparent)]
     SpirVParse(#[from] naga::front::spv::Error),
     #[error(transparent)]

@@ -36,10 +36,10 @@ pub struct DynamicScene {
 
 /// A reflection-powered serializable representation of an entity and its components.
 pub struct DynamicEntity {
-    /// The transiently unique identifier of a corresponding `Entity`.
+    /// The transiently unique identifier of a corresponding [`Entity`](bevy_ecs::entity::Entity).
     pub entity: u32,
     /// A vector of boxed components that belong to the given entity and
-    /// implement the `Reflect` trait.
+    /// implement the [`Reflect`] trait.
     pub components: Vec<Box<dyn Reflect>>,
 }
 

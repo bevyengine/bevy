@@ -20,9 +20,11 @@ use parking_lot::Mutex;
 use std::{borrow::Cow, hash::Hash, mem, ops::Deref};
 use thiserror::Error;
 use wgpu::{
-    util::make_spirv, Features, PipelineLayoutDescriptor, PushConstantRange,
+    Features, PipelineLayoutDescriptor, PushConstantRange,
     ShaderModuleDescriptor, VertexBufferLayout as RawVertexBufferLayout,
 };
+#[cfg(feature = "shader_format_spirv")]
+use wgpu::util::make_spirv;
 
 use crate::render_resource::resource_macros::*;
 
@@ -164,7 +166,7 @@ impl ShaderCache {
     fn new(render_device: &RenderDevice) -> Self {
         const CAPABILITIES: &[(Features, Capabilities)] = &[
             (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
-            (Features::SHADER_FLOAT64, Capabilities::FLOAT64),
+            (Features::SHADER_F64, Capabilities::FLOAT64),
             (
                 Features::SHADER_PRIMITIVE_INDEX,
                 Capabilities::PRIMITIVE_INDEX,
@@ -281,7 +283,14 @@ impl ShaderCache {
                     handle, shader_defs
                 );
                 let shader_source = match &shader.source {
-                    Source::SpirV(data) => make_spirv(data),
+                    #[cfg(feature = "shader_format_spirv")]
+                    Source::SpirV(data) => {
+                        make_spirv(data)
+                    }
+                    #[cfg(not(feature = "shader_format_spirv"))]
+                    Source::SpirV(_) => {
+                        unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
+                    }
                     _ => {
                         for import in shader.imports() {
                             Self::add_import_to_composer(

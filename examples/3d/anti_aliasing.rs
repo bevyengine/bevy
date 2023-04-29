@@ -324,14 +324,13 @@ fn setup(
         },
     ));
 
-    // UI
+    // example instructions
     commands.spawn(
         TextBundle::from_section(
             "",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 20.0,
-                color: Color::BLACK,
+                font_size: 20.,
+                ..default()
             },
         )
         .with_style(Style {

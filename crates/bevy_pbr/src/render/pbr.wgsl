@@ -10,6 +10,7 @@
 #from bevy_pbr::mesh_view_bindings      import view, fog
 #from bevy_pbr::mesh_view_types         import FOG_MODE_OFF
 #from bevy_core_pipeline::tonemapping   import screen_space_dither, powsafe, tone_mapping
+#import bevy_pbr::parallax_mapping
 
 #import bevy_pbr::prepass_utils
 
@@ -19,6 +20,31 @@ fn fragment(
     @builtin(front_facing) is_front: bool,
 ) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
+
+    let is_orthographic = ::view.projection[3].w == 1.0;
+    let V = pbr_functions::calculate_view(in.world_position, is_orthographic);
+#ifdef VERTEX_UVS
+    var uv = in.uv;
+#ifdef VERTEX_TANGENTS
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
+        let N = in.world_normal;
+        let T = in.world_tangent.xyz;
+        let B = in.world_tangent.w * cross(N, T);
+        // Transform V from fragment to camera in world space to tangent space.
+        let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
+        uv = parallaxed_uv(
+            material.parallax_depth_scale,
+            material.max_parallax_layer_count,
+            material.max_relief_mapping_search_steps,
+            uv,
+            // Flip the direction of Vt to go toward the surface to make the
+            // parallax mapping algorithm easier to understand and reason
+            // about.
+            -Vt,
+        );
+    }
+#endif
+#endif
 
 #ifdef VERTEX_COLORS
     output_color = output_color * in.color;
@@ -81,7 +107,7 @@ fn fragment(
         );
 #endif // LOAD_PREPASS_NORMALS
 
-        pbr_input.is_orthographic = ::view.projection[3].w == 1.0;
+        pbr_input.is_orthographic = is_orthographic;
 
         pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
@@ -92,10 +118,10 @@ fn fragment(
 #endif
 #endif
 #ifdef VERTEX_UVS
-            in.uv,
+            uv,
 #endif
         );
-        pbr_input.V = pbr_functions::calculate_view(in.world_position, pbr_input.is_orthographic);
+        pbr_input.V = V;
         pbr_input.occlusion = occlusion;
 
         pbr_input.flags = ::mesh.flags;
