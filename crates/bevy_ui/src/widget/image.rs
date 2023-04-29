@@ -5,17 +5,20 @@ use bevy_ecs::query::Without;
 use bevy_ecs::{
     prelude::Component,
     query::With,
+    reflect::ReflectComponent,
     system::{Query, Res},
 };
 use bevy_math::Vec2;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 use bevy_render::texture::Image;
 #[cfg(feature = "bevy_text")]
 use bevy_text::Text;
 
-/// The size of the image in pixels
+/// The size of the image in physical pixels
 ///
-/// This field is set automatically
-#[derive(Component, Copy, Clone, Debug, Default)]
+/// This field is set automatically by `update_image_calculated_size_system`
+#[derive(Component, Debug, Copy, Clone, Default, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct UiImageSize {
     size: Vec2,
 }
