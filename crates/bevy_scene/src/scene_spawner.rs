@@ -267,12 +267,6 @@ impl SceneSpawner {
         let scenes_with_parent = std::mem::take(&mut self.scenes_with_parent);
 
         for (instance_id, parent) in scenes_with_parent {
-            if world.get_entity(parent).is_none() {
-                // parent has been deleted, despawn the instance
-                self.instances_to_despawn.push(instance_id);
-                continue;
-            }
-
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
                 for entity in instance.entity_map.values() {
                     // Add the `Parent` component to the scene root, and update the `Children` component of
@@ -322,6 +316,26 @@ impl SceneSpawner {
 
 pub fn scene_spawner_system(world: &mut World) {
     world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
+        // remove any loading instances where parent is deleted
+        let mut dead_instances = HashSet::default();
+        scene_spawner
+            .scenes_with_parent
+            .retain(|(instance, parent)| {
+                let retain = world.get_entity(*parent).is_some();
+
+                if !retain {
+                    dead_instances.insert(*instance);
+                }
+
+                retain
+            });
+        scene_spawner
+            .dynamic_scenes_to_spawn
+            .retain(|(_, instance)| !dead_instances.contains(instance));
+        scene_spawner
+            .scenes_to_spawn
+            .retain(|(_, instance)| !dead_instances.contains(instance));
+
         let scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
 
         let mut updated_spawned_scenes = Vec::new();
