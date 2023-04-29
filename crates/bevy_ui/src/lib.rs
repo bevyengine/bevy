@@ -124,17 +124,20 @@ impl Plugin for UiPlugin {
         #[cfg(feature = "bevy_text")]
         app.add_systems(
             PostUpdate,
-            widget::measure_text_system
-                .before(UiSystem::Layout)
-                // Potential conflict: `Assets<Image>`
-                // In practice, they run independently since `bevy_render::camera_update_system`
-                // will only ever observe its own render target, and `widget::measure_text_system`
-                // will never modify a pre-existing `Image` asset.
-                .ambiguous_with(CameraUpdateSystem)
-                // Potential conflict: `Assets<Image>`
-                // Since both systems will only ever insert new [`Image`] assets,
-                // they will never observe each other's effects.
-                .ambiguous_with(bevy_text::update_text2d_layout),
+            (
+                widget::measure_text_system
+                    .before(UiSystem::Layout)
+                    // Potential conflict: `Assets<Image>`
+                    // In practice, they run independently since `bevy_render::camera_update_system`
+                    // will only ever observe its own render target, and `widget::measure_text_system`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(CameraUpdateSystem)
+                    // Potential conflict: `Assets<Image>`
+                    // Since both systems will only ever insert new [`Image`] assets,
+                    // they will never observe each other's effects.
+                    .ambiguous_with(bevy_text::update_text2d_layout),
+                widget::text_system.after(UiSystem::Layout),
+            ),
         );
         #[cfg(feature = "bevy_text")]
         app.add_plugin(accessibility::AccessibilityPlugin);
@@ -159,7 +162,6 @@ impl Plugin for UiPlugin {
                     .before(TransformSystem::TransformPropagate),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
-                widget::text_system.after(UiSystem::Layout),
             ),
         );
 

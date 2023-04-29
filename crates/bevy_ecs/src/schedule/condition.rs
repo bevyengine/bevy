@@ -143,6 +143,7 @@ pub mod common_conditions {
         change_detection::DetectChanges,
         event::{Event, EventReader},
         prelude::{Component, Query, With},
+        removal_detection::RemovedComponents,
         schedule::{State, States},
         system::{IntoSystem, Res, Resource, System},
     };
@@ -891,6 +892,17 @@ pub mod common_conditions {
     /// ```
     pub fn any_with_component<T: Component>() -> impl FnMut(Query<(), With<T>>) -> bool + Clone {
         move |query: Query<(), With<T>>| !query.is_empty()
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if there are any entity with a component of the given type removed.
+    pub fn any_component_removed<T: Component>() -> impl FnMut(RemovedComponents<T>) -> bool {
+        // `RemovedComponents` based on events and therefore events need to be consumed,
+        // so that there are no false positives on subsequent calls of the run condition.
+        // Simply checking `is_empty` would not be enough.
+        // PERF: note that `count` is efficient (not actually looping/iterating),
+        // due to Bevy having a specialized implementation for events.
+        move |mut removals: RemovedComponents<T>| !removals.iter().count() != 0
     }
 
     /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.

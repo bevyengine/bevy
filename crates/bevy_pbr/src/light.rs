@@ -2029,6 +2029,18 @@ pub fn check_light_mesh_visibility(
                         frustum_visible_entities.entities.push(entity);
                     }
                 }
+            } else {
+                computed_visibility.set_visible_in_view();
+                for view in frusta.frusta.keys() {
+                    let view_visible_entities = visible_entities
+                        .entities
+                        .get_mut(view)
+                        .expect("Per-view visible entities should have been inserted already");
+
+                    for frustum_visible_entities in view_visible_entities {
+                        frustum_visible_entities.entities.push(entity);
+                    }
+                }
             }
         }
 

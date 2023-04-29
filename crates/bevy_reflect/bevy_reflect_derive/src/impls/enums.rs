@@ -192,8 +192,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
 
             #[inline]
-            fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
-                <Self as #bevy_reflect_path::Typed>::type_info()
+            fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
+                #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
             #[inline]

@@ -57,6 +57,10 @@ symphonia-isomp4 = ["bevy_audio/symphonia-isomp4"]
 symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
+# Shader formats
+shader_format_glsl = ["bevy_render/shader_format_glsl"]
+shader_format_spirv = ["bevy_render/shader_format_spirv"]
+
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_asset/filesystem_watcher"]
 
@@ -96,6 +100,8 @@ bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
 bevy_render = ["dep:bevy_render", "bevy_scene?/bevy_render"]
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
+
+default_font = ["bevy_text?/default_font"]
 
 [dependencies]
 # bevy

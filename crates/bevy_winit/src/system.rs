@@ -27,7 +27,7 @@ use crate::{
     get_best_videomode, get_fitting_videomode, WinitWindows,
 };
 
-/// System responsible for creating new windows whenever a `Window` component is added
+/// System responsible for creating new windows whenever a [`Window`] component is added
 /// to an entity.
 ///
 /// This will default any necessary components if they are not already added.

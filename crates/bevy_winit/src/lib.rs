@@ -264,7 +264,8 @@ struct WinitPersistentState {
     low_power_event: bool,
     /// Tracks whether the event loop was started this frame because of a redraw request.
     redraw_request_sent: bool,
-    /// Tracks if the event loop was started this frame because of a `WaitUntil` timeout.
+    /// Tracks if the event loop was started this frame because of a [`ControlFlow::WaitUntil`]
+    /// timeout.
     timeout_reached: bool,
     last_update: Instant,
 }
