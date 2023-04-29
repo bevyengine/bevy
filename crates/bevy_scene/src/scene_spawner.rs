@@ -267,6 +267,12 @@ impl SceneSpawner {
         let scenes_with_parent = std::mem::take(&mut self.scenes_with_parent);
 
         for (instance_id, parent) in scenes_with_parent {
+            if world.get_entity(parent).is_none() {
+                // parent has been deleted, despawn the instance
+                self.instances_to_despawn.push(instance_id);
+                continue;
+            }
+
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
                 for entity in instance.entity_map.values() {
                     // Add the `Parent` component to the scene root, and update the `Children` component of
