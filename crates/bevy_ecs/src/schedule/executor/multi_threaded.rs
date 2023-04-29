@@ -56,7 +56,7 @@ impl SyncUnsafeSchedule<'_> {
 /// Per-system data used by the [`MultiThreadedExecutor`].
 // Copied here because it can't be read from the system when it's running.
 struct SystemTaskMetadata {
-    /// The `ArchetypeComponentId` access of the system.
+    /// The [`ArchetypeComponentId`] access of the system.
     archetype_component_access: Access<ArchetypeComponentId>,
     /// Indices of the systems that directly depend on the system.
     dependents: Vec<usize>,

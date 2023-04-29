@@ -315,11 +315,11 @@ fn setup(
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., -45.)));
 
     let style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-        font_size: 18.0,
-        color: Color::WHITE,
+        font_size: 20.0,
+        ..default()
     };
 
+    // example instructions
     commands.spawn(
         TextBundle::from_sections(vec![
             TextSection::new(
@@ -332,8 +332,7 @@ fn setup(
             ),
             TextSection::new(format!("{parallax_mapping_method}\n"), style.clone()),
             TextSection::new("\n\n", style.clone()),
-            TextSection::new("Controls\n", style.clone()),
-            TextSection::new("---------------\n", style.clone()),
+            TextSection::new("Controls:\n", style.clone()),
             TextSection::new("Left click - Change view angle\n", style.clone()),
             TextSection::new(
                 "1/2 - Decrease/Increase parallax depth scale\n",
@@ -344,8 +343,8 @@ fn setup(
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
