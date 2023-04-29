@@ -21,7 +21,7 @@ codespan-reporting = "0.11"
 data-encoding = "2.3.2"
 bit-set = "0.5"
 rustc-hash = "1.1.0"
-unicode-ident = "1.0.8"
+unicode-ident = "1"
 once_cell = "1.17.0"
 indexmap = "1.9.3"
 
