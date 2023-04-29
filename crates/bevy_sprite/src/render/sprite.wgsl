@@ -2,10 +2,10 @@
 #import bevy_core_pipeline::tonemapping
 #endif
 
-#from bevy_render::view import View
+#import bevy_render::view  View
 
 @group(0) @binding(0)
-var<uniform> view: ::View;
+var<uniform> view: View;
 
 struct VertexOutput {
     @location(0) uv: vec2<f32>,

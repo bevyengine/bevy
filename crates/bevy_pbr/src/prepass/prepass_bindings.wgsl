@@ -1,13 +1,13 @@
 #define_import_path bevy_pbr::prepass_bindings
 
-#from bevy_render::view import View
-#from bevy_render::globals import Globals
+#import bevy_render::view View
+#import bevy_render::globals Globals
 #import bevy_pbr::mesh_types
 
 @group(0) @binding(0)
-var<uniform> view: ::View;
+var<uniform> view: View;
 @group(0) @binding(1)
-var<uniform> globals: ::Globals;
+var<uniform> globals: Globals;
 
 #ifdef MOTION_VECTOR_PREPASS
 @group(0) @binding(2)

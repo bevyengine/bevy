@@ -1,6 +1,6 @@
 #define_import_path bevy_core_pipeline::tonemapping
 
-#from bevy_render::view import View, ColorGrading
+#import bevy_render::view View, ColorGrading
 
 // hack !! not sure what to do with this
 #ifdef TONEMAPPING_PASS
@@ -284,7 +284,7 @@ fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
     return (dither - 0.5) / 255.0;
 }
 
-fn tone_mapping(in: vec4<f32>, color_grading: ::ColorGrading) -> vec4<f32> {
+fn tone_mapping(in: vec4<f32>, color_grading: ColorGrading) -> vec4<f32> {
     var color = max(in.rgb, vec3(0.0));
 
     // Possible future grading:

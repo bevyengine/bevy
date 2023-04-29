@@ -1,8 +1,8 @@
 #define_import_path bevy_pbr::shadows
 
-#from bevy_pbr::mesh_view_types import POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
+#import bevy_pbr::mesh_view_types  POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
 #import bevy_pbr::mesh_view_bindings as view_bindings
-#from bevy_pbr::utils import hsv2rgb
+#import bevy_pbr::utils  hsv2rgb
 const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
 
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
@@ -56,7 +56,7 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
     var spot_dir = vec3<f32>((*light).light_custom_data.x, 0.0, (*light).light_custom_data.y);
     // reconstruct spot dir from x/z and y-direction flag
     spot_dir.y = sqrt(max(0.0, 1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z));
-    if (((*light).flags & ::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
+    if (((*light).flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
         spot_dir.y = -spot_dir.y;
     }
 
@@ -192,7 +192,7 @@ fn cascade_debug_visualization(
 ) -> vec3<f32> {
     let overlay_alpha = 0.95;
     let cascade_index = get_cascade_index(light_id, view_z);
-    let cascade_color = ::hsv2rgb(f32(cascade_index) / f32(#{MAX_CASCADES_PER_LIGHT}u + 1u), 1.0, 0.5);
+    let cascade_color = hsv2rgb(f32(cascade_index) / f32(#{MAX_CASCADES_PER_LIGHT}u + 1u), 1.0, 0.5);
     return vec3<f32>(
         (1.0 - overlay_alpha) * output_color.rgb + overlay_alpha * cascade_color
     );

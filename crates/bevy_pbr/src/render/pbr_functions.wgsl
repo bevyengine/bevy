@@ -17,8 +17,8 @@
 #import bevy_pbr::environment_map
 #endif
 
-#from bevy_pbr::mesh_bindings   import mesh
-#from bevy_pbr::mesh_types      import MESH_FLAGS_SHADOW_RECEIVER_BIT
+#import bevy_pbr::mesh_bindings   mesh
+#import bevy_pbr::mesh_types      MESH_FLAGS_SHADOW_RECEIVER_BIT
 
 fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
@@ -218,7 +218,7 @@ fn pbr(
     for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
         let light_id = clustering::get_light_id(i);
         var shadow: f32 = 1.0;
-        if ((::mesh.flags & ::MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::point_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
@@ -231,7 +231,7 @@ fn pbr(
         let light_id = clustering::get_light_id(i);
 
         var shadow: f32 = 1.0;
-        if ((::mesh.flags & ::MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::point_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
@@ -243,7 +243,7 @@ fn pbr(
     let n_directional_lights = view_bindings::lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
         var shadow: f32 = 1.0;
-        if ((::mesh.flags & ::MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
         }

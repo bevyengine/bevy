@@ -1,7 +1,7 @@
 #import bevy_sprite::mesh2d_functions as mesh_functions
-#from bevy_sprite::mesh2d_bindings      import mesh
-#from bevy_sprite::mesh2d_vertex_output import MeshVertexOutput
-#from bevy_sprite::mesh2d_view_bindings import view
+#import bevy_sprite::mesh2d_bindings       mesh
+#import bevy_sprite::mesh2d_vertex_output  MeshVertexOutput
+#import bevy_sprite::mesh2d_view_bindings  view
 
 #ifdef TONEMAP_IN_SHADER
 #import bevy_core_pipeline::tonemapping
@@ -26,15 +26,15 @@ struct Vertex {
 };
 
 @vertex
-fn vertex(vertex: Vertex) -> ::MeshVertexOutput {
-    var out: ::MeshVertexOutput;
+fn vertex(vertex: Vertex) -> MeshVertexOutput {
+    var out: MeshVertexOutput;
 #ifdef VERTEX_UVS
     out.uv = vertex.uv;
 #endif
 
 #ifdef VERTEX_POSITIONS
     out.world_position = mesh_functions::mesh2d_position_local_to_world(
-        ::mesh.model, 
+        mesh.model, 
         vec4<f32>(vertex.position, 1.0)
     );
     out.clip_position = mesh_functions::mesh2d_position_world_to_clip(out.world_position);
@@ -46,7 +46,7 @@ fn vertex(vertex: Vertex) -> ::MeshVertexOutput {
 
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_functions::mesh2d_tangent_local_to_world(
-        ::mesh.model, 
+        mesh.model, 
         vertex.tangent
     );
 #endif
@@ -59,12 +59,12 @@ fn vertex(vertex: Vertex) -> ::MeshVertexOutput {
 
 @fragment
 fn fragment(
-    in: ::MeshVertexOutput,
+    in: MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
 #ifdef VERTEX_COLORS
     var color = in.color;
 #ifdef TONEMAP_IN_SHADER
-    color = bevy_core_pipeline::tonemapping::tone_mapping(color, ::view.color_grading);
+    color = bevy_core_pipeline::tonemapping::tone_mapping(color, view.color_grading);
 #endif
     return color;
 #else

@@ -1,7 +1,7 @@
 #import bevy_pbr::mesh_types
-#from bevy_pbr::mesh_view_bindings import globals
+#import bevy_pbr::mesh_view_bindings  globals
 #import bevy_pbr::prepass_utils
-#from bevy_pbr::mesh_vertex_output import MeshVertexOutput
+#import bevy_pbr::mesh_vertex_output  MeshVertexOutput
 
 struct ShowPrepassSettings {
     show_depth: u32,
@@ -16,7 +16,7 @@ var<uniform> settings: ShowPrepassSettings;
 @fragment
 fn fragment(
     @builtin(sample_index) sample_index: u32,
-    mesh: ::MeshVertexOutput,
+    mesh: MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
     if settings.show_depth == 1u {
         let depth = bevy_pbr::prepass_utils::prepass_depth(mesh.clip_position, sample_index);
@@ -26,7 +26,7 @@ fn fragment(
         return vec4(normal, 1.0);
     } else if settings.show_motion_vectors == 1u {
         let motion_vector = bevy_pbr::prepass_utils::prepass_motion_vector(mesh.clip_position, sample_index);
-        return vec4(motion_vector / ::globals.delta_time, 0.0, 1.0);
+        return vec4(motion_vector / globals.delta_time, 0.0, 1.0);
     }
 
     return vec4(0.0);

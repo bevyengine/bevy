@@ -5,23 +5,23 @@
 #import bevy_pbr::pbr_types as pbr_types
 #import bevy_pbr::prepass_utils
 
-#from bevy_pbr::mesh_vertex_output      import MeshVertexOutput
-#from bevy_pbr::mesh_bindings           import mesh
-#from bevy_pbr::mesh_view_bindings      import view, fog
-#from bevy_pbr::mesh_view_types         import FOG_MODE_OFF
-#from bevy_core_pipeline::tonemapping   import screen_space_dither, powsafe, tone_mapping
+#import bevy_pbr::mesh_vertex_output       MeshVertexOutput
+#import bevy_pbr::mesh_bindings            mesh
+#import bevy_pbr::mesh_view_bindings       view, fog
+#import bevy_pbr::mesh_view_types          FOG_MODE_OFF
+#import bevy_core_pipeline::tonemapping    screen_space_dither, powsafe, tone_mapping
 #import bevy_pbr::parallax_mapping
 
 #import bevy_pbr::prepass_utils
 
 @fragment
 fn fragment(
-    in: ::MeshVertexOutput,
+    in: MeshVertexOutput,
     @builtin(front_facing) is_front: bool,
 ) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
 
-    let is_orthographic = ::view.projection[3].w == 1.0;
+    let is_orthographic = view.projection[3].w == 1.0;
     let V = pbr_functions::calculate_view(in.world_position, is_orthographic);
 #ifdef VERTEX_UVS
     var uv = in.uv;
@@ -124,7 +124,7 @@ fn fragment(
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
 
-        pbr_input.flags = ::mesh.flags;
+        pbr_input.flags = mesh.flags;
 
         output_color = pbr_functions::pbr(pbr_input);
     } else {
@@ -132,19 +132,19 @@ fn fragment(
     }
 
     // fog
-    if (::fog.mode != ::FOG_MODE_OFF && (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
-        output_color = pbr_functions::apply_fog(output_color, in.world_position.xyz, ::view.world_position.xyz);
+    if (fog.mode != FOG_MODE_OFF && (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
+        output_color = pbr_functions::apply_fog(output_color, in.world_position.xyz, view.world_position.xyz);
     }
 
 #ifdef TONEMAP_IN_SHADER
-    output_color = ::tone_mapping(output_color, ::view.color_grading);
+    output_color = tone_mapping(output_color, view.color_grading);
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
-    output_rgb = ::powsafe(output_rgb, 1.0 / 2.2);
-    output_rgb = output_rgb + ::screen_space_dither(in.clip_position.xy);
+    output_rgb = powsafe(output_rgb, 1.0 / 2.2);
+    output_rgb = output_rgb + screen_space_dither(in.clip_position.xy);
     // This conversion back to linear space is required because our output texture format is
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
-    output_rgb = ::powsafe(output_rgb, 2.2);
+    output_rgb = powsafe(output_rgb, 2.2);
     output_color = vec4(output_rgb, output_color.a);
 #endif
 #endif

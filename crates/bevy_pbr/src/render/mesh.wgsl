@@ -1,7 +1,7 @@
 #import bevy_pbr::mesh_functions as mesh_functions
 #import bevy_pbr::skinning
-#from bevy_pbr::mesh_bindings       import mesh
-#from bevy_pbr::mesh_vertex_output  import MeshVertexOutput
+#import bevy_pbr::mesh_bindings       mesh
+#import bevy_pbr::mesh_vertex_output  MeshVertexOutput
 
 struct Vertex {
 #ifdef VERTEX_POSITIONS
@@ -26,13 +26,13 @@ struct Vertex {
 };
 
 @vertex
-fn vertex(vertex: Vertex) -> ::MeshVertexOutput {
-    var out: ::MeshVertexOutput;
+fn vertex(vertex: Vertex) -> MeshVertexOutput {
+    var out: MeshVertexOutput;
 
 #ifdef SKINNED
     var model = bevy_pbr::skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else
-    var model = ::mesh.model;
+    var model = mesh.model;
 #endif
 
 #ifdef VERTEX_NORMALS
@@ -65,7 +65,7 @@ fn vertex(vertex: Vertex) -> ::MeshVertexOutput {
 
 @fragment
 fn fragment(
-    mesh: ::MeshVertexOutput,
+    mesh: MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
 #ifdef VERTEX_COLORS
     return mesh.color;

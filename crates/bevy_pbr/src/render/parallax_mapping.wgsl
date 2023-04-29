@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::parallax_mapping
 
-#from bevy_pbr::pbr_bindings import depth_map_texture, depth_map_sampler
+#import bevy_pbr::pbr_bindings  depth_map_texture, depth_map_sampler
 
 fn sample_depth_map(uv: vec2<f32>) -> f32 {
     // We use `textureSampleLevel` over `textureSample` because the wgpu DX12
@@ -13,7 +13,7 @@ fn sample_depth_map(uv: vec2<f32>) -> f32 {
     // the MIP level, so no gradient instructions are used, and we can use
     // sample_depth_map in our loop.
     // See https://stackoverflow.com/questions/56581141/direct3d11-gradient-instruction-used-in-a-loop-with-varying-iteration-forcing
-    return textureSampleLevel(::depth_map_texture, ::depth_map_sampler, uv, 0.0).r;
+    return textureSampleLevel(depth_map_texture, depth_map_sampler, uv, 0.0).r;
 }
 
 // An implementation of parallax mapping, see https://en.wikipedia.org/wiki/Parallax_mapping

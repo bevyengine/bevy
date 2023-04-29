@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::lighting
 
-#from bevy_pbr::utils import PI
+#import bevy_pbr::utils PI
 #import bevy_pbr::mesh_view_types as view_types
 #import bevy_pbr::mesh_view_bindings as view_bindings
 
@@ -61,7 +61,7 @@ fn D_GGX(roughness: f32, NoH: f32, h: vec3<f32>) -> f32 {
     let oneMinusNoHSquared = 1.0 - NoH * NoH;
     let a = NoH * roughness;
     let k = roughness / (oneMinusNoHSquared + a * a);
-    let d = k * k * (1.0 / ::PI);
+    let d = k * k * (1.0 / PI);
     return d;
 }
 
@@ -146,7 +146,7 @@ fn Fd_Burley(roughness: f32, NoV: f32, NoL: f32, LoH: f32) -> f32 {
     let f90 = 0.5 + 2.0 * roughness * LoH * LoH;
     let lightScatter = F_Schlick(1.0, f90, NoL);
     let viewScatter = F_Schlick(1.0, f90, NoV);
-    return lightScatter * viewScatter * (1.0 / ::PI);
+    return lightScatter * viewScatter * (1.0 / PI);
 }
 
 // Scale/bias approximation

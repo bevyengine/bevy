@@ -1,7 +1,7 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::mesh_functions
 #import bevy_pbr::skinning
-#from bevy_pbr::mesh_bindings import mesh
+#import bevy_pbr::mesh_bindings mesh
 
 // Most of these attributes are not used in the default prepass fragment shader, but they are still needed so we can
 // pass them to custom prepass shaders like pbr_prepass.wgsl.
@@ -52,7 +52,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #ifdef SKINNED
     var model = bevy_pbr::skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else // SKINNED
-    var model = ::mesh.model;
+    var model = mesh.model;
 #endif // SKINNED
 
     out.clip_position = bevy_pbr::mesh_functions::mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
@@ -78,7 +78,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
 #ifdef MOTION_VECTOR_PREPASS
     out.world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
-    out.previous_world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(::mesh.previous_model, vec4<f32>(vertex.position, 1.0));
+    out.previous_world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(mesh.previous_model, vec4<f32>(vertex.position, 1.0));
 #endif // MOTION_VECTOR_PREPASS
 
     return out;

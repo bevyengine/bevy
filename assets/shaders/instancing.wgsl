@@ -1,5 +1,5 @@
-#from bevy_pbr::mesh_functions  import mesh_position_local_to_clip
-#from bevy_pbr::mesh_bindings   import mesh
+#import bevy_pbr::mesh_functions  mesh_position_local_to_clip
+#import bevy_pbr::mesh_bindings   mesh
 
 struct Vertex {
     @location(0) position: vec3<f32>,
@@ -19,8 +19,8 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     let position = vertex.position * vertex.i_pos_scale.w + vertex.i_pos_scale.xyz;
     var out: VertexOutput;
-    out.clip_position = ::mesh_position_local_to_clip(
-        ::mesh.model, 
+    out.clip_position = mesh_position_local_to_clip(
+        mesh.model, 
         vec4<f32>(position, 1.0)
     );
     out.color = vertex.i_color;

@@ -1,8 +1,8 @@
-#from bevy_pbr::mesh_vertex_output  import MeshVertexOutput
-#from bevy_pbr::mesh_view_bindings  import view
-#from bevy_pbr::pbr_types           import STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT
+#import bevy_pbr::mesh_vertex_output    MeshVertexOutput
+#import bevy_pbr::mesh_view_bindings    view
+#import bevy_pbr::pbr_types             STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT
+#import bevy_core_pipeline::tonemapping tone_mapping
 #import bevy_pbr::pbr_functions as fns
-#from bevy_core_pipeline::tonemapping import tone_mapping
 
 @group(1) @binding(0)
 var my_array_texture: texture_2d_array<f32>;
@@ -12,7 +12,7 @@ var my_array_texture_sampler: sampler;
 @fragment
 fn fragment(
     @builtin(front_facing) is_front: bool,
-    mesh: ::MeshVertexOutput,
+    mesh: MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
     let layer = i32(mesh.world_position.x) & 0x3;
 
@@ -29,11 +29,11 @@ fn fragment(
     pbr_input.world_position = mesh.world_position;
     pbr_input.world_normal = fns::prepare_world_normal(
         mesh.world_normal,
-        (pbr_input.material.flags & ::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+        (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
         is_front,
     );
 
-    pbr_input.is_orthographic = ::view.projection[3].w == 1.0;
+    pbr_input.is_orthographic = view.projection[3].w == 1.0;
 
     pbr_input.N = fns::apply_normal_mapping(
         pbr_input.material.flags,
@@ -47,5 +47,5 @@ fn fragment(
     );
     pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 
-    return ::tone_mapping(fns::pbr(pbr_input), ::view.color_grading);
+    return tone_mapping(fns::pbr(pbr_input), view.color_grading);
 }
