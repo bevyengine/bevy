@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use regex::Regex;
-use tracing::{warn};
+use tracing::warn;
 
 use super::{ComposerErrorInner, ImportDefWithOffset, ImportDefinition, ShaderDefValue};
 
