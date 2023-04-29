@@ -19,12 +19,12 @@ use naga::valid::Capabilities;
 use parking_lot::Mutex;
 use std::{borrow::Cow, hash::Hash, mem, ops::Deref};
 use thiserror::Error;
-use wgpu::{
-    Features, PipelineLayoutDescriptor, PushConstantRange,
-    ShaderModuleDescriptor, VertexBufferLayout as RawVertexBufferLayout,
-};
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
+use wgpu::{
+    Features, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
+    VertexBufferLayout as RawVertexBufferLayout,
+};
 
 use crate::render_resource::resource_macros::*;
 
@@ -284,12 +284,12 @@ impl ShaderCache {
                 );
                 let shader_source = match &shader.source {
                     #[cfg(feature = "shader_format_spirv")]
-                    Source::SpirV(data) => {
-                        make_spirv(data)
-                    }
+                    Source::SpirV(data) => make_spirv(data),
                     #[cfg(not(feature = "shader_format_spirv"))]
                     Source::SpirV(_) => {
-                        unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
+                        unimplemented!(
+                            "Enable feature \"shader_format_spirv\" to use SPIR-V shaders"
+                        )
                     }
                     _ => {
                         for import in shader.imports() {

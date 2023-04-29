@@ -29,7 +29,7 @@ pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AddAsset, HandleUntyped, Assets, Handle};
+use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
