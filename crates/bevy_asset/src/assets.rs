@@ -504,7 +504,18 @@ macro_rules! load_internal_binary_asset {
             );
         }
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.set_untracked($handle, ($loader)(include_bytes!($path_str).as_ref()));
+        assets.set_untracked(
+            $handle,
+            ($loader)(
+                include_bytes!($path_str).as_ref(),
+                std::path::Path::new(file!())
+                    .parent()
+                    .unwrap()
+                    .join($path_str)
+                    .to_string_lossy()
+                    .into(),
+            ),
+        );
     }};
 }
 
@@ -517,7 +528,18 @@ macro_rules! load_internal_binary_asset {
 macro_rules! load_internal_binary_asset {
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.set_untracked($handle, ($loader)(include_bytes!($path_str).as_ref()));
+        assets.set_untracked(
+            $handle,
+            ($loader)(
+                include_bytes!($path_str).as_ref(),
+                std::path::Path::new(file!())
+                    .parent()
+                    .unwrap()
+                    .join($path_str)
+                    .to_string_lossy()
+                    .into(),
+            ),
+        );
     }};
 }
 
