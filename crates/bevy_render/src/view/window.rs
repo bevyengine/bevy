@@ -8,7 +8,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{
-    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
+    AbstractHandleWrapper, CompositeAlphaMode, PresentMode, PrimaryWindow, Window, WindowClosed,
 };
 use std::ops::{Deref, DerefMut};
 use wgpu::{BufferUsages, TextureFormat, TextureUsages};
@@ -52,7 +52,7 @@ impl Plugin for WindowRenderPlugin {
 pub struct ExtractedWindow {
     /// An entity that contains the components in [`Window`].
     pub entity: Entity,
-    pub handle: RawHandleWrapper,
+    pub handle: AbstractHandleWrapper,
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
@@ -102,7 +102,14 @@ fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
     screenshot_manager: Extract<Res<ScreenshotManager>>,
     mut closed: Extract<EventReader<WindowClosed>>,
-    windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
+    windows: Extract<
+        Query<(
+            Entity,
+            &Window,
+            &AbstractHandleWrapper,
+            Option<&PrimaryWindow>,
+        )>,
+    >,
 ) {
     for (entity, window, handle, primary) in windows.iter() {
         if primary.is_some() {
@@ -228,9 +235,24 @@ pub fn prepare_windows(
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
                 // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                let surface = render_instance
-                    .create_surface(&window.handle.get_handle())
-                    .expect("Failed to create wgpu surface");
+                let surface = match &window.handle {
+                    AbstractHandleWrapper::RawHandle(handle) => render_instance
+                        .create_surface(&handle.get_handle())
+                        .expect("Failed to create wgpu surface"),
+                    #[cfg(target_arch = "wasm32")]
+                    AbstractHandleWrapper::WebHandle(web_handle) => {
+                        use bevy_window::WebHandle;
+
+                        match web_handle {
+                            WebHandle::HtmlCanvas(canvas) => render_instance
+                                .create_surface_from_canvas(canvas)
+                                .expect("Failed to create wgpu surface"),
+                            WebHandle::OffscreenCanvas(canvas) => render_instance
+                                .create_surface_from_offscreen_canvas(canvas)
+                                .expect("Failed to create wgpu surface"),
+                        }
+                    }
+                };
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
                 // For future HDR output support, we'll need to request a format that supports HDR,

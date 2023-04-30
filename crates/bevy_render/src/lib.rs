@@ -41,7 +41,7 @@ pub mod prelude {
     };
 }
 
-use bevy_window::{PrimaryWindow, RawHandleWrapper};
+use bevy_window::PrimaryWindow;
 use globals::GlobalsPlugin;
 pub use once_cell;
 
@@ -191,12 +191,14 @@ pub struct RenderApp;
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`](RenderSet) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
+        use bevy_window::AbstractHandleWrapper;
+
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
             .init_debug_asset_loader::<ShaderLoader>();
 
-        let mut system_state: SystemState<Query<&RawHandleWrapper, With<PrimaryWindow>>> =
+        let mut system_state: SystemState<Query<&AbstractHandleWrapper, With<PrimaryWindow>>> =
             SystemState::new(&mut app.world);
         let primary_window = system_state.get(&app.world);
 
@@ -207,10 +209,24 @@ impl Plugin for RenderPlugin {
             });
             let surface = primary_window.get_single().ok().map(|wrapper| unsafe {
                 // SAFETY: Plugins should be set up on the main thread.
-                let handle = wrapper.get_handle();
-                instance
-                    .create_surface(&handle)
-                    .expect("Failed to create wgpu surface")
+                match wrapper {
+                    AbstractHandleWrapper::RawHandle(handle) => instance
+                        .create_surface(&handle.get_handle())
+                        .expect("Failed to create wgpu surface"),
+                    #[cfg(target_arch = "wasm32")]
+                    AbstractHandleWrapper::WebHandle(web_handle) => {
+                        use bevy_window::WebHandle;
+
+                        match web_handle {
+                            WebHandle::HtmlCanvas(canvas) => {
+                                instance.create_surface_from_canvas(canvas).unwrap()
+                            }
+                            WebHandle::OffscreenCanvas(offscreen_canvas) => instance
+                                .create_surface_from_offscreen_canvas(offscreen_canvas)
+                                .unwrap(),
+                        }
+                    }
+                }
             });
 
             let request_adapter_options = wgpu::RequestAdapterOptions {
