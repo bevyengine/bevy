@@ -18,6 +18,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_audio|Provides audio functionality|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_gilrs|Adds gamepad support|
+|bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_pbr|Adds PBR rendering|
 |bevy_render|Provides rendering functionality|
@@ -26,6 +27,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_winit|winit window and input backend|
+|default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |filesystem_watcher|Enable watching file system for asset hot reload|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
@@ -50,10 +52,13 @@ The default feature set enables most of the expected features of a game engine, 
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |exr|EXR image format support|
 |flac|FLAC audio format support|
+|glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |jpeg|JPEG image format support|
 |minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|
 |serialize|Enable serialization support through serde|
+|shader_format_glsl|Enable support for shaders in GLSL|
+|shader_format_spirv|Enable support for shaders in SPIR-V|
 |subpixel_glyph_atlas|Enable rendering of font glyphs using subpixel accuracy|
 |symphonia-aac|AAC audio format support (through symphonia)|
 |symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|
@@ -65,7 +70,9 @@ The default feature set enables most of the expected features of a game engine, 
 |trace|Tracing support|
 |trace_chrome|Tracing support, saving a file in Chrome Tracing format|
 |trace_tracy|Tracing support, exposing a port for Tracy|
+|trace_tracy_memory|Tracing support, with memory profiling, exposing a port for Tracy|
 |wav|WAV audio format support|
 |wayland|Wayland display server support|
+|webp|WebP image format support|
 |wgpu_trace|Save a trace of all wgpu calls|
 |zlib|For KTX2 supercompression|

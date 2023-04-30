@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy_app::{App, CoreSchedule, CoreSet, Plugin, StartupSet};
+use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::{Mat4, Rect, Vec2};
 use bevy_reflect::{
@@ -27,11 +27,8 @@ pub struct CameraUpdateSystem;
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
-            .edit_schedule(CoreSchedule::Startup, |schedule| {
-                schedule.configure_set(CameraUpdateSystem.in_base_set(StartupSet::PostStartup));
-            })
-            .configure_set(CameraUpdateSystem.in_base_set(CoreSet::PostUpdate))
-            .add_startup_system(
+            .add_systems(
+                PostStartup,
                 crate::camera::camera_system::<T>
                     .in_set(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,
@@ -39,7 +36,8 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(CameraUpdateSystem),
             )
-            .add_system(
+            .add_systems(
+                PostUpdate,
                 crate::camera::camera_system::<T>
                     .in_set(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,

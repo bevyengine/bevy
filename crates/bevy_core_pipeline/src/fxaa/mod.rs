@@ -1,4 +1,8 @@
-use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state};
+use crate::{
+    core_2d::{self, CORE_2D},
+    core_3d::{self, CORE_3D},
+    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
@@ -9,12 +13,12 @@ use bevy_reflect::{
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
-    render_graph::RenderGraph,
+    render_graph::RenderGraphApp,
     render_resource::*,
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
-    RenderApp, RenderSet,
+    Render, RenderApp, RenderSet,
 };
 
 mod node;
@@ -90,54 +94,25 @@ impl Plugin for FxaaPlugin {
         render_app
             .init_resource::<FxaaPipeline>()
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
-            .add_system(prepare_fxaa_pipelines.in_set(RenderSet::Prepare));
-
-        {
-            let fxaa_node = FxaaNode::new(&mut render_app.world);
-            let mut binding = render_app.world.resource_mut::<RenderGraph>();
-            let graph = binding.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
-
-            graph.add_node(core_3d::graph::node::FXAA, fxaa_node);
-
-            graph.add_slot_edge(
-                graph.input_node().id,
-                core_3d::graph::input::VIEW_ENTITY,
-                core_3d::graph::node::FXAA,
-                FxaaNode::IN_VIEW,
+            .add_systems(Render, prepare_fxaa_pipelines.in_set(RenderSet::Prepare))
+            .add_render_graph_node::<FxaaNode>(CORE_3D, core_3d::graph::node::FXAA)
+            .add_render_graph_edges(
+                CORE_3D,
+                &[
+                    core_3d::graph::node::TONEMAPPING,
+                    core_3d::graph::node::FXAA,
+                    core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+                ],
+            )
+            .add_render_graph_node::<FxaaNode>(CORE_2D, core_2d::graph::node::FXAA)
+            .add_render_graph_edges(
+                CORE_2D,
+                &[
+                    core_2d::graph::node::TONEMAPPING,
+                    core_2d::graph::node::FXAA,
+                    core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+                ],
             );
-
-            graph.add_node_edge(
-                core_3d::graph::node::TONEMAPPING,
-                core_3d::graph::node::FXAA,
-            );
-            graph.add_node_edge(
-                core_3d::graph::node::FXAA,
-                core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-            );
-        }
-        {
-            let fxaa_node = FxaaNode::new(&mut render_app.world);
-            let mut binding = render_app.world.resource_mut::<RenderGraph>();
-            let graph = binding.get_sub_graph_mut(core_2d::graph::NAME).unwrap();
-
-            graph.add_node(core_2d::graph::node::FXAA, fxaa_node);
-
-            graph.add_slot_edge(
-                graph.input_node().id,
-                core_2d::graph::input::VIEW_ENTITY,
-                core_2d::graph::node::FXAA,
-                FxaaNode::IN_VIEW,
-            );
-
-            graph.add_node_edge(
-                core_2d::graph::node::TONEMAPPING,
-                core_2d::graph::node::FXAA,
-            );
-            graph.add_node_edge(
-                core_2d::graph::node::FXAA,
-                core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-            );
-        }
     }
 }
 

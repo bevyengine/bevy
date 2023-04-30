@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 use core::fmt::{self, Formatter, Pointer};
 use core::{
@@ -147,7 +148,7 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
     /// - `inner` must have correct provenance to allow reads of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`Ptr`] will stay valid and nothing
-    ///   can mutate the pointee while this [`Ptr`] is live except through an `UnsafeCell`.
+    ///   can mutate the pointee while this [`Ptr`] is live except through an [`UnsafeCell`].
     #[inline]
     pub unsafe fn new(inner: NonNull<u8>) -> Self {
         Self(inner, PhantomData)
@@ -166,7 +167,7 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`Ptr`].
-    /// - If the type parameter `A` is `Unaligned` then this pointer must be sufficiently aligned
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
@@ -289,7 +290,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
-    /// - If the type parameter `A` is `Unaligned` then this pointer must be sufficiently aligned
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
@@ -300,7 +301,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
-    /// - If the type parameter `A` is `Unaligned` then this pointer must be sufficiently aligned
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
@@ -368,12 +369,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
 
 impl<'a, T> Clone for ThinSlicePtr<'a, T> {
     fn clone(&self) -> Self {
-        Self {
-            ptr: self.ptr,
-            #[cfg(debug_assertions)]
-            len: self.len,
-            _marker: PhantomData,
-        }
+        *self
     }
 }
 

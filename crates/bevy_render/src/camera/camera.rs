@@ -18,7 +18,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_log::warn;
-use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{Mat4, Ray, Rect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
@@ -115,7 +115,7 @@ pub struct Camera {
     /// If this is enabled, a previous camera exists that shares this camera's render target, and this camera has MSAA enabled, then the previous camera's
     /// outputs will be written to the intermediate multi-sampled render target textures for this camera. This enables cameras with MSAA enabled to
     /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
-    /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.  
+    /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
     pub msaa_writeback: bool,
 }
 
@@ -156,13 +156,16 @@ impl Camera {
         Some((min, max))
     }
 
-    /// The rendered logical bounds (minimum, maximum) of the camera. If the `viewport` field is set
-    /// to [`Some`], this will be the rect of that custom viewport. Otherwise it will default to the
+    /// The rendered logical bounds [`Rect`] of the camera. If the `viewport` field is set to
+    /// [`Some`], this will be the rect of that custom viewport. Otherwise it will default to the
     /// full logical rect of the current [`RenderTarget`].
     #[inline]
-    pub fn logical_viewport_rect(&self) -> Option<(Vec2, Vec2)> {
+    pub fn logical_viewport_rect(&self) -> Option<Rect> {
         let (min, max) = self.physical_viewport_rect()?;
-        Some((self.to_logical(min)?, self.to_logical(max)?))
+        Some(Rect {
+            min: self.to_logical(min)?,
+            max: self.to_logical(max)?,
+        })
     }
 
     /// The logical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
@@ -233,7 +236,10 @@ impl Camera {
         }
 
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-        Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size)
+        let mut viewport_position = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size;
+        // Flip the Y co-ordinate origin from the bottom to the top.
+        viewport_position.y = target_size.y - viewport_position.y;
+        Some(viewport_position)
     }
 
     /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
@@ -247,9 +253,11 @@ impl Camera {
     pub fn viewport_to_world(
         &self,
         camera_transform: &GlobalTransform,
-        viewport_position: Vec2,
+        mut viewport_position: Vec2,
     ) -> Option<Ray> {
         let target_size = self.logical_viewport_size()?;
+        // Flip the Y co-ordinate origin from the top to the bottom.
+        viewport_position.y = target_size.y - viewport_position.y;
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
 
         let ndc_to_world =
@@ -273,9 +281,11 @@ impl Camera {
     pub fn viewport_to_world_2d(
         &self,
         camera_transform: &GlobalTransform,
-        viewport_position: Vec2,
+        mut viewport_position: Vec2,
     ) -> Option<Vec2> {
         let target_size = self.logical_viewport_size()?;
+        // Flip the Y co-ordinate origin from the top to the bottom.
+        viewport_position.y = target_size.y - viewport_position.y;
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
 
         let world_near_plane = self.ndc_to_world(camera_transform, ndc.extend(1.))?;
@@ -361,8 +371,8 @@ impl CameraRenderGraph {
         Self(name.into())
     }
 
-    #[inline]
     /// Sets the graph name.
+    #[inline]
     pub fn set<T: Into<Cow<'static, str>>>(&mut self, name: T) {
         self.0 = name.into();
     }
@@ -416,7 +426,7 @@ impl NormalizedRenderTarget {
         match self {
             NormalizedRenderTarget::Window(window_ref) => windows
                 .get(&window_ref.entity())
-                .and_then(|window| window.swap_chain_texture.as_ref()),
+                .and_then(|window| window.swap_chain_texture_view.as_ref()),
             NormalizedRenderTarget::Image(image_handle) => {
                 images.get(image_handle).map(|image| &image.texture_view)
             }
@@ -492,7 +502,7 @@ impl NormalizedRenderTarget {
 /// The system function is generic over the camera projection type, and only instances of
 /// [`OrthographicProjection`] and [`PerspectiveProjection`] are automatically added to
 /// the app, as well as the runtime-selected [`Projection`].
-/// The system runs during [`CoreSet::PostUpdate`].
+/// The system runs during [`PostUpdate`](bevy_app::PostUpdate).
 ///
 /// ## World Resources
 ///
@@ -502,7 +512,6 @@ impl NormalizedRenderTarget {
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 /// [`Projection`]: crate::camera::Projection
-/// [`CoreSet::PostUpdate`]: bevy_app::CoreSet::PostUpdate
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -549,6 +558,10 @@ pub fn camera_system<T: CameraProjection + Component>(
                 }
             }
         }
+
+        if camera.computed.old_viewport_size != viewport_size {
+            camera.computed.old_viewport_size = viewport_size;
+        }
     }
 }
 
@@ -575,19 +588,28 @@ pub fn extract_cameras(
             &GlobalTransform,
             &VisibleEntities,
             Option<&ColorGrading>,
+            Option<&TemporalJitter>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
 ) {
     let primary_window = primary_window.iter().next();
-    for (entity, camera, camera_render_graph, transform, visible_entities, color_grading) in
-        query.iter()
+    for (
+        entity,
+        camera,
+        camera_render_graph,
+        transform,
+        visible_entities,
+        color_grading,
+        temporal_jitter,
+    ) in query.iter()
     {
         let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
 
         if !camera.is_active {
             continue;
         }
+
         if let (Some((viewport_origin, _)), Some(viewport_size), Some(target_size)) = (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
@@ -596,7 +618,10 @@ pub fn extract_cameras(
             if target_size.x == 0 || target_size.y == 0 {
                 continue;
             }
-            commands.get_or_spawn(entity).insert((
+
+            let mut commands = commands.get_or_spawn(entity);
+
+            commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
@@ -624,6 +649,10 @@ pub fn extract_cameras(
                 },
                 visible_entities.clone(),
             ));
+
+            if let Some(temporal_jitter) = temporal_jitter {
+                commands.insert(temporal_jitter.clone());
+            }
         }
     }
 }
@@ -685,5 +714,34 @@ pub fn sort_cameras(
             ambiguities could result in unpredictable render results.",
             ambiguities
         );
+    }
+}
+
+/// A subpixel offset to jitter a perspective camera's fustrum by.
+///
+/// Useful for temporal rendering techniques.
+///
+/// Do not use with [`OrthographicProjection`].
+///
+/// [`OrthographicProjection`]: crate::camera::OrthographicProjection
+#[derive(Component, Clone, Default)]
+pub struct TemporalJitter {
+    /// Offset is in range [-0.5, 0.5].
+    pub offset: Vec2,
+}
+
+impl TemporalJitter {
+    pub fn jitter_projection(&self, projection: &mut Mat4, view_size: Vec2) {
+        if projection.w_axis.w == 1.0 {
+            warn!(
+                "TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead."
+            );
+            return;
+        }
+
+        let jitter = self.offset / view_size;
+
+        projection.z_axis.x += jitter.x;
+        projection.z_axis.y += jitter.y;
     }
 }

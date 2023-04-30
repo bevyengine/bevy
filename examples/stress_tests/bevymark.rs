@@ -43,12 +43,17 @@ fn main() {
             count: 0,
             color: Color::WHITE,
         })
-        .add_startup_system(setup)
-        .add_system(mouse_handler)
-        .add_system(movement_system)
-        .add_system(collision_system)
-        .add_system(counter_system)
-        .add_system(scheduled_spawner.in_schedule(CoreSchedule::FixedUpdate))
+        .add_systems(Startup, setup)
+        .add_systems(FixedUpdate, scheduled_spawner)
+        .add_systems(
+            Update,
+            (
+                mouse_handler,
+                movement_system,
+                collision_system,
+                counter_system,
+            ),
+        )
         .insert_resource(FixedTime::new_from_secs(0.2))
         .run();
 }
@@ -98,9 +103,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TextSection::new(
             value,
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
                 color,
+                ..default()
             },
         )
     };
@@ -119,11 +124,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
-                ..default()
-            },
+            top: Val::Px(5.0),
+            left: Val::Px(5.0),
             ..default()
         }),
         StatsText,

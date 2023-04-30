@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
-    component::ComponentId,
+    component::{ComponentId, Tick},
     entity::Entity,
     prelude::FromWorld,
     query::{
@@ -130,11 +130,11 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
     #[inline]
-    pub fn is_empty(&self, world: &World, last_change_tick: u32, change_tick: u32) -> bool {
+    pub fn is_empty(&self, world: &World, last_run: Tick, this_run: Tick) -> bool {
         // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
         unsafe {
             self.as_nop()
-                .iter_unchecked_manual(world, last_change_tick, change_tick)
+                .iter_unchecked_manual(world, last_run, this_run)
                 .next()
                 .is_none()
         }
@@ -390,8 +390,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &self,
         world: &'w World,
         entity: Entity,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Result<Q::Item<'w>, QueryEntityError> {
         let location = world
             .entities
@@ -407,8 +407,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             .archetypes
             .get(location.archetype_id)
             .debug_checked_unwrap();
-        let mut fetch = Q::init_fetch(world, &self.fetch_state, last_change_tick, change_tick);
-        let mut filter = F::init_fetch(world, &self.filter_state, last_change_tick, change_tick);
+        let mut fetch = Q::init_fetch(world, &self.fetch_state, last_run, this_run);
+        let mut filter = F::init_fetch(world, &self.filter_state, last_run, this_run);
 
         let table = world
             .storages()
@@ -436,20 +436,17 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &self,
         world: &'w World,
         entities: [Entity; N],
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Result<[ROQueryItem<'w, Q>; N], QueryEntityError> {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
         for (value, entity) in std::iter::zip(&mut values, entities) {
             // SAFETY: fetch is read-only
             // and world must be validated
-            let item = self.as_readonly().get_unchecked_manual(
-                world,
-                entity,
-                last_change_tick,
-                change_tick,
-            )?;
+            let item = self
+                .as_readonly()
+                .get_unchecked_manual(world, entity, last_run, this_run)?;
             *value = MaybeUninit::new(item);
         }
 
@@ -471,8 +468,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &self,
         world: &'w World,
         entities: [Entity; N],
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Result<[Q::Item<'w>; N], QueryEntityError> {
         // Verify that all entities are unique
         for i in 0..N {
@@ -486,7 +483,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
         for (value, entity) in std::iter::zip(&mut values, entities) {
-            let item = self.get_unchecked_manual(world, entity, last_change_tick, change_tick)?;
+            let item = self.get_unchecked_manual(world, entity, last_run, this_run)?;
             *value = MaybeUninit::new(item);
         }
 
@@ -708,10 +705,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     pub(crate) unsafe fn iter_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> QueryIter<'w, 's, Q, F> {
-        QueryIter::new(world, self, last_change_tick, change_tick)
+        QueryIter::new(world, self, last_run, this_run)
     }
 
     /// Returns an [`Iterator`] for the given [`World`] and list of [`Entity`]'s, where the last change and
@@ -729,13 +726,13 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &'s self,
         entities: EntityList,
         world: &'w World,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> QueryManyIter<'w, 's, Q, F, EntityList::IntoIter>
     where
         EntityList::Item: Borrow<Entity>,
     {
-        QueryManyIter::new(world, self, entities, last_change_tick, change_tick)
+        QueryManyIter::new(world, self, entities, last_run, this_run)
     }
 
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
@@ -752,10 +749,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     pub(crate) unsafe fn iter_combinations_unchecked_manual<'w, 's, const K: usize>(
         &'s self,
         world: &'w World,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> QueryCombinationIter<'w, 's, Q, F, K> {
-        QueryCombinationIter::new(world, self, last_change_tick, change_tick)
+        QueryCombinationIter::new(world, self, last_run, this_run)
     }
 
     /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
@@ -791,8 +788,6 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
     /// iter() method, but cannot be chained like a normal [`Iterator`].
     ///
-    /// This can only be called for read-only queries.
-    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -823,6 +818,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         QueryParIter {
             world,
             state: self,
+            last_run: world.last_change_tick(),
+            this_run: world.read_change_tick(),
             batching_strategy: BatchingStrategy::new(),
         }
     }
@@ -835,9 +832,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     #[inline]
     pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, Q, F> {
         self.update_archetypes(world);
+        let this_run = world.change_tick();
         QueryParIter {
             world,
             state: self,
+            last_run: world.last_change_tick(),
+            this_run,
             batching_strategy: BatchingStrategy::new(),
         }
     }
@@ -856,13 +856,13 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &self,
         world: &'w World,
         mut func: FN,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        let mut fetch = Q::init_fetch(world, &self.fetch_state, last_change_tick, change_tick);
-        let mut filter = F::init_fetch(world, &self.filter_state, last_change_tick, change_tick);
+        let mut fetch = Q::init_fetch(world, &self.fetch_state, last_run, this_run);
+        let mut filter = F::init_fetch(world, &self.filter_state, last_run, this_run);
 
         let tables = &world.storages().tables;
         if Q::IS_DENSE && F::IS_DENSE {
@@ -931,8 +931,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         world: &'w World,
         batch_size: usize,
         func: FN,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
@@ -950,18 +950,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                         let func = func.clone();
                         let len = batch_size.min(table.entity_count() - offset);
                         let task = async move {
-                            let mut fetch = Q::init_fetch(
-                                world,
-                                &self.fetch_state,
-                                last_change_tick,
-                                change_tick,
-                            );
-                            let mut filter = F::init_fetch(
-                                world,
-                                &self.filter_state,
-                                last_change_tick,
-                                change_tick,
-                            );
+                            let mut fetch =
+                                Q::init_fetch(world, &self.fetch_state, last_run, this_run);
+                            let mut filter =
+                                F::init_fetch(world, &self.filter_state, last_run, this_run);
                             let tables = &world.storages().tables;
                             let table = tables.get(*table_id).debug_checked_unwrap();
                             let entities = table.entities();
@@ -1002,18 +994,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                         let func = func.clone();
                         let len = batch_size.min(archetype.len() - offset);
                         let task = async move {
-                            let mut fetch = Q::init_fetch(
-                                world,
-                                &self.fetch_state,
-                                last_change_tick,
-                                change_tick,
-                            );
-                            let mut filter = F::init_fetch(
-                                world,
-                                &self.filter_state,
-                                last_change_tick,
-                                change_tick,
-                            );
+                            let mut fetch =
+                                Q::init_fetch(world, &self.fetch_state, last_run, this_run);
+                            let mut filter =
+                                F::init_fetch(world, &self.filter_state, last_run, this_run);
                             let tables = &world.storages().tables;
                             let archetype =
                                 world.archetypes.get(*archetype_id).debug_checked_unwrap();
@@ -1161,10 +1145,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     pub unsafe fn get_single_unchecked_manual<'w>(
         &self,
         world: &'w World,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Result<Q::Item<'w>, QuerySingleError> {
-        let mut query = self.iter_unchecked_manual(world, last_change_tick, change_tick);
+        let mut query = self.iter_unchecked_manual(world, last_run, this_run);
         let first = query.next();
         let extra = query.next().is_some();
 
