@@ -1,4 +1,5 @@
 mod convert;
+pub mod debug;
 
 use crate::{CalculatedSize, Node, Style, UiScale};
 use bevy_ecs::{
