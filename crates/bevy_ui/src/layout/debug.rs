@@ -69,7 +69,7 @@ fn print_node(
         let child_entity = taffy_to_entity.get(child_node).unwrap();
         print_node(
             ui_surface,
-            &taffy_to_entity,
+            taffy_to_entity,
             *child_entity,
             *child_node,
             has_sibling,
