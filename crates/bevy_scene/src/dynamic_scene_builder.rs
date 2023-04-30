@@ -122,18 +122,18 @@ impl<'w> DynamicSceneBuilder<'w> {
     pub fn extract_entities(&mut self, entities: impl Iterator<Item = Entity>) -> &mut Self {
         let type_registry = self.type_registry.read();
 
-        for index in entities {
-            if self.extracted_scene.contains_key(&index) {
+        for entity in entities {
+            if self.extracted_scene.contains_key(&entity) {
                 continue;
             }
 
             let mut entry = DynamicEntity {
-                entity: index,
+                entity,
                 components: Vec::new(),
             };
 
-            let entity = self.original_world.entity(index);
-            for component_id in entity.archetype().components() {
+            let original_entity = self.original_world.entity(entity);
+            for component_id in original_entity.archetype().components() {
                 let mut extract_and_push = || {
                     let type_id = self
                         .original_world
@@ -143,13 +143,13 @@ impl<'w> DynamicSceneBuilder<'w> {
                     let component = type_registry
                         .get(type_id)?
                         .data::<ReflectComponent>()?
-                        .reflect(entity)?;
+                        .reflect(original_entity)?;
                     entry.components.push(component.clone_value());
                     Some(())
                 };
                 extract_and_push();
             }
-            self.extracted_scene.insert(index, entry);
+            self.extracted_scene.insert(entity, entry);
         }
 
         drop(type_registry);

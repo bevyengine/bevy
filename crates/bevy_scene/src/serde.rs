@@ -261,9 +261,9 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
         A: MapAccess<'de>,
     {
         let mut entities = Vec::new();
-        while let Some(id) = map.next_key::<Entity>()? {
+        while let Some(entity) = map.next_key::<Entity>()? {
             let entity = map.next_value_seed(SceneEntityDeserializer {
-                id,
+                entity,
                 type_registry: self.type_registry,
             })?;
             entities.push(entity);
@@ -274,7 +274,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
 }
 
 pub struct SceneEntityDeserializer<'a> {
-    pub id: Entity,
+    pub entity: Entity,
     pub type_registry: &'a TypeRegistry,
 }
 
@@ -289,7 +289,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
             ENTITY_STRUCT,
             &[ENTITY_FIELD_COMPONENTS],
             SceneEntityVisitor {
-                id: self.id,
+                id: self.entity,
                 registry: self.type_registry,
             },
         )
