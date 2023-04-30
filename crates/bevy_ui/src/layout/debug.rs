@@ -1,26 +1,37 @@
+use bevy_ecs::prelude::Entity;
+use bevy_utils::HashMap;
+use taffy::prelude::Node;
+use taffy::tree::LayoutTree;
+use crate::UiSurface;
 
-pub fn print_tree(tree: &impl LayoutTree, root: Node) {
-    println!("TREE");
-    print_node(tree, root, false, String::new());
+pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
+    let taffy_to_entity: HashMap<Node, Entity> =
+        ui_surface.entity_to_taffy.iter()
+        .map(|(entity, node)| (*node, *entity))
+        .collect();
+    for (&entity, &node) in ui_surface.window_nodes.iter() {
+        println!("Layout tree for window entity: {entity:?}");
+        print_node(ui_surface, &taffy_to_entity, entity, node, false, String::new());
+    }
 }
 
-fn print_node(tree: &impl LayoutTree, node: Node, has_sibling: bool, lines_string: String) {
-    let layout = tree.layout(node);
-    let style = tree.style(node);
+fn print_node(ui_surface: &UiSurface, taffy_to_entity: &HashMap<Node, Entity>, entity: Entity, node: Node, has_sibling: bool, lines_string: String) {
+    let tree = &ui_surface.taffy;
+    let layout = tree.layout(node).unwrap();
+    let style = tree.style(node).unwrap();
 
-    let num_children = tree.child_count(node);
+    let num_children = tree.child_count(node).unwrap();
 
     let display = match (num_children, style.display) {
-        (_, style::Display::None) => "NONE",
+        (_, taffy::style::Display::None) => "NONE",
         (0, _) => "LEAF",
-        (_, style::Display::Flex) => "FLEX",
-        #[cfg(feature = "grid")]
-        (_, style::Display::Grid) => "GRID",
+        (_, taffy::style::Display::Flex) => "FLEX",
+        (_, taffy::style::Display::Grid) => "GRID",
     };
 
     let fork_string = if has_sibling { "├── " } else { "└── " };
     println!(
-        "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({key:?})",
+        "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({entity:?}) {measured}",
         lines = lines_string,
         fork = fork_string,
         display = display,
@@ -28,14 +39,15 @@ fn print_node(tree: &impl LayoutTree, node: Node, has_sibling: bool, lines_strin
         y = layout.location.y,
         width = layout.size.width,
         height = layout.size.height,
-        key = node.data(),
+        measured = if tree.needs_measure(node) { "measured" } else { "" }
     );
     let bar = if has_sibling { "│   " } else { "    " };
     let new_string = lines_string + bar;
 
     // Recurse into children
-    for (index, child) in tree.children(node).enumerate() {
+    for (index, child_node) in tree.children(node).unwrap().iter().enumerate() {
         let has_sibling = index < num_children - 1;
-        print_node(tree, *child, has_sibling, new_string.clone());
+        let child_entity = taffy_to_entity.get(child_node).unwrap();
+        print_node(ui_surface, &taffy_to_entity, *child_entity, *child_node, has_sibling, new_string.clone());
     }
 }
