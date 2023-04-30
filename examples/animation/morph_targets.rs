@@ -9,12 +9,9 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    gltf::{Gltf, GltfMeshExtras},
+    gltf::{Gltf, MorphTargetNames},
     prelude::*,
 };
-use serde::Deserialize;
-use serde_json::from_str;
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -72,23 +69,14 @@ fn update_weights(mut morphs: Query<&mut MorphWeights, With<UpdateWeights>>, tim
     }
 }
 
-/// Deserialize the json field used in `gltf.mesh.extras` to associate
-/// weight indices to target names.
-#[derive(Component, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct TargetNames {
-    target_names: Vec<String>,
-}
-
-/// You can get the target names by reading the `GltfMeshExtras` component.
+/// You can get the target names in the `MorphTargetNames` component.
 /// They are in the order of the weights.
-fn name_morphs(query: Query<(&Name, &GltfMeshExtras)>, mut has_printed: Local<bool>) {
+fn name_morphs(query: Query<(&Name, &MorphTargetNames)>, mut has_printed: Local<bool>) {
     if *has_printed {
         return;
     }
-    for (name, extras) in &query {
+    for (name, target_names) in &query {
         info!("Node {name} has the following targets:");
-        let target_names: TargetNames = from_str(&extras.value).unwrap();
         for name in &target_names.target_names {
             info!("\t{name}");
         }

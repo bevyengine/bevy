@@ -1,5 +1,7 @@
 #![allow(clippy::type_complexity)]
 
+use serde::Deserialize;
+
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
 use bevy_utils::HashMap;
@@ -50,7 +52,7 @@ impl Plugin for GltfPlugin {
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
         })
         .register_type::<GltfExtras>()
-        .register_type::<GltfMeshExtras>()
+        .register_type::<MorphTargetNames>()
         .add_asset::<Gltf>()
         .add_asset::<GltfNode>()
         .add_asset::<GltfPrimitive>()
@@ -112,11 +114,19 @@ pub struct GltfPrimitive {
 pub struct GltfExtras {
     pub value: String,
 }
-/// Gltf `extras` field present in the gltf `mesh` of this node.
+
+/// Names of [morph targets] for this mesh.
 ///
-/// This allows accessing the `extras` field of a mesh as a component.
-#[derive(Clone, Debug, Reflect, Default, Component)]
+/// [morph targets]: bevy_render::mesh::morph::MorphWeights
+#[derive(Deserialize, Clone, Debug, Reflect, Default, Component)]
+#[serde(rename_all = "camelCase")]
 #[reflect(Component)]
-pub struct GltfMeshExtras {
-    pub value: String,
+pub struct MorphTargetNames {
+    /// Names of morph targets in the [`MorphWeights`] component.
+    ///
+    /// The the name at index `i` in this `Vec` corresponds to the weight
+    /// at index `i` in [`MorphWeights`].
+    ///
+    /// [`MorphWeights`]: bevy_render::mesh::morph
+    pub target_names: Vec<String>,
 }

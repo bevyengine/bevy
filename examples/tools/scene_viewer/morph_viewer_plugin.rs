@@ -10,9 +10,7 @@
 
 use std::fmt;
 
-use bevy::{gltf::GltfMeshExtras, prelude::*};
-use serde::Deserialize;
-use serde_json::from_str;
+use bevy::{gltf::MorphTargetNames, prelude::*};
 
 use crate::scene_viewer_plugin::SceneHandle;
 
@@ -77,14 +75,6 @@ const AVAILABLE_KEYS: [MorphKey; 56] = [
     MorphKey::new("lshift-9", &[KeyCode::LShift], KeyCode::Key9),
 ];
 
-/// Deserialize the json field used in `gltf.mesh.extras` to associate
-/// weight indices to target names.
-#[derive(Component, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct TargetNames {
-    target_names: Vec<String>,
-}
-
 #[derive(Clone, Copy)]
 enum WeightChange {
     Increase,
@@ -140,14 +130,10 @@ impl Target {
     fn new(
         entity_name: Option<&Name>,
         weights: &[f32],
-        target_names: Option<TargetNames>,
+        target_names: Option<&MorphTargetNames>,
         entity: Entity,
     ) -> Vec<Target> {
-        let get_name = |i| {
-            target_names
-                .as_ref()
-                .and_then(|names| names.target_names.get(i).cloned())
-        };
+        let get_name = |i| target_names.and_then(|names| names.target_names.get(i));
         let entity_name = entity_name.map(|n| n.as_str());
         weights
             .iter()
@@ -155,7 +141,7 @@ impl Target {
             .map(|(index, weight)| Target {
                 entity_name: entity_name.map(|n| n.to_owned()),
                 entity,
-                name: get_name(index),
+                name: get_name(index).cloned(),
                 index,
                 weight: *weight,
                 change_dir: WeightChange::Increase,
@@ -244,7 +230,7 @@ fn detect_morphs(
             Entity,
             &MorphWeights,
             Option<&Name>,
-            Option<&GltfMeshExtras>,
+            Option<&MorphTargetNames>,
         ),
         Without<Handle<Mesh>>,
     >,
@@ -264,9 +250,7 @@ fn detect_morphs(
     }
     let mut detected = Vec::new();
 
-    for (entity, weights, name, extras) in &morphs {
-        // You can get the target names by reading the `GltfMeshExtras` component.
-        let target_names = extras.and_then(|e| from_str(&e.value).ok());
+    for (entity, weights, name, target_names) in &morphs {
         let targets = Target::new(name, weights.weights(), target_names, entity);
         detected.extend(targets);
     }

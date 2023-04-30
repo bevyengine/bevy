@@ -41,7 +41,7 @@ use gltf::{
 use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
 
-use crate::vertex_attributes::*;
+use crate::{vertex_attributes::*, MorphTargetNames};
 use crate::{Gltf, GltfExtras, GltfNode};
 
 /// An error that occurs when loading a glTF file.
@@ -746,10 +746,11 @@ fn load_node(
     node_index_to_entity_map.insert(gltf_node.index(), node.id());
 
     if let Some(mesh) = gltf_node.mesh() {
-        if let Some(extras) = mesh.extras().as_ref() {
-            node.insert(super::GltfMeshExtras {
-                value: extras.get().to_string(),
-            });
+        let extras = mesh.extras().as_ref();
+        let target_names: Option<MorphTargetNames> =
+            extras.and_then(|extras| serde_json::from_str(extras.get()).ok());
+        if let Some(target_names) = target_names {
+            node.insert(target_names);
         }
         if let Some(weights) = mesh.weights() {
             node.insert(MorphWeights::new(weights.to_vec())?);
