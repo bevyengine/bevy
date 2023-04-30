@@ -130,7 +130,10 @@ impl Plugin for LogPlugin {
         #[cfg(feature = "trace")]
         let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
 
-        #[cfg(all(any(not(target_arch = "wasm32"), not(feature = "browser")), not(target_os = "android")))]
+        #[cfg(all(
+            any(not(target_arch = "wasm32"), not(feature = "browser")),
+            not(target_os = "android")
+        ))]
         {
             #[cfg(feature = "tracing-chrome")]
             let chrome_layer = {
