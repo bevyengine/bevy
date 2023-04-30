@@ -8,6 +8,10 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+default = []
+browser = ["dep:wasm-bindgen-futures"]
+
 [dependencies]
 futures-lite = "1.4.0"
 async-executor = "1.3.0"
@@ -17,7 +21,7 @@ once_cell = "1.7"
 concurrent-queue = "2.0.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = "0.4"
+wasm-bindgen-futures = { version = "0.4", optional = true }
 
 [dev-dependencies]
 instant = { version = "0.1", features = ["wasm-bindgen"] }

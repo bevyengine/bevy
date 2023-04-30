@@ -8,14 +8,14 @@ pub use slice::{ParallelSlice, ParallelSliceMut};
 mod task;
 pub use task::Task;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(not(target_arch = "wasm32"), not(feature = "browser")))]
 mod task_pool;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(not(target_arch = "wasm32"), not(feature = "browser")))]
 pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "browser"))]
 mod single_threaded_task_pool;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "browser"))]
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
 
 mod usages;
@@ -23,9 +23,9 @@ mod usages;
 pub use usages::tick_global_task_pools_on_main_thread;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(not(target_arch = "wasm32"), not(feature = "browser")))]
 mod thread_executor;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(not(target_arch = "wasm32"), not(feature = "browser")))]
 pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
 
 mod iter;

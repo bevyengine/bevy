@@ -130,9 +130,12 @@ impl TaskPool {
 
         let executor = Arc::new(async_executor::Executor::new());
 
+        #[cfg(not(target_arch = "wasm32"))]
         let num_threads = builder
             .num_threads
             .unwrap_or_else(crate::available_parallelism);
+        #[cfg(target_arch = "wasm32")]
+        let num_threads = 0;
 
         let threads = (0..num_threads)
             .map(|i| {

@@ -11,6 +11,7 @@ keywords = ["bevy"]
 [features]
 trace = [ "tracing-error" ]
 trace_tracy_memory = ["dep:tracy-client"]
+browser = ["dep:console_error_panic_hook", "dep:tracing-wasm"]
 
 [dependencies]
 bevy_app = { path = "../bevy_app", version = "0.11.0-dev" }
@@ -28,5 +29,5 @@ tracy-client = { version = "0.15", optional = true }
 android_log-sys = "0.2.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-console_error_panic_hook = "0.1.6"
-tracing-wasm = "0.2.1"
+console_error_panic_hook = { version  = "0.1.6", optional = true }
+tracing-wasm = { version  = "0.2.1", optional = true }
