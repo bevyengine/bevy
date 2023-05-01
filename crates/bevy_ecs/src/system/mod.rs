@@ -310,6 +310,7 @@ pub mod adapter {
     ///     println!("{x:?}");
     /// }
     /// ```
+    #[deprecated = "use `.map(...)` instead"]
     pub fn new<T, U>(mut f: impl FnMut(T) -> U) -> impl FnMut(In<T>) -> U {
         move |In(x)| f(x)
     }
@@ -347,6 +348,7 @@ pub mod adapter {
     /// # fn open_file(name: &str) -> Result<&'static str, std::io::Error>
     /// # { Ok("hello world") }
     /// ```
+    #[deprecated = "use `.map(Result::unwrap)` instead"]
     pub fn unwrap<T, E: Debug>(In(res): In<Result<T, E>>) -> T {
         res.unwrap()
     }
@@ -496,6 +498,7 @@ pub mod adapter {
     ///     Some(())
     /// }
     /// ```
+    #[deprecated = "use `.map(std::mem::drop)` instead"]
     pub fn ignore<T>(In(_): In<T>) {}
 }
 
@@ -517,7 +520,7 @@ mod tests {
         removal_detection::RemovedComponents,
         schedule::{apply_system_buffers, IntoSystemConfigs, Schedule},
         system::{
-            adapter::new, Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
+            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
             QueryComponentError, Res, ResMut, Resource, System, SystemState,
         },
         world::{FromWorld, World},
@@ -1777,9 +1780,9 @@ mod tests {
             !val
         }
 
-        assert_is_system(returning::<Result<u32, std::io::Error>>.pipe(unwrap));
-        assert_is_system(returning::<Option<()>>.pipe(ignore));
-        assert_is_system(returning::<&str>.pipe(new(u64::from_str)).pipe(unwrap));
+        assert_is_system(returning::<Result<u32, std::io::Error>>.map(Result::unwrap));
+        assert_is_system(returning::<Option<()>>.map(std::mem::drop));
+        assert_is_system(returning::<&str>.map(u64::from_str).map(Result::unwrap));
         assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.pipe(error));
         assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
 
