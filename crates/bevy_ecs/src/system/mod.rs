@@ -227,6 +227,28 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
         let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
         PipeSystem::new(system_a, system_b, Cow::Owned(name))
     }
+
+    /// Pass the output of this system into the passed function `f`, creating a new system that
+    /// outputs the value returned from the function.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut schedule = Schedule::new();
+    /// // Ignores the output of a system that may fail.
+    /// schedule.add_systems(my_system.map(std::mem::drop));
+    /// # let mut world = World::new();
+    /// # schedule.run(&mut world);
+    ///
+    /// # #[derive(Resource)] struct T;
+    /// # type Err = ();
+    /// fn my_system(res: Res<T>) -> Result<(), Err> {
+    ///     // ...
+    ///     # Err(())
+    /// }
+    /// ```
+    fn map<T, F: FnMut(Out) -> T>(self, f: F) -> AdapterSystem<F, Self::System> {
+        AdapterSystem::new(f, Self::into_system(self))
+    }
 }
 
 // All systems implicitly implement IntoSystem.

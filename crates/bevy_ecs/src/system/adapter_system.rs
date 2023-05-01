@@ -116,3 +116,16 @@ where
     S: ReadOnlySystem,
 {
 }
+
+impl<F, S, Out> Adapt<S> for F
+where
+    S: System,
+    F: Send + FnMut(S::Out) -> Out,
+{
+    type In = S::In;
+    type Out = Out;
+
+    fn adapt(&mut self, input: S::In, run_system: impl FnOnce(S::In) -> S::Out) -> Out {
+        self(run_system(input))
+    }
+}
