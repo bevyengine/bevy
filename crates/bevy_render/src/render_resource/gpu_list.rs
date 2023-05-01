@@ -85,7 +85,9 @@ impl<T: GpuListable> GpuList<T> {
                 BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: Some(T::min_size()),
+                    // BatchedUniformBuffer uses a MaxCapacityArray that is runtime-sized, so we use
+                    // None here and let wgpu figure out the size.
+                    min_binding_size: None,
                 }
             } else {
                 BindingType::Buffer {
