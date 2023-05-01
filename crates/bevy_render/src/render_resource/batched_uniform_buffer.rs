@@ -100,7 +100,15 @@ impl<T: GpuListable> BatchedUniformBuffer<T> {
     }
 }
 
+#[inline]
+fn round_up(v: u64, a: u64) -> u64 {
+    ((v + a - 1) / a) * a
+}
+
 // ----------------------------------------------------------------------------
+// MaxCapacityArray was implemented by Teodor Tanasoaia for encase. It was
+// copied here as it was not yet included in an encase release and it is
+// unclear if it is the correct long-term solution for encase.
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 struct MaxCapacityArray<T>(T, usize);
@@ -126,9 +134,4 @@ where
         debug_assert!(self.0.len() <= self.1);
         self.0.write_into(writer);
     }
-}
-
-#[inline]
-fn round_up(v: u64, a: u64) -> u64 {
-    ((v + a - 1) / a) * a
 }
