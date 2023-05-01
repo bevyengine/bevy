@@ -3,8 +3,8 @@
 use crate::{
     widget::{Button, UiImageSize},
     BackgroundColor, ContentSize, FocusPolicy, Node, Style, UiImage, ZIndex,
-    CalculatedSize, Pressed,
-    RelativeCursorPosition, Style, UiImage, ZIndex,
+    Pressed,
+    RelativeCursorPosition,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
