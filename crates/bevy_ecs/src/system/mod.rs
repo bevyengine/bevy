@@ -376,6 +376,7 @@ pub mod adapter {
     ///     "42".to_string()
     /// }
     /// ```
+    #[deprecated = "use `.map(bevy_utils::info)` instead"]
     pub fn info<T: Debug>(In(data): In<T>) {
         tracing::info!("{:?}", data);
     }
@@ -403,6 +404,7 @@ pub mod adapter {
     ///     Ok("42".parse()?)
     /// }
     /// ```
+    #[deprecated = "use `.map(bevy_utils::dbg)` instead"]
     pub fn dbg<T: Debug>(In(data): In<T>) {
         tracing::debug!("{:?}", data);
     }
@@ -430,6 +432,7 @@ pub mod adapter {
     ///     Err("Got to rusty?".to_string())
     /// }
     /// ```
+    #[deprecated = "use `.map(bevy_utils::warn)` instead"]
     pub fn warn<E: Debug>(In(res): In<Result<(), E>>) {
         if let Err(warn) = res {
             tracing::warn!("{:?}", warn);
@@ -458,6 +461,7 @@ pub mod adapter {
     ///    Err("Some error".to_owned())
     /// }
     /// ```
+    #[deprecated = "use `.map(bevy_utils::error)` instead"]
     pub fn error<E: Debug>(In(res): In<Result<(), E>>) {
         if let Err(error) = res {
             tracing::error!("{:?}", error);
@@ -1783,7 +1787,7 @@ mod tests {
         assert_is_system(returning::<Result<u32, std::io::Error>>.map(Result::unwrap));
         assert_is_system(returning::<Option<()>>.map(std::mem::drop));
         assert_is_system(returning::<&str>.map(u64::from_str).map(Result::unwrap));
-        assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.pipe(error));
+        assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.map(bevy_utils::error));
         assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
 
         returning::<()>.run_if(returning::<bool>.pipe(not));
