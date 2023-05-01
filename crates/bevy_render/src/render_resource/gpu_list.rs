@@ -34,7 +34,7 @@ pub enum GpuList<T: GpuListable> {
 impl<T: GpuListable> GpuList<T> {
     pub fn new(device: &RenderDevice) -> Self {
         let limits = device.limits();
-        if limits.max_storage_buffers_per_shader_stage < 1 {
+        if limits.max_storage_buffers_per_shader_stage == 0 {
             GpuList::Uniform(BatchedUniformBuffer::new(&limits))
         } else {
             GpuList::Storage((StorageBuffer::default(), Vec::new()))
