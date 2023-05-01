@@ -51,7 +51,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #endif
 #ifdef VERTEX_UVS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
-        output_color = output_color * textureSampleBias(base_color_texture, base_color_sampler, in.uv, view.mip_bias);
+        output_color = output_color * textureSampleBias(base_color_texture, base_color_sampler, uv, view.mip_bias);
     }
 #endif
 
