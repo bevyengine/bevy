@@ -237,6 +237,7 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     /// // Ignores the output of a system that may fail.
     /// schedule.add_systems(my_system.map(std::mem::drop));
     /// # let mut world = World::new();
+    /// # world.insert_resource(T);
     /// # schedule.run(&mut world);
     ///
     /// # #[derive(Resource)] struct T;
