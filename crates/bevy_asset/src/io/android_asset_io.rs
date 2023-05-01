@@ -59,7 +59,7 @@ impl AssetIo for AndroidAssetIo {
         Ok(())
     }
 
-    fn watch_for_changes(&self) -> Result<(), AssetIoError> {
+    fn watch_for_changes(&self, configuration: &ChangeWatcher) -> Result<(), AssetIoError> {
         bevy_log::warn!("Watching for changes is not supported on Android");
         Ok(())
     }

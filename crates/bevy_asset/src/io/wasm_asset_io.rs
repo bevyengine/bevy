@@ -64,7 +64,7 @@ impl AssetIo for WasmAssetIo {
         Ok(())
     }
 
-    fn watch_for_changes(&self) -> Result<(), AssetIoError> {
+    fn watch_for_changes(&self, configuration: &ChangeWatcher) -> Result<(), AssetIoError> {
         bevy_log::warn!("Watching for changes is not supported in WASM");
         Ok(())
     }
