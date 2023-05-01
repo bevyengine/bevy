@@ -86,7 +86,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Luma at the current fragment
     let lumaCenter = rgb2luma(colorCenter);
 
-    // Luma at the four direct neighbours of the current fragment.
+    // Luma at the four direct neighbors of the current fragment.
     let lumaDown = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(0, -1)).rgb);
     let lumaUp = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(0, 1)).rgb);
     let lumaLeft = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(-1, 0)).rgb);
@@ -237,7 +237,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Is the luma at center smaller than the local average ?
     let isLumaCenterSmaller = lumaCenter < lumaLocalAverage;
 
-    // If the luma at center is smaller than at its neighbour, the delta luma at each end should be positive (same variation).
+    // If the luma at center is smaller than at its neighbor, the delta luma at each end should be positive (same variation).
     let correctVariation1 = (lumaEnd1 < 0.0) != isLumaCenterSmaller;
     let correctVariation2 = (lumaEnd2 < 0.0) != isLumaCenterSmaller;
 

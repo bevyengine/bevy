@@ -259,9 +259,9 @@ jobs:
         id: missing-metadata
         run: cargo run -p build-templated-pages -- check-missing examples
       - name: check for missing update
-        id: missing-update
         run: cargo run -p build-templated-pages -- update examples
       - name: Check for modified files
+        id: missing-update
         run: |
           echo "if this step fails, run the following command and commit the changed file on your PR."
           echo " > cargo run -p build-templated-pages -- update examples"
@@ -293,9 +293,9 @@ jobs:
         id: missing-features
         run: cargo run -p build-templated-pages -- check-missing features
       - name: check for missing update
-        id: missing-update
         run: cargo run -p build-templated-pages -- update features
       - name: Check for modified files
+        id: missing-update
         run: |
           echo "if this step fails, run the following command and commit the changed file on your PR."
           echo " > cargo run -p build-templated-pages -- update features"

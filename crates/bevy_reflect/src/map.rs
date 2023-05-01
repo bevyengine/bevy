@@ -4,8 +4,7 @@ use std::hash::Hash;
 
 use bevy_utils::{Entry, HashMap};
 
-use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed};
+use crate::{Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -184,26 +183,29 @@ const HASH_ERROR: &str = "the given key does not support hashing";
 /// An ordered mapping between reflected values.
 #[derive(Default)]
 pub struct DynamicMap {
-    name: String,
+    represented_type: Option<&'static TypeInfo>,
     values: Vec<(Box<dyn Reflect>, Box<dyn Reflect>)>,
     indices: HashMap<u64, usize>,
 }
 
 impl DynamicMap {
-    /// Returns the type name of the map.
+    /// Sets the [type] to be represented by this `DynamicMap`.
     ///
-    /// The value returned by this method is the same value returned by
-    /// [`Reflect::type_name`].
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    /// # Panics
+    ///
+    /// Panics if the given [type] is not a [`TypeInfo::Map`].
+    ///
+    /// [type]: TypeInfo
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::Map(_)),
+                "expected TypeInfo::Map but received: {:?}",
+                represented_type
+            );
+        }
 
-    /// Sets the type name of the map.
-    ///
-    /// The value set by this method is the same value returned by
-    /// [`Reflect::type_name`].
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+        self.represented_type = represented_type;
     }
 
     /// Inserts a typed key-value pair into the map.
@@ -232,7 +234,7 @@ impl Map for DynamicMap {
 
     fn clone_dynamic(&self) -> DynamicMap {
         DynamicMap {
-            name: self.name.clone(),
+            represented_type: self.represented_type,
             values: self
                 .values
                 .iter()
@@ -289,12 +291,14 @@ impl Map for DynamicMap {
 
 impl Reflect for DynamicMap {
     fn type_name(&self) -> &str {
-        &self.name
+        self.represented_type
+            .map(|info| info.type_name())
+            .unwrap_or_else(|| std::any::type_name::<Self>())
     }
 
     #[inline]
-    fn get_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
@@ -358,18 +362,16 @@ impl Reflect for DynamicMap {
         map_debug(self, f)?;
         write!(f, ")")
     }
+
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
+    }
 }
 
 impl Debug for DynamicMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
-    }
-}
-
-impl Typed for DynamicMap {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

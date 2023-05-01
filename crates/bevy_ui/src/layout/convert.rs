@@ -1,6 +1,10 @@
+use taffy::style_helpers;
+
 use crate::{
-    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
-    PositionType, Size, Style, UiRect, Val,
+    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, GridAutoFlow,
+    GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
+    MaxTrackSizingFunction, MinTrackSizingFunction, PositionType, RepeatedGridTrack, Size, Style,
+    UiRect, Val,
 };
 
 use super::LayoutContext;
@@ -74,10 +78,12 @@ pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style
         position: style.position_type.into(),
         flex_direction: style.flex_direction.into(),
         flex_wrap: style.flex_wrap.into(),
-        align_items: Some(style.align_items.into()),
+        align_items: style.align_items.into(),
+        justify_items: style.justify_items.into(),
         align_self: style.align_self.into(),
-        align_content: Some(style.align_content.into()),
-        justify_content: Some(style.justify_content.into()),
+        justify_self: style.justify_self.into(),
+        align_content: style.align_content.into(),
+        justify_content: style.justify_content.into(),
         inset: taffy::prelude::Rect {
             left: style.left.into_length_percentage_auto(context),
             right: style.right.into_length_percentage_auto(context),
@@ -107,20 +113,56 @@ pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style
         gap: style
             .gap
             .map_to_taffy_size(|s| s.into_length_percentage(context)),
-        justify_self: None,
+        grid_auto_flow: style.grid_auto_flow.into(),
+        grid_template_rows: style
+            .grid_template_rows
+            .iter()
+            .map(|track| track.clone_into_repeated_taffy_track(context))
+            .collect::<Vec<_>>(),
+        grid_template_columns: style
+            .grid_template_columns
+            .iter()
+            .map(|track| track.clone_into_repeated_taffy_track(context))
+            .collect::<Vec<_>>(),
+        grid_auto_rows: style
+            .grid_auto_rows
+            .iter()
+            .map(|track| track.into_taffy_track(context))
+            .collect::<Vec<_>>(),
+        grid_auto_columns: style
+            .grid_auto_columns
+            .iter()
+            .map(|track| track.into_taffy_track(context))
+            .collect::<Vec<_>>(),
+        grid_row: style.grid_row.into(),
+        grid_column: style.grid_column.into(),
     }
 }
 
-impl From<AlignItems> for taffy::style::AlignItems {
+impl From<AlignItems> for Option<taffy::style::AlignItems> {
     fn from(value: AlignItems) -> Self {
         match value {
-            AlignItems::Start => taffy::style::AlignItems::Start,
-            AlignItems::End => taffy::style::AlignItems::End,
-            AlignItems::FlexStart => taffy::style::AlignItems::FlexStart,
-            AlignItems::FlexEnd => taffy::style::AlignItems::FlexEnd,
-            AlignItems::Center => taffy::style::AlignItems::Center,
-            AlignItems::Baseline => taffy::style::AlignItems::Baseline,
-            AlignItems::Stretch => taffy::style::AlignItems::Stretch,
+            AlignItems::Default => None,
+            AlignItems::Start => taffy::style::AlignItems::Start.into(),
+            AlignItems::End => taffy::style::AlignItems::End.into(),
+            AlignItems::FlexStart => taffy::style::AlignItems::FlexStart.into(),
+            AlignItems::FlexEnd => taffy::style::AlignItems::FlexEnd.into(),
+            AlignItems::Center => taffy::style::AlignItems::Center.into(),
+            AlignItems::Baseline => taffy::style::AlignItems::Baseline.into(),
+            AlignItems::Stretch => taffy::style::AlignItems::Stretch.into(),
+        }
+    }
+}
+
+impl From<JustifyItems> for Option<taffy::style::JustifyItems> {
+    fn from(value: JustifyItems) -> Self {
+        match value {
+            JustifyItems::Default => None,
+            JustifyItems::Start => taffy::style::JustifyItems::Start.into(),
+            JustifyItems::End => taffy::style::JustifyItems::End.into(),
+            JustifyItems::Center => taffy::style::JustifyItems::Center.into(),
+            JustifyItems::Baseline => taffy::style::JustifyItems::Baseline.into(),
+            JustifyItems::Stretch => taffy::style::JustifyItems::Stretch.into(),
         }
     }
 }
@@ -140,18 +182,48 @@ impl From<AlignSelf> for Option<taffy::style::AlignSelf> {
     }
 }
 
-impl From<AlignContent> for taffy::style::AlignContent {
+impl From<JustifySelf> for Option<taffy::style::JustifySelf> {
+    fn from(value: JustifySelf) -> Self {
+        match value {
+            JustifySelf::Auto => None,
+            JustifySelf::Start => taffy::style::JustifySelf::Start.into(),
+            JustifySelf::End => taffy::style::JustifySelf::End.into(),
+            JustifySelf::Center => taffy::style::JustifySelf::Center.into(),
+            JustifySelf::Baseline => taffy::style::JustifySelf::Baseline.into(),
+            JustifySelf::Stretch => taffy::style::JustifySelf::Stretch.into(),
+        }
+    }
+}
+
+impl From<AlignContent> for Option<taffy::style::AlignContent> {
     fn from(value: AlignContent) -> Self {
         match value {
-            AlignContent::Start => taffy::style::AlignContent::Start,
-            AlignContent::End => taffy::style::AlignContent::End,
-            AlignContent::FlexStart => taffy::style::AlignContent::FlexStart,
-            AlignContent::FlexEnd => taffy::style::AlignContent::FlexEnd,
-            AlignContent::Center => taffy::style::AlignContent::Center,
-            AlignContent::Stretch => taffy::style::AlignContent::Stretch,
-            AlignContent::SpaceBetween => taffy::style::AlignContent::SpaceBetween,
-            AlignContent::SpaceAround => taffy::style::AlignContent::SpaceAround,
-            AlignContent::SpaceEvenly => taffy::style::AlignContent::SpaceEvenly,
+            AlignContent::Default => None,
+            AlignContent::Start => taffy::style::AlignContent::Start.into(),
+            AlignContent::End => taffy::style::AlignContent::End.into(),
+            AlignContent::FlexStart => taffy::style::AlignContent::FlexStart.into(),
+            AlignContent::FlexEnd => taffy::style::AlignContent::FlexEnd.into(),
+            AlignContent::Center => taffy::style::AlignContent::Center.into(),
+            AlignContent::Stretch => taffy::style::AlignContent::Stretch.into(),
+            AlignContent::SpaceBetween => taffy::style::AlignContent::SpaceBetween.into(),
+            AlignContent::SpaceAround => taffy::style::AlignContent::SpaceAround.into(),
+            AlignContent::SpaceEvenly => taffy::style::AlignContent::SpaceEvenly.into(),
+        }
+    }
+}
+
+impl From<JustifyContent> for Option<taffy::style::JustifyContent> {
+    fn from(value: JustifyContent) -> Self {
+        match value {
+            JustifyContent::Default => None,
+            JustifyContent::Start => taffy::style::JustifyContent::Start.into(),
+            JustifyContent::End => taffy::style::JustifyContent::End.into(),
+            JustifyContent::FlexStart => taffy::style::JustifyContent::FlexStart.into(),
+            JustifyContent::FlexEnd => taffy::style::JustifyContent::FlexEnd.into(),
+            JustifyContent::Center => taffy::style::JustifyContent::Center.into(),
+            JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween.into(),
+            JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround.into(),
+            JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly.into(),
         }
     }
 }
@@ -160,6 +232,7 @@ impl From<Display> for taffy::style::Display {
     fn from(value: Display) -> Self {
         match value {
             Display::Flex => taffy::style::Display::Flex,
+            Display::Grid => taffy::style::Display::Grid,
             Display::None => taffy::style::Display::None,
         }
     }
@@ -172,21 +245,6 @@ impl From<FlexDirection> for taffy::style::FlexDirection {
             FlexDirection::Column => taffy::style::FlexDirection::Column,
             FlexDirection::RowReverse => taffy::style::FlexDirection::RowReverse,
             FlexDirection::ColumnReverse => taffy::style::FlexDirection::ColumnReverse,
-        }
-    }
-}
-
-impl From<JustifyContent> for taffy::style::JustifyContent {
-    fn from(value: JustifyContent) -> Self {
-        match value {
-            JustifyContent::Start => taffy::style::JustifyContent::Start,
-            JustifyContent::End => taffy::style::JustifyContent::End,
-            JustifyContent::FlexStart => taffy::style::JustifyContent::FlexStart,
-            JustifyContent::FlexEnd => taffy::style::JustifyContent::FlexEnd,
-            JustifyContent::Center => taffy::style::JustifyContent::Center,
-            JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween,
-            JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround,
-            JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly,
         }
     }
 }
@@ -210,12 +268,140 @@ impl From<FlexWrap> for taffy::style::FlexWrap {
     }
 }
 
+impl From<GridAutoFlow> for taffy::style::GridAutoFlow {
+    fn from(value: GridAutoFlow) -> Self {
+        match value {
+            GridAutoFlow::Row => taffy::style::GridAutoFlow::Row,
+            GridAutoFlow::RowDense => taffy::style::GridAutoFlow::RowDense,
+            GridAutoFlow::Column => taffy::style::GridAutoFlow::Column,
+            GridAutoFlow::ColumnDense => taffy::style::GridAutoFlow::ColumnDense,
+        }
+    }
+}
+
+impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement> {
+    fn from(value: GridPlacement) -> Self {
+        let span = value.span.unwrap_or(1).max(1);
+        match (value.start, value.end) {
+            (Some(start), Some(end)) => taffy::geometry::Line {
+                start: style_helpers::line(start),
+                end: style_helpers::line(end),
+            },
+            (Some(start), None) => taffy::geometry::Line {
+                start: style_helpers::line(start),
+                end: style_helpers::span(span),
+            },
+            (None, Some(end)) => taffy::geometry::Line {
+                start: style_helpers::span(span),
+                end: style_helpers::line(end),
+            },
+            (None, None) => style_helpers::span(span),
+        }
+    }
+}
+
+impl MinTrackSizingFunction {
+    fn into_taffy(self, context: &LayoutContext) -> taffy::style::MinTrackSizingFunction {
+        match self {
+            MinTrackSizingFunction::Px(val) => taffy::style::MinTrackSizingFunction::Fixed(
+                Val::Px(val).into_length_percentage(context),
+            ),
+            MinTrackSizingFunction::Percent(val) => taffy::style::MinTrackSizingFunction::Fixed(
+                Val::Percent(val).into_length_percentage(context),
+            ),
+            MinTrackSizingFunction::Auto => taffy::style::MinTrackSizingFunction::Auto,
+            MinTrackSizingFunction::MinContent => taffy::style::MinTrackSizingFunction::MinContent,
+            MinTrackSizingFunction::MaxContent => taffy::style::MinTrackSizingFunction::MaxContent,
+        }
+    }
+}
+
+impl MaxTrackSizingFunction {
+    fn into_taffy(self, context: &LayoutContext) -> taffy::style::MaxTrackSizingFunction {
+        match self {
+            MaxTrackSizingFunction::Px(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+                Val::Px(val).into_length_percentage(context),
+            ),
+            MaxTrackSizingFunction::Percent(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+                Val::Percent(val).into_length_percentage(context),
+            ),
+            MaxTrackSizingFunction::Auto => taffy::style::MaxTrackSizingFunction::Auto,
+            MaxTrackSizingFunction::MinContent => taffy::style::MaxTrackSizingFunction::MinContent,
+            MaxTrackSizingFunction::MaxContent => taffy::style::MaxTrackSizingFunction::MaxContent,
+            MaxTrackSizingFunction::FitContentPx(val) => {
+                taffy::style::MaxTrackSizingFunction::FitContent(
+                    Val::Px(val).into_length_percentage(context),
+                )
+            }
+            MaxTrackSizingFunction::FitContentPercent(val) => {
+                taffy::style::MaxTrackSizingFunction::FitContent(
+                    Val::Percent(val).into_length_percentage(context),
+                )
+            }
+            MaxTrackSizingFunction::Fraction(fraction) => {
+                taffy::style::MaxTrackSizingFunction::Fraction(fraction)
+            }
+        }
+    }
+}
+
+impl GridTrack {
+    fn into_taffy_track(
+        self,
+        context: &LayoutContext,
+    ) -> taffy::style::NonRepeatedTrackSizingFunction {
+        let min = self.min_sizing_function.into_taffy(context);
+        let max = self.max_sizing_function.into_taffy(context);
+        taffy::style_helpers::minmax(min, max)
+    }
+}
+
+impl RepeatedGridTrack {
+    fn clone_into_repeated_taffy_track(
+        &self,
+        context: &LayoutContext,
+    ) -> taffy::style::TrackSizingFunction {
+        if self.tracks.len() == 1 && self.repetition == GridTrackRepetition::Count(1) {
+            let min = self.tracks[0].min_sizing_function.into_taffy(context);
+            let max = self.tracks[0].max_sizing_function.into_taffy(context);
+            let taffy_track = taffy::style_helpers::minmax(min, max);
+            taffy::style::TrackSizingFunction::Single(taffy_track)
+        } else {
+            let taffy_tracks: Vec<_> = self
+                .tracks
+                .iter()
+                .map(|track| {
+                    let min = track.min_sizing_function.into_taffy(context);
+                    let max = track.max_sizing_function.into_taffy(context);
+                    taffy::style_helpers::minmax(min, max)
+                })
+                .collect();
+
+            match self.repetition {
+                GridTrackRepetition::Count(count) => {
+                    taffy::style_helpers::repeat(count, taffy_tracks)
+                }
+                GridTrackRepetition::AutoFit => taffy::style_helpers::repeat(
+                    taffy::style::GridTrackRepetition::AutoFit,
+                    taffy_tracks,
+                ),
+                GridTrackRepetition::AutoFill => taffy::style_helpers::repeat(
+                    taffy::style::GridTrackRepetition::AutoFill,
+                    taffy_tracks,
+                ),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_convert_from() {
+        use taffy::style_helpers as sh;
+
         let bevy_style = crate::Style {
             display: Display::Flex,
             position_type: PositionType::Absolute,
@@ -229,6 +415,8 @@ mod tests {
             align_items: AlignItems::Baseline,
             align_self: AlignSelf::Start,
             align_content: AlignContent::SpaceAround,
+            justify_items: JustifyItems::Default,
+            justify_self: JustifySelf::Center,
             justify_content: JustifyContent::SpaceEvenly,
             margin: UiRect {
                 left: Val::Percent(0.),
@@ -264,11 +452,30 @@ mod tests {
                 height: Val::Px(0.),
             },
             aspect_ratio: None,
-            overflow: crate::Overflow::Hidden,
+            overflow: crate::Overflow::clip(),
             gap: Size {
                 width: Val::Px(0.),
                 height: Val::Percent(0.),
             },
+            grid_auto_flow: GridAutoFlow::ColumnDense,
+            grid_template_rows: vec![
+                GridTrack::px(10.0),
+                GridTrack::percent(50.0),
+                GridTrack::fr(1.0),
+            ],
+            grid_template_columns: RepeatedGridTrack::px(5, 10.0),
+            grid_auto_rows: vec![
+                GridTrack::fit_content_px(10.0),
+                GridTrack::fit_content_percent(25.0),
+                GridTrack::flex(2.0),
+            ],
+            grid_auto_columns: vec![
+                GridTrack::auto(),
+                GridTrack::min_content(),
+                GridTrack::max_content(),
+            ],
+            grid_column: GridPlacement::start(4),
+            grid_row: GridPlacement::span(3),
         };
         let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
         let taffy_style = from_style(&viewport_values, &bevy_style);
@@ -307,6 +514,11 @@ mod tests {
         assert_eq!(
             taffy_style.justify_content,
             Some(taffy::style::JustifyContent::SpaceEvenly)
+        );
+        assert_eq!(taffy_style.justify_items, None);
+        assert_eq!(
+            taffy_style.justify_self,
+            Some(taffy::style::JustifySelf::Center)
         );
         assert!(matches!(
             taffy_style.margin.left,
@@ -395,6 +607,38 @@ mod tests {
             taffy_style.gap.height,
             taffy::style::LengthPercentage::Percent(0.)
         );
+        assert_eq!(
+            taffy_style.grid_auto_flow,
+            taffy::style::GridAutoFlow::ColumnDense
+        );
+        assert_eq!(
+            taffy_style.grid_template_rows,
+            vec![sh::points(10.0), sh::percent(0.5), sh::fr(1.0)]
+        );
+        assert_eq!(
+            taffy_style.grid_template_columns,
+            vec![sh::repeat(5, vec![sh::points(10.0)])]
+        );
+        assert_eq!(
+            taffy_style.grid_auto_rows,
+            vec![
+                sh::fit_content(taffy::style::LengthPercentage::Points(10.0)),
+                sh::fit_content(taffy::style::LengthPercentage::Percent(0.25)),
+                sh::minmax(sh::points(0.0), sh::fr(2.0)),
+            ]
+        );
+        assert_eq!(
+            taffy_style.grid_auto_columns,
+            vec![sh::auto(), sh::min_content(), sh::max_content()]
+        );
+        assert_eq!(
+            taffy_style.grid_column,
+            taffy::geometry::Line {
+                start: sh::line(4),
+                end: sh::span(1)
+            }
+        );
+        assert_eq!(taffy_style.grid_row, sh::span(3));
     }
 
     #[test]

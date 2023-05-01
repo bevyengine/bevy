@@ -232,12 +232,7 @@ impl FromWorld for Mesh2dPipeline {
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
-                        )
-                        .unwrap(),
-                    ),
+                    bytes_per_row: Some(image.texture_descriptor.size.width * format_size as u32),
                     rows_per_image: None,
                 },
                 image.texture_descriptor.size,
@@ -599,8 +594,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
                     pass.set_index_buffer(buffer.slice(..), 0, *index_format);
                     pass.draw_indexed(0..*count, 0, 0..1);
                 }
-                GpuBufferInfo::NonIndexed { vertex_count } => {
-                    pass.draw(0..*vertex_count, 0..1);
+                GpuBufferInfo::NonIndexed => {
+                    pass.draw(0..gpu_mesh.vertex_count, 0..1);
                 }
             }
             RenderCommandResult::Success

@@ -752,6 +752,7 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
                 let msg = error.emit_to_string(source);
                 error!("failed to process shader:\n{}", msg);
             }
+            #[cfg(feature = "shader_format_glsl")]
             ShaderReflectError::GlslParse(errors) => {
                 let source = source
                     .get_glsl_source()
@@ -776,6 +777,7 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
 
                 error!("failed to process shader: \n{}", msg);
             }
+            #[cfg(feature = "shader_format_spirv")]
             ShaderReflectError::SpirVParse(error) => {
                 error!("failed to process shader:\n{}", error);
             }
@@ -818,9 +820,11 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
                 error!("failed to process shader: \n{}", msg);
             }
         },
+        #[cfg(feature = "shader_format_glsl")]
         AsModuleDescriptorError::WgslConversion(error) => {
             error!("failed to convert shader to wgsl: \n{}", error);
         }
+        #[cfg(feature = "shader_format_spirv")]
         AsModuleDescriptorError::SpirVConversion(error) => {
             error!("failed to convert shader to spirv: \n{}", error);
         }

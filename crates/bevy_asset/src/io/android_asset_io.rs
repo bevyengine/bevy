@@ -11,9 +11,9 @@ use std::{
 ///
 /// Implementation details:
 ///
-/// - `load_path` uses the [AssetManager] to load files.
-/// - `read_directory` always returns an empty iterator.
-/// - `get_metadata` will probably return an error.
+/// - [`load_path`](AssetIo::load_path) uses the [`AssetManager`] to load files.
+/// - [`read_directory`](AssetIo::read_directory) always returns an empty iterator.
+/// - [`get_metadata`](AssetIo::get_metadata) will probably return an error.
 /// - Watching for changes is not supported. The watcher methods will do nothing.
 ///
 /// [AssetManager]: https://developer.android.com/reference/android/content/res/AssetManager
