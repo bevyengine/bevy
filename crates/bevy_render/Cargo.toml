@@ -17,6 +17,7 @@ jpeg = ["image/jpeg"]
 bmp = ["image/bmp"]
 webp = ["image/webp"]
 dds = ["ddsfile"]
+bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
 
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out"]
 shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
