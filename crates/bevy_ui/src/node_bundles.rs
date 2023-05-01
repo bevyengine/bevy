@@ -2,7 +2,7 @@
 
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
+    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -63,7 +63,7 @@ impl Default for NodeBundle {
 }
 
 /// A UI node that is an image
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
     ///
@@ -74,7 +74,7 @@ pub struct ImageBundle {
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
-    pub calculated_size: CalculatedSize,
+    pub calculated_size: ContentSize,
     /// The background color, which serves as a "fill" for this node
     ///
     /// Combines with `UiImage` to tint the provided image.
@@ -107,7 +107,7 @@ pub struct ImageBundle {
 
 #[cfg(feature = "bevy_text")]
 /// A UI node that is text
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Debug)]
 pub struct TextBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -119,7 +119,7 @@ pub struct TextBundle {
     /// Text layout information
     pub text_layout_info: TextLayoutInfo,
     /// The calculated size based on the given image
-    pub calculated_size: CalculatedSize,
+    pub calculated_size: ContentSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
