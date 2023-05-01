@@ -1,6 +1,7 @@
 //! Demonstrates how the to use the size constraints to control the size of a UI node.
 
 use bevy::prelude::*;
+use bevy_internal::ui::{InteractionState, InteractionStateHandler, RelativeCursorPosition};
 
 fn main() {
     App::new()
@@ -293,8 +294,14 @@ fn spawn_button(
 
 fn update_buttons(
     mut button_query: Query<
-        (Entity, &Interaction, &Constraint, &ButtonValue),
-        Changed<Interaction>,
+        (
+            Entity,
+            &Pressed,
+            &RelativeCursorPosition,
+            &Constraint,
+            &ButtonValue,
+        ),
+        (Changed<Pressed>, Changed<RelativeCursorPosition>),
     >,
     mut bar_query: Query<&mut Style, With<Bar>>,
     mut text_query: Query<&mut Text>,
@@ -302,9 +309,10 @@ fn update_buttons(
     mut button_activated_event: EventWriter<ButtonActivatedEvent>,
 ) {
     let mut style = bar_query.single_mut();
-    for (button_id, interaction, constraint, value) in button_query.iter_mut() {
-        match interaction {
-            Interaction::Clicked => {
+    for (button_id, pressed, relative_cursor_position, constraint, value) in button_query.iter_mut()
+    {
+        match (pressed, relative_cursor_position).interaction_state() {
+            InteractionState::Pressed => {
                 button_activated_event.send(ButtonActivatedEvent(button_id));
                 match constraint {
                     Constraint::FlexBasis => {
@@ -321,7 +329,7 @@ fn update_buttons(
                     }
                 }
             }
-            Interaction::Hovered => {
+            InteractionState::Hovered => {
                 if let Ok(children) = children_query.get(button_id) {
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
@@ -336,7 +344,7 @@ fn update_buttons(
                     }
                 }
             }
-            Interaction::None => {
+            InteractionState::None => {
                 if let Ok(children) = children_query.get(button_id) {
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
@@ -357,14 +365,14 @@ fn update_buttons(
 
 fn update_radio_buttons_colors(
     mut event_reader: EventReader<ButtonActivatedEvent>,
-    button_query: Query<(Entity, &Constraint, &Interaction)>,
+    button_query: Query<(Entity, &Constraint, &Pressed, &RelativeCursorPosition)>,
     mut color_query: Query<&mut BackgroundColor>,
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
 ) {
     for &ButtonActivatedEvent(button_id) in event_reader.iter() {
         let target_constraint = button_query.get_component::<Constraint>(button_id).unwrap();
-        for (id, constraint, interaction) in button_query.iter() {
+        for (id, constraint, pressed, relative_cursor_position) in button_query.iter() {
             if target_constraint == constraint {
                 let (border_color, inner_color, text_color) = if id == button_id {
                     (ACTIVE_BORDER_COLOR, ACTIVE_INNER_COLOR, ACTIVE_TEXT_COLOR)
@@ -372,7 +380,10 @@ fn update_radio_buttons_colors(
                     (
                         INACTIVE_BORDER_COLOR,
                         INACTIVE_INNER_COLOR,
-                        if matches!(interaction, Interaction::Hovered) {
+                        if matches!(
+                            (pressed, relative_cursor_position).interaction_state(),
+                            InteractionState::Hovered
+                        ) {
                             HOVERED_TEXT_COLOR
                         } else {
                             UNHOVERED_TEXT_COLOR
