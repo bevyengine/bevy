@@ -29,6 +29,10 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{ReflectComponent, ReflectResource};
+    #[allow(deprecated)]
+    pub use crate::system::adapter::{
+        self as system_adapter, dbg, error, ignore, info, unwrap, warn,
+    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -44,8 +48,6 @@ pub mod prelude {
             OnEnter, OnExit, OnTransition, Schedule, Schedules, State, States, SystemSet,
         },
         system::{
-            adapter as system_adapter,
-            adapter::{dbg, error, ignore, info, unwrap, warn},
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
             ParamSet, Query, Res, ResMut, Resource, System, SystemParamFunction,
         },
