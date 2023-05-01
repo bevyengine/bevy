@@ -62,6 +62,10 @@ pub trait Command: Send + 'static {
 /// * inserting resources
 /// * etc.
 ///
+/// For a version of [`Commands`] that works in parallel contexts (such as
+/// within [`Query::par_iter`](crate::system::Query::par_iter)) see
+/// [`ParallelCommands`]
+///
 /// # Usage
 ///
 /// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_system_buffers`] runs.
