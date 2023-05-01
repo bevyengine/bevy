@@ -289,7 +289,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
             ENTITY_STRUCT,
             &[ENTITY_FIELD_COMPONENTS],
             SceneEntityVisitor {
-                id: self.entity,
+                entity: self.entity,
                 registry: self.type_registry,
             },
         )
@@ -297,7 +297,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
 }
 
 struct SceneEntityVisitor<'a> {
-    pub id: Entity,
+    pub entity: Entity,
     pub registry: &'a TypeRegistry,
 }
 
@@ -319,7 +319,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
             .ok_or_else(|| Error::missing_field(ENTITY_FIELD_COMPONENTS))?;
 
         Ok(DynamicEntity {
-            entity: self.id,
+            entity: self.entity,
             components,
         })
     }
@@ -347,7 +347,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
             .take()
             .ok_or_else(|| Error::missing_field(ENTITY_FIELD_COMPONENTS))?;
         Ok(DynamicEntity {
-            entity: self.id,
+            entity: self.entity,
             components,
         })
     }
