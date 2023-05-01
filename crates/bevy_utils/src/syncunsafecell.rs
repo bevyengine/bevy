@@ -76,11 +76,13 @@ impl<T: ?Sized> SyncUnsafeCell<T> {
     }
 
     #[inline]
-    /// Returns a `&SyncUnsafeCell<T>` from a `&mut T`.
-    pub fn from_mut(t: &mut T) -> &SyncUnsafeCell<T> {
-        // SAFETY: `&mut` ensures unique access, and `UnsafeCell<T>` and `SyncUnsafeCell<T>`
-        // have #[repr(transparent)]
-        unsafe { &*(t as *mut T as *const SyncUnsafeCell<T>) }
+    /// Returns a `&mut SyncUnsafeCell<T>` from a `&mut T`.
+    pub fn from_mut(t: &mut T) -> &mut SyncUnsafeCell<T> {
+        let ptr = t as *mut T as *mut SyncUnsafeCell<T>;
+        // SAFETY: `ptr` must be safe to mutably dereference, since it was originally
+        // obtained from a mutable reference. `SyncUnsafeCell` has the same representation
+        // as the original type `T`, since the former is annotated with #[repr(transparent)].
+        unsafe { &mut *ptr }
     }
 }
 

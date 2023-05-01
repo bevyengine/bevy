@@ -17,8 +17,8 @@ use std::{
 /// [`Name`] should not be treated as a globally unique identifier for entities,
 /// as multiple entities can have the same name.  [`bevy_ecs::entity::Entity`] should be
 /// used instead as the default unique identifier.
-#[derive(Reflect, FromReflect, Component, Debug, Clone)]
-#[reflect(Component, Default)]
+#[derive(Reflect, FromReflect, Component, Clone)]
+#[reflect(Component, Default, Debug)]
 pub struct Name {
     hash: u64, // TODO: Shouldn't be serialized
     name: Cow<'static, str>,
@@ -76,6 +76,13 @@ impl std::fmt::Display for Name {
     #[inline(always)]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         std::fmt::Display::fmt(&self.name, f)
+    }
+}
+
+impl std::fmt::Debug for Name {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&self.name, f)
     }
 }
 

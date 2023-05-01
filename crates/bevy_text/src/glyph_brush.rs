@@ -36,14 +36,14 @@ impl GlyphBrush {
         sections: &[S],
         bounds: Vec2,
         text_alignment: TextAlignment,
-        linebreak_behaviour: BreakLineOn,
+        linebreak_behavior: BreakLineOn,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         let geom = SectionGeometry {
             bounds: (bounds.x, bounds.y),
             ..Default::default()
         };
 
-        let lbb: BuiltInLineBreaker = linebreak_behaviour.into();
+        let lbb: BuiltInLineBreaker = linebreak_behavior.into();
 
         let section_glyphs = Layout::default()
             .h_align(text_alignment.into())
