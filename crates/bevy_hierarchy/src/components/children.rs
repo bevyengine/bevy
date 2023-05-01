@@ -63,7 +63,7 @@ impl Children {
     where
         F: FnMut(&Entity, &Entity) -> std::cmp::Ordering,
     {
-        self.0.sort_by(compare)
+        self.0.sort_by(compare);
     }
 
     /// Sorts children [stably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
@@ -79,7 +79,7 @@ impl Children {
         F: FnMut(&Entity) -> K,
         K: Ord,
     {
-        self.0.sort_by_key(compare)
+        self.0.sort_by_key(compare);
     }
 
     /// Sorts children [stably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
@@ -94,7 +94,7 @@ impl Children {
         F: FnMut(&Entity) -> K,
         K: Ord,
     {
-        self.0.sort_by_cached_key(compare)
+        self.0.sort_by_cached_key(compare);
     }
 
     /// Sorts children [unstably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
@@ -109,7 +109,7 @@ impl Children {
     where
         F: FnMut(&Entity, &Entity) -> std::cmp::Ordering,
     {
-        self.0.sort_unstable_by(compare)
+        self.0.sort_unstable_by(compare);
     }
 
     /// Sorts children [unstably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
@@ -125,7 +125,7 @@ impl Children {
         F: FnMut(&Entity) -> K,
         K: Ord,
     {
-        self.0.sort_unstable_by_key(compare)
+        self.0.sort_unstable_by_key(compare);
     }
 }
 
