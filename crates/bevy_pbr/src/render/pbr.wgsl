@@ -70,7 +70,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         var emissive: vec4<f32> = material.emissive;
 #ifdef VERTEX_UVS
         if ((material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
-            emissive = vec4<f32>(emissive.rgb * textureSampleBias(emissive_texture, emissive_sampler, in.uv, view.mip_bias).rgb, 1.0);
+            emissive = vec4<f32>(emissive.rgb * textureSampleBias(emissive_texture, emissive_sampler, uv, view.mip_bias).rgb, 1.0);
         }
 #endif
         pbr_input.material.emissive = emissive;
