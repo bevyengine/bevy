@@ -120,7 +120,7 @@ impl<T: GpuListable> GpuList<T> {
 pub struct GpuListIndex<T: GpuListable> {
     /// The index to use in a shader into the array.
     pub index: u32,
-    /// The dynamic offset to use when binding the list from Rust.
+    /// The dynamic offset to use when setting the bind group in a pass.
     /// Only used on platforms that don't support storage buffers.
     pub dynamic_offset: Option<u32>,
     pub element_type: PhantomData<T>,
