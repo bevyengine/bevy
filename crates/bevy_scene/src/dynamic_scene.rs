@@ -4,8 +4,7 @@ use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use anyhow::Result;
 use bevy_app::AppTypeRegistry;
 use bevy_ecs::{
-    entity::EntityMap,
-    prelude::Entity,
+    entity::{Entity, EntityMap},
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
@@ -36,8 +35,10 @@ pub struct DynamicScene {
 
 /// A reflection-powered serializable representation of an entity and its components.
 pub struct DynamicEntity {
-    /// The transiently unique identifier of a corresponding [`Entity`](bevy_ecs::entity::Entity).
-    pub entity: u32,
+    /// The identifier of the entity, unique within a scene (and the world it may have been generated from).
+    ///
+    /// Components that reference this entity must consistently use this identifier.
+    pub entity: Entity,
     /// A vector of boxed components that belong to the given entity and
     /// implement the [`Reflect`] trait.
     pub components: Vec<Box<dyn Reflect>>,
@@ -101,7 +102,7 @@ impl DynamicScene {
             // or spawn a new entity with a transiently unique id if there is
             // no corresponding entry.
             let entity = *entity_map
-                .entry(bevy_ecs::entity::Entity::from_raw(scene_entity.entity))
+                .entry(scene_entity.entity)
                 .or_insert_with(|| world.spawn_empty().id());
             let entity_mut = &mut world.entity_mut(entity);
 
@@ -141,9 +142,7 @@ impl DynamicScene {
                 "we should be getting TypeId from this TypeRegistration in the first place",
             );
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                map_entities_reflect
-                    .map_specific_entities(world, entity_map, &entities)
-                    .unwrap();
+                map_entities_reflect.map_specific_entities(world, entity_map, &entities);
             }
         }
 
