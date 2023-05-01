@@ -102,6 +102,7 @@
 //! - All tuples between 1 to 16 elements where each element implements [`SystemParam`]
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
 
+mod adapter_system;
 mod combinator;
 mod commands;
 mod exclusive_function_system;
@@ -114,6 +115,7 @@ mod system_param;
 
 use std::borrow::Cow;
 
+pub use adapter_system::*;
 pub use combinator::*;
 pub use commands::*;
 pub use exclusive_function_system::*;
