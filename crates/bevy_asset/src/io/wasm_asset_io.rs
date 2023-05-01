@@ -1,4 +1,4 @@
-use crate::{AssetIo, AssetIoError, Metadata};
+use crate::{AssetIo, AssetIoError, ChangeWatcher, Metadata};
 use anyhow::Result;
 use bevy_utils::BoxedFuture;
 use js_sys::Uint8Array;
@@ -64,7 +64,7 @@ impl AssetIo for WasmAssetIo {
         Ok(())
     }
 
-    fn watch_for_changes(&self, configuration: &ChangeWatcher) -> Result<(), AssetIoError> {
+    fn watch_for_changes(&self, _configuration: &ChangeWatcher) -> Result<(), AssetIoError> {
         bevy_log::warn!("Watching for changes is not supported in WASM");
         Ok(())
     }
