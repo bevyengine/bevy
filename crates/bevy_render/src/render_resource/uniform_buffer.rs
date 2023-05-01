@@ -182,13 +182,12 @@ impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
 impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     pub fn new_with_alignment(alignment: u64) -> Self {
         Self {
-            values: Vec::new(),
             scratch: DynamicUniformBufferWrapper::new_with_alignment(Vec::new(), alignment),
             buffer: None,
-            capacity: 0,
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+            _marker: PhantomData,
         }
     }
 
