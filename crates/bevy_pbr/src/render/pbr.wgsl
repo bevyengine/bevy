@@ -79,7 +79,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         var perceptual_roughness: f32 = material.perceptual_roughness;
 #ifdef VERTEX_UVS
         if ((material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
-            let metallic_roughness = textureSampleBias(metallic_roughness_texture, metallic_roughness_sampler, in.uv, view.mip_bias);
+            let metallic_roughness = textureSampleBias(metallic_roughness_texture, metallic_roughness_sampler, uv, view.mip_bias);
             // Sampling from GLTF standard channels for now
             metallic = metallic * metallic_roughness.b;
             perceptual_roughness = perceptual_roughness * metallic_roughness.g;
