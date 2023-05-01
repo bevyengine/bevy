@@ -82,10 +82,11 @@ pub struct AssetServerInternal {
 /// ```
 /// # use bevy_asset::*;
 /// # use bevy_app::*;
+/// # use bevy_utils::Duration;
 /// # let mut app = App::new();
 /// // The asset plugin can be configured to watch for asset changes.
 /// app.add_plugin(AssetPlugin {
-///     watch_for_changes: true,
+///     watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
 ///     ..Default::default()
 /// });
 /// ```
