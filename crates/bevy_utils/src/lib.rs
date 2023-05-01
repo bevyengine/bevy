@@ -297,12 +297,12 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
 
 /// Calls the [`tracing::info!`] macro on a value.
 pub fn info<T: Debug>(data: T) {
-    tracing::info!("{:?}", data)
+    tracing::info!("{:?}", data);
 }
 
 /// Calls the [`tracing::debug!`] macro on a value.
 pub fn dbg<T: Debug>(data: T) {
-    tracing::debug!("{:?}", data)
+    tracing::debug!("{:?}", data);
 }
 
 /// Processes a [`Result`] by calling the [`tracing::warn!`] macro in case of an [`Err`] value.
