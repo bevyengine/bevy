@@ -1,12 +1,12 @@
 #[cfg(feature = "filesystem_watcher")]
 use crate::{filesystem_watcher::FilesystemWatcher, AssetServer};
-use crate::{AssetIo, AssetIoError, Metadata};
+use crate::{AssetIo, AssetIoError, ChangeWatcher, Metadata};
 use anyhow::Result;
 #[cfg(feature = "filesystem_watcher")]
 use bevy_ecs::system::{Local, Res};
 use bevy_utils::BoxedFuture;
 #[cfg(feature = "filesystem_watcher")]
-use bevy_utils::{default, Duration, HashMap, Instant};
+use bevy_utils::{default, HashMap, Instant};
 #[cfg(feature = "filesystem_watcher")]
 use crossbeam_channel::TryRecvError;
 use fs::File;
@@ -35,13 +35,13 @@ impl FileAssetIo {
     /// watching for changes.
     ///
     /// See `get_base_path` below.
-    pub fn new<P: AsRef<Path>>(path: P, watch_for_changes: bool) -> Self {
+    pub fn new<P: AsRef<Path>>(path: P, watch_for_changes: &Option<ChangeWatcher>) -> Self {
         let file_asset_io = FileAssetIo {
             #[cfg(feature = "filesystem_watcher")]
             filesystem_watcher: default(),
             root_path: Self::get_base_path().join(path.as_ref()),
         };
-        if watch_for_changes {
+        if let Some(configuration) = watch_for_changes {
             #[cfg(any(
                 not(feature = "filesystem_watcher"),
                 target_arch = "wasm32",
@@ -52,7 +52,7 @@ impl FileAssetIo {
                 wasm32 / android targets"
             );
             #[cfg(feature = "filesystem_watcher")]
-            file_asset_io.watch_for_changes().unwrap();
+            file_asset_io.watch_for_changes(configuration).unwrap();
         }
         file_asset_io
     }
@@ -143,10 +143,10 @@ impl AssetIo for FileAssetIo {
         Ok(())
     }
 
-    fn watch_for_changes(&self) -> Result<(), AssetIoError> {
+    fn watch_for_changes(&self, configuration: &ChangeWatcher) -> Result<(), AssetIoError> {
         #[cfg(feature = "filesystem_watcher")]
         {
-            *self.filesystem_watcher.write() = Some(default());
+            *self.filesystem_watcher.write() = Some(FilesystemWatcher::new(configuration));
         }
         #[cfg(not(feature = "filesystem_watcher"))]
         bevy_log::warn!("Watching for changes is not supported when the `filesystem_watcher` feature is disabled");
@@ -215,8 +215,8 @@ pub fn filesystem_watcher_system(
         // When changing and then saving a shader, several modification events are sent in short succession.
         // Unless we wait until we are sure the shader is finished being modified (and that there will be no more events coming),
         // we will sometimes get a crash when trying to reload a partially-modified shader.
-        for (to_reload, _) in changed
-            .drain_filter(|_, last_modified| last_modified.elapsed() >= Duration::from_millis(50))
+        for (to_reload, _) in
+            changed.drain_filter(|_, last_modified| last_modified.elapsed() >= watcher.delay)
         {
             let _ = asset_server.load_untracked(to_reload.as_path().into(), true);
         }
