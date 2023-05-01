@@ -91,7 +91,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         var occlusion: f32 = 1.0;
 #ifdef VERTEX_UVS
         if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
-            occlusion = textureSampleBias(occlusion_texture, occlusion_sampler, in.uv, view.mip_bias).r;
+            occlusion = textureSampleBias(occlusion_texture, occlusion_sampler, uv, view.mip_bias).r;
         }
 #endif
         pbr_input.frag_coord = in.frag_coord;
