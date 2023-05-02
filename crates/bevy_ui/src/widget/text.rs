@@ -104,6 +104,9 @@ fn create_text_measure(
         Err(e @ TextError::FailedToAddGlyph(_)) => {
             panic!("Fatal error when processing text: {e}.");
         }
+        Err(e @ TextError::FailedToAddGlyphOld(_)) => {
+            panic!("Fatal error when processing text: {e}.");
+        }
     };
 }
 
@@ -195,6 +198,9 @@ fn queue_text(
                 text_flags.needs_recompute = true;
             }
             Err(e @ TextError::FailedToAddGlyph(_)) => {
+                panic!("Fatal error when processing text: {e}.");
+            }
+            Err(e @ TextError::FailedToAddGlyphOld(_)) => {
                 panic!("Fatal error when processing text: {e}.");
             }
             Ok(info) => {

@@ -64,7 +64,7 @@ impl GlyphBrush {
         text_settings: &TextSettings,
         font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
-    ) -> Result<Vec<PositionedGlyph>, TextError> {
+    ) -> Result<Vec<PositionedGlyphOld>, TextError> {
         if glyphs.is_empty() {
             return Ok(Vec::new());
         }
@@ -118,10 +118,14 @@ impl GlyphBrush {
                     .get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
 
                 let atlas_info = font_atlas_set
-                    .get_glyph_atlas_info(section_data.2, glyph_id, glyph_position)
+                    .get_glyph_atlas_info_old(section_data.2, glyph_id, glyph_position)
                     .map(Ok)
                     .unwrap_or_else(|| {
-                        font_atlas_set.add_glyph_to_atlas(texture_atlases, textures, outlined_glyph)
+                        font_atlas_set.add_glyph_to_atlas_old(
+                            texture_atlases,
+                            textures,
+                            outlined_glyph,
+                        )
                     })?;
 
                 if !text_settings.allow_dynamic_font_size
@@ -145,7 +149,7 @@ impl GlyphBrush {
 
                 let position = adjust.position(Vec2::new(x, y));
 
-                positioned_glyphs.push(PositionedGlyph {
+                positioned_glyphs.push(PositionedGlyphOld {
                     position,
                     size,
                     atlas_info,
@@ -167,7 +171,7 @@ impl GlyphBrush {
 }
 
 #[derive(Debug, Clone)]
-pub struct PositionedGlyph {
+pub struct PositionedGlyphOld {
     pub position: Vec2,
     pub size: Vec2,
     pub atlas_info: GlyphAtlasInfo,

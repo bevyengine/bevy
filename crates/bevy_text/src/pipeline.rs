@@ -5,19 +5,79 @@ use bevy_ecs::system::Resource;
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
-use bevy_utils::HashMap;
+use bevy_utils::{tracing::warn, HashMap};
 
+use cosmic_text::{Attrs, AttrsList, Buffer, BufferLine, Family, Metrics, Wrap};
 use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText};
 
 use crate::{
-    error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font, FontAtlasSet,
-    FontAtlasWarning, PositionedGlyph, TextAlignment, TextSection, TextSettings, YAxisOrientation,
+    error::TextError, font, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font, FontAtlasSet,
+    FontAtlasWarning, PositionedGlyph, PositionedGlyphOld, TextAlignment, TextSection,
+    TextSettings, YAxisOrientation,
 };
+
+pub struct FontSystem(cosmic_text::FontSystem);
+
+impl Default for FontSystem {
+    fn default() -> Self {
+        let locale = sys_locale::get_locale().unwrap_or_else(|| String::from("en-US"));
+        let db = cosmic_text::fontdb::Database::new();
+        // TODO: consider using `cosmic_text::FontSystem::new()` (load system fonts by default)
+        Self(cosmic_text::FontSystem::new_with_locale_and_db(locale, db))
+    }
+}
+
+impl FontSystem {
+    /// Attempts to load system fonts.
+    ///
+    /// Supports Windows, Linux and macOS.
+    ///
+    /// System fonts loading is a surprisingly complicated task,
+    /// mostly unsolvable without interacting with system libraries.
+    /// And since `fontdb` tries to be small and portable, this method
+    /// will simply scan some predefined directories.
+    /// Which means that fonts that are not in those directories must
+    /// be added manually.
+    ///
+    /// This allows access to any installed system fonts
+    ///
+    /// # Timing
+    ///
+    /// This function takes some time to run. On the release build, it can take up to a second,
+    /// while debug builds can take up to ten times longer. For this reason, it should only be
+    /// called once, and the resulting [`FontSystem`] should be shared.
+    ///
+    /// This should ideally run in a background thread.
+    // TODO: This should run in a background thread.
+    pub fn load_system_fonts(&mut self) {
+        self.0.db_mut().load_system_fonts();
+    }
+}
+
+pub struct SwashCache(cosmic_text::SwashCache);
+
+impl Default for SwashCache {
+    fn default() -> Self {
+        Self(cosmic_text::SwashCache::new())
+    }
+}
 
 #[derive(Default, Resource)]
 pub struct TextPipeline {
     brush: GlyphBrush,
     map_font_id: HashMap<HandleId, FontId>,
+    map_handle_to_font_id: HashMap<HandleId, cosmic_text::fontdb::ID>,
+    font_system: FontSystem,
+    swash_cache: SwashCache,
+}
+
+/// Render information for a corresponding [`Text`](crate::Text) component.
+///
+/// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
+#[derive(Component, Clone, Default, Debug)]
+pub struct TextLayoutInfoOld {
+    pub glyphs: Vec<PositionedGlyphOld>,
+    pub size: Vec2,
 }
 
 /// Render information for a corresponding [`Text`](crate::Text) component.
@@ -42,6 +102,247 @@ impl TextPipeline {
     pub fn queue_text(
         &mut self,
         fonts: &Assets<Font>,
+        // TODO: TextSection should support referencing fonts via "Font Query" (Family, Stretch, Weight and Style)
+        sections: &[TextSection],
+        scale_factor: f64,
+        // TODO: Implement text alignment
+        text_alignment: TextAlignment,
+        linebreak_behavior: BreakLineOn,
+        bounds: Vec2,
+        font_atlas_set_storage: &mut Assets<FontAtlasSet>,
+        texture_atlases: &mut Assets<TextureAtlas>,
+        textures: &mut Assets<Image>,
+        text_settings: &TextSettings,
+        font_atlas_warning: &mut FontAtlasWarning,
+        y_axis_orientation: YAxisOrientation,
+    ) -> Result<TextLayoutInfo, TextError> {
+        if sections.is_empty() {
+            return Ok(TextLayoutInfo::default());
+        }
+
+        // TODO: Support loading fonts without cloning the already loaded data (they are cloned in `add_span`)
+        let font_system = &mut self.font_system.0;
+        let swash_cache = &mut self.swash_cache.0;
+
+        // TODO: Support multiple section font sizes, pending upstream implementation in cosmic_text
+        // For now, just use the first section's size or a default
+        let font_size = sections
+            .get(0)
+            .map(|s| s.style.font_size)
+            .unwrap_or_else(|| crate::TextStyle::default().font_size)
+            as f64
+            * scale_factor;
+        // TODO: Support line height as an option. Unitless `1.2` is the default used in browsers (1.2x font size).
+        let line_height = font_size * 1.2;
+        let (font_size, line_height) = (font_size as f32, line_height as f32);
+        let metrics = Metrics::new(font_size, line_height);
+
+        // TODO: cache buffers (see Iced / glyphon)
+        let mut buffer = Buffer::new(font_system, metrics);
+
+        let mut buffer_lines = Vec::new();
+        let mut attrs_list = AttrsList::new(Attrs::new());
+        let mut line_text = String::new();
+        // all sections need to be combined and broken up into lines
+        // e.g.
+        // style0"Lorem ipsum\ndolor sit amet,"
+        // style1" consectetur adipiscing\nelit,"
+        // style2" sed do eiusmod tempor\nincididunt"
+        // style3" ut labore et dolore\nmagna aliqua."
+        // becomes:
+        // line0: style0"Lorem ipsum"
+        // line1: style0"dolor sit amet,"
+        //        style1" consectetur adipiscing,"
+        // line2: style1"elit,"
+        //        style2" sed do eiusmod tempor"
+        // line3: style2"incididunt"
+        //        style3"ut labore et dolore"
+        // line4: style3"magna aliqua."
+        for (section_index, section) in sections.iter().enumerate() {
+            // can't simply use `let mut lines = section.value.lines()` because
+            // unicode-bidi used by cosmic text doesn't have the same newline behaviour.
+            // when using exotic chars, such as in example font_atlas_debug, there is a panic in shaping
+            let bidi = unicode_bidi::BidiInfo::new(&section.value, None);
+            let mut lines = bidi.paragraphs.into_iter().map(|para| {
+                // `para.range` includes the newline at the end, and in an unusual way.
+                // we can remove it by taking the first line
+                section.value[para.range].lines().next().unwrap()
+            });
+
+            // continue the current line, adding spans
+            if let Some(line) = lines.next() {
+                add_span(
+                    &mut line_text,
+                    &mut attrs_list,
+                    section,
+                    section_index,
+                    line,
+                    font_system,
+                    &mut self.map_handle_to_font_id,
+                    fonts,
+                );
+            }
+            // for any remaining lines in this section
+            for line in lines {
+                // finalise this line and start a new line
+                let prev_attrs_list =
+                    std::mem::replace(&mut attrs_list, AttrsList::new(Attrs::new()));
+                let prev_line_text = std::mem::take(&mut line_text);
+                buffer_lines.push(BufferLine::new(prev_line_text, prev_attrs_list));
+                add_span(
+                    &mut line_text,
+                    &mut attrs_list,
+                    section,
+                    section_index,
+                    line,
+                    font_system,
+                    &mut self.map_handle_to_font_id,
+                    fonts,
+                );
+            }
+        }
+        // finalise last line
+        buffer_lines.push(BufferLine::new(line_text, attrs_list));
+
+        // node size (bounds) is already scaled by the systems that call queue_text
+        let buffer_height = bounds.y;
+        buffer.set_size(font_system, bounds.x, buffer_height);
+        buffer.lines = buffer_lines;
+
+        buffer.set_wrap(
+            font_system,
+            match linebreak_behavior {
+                BreakLineOn::WordBoundary => Wrap::Word,
+                BreakLineOn::AnyCharacter => Wrap::Glyph,
+            },
+        );
+
+        // TODO: other shaping methods?
+        buffer.shape_until_scroll(font_system);
+
+        if buffer.visible_lines() == 0 {
+            // Presumably the font(s) are not available yet
+            return Err(TextError::NoSuchFont);
+        }
+
+        // DEBUGGING:
+        // let a = buffer.lines.iter().map(|l| l.text()).collect::<String>();
+        // let b = sections
+        //     .iter()
+        //     .map(|s| s.value.lines().collect::<String>())
+        //     .collect::<String>();
+        // println!();
+        // dbg!(a, b);
+
+        // TODO: check height and width logic
+        let width = buffer
+            .layout_runs()
+            .map(|run| run.line_w)
+            .reduce(|max_w, w| max_w.max(w))
+            .map(|max_w| max_w as u32)
+            .unwrap();
+        let height = (buffer.layout_runs().count() as f32 * line_height)
+            .ceil()
+            .min(bounds.y) as u32;
+        let size = Vec2::new(width as f32, height as f32);
+
+        let glyphs = buffer
+            .layout_runs()
+            .flat_map(|run| {
+                run.glyphs
+                    .iter()
+                    .map(move |g| (g, run.line_i, run.line_w, run.line_y, run.rtl, run.text))
+            })
+            .collect::<Vec<_>>();
+
+        if glyphs.is_empty() {
+            return Ok(TextLayoutInfo::default());
+        }
+
+        // DEBUGGING:
+        // for sg in glyphs.iter() {
+        //     let (glyph, line_i, line_w, line_y, rtl, text) = sg;
+        //     dbg!(*line_i as i32 * line_height as i32 + glyph.y_int);
+        // }
+
+        // DEBUGGING:
+        // dbg!(glyphs.first().unwrap());
+
+        let glyphs_results = glyphs
+            .iter()
+            .map(|(layout_glyph, line_i, line_w, line_y, rtl, text)| {
+                let section_index = layout_glyph.metadata;
+
+                let handle_font_atlas: Handle<FontAtlasSet> = sections[section_index].style.font.cast_weak();
+                let font_atlas_set = font_atlas_set_storage
+                    .get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
+
+                let mut cache_key = layout_glyph.cache_key;
+                let position_x = cache_key.x_bin.as_float();
+                let position_y = cache_key.y_bin.as_float();
+                let (position_x, subpixel_x) = cosmic_text::SubpixelBin::new(position_x);
+                let (position_y, subpixel_y) = cosmic_text::SubpixelBin::new(position_y);
+                cache_key.x_bin = subpixel_x;
+                cache_key.y_bin = subpixel_y;
+                assert_eq!(layout_glyph.cache_key, cache_key);
+                assert_eq!([position_x, position_y], [0, 0]);
+
+                let atlas_info = font_atlas_set
+                    .get_glyph_atlas_info_new(layout_glyph.cache_key)
+                    .map(Ok)
+                    .unwrap_or_else(|| {
+                        font_atlas_set.add_glyph_to_atlas_new(texture_atlases, textures, font_system, swash_cache, layout_glyph)
+                    })?;
+
+                if !text_settings.allow_dynamic_font_size
+                    && !font_atlas_warning.warned
+                    && font_atlas_set.num_font_atlases() > text_settings.max_font_atlases.get()
+                {
+                    warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.max_font_atlases.get());
+                    font_atlas_warning.warned = true;
+                }
+
+                let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
+                let left = atlas_info.left as f32;
+                let top = atlas_info.top as f32;
+                let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
+                assert_eq!(atlas_info.width as f32, size.x);
+                assert_eq!(atlas_info.height as f32, size.y);
+
+                // offset by half the size because the origin is center
+                let x = size.x / 2.0 + left + layout_glyph.x_int as f32;
+                let y = *line_y + layout_glyph.y_int as f32 - top + size.y / 2.0;
+                let y = match y_axis_orientation {
+                    YAxisOrientation::TopToBottom => y,
+                    YAxisOrientation::BottomToTop => height as f32 - y,
+                };
+
+                let position = Vec2::new(x, y);
+
+                let pos_glyph = PositionedGlyph {
+                    position,
+                    size,
+                    atlas_info,
+                    section_index,
+                    // TODO: recreate the byte index, relevant for #1319
+                    byte_index: 0,
+                };
+                Ok::<_, TextError>(pos_glyph)
+            });
+
+        let mut glyphs = Vec::with_capacity(glyphs_results.len());
+        for glyph_result in glyphs_results {
+            glyphs.push(glyph_result?);
+        }
+
+        Ok(TextLayoutInfo { glyphs, size })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn queue_text_old(
+        &mut self,
+        fonts: &Assets<Font>,
         sections: &[TextSection],
         scale_factor: f64,
         text_alignment: TextAlignment,
@@ -53,7 +354,7 @@ impl TextPipeline {
         text_settings: &TextSettings,
         font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
-    ) -> Result<TextLayoutInfo, TextError> {
+    ) -> Result<TextLayoutInfoOld, TextError> {
         let mut scaled_fonts = Vec::with_capacity(sections.len());
         let sections = sections
             .iter()
@@ -81,7 +382,7 @@ impl TextPipeline {
                 .compute_glyphs(&sections, bounds, text_alignment, linebreak_behavior)?;
 
         if section_glyphs.is_empty() {
-            return Ok(TextLayoutInfo::default());
+            return Ok(TextLayoutInfoOld::default());
         }
 
         let mut min_x: f32 = std::f32::MAX;
@@ -115,7 +416,7 @@ impl TextPipeline {
             y_axis_orientation,
         )?;
 
-        Ok(TextLayoutInfo { glyphs, size })
+        Ok(TextLayoutInfoOld { glyphs, size })
     }
 
     pub fn create_text_measure(
@@ -253,4 +554,56 @@ impl TextMeasureInfo {
         let sections = self.prepare_section_texts();
         self.compute_size_from_section_texts(&sections, bounds)
     }
+}
+
+/// Adds a span to the attributes list,
+/// loading fonts into the DB if required.
+#[allow(clippy::too_many_arguments)]
+fn add_span(
+    line_text: &mut String,
+    attrs_list: &mut AttrsList,
+    section: &TextSection,
+    section_index: usize,
+    line: &str,
+    font_system: &mut cosmic_text::FontSystem,
+    map_handle_to_font_id: &mut HashMap<HandleId, cosmic_text::fontdb::ID>,
+    fonts: &Assets<Font>,
+) {
+    let start = line_text.len();
+    line_text.push_str(line);
+    let end = line_text.len();
+
+    let font_handle = &section.style.font;
+    let font_handle_id = font_handle.id();
+    let face_id = map_handle_to_font_id
+        .entry(font_handle_id)
+        .or_insert_with(|| {
+            let font = fonts.get(font_handle).unwrap();
+            font_system
+                .db_mut()
+                .load_font_source(cosmic_text::fontdb::Source::Binary(font.data.clone()));
+            // TODO: validate this is the right font face. alternatively,
+            // 1. parse the face info using ttf-parser
+            // 2. push this face info into the db
+            // 3. query the db from the same face info we just pushed in to get the id
+            let face_id = font_system.db().faces().last().unwrap().id;
+            // let font = font_system.get_font(face_id).unwrap();
+            // map_font_id_to_metrics
+            //     .entry(face_id)
+            //     .or_insert_with(|| font.as_swash().metrics(&[]));
+            face_id
+        });
+    let face = font_system.db().face(*face_id).unwrap();
+
+    // TODO: validate this is the correct string to extract
+    let family_name = &face.families[0].0;
+    let attrs = Attrs::new()
+        // TODO: validate that we can use metadata
+        .metadata(section_index)
+        .family(Family::Name(family_name))
+        .stretch(face.stretch)
+        .style(face.style)
+        .weight(face.weight)
+        .color(cosmic_text::Color(section.style.color.as_linear_rgba_u32()));
+    attrs_list.add_span(start..end, attrs);
 }
