@@ -561,7 +561,7 @@ pub fn get_bind_group_layout_entries(
             visibility: ShaderStages::FRAGMENT,
             ty: BindingType::Texture {
                 multisampled,
-                sample_type: TextureSampleType::Float { filterable: true },
+                sample_type: TextureSampleType::Float { filterable: false },
                 view_dimension: TextureViewDimension::D2,
             },
             count: None,
@@ -572,7 +572,7 @@ pub fn get_bind_group_layout_entries(
             visibility: ShaderStages::FRAGMENT,
             ty: BindingType::Texture {
                 multisampled,
-                sample_type: TextureSampleType::Float { filterable: true },
+                sample_type: TextureSampleType::Float { filterable: false },
                 view_dimension: TextureViewDimension::D2,
             },
             count: None,

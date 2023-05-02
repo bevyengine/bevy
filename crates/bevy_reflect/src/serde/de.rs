@@ -389,7 +389,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         registry: self.registry,
                     },
                 )?;
-                dynamic_struct.set_name(struct_info.type_name().to_string());
+                dynamic_struct.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_struct))
             }
             TypeInfo::TupleStruct(tuple_struct_info) => {
@@ -402,7 +402,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         registration: self.registration,
                     },
                 )?;
-                dynamic_tuple_struct.set_name(tuple_struct_info.type_name().to_string());
+                dynamic_tuple_struct.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_tuple_struct))
             }
             TypeInfo::List(list_info) => {
@@ -410,7 +410,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     list_info,
                     registry: self.registry,
                 })?;
-                dynamic_list.set_name(list_info.type_name().to_string());
+                dynamic_list.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_list))
             }
             TypeInfo::Array(array_info) => {
@@ -421,7 +421,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         registry: self.registry,
                     },
                 )?;
-                dynamic_array.set_name(array_info.type_name().to_string());
+                dynamic_array.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_array))
             }
             TypeInfo::Map(map_info) => {
@@ -429,7 +429,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     map_info,
                     registry: self.registry,
                 })?;
-                dynamic_map.set_name(map_info.type_name().to_string());
+                dynamic_map.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_map))
             }
             TypeInfo::Tuple(tuple_info) => {
@@ -440,7 +440,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         registry: self.registry,
                     },
                 )?;
-                dynamic_tuple.set_name(tuple_info.type_name().to_string());
+                dynamic_tuple.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_tuple))
             }
             TypeInfo::Enum(enum_info) => {
@@ -461,20 +461,13 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         },
                     )?
                 };
-                dynamic_enum.set_name(type_name.to_string());
+                dynamic_enum.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_enum))
             }
             TypeInfo::Value(_) => {
                 // This case should already be handled
                 Err(de::Error::custom(format_args!(
                     "the TypeRegistration for {type_name} doesn't have ReflectDeserialize",
-                )))
-            }
-            TypeInfo::Dynamic(_) => {
-                // We could potentially allow this but we'd have no idea what the actual types of the
-                // fields are and would rely on the deserializer to determine them (e.g. `i32` vs `i64`)
-                Err(de::Error::custom(format_args!(
-                    "cannot deserialize arbitrary dynamic type {type_name}",
                 )))
             }
         }

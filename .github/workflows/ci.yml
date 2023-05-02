@@ -199,13 +199,23 @@ jobs:
             echo "running $example_name - "`date`
             time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
             sleep 10
+            if [ `find ./ -maxdepth 1 -name 'screenshot-*.png' -print -quit` ]; then
+              mkdir screenshots-$example_name
+              mv screenshot-*.png screenshots-$example_name/
+            fi
           done
           zip traces.zip trace*.json
+          zip -r screenshots.zip screenshots-*
       - name: save traces
         uses: actions/upload-artifact@v3
         with:
           name: example-traces.zip
           path: traces.zip
+      - name: save screenshots
+        uses: actions/upload-artifact@v3
+        with:
+          name: screenshots.zip
+          path: screenshots.zip
       - name: Save PR number
         if: ${{ failure() && github.event_name == 'pull_request' }}
         run: |

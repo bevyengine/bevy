@@ -57,6 +57,10 @@ symphonia-isomp4 = ["bevy_audio/symphonia-isomp4"]
 symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
+# Shader formats
+shader_format_glsl = ["bevy_render/shader_format_glsl"]
+shader_format_spirv = ["bevy_render/shader_format_spirv"]
+
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_asset/filesystem_watcher"]
 
@@ -73,7 +77,7 @@ subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl"]
 
 # enable systems that allow for automated testing on CI
-bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render?/ci_limits"]
+bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_time/bevy_ci_testing", "bevy_render?/bevy_ci_testing", "bevy_render?/ci_limits"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]

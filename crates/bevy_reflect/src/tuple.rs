@@ -1,9 +1,9 @@
-use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypeRegistration, Typed, UnnamedField,
+    FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    TypeRegistration, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
+use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
@@ -207,39 +207,48 @@ impl TupleInfo {
 /// A tuple which allows fields to be added at runtime.
 #[derive(Default, Debug)]
 pub struct DynamicTuple {
-    name: String,
+    name: Cow<'static, str>,
+    represented_type: Option<&'static TypeInfo>,
     fields: Vec<Box<dyn Reflect>>,
 }
 
 impl DynamicTuple {
-    /// Returns the type name of the tuple.
+    /// Sets the [type] to be represented by this `DynamicTuple`.
     ///
-    /// The tuple's name is automatically generated from its element types.
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    /// # Panics
+    ///
+    /// Panics if the given [type] is not a [`TypeInfo::Tuple`].
+    ///
+    /// [type]: TypeInfo
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::Tuple(_)),
+                "expected TypeInfo::Tuple but received: {:?}",
+                represented_type
+            );
 
-    /// Manually sets the type name of the tuple.
-    ///
-    /// Note that the tuple name will be overwritten when elements are added.
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+            self.name = Cow::Borrowed(represented_type.type_name());
+        }
+        self.represented_type = represented_type;
     }
 
     /// Appends an element with value `value` to the tuple.
     pub fn insert_boxed(&mut self, value: Box<dyn Reflect>) {
+        self.represented_type = None;
         self.fields.push(value);
         self.generate_name();
     }
 
     /// Appends a typed element with value `value` to the tuple.
     pub fn insert<T: Reflect>(&mut self, value: T) {
+        self.represented_type = None;
         self.insert_boxed(Box::new(value));
         self.generate_name();
     }
 
     fn generate_name(&mut self) {
-        let name = &mut self.name;
+        let mut name = self.name.to_string();
         name.clear();
         name.push('(');
         for (i, field) in self.fields.iter().enumerate() {
@@ -249,6 +258,7 @@ impl DynamicTuple {
             name.push_str(field.type_name());
         }
         name.push(')');
+        self.name = Cow::Owned(name);
     }
 }
 
@@ -285,6 +295,7 @@ impl Tuple for DynamicTuple {
     fn clone_dynamic(&self) -> DynamicTuple {
         DynamicTuple {
             name: self.name.clone(),
+            represented_type: self.represented_type,
             fields: self
                 .fields
                 .iter()
@@ -297,12 +308,14 @@ impl Tuple for DynamicTuple {
 impl Reflect for DynamicTuple {
     #[inline]
     fn type_name(&self) -> &str {
-        self.name()
+        self.represented_type
+            .map(|info| info.type_name())
+            .unwrap_or_else(|| &self.name)
     }
 
     #[inline]
-    fn get_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 
     #[inline]
@@ -373,12 +386,10 @@ impl Reflect for DynamicTuple {
         tuple_debug(self, f)?;
         write!(f, ")")
     }
-}
 
-impl Typed for DynamicTuple {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
     }
 }
 
@@ -496,15 +507,15 @@ macro_rules! impl_reflect_tuple {
 
             #[inline]
             fn clone_dynamic(&self) -> DynamicTuple {
-                let mut dyn_tuple = DynamicTuple {
-                    name: String::default(),
+                let info = self.get_represented_type_info();
+                DynamicTuple {
+                    name: Cow::Borrowed(::core::any::type_name::<Self>()),
+                    represented_type: info,
                     fields: self
                         .iter_fields()
                         .map(|value| value.clone_value())
                         .collect(),
-                };
-                dyn_tuple.generate_name();
-                dyn_tuple
+                }
             }
         }
 
@@ -513,8 +524,8 @@ macro_rules! impl_reflect_tuple {
                 std::any::type_name::<Self>()
             }
 
-            fn get_type_info(&self) -> &'static TypeInfo {
-                <Self as Typed>::type_info()
+            fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+                Some(<Self as Typed>::type_info())
             }
 
             fn into_any(self: Box<Self>) -> Box<dyn Any> {
