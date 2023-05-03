@@ -27,6 +27,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_winit|winit window and input backend|
+|default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |filesystem_watcher|Enable watching file system for asset hot reload|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
@@ -56,6 +57,8 @@ The default feature set enables most of the expected features of a game engine, 
 |minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|
 |serialize|Enable serialization support through serde|
+|shader_format_glsl|Enable support for shaders in GLSL|
+|shader_format_spirv|Enable support for shaders in SPIR-V|
 |subpixel_glyph_atlas|Enable rendering of font glyphs using subpixel accuracy|
 |symphonia-aac|AAC audio format support (through symphonia)|
 |symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|

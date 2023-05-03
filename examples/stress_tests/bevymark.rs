@@ -103,9 +103,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TextSection::new(
             value,
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
                 color,
+                ..default()
             },
         )
     };

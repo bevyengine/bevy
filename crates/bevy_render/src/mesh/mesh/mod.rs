@@ -820,6 +820,7 @@ impl From<&Indices> for IndexFormat {
 pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,
+    pub vertex_count: u32,
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
@@ -834,9 +835,7 @@ pub enum GpuBufferInfo {
         count: u32,
         index_format: IndexFormat,
     },
-    NonIndexed {
-        vertex_count: u32,
-    },
+    NonIndexed,
 }
 
 impl RenderAsset for Mesh {
@@ -861,11 +860,8 @@ impl RenderAsset for Mesh {
             contents: &vertex_buffer_data,
         });
 
-        let buffer_info = mesh.get_index_buffer_bytes().map_or(
-            GpuBufferInfo::NonIndexed {
-                vertex_count: mesh.count_vertices() as u32,
-            },
-            |data| GpuBufferInfo::Indexed {
+        let buffer_info = if let Some(data) = mesh.get_index_buffer_bytes() {
+            GpuBufferInfo::Indexed {
                 buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
                     usage: BufferUsages::INDEX,
                     contents: data,
@@ -873,13 +869,16 @@ impl RenderAsset for Mesh {
                 }),
                 count: mesh.indices().unwrap().len() as u32,
                 index_format: mesh.indices().unwrap().into(),
-            },
-        );
+            }
+        } else {
+            GpuBufferInfo::NonIndexed
+        };
 
         let mesh_vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout();
 
         Ok(GpuMesh {
             vertex_buffer,
+            vertex_count: mesh.count_vertices() as u32,
             buffer_info,
             primitive_topology: mesh.primitive_topology(),
             layout: mesh_vertex_buffer_layout,

@@ -2,7 +2,7 @@
 
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, NodeSize, Style, UiImage,
+    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, NodeSize, Style, UiImage,
     ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
@@ -33,7 +33,7 @@ pub struct NodeBundle {
     /// The transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `nodebundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
@@ -81,7 +81,7 @@ pub struct ImageBundle {
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
-    pub calculated_size: CalculatedSize,
+    pub calculated_size: ContentSize,
     /// The background color, which serves as a "fill" for this node
     ///
     /// Combines with `UiImage` to tint the provided image.
@@ -129,7 +129,7 @@ pub struct TextBundle {
     /// Text layout information
     pub text_layout_info: TextLayoutInfo,
     /// The calculated size based on the given image
-    pub calculated_size: CalculatedSize,
+    pub calculated_size: ContentSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node

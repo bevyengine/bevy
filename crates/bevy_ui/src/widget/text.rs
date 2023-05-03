@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Measure, Node, NodeSize, UiScale};
+use crate::{ContentSize, Measure, Node, NodeSize, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -52,10 +52,6 @@ impl Measure for TextMeasure {
             )
             .ceil()
     }
-
-    fn dyn_clone(&self) -> Box<dyn Measure> {
-        Box::new(self.clone())
-    }
 }
 
 /// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space
@@ -68,9 +64,9 @@ pub fn measure_text_system(
     ui_scale: Res<UiScale>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_queries: ParamSet<(
-        Query<Entity, Changed<Text>>,
+        Query<Entity, (Changed<Text>, With<Node>)>,
         Query<Entity, (With<Text>, With<Node>)>,
-        Query<(&Text, &mut CalculatedSize)>,
+        Query<(&Text, &mut ContentSize)>,
     )>,
 ) {
     let window_scale_factor = windows
@@ -82,7 +78,7 @@ pub fn measure_text_system(
 
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
-        // Adds all entities where the text or the style has changed to the local queue
+        // Adds all entities where the text has changed to the local queue
         for entity in text_queries.p0().iter() {
             if !queued_text.contains(&entity) {
                 queued_text.push(entity);
@@ -103,7 +99,7 @@ pub fn measure_text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text.drain(..) {
-        if let Ok((text, mut calculated_size)) = query.get_mut(entity) {
+        if let Ok((text, mut content_size)) = query.get_mut(entity) {
             match text_pipeline.create_text_measure(
                 &fonts,
                 &text.sections,
@@ -112,7 +108,7 @@ pub fn measure_text_system(
                 text.linebreak_behavior,
             ) {
                 Ok(measure) => {
-                    calculated_size.measure = Box::new(TextMeasure { info: measure });
+                    content_size.set(TextMeasure { info: measure });
                 }
                 Err(TextError::NoSuchFont) => {
                     new_queue.push(entity);
