@@ -587,7 +587,7 @@ impl ButtonSettings {
 #[derive(Debug, Clone, Reflect, FromReflect, PartialEq)]
 #[reflect(Debug, Default)]
 pub struct AxisSettings {
-    /// Values that are higher than `livezone_upperbound` will be rounded up to -1.0.
+    /// Values that are higher than `livezone_upperbound` will be rounded up to 1.0.
     livezone_upperbound: f32,
     /// Positive values that are less than `deadzone_upperbound` will be rounded down to 0.0.
     deadzone_upperbound: f32,
