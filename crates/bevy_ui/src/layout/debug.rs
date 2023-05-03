@@ -55,9 +55,9 @@ fn print_node(
     } else {
         "└── "
     };
-    write!(
+    writeln!(
         acc,
-        "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({entity:?}) {measured}\n",
+        "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({entity:?}) {measured}",
         lines = lines_string,
         fork = fork_string,
         display = display_variant,
