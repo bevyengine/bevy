@@ -4,6 +4,7 @@ use bevy_utils::HashMap;
 use taffy::prelude::Node;
 use taffy::tree::LayoutTree;
 
+/// Prints a debug representation of the computed layout of the UI layout tree for each window.
 pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
     let taffy_to_entity: HashMap<Node, Entity> = ui_surface
         .entity_to_taffy
@@ -23,6 +24,7 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
     }
 }
 
+/// Recursively navigates the layout tree printing each node's information.
 fn print_node(
     ui_surface: &UiSurface,
     taffy_to_entity: &HashMap<Node, Entity>,
