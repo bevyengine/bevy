@@ -176,7 +176,7 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Removes each entity from the internal map and then removes their associated node from taffy
-    pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
+    pub fn remove_nodes(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
                 self.taffy.remove(node).unwrap();
@@ -214,7 +214,7 @@ pub fn clean_up_removed_ui_nodes(
     mut removed_calculated_sizes: RemovedComponents<ContentSize>,
 ) {
     // clean up removed nodes
-    ui_surface.remove_entities(removed_nodes.iter());
+    ui_surface.remove_nodes(removed_nodes.iter());
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_calculated_sizes.iter() {
