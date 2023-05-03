@@ -6,10 +6,9 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::Component,
-    query::{Added, Changed, ReadOnlyWorldQuery, With, Without},
+    query::{Added, Changed, With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, Resource},
-    world::Ref,
+    system::{Query, Res, ResMut, Resource}, world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -20,7 +19,7 @@ use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{
-    prelude::{AvailableSpace, Size},
+    prelude::Size,
     style_helpers::TaffyMaxContent,
     tree::LayoutTree,
     Taffy,
@@ -95,41 +94,7 @@ impl Default for UiSurface {
 }
 
 impl UiSurface {
-    pub fn insert_node(
-        &mut self,
-        entity: Entity,
-        style: &Style,
-        calculated_size: Option<&ContentSize>,
-        context: &LayoutContext,
-    ) -> taffy::node::Node {
-        let style = convert::from_style(context, style);
-        let taffy_node = if let Some(calculated_size) = calculated_size {
-            let measure = calculated_size.measure.dyn_clone();
-            let measure_func = taffy::node::MeasureFunc::Boxed(Box::new(
-                move |constraints: Size<Option<f32>>, available: Size<AvailableSpace>| {
-                    let size = measure.measure(
-                        constraints.width,
-                        constraints.height,
-                        available.width,
-                        available.height,
-                    );
-                    taffy::geometry::Size {
-                        width: size.x,
-                        height: size.y,
-                    }
-                },
-            ));
-            self.taffy
-                .new_leaf_with_measure(style, measure_func)
-                .unwrap()
-        } else {
-            self.taffy.new_leaf(style).unwrap()
-        };
-        self.entity_to_taffy.insert(entity, taffy_node);
-        taffy_node
-    }
-
-    pub fn update_node(
+    pub fn update_style(
         &mut self,
         taffy_node: taffy::node::Node,
         style: &Style,
@@ -140,57 +105,9 @@ impl UiSurface {
             .ok();
     }
 
-    pub fn update_leaf(
-        &mut self,
-        taffy_node: taffy::node::Node,
-        style: &Style,
-        calculated_size: &ContentSize,
-        context: &LayoutContext,
-    ) {
-        let taffy_style = convert::from_style(context, style);
-        let measure = calculated_size.measure.dyn_clone();
-        let measure_func = taffy::node::MeasureFunc::Boxed(Box::new(
-            move |constraints: Size<Option<f32>>, available: Size<AvailableSpace>| {
-                let size = measure.measure(
-                    constraints.width,
-                    constraints.height,
-                    available.width,
-                    available.height,
-                );
-                taffy::geometry::Size {
-                    width: size.x,
-                    height: size.y,
-                }
-            },
-        ));
-        self.taffy.set_style(taffy_node, taffy_style).unwrap();
-        self.taffy
-            .set_measure(taffy_node, Some(measure_func))
-            .unwrap();
-    }
-
-    
-    /// Retrieves the taffy node corresponding to given entity exists, or inserts a new taffy node into the layout if no corresponding node exists.
-    /// Then convert the given `Style` and use it update the taffy node's style.
-    pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {
-        let mut added = false;
-        let taffy = &mut self.taffy;
-        let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
-            added = true;
-            taffy.new_leaf(convert::from_style(context, style)).unwrap()
-        });
-
-        if !added {
-            self.taffy
-                .set_style(*taffy_node, convert::from_style(context, style))
-                .unwrap();
-        }
-    }
-
     /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`].
-    pub fn update_measure(&mut self, entity: Entity, measure_func: taffy::node::MeasureFunc) {
-        let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
-        self.taffy.set_measure(*taffy_node, Some(measure_func)).ok();
+    pub fn update_measure(&mut self, taffy_node: taffy::node::Node, measure_func: taffy::node::MeasureFunc) {
+        self.taffy.set_measure(taffy_node, Some(measure_func)).ok();
     }
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
@@ -383,31 +300,30 @@ pub fn update_ui_layout(
     ui_context: ResMut<UiContext>,
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<&Node, (With<Style>, Without<Parent>)>,
-    node_query: Query<(&Node, &Style, Option<&ContentSize>), Changed<Style>>,
-    full_node_query: Query<(&Node, &Style, Option<&ContentSize>)>,
-    changed_size_query: Query<(&Node, &Style, &ContentSize), Changed<ContentSize>>,
+    style_query: Query<(&Node, Ref<Style>)>,
+    full_style_query: Query<(&Node, &Style)>,
+    mut measure_query: Query<(&Node, &mut ContentSize)>,
 ) {
     let Some(ref layout_context) = ui_context.0 else {
         return
     };
 
-
     if layout_context.require_full_update {
         // update all nodes
-        for (entity, style) in style_query.iter() {
-            ui_surface.upsert_node(entity, &style, &layout_context);
+        for (node, style) in full_style_query.iter() {
+            ui_surface.update_style(node.key, &style, &layout_context);
         }
     } else {
-        for (entity, style) in style_query.iter() {
+        for (node, style) in style_query.iter() {
             if style.is_changed() {
-                ui_surface.upsert_node(entity, &style, &layout_context);
+                ui_surface.update_style(node.key, &style, &layout_context);
             }
         }
     }
 
-    for (entity, mut content_size) in measure_query.iter_mut() {
+    for (node, mut content_size) in measure_query.iter_mut() {
         if let Some(measure_func) = content_size.measure_func.take() {
-            ui_surface.update_measure(entity, measure_func);
+            ui_surface.update_measure(node.key, measure_func);
         }
     }
 
