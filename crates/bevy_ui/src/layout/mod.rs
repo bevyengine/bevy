@@ -309,12 +309,12 @@ pub fn update_ui_layout(
     if layout_context.require_full_update {
         // update all nodes
         for (node, style) in full_style_query.iter() {
-            ui_surface.update_style(node.key, &style, &layout_context);
+            ui_surface.update_style(node.key, style, layout_context);
         }
     } else {
         for (node, style) in style_query.iter() {
             if style.is_changed() {
-                ui_surface.update_style(node.key, &style, &layout_context);
+                ui_surface.update_style(node.key, &style, layout_context);
             }
         }
     }
