@@ -829,9 +829,9 @@ impl Default for Direction {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(FromReflect, PartialEq, Serialize, Deserialize)]
 pub enum Display {
-    /// Use Flexbox layout model to determine the position of this [`super::flex::Node`].
+    /// Use Flexbox layout model to determine the position of this [`Node`](crate::Node).
     Flex,
-    /// Use CSS Grid layout model to determine the position of this [`Node`].
+    /// Use CSS Grid layout model to determine the position of this [`Node`](crate::Node).
     Grid,
     /// Use no layout, don't render this node and its children.
     ///
