@@ -43,15 +43,23 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
-    // text
-    commands.spawn(TextBundle::from_section(
-        "Press 't' to toggle drawing gizmos on top of everything else in the scene",
-        TextStyle {
-            font_size: 24.,
-            color: Color::WHITE,
+
+    // example instructions
+    commands.spawn(
+        TextBundle::from_section(
+            "Press 't' to toggle drawing gizmos on top of everything else in the scene",
+            TextStyle {
+                font_size: 20.,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
-        },
-    ));
+        }),
+    );
 }
 
 fn system(mut gizmos: Gizmos, time: Res<Time>) {

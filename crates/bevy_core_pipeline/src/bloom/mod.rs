@@ -30,7 +30,6 @@ use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
     BloomUniforms,
 };
-use std::num::NonZeroU32;
 use upsampling_pipeline::{
     prepare_upsampling_pipeline, BloomUpsamplingPipeline, UpsamplingPipelineIds,
 };
@@ -310,7 +309,7 @@ impl BloomTexture {
     fn view(&self, base_mip_level: u32) -> TextureView {
         self.texture.texture.create_view(&TextureViewDescriptor {
             base_mip_level,
-            mip_level_count: NonZeroU32::new(1),
+            mip_level_count: Some(1u32),
             ..Default::default()
         })
     }

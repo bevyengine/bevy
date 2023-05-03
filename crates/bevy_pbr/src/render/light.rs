@@ -30,10 +30,7 @@ use bevy_utils::{
     tracing::{error, warn},
     HashMap,
 };
-use std::{
-    hash::Hash,
-    num::{NonZeroU32, NonZeroU64},
-};
+use std::{hash::Hash, num::NonZeroU64};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderLightSystems {
@@ -998,7 +995,7 @@ pub fn prepare_lights(
                             base_mip_level: 0,
                             mip_level_count: None,
                             base_array_layer: (light_index * 6 + face_index) as u32,
-                            array_layer_count: NonZeroU32::new(1),
+                            array_layer_count: Some(1u32),
                         });
 
                 let view_light_entity = commands
@@ -1060,7 +1057,7 @@ pub fn prepare_lights(
                         base_mip_level: 0,
                         mip_level_count: None,
                         base_array_layer: (num_directional_cascades_enabled + light_index) as u32,
-                        array_layer_count: NonZeroU32::new(1),
+                        array_layer_count: Some(1u32),
                     });
 
             let view_light_entity = commands
@@ -1124,7 +1121,7 @@ pub fn prepare_lights(
                             base_mip_level: 0,
                             mip_level_count: None,
                             base_array_layer: directional_depth_texture_array_index,
-                            array_layer_count: NonZeroU32::new(1),
+                            array_layer_count: Some(1u32),
                         });
                 directional_depth_texture_array_index += 1;
 
