@@ -1,6 +1,7 @@
 use crate::UiSurface;
 use bevy_ecs::prelude::Entity;
 use bevy_utils::HashMap;
+use std::fmt::Write;
 use taffy::prelude::Node;
 use taffy::tree::LayoutTree;
 
@@ -12,7 +13,7 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
         .map(|(entity, node)| (*node, *entity))
         .collect();
     for (&entity, &node) in ui_surface.window_nodes.iter() {
-        println!("Layout tree for window entity: {entity:?}");
+        let mut out = String::new();
         print_node(
             ui_surface,
             &taffy_to_entity,
@@ -20,7 +21,9 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
             node,
             false,
             String::new(),
+            &mut out,
         );
+        bevy_log::info!("Layout tree for window entity: {entity:?}\n{out}");
     }
 }
 
@@ -32,6 +35,7 @@ fn print_node(
     node: Node,
     has_sibling: bool,
     lines_string: String,
+    acc: &mut String,
 ) {
     let tree = &ui_surface.taffy;
     let layout = tree.layout(node).unwrap();
@@ -39,7 +43,7 @@ fn print_node(
 
     let num_children = tree.child_count(node).unwrap();
 
-    let display = match (num_children, style.display) {
+    let display_variant = match (num_children, style.display) {
         (_, taffy::style::Display::None) => "NONE",
         (0, _) => "LEAF",
         (_, taffy::style::Display::Flex) => "FLEX",
@@ -51,17 +55,18 @@ fn print_node(
     } else {
         "└── "
     };
-    println!(
-        "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({entity:?}) {measured}",
+    write!(
+        acc,
+        "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({entity:?}) {measured}\n",
         lines = lines_string,
         fork = fork_string,
-        display = display,
+        display = display_variant,
         x = layout.location.x,
         y = layout.location.y,
         width = layout.size.width,
         height = layout.size.height,
         measured = if tree.needs_measure(node) { "measured" } else { "" }
-    );
+    ).ok();
     let bar = if has_sibling { "│   " } else { "    " };
     let new_string = lines_string + bar;
 
@@ -76,6 +81,7 @@ fn print_node(
             *child_node,
             has_sibling,
             new_string.clone(),
+            acc,
         );
     }
 }
