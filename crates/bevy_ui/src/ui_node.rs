@@ -1593,7 +1593,7 @@ pub struct CalculatedClip {
     pub clip: Rect,
 }
 
-/// Indicates that this [`super::flex::Node`] entity's front-to-back ordering is not controlled solely
+/// Indicates that this [`Node`](crate::layout::Node) entity's front-to-back ordering is not controlled solely
 /// by its location in the UI hierarchy. A node with a higher z-index will appear on top
 /// of other nodes with a lower z-index.
 ///
