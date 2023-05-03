@@ -124,7 +124,7 @@ pub struct GltfExtras {
 pub struct MorphTargetNames {
     /// Names of morph targets in the [`MorphWeights`] component.
     ///
-    /// The the name at index `i` in this `Vec` corresponds to the weight
+    /// The name at index `i` in this `Vec` corresponds to the weight
     /// at index `i` in [`MorphWeights`].
     ///
     /// [`MorphWeights`]: bevy_render::mesh::morph
