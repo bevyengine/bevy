@@ -8,7 +8,8 @@ use bevy_ecs::{
     prelude::Component,
     query::{Added, Changed, With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, Resource}, world::Ref,
+    system::{Query, Res, ResMut, Resource},
+    world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -18,12 +19,7 @@ use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
-use taffy::{
-    prelude::Size,
-    style_helpers::TaffyMaxContent,
-    tree::LayoutTree,
-    Taffy,
-};
+use taffy::{prelude::Size, style_helpers::TaffyMaxContent, tree::LayoutTree, Taffy};
 
 #[derive(Component, Default, Debug, Reflect)]
 pub struct Node {
@@ -106,7 +102,11 @@ impl UiSurface {
     }
 
     /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`].
-    pub fn update_measure(&mut self, taffy_node: taffy::node::Node, measure_func: taffy::node::MeasureFunc) {
+    pub fn update_measure(
+        &mut self,
+        taffy_node: taffy::node::Node,
+        measure_func: taffy::node::MeasureFunc,
+    ) {
         self.taffy.set_measure(taffy_node, Some(measure_func)).ok();
     }
 
@@ -147,7 +147,6 @@ without UI components as a child of an entity with UI components, results may be
             self.window_node = self.taffy.new_leaf(taffy::style::Style::default()).unwrap();
         }
         self.taffy
-
             .set_style(
                 self.window_node,
                 taffy::style::Style {
@@ -208,21 +207,20 @@ pub enum LayoutError {
     TaffyError(taffy::error::TaffyError),
 }
 
-
 /// Remove the corresponding taffy node for any entity that has its `Node` component removed.
 pub fn clean_up_removed_ui_nodes(
     mut ui_surface: ResMut<UiSurface>,
     mut removed_nodes: RemovedComponents<Node>,
     mut removed_calculated_sizes: RemovedComponents<ContentSize>,
 ) {
-     // clean up removed nodes
-     ui_surface.remove_entities(removed_nodes.iter());
+    // clean up removed nodes
+    ui_surface.remove_entities(removed_nodes.iter());
 
-     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-     for entity in removed_calculated_sizes.iter() {
-         ui_surface.try_remove_measure(entity);
-     }
-}   
+    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    for entity in removed_calculated_sizes.iter() {
+        ui_surface.try_remove_measure(entity);
+    }
+}
 
 /// Insert a new taffy node into the layout for any entity that had a `Node` component added.
 pub fn insert_new_ui_nodes(
