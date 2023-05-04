@@ -1,5 +1,5 @@
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned};
+use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned, ReflectFromReflect};
 use crate::{
     map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
     EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter,
@@ -12,6 +12,7 @@ use crate::utility::{reflect_hasher, GenericTypeInfoCell, NonGenericTypeInfoCell
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::HashSet;
 use bevy_utils::{Duration, Instant};
+use std::fmt;
 use std::{
     any::Any,
     borrow::Cow,
@@ -1247,6 +1248,10 @@ impl Reflect for Cow<'static, Path> {
             Some(false)
         }
     }
+
+    fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fmt::Debug::fmt(&self, f)
+    }
 }
 
 impl Typed for Cow<'static, Path> {
@@ -1257,7 +1262,7 @@ impl Typed for Cow<'static, Path> {
 }
 
 impl FromReflect for Cow<'static, Path> {
-    fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
         Some(
             reflect
                 .as_any()
@@ -1269,10 +1274,11 @@ impl FromReflect for Cow<'static, Path> {
 
 impl GetTypeRegistration for Cow<'static, Path> {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Cow<'static, Path>>();
-        registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, Path>>::from_type());
-        registration.insert::<ReflectFromPtr>(FromType::<Cow<'static, Path>>::from_type());
-        registration.insert::<ReflectSerialize>(FromType::<Cow<'static, Path>>::from_type());
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
         registration
     }
 }
