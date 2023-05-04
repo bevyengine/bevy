@@ -1263,12 +1263,7 @@ impl Typed for Cow<'static, Path> {
 
 impl FromReflect for Cow<'static, Path> {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        Some(
-            reflect
-                .as_any()
-                .downcast_ref::<Cow<'static, Path>>()?
-                .clone(),
-        )
+        Some(reflect.as_any().downcast_ref::<Self>()?.clone())
     }
 }
 
