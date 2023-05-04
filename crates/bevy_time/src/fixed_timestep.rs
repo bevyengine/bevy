@@ -121,14 +121,14 @@ pub fn run_fixed_update_schedule(world: &mut World) {
     let _ = world.try_schedule_scope(FixedUpdate, |world, schedule| {
         while world.resource_mut::<FixedTime>().expend().is_ok() {
             ticks_this_frame +=  1;
-            
+
             // This is required to avoid entering a death spiral where the fixed update schedule falls behind
             // and needs to run more and more times per frame to catch up.
             if let Some(max_ticks) = maybe_max_ticks {
                 if ticks_this_frame > max_ticks {
                     warn!("The fixed update schedule is falling behind. Consider increasing the period or decreasing the amount of work done in the fixed update schedule.");
                     break;
-                }                
+                }
             }
 
             schedule.run(world);
