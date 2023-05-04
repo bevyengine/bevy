@@ -8,7 +8,7 @@ use bevy_render::{
     camera::{Camera, CameraRenderGraph, Projection},
     extract_component::ExtractComponent,
     primitives::Frustum,
-    render_resource::LoadOp,
+    render_resource::{LoadOp, TextureUsages},
     view::{ColorGrading, VisibleEntities},
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
