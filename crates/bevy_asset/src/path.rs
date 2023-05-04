@@ -1,4 +1,6 @@
-use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize, ReflectFromReflect};
+use bevy_reflect::{
+    FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
+};
 use bevy_utils::AHasher;
 use serde::{Deserialize, Serialize};
 use std::{
