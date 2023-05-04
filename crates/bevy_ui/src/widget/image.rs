@@ -94,10 +94,11 @@ pub fn update_image_content_size_system(
                 texture.texture_descriptor.size.width as f32,
                 texture.texture_descriptor.size.height as f32,
             );
-            // Update only if size has changed to avoid needless layout calculations
+            // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size || scale_factor != *previous_scale_factor {
                 image_size.size = size;
                 content_size.set(ImageMeasure {
+                    // multiply the image size by the scale factor to get the physical
                     size: size * scale_factor,
                 });
             }
