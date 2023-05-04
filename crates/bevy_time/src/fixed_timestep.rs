@@ -34,25 +34,22 @@ pub struct FixedTime {
     /// Defaults to 1/60th of a second.
     /// To configure this value, simply mutate or overwrite this resource.
     pub period: Duration,
-    /// The maximum amount of time that can be expended in a single frame.
-    /// Defaults to 3 times the period.
+    /// The maximum number of times that the [`FixedUpdate`] schedule will be allowed to run per main schedule pass.
+    /// Defaults to 3.
     ///
     /// If this value is set to `None`, the schedule will run as many times as possible.
     /// Be careful when setting this value to `None`, as it can cause the app to stop rendering
     /// as the fixed update schedule will run an increasing number of times per frame as it falls behind.
-    pub max_time_per_frame: Option<Duration>,
+    pub max_ticks_per_frame: Option<u8>,
 }
 
 impl FixedTime {
-    /// The default ratio between the period and the max allocated time.
-    const DEFAULT_MAX_TIME_RATIO: u32 = 3;
-
     /// Creates a new [`FixedTime`] struct
     pub fn new(period: Duration) -> Self {
         FixedTime {
             accumulated: Duration::ZERO,
             period,
-            max_time_per_frame: Some(period * Self::DEFAULT_MAX_TIME_RATIO),
+            max_ticks_per_frame: Some(3),
         }
     }
 
@@ -61,9 +58,7 @@ impl FixedTime {
         FixedTime {
             accumulated: Duration::ZERO,
             period: Duration::from_secs_f32(period),
-            max_time_per_frame: Some(Duration::from_secs_f32(
-                period * Self::DEFAULT_MAX_TIME_RATIO as f32,
-            )),
+            max_ticks_per_frame: Some(3),
         }
     }
 
@@ -117,20 +112,20 @@ pub fn run_fixed_update_schedule(world: &mut World) {
     let mut fixed_time = world.resource_mut::<FixedTime>();
     fixed_time.tick(delta_time);
 
-    // Copy these out to appease the borrow checker
-    let maybe_max_time = fixed_time.max_time_per_frame;
-    let period = fixed_time.period;
-    let mut time_this_frame = Duration::ZERO;
+    let mut ticks_this_frame = 0;
+    
+    // Copy this out to appease the borrow checker
+    let maybe_max_ticks = fixed_time.max_ticks_per_frame;
 
     // Run the schedule until we run out of accumulated time
     let _ = world.try_schedule_scope(FixedUpdate, |world, schedule| {
         while world.resource_mut::<FixedTime>().expend().is_ok() {
-            time_this_frame += period;
+            ticks_this_frame +=  1;
             
             // This is required to avoid entering a death spiral where the fixed update schedule falls behind
             // and needs to run more and more times per frame to catch up.
-            if let Some(max_time) = maybe_max_time {
-                if time_this_frame > max_time {
+            if let Some(max_ticks) = maybe_max_ticks {
+                if ticks_this_frame > max_ticks {
                     warn!("The fixed update schedule is falling behind. Consider increasing the period or decreasing the amount of work done in the fixed update schedule.");
                     break;
                 }                
