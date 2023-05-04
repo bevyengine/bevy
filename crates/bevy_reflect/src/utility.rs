@@ -1,10 +1,13 @@
 //! Helpers for working with Bevy reflection.
 
 use crate::TypeInfo;
-use bevy_utils::HashMap;
+use bevy_utils::{FixedState, HashMap};
 use once_cell::race::OnceBox;
 use parking_lot::RwLock;
-use std::any::{Any, TypeId};
+use std::{
+    any::{Any, TypeId},
+    hash::BuildHasher,
+};
 
 /// A container for [`TypeInfo`] over non-generic types, allowing instances to be stored statically.
 ///
@@ -36,7 +39,7 @@ use std::any::{Any, TypeId};
 /// #
 /// # impl Reflect for Foo {
 /// #   fn type_name(&self) -> &str { todo!() }
-/// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
+/// #   fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
 /// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
@@ -99,7 +102,7 @@ impl NonGenericTypeInfoCell {
 /// #
 /// # impl<T: Reflect> Reflect for Foo<T> {
 /// #   fn type_name(&self) -> &str { todo!() }
-/// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
+/// #   fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
 /// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
@@ -146,4 +149,16 @@ impl GenericTypeInfoCell {
             Box::leak(Box::new(f()))
         })
     }
+}
+
+/// Deterministic fixed state hasher to be used by implementors of [`Reflect::reflect_hash`].
+///
+/// Hashes should be deterministic across processes so hashes can be used as
+/// checksums for saved scenes, rollback snapshots etc. This function returns
+/// such a hasher.
+///
+/// [`Reflect::reflect_hash`]: crate::Reflect
+#[inline]
+pub fn reflect_hasher() -> bevy_utils::AHasher {
+    FixedState.build_hasher()
 }

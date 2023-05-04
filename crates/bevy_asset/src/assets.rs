@@ -1,13 +1,9 @@
 use crate::{
-    update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetStage, Handle, HandleId,
-    RefChange, ReflectAsset, ReflectHandle,
+    update_asset_storage_system, Asset, AssetEvents, AssetLoader, AssetServer, Handle, HandleId,
+    LoadAssets, RefChange, ReflectAsset, ReflectHandle,
 };
 use bevy_app::{App, AppTypeRegistry};
-use bevy_ecs::{
-    event::{EventWriter, Events},
-    system::{ResMut, Resource},
-    world::FromWorld,
-};
+use bevy_ecs::prelude::*;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
@@ -280,7 +276,7 @@ pub trait AddAsset {
     where
         T: Asset;
 
-    /// Registers the asset type `T` using `[App::register]`,
+    /// Registers the asset type `T` using [`App::register_type`],
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
     ///
     /// This enables reflection code to access assets. For detailed information, see the docs on [`ReflectAsset`] and [`ReflectHandle`].
@@ -300,7 +296,7 @@ pub trait AddAsset {
 
     /// Adds an asset loader `T` using default values.
     ///
-    /// The default values may come from the `World` or from `T::default()`.
+    /// The default values may come from the [`World`] or from `T::default()`.
     fn init_asset_loader<T>(&mut self) -> &mut Self
     where
         T: AssetLoader + FromWorld;
@@ -310,7 +306,7 @@ pub trait AddAsset {
     /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
     /// using the conventional API. See `DebugAssetServerPlugin`.
     ///
-    /// The default values may come from the `World` or from `T::default()`.
+    /// The default values may come from the [`World`] or from `T::default()`.
     fn init_debug_asset_loader<T>(&mut self) -> &mut Self
     where
         T: AssetLoader + FromWorld;
@@ -335,8 +331,8 @@ impl AddAsset for App {
         };
 
         self.insert_resource(assets)
-            .add_system_to_stage(AssetStage::AssetEvents, Assets::<T>::asset_event_system)
-            .add_system_to_stage(AssetStage::LoadAssets, update_asset_storage_system::<T>)
+            .add_systems(LoadAssets, update_asset_storage_system::<T>)
+            .add_systems(AssetEvents, Assets::<T>::asset_event_system)
             .register_type::<Handle<T>>()
             .add_event::<AssetEvent<T>>()
     }
@@ -364,7 +360,10 @@ impl AddAsset for App {
     {
         #[cfg(feature = "debug_asset_server")]
         {
-            self.add_system(crate::debug_asset_server::sync_debug_assets::<T>);
+            self.add_systems(
+                bevy_app::Update,
+                crate::debug_asset_server::sync_debug_assets::<T>,
+            );
             let mut app = self
                 .world
                 .non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
@@ -408,7 +407,7 @@ impl AddAsset for App {
 /// Loads an internal asset.
 ///
 /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
-/// using the conventional API. See `DebugAssetServerPlugin`.
+/// using the conventional API. See [`DebugAssetServerPlugin`](crate::debug_asset_server::DebugAssetServerPlugin).
 #[cfg(feature = "debug_asset_server")]
 #[macro_export]
 macro_rules! load_internal_asset {

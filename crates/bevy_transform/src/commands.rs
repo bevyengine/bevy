@@ -45,7 +45,7 @@ impl Command for AddChildInPlace {
 /// You most likely want to use [`BuildChildrenTransformExt::remove_parent_in_place`]
 /// method on [`EntityCommands`] instead.
 pub struct RemoveParentInPlace {
-    /// `Entity` whose parent must be removed.
+    /// [`Entity`] whose parent must be removed.
     pub child: Entity,
 }
 impl Command for RemoveParentInPlace {
@@ -73,7 +73,8 @@ pub trait BuildChildrenTransformExt {
     /// [`Transform`].
     ///
     /// Note that both the hierarchy and transform updates will only execute
-    /// at the end of the current stage.
+    /// the next time commands are applied
+    /// (during [`apply_system_buffers`](bevy_ecs::schedule::apply_system_buffers)).
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self;
 
     /// Make this entity parentless while preserving this entity's [`GlobalTransform`]
@@ -83,7 +84,8 @@ pub trait BuildChildrenTransformExt {
     /// [`Transform`].
     ///
     /// Note that both the hierarchy and transform updates will only execute
-    /// at the end of the current stage.
+    /// the next time commands are applied
+    /// (during [`apply_system_buffers`](bevy_ecs::schedule::apply_system_buffers)).
     fn remove_parent_in_place(&mut self) -> &mut Self;
 }
 impl<'w, 's, 'a> BuildChildrenTransformExt for EntityCommands<'w, 's, 'a> {

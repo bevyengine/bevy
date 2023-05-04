@@ -32,7 +32,7 @@ pub(crate) struct ResultSifter<T> {
     errors: Option<syn::Error>,
 }
 
-/// Returns a `Member` made of `ident` or `index` if `ident` is None.
+/// Returns a [`Member`] made of `ident` or `index` if `ident` is None.
 ///
 /// Rust struct syntax allows for `Struct { foo: "string" }` with explicitly
 /// named fields. It allows the `Struct { 0: "string" }` syntax when the struct
@@ -52,8 +52,6 @@ pub(crate) struct ResultSifter<T> {
 /// a tuple struct or a struct with named fields. If you don't have a field name,
 /// it means you need to access the struct through an index.
 pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
-    // TODO(Quality) when #4761 is merged, code that does this should be replaced
-    // by a call to `ident_or_index`.
     ident.map_or_else(
         || Member::Unnamed(index.into()),
         |ident| Member::Named(ident.clone()),
@@ -94,7 +92,7 @@ impl Default for WhereClauseOptions {
 /// # Arguments
 ///
 /// * `where_clause`: existing `where` clause present on the object to be derived
-/// * `where_clause_options`: additional paramters defining which trait bounds to add to the `where` clause
+/// * `where_clause_options`: additional parameters defining which trait bounds to add to the `where` clause
 ///
 /// # Example
 ///
@@ -124,8 +122,9 @@ pub(crate) fn extend_where_clause(
     let active_trait_bounds = &where_clause_options.active_trait_bounds;
     let ignored_trait_bounds = &where_clause_options.ignored_trait_bounds;
 
-    let mut generic_where_clause = if where_clause.is_some() {
-        quote! {#where_clause}
+    let mut generic_where_clause = if let Some(where_clause) = where_clause {
+        let predicates = where_clause.predicates.iter();
+        quote! {where #(#predicates,)*}
     } else if !(active_types.is_empty() && ignored_types.is_empty()) {
         quote! {where}
     } else {
@@ -178,7 +177,7 @@ impl<T> ResultSifter<T> {
     }
 }
 
-/// Converts an iterator over ignore behaviour of members to a bitset of ignored members.
+/// Converts an iterator over ignore behavior of members to a bitset of ignored members.
 ///
 /// Takes into account the fact that always ignored (non-reflected) members are skipped.
 ///

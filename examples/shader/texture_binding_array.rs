@@ -14,25 +14,11 @@ use bevy::{
 use std::num::NonZeroU32;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_plugin(MaterialPlugin::<BindlessMaterial>::default())
-        .add_startup_system(setup)
-        .run();
-}
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()));
 
-const MAX_TEXTURE_COUNT: usize = 16;
-const TILE_ID: [usize; 16] = [
-    19, 23, 4, 33, 12, 69, 30, 48, 10, 65, 40, 47, 57, 41, 44, 46,
-];
+    let render_device = app.world.resource::<RenderDevice>();
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<BindlessMaterial>>,
-    asset_server: Res<AssetServer>,
-    render_device: Res<RenderDevice>,
-) {
     // check if the device support the required feature
     if !render_device
         .features()
@@ -46,6 +32,22 @@ fn setup(
         return;
     }
 
+    app.add_plugin(MaterialPlugin::<BindlessMaterial>::default())
+        .add_systems(Startup, setup)
+        .run();
+}
+
+const MAX_TEXTURE_COUNT: usize = 16;
+const TILE_ID: [usize; 16] = [
+    19, 23, 4, 33, 12, 69, 30, 48, 10, 65, 40, 47, 57, 41, 44, 46,
+];
+
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<BindlessMaterial>>,
+    asset_server: Res<AssetServer>,
+) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ..Default::default()

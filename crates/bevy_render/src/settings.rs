@@ -45,17 +45,18 @@ pub struct WgpuSettings {
 
 impl Default for WgpuSettings {
     fn default() -> Self {
-        let default_backends = if cfg!(feature = "webgl") {
+        let default_backends = if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
             Backends::GL
         } else {
-            Backends::PRIMARY
+            Backends::all()
         };
 
         let backends = Some(wgpu::util::backend_bits_from_env().unwrap_or(default_backends));
 
         let priority = settings_priority_from_env().unwrap_or(WgpuSettingsPriority::Functionality);
 
-        let limits = if cfg!(feature = "webgl") || matches!(priority, WgpuSettingsPriority::WebGL2)
+        let limits = if cfg!(all(feature = "webgl", target_arch = "wasm32"))
+            || matches!(priority, WgpuSettingsPriority::WebGL2)
         {
             wgpu::Limits::downlevel_webgl2_defaults()
         } else {

@@ -1,7 +1,9 @@
 use crate::MainWorld;
 use bevy_ecs::{
+    component::Tick,
     prelude::*,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -9,19 +11,19 @@ use std::ops::{Deref, DerefMut};
 ///
 /// A [`SystemParam`] adapter which applies the contained `SystemParam` to the [`World`]
 /// contained in [`MainWorld`]. This parameter only works for systems run
-/// during [`RenderStage::Extract`].
+/// during the [`ExtractSchedule`](crate::ExtractSchedule).
 ///
 /// This requires that the contained [`SystemParam`] does not mutate the world, as it
 /// uses a read-only reference to [`MainWorld`] internally.
 ///
 /// ## Context
 ///
-/// [`RenderStage::Extract`] is used to extract (move) data from the simulation world ([`MainWorld`]) to the
+/// [`ExtractSchedule`] is used to extract (move) data from the simulation world ([`MainWorld`]) to the
 /// render world. The render world drives rendering each frame (generally to a [Window]).
 /// This design is used to allow performing calculations related to rendering a prior frame at the same
 /// time as the next frame is simulated, which increases throughput (FPS).
 ///
-/// [`Extract`] is used to get data from the main world during [`RenderStage::Extract`].
+/// [`Extract`] is used to get data from the main world during [`ExtractSchedule`].
 ///
 /// ## Examples
 ///
@@ -37,7 +39,7 @@ use std::ops::{Deref, DerefMut};
 /// }
 /// ```
 ///
-/// [`RenderStage::Extract`]: crate::RenderStage::Extract
+/// [`ExtractSchedule`]: crate::ExtractSchedule
 /// [Window]: bevy_window::Window
 pub struct Extract<'w, 's, P>
 where
@@ -75,8 +77,8 @@ where
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
-        change_tick: u32,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         // SAFETY:
         // - The caller ensures that `world` is the same one that `init_state` was called with.

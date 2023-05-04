@@ -10,10 +10,8 @@ fn main() {
     App::new()
         .add_event::<StreamEvent>()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(read_stream)
-        .add_system(spawn_text)
-        .add_system(move_text)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (read_stream, spawn_text, move_text))
         .run();
 }
 
@@ -21,10 +19,7 @@ fn main() {
 struct StreamReceiver(Receiver<u32>);
 struct StreamEvent(u32);
 
-#[derive(Resource, Deref)]
-struct LoadedFont(Handle<Font>);
-
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
     let (tx, rx) = bounded::<u32>(10);
@@ -42,7 +37,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     commands.insert_resource(StreamReceiver(rx));
-    commands.insert_resource(LoadedFont(asset_server.load("fonts/FiraSans-Bold.ttf")));
 }
 
 // This system reads from the receiver and sends events to Bevy
@@ -52,15 +46,11 @@ fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEven
     }
 }
 
-fn spawn_text(
-    mut commands: Commands,
-    mut reader: EventReader<StreamEvent>,
-    loaded_font: Res<LoadedFont>,
-) {
+fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
     let text_style = TextStyle {
-        font: loaded_font.clone(),
         font_size: 20.0,
         color: Color::WHITE,
+        ..default()
     };
 
     for (per_frame, event) in reader.iter().enumerate() {

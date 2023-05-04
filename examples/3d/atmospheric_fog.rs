@@ -8,17 +8,18 @@
 //! | `S`                | Toggle Directional Light Fog Influence |
 
 use bevy::{
-    pbr::{CascadeShadowConfig, NotShadowCaster},
+    pbr::{CascadeShadowConfigBuilder, NotShadowCaster},
     prelude::*,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_camera_fog)
-        .add_startup_system(setup_terrain_scene)
-        .add_startup_system(setup_instructions)
-        .add_system(toggle_system)
+        .add_systems(
+            Startup,
+            (setup_camera_fog, setup_terrain_scene, setup_instructions),
+        )
+        .add_systems(Update, toggle_system)
         .run();
 }
 
@@ -49,9 +50,12 @@ fn setup_terrain_scene(
     asset_server: Res<AssetServer>,
 ) {
     // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
-    // For WebGL we only support 1 cascade level for now
-    let cascade_shadow_config =
-        CascadeShadowConfig::new(if cfg!(feature = "webgl") { 1 } else { 4 }, 0.5, 2.5, 0.2);
+    let cascade_shadow_config = CascadeShadowConfigBuilder {
+        first_cascade_far_bound: 0.3,
+        maximum_distance: 3.0,
+        ..default()
+    }
+    .build();
 
     // Sun
     commands.spawn(DirectionalLightBundle {
@@ -89,22 +93,19 @@ fn setup_terrain_scene(
     ));
 }
 
-fn setup_instructions(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_instructions(mut commands: Commands) {
     commands.spawn((TextBundle::from_section(
         "Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence.",
         TextStyle {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            font_size: 15.0,
+            font_size: 20.0,
             color: Color::WHITE,
+            ..default()
         },
     )
     .with_style(Style {
         position_type: PositionType::Absolute,
-        position: UiRect {
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
-            ..default()
-        },
+        bottom: Val::Px(12.0),
+        left: Val::Px(12.0),
         ..default()
     }),));
 }
