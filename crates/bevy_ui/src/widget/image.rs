@@ -13,7 +13,7 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFrom
 use bevy_render::texture::Image;
 #[cfg(feature = "bevy_text")]
 use bevy_text::Text;
-use bevy_window::{Window, PrimaryWindow};
+use bevy_window::{PrimaryWindow, Window};
 
 /// The size of the image in physical pixels
 ///
@@ -79,10 +79,10 @@ pub fn update_image_content_size_system(
     >,
 ) {
     let scale_factor = windows
-            .get_single()
-            .map(|window| window.resolution.scale_factor())
-            .unwrap_or(1.) as f32;
-    
+        .get_single()
+        .map(|window| window.resolution.scale_factor())
+        .unwrap_or(1.) as f32;
+
     for (mut content_size, image, mut image_size) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
             let size = Vec2::new(
@@ -92,7 +92,9 @@ pub fn update_image_content_size_system(
             // Update only if size has changed to avoid needless layout calculations
             if size != image_size.size || scale_factor != *previous_scale_factor {
                 image_size.size = size;
-                content_size.set(ImageMeasure { size: size * scale_factor });
+                content_size.set(ImageMeasure {
+                    size: size * scale_factor,
+                });
             }
         }
     }
