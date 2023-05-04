@@ -15,16 +15,20 @@ use bevy_render::texture::Image;
 use bevy_text::Text;
 use bevy_window::{PrimaryWindow, Window};
 
-/// The size of the image in physical pixels
+/// The size of the image's texture
 ///
-/// This field is set automatically by `update_image_calculated_size_system`
+/// This component is updated automatically by `update_image_calculated_size_system`
 #[derive(Component, Debug, Copy, Clone, Default, Reflect, FromReflect)]
 #[reflect(Component, Default, FromReflect)]
 pub struct UiImageSize {
+    /// The size of the image's texture
+    ///
+    /// This field is updated automatically by `update_image_calculated_size_system`
     size: Vec2,
 }
 
 impl UiImageSize {
+    /// The size of the image's texture
     pub fn size(&self) -> Vec2 {
         self.size
     }
@@ -32,7 +36,7 @@ impl UiImageSize {
 
 #[derive(Clone)]
 pub struct ImageMeasure {
-    // target size of the image
+    /// The target size of the image in physical pixels
     size: Vec2,
 }
 
