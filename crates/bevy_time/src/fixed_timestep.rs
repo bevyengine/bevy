@@ -24,7 +24,7 @@
 use crate::Time;
 use bevy_app::FixedUpdate;
 use bevy_ecs::{system::Resource, world::World};
-use bevy_utils::Duration;
+use bevy_utils::{Duration, tracing::warn};
 use thiserror::Error;
 
 /// The amount of time that must pass before the fixed timestep schedule is run again.
@@ -34,14 +34,25 @@ pub struct FixedTime {
     /// Defaults to 1/60th of a second.
     /// To configure this value, simply mutate or overwrite this resource.
     pub period: Duration,
+    /// The maximum amount of time that can be expended in a single frame.
+    /// Defaults to 3 times the period.
+    ///
+    /// If this value is set to `None`, the schedule will run as many times as possible.
+    /// Be careful when setting this value to `None`, as it can cause the app to stop rendering
+    /// as the fixed update schedule will run an increasing number of times per frame as it falls behind.
+    pub max_time_per_frame: Option<Duration>,
 }
 
 impl FixedTime {
+    /// The default ratio between the period and the max allocated time.
+    const DEFAULT_MAX_TIME_RATIO: u32 = 3;
+
     /// Creates a new [`FixedTime`] struct
     pub fn new(period: Duration) -> Self {
         FixedTime {
             accumulated: Duration::ZERO,
             period,
+            max_time_per_frame: Some(period * Self::DEFAULT_MAX_TIME_RATIO),
         }
     }
 
@@ -50,6 +61,9 @@ impl FixedTime {
         FixedTime {
             accumulated: Duration::ZERO,
             period: Duration::from_secs_f32(period),
+            max_time_per_frame: Some(Duration::from_secs_f32(
+                period * Self::DEFAULT_MAX_TIME_RATIO as f32,
+            )),
         }
     }
 
@@ -82,10 +96,7 @@ impl FixedTime {
 
 impl Default for FixedTime {
     fn default() -> Self {
-        FixedTime {
-            accumulated: Duration::ZERO,
-            period: Duration::from_secs_f32(1. / 60.),
-        }
+        FixedTime::new_from_secs(1. / 60.)
     }
 }
 
@@ -106,9 +117,25 @@ pub fn run_fixed_update_schedule(world: &mut World) {
     let mut fixed_time = world.resource_mut::<FixedTime>();
     fixed_time.tick(delta_time);
 
+    // Copy these out to appease the borrow checker
+    let maybe_max_time = fixed_time.max_time_per_frame;
+    let period = fixed_time.period;
+    let mut time_this_frame = Duration::ZERO;
+
     // Run the schedule until we run out of accumulated time
     let _ = world.try_schedule_scope(FixedUpdate, |world, schedule| {
         while world.resource_mut::<FixedTime>().expend().is_ok() {
+            time_this_frame += period;
+            
+            // This is required to avoid entering a death spiral where the fixed update schedule falls behind
+            // and needs to run more and more times per frame to catch up.
+            if let Some(max_time) = maybe_max_time {
+                if time_this_frame > max_time {
+                    warn!("The fixed update schedule is falling behind. Consider increasing the period or decreasing the amount of work done in the fixed update schedule.");
+                    break;
+                }                
+            }
+
             schedule.run(world);
         }
     });
