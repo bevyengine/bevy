@@ -31,9 +31,12 @@ use crate::components::Transform2d;
 /// update the [`Transform2d`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform2d`] is updated.
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq, FromReflect)]
-#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct GlobalTransform2d {
     affine: Affine2,
     z_translation: f32,

@@ -30,9 +30,12 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// [`GlobalTransform2d`]: super::GlobalTransform2d
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq, FromReflect)]
-#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Transform2d {
     /// The translation along the `X` and `Y` axes.
     pub translation: Vec2,
