@@ -35,9 +35,10 @@ impl UiImageSize {
 }
 
 #[derive(Clone)]
+/// Used to calculate the size of UI image nodes
 pub struct ImageMeasure {
     /// The target size of the image in physical pixels
-    size: Vec2,
+    pub size: Vec2,
 }
 
 impl Measure for ImageMeasure {
