@@ -712,8 +712,9 @@ impl AxisSettings {
     }
 
     /// Try to set the value above which inputs will be rounded up to 1.0.
-    /// If the value is less than `deadzone_upperbound` or greater than 1.0,
+    /// If the value passed is negative or less than `deadzone_upperbound`,
     /// the value will not be changed.
+    ///
     /// Returns the new value of `livezone_upperbound`.
     pub fn set_livezone_upperbound(&mut self, value: f32) -> f32 {
         self.try_set_livezone_upperbound(value).ok();
@@ -758,12 +759,12 @@ impl AxisSettings {
         self.deadzone_upperbound
     }
 
-    /// Get the value above which negative inputs will be rounded up to 0.0.
+    /// Get the value below which negative inputs will be rounded down to -1.0.
     pub fn livezone_lowerbound(&self) -> f32 {
         self.livezone_lowerbound
     }
 
-    /// Try to set the value above which negative inputs will be rounded up to 0.0.
+    /// Try to set the value below which negative inputs will be rounded down to -1.0.
     ///
     /// # Errors
     ///
@@ -786,8 +787,8 @@ impl AxisSettings {
         }
     }
 
-    /// Try to set the value above which negative inputs will be rounded up to 0.0.
-    /// If the value passed is positive or less than `deadzone_lowerbound`,
+    /// Try to set the value below which negative inputs will be rounded down to -1.0.
+    /// If the value passed is positive or greater than `deadzone_lowerbound`,
     /// the value will not be changed.
     ///
     /// Returns the new value of `livezone_lowerbound`.
@@ -796,12 +797,12 @@ impl AxisSettings {
         self.livezone_lowerbound
     }
 
-    /// Get the value below which inputs will be rounded down to -1.0.
+    /// Get the value above which inputs will be rounded up to 0.0.
     pub fn deadzone_lowerbound(&self) -> f32 {
         self.deadzone_lowerbound
     }
 
-    /// Try to set the value below which inputs will be rounded down to -1.0.
+    /// Try to set the value above which inputs will be rounded up to 0.0.
     ///
     /// # Errors
     ///
@@ -824,8 +825,8 @@ impl AxisSettings {
         }
     }
 
-    /// Try to set the value below which inputs will be rounded down to -1.0.
-    /// If the value passed is less than -1.0 or greater than `livezone_lowerbound`,
+    /// Try to set the value above which inputs will be rounded up to 0.0.
+    /// If the value passed is less than -1.0 or less than `livezone_lowerbound`,
     /// the value will not be changed.
     ///
     /// Returns the new value of `deadzone_lowerbound`.
