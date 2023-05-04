@@ -24,7 +24,7 @@
 use crate::Time;
 use bevy_app::FixedUpdate;
 use bevy_ecs::{system::Resource, world::World};
-use bevy_utils::{Duration, tracing::warn};
+use bevy_utils::{tracing::warn, Duration};
 use thiserror::Error;
 
 /// The amount of time that must pass before the fixed timestep schedule is run again.
@@ -113,7 +113,7 @@ pub fn run_fixed_update_schedule(world: &mut World) {
     fixed_time.tick(delta_time);
 
     let mut ticks_this_frame = 0;
-    
+
     // Copy this out to appease the borrow checker
     let maybe_max_ticks = fixed_time.max_ticks_per_frame;
 
