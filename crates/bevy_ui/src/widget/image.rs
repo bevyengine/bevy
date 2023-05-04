@@ -13,6 +13,7 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFrom
 use bevy_render::texture::Image;
 #[cfg(feature = "bevy_text")]
 use bevy_text::Text;
+use bevy_window::{Window, PrimaryWindow};
 
 /// The size of the image in physical pixels
 ///
@@ -65,6 +66,8 @@ impl Measure for ImageMeasure {
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
+    mut previous_scale_factor: bevy_ecs::system::Local<f32>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     textures: Res<Assets<Image>>,
     #[cfg(feature = "bevy_text")] mut query: Query<
         (&mut ContentSize, &UiImage, &mut UiImageSize),
@@ -75,6 +78,11 @@ pub fn update_image_content_size_system(
         With<Node>,
     >,
 ) {
+    let scale_factor = windows
+            .get_single()
+            .map(|window| window.resolution.scale_factor())
+            .unwrap_or(1.) as f32;
+    
     for (mut content_size, image, mut image_size) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
             let size = Vec2::new(
@@ -82,10 +90,12 @@ pub fn update_image_content_size_system(
                 texture.texture_descriptor.size.height as f32,
             );
             // Update only if size has changed to avoid needless layout calculations
-            if size != image_size.size {
+            if size != image_size.size || scale_factor != *previous_scale_factor {
                 image_size.size = size;
-                content_size.set(ImageMeasure { size });
+                content_size.set(ImageMeasure { size: size * scale_factor });
             }
         }
     }
+
+    *previous_scale_factor = scale_factor;
 }
