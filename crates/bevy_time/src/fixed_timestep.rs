@@ -35,7 +35,7 @@ pub struct FixedTime {
     /// To configure this value, simply mutate or overwrite this resource.
     pub period: Duration,
     /// The maximum number of times that the [`FixedUpdate`] schedule will be allowed to run per main schedule pass.
-    /// Defaults to 3.
+    /// Defaults to 20: this may be too high for your game and will result in very low (but stable) FPS with a long fixed update period.
     ///
     /// If this value is set to `None`, the schedule will run as many times as possible.
     /// Be careful when setting this value to `None`, as it can cause the app to stop rendering
@@ -44,12 +44,15 @@ pub struct FixedTime {
 }
 
 impl FixedTime {
+    /// Sets the default maximum number of times that the [`FixedUpdate`] schedule will be allowed to run per main schedule pass.
+    const DEFAULT_MAX_TICKS_PER_FRAME: u8 = 20;
+
     /// Creates a new [`FixedTime`] struct
     pub fn new(period: Duration) -> Self {
         FixedTime {
             accumulated: Duration::ZERO,
             period,
-            max_ticks_per_frame: Some(3),
+            max_ticks_per_frame: Some(Self::DEFAULT_MAX_TICKS_PER_FRAME),
         }
     }
 
@@ -58,7 +61,7 @@ impl FixedTime {
         FixedTime {
             accumulated: Duration::ZERO,
             period: Duration::from_secs_f32(period),
-            max_ticks_per_frame: Some(3),
+            max_ticks_per_frame: Some(Self::DEFAULT_MAX_TICKS_PER_FRAME),
         }
     }
 
