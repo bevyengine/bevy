@@ -2,7 +2,7 @@ use std::ops::Mul;
 
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Affine2, Mat2, Mat3, Vec2, Vec3};
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
 /// to its parent position.
@@ -28,7 +28,9 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 ///
 /// [`GlobalTransform2d`]: super::GlobalTransform2d
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
-#[reflect(Component, PartialEq, Default)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[reflect(Component, Default, PartialEq, FromReflect)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct Transform2d {
     /// The translation along the `X` and `Y` axes.
     pub translation: Vec2,

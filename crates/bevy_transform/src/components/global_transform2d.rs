@@ -2,7 +2,7 @@ use std::ops::Mul;
 
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Affine2, Affine3A, Mat2, Mat3, Mat4, Vec2, Vec3};
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 
 use crate::components::Transform2d;
 
@@ -30,7 +30,8 @@ use crate::components::Transform2d;
 /// before the [`GlobalTransform2d`] is updated.
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, FromReflect)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct GlobalTransform2d {
     affine: Affine2,
     z_translation: f32,

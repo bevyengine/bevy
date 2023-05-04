@@ -1,8 +1,7 @@
 use super::{GlobalTransform, Transform2d};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3, Mat4, Quat, Vec3};
-use bevy_reflect::prelude::*;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 use std::ops::Mul;
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
@@ -33,7 +32,8 @@ use std::ops::Mul;
 /// - [`global_vs_local_translation`](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs)
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, FromReflect)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///

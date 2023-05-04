@@ -154,8 +154,11 @@ impl Plugin for TransformPlugin {
         struct PropagateTransformsSet;
 
         app.register_type::<Transform>()
+            .register_type::<Transform2d>()
             .register_type::<GlobalTransform>()
+            .register_type::<GlobalTransform2d>()
             .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
+            .add_plugin(ValidParentCheckPlugin::<GlobalTransform2d>::default())
             .configure_set(
                 PostStartup,
                 PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
