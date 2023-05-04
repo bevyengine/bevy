@@ -1,5 +1,7 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
 
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 
 fn main() {
@@ -38,4 +40,8 @@ fn system(mut gizmos: Gizmos, time: Res<Time>) {
     gizmos.circle_2d(Vec2::ZERO, 120., Color::BLACK);
     // You may want to increase this for larger circles.
     gizmos.circle_2d(Vec2::ZERO, 300., Color::NAVY).segments(64);
+
+    // Arcs default amount of segments is linerarly interpolated between
+    // 1 and 32, using the arc length as scalar.
+    gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 350., Color::ORANGE_RED);
 }

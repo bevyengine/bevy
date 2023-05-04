@@ -1,5 +1,5 @@
 use crate::Val;
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
 /// A type which is commonly used to define margins, paddings and borders.
@@ -46,8 +46,8 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect, FromReflect)]
+#[reflect(FromReflect, PartialEq)]
 pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
     pub left: Val,
@@ -164,6 +164,29 @@ impl UiRect {
         }
     }
 
+    /// Creates a new [`UiRect`] where both `left` and `right` take the value of `horizontal`, and both `top` and `bottom` take the value of `vertical`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::axes(Val::Px(10.0), Val::Percent(15.0));
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(10.0));
+    /// assert_eq!(ui_rect.right, Val::Px(10.0));
+    /// assert_eq!(ui_rect.top, Val::Percent(15.0));
+    /// assert_eq!(ui_rect.bottom, Val::Percent(15.0));
+    /// ```
+    pub fn axes(horizontal: Val, vertical: Val) -> Self {
+        UiRect {
+            left: horizontal,
+            right: horizontal,
+            top: vertical,
+            bottom: vertical,
+        }
+    }
+
     /// Creates a new [`UiRect`] where `left` takes the given value, and
     /// the other fields are set to `Val::Px(0.)`.
     ///
@@ -262,8 +285,8 @@ impl Default for UiRect {
 /// A 2-dimensional area defined by a width and height.
 ///
 /// It is commonly used to define the size of a text or UI element.
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect, FromReflect)]
+#[reflect(FromReflect, PartialEq)]
 pub struct Size {
     /// The width of the 2-dimensional area.
     pub width: Val,
@@ -506,5 +529,19 @@ mod tests {
             }
         );
         assert_eq!(Size::default(), Size::DEFAULT);
+    }
+
+    #[test]
+    fn test_uirect_axes() {
+        let x = Val::Px(1.);
+        let y = Val::Vw(4.);
+        let r = UiRect::axes(x, y);
+        let h = UiRect::horizontal(x);
+        let v = UiRect::vertical(y);
+
+        assert_eq!(r.top, v.top);
+        assert_eq!(r.bottom, v.bottom);
+        assert_eq!(r.left, h.left);
+        assert_eq!(r.right, h.right);
     }
 }

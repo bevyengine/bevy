@@ -56,7 +56,7 @@ pub struct WindowCreated {
 ///
 /// If the default [`WindowPlugin`] is used, these events are handled
 /// by closing the corresponding [`Window`].  
-/// To disable this behaviour, set `close_when_requested` on the [`WindowPlugin`]
+/// To disable this behavior, set `close_when_requested` on the [`WindowPlugin`]
 /// to `false`.
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
@@ -74,7 +74,7 @@ pub struct WindowCloseRequested {
 }
 
 /// An event that is sent whenever a window is closed. This will be sent when
-/// the window entity loses its `Window` component or is despawned.
+/// the window entity loses its [`Window`](crate::window::Window) component or is despawned.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -269,9 +269,9 @@ pub enum FileDragAndDrop {
         path_buf: PathBuf,
     },
 
-    /// File hovering was cancelled.
-    HoveredFileCancelled {
-        /// Window that had a cancelled file drop.
+    /// File hovering was canceled.
+    HoveredFileCanceled {
+        /// Window that had a canceled file drop.
         window: Entity,
     },
 }

@@ -128,19 +128,19 @@ pub enum ImageSampler {
 }
 
 impl ImageSampler {
-    /// Returns an image sampler with `Linear` min and mag filters
+    /// Returns an image sampler with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
     #[inline]
     pub fn linear() -> ImageSampler {
         ImageSampler::Descriptor(Self::linear_descriptor())
     }
 
-    /// Returns an image sampler with `nearest` min and mag filters
+    /// Returns an image sampler with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
     #[inline]
     pub fn nearest() -> ImageSampler {
         ImageSampler::Descriptor(Self::nearest_descriptor())
     }
 
-    /// Returns a sampler descriptor with `Linear` min and mag filters
+    /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
     #[inline]
     pub fn linear_descriptor() -> wgpu::SamplerDescriptor<'static> {
         wgpu::SamplerDescriptor {
@@ -151,7 +151,7 @@ impl ImageSampler {
         }
     }
 
-    /// Returns a sampler descriptor with `Nearest` min and mag filters
+    /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
     #[inline]
     pub fn nearest_descriptor() -> wgpu::SamplerDescriptor<'static> {
         wgpu::SamplerDescriptor {
@@ -230,7 +230,6 @@ impl Image {
     ///
     /// # Panics
     /// Panics if the size of the `format` is not a multiple of the length of the `pixel` data.
-    /// do not match.
     pub fn new_fill(
         size: Extent3d,
         dimension: TextureDimension,
@@ -387,15 +386,15 @@ impl Image {
 
     /// Whether the texture format is compressed or uncompressed
     pub fn is_compressed(&self) -> bool {
-        let format_description = self.texture_descriptor.format.describe();
+        let format_description = self.texture_descriptor.format;
         format_description
-            .required_features
-            .contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR)
+            .required_features()
+            .contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC)
             || format_description
-                .required_features
+                .required_features()
                 .contains(wgpu::Features::TEXTURE_COMPRESSION_BC)
             || format_description
-                .required_features
+                .required_features()
                 .contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2)
     }
 }
@@ -483,9 +482,9 @@ pub trait TextureFormatPixelInfo {
 
 impl TextureFormatPixelInfo for TextureFormat {
     fn pixel_size(&self) -> usize {
-        let info = self.describe();
-        match info.block_dimensions {
-            (1, 1) => info.block_size.into(),
+        let info = self;
+        match info.block_dimensions() {
+            (1, 1) => info.block_size(None).unwrap() as usize,
             _ => panic!("Using pixel_size for compressed textures is invalid"),
         }
     }
@@ -569,7 +568,7 @@ bitflags::bitflags! {
 impl CompressedImageFormats {
     pub fn from_features(features: wgpu::Features) -> Self {
         let mut supported_compressed_formats = Self::default();
-        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR) {
+        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC) {
             supported_compressed_formats |= Self::ASTC_LDR;
         }
         if features.contains(wgpu::Features::TEXTURE_COMPRESSION_BC) {
@@ -594,7 +593,7 @@ impl CompressedImageFormats {
             | TextureFormat::Bc5RgUnorm
             | TextureFormat::Bc5RgSnorm
             | TextureFormat::Bc6hRgbUfloat
-            | TextureFormat::Bc6hRgbSfloat
+            | TextureFormat::Bc6hRgbFloat
             | TextureFormat::Bc7RgbaUnorm
             | TextureFormat::Bc7RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
             TextureFormat::Etc2Rgb8Unorm

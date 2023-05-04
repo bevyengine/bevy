@@ -1,6 +1,7 @@
 //! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 mod app;
 mod main_schedule;
@@ -9,7 +10,7 @@ mod plugin_group;
 mod schedule_runner;
 
 #[cfg(feature = "bevy_ci_testing")]
-mod ci_testing;
+pub mod ci_testing;
 
 pub use app::*;
 pub use bevy_derive::DynamicPlugin;
