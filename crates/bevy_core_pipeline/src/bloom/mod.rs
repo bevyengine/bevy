@@ -61,8 +61,6 @@ impl Plugin for BloomPlugin {
         };
 
         render_app
-            .init_resource::<BloomDownsamplingPipeline>()
-            .init_resource::<BloomUpsamplingPipeline>()
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
             .add_systems(
@@ -94,6 +92,17 @@ impl Plugin for BloomPlugin {
                     core_2d::graph::node::TONEMAPPING,
                 ],
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
+        render_app
+            .init_resource::<BloomDownsamplingPipeline>()
+            .init_resource::<BloomUpsamplingPipeline>();
     }
 }
 

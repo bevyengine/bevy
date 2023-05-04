@@ -34,6 +34,7 @@ The default feature set enables most of the expected features of a game engine, 
 |png|PNG image format support|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files|
 |vorbis|OGG/VORBIS audio format support|
+|webgl2|Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm|
 |x11|X11 display server support|
 |zstd|For KTX2 supercompression|
 

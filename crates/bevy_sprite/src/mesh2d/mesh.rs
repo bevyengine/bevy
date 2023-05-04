@@ -101,7 +101,6 @@ impl Plugin for Mesh2dRenderPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<Mesh2dPipeline>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_systems(ExtractSchedule, extract_mesh2d)
                 .add_systems(
@@ -111,6 +110,12 @@ impl Plugin for Mesh2dRenderPlugin {
                         queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue),
                     ),
                 );
+        }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<Mesh2dPipeline>();
         }
     }
 }
