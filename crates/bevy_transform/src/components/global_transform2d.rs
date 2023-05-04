@@ -3,6 +3,8 @@ use std::ops::Mul;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Affine2, Affine3A, Mat2, Mat3, Mat4, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use crate::components::Transform2d;
 

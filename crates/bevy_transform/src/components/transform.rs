@@ -1,8 +1,11 @@
+use std::ops::Mul;
+
 use super::{GlobalTransform, Transform2d};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
-use std::ops::Mul;
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
 /// to its parent position.
