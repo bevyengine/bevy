@@ -1,14 +1,14 @@
 use crate::{ContentSize, Measure, Node, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
-    entity::Entity,
-    prelude::{DetectChanges, Component},
+    prelude::{Component, DetectChanges},
     query::With,
+    reflect::ReflectComponent,
     system::{Local, Query, Res, ResMut},
-    world::Ref, reflect::ReflectComponent,
+    world::Ref,
 };
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
@@ -22,7 +22,7 @@ fn scale_value(value: f32, factor: f64) -> f32 {
     (value as f64 * factor) as f32
 }
 
-/// Text system flags 
+/// Text system flags
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct TextFlags {
@@ -93,7 +93,6 @@ pub fn measure_text_system(
 
     let scale_factor = ui_scale.scale * window_scale_factor;
     #[allow(clippy::float_cmp)]
-
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measures for modified text
         for (text, mut content_size, mut text_flags) in text_query.iter_mut() {

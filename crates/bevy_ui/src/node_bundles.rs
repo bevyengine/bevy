@@ -1,7 +1,7 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::{Button, UiImageSize, TextFlags},
+    widget::{Button, TextFlags, UiImageSize},
     BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
@@ -118,7 +118,7 @@ pub struct TextBundle {
     pub text: Text,
     /// Text layout information
     pub text_layout_info: TextLayoutInfo,
-    /// Text system flags 
+    /// Text system flags
     pub text_flags: TextFlags,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
