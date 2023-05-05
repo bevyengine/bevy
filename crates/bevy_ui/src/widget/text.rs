@@ -97,7 +97,7 @@ pub fn measure_text_system(
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measures for modified text
         for (text, mut content_size, mut text_flags) in text_query.iter_mut() {
-            if text.is_changed() {
+            if text.is_changed() || text_flags.remeasure {
                 match text_pipeline.create_text_measure(
                     &fonts,
                     &text.sections,
@@ -107,6 +107,8 @@ pub fn measure_text_system(
                 ) {
                     Ok(measure) => {
                         content_size.set(TextMeasure { info: measure });
+                        text_flags.remeasure = false;
+                        text_flags.recompute = true;
                     }
                     Err(TextError::NoSuchFont) => {
                         text_flags.remeasure = true;
@@ -152,7 +154,6 @@ pub fn measure_text_system(
 /// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
-    mut text_queue: Local<Vec<Entity>>,
     mut textures: ResMut<Assets<Image>>,
     mut last_scale_factor: Local<f64>,
     fonts: Res<Assets<Font>>,
@@ -163,7 +164,7 @@ pub fn text_system(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(Entity, Ref<Node>, Ref<Text>, &mut TextLayoutInfo, &mut TextFlags)>,
+    mut text_query: Query<(Ref<Node>, &Text, &mut TextLayoutInfo, &mut TextFlags)>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let window_scale_factor = windows
@@ -173,25 +174,48 @@ pub fn text_system(
 
     let scale_factor = ui_scale.scale * window_scale_factor;
 
-    #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
-        // Adds all entities where the text or the style has changed to the local queue
-        for (entity, node, text, ..) in text_query.iter() {
-            if (node.is_changed() || text.is_changed()) && !text_queue.contains(&entity) {
-                text_queue.push(entity);
+        // Scale factor unchanged, only recompute text for modified text nodes
+        for (node, text, mut text_layout_info, mut text_flags) in text_query.iter_mut() {
+            if node.is_changed() || text_flags.recompute {
+                let node_size = Vec2::new(
+                    scale_value(node.size().x, scale_factor),
+                    scale_value(node.size().y, scale_factor),
+                );
+
+                match text_pipeline.queue_text(
+                    &fonts,
+                    &text.sections,
+                    scale_factor,
+                    text.alignment,
+                    text.linebreak_behavior,
+                    node_size,
+                    &mut font_atlas_set_storage,
+                    &mut texture_atlases,
+                    &mut textures,
+                    text_settings.as_ref(),
+                    &mut font_atlas_warning,
+                    YAxisOrientation::TopToBottom,
+                ) {
+                    Err(TextError::NoSuchFont) => {
+                        // There was an error processing the text layout, try again next frame
+                        text_flags.recompute = true;
+                    }
+                    Err(e @ TextError::FailedToAddGlyph(_)) => {
+                        panic!("Fatal error when processing text: {e}.");
+                    }
+                    Ok(info) => {
+                        *text_layout_info = info;
+                        text_flags.recompute = false;
+                    }
+                }
             }
         }
     } else {
-        // If the scale factor has changed, queue all text
-        for (entity, ..) in text_query.iter() {
-            text_queue.push(entity);
-        }
+        // Scale factor changed, recompute text for all text nodes
         *last_scale_factor = scale_factor;
-    }
 
-    let mut new_text_queue = Vec::new();
-    for entity in text_queue.drain(..) {
-        if let Ok((_, node, text, mut text_layout_info, _)) = text_query.get_mut(entity) {
+        for (node, text, mut text_layout_info, mut text_flags) in text_query.iter_mut() {
             let node_size = Vec2::new(
                 scale_value(node.size().x, scale_factor),
                 scale_value(node.size().y, scale_factor),
@@ -212,18 +236,17 @@ pub fn text_system(
                 YAxisOrientation::TopToBottom,
             ) {
                 Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, let's add this entity to the
-                    // queue for further processing
-                    new_text_queue.push(entity);
+                    // There was an error processing the text layout, try again next frame
+                    text_flags.recompute = true;
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
                     *text_layout_info = info;
+                    text_flags.recompute = false;
                 }
             }
         }
     }
-    *text_queue = new_text_queue;
 }
