@@ -23,6 +23,8 @@ fn scale_value(value: f32, factor: f64) -> f32 {
 }
 
 /// Text system flags
+/// 
+/// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct TextFlags {
