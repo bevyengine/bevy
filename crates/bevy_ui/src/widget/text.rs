@@ -148,12 +148,13 @@ pub fn text_system(
         .unwrap_or(1.);
 
     let scale_factor = ui_scale.scale * window_scale_factor;
+    let n = queued_text.len();
 
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // Adds all entities where the text or the style has changed to the local queue
         for (entity, node, text, ..) in text_query.iter() {
-            if node.is_changed() || text.is_changed() || !queued_text.contains(&entity) {
+            if (node.is_changed() || text.is_changed()) && !queued_text.contains(&entity) {
                 queued_text.push(entity);
             }
         }
