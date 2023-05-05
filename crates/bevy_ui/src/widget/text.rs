@@ -125,6 +125,7 @@ pub fn measure_text_system(
         .unwrap_or(1.);
 
     let scale_factor = ui_scale.scale * window_scale_factor;
+    
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measures for modified text
@@ -192,7 +193,6 @@ fn queue_text(
         }
     }
 }
-
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
