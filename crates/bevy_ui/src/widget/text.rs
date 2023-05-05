@@ -5,7 +5,7 @@ use bevy_ecs::{
     query::With,
     reflect::ReflectComponent,
     system::{Local, Query, Res, ResMut},
-    world::{Ref, Mut},
+    world::{Mut, Ref},
 };
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -23,7 +23,7 @@ fn scale_value(value: f32, factor: f64) -> f32 {
 }
 
 /// Text system flags
-/// 
+///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
@@ -127,13 +127,20 @@ pub fn measure_text_system(
         .unwrap_or(1.);
 
     let scale_factor = ui_scale.scale * window_scale_factor;
-    
+
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measures for modified text
         for (text, content_size, text_flags) in text_query.iter_mut() {
             if text.is_changed() || text_flags.remeasure {
-                create_text_measure(&fonts, &mut text_pipeline, scale_factor, text, content_size, text_flags);
+                create_text_measure(
+                    &fonts,
+                    &mut text_pipeline,
+                    scale_factor,
+                    text,
+                    content_size,
+                    text_flags,
+                );
             }
         }
     } else {
@@ -141,7 +148,14 @@ pub fn measure_text_system(
         *last_scale_factor = scale_factor;
 
         for (text, content_size, text_flags) in text_query.iter_mut() {
-            create_text_measure(&fonts, &mut text_pipeline, scale_factor, text, content_size, text_flags);
+            create_text_measure(
+                &fonts,
+                &mut text_pipeline,
+                scale_factor,
+                text,
+                content_size,
+                text_flags,
+            );
         }
     }
 }
@@ -229,7 +243,20 @@ pub fn text_system(
         // Scale factor unchanged, only recompute text for modified text nodes
         for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
             if node.is_changed() || text_flags.recompute {
-                queue_text(&fonts, &mut text_pipeline, &mut font_atlas_warning, &mut font_atlas_set_storage, &mut texture_atlases, &mut textures, &text_settings, scale_factor, text, node, text_flags, text_layout_info);
+                queue_text(
+                    &fonts,
+                    &mut text_pipeline,
+                    &mut font_atlas_warning,
+                    &mut font_atlas_set_storage,
+                    &mut texture_atlases,
+                    &mut textures,
+                    &text_settings,
+                    scale_factor,
+                    text,
+                    node,
+                    text_flags,
+                    text_layout_info,
+                );
             }
         }
     } else {
@@ -237,8 +264,20 @@ pub fn text_system(
         *last_scale_factor = scale_factor;
 
         for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
-            queue_text(&fonts, &mut text_pipeline, &mut font_atlas_warning, &mut font_atlas_set_storage, &mut texture_atlases, &mut textures, &text_settings, scale_factor, text, node, text_flags, text_layout_info);
+            queue_text(
+                &fonts,
+                &mut text_pipeline,
+                &mut font_atlas_warning,
+                &mut font_atlas_set_storage,
+                &mut texture_atlases,
+                &mut textures,
+                &text_settings,
+                scale_factor,
+                text,
+                node,
+                text_flags,
+                text_layout_info,
+            );
         }
     }
 }
-    
