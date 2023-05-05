@@ -2,8 +2,10 @@ use crate::{ContentSize, Measure, Node, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
+    prelude::DetectChanges,
     query::{Changed, Or, With},
-    system::{Local, ParamSet, Query, Res, ResMut}, world::Ref, prelude::DetectChanges,
+    system::{Local, ParamSet, Query, Res, ResMut},
+    world::Ref,
 };
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
@@ -63,9 +65,7 @@ pub fn measure_text_system(
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: 
-        Query<(Entity, Ref<Text>, &mut ContentSize), With<Node>>,
-
+    mut text_query: Query<(Entity, Ref<Text>, &mut ContentSize), With<Node>>,
 ) {
     let window_scale_factor = windows
         .get_single()
@@ -139,10 +139,7 @@ pub fn text_system(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: 
-        // Query<Entity, Or<(Changed<Text>, Changed<Node>)>>,
-        // Query<Entity, (With<Text>, With<Node>)>,
-        Query<(Entity, Ref<Node>, Ref<Text>, &mut TextLayoutInfo)>,
+    mut text_query: Query<(Entity, Ref<Node>, Ref<Text>, &mut TextLayoutInfo)>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let window_scale_factor = windows
