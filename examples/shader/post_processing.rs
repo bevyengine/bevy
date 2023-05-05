@@ -99,8 +99,8 @@ impl Plugin for PostProcessPlugin {
     fn finish(&self, app: &mut App) {
         // We need to get the render app from the main app
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
-                    return;
-                };
+            return;
+        };
 
         render_app
             // Initialize the pipeline
