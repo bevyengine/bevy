@@ -17,6 +17,8 @@ mod winit_windows;
 
 use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::system::{SystemParam, SystemState};
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_tasks::tick_global_task_pools_on_main_thread;
 use system::{changed_window, create_window, despawn_window, CachedWindow};
 
 pub use winit_config::*;
@@ -327,11 +329,24 @@ pub fn winit_runner(mut app: App) {
         ResMut<CanvasParentResizeEventChannel>,
     )> = SystemState::from_world(&mut app.world);
 
+    let mut finished_and_setup_done = false;
+
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
                               control_flow: &mut ControlFlow| {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
+
+        if !finished_and_setup_done {
+            if !app.ready() {
+                #[cfg(not(target_arch = "wasm32"))]
+                tick_global_task_pools_on_main_thread();
+            } else {
+                app.finish();
+                app.cleanup();
+                finished_and_setup_done = true;
+            }
+        }
 
         if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
             if app_exit_event_reader.iter(app_exit_events).last().is_some() {
@@ -648,7 +663,7 @@ pub fn winit_runner(mut app: App) {
                     false
                 };
 
-                if update {
+                if update && finished_and_setup_done {
                     winit_state.last_update = Instant::now();
                     app.update();
                 }
