@@ -63,11 +63,9 @@ pub fn measure_text_system(
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: //ParamSet<(
-        // Query<Entity, (Changed<Text>, With<Node>)>,
-        // Query<Entity, (With<Text>, With<Node>)>,
+    mut text_query: 
         Query<(Entity, Ref<Text>, &mut ContentSize), With<Node>>,
-    //)>,
+
 ) {
     let window_scale_factor = windows
         .get_single()
@@ -141,11 +139,10 @@ pub fn text_system(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_queries: ParamSet<(
-        Query<Entity, Or<(Changed<Text>, Changed<Node>)>>,
-        Query<Entity, (With<Text>, With<Node>)>,
-        Query<(&Node, &Text, &mut TextLayoutInfo)>,
-    )>,
+    mut text_query: 
+        // Query<Entity, Or<(Changed<Text>, Changed<Node>)>>,
+        // Query<Entity, (With<Text>, With<Node>)>,
+        Query<(Entity, Ref<Node>, Ref<Text>, &mut TextLayoutInfo)>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let window_scale_factor = windows
@@ -158,23 +155,22 @@ pub fn text_system(
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // Adds all entities where the text or the style has changed to the local queue
-        for entity in text_queries.p0().iter() {
-            if !queued_text.contains(&entity) {
+        for (entity, node, text, ..) in text_query.iter() {
+            if node.is_changed() || text.is_changed() || !queued_text.contains(&entity) {
                 queued_text.push(entity);
             }
         }
     } else {
         // If the scale factor has changed, queue all text
-        for entity in text_queries.p1().iter() {
+        for (entity, ..) in text_query.iter() {
             queued_text.push(entity);
         }
         *last_scale_factor = scale_factor;
     }
 
     let mut new_queue = Vec::new();
-    let mut text_query = text_queries.p2();
     for entity in queued_text.drain(..) {
-        if let Ok((node, text, mut text_layout_info)) = text_query.get_mut(entity) {
+        if let Ok((_, node, text, mut text_layout_info)) = text_query.get_mut(entity) {
             let node_size = Vec2::new(
                 scale_value(node.size().x, scale_factor),
                 scale_value(node.size().y, scale_factor),
