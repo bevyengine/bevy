@@ -59,7 +59,7 @@ impl Measure for TextMeasure {
 /// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 pub fn measure_text_system(
-    mut queued_text: Local<Vec<Entity>>,
+    mut text_queue: Local<Vec<Entity>>,
     mut last_scale_factor: Local<f64>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -78,24 +78,24 @@ pub fn measure_text_system(
     if *last_scale_factor == scale_factor {
         // Adds all entities where the text has changed to the local queue
         for (entity, text, ..) in text_query.iter() {
-            if text.is_changed() && !queued_text.contains(&entity) {
-                queued_text.push(entity);
+            if text.is_changed() && !text_queue.contains(&entity) {
+                text_queue.push(entity);
             }
         }
     } else {
         // If the scale factor has changed, queue all text
         for (entity, ..) in text_query.iter() {
-            queued_text.push(entity);
+            text_queue.push(entity);
         }
         *last_scale_factor = scale_factor;
     }
 
-    if queued_text.is_empty() {
+    if text_queue.is_empty() {
         return;
     }
 
     let mut new_queue = Vec::new();
-    for entity in queued_text.drain(..) {
+    for entity in text_queue.drain(..) {
         if let Ok((_, text, mut content_size)) = text_query.get_mut(entity) {
             match text_pipeline.create_text_measure(
                 &fonts,
@@ -116,7 +116,7 @@ pub fn measure_text_system(
             };
         }
     }
-    *queued_text = new_queue;
+    *text_queue = new_queue;
 }
 
 /// Updates the layout and size information whenever the text or style is changed.
@@ -128,7 +128,7 @@ pub fn measure_text_system(
 /// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
-    mut queued_text: Local<Vec<Entity>>,
+    mut text_queue: Local<Vec<Entity>>,
     mut textures: ResMut<Assets<Image>>,
     mut last_scale_factor: Local<f64>,
     fonts: Res<Assets<Font>>,
@@ -153,20 +153,20 @@ pub fn text_system(
     if *last_scale_factor == scale_factor {
         // Adds all entities where the text or the style has changed to the local queue
         for (entity, node, text, ..) in text_query.iter() {
-            if (node.is_changed() || text.is_changed()) && !queued_text.contains(&entity) {
-                queued_text.push(entity);
+            if (node.is_changed() || text.is_changed()) && !text_queue.contains(&entity) {
+                text_queue.push(entity);
             }
         }
     } else {
         // If the scale factor has changed, queue all text
         for (entity, ..) in text_query.iter() {
-            queued_text.push(entity);
+            text_queue.push(entity);
         }
         *last_scale_factor = scale_factor;
     }
 
     let mut new_queue = Vec::new();
-    for entity in queued_text.drain(..) {
+    for entity in text_queue.drain(..) {
         if let Ok((_, node, text, mut text_layout_info)) = text_query.get_mut(entity) {
             let node_size = Vec2::new(
                 scale_value(node.size().x, scale_factor),
@@ -201,5 +201,5 @@ pub fn text_system(
             }
         }
     }
-    *queued_text = new_queue;
+    *text_queue = new_queue;
 }
