@@ -40,12 +40,12 @@ pub struct FixedTime {
     /// If this value is set to `None`, the schedule will run as many times as possible.
     /// Be careful when setting this value to `None`, as it can cause the app to stop rendering
     /// as the fixed update schedule will run an increasing number of times per frame as it falls behind.
-    pub max_ticks_per_frame: Option<u8>,
+    pub max_ticks_per_frame: Option<usize>,
 }
 
 impl FixedTime {
     /// Sets the default maximum number of times that the [`FixedUpdate`] schedule will be allowed to run per main schedule pass.
-    const DEFAULT_MAX_TICKS_PER_FRAME: u8 = 20;
+    const DEFAULT_MAX_TICKS_PER_FRAME: usize = 20;
 
     /// Creates a new [`FixedTime`] struct
     pub fn new(period: Duration) -> Self {
