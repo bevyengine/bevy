@@ -79,13 +79,12 @@ impl Measure for TextMeasure {
 /// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 pub fn measure_text_system(
-    mut text_queue: Local<Vec<Entity>>,
     mut last_scale_factor: Local<f64>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(Entity, Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
+    mut text_query: Query<(Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
 ) {
     let window_scale_factor = windows
         .get_single()
@@ -95,34 +94,34 @@ pub fn measure_text_system(
     let scale_factor = ui_scale.scale * window_scale_factor;
     #[allow(clippy::float_cmp)]
 
-    let scale_factor_changed = *last_scale_factor == scale_factor;
-
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measures for modified text
-        for (entity, text, mut content_size, mut text_flags) in text_query.iter_mut() {
-            match text_pipeline.create_text_measure(
-                &fonts,
-                &text.sections,
-                scale_factor,
-                text.alignment,
-                text.linebreak_behavior,
-            ) {
-                Ok(measure) => {
-                    content_size.set(TextMeasure { info: measure });
-                }
-                Err(TextError::NoSuchFont) => {
-                    text_flags.remeasure = true;
-                }
-                Err(e @ TextError::FailedToAddGlyph(_)) => {
-                    panic!("Fatal error when processing text: {e}.");
-                }
-            };
+        for (text, mut content_size, mut text_flags) in text_query.iter_mut() {
+            if text.is_changed() {
+                match text_pipeline.create_text_measure(
+                    &fonts,
+                    &text.sections,
+                    scale_factor,
+                    text.alignment,
+                    text.linebreak_behavior,
+                ) {
+                    Ok(measure) => {
+                        content_size.set(TextMeasure { info: measure });
+                    }
+                    Err(TextError::NoSuchFont) => {
+                        text_flags.remeasure = true;
+                    }
+                    Err(e @ TextError::FailedToAddGlyph(_)) => {
+                        panic!("Fatal error when processing text: {e}.");
+                    }
+                };
+            }
         }
     } else {
         // scale factor changed, remeasure all text
         *last_scale_factor = scale_factor;
 
-        for (entity, text, mut content_size, mut text_flags) in text_query.iter_mut() {
+        for (text, mut content_size, mut text_flags) in text_query.iter_mut() {
             match text_pipeline.create_text_measure(
                 &fonts,
                 &text.sections,
@@ -153,6 +152,7 @@ pub fn measure_text_system(
 /// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
+    mut text_queue: Local<Vec<Entity>>,
     mut textures: ResMut<Assets<Image>>,
     mut last_scale_factor: Local<f64>,
     fonts: Res<Assets<Font>>,
@@ -191,7 +191,7 @@ pub fn text_system(
 
     let mut new_text_queue = Vec::new();
     for entity in text_queue.drain(..) {
-        if let Ok((_, node, text, mut text_layout_info)) = text_query.get_mut(entity) {
+        if let Ok((_, node, text, mut text_layout_info, _)) = text_query.get_mut(entity) {
             let node_size = Vec2::new(
                 scale_value(node.size().x, scale_factor),
                 scale_value(node.size().y, scale_factor),
