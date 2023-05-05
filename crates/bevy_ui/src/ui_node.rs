@@ -30,6 +30,12 @@ impl Node {
         self.calculated_size
     }
 
+    /// Returns the size of the node in physical pixels based on the given scale factor.
+    #[inline]
+    pub fn physical_size(&self, scale_factor: f32) -> Vec2 {
+        self.calculated_size * scale_factor
+    }
+
     /// Returns the logical pixel coordinates of the UI node, based on its [`GlobalTransform`].
     #[inline]
     pub fn logical_rect(&self, transform: &GlobalTransform) -> Rect {
@@ -41,8 +47,8 @@ impl Node {
     pub fn physical_rect(&self, transform: &GlobalTransform, scale_factor: f32) -> Rect {
         let rect = self.logical_rect(transform);
         Rect {
-            min: rect.min / scale_factor,
-            max: rect.max / scale_factor,
+            min: rect.min * scale_factor,
+            max: rect.max * scale_factor,
         }
     }
 }

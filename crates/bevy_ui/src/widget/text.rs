@@ -15,10 +15,6 @@ use bevy_text::{
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
 
-fn scale_value(value: f32, factor: f64) -> f32 {
-    (value as f64 * factor) as f32
-}
-
 #[derive(Clone)]
 pub struct TextMeasure {
     pub info: TextMeasureInfo,
@@ -176,10 +172,7 @@ pub fn text_system(
     let mut text_query = text_queries.p2();
     for entity in queued_text.drain(..) {
         if let Ok((node, text, mut text_layout_info)) = text_query.get_mut(entity) {
-            let node_size = Vec2::new(
-                scale_value(node.size().x, scale_factor),
-                scale_value(node.size().y, scale_factor),
-            );
+            let physical_node_size = node.physical_size(scale_factor as f32);
 
             match text_pipeline.queue_text(
                 &fonts,
@@ -187,7 +180,7 @@ pub fn text_system(
                 scale_factor,
                 text.alignment,
                 text.linebreak_behavior,
-                node_size,
+                physical_node_size,
                 &mut font_atlas_set_storage,
                 &mut texture_atlases,
                 &mut textures,
