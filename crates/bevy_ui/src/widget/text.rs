@@ -88,7 +88,7 @@ fn create_text_measure(
     mut text_flags: Mut<TextFlags>,
 ) {
     match text_pipeline.create_text_measure(
-        &fonts,
+        fonts,
         &text.sections,
         scale_factor,
         text.alignment,
@@ -160,6 +160,7 @@ pub fn measure_text_system(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[inline]
 fn queue_text(
     fonts: &Assets<Font>,
@@ -182,7 +183,7 @@ fn queue_text(
         );
 
         match text_pipeline.queue_text(
-            &fonts,
+            fonts,
             &text.sections,
             scale_factor,
             text.alignment,
