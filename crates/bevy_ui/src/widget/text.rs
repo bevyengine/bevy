@@ -3,7 +3,7 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or, With},
-    system::{Local, ParamSet, Query, Res, ResMut},
+    system::{Local, ParamSet, Query, Res, ResMut}, world::Ref, prelude::DetectChanges,
 };
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
@@ -63,11 +63,11 @@ pub fn measure_text_system(
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_queries: ParamSet<(
-        Query<Entity, (Changed<Text>, With<Node>)>,
-        Query<Entity, (With<Text>, With<Node>)>,
-        Query<(&Text, &mut ContentSize)>,
-    )>,
+    mut text_query: //ParamSet<(
+        // Query<Entity, (Changed<Text>, With<Node>)>,
+        // Query<Entity, (With<Text>, With<Node>)>,
+        Query<(Entity, Ref<Text>, &mut ContentSize), With<Node>>,
+    //)>,
 ) {
     let window_scale_factor = windows
         .get_single()
@@ -79,14 +79,14 @@ pub fn measure_text_system(
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // Adds all entities where the text has changed to the local queue
-        for entity in text_queries.p0().iter() {
-            if !queued_text.contains(&entity) {
+        for (entity, text, ..) in text_query.iter() {
+            if text.is_changed() && !queued_text.contains(&entity) {
                 queued_text.push(entity);
             }
         }
     } else {
         // If the scale factor has changed, queue all text
-        for entity in text_queries.p1().iter() {
+        for (entity, ..) in text_query.iter() {
             queued_text.push(entity);
         }
         *last_scale_factor = scale_factor;
@@ -97,9 +97,8 @@ pub fn measure_text_system(
     }
 
     let mut new_queue = Vec::new();
-    let mut query = text_queries.p2();
     for entity in queued_text.drain(..) {
-        if let Ok((text, mut content_size)) = query.get_mut(entity) {
+        if let Ok((_, text, mut content_size)) = text_query.get_mut(entity) {
             match text_pipeline.create_text_measure(
                 &fonts,
                 &text.sections,
