@@ -55,6 +55,10 @@ fn get_deref_field(ast: &DeriveInput, is_mut: bool) -> syn::Result<(Member, &Typ
     let deref_attr_str = format!("`#[{DEREF_ATTR}]`");
 
     match &ast.data {
+        Data::Struct(data_struct) if data_struct.fields.is_empty() => Err(syn::Error::new(
+            Span::call_site().into(),
+            format!("{deref_kind} cannot be derived on field-less structs"),
+        )),
         Data::Struct(data_struct) if data_struct.fields.len() == 1 => {
             let field = data_struct.fields.iter().next().unwrap();
             let member = to_member(field, 0);
