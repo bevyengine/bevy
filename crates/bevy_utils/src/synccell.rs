@@ -7,7 +7,6 @@
 ///
 /// Provides a wrapper that allows making any type unconditionally [`Sync`] by only providing mutable access.
 #[repr(transparent)]
-#[derive(Clone, Copy)]
 pub struct SyncCell<T: ?Sized> {
     inner: T,
 }
