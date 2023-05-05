@@ -3,8 +3,8 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     prelude::DetectChanges,
-    query::{Changed, Or, With},
-    system::{Local, ParamSet, Query, Res, ResMut},
+    query::With,
+    system::{Local, Query, Res, ResMut},
     world::Ref,
 };
 use bevy_math::Vec2;
