@@ -1,8 +1,6 @@
-use bevy_utils::synccell::SyncCell;
-
 use super::{ReadOnlySystem, System};
 
-pub trait Adapt<S: System>: Send {
+pub trait Adapt<S: System>: Send + Sync + 'static {
     /// The [input](System::In) type for an [`AdapterSystem`].
     type In;
     /// The [output](System::Out) type for an [`AdapterSystem`].
@@ -15,16 +13,13 @@ pub trait Adapt<S: System>: Send {
 
 #[derive(Clone)]
 pub struct AdapterSystem<Func, S> {
-    func: SyncCell<Func>,
+    func: Func,
     system: S,
 }
 
 impl<Func, S> AdapterSystem<Func, S> {
     pub fn new(func: Func, system: S) -> Self {
-        Self {
-            func: SyncCell::new(func),
-            system,
-        }
+        Self { func, system }
     }
 }
 
@@ -67,14 +62,12 @@ where
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &crate::prelude::World) -> Self::Out {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
         self.func
-            .get()
             .adapt(input, |input| self.system.run_unsafe(input, world))
     }
 
     #[inline]
     fn run(&mut self, input: Self::In, world: &mut crate::prelude::World) -> Self::Out {
         self.func
-            .get()
             .adapt(input, |input| self.system.run(input, world))
     }
 
@@ -120,7 +113,7 @@ where
 impl<F, S, Out> Adapt<S> for F
 where
     S: System,
-    F: Send + FnMut(S::Out) -> Out,
+    F: Send + Sync + 'static + FnMut(S::Out) -> Out,
 {
     type In = S::In;
     type Out = Out;
