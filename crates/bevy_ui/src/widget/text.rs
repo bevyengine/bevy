@@ -148,7 +148,6 @@ pub fn text_system(
         .unwrap_or(1.);
 
     let scale_factor = ui_scale.scale * window_scale_factor;
-    let n = queued_text.len();
 
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
