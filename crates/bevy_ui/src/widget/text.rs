@@ -106,10 +106,13 @@ pub fn measure_text_system(
                 ) {
                     Ok(measure) => {
                         content_size.set(TextMeasure { info: measure });
+
+                        // Text measured, so set `TextFlags` to schedule a recompute
                         text_flags.remeasure = false;
                         text_flags.recompute = true;
                     }
                     Err(TextError::NoSuchFont) => {
+                        // Try again next frame
                         text_flags.remeasure = true;
                     }
                     Err(e @ TextError::FailedToAddGlyph(_)) => {
@@ -176,7 +179,7 @@ pub fn text_system(
     if *last_scale_factor == scale_factor {
         // Scale factor unchanged, only recompute text for modified text nodes
         for (node, text, mut text_layout_info, mut text_flags) in text_query.iter_mut() {
-            if node.is_changed() || text_flags.recompute {
+            if (node.is_changed() || text_flags.recompute) && !text_flags.remeasure  {
                 let node_size = Vec2::new(
                     scale_value(node.size().x, scale_factor),
                     scale_value(node.size().y, scale_factor),
@@ -215,35 +218,37 @@ pub fn text_system(
         *last_scale_factor = scale_factor;
 
         for (node, text, mut text_layout_info, mut text_flags) in text_query.iter_mut() {
-            let node_size = Vec2::new(
-                scale_value(node.size().x, scale_factor),
-                scale_value(node.size().y, scale_factor),
-            );
+            if !text_flags.remeasure {
+                let node_size = Vec2::new(
+                    scale_value(node.size().x, scale_factor),
+                    scale_value(node.size().y, scale_factor),
+                );
 
-            match text_pipeline.queue_text(
-                &fonts,
-                &text.sections,
-                scale_factor,
-                text.alignment,
-                text.linebreak_behavior,
-                node_size,
-                &mut font_atlas_set_storage,
-                &mut texture_atlases,
-                &mut textures,
-                text_settings.as_ref(),
-                &mut font_atlas_warning,
-                YAxisOrientation::TopToBottom,
-            ) {
-                Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, try again next frame
-                    text_flags.recompute = true;
-                }
-                Err(e @ TextError::FailedToAddGlyph(_)) => {
-                    panic!("Fatal error when processing text: {e}.");
-                }
-                Ok(info) => {
-                    *text_layout_info = info;
-                    text_flags.recompute = false;
+                match text_pipeline.queue_text(
+                    &fonts,
+                    &text.sections,
+                    scale_factor,
+                    text.alignment,
+                    text.linebreak_behavior,
+                    node_size,
+                    &mut font_atlas_set_storage,
+                    &mut texture_atlases,
+                    &mut textures,
+                    text_settings.as_ref(),
+                    &mut font_atlas_warning,
+                    YAxisOrientation::TopToBottom,
+                ) {
+                    Err(TextError::NoSuchFont) => {
+                        // There was an error processing the text layout, try again next frame
+                        text_flags.recompute = true;
+                    }
+                    Err(e @ TextError::FailedToAddGlyph(_)) => {
+                        panic!("Fatal error when processing text: {e}.");
+                    }
+                    Ok(info) => {
+                        *text_layout_info = info;
+                        text_flags.recompute = false;
+                    }
                 }
             }
         }
