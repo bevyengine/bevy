@@ -94,7 +94,7 @@ pub fn measure_text_system(
         return;
     }
 
-    let mut new_queue = Vec::new();
+    let mut new_text_queue = Vec::new();
     for entity in text_queue.drain(..) {
         if let Ok((_, text, mut content_size)) = text_query.get_mut(entity) {
             match text_pipeline.create_text_measure(
@@ -108,7 +108,7 @@ pub fn measure_text_system(
                     content_size.set(TextMeasure { info: measure });
                 }
                 Err(TextError::NoSuchFont) => {
-                    new_queue.push(entity);
+                    new_text_queue.push(entity);
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {e}.");
@@ -116,7 +116,7 @@ pub fn measure_text_system(
             };
         }
     }
-    *text_queue = new_queue;
+    *text_queue = new_text_queue;
 }
 
 /// Updates the layout and size information whenever the text or style is changed.
@@ -165,7 +165,7 @@ pub fn text_system(
         *last_scale_factor = scale_factor;
     }
 
-    let mut new_queue = Vec::new();
+    let mut new_text_queue = Vec::new();
     for entity in text_queue.drain(..) {
         if let Ok((_, node, text, mut text_layout_info)) = text_query.get_mut(entity) {
             let node_size = Vec2::new(
@@ -190,7 +190,7 @@ pub fn text_system(
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
                     // queue for further processing
-                    new_queue.push(entity);
+                    new_text_queue.push(entity);
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {e}.");
@@ -201,5 +201,5 @@ pub fn text_system(
             }
         }
     }
-    *text_queue = new_queue;
+    *text_queue = new_text_queue;
 }
