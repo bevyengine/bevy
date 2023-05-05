@@ -5,7 +5,7 @@ use bevy_ecs::{
     query::With,
     reflect::ReflectComponent,
     system::{Local, Query, Res, ResMut},
-    world::Ref,
+    world::{Ref, Mut},
 };
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -77,7 +77,36 @@ impl Measure for TextMeasure {
 }
 
 #[inline]
-fn create_text_measure() {
+fn create_text_measure(
+    fonts: &Assets<Font>,
+    text_pipeline: &mut TextPipeline,
+    scale_factor: f64,
+    text: Ref<Text>,
+    mut content_size: Mut<ContentSize>,
+    mut text_flags: Mut<TextFlags>,
+) {
+    match text_pipeline.create_text_measure(
+        &fonts,
+        &text.sections,
+        scale_factor,
+        text.alignment,
+        text.linebreak_behavior,
+    ) {
+        Ok(measure) => {
+            content_size.set(TextMeasure { info: measure });
+
+            // Text measured, so set `TextFlags` to schedule a recompute
+            text_flags.remeasure = false;
+            text_flags.recompute = true;
+        }
+        Err(TextError::NoSuchFont) => {
+            // Try again next frame
+            text_flags.remeasure = true;
+        }
+        Err(e @ TextError::FailedToAddGlyph(_)) => {
+            panic!("Fatal error when processing text: {e}.");
+        }
+    };
 }
 
 /// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space
@@ -99,62 +128,71 @@ pub fn measure_text_system(
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measures for modified text
-        for (text, mut content_size, mut text_flags) in text_query.iter_mut() {
+        for (text, content_size, text_flags) in text_query.iter_mut() {
             if text.is_changed() || text_flags.remeasure {
-                match text_pipeline.create_text_measure(
-                    &fonts,
-                    &text.sections,
-                    scale_factor,
-                    text.alignment,
-                    text.linebreak_behavior,
-                ) {
-                    Ok(measure) => {
-                        content_size.set(TextMeasure { info: measure });
-
-                        // Text measured, so set `TextFlags` to schedule a recompute
-                        text_flags.remeasure = false;
-                        text_flags.recompute = true;
-                    }
-                    Err(TextError::NoSuchFont) => {
-                        // Try again next frame
-                        text_flags.remeasure = true;
-                    }
-                    Err(e @ TextError::FailedToAddGlyph(_)) => {
-                        panic!("Fatal error when processing text: {e}.");
-                    }
-                };
+                create_text_measure(&fonts, &mut text_pipeline, scale_factor, text, content_size, text_flags);
             }
         }
     } else {
         // scale factor changed, remeasure all text
         *last_scale_factor = scale_factor;
 
-        for (text, mut content_size, mut text_flags) in text_query.iter_mut() {
-            match text_pipeline.create_text_measure(
-                &fonts,
-                &text.sections,
-                scale_factor,
-                text.alignment,
-                text.linebreak_behavior,
-            ) {
-                Ok(measure) => {
-                    content_size.set(TextMeasure { info: measure });
-
-                    // Text measured, so set `TextFlags` to schedule a recompute
-                    text_flags.remeasure = false;
-                    text_flags.recompute = true;
-                }
-                Err(TextError::NoSuchFont) => {
-                    // Try again next frame
-                    text_flags.remeasure = true;
-                }
-                Err(e @ TextError::FailedToAddGlyph(_)) => {
-                    panic!("Fatal error when processing text: {e}.");
-                }
-            };
+        for (text, content_size, text_flags) in text_query.iter_mut() {
+            create_text_measure(&fonts, &mut text_pipeline, scale_factor, text, content_size, text_flags);
         }
     }
 }
+
+#[inline]
+fn queue_text(
+    fonts: &Assets<Font>,
+    text_pipeline: &mut TextPipeline,
+    font_atlas_warning: &mut FontAtlasWarning,
+    font_atlas_set_storage: &mut Assets<FontAtlasSet>,
+    texture_atlases: &mut Assets<TextureAtlas>,
+    textures: &mut Assets<Image>,
+    text_settings: &TextSettings,
+    scale_factor: f64,
+    text: &Text,
+    node: Ref<Node>,
+    mut text_flags: Mut<TextFlags>,
+    mut text_layout_info: Mut<TextLayoutInfo>,
+) {
+    if !text_flags.remeasure {
+        let node_size = Vec2::new(
+            scale_value(node.size().x, scale_factor),
+            scale_value(node.size().y, scale_factor),
+        );
+
+        match text_pipeline.queue_text(
+            &fonts,
+            &text.sections,
+            scale_factor,
+            text.alignment,
+            text.linebreak_behavior,
+            node_size,
+            font_atlas_set_storage,
+            texture_atlases,
+            textures,
+            text_settings,
+            font_atlas_warning,
+            YAxisOrientation::TopToBottom,
+        ) {
+            Err(TextError::NoSuchFont) => {
+                // There was an error processing the text layout, try again next frame
+                text_flags.recompute = true;
+            }
+            Err(e @ TextError::FailedToAddGlyph(_)) => {
+                panic!("Fatal error when processing text: {e}.");
+            }
+            Ok(info) => {
+                *text_layout_info = info;
+                text_flags.recompute = false;
+            }
+        }
+    }
+}
+
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
@@ -187,79 +225,17 @@ pub fn text_system(
 
     if *last_scale_factor == scale_factor {
         // Scale factor unchanged, only recompute text for modified text nodes
-        for (node, text, mut text_layout_info, mut text_flags) in text_query.iter_mut() {
-            if (node.is_changed() || text_flags.recompute) && !text_flags.remeasure  {
-                let node_size = Vec2::new(
-                    scale_value(node.size().x, scale_factor),
-                    scale_value(node.size().y, scale_factor),
-                );
-
-                match text_pipeline.queue_text(
-                    &fonts,
-                    &text.sections,
-                    scale_factor,
-                    text.alignment,
-                    text.linebreak_behavior,
-                    node_size,
-                    &mut font_atlas_set_storage,
-                    &mut texture_atlases,
-                    &mut textures,
-                    text_settings.as_ref(),
-                    &mut font_atlas_warning,
-                    YAxisOrientation::TopToBottom,
-                ) {
-                    Err(TextError::NoSuchFont) => {
-                        // There was an error processing the text layout, try again next frame
-                        text_flags.recompute = true;
-                    }
-                    Err(e @ TextError::FailedToAddGlyph(_)) => {
-                        panic!("Fatal error when processing text: {e}.");
-                    }
-                    Ok(info) => {
-                        *text_layout_info = info;
-                        text_flags.recompute = false;
-                    }
-                }
+        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
+            if node.is_changed() || text_flags.recompute {
+                queue_text(&fonts, &mut text_pipeline, &mut font_atlas_warning, &mut font_atlas_set_storage, &mut texture_atlases, &mut textures, &text_settings, scale_factor, text, node, text_flags, text_layout_info);
             }
         }
     } else {
         // Scale factor changed, recompute text for all text nodes
         *last_scale_factor = scale_factor;
 
-        for (node, text, mut text_layout_info, mut text_flags) in text_query.iter_mut() {
-            if !text_flags.remeasure {
-                let node_size = Vec2::new(
-                    scale_value(node.size().x, scale_factor),
-                    scale_value(node.size().y, scale_factor),
-                );
-
-                match text_pipeline.queue_text(
-                    &fonts,
-                    &text.sections,
-                    scale_factor,
-                    text.alignment,
-                    text.linebreak_behavior,
-                    node_size,
-                    &mut font_atlas_set_storage,
-                    &mut texture_atlases,
-                    &mut textures,
-                    text_settings.as_ref(),
-                    &mut font_atlas_warning,
-                    YAxisOrientation::TopToBottom,
-                ) {
-                    Err(TextError::NoSuchFont) => {
-                        // There was an error processing the text layout, try again next frame
-                        text_flags.recompute = true;
-                    }
-                    Err(e @ TextError::FailedToAddGlyph(_)) => {
-                        panic!("Fatal error when processing text: {e}.");
-                    }
-                    Ok(info) => {
-                        *text_layout_info = info;
-                        text_flags.recompute = false;
-                    }
-                }
-            }
+        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
+            queue_text(&fonts, &mut text_pipeline, &mut font_atlas_warning, &mut font_atlas_set_storage, &mut texture_atlases, &mut textures, &text_settings, scale_factor, text, node, text_flags, text_layout_info);
         }
     }
 }
