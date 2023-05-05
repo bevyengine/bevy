@@ -76,6 +76,10 @@ impl Measure for TextMeasure {
     }
 }
 
+#[inline]
+fn create_text_measure() {
+}
+
 /// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 pub fn measure_text_system(
@@ -135,8 +139,13 @@ pub fn measure_text_system(
             ) {
                 Ok(measure) => {
                     content_size.set(TextMeasure { info: measure });
+
+                    // Text measured, so set `TextFlags` to schedule a recompute
+                    text_flags.remeasure = false;
+                    text_flags.recompute = true;
                 }
                 Err(TextError::NoSuchFont) => {
+                    // Try again next frame
                     text_flags.remeasure = true;
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
