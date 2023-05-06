@@ -286,6 +286,10 @@ impl<T: Component> Default for Require<T> {
     }
 }
 
+// SAFETY:
+// - `Bundle::component_ids` does nothing since `Require` doesn't have any components.
+// - `Bundle::get_components` does nothing since `Require` doesn't have any components.
+// - `Bundle::from_components` just returns `Require::default()` since `Require` doesn't have any components.
 unsafe impl<T: Component> Bundle for Require<T> {
     fn component_ids(
         _components: &mut Components,
