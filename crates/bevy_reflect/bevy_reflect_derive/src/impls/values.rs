@@ -1,5 +1,6 @@
 use crate::fq_std::{FQAny, FQBox, FQClone, FQOption, FQResult};
 use crate::impls::impl_typed;
+use crate::utility::WhereClauseOptions;
 use crate::ReflectMeta;
 use proc_macro::TokenStream;
 use quote::quote;
@@ -21,9 +22,11 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     #[cfg(not(feature = "documentation"))]
     let with_docs: Option<proc_macro2::TokenStream> = None;
 
+    let where_clause_options = WhereClauseOptions::default();
     let typed_impl = impl_typed(
         type_name,
         meta.generics(),
+        &where_clause_options,
         quote! {
             let info = #bevy_reflect_path::ValueInfo::new::<Self>() #with_docs;
             #bevy_reflect_path::TypeInfo::Value(info)
@@ -32,7 +35,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     );
 
     let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
-    let get_type_registration_impl = meta.get_type_registration();
+    let get_type_registration_impl = meta.get_type_registration(&where_clause_options);
 
     TokenStream::from(quote! {
         #get_type_registration_impl
@@ -46,8 +49,8 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
             }
 
             #[inline]
-            fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
-                <Self as #bevy_reflect_path::Typed>::type_info()
+            fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
+                #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
             #[inline]

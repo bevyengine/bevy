@@ -32,7 +32,7 @@ impl TaskPoolThreadAssignmentPolicy {
 }
 
 /// Helper for configuring and creating the default task pools. For end-users who want full control,
-/// set up [`CorePlugin`](super::CorePlugin)
+/// set up [`TaskPoolPlugin`](super::TaskPoolPlugin)
 #[derive(Clone, Resource)]
 pub struct TaskPoolOptions {
     /// If the number of physical cores is less than min_total_threads, force using

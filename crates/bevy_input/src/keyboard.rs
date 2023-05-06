@@ -1,5 +1,5 @@
 use crate::{ButtonState, Input};
-use bevy_ecs::{change_detection::DetectChanges, event::EventReader, system::ResMut};
+use bevy_ecs::{change_detection::DetectChangesMut, event::EventReader, system::ResMut};
 use bevy_reflect::{FromReflect, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -281,7 +281,7 @@ pub enum KeyCode {
     Apostrophe,
     /// The `Apps` key.
     Apps,
-    /// The `Asterik` / `*` key.
+    /// The `Asterisk` / `*` key.
     Asterisk,
     /// The `Plus` / `+` key.
     Plus,

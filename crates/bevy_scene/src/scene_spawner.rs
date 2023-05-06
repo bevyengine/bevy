@@ -8,11 +8,11 @@ use bevy_ecs::{
     world::{Mut, World},
 };
 use bevy_hierarchy::{AddChild, Parent};
-use bevy_utils::{tracing::error, HashMap};
+use bevy_utils::{tracing::error, HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 
-/// Informations about a scene instance.
+/// Information about a scene instance.
 #[derive(Debug)]
 pub struct InstanceInfo {
     /// Mapping of entities from the scene world to the instance world.
@@ -45,6 +45,8 @@ pub struct SceneSpawner {
 pub enum SceneSpawnError {
     #[error("scene contains the unregistered component `{type_name}`. consider adding `#[reflect(Component)]` to your type")]
     UnregisteredComponent { type_name: String },
+    #[error("scene contains the unregistered resource `{type_name}`. consider adding `#[reflect(Resource)]` to your type")]
+    UnregisteredResource { type_name: String },
     #[error("scene contains the unregistered type `{type_name}`. consider registering the type using `app.register_type::<T>()`")]
     UnregisteredType { type_name: String },
     #[error("scene does not exist")]
@@ -314,6 +316,26 @@ impl SceneSpawner {
 
 pub fn scene_spawner_system(world: &mut World) {
     world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
+        // remove any loading instances where parent is deleted
+        let mut dead_instances = HashSet::default();
+        scene_spawner
+            .scenes_with_parent
+            .retain(|(instance, parent)| {
+                let retain = world.get_entity(*parent).is_some();
+
+                if !retain {
+                    dead_instances.insert(*instance);
+                }
+
+                retain
+            });
+        scene_spawner
+            .dynamic_scenes_to_spawn
+            .retain(|(_, instance)| !dead_instances.contains(instance));
+        scene_spawner
+            .scenes_to_spawn
+            .retain(|(_, instance)| !dead_instances.contains(instance));
+
         let scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
 
         let mut updated_spawned_scenes = Vec::new();

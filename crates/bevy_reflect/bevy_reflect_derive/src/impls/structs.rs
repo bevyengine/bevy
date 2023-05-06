@@ -1,9 +1,9 @@
 use crate::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use crate::impls::impl_typed;
+use crate::utility::{extend_where_clause, ident_or_index};
 use crate::ReflectStruct;
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{Index, Member};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
@@ -25,14 +25,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         .collect::<Vec<String>>();
     let field_idents = reflect_struct
         .active_fields()
-        .map(|field| {
-            field
-                .data
-                .ident
-                .as_ref()
-                .map(|ident| Member::Named(ident.clone()))
-                .unwrap_or_else(|| Member::Unnamed(Index::from(field.index)))
-        })
+        .map(|field| ident_or_index(field.data.ident.as_ref(), field.index))
         .collect::<Vec<_>>();
     let field_types = reflect_struct.active_types();
     let field_count = field_idents.len();
@@ -88,9 +81,11 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         }
     };
 
+    let where_clause_options = reflect_struct.where_clause_options();
     let typed_impl = impl_typed(
         struct_name,
         reflect_struct.meta().generics(),
+        &where_clause_options,
         quote! {
             let fields = [#field_generator];
             let info = #info_generator;
@@ -99,16 +94,18 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         bevy_reflect_path,
     );
 
-    let get_type_registration_impl = reflect_struct.get_type_registration();
+    let get_type_registration_impl = reflect_struct.get_type_registration(&where_clause_options);
     let (impl_generics, ty_generics, where_clause) =
         reflect_struct.meta().generics().split_for_impl();
+
+    let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 
     TokenStream::from(quote! {
         #get_type_registration_impl
 
         #typed_impl
 
-        impl #impl_generics #bevy_reflect_path::Struct for #struct_name #ty_generics #where_clause {
+        impl #impl_generics #bevy_reflect_path::Struct for #struct_name #ty_generics #where_reflect_clause {
             fn field(&self, name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
                 match name {
                     #(#field_names => #fqoption::Some(&self.#field_idents),)*
@@ -154,21 +151,21 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicStruct {
                 let mut dynamic: #bevy_reflect_path::DynamicStruct = #FQDefault::default();
-                dynamic.set_name(::std::string::ToString::to_string(#bevy_reflect_path::Reflect::type_name(self)));
+                dynamic.set_represented_type(#bevy_reflect_path::Reflect::get_represented_type_info(self));
                 #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::Reflect::clone_value(&self.#field_idents));)*
                 dynamic
             }
         }
 
-        impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics #where_clause {
+        impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics #where_reflect_clause {
             #[inline]
             fn type_name(&self) -> &str {
                 ::core::any::type_name::<Self>()
             }
 
             #[inline]
-            fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
-                <Self as #bevy_reflect_path::Typed>::type_info()
+            fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
+                #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
             #[inline]

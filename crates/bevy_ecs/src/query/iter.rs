@@ -1,5 +1,6 @@
 use crate::{
     archetype::{ArchetypeEntity, ArchetypeId, Archetypes},
+    component::Tick,
     entity::{Entities, Entity},
     prelude::World,
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, WorldQuery},
@@ -29,14 +30,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     pub(crate) unsafe fn new(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
         QueryIter {
             query_state,
             tables: &world.storages().tables,
             archetypes: &world.archetypes,
-            cursor: QueryIterationCursor::init(world, query_state, last_change_tick, change_tick),
+            cursor: QueryIterationCursor::init(world, query_state, last_run, this_run),
         }
     }
 }
@@ -98,21 +99,11 @@ where
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
         entity_list: EntityList,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> QueryManyIter<'w, 's, Q, F, I> {
-        let fetch = Q::init_fetch(
-            world,
-            &query_state.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let filter = F::init_fetch(
-            world,
-            &query_state.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let fetch = Q::init_fetch(world, &query_state.fetch_state, last_run, this_run);
+        let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         QueryManyIter {
             query_state,
             entities: &world.entities,
@@ -151,7 +142,7 @@ where
                 .archetypes
                 .get(location.archetype_id)
                 .debug_checked_unwrap();
-            let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
+            let table = self.tables.get(location.table_id).debug_checked_unwrap();
 
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -170,12 +161,11 @@ where
                 table,
             );
 
-            let table_row = archetype.entity_table_row(location.archetype_row);
             // SAFETY: set_archetype was called prior.
             // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
-            if F::filter_fetch(&mut self.filter, entity, table_row) {
+            if F::filter_fetch(&mut self.filter, entity, location.table_row) {
                 // SAFETY: set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
-                return Some(Q::fetch(&mut self.fetch, entity, table_row));
+                return Some(Q::fetch(&mut self.fetch, entity, location.table_row));
             }
         }
         None
@@ -299,8 +289,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
     pub(crate) unsafe fn new(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
         // Initialize array with cursors.
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
@@ -313,16 +303,16 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
             ptr.write(QueryIterationCursor::init(
                 world,
                 query_state,
-                last_change_tick,
-                change_tick,
+                last_run,
+                this_run,
             ));
         }
         for slot in (1..K).map(|offset| ptr.add(offset)) {
             slot.write(QueryIterationCursor::init_empty(
                 world,
                 query_state,
-                last_change_tick,
-                change_tick,
+                last_run,
+                this_run,
             ));
         }
 
@@ -394,7 +384,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
 }
 
 // Iterator type is intentionally implemented only for read-only access.
-// Doing so for mutable references would be unsound, because  calling `next`
+// Doing so for mutable references would be unsound, because calling `next`
 // multiple times would allow multiple owned references to the same data to exist.
 impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, F, K>
@@ -497,34 +487,24 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     unsafe fn init_empty(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
         QueryIterationCursor {
             table_id_iter: [].iter(),
             archetype_id_iter: [].iter(),
-            ..Self::init(world, query_state, last_change_tick, change_tick)
+            ..Self::init(world, query_state, last_run, this_run)
         }
     }
 
     unsafe fn init(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
-        let fetch = Q::init_fetch(
-            world,
-            &query_state.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let filter = F::init_fetch(
-            world,
-            &query_state.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let fetch = Q::init_fetch(world, &query_state.fetch_state, last_run, this_run);
+        let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         QueryIterationCursor {
             fetch,
             filter,

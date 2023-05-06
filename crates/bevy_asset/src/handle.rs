@@ -116,10 +116,7 @@ where
     marker: PhantomData<fn() -> T>,
 }
 
-// FIXME: Default is only needed because `Handle`'s field `handle_type` is currently ignored for reflection
-#[derive(Default)]
 enum HandleType {
-    #[default]
     Weak,
     Strong(Sender<RefChange>),
 }
@@ -322,8 +319,7 @@ impl<T: Asset> Clone for Handle<T> {
 /// To convert back to a typed handle, use the [typed](HandleUntyped::typed) method.
 #[derive(Debug)]
 pub struct HandleUntyped {
-    /// An unique identifier to an Asset.
-    pub id: HandleId,
+    id: HandleId,
     handle_type: HandleType,
 }
 
@@ -350,6 +346,12 @@ impl HandleUntyped {
             id,
             handle_type: HandleType::Weak,
         }
+    }
+
+    /// The ID of the asset.
+    #[inline]
+    pub fn id(&self) -> HandleId {
+        self.id
     }
 
     /// Creates a weak copy of this handle.

@@ -2,6 +2,11 @@
 //!
 //! An **entity** exclusively owns zero or more [component] instances, all of different types, and can dynamically acquire or lose them over its lifetime.
 //!
+//! **empty entity**: Entity with zero components.
+//! **pending entity**: Entity reserved, but not flushed yet (see [`Entities::flush`] docs for reference).
+//! **reserved entity**: same as **pending entity**.
+//! **invalid entity**: **pending entity** flushed with invalid (see [`Entities::flush_as_invalid`] docs for reference).
+//!
 //! See [`Entity`] to learn more.
 //!
 //! [component]: crate::component::Component
@@ -36,7 +41,7 @@ pub use map_entities::*;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
-    storage::SparseSetIndex,
+    storage::{SparseSetIndex, TableId, TableRow},
 };
 use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering};
@@ -110,7 +115,7 @@ type IdCursor = isize;
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
-#[derive(Clone, Copy, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Entity {
     generation: u32,
     index: u32,
@@ -143,7 +148,7 @@ impl Entity {
     /// // ... replace the entities with valid ones.
     /// ```
     ///
-    /// Deriving `Reflect` for a component that has an `Entity` field:
+    /// Deriving [`Reflect`](bevy_reflect::Reflect) for a component that has an `Entity` field:
     ///
     /// ```no_run
     /// # use bevy_ecs::{prelude::*, component::*};
@@ -222,6 +227,25 @@ impl Entity {
     }
 }
 
+impl Serialize for Entity {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u64(self.to_bits())
+    }
+}
+
+impl<'de> Deserialize<'de> for Entity {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let id: u64 = serde::de::Deserialize::deserialize(deserializer)?;
+        Ok(Entity::from_bits(id))
+    }
+}
+
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}v{}", self.index, self.generation)
@@ -229,10 +253,12 @@ impl fmt::Debug for Entity {
 }
 
 impl SparseSetIndex for Entity {
+    #[inline]
     fn sparse_set_index(&self) -> usize {
         self.index() as usize
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Entity::from_raw(value as u32)
     }
@@ -294,15 +320,15 @@ pub struct Entities {
     /// that have been freed or are in the process of being allocated:
     ///
     /// - The `freelist` IDs, previously freed by `free()`. These IDs are available to any of
-    ///   `alloc()`, `reserve_entity()` or `reserve_entities()`. Allocation will always prefer
+    ///   [`alloc`], [`reserve_entity`] or [`reserve_entities`]. Allocation will always prefer
     ///   these over brand new IDs.
     ///
     /// - The `reserved` list of IDs that were once in the freelist, but got reserved by
-    ///   `reserve_entities` or `reserve_entity()`. They are now waiting for `flush()` to make them
+    ///   [`reserve_entities`] or [`reserve_entity`]. They are now waiting for [`flush`] to make them
     ///   fully allocated.
     ///
     /// - The count of new IDs that do not yet exist in `self.meta`, but which we have handed out
-    ///   and reserved. `flush()` will allocate room for them in `self.meta`.
+    ///   and reserved. [`flush`] will allocate room for them in `self.meta`.
     ///
     /// The contents of `pending` look like this:
     ///
@@ -324,7 +350,12 @@ pub struct Entities {
     /// This formulation allows us to reserve any number of IDs first from the freelist
     /// and then from the new IDs, using only a single atomic subtract.
     ///
-    /// Once `flush()` is done, `free_cursor` will equal `pending.len()`.
+    /// Once [`flush`] is done, `free_cursor` will equal `pending.len()`.
+    ///
+    /// [`alloc`]: Entities::alloc
+    /// [`reserve_entity`]: Entities::reserve_entity
+    /// [`reserve_entities`]: Entities::reserve_entities
+    /// [`flush`]: Entities::flush
     pending: Vec<u32>,
     free_cursor: AtomicIdCursor,
     /// Stores the number of free entities for [`len`](Entities::len)
@@ -343,7 +374,7 @@ impl Entities {
 
     /// Reserve entity IDs concurrently.
     ///
-    /// Storage for entity generation and location is lazily allocated by calling `flush`.
+    /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
@@ -498,7 +529,7 @@ impl Entities {
             self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
         } else {
-            let current_meta = &mut self.meta[entity.index as usize];
+            let current_meta = &self.meta[entity.index as usize];
             if current_meta.location.archetype_id == ArchetypeId::INVALID {
                 AllocAtWithoutReplacement::DidNotExist
             } else if current_meta.generation == entity.generation {
@@ -563,10 +594,11 @@ impl Entities {
         self.len = 0;
     }
 
-    /// Returns `Ok(Location { archetype: Archetype::invalid(), index: undefined })` for pending entities.
+    /// Returns the location of an [`Entity`].
+    /// Note: for pending entities, returns `Some(EntityLocation::INVALID)`.
+    #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
-        if (entity.index as usize) < self.meta.len() {
-            let meta = &self.meta[entity.index as usize];
+        if let Some(meta) = self.meta.get(entity.index as usize) {
             if meta.generation != entity.generation
                 || meta.location.archetype_id == ArchetypeId::INVALID
             {
@@ -585,9 +617,29 @@ impl Entities {
     ///  - `index` must be a valid entity index.
     ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
+    #[inline]
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
-        // SAFETY: Caller guarentees that `index` a valid entity index
+        // SAFETY: Caller guarantees that `index` a valid entity index
         self.meta.get_unchecked_mut(index as usize).location = location;
+    }
+
+    /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
+    /// `index` will count `generation` starting from the prior `generation` + the specified
+    /// value + 1.
+    ///
+    /// Does nothing if no entity with this `index` has been allocated yet.
+    pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
+        if (index as usize) >= self.meta.len() {
+            return false;
+        }
+
+        let meta = &mut self.meta[index as usize];
+        if meta.location.archetype_id == ArchetypeId::INVALID {
+            meta.generation += generations;
+            true
+        } else {
+            false
+        }
     }
 
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
@@ -617,8 +669,8 @@ impl Entities {
         *self.free_cursor.get_mut() != self.pending.len() as IdCursor
     }
 
-    /// Allocates space for entities previously reserved with `reserve_entity` or
-    /// `reserve_entities`, then initializes each one using the supplied function.
+    /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
+    /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
     ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
@@ -716,34 +768,65 @@ impl Entities {
     }
 }
 
+// This type is repr(C) to ensure that the layout and values within it can be safe to fully fill
+// with u8::MAX, as required by [`Entities::flush_and_reserve_invalid_assuming_no_entities`].
 // Safety:
 // This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
+/// Metadata for an [`Entity`].
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 struct EntityMeta {
+    /// The current generation of the [`Entity`].
     pub generation: u32,
+    /// The current location of the [`Entity`]
     pub location: EntityLocation,
 }
 
 impl EntityMeta {
+    /// meta for **pending entity**
     const EMPTY: EntityMeta = EntityMeta {
         generation: 0,
-        location: EntityLocation {
-            archetype_id: ArchetypeId::INVALID,
-            archetype_row: ArchetypeRow::INVALID, // dummy value, to be filled in
-        },
+        location: EntityLocation::INVALID,
     };
 }
 
+// This type is repr(C) to ensure that the layout and values within it can be safe to fully fill
+// with u8::MAX, as required by [`Entities::flush_and_reserve_invalid_assuming_no_entities`].
+// SAFETY:
+// This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
 /// A location of an entity in an archetype.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct EntityLocation {
-    /// The archetype index
+    /// The ID of the [`Archetype`] the [`Entity`] belongs to.
+    ///
+    /// [`Archetype`]: crate::archetype::Archetype
     pub archetype_id: ArchetypeId,
 
-    /// The index of the entity in the archetype
+    /// The index of the [`Entity`] within its [`Archetype`].
+    ///
+    /// [`Archetype`]: crate::archetype::Archetype
     pub archetype_row: ArchetypeRow,
+
+    /// The ID of the [`Table`] the [`Entity`] belongs to.
+    ///
+    /// [`Table`]: crate::storage::Table
+    pub table_id: TableId,
+
+    /// The index of the [`Entity`] within its [`Table`].
+    ///
+    /// [`Table`]: crate::storage::Table
+    pub table_row: TableRow,
+}
+
+impl EntityLocation {
+    /// location for **pending entity** and **invalid entity**
+    const INVALID: EntityLocation = EntityLocation {
+        archetype_id: ArchetypeId::INVALID,
+        archetype_row: ArchetypeRow::INVALID,
+        table_id: TableId::INVALID,
+        table_row: TableRow::INVALID,
+    };
 }
 
 #[cfg(test)]
@@ -801,5 +884,30 @@ mod tests {
 
         const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000).generation();
         assert_eq!(0x00dd_00ff, C4);
+    }
+
+    #[test]
+    fn reserve_generations() {
+        let mut entities = Entities::new();
+        let entity = entities.alloc();
+        entities.free(entity);
+
+        assert!(entities.reserve_generations(entity.index, 1));
+    }
+
+    #[test]
+    fn reserve_generations_and_alloc() {
+        const GENERATIONS: u32 = 10;
+
+        let mut entities = Entities::new();
+        let entity = entities.alloc();
+        entities.free(entity);
+
+        assert!(entities.reserve_generations(entity.index, GENERATIONS));
+
+        // The very next entitiy allocated should be a further generation on the same index
+        let next_entity = entities.alloc();
+        assert_eq!(next_entity.index(), entity.index());
+        assert!(next_entity.generation > entity.generation + GENERATIONS);
     }
 }

@@ -7,8 +7,9 @@ pub use camera::*;
 pub use camera_driver_node::*;
 pub use projection::*;
 
-use crate::{render_graph::RenderGraph, RenderApp, RenderStage};
+use crate::{render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet};
 use bevy_app::{App, Plugin};
+use bevy_ecs::schedule::IntoSystemConfigs;
 
 #[derive(Default)]
 pub struct CameraPlugin;
@@ -18,7 +19,6 @@ impl Plugin for CameraPlugin {
         app.register_type::<Camera>()
             .register_type::<Viewport>()
             .register_type::<Option<Viewport>>()
-            .register_type::<WindowOrigin>()
             .register_type::<ScalingMode>()
             .register_type::<CameraRenderGraph>()
             .register_type::<RenderTarget>()
@@ -27,8 +27,10 @@ impl Plugin for CameraPlugin {
             .add_plugin(CameraProjectionPlugin::<PerspectiveProjection>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(RenderStage::Extract, extract_cameras);
-
+            render_app
+                .init_resource::<SortedCameras>()
+                .add_systems(ExtractSchedule, extract_cameras)
+                .add_systems(Render, sort_cameras.in_set(RenderSet::Prepare));
             let camera_driver_node = CameraDriverNode::new(&mut render_app.world);
             let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
             render_graph.add_node(crate::main_graph::node::CAMERA_DRIVER, camera_driver_node);

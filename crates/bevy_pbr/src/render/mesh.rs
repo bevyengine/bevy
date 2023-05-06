@@ -1,12 +1,21 @@
 use crate::{
-    GlobalLightMeta, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
-    ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_DIRECTIONAL_LIGHTS,
+    environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
+    GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
+    ShadowSamplers, ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset,
+    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
+    MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_core_pipeline::{
+    prepass::ViewPrepassTextures,
+    tonemapping::{
+        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
+    },
+};
 use bevy_ecs::{
     prelude::*,
+    query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Mat3A, Mat4, Vec2};
@@ -18,15 +27,17 @@ use bevy_render::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         GpuBufferInfo, Mesh, MeshVertexBufferLayout,
     },
+    prelude::Msaa,
     render_asset::RenderAssets,
-    render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
+        FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 use std::num::NonZeroU64;
@@ -95,13 +106,22 @@ impl Plugin for MeshRenderPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<MeshPipeline>()
                 .init_resource::<SkinnedMeshUniform>()
-                .add_system_to_stage(RenderStage::Extract, extract_meshes)
-                .add_system_to_stage(RenderStage::Extract, extract_skinned_meshes)
-                .add_system_to_stage(RenderStage::Prepare, prepare_skinned_meshes)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
+                .add_systems(ExtractSchedule, (extract_meshes, extract_skinned_meshes))
+                .add_systems(
+                    Render,
+                    (
+                        prepare_skinned_meshes.in_set(RenderSet::Prepare),
+                        queue_mesh_bind_group.in_set(RenderSet::Queue),
+                        queue_mesh_view_bind_groups.in_set(RenderSet::Queue),
+                    ),
+                );
+        }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<MeshPipeline>();
         }
     }
 }
@@ -109,6 +129,7 @@ impl Plugin for MeshRenderPlugin {
 #[derive(Component, ShaderType, Clone)]
 pub struct MeshUniform {
     pub transform: Mat4,
+    pub previous_transform: Mat4,
     pub inverse_transpose_model: Mat4,
     pub flags: u32,
 }
@@ -135,6 +156,7 @@ pub fn extract_meshes(
             Entity,
             &ComputedVisibility,
             &GlobalTransform,
+            Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
             Option<With<NotShadowReceiver>>,
             Option<With<NotShadowCaster>>,
@@ -145,8 +167,11 @@ pub fn extract_meshes(
     let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
     let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.is_visible());
 
-    for (entity, _, transform, handle, not_receiver, not_caster) in visible_meshes {
+    for (entity, _, transform, previous_transform, handle, not_receiver, not_caster) in
+        visible_meshes
+    {
         let transform = transform.compute_matrix();
+        let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
         let mut flags = if not_receiver.is_some() {
             MeshFlags::empty()
         } else {
@@ -158,6 +183,7 @@ pub fn extract_meshes(
         let uniform = MeshUniform {
             flags: flags.bits,
             transform,
+            previous_transform,
             inverse_transpose_model: transform.inverse().transpose(),
         };
         if not_caster.is_some() {
@@ -253,6 +279,7 @@ pub fn extract_skinned_meshes(
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
     pub view_layout: BindGroupLayout,
+    pub view_layout_multisampled: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
     pub skinned_mesh_layout: BindGroupLayout,
     // This dummy white texture is to be used in place of optional StandardMaterial textures
@@ -271,8 +298,12 @@ impl FromWorld for MeshPipeline {
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
+        /// Returns the appropriate bind group layout vec based on the parameters
+        fn layout_entries(
+            clustered_forward_buffer_binding_type: BufferBindingType,
+            multisampled: bool,
+        ) -> Vec<BindGroupLayoutEntry> {
+            let mut entries = vec![
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -302,9 +333,9 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
-                        #[cfg(not(feature = "webgl"))]
+                        #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
                         view_dimension: TextureViewDimension::CubeArray,
-                        #[cfg(feature = "webgl")]
+                        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                         view_dimension: TextureViewDimension::Cube,
                     },
                     count: None,
@@ -323,9 +354,9 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
-                        #[cfg(not(feature = "webgl"))]
+                        #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
                         view_dimension: TextureViewDimension::D2Array,
-                        #[cfg(feature = "webgl")]
+                        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                         view_dimension: TextureViewDimension::D2,
                     },
                     count: None,
@@ -380,6 +411,7 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
+                // Globals
                 BindGroupLayoutEntry {
                     binding: 9,
                     visibility: ShaderStages::VERTEX_FRAGMENT,
@@ -390,9 +422,50 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
-            ],
+                // Fog
+                BindGroupLayoutEntry {
+                    binding: 10,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: Some(GpuFog::min_size()),
+                    },
+                    count: None,
+                },
+            ];
+
+            // EnvironmentMapLight
+            let environment_map_entries =
+                environment_map::get_bind_group_layout_entries([11, 12, 13]);
+            entries.extend_from_slice(&environment_map_entries);
+
+            // Tonemapping
+            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([14, 15]);
+            entries.extend_from_slice(&tonemapping_lut_entries);
+
+            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
+                || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
+            {
+                entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
+                    [16, 17, 18],
+                    multisampled,
+                ));
+            }
+
+            entries
+        }
+
+        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("mesh_view_layout"),
+            entries: &layout_entries(clustered_forward_buffer_binding_type, false),
         });
+
+        let view_layout_multisampled =
+            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("mesh_view_layout_multisampled"),
+                entries: &layout_entries(clustered_forward_buffer_binding_type, true),
+            });
 
         let mesh_binding = BindGroupLayoutEntry {
             binding: 0,
@@ -430,12 +503,7 @@ impl FromWorld for MeshPipeline {
 
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
-            let image = Image::new_fill(
-                Extent3d::default(),
-                TextureDimension::D2,
-                &[255u8; 4],
-                TextureFormat::bevy_default(),
-            );
+            let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
                 ImageSampler::Default => (**default_sampler).clone(),
@@ -453,12 +521,7 @@ impl FromWorld for MeshPipeline {
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
-                        )
-                        .unwrap(),
-                    ),
+                    bytes_per_row: Some(image.texture_descriptor.size.width * format_size as u32),
                     rows_per_image: None,
                 },
                 image.texture_descriptor.size,
@@ -474,11 +537,13 @@ impl FromWorld for MeshPipeline {
                     image.texture_descriptor.size.width as f32,
                     image.texture_descriptor.size.height as f32,
                 ),
+                mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
 
         MeshPipeline {
             view_layout,
+            view_layout_multisampled,
             mesh_layout,
             skinned_mesh_layout,
             clustered_forward_buffer_binding_type,
@@ -510,13 +575,32 @@ bitflags::bitflags! {
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
-        const NONE                        = 0;
-        const TRANSPARENT_MAIN_PASS       = (1 << 0);
-        const HDR                         = (1 << 1);
-        const TONEMAP_IN_SHADER           = (1 << 2);
-        const DEBAND_DITHER               = (1 << 3);
-        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const NONE                              = 0;
+        const HDR                               = (1 << 0);
+        const TONEMAP_IN_SHADER                 = (1 << 1);
+        const DEBAND_DITHER                     = (1 << 2);
+        const DEPTH_PREPASS                     = (1 << 3);
+        const NORMAL_PREPASS                    = (1 << 4);
+        const MOTION_VECTOR_PREPASS             = (1 << 5);
+        const ALPHA_MASK                        = (1 << 6);
+        const ENVIRONMENT_MAP                   = (1 << 7);
+        const DEPTH_CLAMP_ORTHO                 = (1 << 8);
+        const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
+        const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
+        const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
+        const BLEND_MULTIPLY                    = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
+        const BLEND_ALPHA                       = (3 << Self::BLEND_SHIFT_BITS);
+        const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
 
@@ -524,7 +608,14 @@ impl MeshPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
-    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
+    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 =
+        Self::MSAA_SHIFT_BITS - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones();
+    const BLEND_MASK_BITS: u32 = 0b11;
+    const BLEND_SHIFT_BITS: u32 =
+        Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::BLEND_MASK_BITS.count_ones();
+    const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
+    const TONEMAP_METHOD_SHIFT_BITS: u32 =
+        Self::BLEND_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -576,6 +667,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
+            shader_defs.push("LOAD_PREPASS_NORMALS".into());
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
@@ -589,6 +684,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
         shader_defs.push(ShaderDefVal::UInt(
             "MAX_DIRECTIONAL_LIGHTS".to_string(),
             MAX_DIRECTIONAL_LIGHTS as u32,
+        ));
+        shader_defs.push(ShaderDefVal::UInt(
+            "MAX_CASCADES_PER_LIGHT".to_string(),
+            MAX_CASCADES_PER_LIGHT as u32,
         ));
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
@@ -606,7 +705,14 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
-        let mut bind_group_layout = vec![self.view_layout.clone()];
+        let mut bind_group_layout = match key.msaa_samples() {
+            1 => vec![self.view_layout.clone()],
+            _ => {
+                shader_defs.push("MULTISAMPLED".into());
+                vec![self.view_layout_multisampled.clone()]
+            }
+        };
+
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
@@ -621,10 +727,34 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
-        if key.contains(MeshPipelineKey::TRANSPARENT_MAIN_PASS) {
-            label = "transparent_mesh_pipeline".into();
+        let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
+        if pass == MeshPipelineKey::BLEND_ALPHA {
+            label = "alpha_blend_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
             // For the transparent pass, fragments that are closer will be alpha blended
+            // but their depth is not written to the depth buffer
+            depth_write_enabled = false;
+        } else if pass == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
+            label = "premultiplied_alpha_mesh_pipeline".into();
+            blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);
+            shader_defs.push("PREMULTIPLY_ALPHA".into());
+            shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
+            // For the transparent pass, fragments that are closer will be alpha blended
+            // but their depth is not written to the depth buffer
+            depth_write_enabled = false;
+        } else if pass == MeshPipelineKey::BLEND_MULTIPLY {
+            label = "multiply_mesh_pipeline".into();
+            blend = Some(BlendState {
+                color: BlendComponent {
+                    src_factor: BlendFactor::Dst,
+                    dst_factor: BlendFactor::OneMinusSrcAlpha,
+                    operation: BlendOperation::Add,
+                },
+                alpha: BlendComponent::OVER,
+            });
+            shader_defs.push("PREMULTIPLY_ALPHA".into());
+            shader_defs.push("BLEND_MULTIPLY".into());
+            // For the multiply pass, fragments that are closer will be alpha blended
             // but their depth is not written to the depth buffer
             depth_write_enabled = false;
         } else {
@@ -639,15 +769,40 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
 
+            let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
+
+            if method == MeshPipelineKey::TONEMAP_METHOD_NONE {
+                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD {
+                shader_defs.push("TONEMAP_METHOD_REINHARD".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
+                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED {
+                shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_AGX {
+                shader_defs.push("TONEMAP_METHOD_AGX".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM {
+                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
+                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
+                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            }
+
             // Debanding is tied to tonemapping in the shader, cannot run without it.
             if key.contains(MeshPipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".into());
             }
         }
 
-        let format = match key.contains(MeshPipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
+        if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
+            shader_defs.push("ENVIRONMENT_MAP".into());
+        }
+
+        let format = if key.contains(MeshPipelineKey::HDR) {
+            ViewTarget::TEXTURE_FORMAT_HDR
+        } else {
+            TextureFormat::bevy_default()
         };
 
         Ok(RenderPipelineDescriptor {
@@ -667,7 +822,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(bind_group_layout),
+            layout: bind_group_layout,
+            push_constant_ranges: Vec::new(),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
@@ -680,7 +836,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
                 depth_write_enabled,
-                depth_compare: CompareFunction::Greater,
+                depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -798,71 +954,135 @@ pub fn queue_mesh_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mesh_pipeline: Res<MeshPipeline>,
-    shadow_pipeline: Res<ShadowPipeline>,
+    shadow_samplers: Res<ShadowSamplers>,
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
+    fog_meta: Res<FogMeta>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
+    views: Query<(
+        Entity,
+        &ViewShadowBindings,
+        &ViewClusterBindings,
+        Option<&ViewPrepassTextures>,
+        Option<&EnvironmentMapLight>,
+        &Tonemapping,
+    )>,
+    images: Res<RenderAssets<Image>>,
+    mut fallback_images: FallbackImagesMsaa,
+    mut fallback_depths: FallbackImagesDepth,
+    fallback_cubemap: Res<FallbackImageCubemap>,
+    msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
+    tonemapping_luts: Res<TonemappingLuts>,
 ) {
-    if let (Some(view_binding), Some(light_binding), Some(point_light_binding), Some(globals)) = (
+    if let (
+        Some(view_binding),
+        Some(light_binding),
+        Some(point_light_binding),
+        Some(globals),
+        Some(fog_binding),
+    ) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
+        fog_meta.gpu_fogs.binding(),
     ) {
-        for (entity, view_shadow_bindings, view_cluster_bindings) in &views {
+        for (
+            entity,
+            view_shadow_bindings,
+            view_cluster_bindings,
+            prepass_textures,
+            environment_map,
+            tonemapping,
+        ) in &views
+        {
+            let layout = if msaa.samples() > 1 {
+                &mesh_pipeline.view_layout_multisampled
+            } else {
+                &mesh_pipeline.view_layout
+            };
+
+            let mut entries = vec![
+                BindGroupEntry {
+                    binding: 0,
+                    resource: view_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: light_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(
+                        &view_shadow_bindings.point_light_depth_texture_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::Sampler(&shadow_samplers.point_light_sampler),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: BindingResource::TextureView(
+                        &view_shadow_bindings.directional_light_depth_texture_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: BindingResource::Sampler(&shadow_samplers.directional_light_sampler),
+                },
+                BindGroupEntry {
+                    binding: 6,
+                    resource: point_light_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 7,
+                    resource: view_cluster_bindings.light_index_lists_binding().unwrap(),
+                },
+                BindGroupEntry {
+                    binding: 8,
+                    resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
+                },
+                BindGroupEntry {
+                    binding: 9,
+                    resource: globals.clone(),
+                },
+                BindGroupEntry {
+                    binding: 10,
+                    resource: fog_binding.clone(),
+                },
+            ];
+
+            let env_map = environment_map::get_bindings(
+                environment_map,
+                &images,
+                &fallback_cubemap,
+                [11, 12, 13],
+            );
+            entries.extend_from_slice(&env_map);
+
+            let tonemapping_luts =
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
+            entries.extend_from_slice(&tonemapping_luts);
+
+            // When using WebGL, we can't have a depth texture with multisampling
+            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
+                || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
+            {
+                entries.extend_from_slice(&prepass::get_bindings(
+                    prepass_textures,
+                    &mut fallback_images,
+                    &mut fallback_depths,
+                    &msaa,
+                    [16, 17, 18],
+                ));
+            }
+
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: view_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: light_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: BindingResource::TextureView(
-                            &view_shadow_bindings.point_light_depth_texture_view,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 3,
-                        resource: BindingResource::Sampler(&shadow_pipeline.point_light_sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 4,
-                        resource: BindingResource::TextureView(
-                            &view_shadow_bindings.directional_light_depth_texture_view,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 5,
-                        resource: BindingResource::Sampler(
-                            &shadow_pipeline.directional_light_sampler,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 6,
-                        resource: point_light_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 7,
-                        resource: view_cluster_bindings.light_index_lists_binding().unwrap(),
-                    },
-                    BindGroupEntry {
-                        binding: 8,
-                        resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
-                    },
-                    BindGroupEntry {
-                        binding: 9,
-                        resource: globals.clone(),
-                    },
-                ],
+                entries: &entries,
                 label: Some("mesh_view_bind_group"),
-                layout: &mesh_pipeline.view_layout,
+                layout,
             });
 
             commands.entity(entity).insert(MeshViewBindGroup {
@@ -873,24 +1093,31 @@ pub fn queue_mesh_view_bind_groups(
 }
 
 pub struct SetMeshViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
-    type Param = SQuery<(
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
+    type Param = ();
+    type ViewWorldQuery = (
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
+        Read<ViewFogUniformOffset>,
         Read<MeshViewBindGroup>,
-    )>;
+    );
+    type ItemWorldQuery = ();
+
     #[inline]
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        view_query: SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        (view_uniform, view_lights, view_fog, mesh_view_bind_group): ROQueryItem<
+            'w,
+            Self::ViewWorldQuery,
+        >,
+        _entity: (),
+        _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, view_lights, mesh_view_bind_group) = view_query.get_inner(view).unwrap();
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,
-            &[view_uniform.offset, view_lights.offset],
+            &[view_uniform.offset, view_lights.offset, view_fog.offset],
         );
 
         RenderCommandResult::Success
@@ -898,22 +1125,21 @@ impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
 }
 
 pub struct SetMeshBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
-    type Param = (
-        SRes<MeshBindGroup>,
-        SQuery<(
-            Read<DynamicUniformIndex<MeshUniform>>,
-            Option<Read<SkinnedMeshJoints>>,
-        )>,
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
+    type Param = SRes<MeshBindGroup>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = (
+        Read<DynamicUniformIndex<MeshUniform>>,
+        Option<Read<SkinnedMeshJoints>>,
     );
     #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (mesh_bind_group, mesh_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        (mesh_index, skinned_mesh_joints): ROQueryItem<'_, Self::ItemWorldQuery>,
+        mesh_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (mesh_index, skinned_mesh_joints) = mesh_query.get(item).unwrap();
         if let Some(joints) = skinned_mesh_joints {
             pass.set_bind_group(
                 I,
@@ -932,16 +1158,18 @@ impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
 }
 
 pub struct DrawMesh;
-impl EntityRenderCommand for DrawMesh {
-    type Param = (SRes<RenderAssets<Mesh>>, SQuery<Read<Handle<Mesh>>>);
+impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
+    type Param = SRes<RenderAssets<Mesh>>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<Handle<Mesh>>;
     #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (meshes, mesh_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        mesh_handle: ROQueryItem<'_, Self::ItemWorldQuery>,
+        meshes: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_handle = mesh_query.get(item).unwrap();
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
             match &gpu_mesh.buffer_info {
@@ -953,8 +1181,8 @@ impl EntityRenderCommand for DrawMesh {
                     pass.set_index_buffer(buffer.slice(..), 0, *index_format);
                     pass.draw_indexed(0..*count, 0, 0..1);
                 }
-                GpuBufferInfo::NonIndexed { vertex_count } => {
-                    pass.draw(0..*vertex_count, 0..1);
+                GpuBufferInfo::NonIndexed => {
+                    pass.draw(0..gpu_mesh.vertex_count, 0..1);
                 }
             }
             RenderCommandResult::Success
