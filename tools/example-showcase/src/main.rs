@@ -222,7 +222,7 @@ technical_name = \"{}\"
 link = \"examples-webgpu/{}/{}\"
 image = \"../static/screenshots/{}/{}.png\"
 code_path = \"content/examples-webgpu/{}\"
-github_code_path = \"examples/$category_path/$code_filename\"
+github_code_path = \"{}\"
 header_message = \"Examples (WebGPU)\"
 +++",
                             to_show.name,
@@ -237,7 +237,8 @@ header_message = \"Examples (WebGPU)\"
                                 .components()
                                 .skip(1)
                                 .collect::<PathBuf>()
-                                .display()
+                                .display(),
+                            &to_show.path,
                         )
                         .as_bytes(),
                     )
