@@ -111,10 +111,7 @@ fn main() {
                 }
 
                 if !manual_stop || screenshot {
-                    cmd = cmd.env(
-                        "CI_TESTING_CONFIG",
-                        "example_showcase_config.ron".to_string(),
-                    );
+                    cmd = cmd.env("CI_TESTING_CONFIG", "example_showcase_config.ron");
                 }
 
                 let before = Instant::now();
