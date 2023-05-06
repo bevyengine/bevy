@@ -110,8 +110,11 @@ fn main() {
                     cmd = cmd.env("WGPU_BACKEND", backend);
                 }
 
-                if !manual_stop {
-                    cmd = cmd.env("CI_TESTING_CONFIG", "example_showcase_config.ron".to_string());
+                if !manual_stop || screenshot {
+                    cmd = cmd.env(
+                        "CI_TESTING_CONFIG",
+                        "example_showcase_config.ron".to_string(),
+                    );
                 }
 
                 let before = Instant::now();
