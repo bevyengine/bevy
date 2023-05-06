@@ -111,7 +111,7 @@ fn main() {
                 }
 
                 if !manual_stop {
-                    cmd = cmd.env("CI_TESTING_CONFIG", format!("example_showcase_config.ron"));
+                    cmd = cmd.env("CI_TESTING_CONFIG", "example_showcase_config.ron".to_string());
                 }
 
                 let before = Instant::now();
@@ -153,7 +153,7 @@ fn main() {
 
             let root_path = Path::new(&content_folder);
 
-            let _ = fs::create_dir_all(&root_path);
+            let _ = fs::create_dir_all(root_path);
 
             let mut index = File::create(root_path.join("_index.md")).unwrap();
             index
@@ -245,7 +245,7 @@ header_message = \"Examples (WebGPU)\"
 
             let root_path = Path::new(&content_folder);
 
-            let _ = fs::create_dir_all(&root_path);
+            let _ = fs::create_dir_all(root_path);
 
             for to_build in examples_to_build {
                 if !to_build.wasm {
