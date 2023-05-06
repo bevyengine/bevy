@@ -4,9 +4,9 @@
 var<uniform> view: View;
 
 struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
-    @builtin(position) position: vec4<f32>,
 };
 
 @vertex
@@ -16,8 +16,8 @@ fn vertex(
     @location(2) vertex_color: vec4<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
+    out.position = view.world_to_clip * vec4<f32>(vertex_position, 1.0);
     out.uv = vertex_uv;
-    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
     out.color = vertex_color;
     return out;
 }

@@ -247,13 +247,13 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 Mat4::orthographic_rh(0.0, logical_size.x, logical_size.y, 0.0, 0.0, UI_CAMERA_FAR);
             let default_camera_view = commands
                 .spawn(ExtractedView {
-                    projection: projection_matrix,
-                    transform: GlobalTransform::from_xyz(
+                    view_to_clip: projection_matrix,
+                    view_to_world_transform: GlobalTransform::from_xyz(
                         0.0,
                         0.0,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
-                    view_projection: None,
+                    world_to_clip: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         physical_origin.x,

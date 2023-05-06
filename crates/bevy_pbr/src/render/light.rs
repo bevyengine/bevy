@@ -614,7 +614,7 @@ pub fn calculate_cluster_factors(
 // we will also construct it in the fragment shader and need our implementations to match,
 // so we reproduce it here to avoid a mismatch if glam changes. we also switch the handedness
 // could move this onto transform but it's pretty niche
-pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
+pub(crate) fn spot_light_view_to_world(transform: &GlobalTransform) -> Mat4 {
     // the matrix z_local (opposite of transform.forward())
     let fwd_dir = transform.back().extend(0.0);
 
@@ -637,7 +637,7 @@ pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
     )
 }
 
-pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
+pub(crate) fn spot_light_view_to_clip(angle: f32) -> Mat4 {
     // spot light projection FOV is 2x the angle from spot light center to outer edge
     Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
 }
@@ -935,7 +935,7 @@ pub fn prepare_lights(
         );
         let mut view_lights = Vec::new();
 
-        let is_orthographic = extracted_view.projection.w_axis.w == 1.0;
+        let is_orthographic = extracted_view.view_to_clip.w_axis.w == 1.0;
         let cluster_factors_zw = calculate_cluster_factors(
             clusters.near,
             clusters.far,
@@ -1009,16 +1009,16 @@ pub fn prepare_lights(
                             ),
                         },
                         ExtractedView {
+                            view_to_clip: cube_face_projection,
+                            view_to_world_transform: view_translation * *view_rotation,
+                            world_to_clip: None,
+                            hdr: false,
                             viewport: UVec4::new(
                                 0,
                                 0,
                                 point_light_shadow_map.size as u32,
                                 point_light_shadow_map.size as u32,
                             ),
-                            transform: view_translation * *view_rotation,
-                            view_projection: None,
-                            projection: cube_face_projection,
-                            hdr: false,
                             color_grading: Default::default(),
                         },
                         RenderPhase::<Shadow>::default(),
@@ -1039,12 +1039,12 @@ pub fn prepare_lights(
             .take(spot_light_shadow_maps_count)
             .enumerate()
         {
-            let spot_view_matrix = spot_light_view_matrix(&light.transform);
-            let spot_view_transform = spot_view_matrix.into();
+            let spot_view_to_world = spot_light_view_to_world(&light.transform);
+            let spot_view_to_world_transform = spot_view_to_world.into();
 
             let angle = light.spot_light_angles.expect("lights should be sorted so that \
                 [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
-            let spot_projection = spot_light_projection_matrix(angle);
+            let spot_view_to_clip = spot_light_view_to_clip(angle);
 
             let depth_texture_view =
                 directional_light_depth_texture
@@ -1067,16 +1067,16 @@ pub fn prepare_lights(
                         pass_name: format!("shadow pass spot light {light_index}",),
                     },
                     ExtractedView {
+                        view_to_clip: spot_view_to_clip,
+                        view_to_world_transform: spot_view_to_world_transform,
+                        world_to_clip: None,
+                        hdr: false,
                         viewport: UVec4::new(
                             0,
                             0,
                             directional_light_shadow_map.size as u32,
                             directional_light_shadow_map.size as u32,
                         ),
-                        transform: spot_view_transform,
-                        projection: spot_projection,
-                        view_projection: None,
-                        hdr: false,
                         color_grading: Default::default(),
                     },
                     RenderPhase::<Shadow>::default(),
@@ -1105,7 +1105,7 @@ pub fn prepare_lights(
             {
                 gpu_lights.directional_lights[light_index].cascades[cascade_index] =
                     GpuDirectionalCascade {
-                        view_projection: cascade.view_projection,
+                        view_projection: cascade.world_to_clip,
                         texel_size: cascade.texel_size,
                         far_bound: *bound,
                     };
@@ -1133,16 +1133,16 @@ pub fn prepare_lights(
                                 "shadow pass directional light {light_index} cascade {cascade_index}"),
                         },
                         ExtractedView {
+                            view_to_clip: cascade.view_to_clip,
+                            view_to_world_transform: GlobalTransform::from(cascade.view_to_world),
+                            world_to_clip: Some(cascade.world_to_clip),
+                            hdr: false,
                             viewport: UVec4::new(
                                 0,
                                 0,
                                 directional_light_shadow_map.size as u32,
                                 directional_light_shadow_map.size as u32,
                             ),
-                            transform: GlobalTransform::from(cascade.view_transform),
-                            projection: cascade.projection,
-                            view_projection: Some(cascade.view_projection),
-                            hdr: false,
                             color_grading: Default::default(),
                         },
                         RenderPhase::<Shadow>::default(),

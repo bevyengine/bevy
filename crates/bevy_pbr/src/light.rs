@@ -17,7 +17,7 @@ use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::{tracing::warn, HashMap};
 
 use crate::{
-    calculate_cluster_factors, spot_light_projection_matrix, spot_light_view_matrix,
+    calculate_cluster_factors, spot_light_view_to_clip, spot_light_view_to_world,
     CascadesVisibleEntities, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, CUBE_MAP_FACES, MAX_UNIFORM_BUFFER_POINT_LIGHTS,
     POINT_LIGHT_NEAR_Z,
@@ -390,13 +390,13 @@ pub struct Cascades {
 #[derive(Clone, Debug, Default, Reflect, FromReflect)]
 pub struct Cascade {
     /// The transform of the light, i.e. the view to world matrix.
-    pub(crate) view_transform: Mat4,
+    pub(crate) view_to_world: Mat4,
     /// The orthographic projection for this cascade.
-    pub(crate) projection: Mat4,
+    pub(crate) view_to_clip: Mat4,
     /// The view-projection matrix for this cascade, converting world space into light clip space.
     /// Importantly, this is derived and stored separately from `view_transform` and `projection` to
     /// ensure shadow stability.
-    pub(crate) view_projection: Mat4,
+    pub(crate) world_to_clip: Mat4,
     /// Size of each shadow map texel in world units.
     pub(crate) texel_size: f32,
 }
@@ -434,11 +434,11 @@ pub fn update_directional_light_cascades(
         // `transform.compute_matrix()` will give us a matrix with our desired properties.
         // Instead, we directly create a good matrix from just the rotation.
         let light_to_world = Mat4::from_quat(transform.compute_transform().rotation);
-        let light_to_world_inverse = light_to_world.inverse();
+        let world_to_light = light_to_world.inverse();
 
         cascades.cascades.clear();
         for (view_entity, projection, view_to_world) in views.iter().copied() {
-            let camera_to_light_view = light_to_world_inverse * view_to_world;
+            let camera_to_light_view = world_to_light * view_to_world;
             let view_cascades = cascades_config
                 .bounds
                 .iter()
@@ -539,21 +539,21 @@ fn calculate_cascade(
     // NOTE: If we ensure that cascade_texture_size is a power of 2, then as we made cascade_diameter an
     //       integer, cascade_texel_size is then an integer multiple of a power of 2 and can be
     //       exactly represented in a floating point value.
-    let cascade_texel_size = cascade_diameter / cascade_texture_size;
+    let texel_size = cascade_diameter / cascade_texture_size;
     // NOTE: For shadow stability it is very important that the near_plane_center is at integer
     //       multiples of the texel size to be exactly representable in a floating point value.
     let near_plane_center = Vec3A::new(
-        (0.5 * (min.x + max.x) / cascade_texel_size).floor() * cascade_texel_size,
-        (0.5 * (min.y + max.y) / cascade_texel_size).floor() * cascade_texel_size,
+        (0.5 * (min.x + max.x) / texel_size).floor() * texel_size,
+        (0.5 * (min.y + max.y) / texel_size).floor() * texel_size,
         // NOTE: max.z is the near plane for right-handed y-up
         max.z,
     );
 
-    // It is critical for `world_to_cascade` to be stable. So rather than forming `cascade_to_world`
+    // It is critical for `world_to_view` to be stable. So rather than forming `view_to_world`
     // and inverting it, which risks instability due to numerical precision, we directly form
-    // `world_to_cascde` as the reference material suggests.
+    // `world_to_view` as the reference material suggests.
     let light_to_world_transpose = light_to_world.transpose();
-    let world_to_cascade = Mat4::from_cols(
+    let world_to_view = Mat4::from_cols(
         light_to_world_transpose.x_axis,
         light_to_world_transpose.y_axis,
         light_to_world_transpose.z_axis,
@@ -563,19 +563,18 @@ fn calculate_cascade(
     // Right-handed orthographic projection, centered at `near_plane_center`.
     // NOTE: This is different from the reference material, as we use reverse Z.
     let r = (max.z - min.z).recip();
-    let cascade_projection = Mat4::from_cols(
+    let view_to_clip = Mat4::from_cols(
         Vec4::new(2.0 / cascade_diameter, 0.0, 0.0, 0.0),
         Vec4::new(0.0, 2.0 / cascade_diameter, 0.0, 0.0),
         Vec4::new(0.0, 0.0, r, 0.0),
         Vec4::new(0.0, 0.0, 1.0, 1.0),
     );
 
-    let cascade_view_projection = cascade_projection * world_to_cascade;
     Cascade {
-        view_transform: world_to_cascade.inverse(),
-        projection: cascade_projection,
-        view_projection: cascade_view_projection,
-        texel_size: cascade_texel_size,
+        view_to_world: world_to_view.inverse(),
+        view_to_clip,
+        world_to_clip: view_to_clip * world_to_view,
+        texel_size,
     }
 }
 
@@ -923,13 +922,13 @@ const VEC2_HALF_NEGATIVE_Y: Vec2 = Vec2::new(0.5, -0.5);
 ///     `X` and `Y` in normalized device coordinates with range `[-1, 1]`
 ///     `Z` in view space, with range `[-inf, -f32::MIN_POSITIVE]`
 fn cluster_space_light_aabb(
-    inverse_view_transform: Mat4,
+    world_to_view: Mat4,
     view_inv_scale: Vec3,
-    projection_matrix: Mat4,
+    view_to_clip: Mat4,
     light_sphere: &Sphere,
 ) -> (Vec3, Vec3) {
     let light_aabb_view = Aabb {
-        center: Vec3A::from(inverse_view_transform * light_sphere.center.extend(1.0)),
+        center: Vec3A::from(world_to_view * light_sphere.center.extend(1.0)),
         half_extents: Vec3A::from(light_sphere.radius * view_inv_scale.abs()),
     };
     let (mut light_aabb_view_min, mut light_aabb_view_max) =
@@ -966,10 +965,10 @@ fn cluster_space_light_aabb(
         light_aabb_clip_xymax_near,
         light_aabb_clip_xymax_far,
     ) = (
-        projection_matrix * light_aabb_view_xymin_near.extend(1.0),
-        projection_matrix * light_aabb_view_xymin_far.extend(1.0),
-        projection_matrix * light_aabb_view_xymax_near.extend(1.0),
-        projection_matrix * light_aabb_view_xymax_far.extend(1.0),
+        view_to_clip * light_aabb_view_xymin_near.extend(1.0),
+        view_to_clip * light_aabb_view_xymin_far.extend(1.0),
+        view_to_clip * light_aabb_view_xymax_near.extend(1.0),
+        view_to_clip * light_aabb_view_xymax_far.extend(1.0),
     );
     let (
         light_aabb_ndc_xymin_near,
@@ -1818,7 +1817,7 @@ pub fn update_directional_light_frusta(
                     *view,
                     cascades
                         .iter()
-                        .map(|c| Frustum::from_view_projection(&c.view_projection))
+                        .map(|c| Frustum::from_view_projection(&c.world_to_clip))
                         .collect::<Vec<_>>(),
                 )
             })
@@ -1892,12 +1891,12 @@ pub fn update_spot_light_frusta(
         // by applying those as a view transform to shadow map rendering of objects
         let view_backward = transform.back();
 
-        let spot_view = spot_light_view_matrix(transform);
-        let spot_projection = spot_light_projection_matrix(spot_light.outer_angle);
-        let view_projection = spot_projection * spot_view.inverse();
+        let view_to_world = spot_light_view_to_world(transform);
+        let view_to_clip = spot_light_view_to_clip(spot_light.outer_angle);
+        let world_to_clip = view_to_clip * view_to_world.inverse();
 
         *frustum = Frustum::from_view_projection_custom_far(
-            &view_projection,
+            &world_to_clip,
             &transform.translation(),
             &view_backward,
             spot_light.range,

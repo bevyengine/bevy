@@ -112,7 +112,7 @@ fn calculate_view(
     var V: vec3<f32>;
     if is_orthographic {
         // Orthographic view vector
-        V = normalize(vec3<f32>(view.view_proj[0].z, view.view_proj[1].z, view.view_proj[2].z));
+        V = normalize(vec3<f32>(view.world_to_clip[0].z, view.world_to_clip[1].z, view.world_to_clip[2].z));
     } else {
         // Only valid for a perpective projection
         V = normalize(view.world_position.xyz - world_position.xyz);
@@ -194,10 +194,10 @@ fn pbr(
     var direct_light: vec3<f32> = vec3<f32>(0.0);
 
     let view_z = dot(vec4<f32>(
-        view.inverse_view[0].z,
-        view.inverse_view[1].z,
-        view.inverse_view[2].z,
-        view.inverse_view[3].z
+        view.view_to_world[0].z,
+        view.view_to_world[1].z,
+        view.view_to_world[2].z,
+        view.view_to_world[3].z
     ), in.world_position);
     let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
     let offset_and_counts = unpack_offset_and_counts(cluster_index);

@@ -105,12 +105,12 @@ impl Msaa {
 
 #[derive(Component)]
 pub struct ExtractedView {
-    pub projection: Mat4,
-    pub transform: GlobalTransform,
+    pub view_to_clip: Mat4,
+    pub view_to_world_transform: GlobalTransform,
     // The view-projection matrix. When provided it is used instead of deriving it from
     // `projection` and `transform` fields, which can be helpful in cases where numerical
     // stability matters and there is a more direct way to derive the view-projection matrix.
-    pub view_projection: Option<Mat4>,
+    pub world_to_clip: Option<Mat4>,
     pub hdr: bool,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
@@ -120,7 +120,7 @@ pub struct ExtractedView {
 impl ExtractedView {
     /// Creates a 3D rangefinder for a view
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
-        ViewRangefinder3d::from_view_matrix(&self.transform.compute_matrix())
+        ViewRangefinder3d::from_view_matrix(&self.view_to_world_transform.compute_matrix())
     }
 }
 
@@ -160,13 +160,13 @@ impl Default for ColorGrading {
 
 #[derive(Clone, ShaderType)]
 pub struct ViewUniform {
-    view_proj: Mat4,
-    unjittered_view_proj: Mat4,
-    inverse_view_proj: Mat4,
-    view: Mat4,
-    inverse_view: Mat4,
-    projection: Mat4,
-    inverse_projection: Mat4,
+    world_to_clip: Mat4,
+    unjittered_world_to_clip: Mat4,
+    clip_to_world: Mat4,
+    view_to_world: Mat4,
+    world_to_view: Mat4,
+    view_to_clip: Mat4,
+    clip_to_view: Mat4,
     world_position: Vec3,
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
@@ -319,29 +319,29 @@ pub fn prepare_view_uniforms(
 
     for (entity, camera, temporal_jitter) in &views {
         let viewport = camera.viewport.as_vec4();
-        let unjittered_projection = camera.projection;
-        let mut projection = unjittered_projection;
+        let unjittered_view_to_clip = camera.view_to_clip;
+        let mut view_to_clip = unjittered_view_to_clip;
 
         if let Some(temporal_jitter) = temporal_jitter {
-            temporal_jitter.jitter_projection(&mut projection, viewport.zw());
+            temporal_jitter.jitter_projection(&mut view_to_clip, viewport.zw());
         }
 
-        let inverse_projection = projection.inverse();
-        let view = camera.transform.compute_matrix();
-        let inverse_view = view.inverse();
+        let clip_to_view = view_to_clip.inverse();
+        let view_to_world = camera.view_to_world_transform.compute_matrix();
+        let world_to_view = view_to_world.inverse();
 
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
-                view_proj: camera
-                    .view_projection
-                    .unwrap_or_else(|| projection * inverse_view),
-                unjittered_view_proj: unjittered_projection * inverse_view,
-                inverse_view_proj: view * inverse_projection,
-                view,
-                inverse_view,
-                projection,
-                inverse_projection,
-                world_position: camera.transform.translation(),
+                world_to_clip: camera
+                    .world_to_clip
+                    .unwrap_or_else(|| view_to_clip * world_to_view),
+                unjittered_world_to_clip: unjittered_view_to_clip * world_to_view,
+                clip_to_world: view_to_world * clip_to_view,
+                world_to_view,
+                view_to_world,
+                view_to_clip,
+                clip_to_view,
+                world_position: camera.view_to_world_transform.translation(),
                 viewport,
                 color_grading: camera.color_grading,
             }),

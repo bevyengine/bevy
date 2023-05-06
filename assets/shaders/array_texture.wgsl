@@ -42,7 +42,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         in.is_front,
     );
 
-    pbr_input.is_orthographic = view.projection[3].w == 1.0;
+    pbr_input.is_orthographic = view.view_to_clip[3].w == 1.0;
 
     pbr_input.N = apply_normal_mapping(
         pbr_input.material.flags,

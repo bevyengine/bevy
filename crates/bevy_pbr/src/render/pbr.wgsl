@@ -21,7 +21,7 @@ struct FragmentInput {
 
 @fragment
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
-    let is_orthographic = view.projection[3].w == 1.0;
+    let is_orthographic = view.view_to_clip[3].w == 1.0;
     let V = calculate_view(in.world_position, is_orthographic);
 #ifdef VERTEX_UVS
     var uv = in.uv;

@@ -715,7 +715,7 @@ pub fn prepare_previous_view_projection_uniforms(
         let view_projection = match maybe_previous_view_proj {
             Some(previous_view) => previous_view.clone(),
             None => PreviousViewProjection {
-                view_proj: camera.projection * camera.transform.compute_matrix().inverse(),
+                view_proj: camera.view_to_clip * camera.view_to_world_transform.compute_matrix().inverse(),
             },
         };
         commands
