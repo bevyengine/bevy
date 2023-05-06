@@ -49,6 +49,10 @@ enum Action {
         #[arg(long)]
         /// Path to the folder where the content should be created
         content_folder: String,
+
+        #[arg(long)]
+        /// Enable hacks for Bevy website integration
+        website_hacks: bool,
     },
 }
 
@@ -240,12 +244,26 @@ header_message = \"Examples (WebGPU)\"
                     .unwrap();
             }
         }
-        Action::BuildWebGPUExamples { content_folder } => {
+        Action::BuildWebGPUExamples {
+            content_folder,
+            website_hacks,
+        } => {
             let examples_to_build = parse_examples();
 
             let root_path = Path::new(&content_folder);
 
             let _ = fs::create_dir_all(root_path);
+
+            if website_hacks {
+                let sh = Shell::new().unwrap();
+
+                // setting a canvas by default to help with integration
+                cmd!(sh, "sed -i.bak 's/canvas: None,/canvas: Some(\"#bevy\".to_string()),/' crates/bevy_window/src/window.rs").run().unwrap();
+                cmd!(sh, "sed -i.bak 's/fit_canvas_to_parent: false,/fit_canvas_to_parent: true,/' crates/bevy_window/src/window.rs").run().unwrap();
+
+                // setting the asset folder root to the root url of this domain
+                cmd!(sh, "sed -i.bak 's/asset_folder: \"assets\"/asset_folder: \"\\/assets\\/examples\\/\"/' crates/bevy_asset/src/lib.rs").run().unwrap();
+            }
 
             for to_build in examples_to_build {
                 if !to_build.wasm {
@@ -266,6 +284,11 @@ header_message = \"Examples (WebGPU)\"
 
                 let example_path = category_path.join(&to_build.technical_name.replace('_', "-"));
                 let _ = fs::create_dir_all(&example_path);
+
+                if website_hacks {
+                    // set up the loader bar for asset loading
+                    cmd!(sh, "sed -i.bak -e 's/getObject(arg0).fetch(/window.bevyLoadingBarFetch(/' -e 's/input = fetch(/input = window.bevyLoadingBarFetch(/' examples/wasm/target/wasm_example.js").run().unwrap();
+                }
 
                 let _ = fs::rename(
                     Path::new("examples/wasm/target/wasm_example.js"),
