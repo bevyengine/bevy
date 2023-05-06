@@ -1708,4 +1708,43 @@ mod tests {
             "new entity was spawned and received C component"
         );
     }
+
+    #[test]
+    #[should_panic]
+    fn bundle_with_missing_require() {
+        use super::bundle::Require;
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Bundle, Default)]
+        struct B {
+            #[bundle(require)]
+            #[allow(unused)]
+            a: Require<A>,
+        }
+
+        let mut world = World::default();
+
+        world.spawn(B::default());
+    }
+
+    #[test]
+    fn bundle_with_require() {
+        use super::bundle::Require;
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Bundle, Default)]
+        struct B {
+            #[bundle(require)]
+            #[allow(unused)]
+            a: Require<A>,
+        }
+
+        let mut world = World::default();
+
+        let entity = world.spawn((A, B::default()));
+
+        assert!(entity.contains::<A>());
+    }
 }

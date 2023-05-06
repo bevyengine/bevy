@@ -18,7 +18,7 @@ use crate::{
 };
 use bevy_ptr::OwningPtr;
 use bevy_utils::all_tuples;
-use std::any::TypeId;
+use std::{any::TypeId, marker::PhantomData};
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -160,6 +160,14 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
         // Ensure that the `OwningPtr` is used correctly
         F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
         Self: Sized;
+
+    #[doc(hidden)]
+    fn requires(
+        _components: &mut Components,
+        _storages: &mut Storages,
+        _ids: &mut impl FnMut(ComponentId),
+    ) {
+    }
 }
 
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
@@ -269,6 +277,45 @@ impl SparseSetIndex for BundleId {
     }
 }
 
+#[allow(unused)]
+pub struct Require<T: Component>(PhantomData<T>);
+
+impl<T: Component> Default for Require<T> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+unsafe impl<T: Component> Bundle for Require<T> {
+    fn component_ids(
+        _components: &mut Components,
+        _storages: &mut Storages,
+        _ids: &mut impl FnMut(ComponentId),
+    ) {
+    }
+
+    unsafe fn from_components<S, F>(_ctx: &mut S, _func: &mut F) -> Self
+    where
+        // Ensure that the `OwningPtr` is used correctly
+        F: for<'a> FnMut(&'a mut S) -> OwningPtr<'a>,
+        Self: Sized,
+    {
+        Self::default()
+    }
+
+    fn requires(
+        components: &mut Components,
+        storages: &mut Storages,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
+        ids(components.init_component::<T>(storages));
+    }
+}
+
+impl<T: Component> DynamicBundle for Require<T> {
+    fn get_components(self, _func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {}
+}
+
 pub struct BundleInfo {
     id: BundleId,
     // SAFETY: Every ID in this list must be valid within the World that owns the BundleInfo,
@@ -289,6 +336,7 @@ impl BundleInfo {
         bundle_type_name: &'static str,
         components: &Components,
         component_ids: Vec<ComponentId>,
+        requires: Vec<ComponentId>,
         id: BundleId,
     ) -> BundleInfo {
         let mut deduped = component_ids.clone();
@@ -315,6 +363,15 @@ impl BundleInfo {
                 .join(", ");
 
             panic!("Bundle {bundle_type_name} has duplicate components: {names}");
+        }
+
+        for id in requires {
+            if !component_ids.contains(&id) {
+                panic!(
+                    "Bundle {bundle_type_name} requires missing component: {}",
+                    components.get_info_unchecked(id).name(),
+                );
+            }
         }
 
         // SAFETY: The caller ensures that component_ids:
@@ -813,14 +870,16 @@ impl Bundles {
         let bundle_infos = &mut self.bundle_infos;
         let id = self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let mut component_ids = Vec::new();
+            let mut requires = Vec::new();
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
+            T::requires(components, storages,&mut |id| requires.push(id));
             let id = BundleId(bundle_infos.len());
             let bundle_info =
                 // SAFETY: T::component_id ensures its: 
                 // - info was created 
                 // - appropriate storage for it has been initialized.
                 // - was created in the same order as the components in T
-                unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, id) };
+                unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, requires, id) };
             bundle_infos.push(bundle_info);
             id
         });
@@ -906,7 +965,7 @@ fn initialize_dynamic_bundle(
     let id = BundleId(bundle_infos.len());
     let bundle_info =
         // SAFETY: `component_ids` are valid as they were just checked
-        unsafe { BundleInfo::new("<dynamic bundle>", components, component_ids, id) };
+        unsafe { BundleInfo::new("<dynamic bundle>", components, component_ids, vec![], id) };
     bundle_infos.push(bundle_info);
 
     (id, storage_types)
