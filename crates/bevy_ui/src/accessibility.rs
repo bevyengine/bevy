@@ -9,8 +9,9 @@ use bevy_a11y::{
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::{
     prelude::Entity,
-    query::{Changed, Or, Without},
+    query::{Changed, Without},
     system::{Commands, Query},
+    world::Ref,
 };
 use bevy_hierarchy::Children;
 use bevy_render::prelude::Camera;
