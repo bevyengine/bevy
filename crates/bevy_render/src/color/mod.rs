@@ -687,10 +687,10 @@ impl Color {
     pub fn as_rgba_u8(&self) -> [u8; 4] {
         let [r, g, b, a] = self.as_rgba_f32();
         [
-            (r * 255.0) as u8,
-            (g * 255.0) as u8,
-            (b * 255.0) as u8,
-            (a * 255.0) as u8,
+            (r * u8::MAX as f32) as u8,
+            (g * u8::MAX as f32) as u8,
+            (b * u8::MAX as f32) as u8,
+            (a * u8::MAX as f32) as u8,
         ]
     }
 
