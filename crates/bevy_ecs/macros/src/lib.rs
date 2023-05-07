@@ -14,7 +14,7 @@ use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, ConstParam,
-    DeriveInput, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Token, TypeParam,
+    DeriveInput, GenericParam, Ident, Index, Token, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -37,29 +37,18 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let mut field_kind = Vec::with_capacity(named_fields.len());
 
-    'field_loop: for field in named_fields.iter() {
-        for attr in &field.attrs {
-            if attr.path.is_ident(BUNDLE_ATTRIBUTE_NAME) {
-                if let Ok(Meta::List(MetaList { nested, .. })) = attr.parse_meta() {
-                    if let Some(&NestedMeta::Meta(Meta::Path(ref path))) = nested.first() {
-                        if path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
-                            field_kind.push(BundleFieldKind::Ignore);
-                            continue 'field_loop;
-                        }
-
-                        return syn::Error::new(
-                            path.span(),
-                            format!(
-                                "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_IGNORE_NAME}`"
-                            ),
-                        )
-                        .into_compile_error()
-                        .into();
-                    }
-
-                    return syn::Error::new(attr.span(), format!("Invalid bundle attribute. Use `#[{BUNDLE_ATTRIBUTE_NAME}({BUNDLE_ATTRIBUTE_IGNORE_NAME})]`")).into_compile_error().into();
+    for field in named_fields.iter() {
+        for attr in field
+            .attrs
+            .iter()
+            .filter(|a| a.path().is_ident(BUNDLE_ATTRIBUTE_NAME))
+        {
+            let _ = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
+                    field_kind.push(BundleFieldKind::Ignore);
                 }
-            }
+                Ok(())
+            });
         }
 
         field_kind.push(BundleFieldKind::Component);

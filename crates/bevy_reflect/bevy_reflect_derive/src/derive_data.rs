@@ -136,8 +136,8 @@ impl<'a> ReflectDerive<'a> {
         #[cfg(feature = "documentation")]
         let mut doc = crate::documentation::Documentation::default();
 
-        for attribute in input.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
-            match attribute {
+        for attribute in &input.attrs {
+            match &attribute.meta {
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
                     if !matches!(reflect_mode, None | Some(ReflectMode::Normal)) {
                         return Err(syn::Error::new(
@@ -147,8 +147,14 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-                    let new_traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
-                    traits = traits.merge(new_traits)?;
+
+                    let mut metas = vec![];
+                    meta_list.parse_nested_meta(|meta| {
+                        metas.push(Meta::Path(meta.path));
+                        Ok(())
+                    })?;
+                    let new_traits = ReflectTraits::from_metas(metas)?;
+                    traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
                     if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
@@ -159,8 +165,13 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let new_traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
-                    traits = traits.merge(new_traits)?;
+                    let mut metas = vec![];
+                    meta_list.parse_nested_meta(|meta| {
+                        metas.push(Meta::Path(meta.path));
+                        Ok(())
+                    })?;
+                    let new_traits = ReflectTraits::from_metas(metas)?;
+                    traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
                     if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
@@ -174,7 +185,11 @@ impl<'a> ReflectDerive<'a> {
                 }
                 #[cfg(feature = "documentation")]
                 Meta::NameValue(pair) if pair.path.is_ident("doc") => {
-                    if let syn::Lit::Str(lit) = pair.lit {
+                    if let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(lit),
+                        ..
+                    }) = &pair.value
+                    {
                         doc.push(lit.value());
                     }
                 }

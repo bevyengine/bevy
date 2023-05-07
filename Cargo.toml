@@ -2023,3 +2023,8 @@ codegen-units = 1
 inherits = "release"
 lto = "fat"
 panic = "abort"
+
+
+[patch.crates-io]
+encase = { git = "https://github.com/mockersf/encase", branch = "allow-doc-comments" }
+encase_derive_impl = { git = "https://github.com/mockersf/encase", branch = "allow-doc-comments" }

@@ -15,22 +15,13 @@ pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::To
     let type_ident = ast.ident;
 
     let mut uuid = None;
-    for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
-        let Meta::NameValue(name_value) = attribute else {
-            continue;
+    for attribute in ast.attrs.iter().filter(|attr| attr.path().is_ident("uuid")) {
+        let Meta::NameValue(ref name_value) = attribute.meta else {
+            continue
         };
 
-        if name_value
-            .path
-            .get_ident()
-            .map(|i| i != "uuid")
-            .unwrap_or(true)
-        {
-            continue;
-        }
-
-        let uuid_str = match name_value.lit {
-            Lit::Str(lit_str) => lit_str,
+        let uuid_str = match &name_value.value {
+            Expr::Lit(ExprLit{lit: Lit::Str(lit_str), ..}) => lit_str,
             _ => panic!("`uuid` attribute must take the form `#[uuid = \"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\"`."),
         };
 
