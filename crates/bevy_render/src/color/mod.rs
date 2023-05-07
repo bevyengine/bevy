@@ -368,6 +368,15 @@ impl Color {
         )
     }
 
+    pub fn as_rgba_u8(&self) -> [u8; 4] {
+        [
+            (self.r() * 255.0) as u8,
+            (self.g() * 255.0) as u8,
+            (self.b() * 255.0) as u8,
+            (self.a() * 255.0) as u8,
+        ]
+    }
+
     /// Get red in sRGB colorspace.
     pub fn r(&self) -> f32 {
         match self.as_rgba() {
@@ -1139,23 +1148,6 @@ impl Add<Vec4> for Color {
     fn add(self, rhs: Vec4) -> Self::Output {
         let rhs: Color = rhs.into();
         self + rhs
-    }
-}
-
-impl From<Color> for [u8; 4] {
-    fn from(color: Color) -> Self {
-        [
-            (color.r() * 255.0) as u8,
-            (color.g() * 255.0) as u8,
-            (color.b() * 255.0) as u8,
-            (color.a() * 255.0) as u8,
-        ]
-    }
-}
-
-impl From<[u8; 4]> for Color {
-    fn from([r, g, b, a]: [u8; 4]) -> Self {
-        Color::rgba_u8(r, g, b, a)
     }
 }
 
