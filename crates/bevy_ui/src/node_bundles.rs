@@ -2,7 +2,8 @@
 
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
+    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, ScrollPosition, Style, UiImage,
+    ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -27,6 +28,10 @@ pub struct NodeBundle {
     pub background_color: BackgroundColor,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
+    /// Describes whether and how the button has been interacted with by the input
+    pub interaction: Interaction,
+    /// Scroll position
+    pub scroll_position: ScrollPosition,
     /// The transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
@@ -53,6 +58,8 @@ impl Default for NodeBundle {
             node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
+            interaction: Interaction::default(),
+            scroll_position: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),

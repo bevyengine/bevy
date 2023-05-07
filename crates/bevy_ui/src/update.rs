@@ -1,15 +1,17 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, OverflowAxis, Style};
+use crate::{CalculatedClip, Interaction, OverflowAxis, ScrollPosition, Style};
 
 use super::Node;
 use bevy_ecs::{
     entity::Entity,
-    query::{With, Without},
+    event::EventReader,
+    query::{Changed, With, Without},
     system::{Commands, Query},
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_math::Rect;
+use bevy_input::mouse::{MouseScrollUnit, MouseWheel};
+use bevy_math::{Rect, Vec2};
 use bevy_transform::components::GlobalTransform;
 
 /// Updates clipping for all nodes
@@ -87,6 +89,62 @@ fn update_clipping(
     if let Ok(children) = children_query.get(entity) {
         for &child in children {
             update_clipping(commands, children_query, node_query, child, children_clip);
+        }
+    }
+}
+
+pub fn update_scroll_interaction(
+    mut interaction_query: Query<(&Interaction, &mut ScrollPosition), Changed<Interaction>>,
+) {
+    for (interaction, mut scroll) in &mut interaction_query {
+        match *interaction {
+            Interaction::Hovered | Interaction::Clicked => {
+                scroll.is_hovered = true;
+            }
+            Interaction::None => {
+                scroll.is_hovered = false;
+            }
+        }
+    }
+}
+
+pub fn update_scroll_position(
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut query_list: Query<(&mut ScrollPosition, &Style, &Children, &Node)>,
+    query_node: Query<&Node>,
+) {
+    for mouse_wheel_event in mouse_wheel_events.iter() {
+        let (dx, dy) = match mouse_wheel_event.unit {
+            MouseScrollUnit::Line => (mouse_wheel_event.x * 20., mouse_wheel_event.y * 20.),
+            MouseScrollUnit::Pixel => (mouse_wheel_event.x, mouse_wheel_event.y),
+        };
+
+        for (mut scroll_container, style, children, list_node) in &mut query_list {
+            let is_scrollable = (style.overflow.x == OverflowAxis::Scroll)
+                | (style.overflow.y == OverflowAxis::Scroll);
+            if is_scrollable && scroll_container.is_hovered {
+                // Compute container content sizes
+                let Vec2 {
+                    x: container_width,
+                    y: container_height,
+                } = list_node.size();
+                let (items_width, items_height): (f32, f32) =
+                    children.iter().fold((0.0, 0.0), |sum, child| {
+                        let size = query_node.get(*child).unwrap().size();
+                        (sum.0 + size.x, sum.1 + size.y)
+                    });
+
+                if style.overflow.x == OverflowAxis::Scroll {
+                    let max_scroll_x = (items_width - container_width).max(0.);
+                    scroll_container.offset_x =
+                        (scroll_container.offset_x + dx).clamp(-max_scroll_x, 0.);
+                }
+                if style.overflow.y == OverflowAxis::Scroll {
+                    let max_scroll_y = (items_height - container_height).max(0.);
+                    scroll_container.offset_y =
+                        (scroll_container.offset_y + dy).clamp(-max_scroll_y, 0.);
+                }
+            }
         }
     }
 }
