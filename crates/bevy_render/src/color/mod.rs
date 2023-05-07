@@ -1142,6 +1142,23 @@ impl Add<Vec4> for Color {
     }
 }
 
+impl From<Color> for [u8; 4] {
+    fn from(color: Color) -> Self {
+        [
+            (color.r() * 255.0) as u8,
+            (color.g() * 255.0) as u8,
+            (color.b() * 255.0) as u8,
+            (color.a() * 255.0) as u8,
+        ]
+    }
+}
+
+impl From<[u8; 4]> for Color {
+    fn from([r, g, b, a]: [u8; 4]) -> Self {
+        Color::rgba_u8(r, g, b, a)
+    }
+}
+
 impl From<Color> for [f32; 4] {
     fn from(color: Color) -> Self {
         color.as_rgba_f32()
