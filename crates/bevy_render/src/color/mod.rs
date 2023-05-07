@@ -368,15 +368,6 @@ impl Color {
         )
     }
 
-    pub fn as_rgba_u8(&self) -> [u8; 4] {
-        [
-            (self.r() * 255.0) as u8,
-            (self.g() * 255.0) as u8,
-            (self.b() * 255.0) as u8,
-            (self.a() * 255.0) as u8,
-        ]
-    }
-
     /// Get red in sRGB colorspace.
     pub fn r(&self) -> f32 {
         match self.as_rgba() {
@@ -690,6 +681,17 @@ impl Color {
             }
             Color::Lcha { .. } => *self,
         }
+    }
+
+    /// Converts a `Color` to a `[u8; 4]` from sRGB colorspace
+    pub fn as_rgba_u8(&self) -> [u8; 4] {
+        let [r, g, b, a] = self.as_rgba_f32();
+        [
+            (r * 255.0) as u8,
+            (g * 255.0) as u8,
+            (b * 255.0) as u8,
+            (a * 255.0) as u8,
+        ]
     }
 
     /// Converts a `Color` to a `[f32; 4]` from sRGB colorspace
