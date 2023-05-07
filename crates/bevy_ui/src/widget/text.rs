@@ -28,16 +28,16 @@ fn scale_value(value: f32, factor: f64) -> f32 {
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct TextFlags {
-    /// create a new measure for the text
-    remeasure: bool,
-    /// recompute the text
+    /// If set a new measure function for the text node will be created
+    generate_measure_func: bool,
+    /// If set the text will be recomputed
     recompute: bool,
 }
 
 impl Default for TextFlags {
     fn default() -> Self {
         Self {
-            remeasure: true,
+            generate_measure_func: true,
             recompute: true,
         }
     }
@@ -97,13 +97,13 @@ fn create_text_measure(
         Ok(measure) => {
             content_size.set(TextMeasure { info: measure });
 
-            // Text measured, so set `TextFlags` to schedule a recompute
-            text_flags.remeasure = false;
+            // Text measure func created succesfully, so set `TextFlags` to schedule a recompute
+            text_flags.generate_measure_func = false;
             text_flags.recompute = true;
         }
         Err(TextError::NoSuchFont) => {
             // Try again next frame
-            text_flags.remeasure = true;
+            text_flags.generate_measure_func = true;
         }
         Err(e @ TextError::FailedToAddGlyph(_)) => {
             panic!("Fatal error when processing text: {e}.");
@@ -130,9 +130,9 @@ pub fn measure_text_system(
 
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
-        // scale factor unchanged, only create new measures for modified text
+        // scale factor unchanged, only create new measure funcs for modified text
         for (text, content_size, text_flags) in text_query.iter_mut() {
-            if text.is_changed() || text_flags.remeasure {
+            if text.is_changed() || text_flags.generate_measure_func {
                 create_text_measure(
                     &fonts,
                     &mut text_pipeline,
@@ -144,7 +144,7 @@ pub fn measure_text_system(
             }
         }
     } else {
-        // scale factor changed, remeasure all text
+        // scale factor changed, create new measure funcs for all text
         *last_scale_factor = scale_factor;
 
         for (text, content_size, text_flags) in text_query.iter_mut() {
@@ -176,7 +176,8 @@ fn queue_text(
     mut text_flags: Mut<TextFlags>,
     mut text_layout_info: Mut<TextLayoutInfo>,
 ) {
-    if !text_flags.remeasure {
+    // Skip the text node if it is waiting for a new measure func
+    if !text_flags.generate_measure_func {
         let node_size = Vec2::new(
             scale_value(node.size().x, scale_factor),
             scale_value(node.size().y, scale_factor),
