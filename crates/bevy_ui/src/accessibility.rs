@@ -8,7 +8,7 @@ use bevy_a11y::{
 };
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::{
-    prelude::Entity,
+    prelude::{Entity, DetectChanges},
     query::{Changed, Without},
     system::{Commands, Query},
     world::Ref,
