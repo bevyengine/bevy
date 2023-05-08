@@ -57,12 +57,9 @@ fn update(
     mut button_query: Query<(&Interaction, &mut NodeOrder), Changed<Interaction>>,
 ) {
     for (interaction, mut node_order) in button_query.iter_mut() {
-        match interaction {
-            Interaction::Clicked => {
-                *order = *order - 1;
-                node_order.0 = *order;
-            }
-            _ => {}
+        if *interaction == Interaction::Clicked {
+            *order -= 1;
+            node_order.0 = *order;
         }
     }
 }
