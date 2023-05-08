@@ -1788,6 +1788,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "node_order"
+path = "examples/ui/node_order.rs"
+
+[package.metadata.example.node_order]
+name = "Node Order"
+description = "Example using `NodeOrder` to reorder UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "overflow"
 path = "examples/ui/overflow.rs"
 

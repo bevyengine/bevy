@@ -221,6 +221,8 @@ impl TextBundle {
 pub struct ButtonBundle {
     /// Describes the logical size of the node
     pub node: Node,
+    /// Controls the order in which items are displayed.
+    pub order: NodeOrder,
     /// Marker component that signals this node is a button
     pub button: Button,
     /// Styles which control the layout (size and position) of the node and it's children
@@ -259,6 +261,7 @@ impl Default for ButtonBundle {
         Self {
             focus_policy: FocusPolicy::Block,
             node: Default::default(),
+            order: Default::default(),
             button: Default::default(),
             style: Default::default(),
             interaction: Default::default(),
