@@ -2,7 +2,7 @@ use std::sync::Mutex;
 
 use crate::fxaa::{CameraFxaaPipeline, Fxaa, FxaaPipeline};
 use bevy_ecs::prelude::*;
-use bevy_ecs::query::ROQueryItem;
+use bevy_ecs::query::QueryItem;
 use bevy_ecs::system::lifetimeless::Read;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -22,13 +22,17 @@ pub struct FxaaNode {
 }
 
 impl ViewNode for FxaaNode {
-    type ViewWorldQuery = (Read<ViewTarget>, Read<CameraFxaaPipeline>, Read<Fxaa>);
+    type ViewQuery = (
+        &'static ViewTarget,
+        &'static CameraFxaaPipeline,
+        &'static Fxaa,
+    );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (target, pipeline, fxaa): ROQueryItem<Self::ViewWorldQuery>,
+        (target, pipeline, fxaa): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();

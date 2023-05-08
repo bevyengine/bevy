@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use crate::tonemapping::{TonemappingLuts, TonemappingPipeline, ViewTonemappingPipeline};
 
 use bevy_ecs::system::lifetimeless::Read;
-use bevy_ecs::{prelude::*, query::ROQueryItem};
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -26,19 +26,19 @@ pub struct TonemappingNode {
 }
 
 impl ViewNode for TonemappingNode {
-    type ViewWorldQuery = (
-        Read<ViewUniformOffset>,
-        Read<ViewTarget>,
-        Read<ViewTonemappingPipeline>,
-        Read<Tonemapping>,
+    type ViewQuery = (
+        &'static ViewUniformOffset,
+        &'static ViewTarget,
+        &'static ViewTonemappingPipeline,
+        &'static Tonemapping,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping): ROQueryItem<
-            Self::ViewWorldQuery,
+        (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping): QueryItem<
+            Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {

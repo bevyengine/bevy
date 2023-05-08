@@ -1,5 +1,8 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
-use bevy_ecs::{prelude::*, query::ROQueryItem};
+use bevy_ecs::{
+    prelude::*,
+    query::{QueryItem, ROQueryItem},
+};
 use bevy_render::{
     camera::{CameraOutputMode, ExtractedCamera},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -19,7 +22,7 @@ pub struct UpscalingNode {
 }
 
 impl ViewNode for UpscalingNode {
-    type ViewWorldQuery = (
+    type ViewQuery = (
         &'static ViewTarget,
         &'static ViewUpscalingPipeline,
         Option<&'static ExtractedCamera>,
@@ -29,7 +32,7 @@ impl ViewNode for UpscalingNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (target, upscaling_target, camera): ROQueryItem<Self::ViewWorldQuery>,
+        (target, upscaling_target, camera): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();

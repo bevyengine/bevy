@@ -10,7 +10,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
-use bevy_ecs::{prelude::*, query::ROQueryItem};
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::UVec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -107,7 +107,7 @@ impl Plugin for BloomPlugin {
 #[derive(Default)]
 struct BloomNode;
 impl ViewNode for BloomNode {
-    type ViewWorldQuery = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static BloomTexture,
@@ -134,7 +134,7 @@ impl ViewNode for BloomNode {
             bloom_settings,
             upsampling_pipeline_ids,
             downsampling_pipeline_ids,
-        ): ROQueryItem<Self::ViewWorldQuery>,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();

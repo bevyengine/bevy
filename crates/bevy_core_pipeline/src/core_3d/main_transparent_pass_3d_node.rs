@@ -1,5 +1,5 @@
 use crate::core_3d::Transparent3d;
-use bevy_ecs::{prelude::*, query::ROQueryItem};
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -16,7 +16,7 @@ use bevy_utils::tracing::info_span;
 pub struct MainTransparentPass3dNode;
 
 impl ViewNode for MainTransparentPass3dNode {
-    type ViewWorldQuery = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static RenderPhase<Transparent3d>,
         &'static ViewTarget,
@@ -26,7 +26,7 @@ impl ViewNode for MainTransparentPass3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, transparent_phase, target, depth): ROQueryItem<Self::ViewWorldQuery>,
+        (camera, transparent_phase, target, depth): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();

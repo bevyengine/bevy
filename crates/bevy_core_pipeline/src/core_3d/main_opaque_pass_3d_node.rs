@@ -4,7 +4,7 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
-use bevy_ecs::{prelude::*, query::ROQueryItem};
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -24,7 +24,7 @@ use super::{AlphaMask3d, Camera3dDepthLoadOp};
 #[derive(Default)]
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
-    type ViewWorldQuery = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3d>,
         &'static RenderPhase<AlphaMask3d>,
@@ -56,7 +56,7 @@ impl ViewNode for MainOpaquePass3dNode {
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,
-        ): ROQueryItem<Self::ViewWorldQuery>,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         // Run the opaque pass, sorted front-to-back

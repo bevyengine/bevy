@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use bevy_ecs::query::ROQueryItem;
+use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -25,7 +25,7 @@ use super::{AlphaMask3dPrepass, Opaque3dPrepass, ViewPrepassTextures};
 pub struct PrepassNode;
 
 impl ViewNode for PrepassNode {
-    type ViewWorldQuery = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3dPrepass>,
         &'static RenderPhase<AlphaMask3dPrepass>,
@@ -43,7 +43,7 @@ impl ViewNode for PrepassNode {
             alpha_mask_prepass_phase,
             view_depth_texture,
             view_prepass_textures,
-        ): ROQueryItem<Self::ViewWorldQuery>,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
