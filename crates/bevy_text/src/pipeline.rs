@@ -159,15 +159,10 @@ impl TextPipeline {
         //        style3"ut labore et dolore"
         // line4: style3"magna aliqua."
         for (section_index, section) in sections.iter().enumerate() {
-            // can't simply use `let mut lines = section.value.lines()` because
-            // unicode-bidi used by cosmic text doesn't have the same newline behaviour.
-            // when using exotic chars, such as in example font_atlas_debug, there is a panic in shaping
-            let bidi = unicode_bidi::BidiInfo::new(&section.value, None);
-            let mut lines = bidi.paragraphs.into_iter().map(|para| {
-                // `para.range` includes the newline at the end, and in an unusual way.
-                // we can remove it by taking the first line
-                section.value[para.range].lines().next().unwrap()
-            });
+            // We can't simply use `let mut lines = section.value.lines()` because
+            // `unicode-bidi` used by `cosmic_text` doesn't have the same newline behaviour: it breaks on `\r` for example.
+            // In example `font_atlas_debug`, eventually a `\r` character is inserted and there is a panic in shaping.
+            let mut lines = BidiParagraphs::new(&section.value);
 
             // continue the current line, adding spans
             if let Some(line) = lines.next() {
@@ -606,4 +601,41 @@ fn add_span(
         .weight(face.weight)
         .color(cosmic_text::Color(section.style.color.as_linear_rgba_u32()));
     attrs_list.add_span(start..end, attrs);
+}
+
+/// An iterator over the paragraphs in the input text.
+/// It is equivalent to [`core::str::Lines`] but follows `unicode-bidi` behaviour.
+// TODO: upstream to cosmic_text, see https://github.com/pop-os/cosmic-text/pull/124
+pub struct BidiParagraphs<'text> {
+    text: &'text str,
+    info: std::vec::IntoIter<unicode_bidi::ParagraphInfo>,
+}
+
+impl<'text> BidiParagraphs<'text> {
+    /// Create an iterator to split the input text into paragraphs
+    /// in accordance with `unicode-bidi` behaviour.
+    pub fn new(text: &'text str) -> Self {
+        let info = unicode_bidi::BidiInfo::new(text, None);
+        let info = info.paragraphs.into_iter();
+        Self { text, info }
+    }
+}
+
+impl<'text> Iterator for BidiParagraphs<'text> {
+    type Item = &'text str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let para = self.info.next()?;
+        let paragraph = &self.text[para.range];
+        // `para.range` includes the newline that splits the line, so remove it if present
+        let mut char_indices = paragraph.char_indices();
+        if let Some(i) = char_indices.next_back().and_then(|(i, c)| {
+            // `BidiClass::B` is a Paragraph_Separator (various newline characters)
+            (unicode_bidi::BidiClass::B == unicode_bidi::bidi_class(c)).then_some(i)
+        }) {
+            Some(&paragraph[0..i])
+        } else {
+            Some(paragraph)
+        }
+    }
 }
