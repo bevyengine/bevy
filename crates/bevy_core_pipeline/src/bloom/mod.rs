@@ -10,7 +10,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::UVec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -19,7 +19,7 @@ use bevy_render::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
     prelude::Color,
-    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
@@ -73,7 +73,10 @@ impl Plugin for BloomPlugin {
                 ),
             )
             // Add bloom to the 3d render graph
-            .add_render_graph_node::<BloomNode>(CORE_3D, core_3d::graph::node::BLOOM)
+            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(
+                CORE_3D,
+                core_3d::graph::node::BLOOM,
+            )
             .add_render_graph_edges(
                 CORE_3D,
                 &[
@@ -83,7 +86,10 @@ impl Plugin for BloomPlugin {
                 ],
             )
             // Add bloom to the 2d render graph
-            .add_render_graph_node::<BloomNode>(CORE_2D, core_2d::graph::node::BLOOM)
+            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(
+                CORE_2D,
+                core_2d::graph::node::BLOOM,
+            )
             .add_render_graph_edges(
                 CORE_2D,
                 &[
@@ -106,8 +112,10 @@ impl Plugin for BloomPlugin {
     }
 }
 
-pub struct BloomNode {
-    view_query: QueryState<(
+#[derive(Default)]
+struct BloomNode;
+impl ViewNode for BloomNode {
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static BloomTexture,
@@ -116,36 +124,16 @@ pub struct BloomNode {
         &'static BloomSettings,
         &'static UpsamplingPipelineIds,
         &'static BloomDownsamplingPipelineIds,
-    )>,
-}
-
-impl FromWorld for BloomNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for BloomNode {
-    fn update(&mut self, world: &mut World) {
-        self.view_query.update_archetypes(world);
-    }
+    );
 
     // Atypically for a post-processing effect, we do not need to
     // use a secondary texture normally provided by view_target.post_process_write(),
     // instead we write into our own bloom texture and then directly back onto main.
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let uniforms = world.resource::<ComponentUniforms<BloomUniforms>>();
-        let view_entity = graph.view_entity();
-        let Ok((
+        (
             camera,
             view_target,
             bloom_texture,
@@ -154,8 +142,12 @@ impl Node for BloomNode {
             bloom_settings,
             upsampling_pipeline_ids,
             downsampling_pipeline_ids,
-        )) = self.view_query.get_manual(world, view_entity)
-        else { return Ok(()) };
+        ): QueryItem<Self::ViewQuery>,
+        world: &World,
+    ) -> Result<(), NodeRunError> {
+        let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let uniforms = world.resource::<ComponentUniforms<BloomUniforms>>();
 
         let (
             Some(uniforms),
