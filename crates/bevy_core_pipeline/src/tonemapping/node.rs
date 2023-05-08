@@ -2,7 +2,6 @@ use std::sync::Mutex;
 
 use crate::tonemapping::{TonemappingLuts, TonemappingPipeline, ViewTonemappingPipeline};
 
-use bevy_ecs::system::lifetimeless::Read;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     render_asset::RenderAssets,
