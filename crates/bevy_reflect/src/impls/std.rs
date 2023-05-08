@@ -1,5 +1,5 @@
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned};
+use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwned};
 use crate::{
     map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
     EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter,
@@ -12,6 +12,7 @@ use crate::utility::{reflect_hasher, GenericTypeInfoCell, NonGenericTypeInfoCell
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::HashSet;
 use bevy_utils::{Duration, Instant};
+use std::fmt;
 use std::{
     any::Any,
     borrow::Cow,
@@ -1166,6 +1167,114 @@ impl GetTypeRegistration for &'static Path {
 impl FromReflect for &'static Path {
     fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
         reflect.as_any().downcast_ref::<Self>().copied()
+    }
+}
+
+impl Reflect for Cow<'static, Path> {
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        let value = value.as_any();
+        if let Some(value) = value.downcast_ref::<Self>() {
+            *self = value.clone();
+        } else {
+            panic!("Value is not a {}.", std::any::type_name::<Self>());
+        }
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Value(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Value(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Value(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone())
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        let mut hasher = reflect_hasher();
+        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+        Hash::hash(self, &mut hasher);
+        Some(hasher.finish())
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        let value = value.as_any();
+        if let Some(value) = value.downcast_ref::<Self>() {
+            Some(std::cmp::PartialEq::eq(self, value))
+        } else {
+            Some(false)
+        }
+    }
+
+    fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fmt::Debug::fmt(&self, f)
+    }
+}
+
+impl Typed for Cow<'static, Path> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+    }
+}
+
+impl FromReflect for Cow<'static, Path> {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        Some(reflect.as_any().downcast_ref::<Self>()?.clone())
+    }
+}
+
+impl GetTypeRegistration for Cow<'static, Path> {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration
     }
 }
 
