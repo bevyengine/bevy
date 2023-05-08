@@ -61,6 +61,7 @@ pub enum UiSystem {
     Focus,
     /// After this label, the [`UiStack`] resource has been updated
     Stack,
+    SortChildren,
 }
 
 /// The current scale of the UI.
@@ -103,6 +104,7 @@ impl Plugin for UiPlugin {
             .register_type::<JustifyItems>()
             .register_type::<JustifySelf>()
             .register_type::<Node>()
+            .register_type::<NodeOrder>()
             .register_type::<ZIndex>()
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
@@ -159,6 +161,9 @@ impl Plugin for UiPlugin {
         .add_systems(
             PostUpdate,
             (
+                sort_ui_node_children
+                    .in_set(UiSystem::SortChildren)
+                    .before(ui_layout_system),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
