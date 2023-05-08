@@ -29,16 +29,16 @@ fn scale_value(value: f32, factor: f64) -> f32 {
 #[reflect(Component, Default)]
 pub struct TextFlags {
     /// If set a new measure function for the text node will be created
-    generate_measure_func: bool,
+    needs_new_measure_func: bool,
     /// If set the text will be recomputed
-    recompute: bool,
+    needs_recompute: bool,
 }
 
 impl Default for TextFlags {
     fn default() -> Self {
         Self {
-            generate_measure_func: true,
-            recompute: true,
+            needs_new_measure_func: true,
+            needs_recompute: true,
         }
     }
 }
@@ -98,12 +98,12 @@ fn create_text_measure(
             content_size.set(TextMeasure { info: measure });
 
             // Text measure func created succesfully, so set `TextFlags` to schedule a recompute
-            text_flags.generate_measure_func = false;
-            text_flags.recompute = true;
+            text_flags.needs_new_measure_func = false;
+            text_flags.needs_recompute = true;
         }
         Err(TextError::NoSuchFont) => {
             // Try again next frame
-            text_flags.generate_measure_func = true;
+            text_flags.needs_new_measure_func = true;
         }
         Err(e @ TextError::FailedToAddGlyph(_)) => {
             panic!("Fatal error when processing text: {e}.");
@@ -132,7 +132,7 @@ pub fn measure_text_system(
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measure funcs for modified text
         for (text, content_size, text_flags) in text_query.iter_mut() {
-            if text.is_changed() || text_flags.generate_measure_func {
+            if text.is_changed() || text_flags.needs_new_measure_func {
                 create_text_measure(
                     &fonts,
                     &mut text_pipeline,
@@ -177,7 +177,7 @@ fn queue_text(
     mut text_layout_info: Mut<TextLayoutInfo>,
 ) {
     // Skip the text node if it is waiting for a new measure func
-    if !text_flags.generate_measure_func {
+    if !text_flags.needs_new_measure_func {
         let node_size = Vec2::new(
             scale_value(node.size().x, scale_factor),
             scale_value(node.size().y, scale_factor),
@@ -199,14 +199,14 @@ fn queue_text(
         ) {
             Err(TextError::NoSuchFont) => {
                 // There was an error processing the text layout, try again next frame
-                text_flags.recompute = true;
+                text_flags.needs_recompute = true;
             }
             Err(e @ TextError::FailedToAddGlyph(_)) => {
                 panic!("Fatal error when processing text: {e}.");
             }
             Ok(info) => {
                 *text_layout_info = info;
-                text_flags.recompute = false;
+                text_flags.needs_recompute = false;
             }
         }
     }
@@ -244,7 +244,7 @@ pub fn text_system(
     if *last_scale_factor == scale_factor {
         // Scale factor unchanged, only recompute text for modified text nodes
         for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
-            if node.is_changed() || text_flags.recompute {
+            if node.is_changed() || text_flags.needs_recompute {
                 queue_text(
                     &fonts,
                     &mut text_pipeline,
