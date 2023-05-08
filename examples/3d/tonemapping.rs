@@ -474,25 +474,21 @@ fn update_color_grading_settings(
 }
 
 fn update_ui(
-    mut text: Query<&mut Text, Without<SceneNumber>>,
+    mut text_query: Query<&mut Text, Without<SceneNumber>>,
     settings: Query<(&Tonemapping, &ColorGrading)>,
     current_scene: Res<CurrentScene>,
     selected_parameter: Res<SelectedParameter>,
     mut hide_ui: Local<bool>,
     keys: Res<Input<KeyCode>>,
 ) {
-    let (method, color_grading) = settings.single();
-    let method = *method;
-
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
-
     if keys.just_pressed(KeyCode::H) {
         *hide_ui = !*hide_ui;
     }
-    text.clear();
+
+    let old_text = &text_query.single().sections[0].value;
+
     if *hide_ui {
-        if !text_query.single().sections[0].value.is_empty() {
+        if !old_text.is_empty() {
             // single_mut() always triggers change detection,
             // so only access if text actually needs changing
             text_query.single_mut().sections[0].value.clear();
@@ -500,7 +496,10 @@ fn update_ui(
         return;
     }
 
-    let mut text = String::with_capacity(text_query.single().sections[0].value.len());
+    let (method, color_grading) = settings.single();
+    let method = *method;
+
+    let mut text = String::with_capacity(old_text.len());
 
     let scn = current_scene.0;
     text.push_str("(H) Hide UI\n\n");
@@ -606,7 +605,7 @@ fn update_ui(
         text.push_str("(Enter) Reset all to scene recommendation\n");
     }
 
-    if text != text_query.single().sections[0].value {
+    if text != old_text.as_str() {
         // single_mut() always triggers change detection,
         // so only access if text actually changed
         text_query.single_mut().sections[0].value = text;
