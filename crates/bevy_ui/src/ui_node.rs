@@ -513,14 +513,14 @@ pub struct Style {
     ///
     /// Note: Values of `Val::Auto` are not valid and are treated as zero.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/row_gap>
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/row-gap>
     pub row_gap: Val,
 
     /// The size of the gutters between items in a horizontal flexbox layout or between column in a grid layout
     ///
     /// Note: Values of `Val::Auto` are not valid and are treated as zero.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/column_gap>
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/column-gap>
     pub column_gap: Val,
 
     /// Controls whether automatically placed grid items are placed row-wise or column-wise. And whether the sparse or dense packing algorithm is used.

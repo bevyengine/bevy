@@ -86,7 +86,6 @@ mod splash {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
                         ..default()
                     },
                     ..default()
@@ -426,7 +425,6 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -552,7 +550,6 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -618,7 +615,6 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -719,7 +715,6 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()

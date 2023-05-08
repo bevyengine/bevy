@@ -37,7 +37,6 @@ fn setup_ui(mut cmd: Commands) {
     cmd.spawn(NodeBundle {
         style: Style {
             width: Val::Percent(100.),
-            height: Val::Percent(100.),
             ..default()
         },
         ..default()

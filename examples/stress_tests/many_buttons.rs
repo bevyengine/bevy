@@ -79,7 +79,6 @@ fn setup(mut commands: Commands) {
         .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(100.),
-                height: Val::Percent(100.),
                 ..default()
             },
             ..default()
