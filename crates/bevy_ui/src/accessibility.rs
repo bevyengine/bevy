@@ -8,9 +8,10 @@ use bevy_a11y::{
 };
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::{
-    prelude::Entity,
-    query::{Changed, Or, Without},
+    prelude::{DetectChanges, Entity},
+    query::{Changed, Without},
     system::{Commands, Query},
+    world::Ref,
 };
 use bevy_hierarchy::Children;
 use bevy_render::prelude::Camera;
@@ -34,23 +35,22 @@ fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
 
 fn calc_bounds(
     camera: Query<(&Camera, &GlobalTransform)>,
-    mut nodes: Query<
-        (&mut AccessibilityNode, &Node, &GlobalTransform),
-        Or<(Changed<Node>, Changed<GlobalTransform>)>,
-    >,
+    mut nodes: Query<(&mut AccessibilityNode, Ref<Node>, Ref<GlobalTransform>)>,
 ) {
     if let Ok((camera, camera_transform)) = camera.get_single() {
         for (mut accessible, node, transform) in &mut nodes {
-            if let Some(translation) =
-                camera.world_to_viewport(camera_transform, transform.translation())
-            {
-                let bounds = Rect::new(
-                    translation.x.into(),
-                    translation.y.into(),
-                    (translation.x + node.calculated_size.x).into(),
-                    (translation.y + node.calculated_size.y).into(),
-                );
-                accessible.set_bounds(bounds);
+            if node.is_changed() || transform.is_changed() {
+                if let Some(translation) =
+                    camera.world_to_viewport(camera_transform, transform.translation())
+                {
+                    let bounds = Rect::new(
+                        translation.x.into(),
+                        translation.y.into(),
+                        (translation.x + node.calculated_size.x).into(),
+                        (translation.y + node.calculated_size.y).into(),
+                    );
+                    accessible.set_bounds(bounds);
+                }
             }
         }
     }
