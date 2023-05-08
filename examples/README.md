@@ -336,7 +336,7 @@ Example | Description
 [CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
-[NodeOrder](../examples/ui/node_order.rs)| Example using `NodeOrder` to reorder UI elements
+[Node Order](../examples/ui/node_order.rs) | Example using `NodeOrder` to reorder UI elements
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
