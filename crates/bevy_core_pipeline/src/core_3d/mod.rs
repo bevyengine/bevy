@@ -257,7 +257,7 @@ pub fn prepare_core_3d_depth_textures(
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedCamera, Option<&DepthPrepass>),
+        (Entity, &ExtractedCamera, Option<&DepthPrepass>, &Camera3d),
         (
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
@@ -266,7 +266,7 @@ pub fn prepare_core_3d_depth_textures(
     >,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera, depth_prepass) in &views_3d {
+    for (entity, camera, depth_prepass, camera_3d) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -275,7 +275,7 @@ pub fn prepare_core_3d_depth_textures(
             .entry(camera.target.clone())
             .or_insert_with(|| {
                 // Default usage required to write to the depth texture
-                let mut usage = TextureUsages::RENDER_ATTACHMENT;
+                let mut usage = camera_3d.depth_texture_usages.into();
                 if depth_prepass.is_some() {
                     // Required to read the output of the prepass
                     usage |= TextureUsages::COPY_SRC;
