@@ -683,25 +683,26 @@ pub fn set_mesh_binding_defs(
     let skinned = layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
         && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT);
     let morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
-    if skinned && !morphed {
+    let mut add_skin_data = || {
         shader_defs.push("SKINNED".into());
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
-
-        mesh_layouts.skinned.clone()
-    } else if skinned && morphed {
-        shader_defs.push("SKINNED".into());
-        shader_defs.push("MORPH_TARGETS".into());
-        vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
-        vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
-
-        mesh_layouts.morphed_and_skinned.clone()
-    } else if !skinned && morphed {
-        shader_defs.push("MORPH_TARGETS".into());
-
-        mesh_layouts.morphed.clone()
-    } else {
-        mesh_layouts.model_only.clone()
+    };
+    match (skinned, morphed) {
+        (true, false) => {
+            add_skin_data();
+            mesh_layouts.skinned.clone()
+        }
+        (true, true) => {
+            add_skin_data();
+            shader_defs.push("MORPH_TARGETS".into());
+            mesh_layouts.morphed_and_skinned.clone()
+        }
+        (false, true) => {
+            shader_defs.push("MORPH_TARGETS".into());
+            mesh_layouts.morphed.clone()
+        }
+        (false, false) => mesh_layouts.model_only.clone(),
     }
 }
 

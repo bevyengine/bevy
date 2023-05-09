@@ -48,8 +48,8 @@ struct VertexOutput {
 }
 
 #ifdef MORPH_TARGETS
-fn morph_vertex(vertex: Vertex) -> Vertex {
-    var vertex = vertex;
+fn morph_vertex(vertex_in: Vertex) -> Vertex {
+    var vertex = vertex_in;
     let weight_count = layer_count();
     for (var i: u32 = 0u; i < weight_count; i ++) {
         let weight = weight_at(i);
@@ -69,11 +69,13 @@ fn morph_vertex(vertex: Vertex) -> Vertex {
 #endif
 
 @vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
+fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
 
 #ifdef MORPH_TARGETS
-    var vertex = morph_vertex(vertex);
+    var vertex = morph_vertex(vertex_no_morph);
+#else
+    var vertex = vertex_no_morph;
 #endif
 
 #ifdef SKINNED
