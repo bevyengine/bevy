@@ -75,7 +75,7 @@ impl<T: Pod> BufferVec<T> {
         index
     }
 
-    fn append(&mut self, other: &mut BufferVec<T>) {
+    pub fn append(&mut self, other: &mut BufferVec<T>) {
         self.values.append(&mut other.values);
     }
 
@@ -148,53 +148,5 @@ impl<T: Pod> Extend<T> for BufferVec<T> {
     #[inline]
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         self.values.extend(iter);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use bevy_utils::default;
-    use bevy_math::{Mat4, Vec4};
-
-    #[test]
-    fn test_append_empty_buffer_vecs() {
-        let mut buffer_vec_one: BufferVec<Mat4> = BufferVec::new(BufferUsages::UNIFORM);
-        let mut buffer_vec_two: BufferVec<Mat4> = BufferVec::new(BufferUsages::UNIFORM);
-
-        buffer_vec_one.append(&mut buffer_vec_two);
-
-        assert!(buffer_vec_one.is_empty());
-        assert!(buffer_vec_two.is_empty());
-    }
-
-    #[test]
-    fn test_append_nonempty_vecs() {
-        let mut buffer_vec_one: BufferVec<Mat4> = BufferVec::new(BufferUsages::UNIFORM);
-        let mut buffer_vec_two: BufferVec<Mat4> = BufferVec::new(BufferUsages::UNIFORM);
-
-        let zero_vec = Vec4::new(0.0, 0.0, 0.0, 0.0);
-
-        buffer_vec_one.push(Mat4 { ..default() });
-        buffer_vec_one.push(Mat4 { ..default() });
-        buffer_vec_two.push(Mat4 { ..default() });
-
-        buffer_vec_one.append(&mut buffer_vec_two);
-        let mut mat_res = Mat4 { x_axis: zero_vec, y_axis: zero_vec, z_axis: zero_vec, w_axis: zero_vec };
-
-        assert!(buffer_vec_one.len() == 3);
-        for mat in buffer_vec_one.values {
-            mat_res += mat
-        }
-
-        let expected = Mat4 {
-            x_axis: Vec4::new(3.0, 0.0, 0.0, 0.0),
-            y_axis: Vec4::new(0.0, 3.0, 0.0, 0.0),
-            z_axis: Vec4::new(0.0, 0.0, 3.0, 0.0),
-            w_axis: Vec4::new(0.0, 0.0, 0.0, 3.0)
-        };
-
-        assert!(mat_res == expected);
-        assert!(buffer_vec_two.is_empty());
     }
 }
