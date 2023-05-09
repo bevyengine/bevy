@@ -40,7 +40,7 @@ pub fn convert_touch_input(
             winit::event::TouchPhase::Started => TouchPhase::Started,
             winit::event::TouchPhase::Moved => TouchPhase::Moved,
             winit::event::TouchPhase::Ended => TouchPhase::Ended,
-            winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
+            winit::event::TouchPhase::Cancelled => TouchPhase::Canceled,
         },
         position: Vec2::new(location.x as f32, location.y as f32),
         force: touch_input.force.map(|f| match f {

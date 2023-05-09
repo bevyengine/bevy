@@ -78,9 +78,9 @@ fn setup(
         TextBundle::from_section(
             "Perceptual Roughness",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 36.0,
                 color: Color::WHITE,
+                ..default()
             },
         )
         .with_style(Style {
@@ -96,15 +96,16 @@ fn setup(
             text: Text::from_section(
                 "Metallic",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 36.0,
                     color: Color::WHITE,
+                    ..Default::default()
                 },
             ),
             style: Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(130.0),
                 right: Val::Px(0.0),
+
                 ..default()
             },
             ..default()
@@ -116,9 +117,9 @@ fn setup(
         TextBundle::from_section(
             "Loading Environment Map...",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 36.0,
                 color: Color::RED,
+                ..default()
             },
         )
         .with_style(Style {

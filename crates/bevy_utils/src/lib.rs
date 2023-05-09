@@ -1,7 +1,8 @@
 //! General utilities for first-party [Bevy] engine crates.
 //!
 //! [Bevy]: https://bevyengine.org/
-
+//!
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 

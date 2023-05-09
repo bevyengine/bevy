@@ -67,7 +67,6 @@ pub fn build_ui_render(app: &mut App) {
     };
 
     render_app
-        .init_resource::<UiPipeline>()
         .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
         .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()
@@ -326,13 +325,16 @@ pub fn extract_text_uinodes(
                 }
                 let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
+                let mut rect = atlas.textures[atlas_info.glyph_index];
+                rect.min *= inverse_scale_factor;
+                rect.max *= inverse_scale_factor;
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
                     transform: transform * Affine2::from_translation(*position),
                     color,
-                    rect: atlas.textures[atlas_info.glyph_index],
+                    rect,
                     image: atlas.texture.clone_weak(),
-                    atlas_size: Some(atlas.size),
+                    atlas_size: Some(atlas.size * inverse_scale_factor),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
@@ -412,7 +414,7 @@ pub fn prepare_uinodes(
             current_batch_handle = extracted_uinode.image.clone_weak();
         }
 
-        let uinode_rect = extracted_uinode.rect;
+        let mut uinode_rect = extracted_uinode.rect;
         let rect_size = uinode_rect.size();
 
         // Specify the corners of the node
@@ -421,7 +423,7 @@ pub fn prepare_uinodes(
 
         // Calculate the effect of clipping
         // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-        let positions_diff = if let Some(clip) = extracted_uinode.clip {
+        let mut positions_diff = if let Some(clip) = extracted_uinode.clip {
             [
                 Vec2::new(
                     f32::max(clip.min.x - positions[0].x, 0.),
@@ -471,7 +473,21 @@ pub fn prepare_uinodes(
             [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
         } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
-            let mut uvs = [
+            if extracted_uinode.flip_x {
+                std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
+                positions_diff[0].x *= -1.;
+                positions_diff[1].x *= -1.;
+                positions_diff[2].x *= -1.;
+                positions_diff[3].x *= -1.;
+            }
+            if extracted_uinode.flip_y {
+                std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
+                positions_diff[0].y *= -1.;
+                positions_diff[1].y *= -1.;
+                positions_diff[2].y *= -1.;
+                positions_diff[3].y *= -1.;
+            }
+            [
                 Vec2::new(
                     uinode_rect.min.x + positions_diff[0].x,
                     uinode_rect.min.y + positions_diff[0].y,
@@ -489,15 +505,7 @@ pub fn prepare_uinodes(
                     uinode_rect.max.y + positions_diff[3].y,
                 ),
             ]
-            .map(|pos| pos / atlas_extent);
-
-            if extracted_uinode.flip_x {
-                uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
-            }
-            if extracted_uinode.flip_y {
-                uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
-            }
-            uvs
+            .map(|pos| pos / atlas_extent)
         };
 
         let color = extracted_uinode.color.as_linear_rgba_f32();

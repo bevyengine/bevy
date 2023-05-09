@@ -77,7 +77,7 @@ impl Plugin for PipelinedRenderingPlugin {
     }
 
     // Sets up the render thread and inserts resources into the main app used for controlling the render thread.
-    fn setup(&self, app: &mut App) {
+    fn cleanup(&self, app: &mut App) {
         // skip setting up when headless
         if app.get_sub_app(RenderExtractApp).is_err() {
             return;

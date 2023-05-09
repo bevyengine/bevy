@@ -108,10 +108,17 @@ where
                 Render,
                 queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
             )
-            .init_resource::<PrepassPipeline<M>>()
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .init_resource::<PreviousViewProjectionUniforms>();
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.init_resource::<PrepassPipeline<M>>();
     }
 }
 
@@ -561,7 +568,7 @@ pub fn get_bind_group_layout_entries(
             visibility: ShaderStages::FRAGMENT,
             ty: BindingType::Texture {
                 multisampled,
-                sample_type: TextureSampleType::Float { filterable: true },
+                sample_type: TextureSampleType::Float { filterable: false },
                 view_dimension: TextureViewDimension::D2,
             },
             count: None,
@@ -572,7 +579,7 @@ pub fn get_bind_group_layout_entries(
             visibility: ShaderStages::FRAGMENT,
             ty: BindingType::Texture {
                 multisampled,
-                sample_type: TextureSampleType::Float { filterable: true },
+                sample_type: TextureSampleType::Float { filterable: false },
                 view_dimension: TextureViewDimension::D2,
             },
             count: None,

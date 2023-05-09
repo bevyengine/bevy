@@ -10,7 +10,9 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{
+    FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
+};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ComputedVisibility};
 use bevy_window::{PrimaryWindow, Window};
 use serde::{Deserialize, Serialize};
@@ -30,8 +32,10 @@ use smallvec::SmallVec;
 ///
 /// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
 /// which fully collapses it during layout calculations.
-#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Serialize, Deserialize, PartialEq)]
+#[derive(
+    Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, FromReflect, Serialize, Deserialize,
+)]
+#[reflect(Component, FromReflect, Serialize, Deserialize, PartialEq)]
 pub enum Interaction {
     /// The node has been clicked
     Clicked,
@@ -66,10 +70,11 @@ impl Default for Interaction {
     PartialEq,
     Debug,
     Reflect,
+    FromReflect,
     Serialize,
     Deserialize,
 )]
-#[reflect(Component, Serialize, Deserialize, PartialEq)]
+#[reflect(Component, FromReflect, Serialize, Deserialize, PartialEq)]
 pub struct RelativeCursorPosition {
     /// Cursor position relative to size and position of the Node.
     pub normalized: Option<Vec2>,
@@ -85,8 +90,10 @@ impl RelativeCursorPosition {
 }
 
 /// Describes whether the node should block interactions with lower nodes
-#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Serialize, Deserialize, PartialEq)]
+#[derive(
+    Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, FromReflect, Serialize, Deserialize,
+)]
+#[reflect(Component, FromReflect, Serialize, Deserialize, PartialEq)]
 pub enum FocusPolicy {
     /// Blocks interaction
     Block,
@@ -178,12 +185,10 @@ pub fn ui_focus_system(
             }
         })
         .find_map(|window_ref| {
-            windows.get(window_ref.entity()).ok().and_then(|window| {
-                window.cursor_position().map(|mut cursor_pos| {
-                    cursor_pos.y = window.height() - cursor_pos.y;
-                    cursor_pos
-                })
-            })
+            windows
+                .get(window_ref.entity())
+                .ok()
+                .and_then(|window| window.cursor_position())
         })
         .or_else(|| touches_input.first_pressed_position());
 
