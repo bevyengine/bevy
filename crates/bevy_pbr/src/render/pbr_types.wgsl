@@ -24,15 +24,18 @@ const STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP: u32       = 64u;
 const STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y: u32              = 128u;
 const STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT: u32                = 256u;
 const STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT: u32                  = 512u;
-const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32       = 3758096384u; // (0b111u32 << 29)
-const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32              = 0u;          // (0u32 << 29)
-const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 536870912u;  // (1u32 << 29)
-const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32               = 1073741824u; // (2u32 << 29)
-const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED: u32       = 1610612736u; // (3u32 << 29)
-const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD: u32                 = 2147483648u; // (4u32 << 29)
-const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MULTIPLY: u32            = 2684354560u; // (5u32 << 29)
+const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32       = 57344u; // (0b111u32 << 13)
+const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32              = 0u;     // (0u32 << 13)
+const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 8192u;  // (1u32 << 13)
+const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32               = 16384u; // (2u32 << 13)
+const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED: u32       = 24576u; // (3u32 << 13)
+const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD: u32                 = 32768u; // (4u32 << 13)
+const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MULTIPLY: u32            = 40960u; // (5u32 << 13)
 // ↑ To calculate/verify the values above, use the following playground:
 // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=7792f8dd6fc6a8d4d0b6b1776898a7f4
+// NOTE: the gist is based on a shift of 29 since the blend modes used to be at
+// the end of a u32. Because this created an issue with Adreno chipsets it has 
+// been moved to 13.
 
 // Creates a StandardMaterial with default values
 fn standard_material_new() -> StandardMaterial {

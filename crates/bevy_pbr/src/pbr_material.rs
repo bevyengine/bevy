@@ -399,7 +399,7 @@ bitflags::bitflags! {
 
 impl StandardMaterialFlags {
     const ALPHA_MODE_MASK_BITS: u32 = 0b111;
-    const ALPHA_MODE_SHIFT_BITS: u32 = 32 - Self::ALPHA_MODE_MASK_BITS.count_ones();
+    const ALPHA_MODE_SHIFT_BITS: u32 = 16 - Self::ALPHA_MODE_MASK_BITS.count_ones();
 }
 
 /// The GPU representation of the uniform data of a [`StandardMaterial`].
