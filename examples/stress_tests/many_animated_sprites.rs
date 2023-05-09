@@ -1,10 +1,11 @@
 //! Renders a lot of animated sprites to allow performance testing.
 //!
 //! It sets up many animated sprites in different sizes and rotations,
-//! and at different scales in the world, and moves the camera over them.
+//! and at different scales in the world,
+//! and moves the camera over them to see how well frustum culling works.
 //!
-//! Having sprites out of the camera's field of view should also help stress
-//! test any future potential 2d frustum culling implementation.
+//! To measure performance realistically, be sure to run this in release mode.
+//! `cargo run --example many_animated_sprites --release`
 
 use std::time::Duration;
 
