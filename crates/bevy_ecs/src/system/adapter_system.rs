@@ -25,7 +25,7 @@ impl<Func, S> AdapterSystem<Func, S> {
 
 impl<Func, S> System for AdapterSystem<Func, S>
 where
-    Func: Adapt<S> + 'static,
+    Func: Adapt<S>,
     S: System,
 {
     type In = Func::In;
@@ -105,7 +105,7 @@ where
 // SAFETY: The inner system is read-only.
 unsafe impl<Func, S> ReadOnlySystem for AdapterSystem<Func, S>
 where
-    Func: Adapt<S> + 'static,
+    Func: Adapt<S>,
     S: ReadOnlySystem,
 {
 }
