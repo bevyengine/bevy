@@ -24,6 +24,7 @@ members = [
   "tools/ci",
   "tools/build-templated-pages",
   "tools/build-wasm-example",
+  "tools/example-showcase",
   "errors",
 ]
 
@@ -1673,7 +1674,7 @@ path = "examples/stress_tests/transform_hierarchy.rs"
 name = "Transform Hierarchy"
 description = "Various test cases for hierarchy and transform propagation performance"
 category = "Stress Tests"
-wasm = true
+wasm = false
 
 [[example]]
 name = "text_pipeline"

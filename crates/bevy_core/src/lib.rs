@@ -28,7 +28,7 @@ use std::borrow::Cow;
 use std::ffi::OsString;
 use std::marker::PhantomData;
 use std::ops::Range;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(not(target_arch = "wasm32"))]
@@ -59,6 +59,7 @@ fn register_rust_types(app: &mut App) {
         .register_type::<Option<bool>>()
         .register_type::<Option<f64>>()
         .register_type::<Cow<'static, str>>()
+        .register_type::<Cow<'static, Path>>()
         .register_type::<Duration>()
         .register_type::<Instant>();
 }
