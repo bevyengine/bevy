@@ -26,7 +26,7 @@ fn setup(mut commands: Commands) {
             ..Default::default()
         })
         .with_children(|builder| {
-            for i in 0..5 {
+            for (i, color) in [Color::RED, Color::GREEN, Color::YELLOW, Color::CYAN, Color::AQUAMARINE, Color::CRIMSON, Color::FUCHSIA, Color::PINK].into_iter().enumerate() {
                 builder
                     .spawn(ButtonBundle {
                         style: Style {
@@ -35,7 +35,7 @@ fn setup(mut commands: Commands) {
                             align_items: AlignItems::Center,
                             ..Default::default()
                         },
-                        background_color: Color::WHITE.into(),
+                        background_color: color.into(),
                         ..Default::default()
                     })
                     .with_children(|builder| {
