@@ -158,6 +158,7 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     /// Retrieves this world's unique [ID](WorldId).
+    #[inline]
     pub fn id(self) -> WorldId {
         // SAFETY:
         // - we only access world metadata

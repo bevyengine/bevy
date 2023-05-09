@@ -46,8 +46,8 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that `world` has permission to access any world data
-    ///   registered in [`Self::archetype_component_access`]. There must be no conflicing
-    ///   accesses while the system is running.
+    ///   registered in [`Self::archetype_component_access`]. There must be no conflicting
+    ///   simultaneous accesses while the system is running.
     /// - The method [`Self::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If `update_archetype_component_access`
     ///   panics (or otherwise does not return for any reason), this method must not be called.
