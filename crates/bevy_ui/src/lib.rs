@@ -55,13 +55,14 @@ pub struct UiPlugin;
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum UiSystem {
+    /// After this label, the UI node children will have been sorted according to their `NodeOrder`
+    SortChildren,
     /// After this label, the ui layout state has been updated
     Layout,
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
     /// After this label, the [`UiStack`] resource has been updated
     Stack,
-    SortChildren,
 }
 
 /// The current scale of the UI.
