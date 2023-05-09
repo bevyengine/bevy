@@ -347,7 +347,7 @@ impl MultiThreadedExecutor {
             // SAFETY:
             // - No other reference to this system exists.
             // - `can_run` has been called, which calls `update_archetype_component_access` with this system.
-            // - `can_run` returned true, so no systems with conflicing world access are running.
+            // - `can_run` returned true, so no systems with conflicting world access are running.
             unsafe {
                 self.spawn_system_task(scope, system_index, systems, world_cell);
             }
