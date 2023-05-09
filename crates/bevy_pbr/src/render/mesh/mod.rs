@@ -25,7 +25,8 @@ use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        GpuBufferInfo, Mesh, MeshVertexBufferLayout,
+        GpuBufferInfo, InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout,
+        VertexAttributeDescriptor,
     },
     prelude::Msaa,
     render_asset::RenderAssets,
@@ -40,7 +41,9 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use std::num::NonZeroU64;
+use bevy_utils::{tracing::error, Hashed};
+
+mod bindings;
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
@@ -49,17 +52,17 @@ const MAX_JOINTS: usize = 256;
 const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
-pub const MESH_VERTEX_OUTPUT: HandleUntyped =
+pub const VERTEX_OUTPUT: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2645551199423808407);
-pub const MESH_VIEW_TYPES_HANDLE: HandleUntyped =
+pub const VIEW_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8140454348013264787);
-pub const MESH_VIEW_BINDINGS_HANDLE: HandleUntyped =
+pub const VIEW_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
-pub const MESH_TYPES_HANDLE: HandleUntyped =
+pub const TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2506024101911992377);
-pub const MESH_BINDINGS_HANDLE: HandleUntyped =
+pub const BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16831548636314682308);
-pub const MESH_FUNCTIONS_HANDLE: HandleUntyped =
+pub const FUNCTIONS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6300874327833745635);
 pub const MESH_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
@@ -68,37 +71,17 @@ pub const SKINNING_HANDLE: HandleUntyped =
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        load_internal_asset!(app, VERTEX_OUTPUT, "vertex_output.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, VIEW_TYPES_HANDLE, "view_types.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
-            MESH_VERTEX_OUTPUT,
-            "mesh_vertex_output.wgsl",
+            VIEW_BINDINGS_HANDLE,
+            "view_bindings.wgsl",
             Shader::from_wgsl
         );
-        load_internal_asset!(
-            app,
-            MESH_VIEW_TYPES_HANDLE,
-            "mesh_view_types.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH_VIEW_BINDINGS_HANDLE,
-            "mesh_view_bindings.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, MESH_TYPES_HANDLE, "mesh_types.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            MESH_BINDINGS_HANDLE,
-            "mesh_bindings.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH_FUNCTIONS_HANDLE,
-            "mesh_functions.wgsl",
-            Shader::from_wgsl
-        );
+        load_internal_asset!(app, TYPES_HANDLE, "types.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, BINDINGS_HANDLE, "bindings.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, FUNCTIONS_HANDLE, "functions.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
 
@@ -276,12 +259,20 @@ pub fn extract_skinned_meshes(
     commands.insert_or_spawn_batch(values);
 }
 
+/// All possible [`BindGroupLayout`]s in bevy's default mesh shader (`mesh.wgsl`).
+#[derive(Clone)]
+pub struct MeshLayouts {
+    /// The mesh model uniform (transform) and nothing else.
+    pub model_only: BindGroupLayout,
+    /// Also includes the uniform for skinning
+    pub skinned: BindGroupLayout,
+}
+
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
     pub view_layout: BindGroupLayout,
     pub view_layout_multisampled: BindGroupLayout,
-    pub mesh_layout: BindGroupLayout,
-    pub skinned_mesh_layout: BindGroupLayout,
+    pub mesh_layouts: MeshLayouts,
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
@@ -467,40 +458,6 @@ impl FromWorld for MeshPipeline {
                 entries: &layout_entries(clustered_forward_buffer_binding_type, true),
             });
 
-        let mesh_binding = BindGroupLayoutEntry {
-            binding: 0,
-            visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: true,
-                min_binding_size: Some(MeshUniform::min_size()),
-            },
-            count: None,
-        };
-
-        let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[mesh_binding],
-            label: Some("mesh_layout"),
-        });
-
-        let skinned_mesh_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                entries: &[
-                    mesh_binding,
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::VERTEX,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: BufferSize::new(JOINT_BUFFER_SIZE as u64),
-                        },
-                        count: None,
-                    },
-                ],
-                label: Some("skinned_mesh_layout"),
-            });
-
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
             let image = Image::default();
@@ -544,10 +501,12 @@ impl FromWorld for MeshPipeline {
         MeshPipeline {
             view_layout,
             view_layout_multisampled,
-            mesh_layout,
-            skinned_mesh_layout,
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
+            mesh_layouts: MeshLayouts {
+                model_only: bindings::layout::model_only(&render_device),
+                skinned: bindings::layout::skinned(&render_device),
+            },
         }
     }
 }
@@ -659,6 +618,26 @@ impl MeshPipelineKey {
     }
 }
 
+pub fn set_special_mesh_attributes(
+    mesh_layouts: &MeshLayouts,
+    layout: &Hashed<InnerMeshVertexBufferLayout>,
+    offset: u32,
+    shader_defs: &mut Vec<ShaderDefVal>,
+    vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
+) -> BindGroupLayout {
+    let skinned = layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
+        && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT);
+    if skinned {
+        shader_defs.push("SKINNED".into());
+        vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
+        vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
+
+        mesh_layouts.skinned.clone()
+    } else {
+        mesh_layouts.model_only.clone()
+    }
+}
+
 impl SpecializedMeshPipeline for MeshPipeline {
     type Key = MeshPipelineKey;
 
@@ -716,16 +695,13 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         };
 
-        if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
-            && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
-        {
-            shader_defs.push("SKINNED".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(5));
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(6));
-            bind_group_layout.push(self.skinned_mesh_layout.clone());
-        } else {
-            bind_group_layout.push(self.mesh_layout.clone());
-        };
+        bind_group_layout.push(set_special_mesh_attributes(
+            &self.mesh_layouts,
+            layout,
+            5,
+            &mut shader_defs,
+            &mut vertex_attributes,
+        ));
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
@@ -870,53 +846,36 @@ impl SpecializedMeshPipeline for MeshPipeline {
     }
 }
 
-#[derive(Resource)]
-pub struct MeshBindGroup {
-    pub normal: BindGroup,
-    pub skinned: Option<BindGroup>,
-}
-
 pub fn queue_mesh_bind_group(
-    mut commands: Commands,
+    mut meshes: ResMut<RenderAssets<Mesh>>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<ComponentUniforms<MeshUniform>>,
     skinned_mesh_uniform: Res<SkinnedMeshUniform>,
 ) {
-    if let Some(mesh_binding) = mesh_uniforms.uniforms().binding() {
-        let mut mesh_bind_group = MeshBindGroup {
-            normal: render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: mesh_binding.clone(),
-                }],
-                label: Some("mesh_bind_group"),
-                layout: &mesh_pipeline.mesh_layout,
-            }),
-            skinned: None,
-        };
+    use bindings::group::{model_only, skinned};
+    let layouts = &mesh_pipeline.mesh_layouts;
+    let (model_only, skinned) = match (mesh_uniforms.buffer(), skinned_mesh_uniform.buffer.buffer())
+    {
+        // No model uniform.
+        (None, _) => (None, None),
 
-        if let Some(skinned_joints_buffer) = skinned_mesh_uniform.buffer.buffer() {
-            mesh_bind_group.skinned = Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: mesh_binding,
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Buffer(BufferBinding {
-                            buffer: skinned_joints_buffer,
-                            offset: 0,
-                            size: Some(NonZeroU64::new(JOINT_BUFFER_SIZE as u64).unwrap()),
-                        }),
-                    },
-                ],
-                label: Some("skinned_mesh_bind_group"),
-                layout: &mesh_pipeline.skinned_mesh_layout,
-            }));
-        }
-        commands.insert_resource(mesh_bind_group);
+        (Some(model), None) => (
+            Some(model_only(&render_device, &layouts.model_only, model)),
+            None,
+        ),
+        (Some(model), Some(skin)) => (
+            Some(model_only(&render_device, &layouts.model_only, model)),
+            Some(skinned(&render_device, &layouts.skinned, model, skin)),
+        ),
+    };
+    for (_, gpu_mesh) in meshes.iter_mut() {
+        let bind_group = if gpu_mesh.has_skin() {
+            skinned.clone()
+        } else {
+            model_only.clone()
+        };
+        gpu_mesh.bind_group = bind_group;
     }
 }
 
@@ -1137,9 +1096,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
 
 pub struct SetMeshBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
-    type Param = SRes<MeshBindGroup>;
+    type Param = SRes<RenderAssets<Mesh>>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = (
+        Read<Handle<Mesh>>,
         Read<DynamicUniformIndex<MeshUniform>>,
         Option<Read<SkinnedMeshJoints>>,
     );
@@ -1147,22 +1107,30 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     fn render<'w>(
         _item: &P,
         _view: (),
-        (mesh_index, skinned_mesh_joints): ROQueryItem<'_, Self::ItemWorldQuery>,
-        mesh_bind_group: SystemParamItem<'w, '_, Self::Param>,
+        (mesh, mesh_index, skin_index): ROQueryItem<'_, Self::ItemWorldQuery>,
+        meshes: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        if let Some(joints) = skinned_mesh_joints {
-            pass.set_bind_group(
-                I,
-                mesh_bind_group.into_inner().skinned.as_ref().unwrap(),
-                &[mesh_index.index(), joints.index],
+        let Some(gpu_mesh) = meshes.into_inner().get(mesh) else {
+            error!(
+                "An entity with the DynamicUniformIndex<mesh::Uniform> had a Handle<Mesh> not \
+                present in its RenderAssets<Mesh> (very unexpected)"
             );
+            return RenderCommandResult::Failure;
+        };
+        let Some(bind_group) = &gpu_mesh.bind_group else {
+            error!(
+                "The bind_group field of GpuMesh wasn't set in the render phase. This is odd, \
+                since it should be set by the queue_mesh_bind_group system."
+            );
+            return RenderCommandResult::Failure;
+        };
+        let mut set_bind_group = |indices: &[u32]| pass.set_bind_group(I, bind_group, indices);
+        let mesh_index = mesh_index.index();
+        if let Some(skin) = skin_index {
+            set_bind_group(&[mesh_index, skin.index]);
         } else {
-            pass.set_bind_group(
-                I,
-                &mesh_bind_group.into_inner().normal,
-                &[mesh_index.index()],
-            );
+            set_bind_group(&[mesh_index]);
         }
         RenderCommandResult::Success
     }
