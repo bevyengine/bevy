@@ -26,14 +26,8 @@
   * Rigging and animation [by @tomkranis on Sketchfab] ([CC-BY 4.0])
 * FiraMono by The Mozilla Foundation and Telefonica S.A (SIL Open Font License, Version 1.1: assets/fonts/FiraMono-LICENSE)
 * Barycentric from [mk_bary_gltf](https://github.com/komadori/mk_bary_gltf) (MIT OR Apache-2.0)
-* `multiple_morph_target_meshes.gltf`, glTF morph targets from glTF Sample Models, a combination of 4 different models:
-  * [Animated Morph Cube] (CC0 1.0 Universal)
-  * [Animated Morph Sphere] (CC0 1.0 Universal)
-  * [MorphStressTest] ([CC-BY 4.0] by Analytical Graphics, Inc, Model and textures by Ed Mackey)
-  * [Morph-Primitives Test] ([CC-BY 4.0] by [ft-lab](https://github.com/ft-lab))
+* `MorphStressTest.gltf`, [MorphStressTest] ([CC-BY 4.0] by Analytical Graphics, Inc, Model and textures by Ed Mackey)
 
-[Animated Morph Cube]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/AnimatedMorphCube
-[Animated Morph Sphere]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/AnimatedMorphSphere
 [MorphStressTest]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/MorphStressTest
 [Morph-Primitives Test]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/MorphPrimitivesTest
 [fox]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/Fox

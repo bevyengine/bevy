@@ -32,7 +32,7 @@ fn main() {
 
 fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/multiple_morph_target_meshes.gltf#Scene0"),
+        scene: asset_server.load("models/animated/MorphStressTest.gltf#Scene0"),
         ..default()
     });
     commands.spawn(DirectionalLightBundle {
