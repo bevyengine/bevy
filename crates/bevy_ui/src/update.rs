@@ -1,8 +1,8 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, NodeTransform, Overflow, Style};
+use crate::{CalculatedClip, NodeTransform, OverflowAxis, Style};
 
-use super::Node;
+use super::NodeSize;
 use bevy_ecs::{
     entity::Entity,
     query::{With, Without},
@@ -14,8 +14,13 @@ use bevy_math::Rect;
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
     mut commands: Commands,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    mut node_query: Query<(&Node, &NodeTransform, &Style, Option<&mut CalculatedClip>)>,
+    root_node_query: Query<Entity, (With<NodeSize>, Without<Parent>)>,
+    mut node_query: Query<(
+        &NodeSize,
+        &NodeTransform,
+        &Style,
+        Option<&mut CalculatedClip>,
+    )>,
     children_query: Query<&Children>,
 ) {
     for root_node in &root_node_query {
@@ -32,7 +37,12 @@ pub fn update_clipping_system(
 fn update_clipping(
     commands: &mut Commands,
     children_query: &Query<&Children>,
-    node_query: &mut Query<(&Node, &NodeTransform, &Style, Option<&mut CalculatedClip>)>,
+    node_query: &mut Query<(
+        &NodeSize,
+        &NodeTransform,
+        &Style,
+        Option<&mut CalculatedClip>,
+    )>,
     entity: Entity,
     maybe_inherited_clip: Option<Rect>,
 ) {

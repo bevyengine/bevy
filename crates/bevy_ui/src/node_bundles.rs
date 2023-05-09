@@ -1,10 +1,10 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, NodeTransform,
-    Style, UiImage, ZIndex,
-    widget::{Button, TextFlags, UiImageSize},
-    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
+    widget::Button,
+    widget::{TextFlags, UiImageSize},
+    BackgroundColor, ContentSize, FocusPolicy, Interaction, NodeSize, NodeTransform, Style,
+    UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -19,8 +19,8 @@ use bevy_text::{Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
 /// Useful as a container for a variety of child nodes.
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
-    /// Describes the logical size of the node
-    pub node: Node,
+    /// DescriNodeSizethe logical size of the node
+    pub node: NodeSize,
     /// The node's position, rotation, and scaling.
     pub node_transform: NodeTransform,
     /// Styles which control the layout (size and position) of the node and it's children
@@ -61,11 +61,11 @@ pub struct ImageBundle {
     ///
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub node: Node,
+    pub node: NodeSize,
     /// The node's position, rotation, and scaling.
     pub node_transform: NodeTransform,
     /// Describes the style including flexbox settings
-    /// Styles which control the layout (size and position) of the node and it's children
+    /// StylesNodeSizech control the layout (size and position) of the node and it's children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
@@ -95,21 +95,21 @@ pub struct ImageBundle {
 #[derive(Bundle, Debug)]
 pub struct TextBundle {
     /// Describes the logical size of the node
-    pub node: Node,
+    pub node: NodeSize,
     /// The node's position, rotation, and scaling.
     pub node_transform: NodeTransform,
     /// Describes the style including flexbox settings
     /// Styles which control the layout (size and position) of the node and it's children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
-    /// Contains the text of the node
+    /// ContaiNodeSizehe text of the node
     pub text: Text,
     /// Text layout information
     pub text_layout_info: TextLayoutInfo,
     /// Text system flags
     pub text_flags: TextFlags,
     /// The calculated size based on the given image
-    pub calculated_size: ContentSize,
+    pub content_size: ContentSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// Describes the visibility properties of the node
@@ -129,7 +129,7 @@ impl Default for TextBundle {
             text: Default::default(),
             text_layout_info: Default::default(),
             text_flags: Default::default(),
-            calculated_size: Default::default(),
+            content_size: Default::default(),
             // Transparent background
             background_color: BackgroundColor(Color::NONE),
             node: Default::default(),
@@ -188,7 +188,7 @@ impl TextBundle {
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
     /// Describes the logical size of the node
-    pub node: Node,
+    pub node: NodeSize,
     /// The node's position, rotation, and scaling.
     pub node_transform: NodeTransform,
     /// Marker component that signals this node is a button

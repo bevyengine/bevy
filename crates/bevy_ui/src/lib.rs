@@ -101,7 +101,7 @@ impl Plugin for UiPlugin {
             .register_type::<JustifyContent>()
             .register_type::<JustifyItems>()
             .register_type::<JustifySelf>()
-            .register_type::<Node>()
+            .register_type::<NodeSize>()
             .register_type::<NodeTransform>()
             .register_type::<ZIndex>()
             // NOTE: used by Style::aspect_ratio
@@ -159,7 +159,7 @@ impl Plugin for UiPlugin {
         .add_systems(
             PostUpdate,
             (
-                flex_node_system.in_set(UiSystem::Flex),
+                ui_layout_system.in_set(UiSystem::Layout),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system,
             ),

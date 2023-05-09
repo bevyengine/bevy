@@ -2,10 +2,9 @@ mod convert;
 pub mod debug;
 
 use crate::{
-    CalculatedSize, Node, NodeRotation, NodeScale, NodeTransform, NodeTranslation, Style, UiScale,
+    ContentSize, NodeRotation, NodeScale, NodeSize, NodeTransform, NodeTranslation, Style, UiScale,
 };
 
-use crate::{ContentSize, Node, Style, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -222,20 +221,21 @@ pub fn ui_layout_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    style_query: Query<(Entity, Ref<Style>), With<Node>>,
+    root_node_query: Query<Entity, (With<NodeSize>, Without<Parent>)>,
+    style_query: Query<(Entity, Ref<Style>), With<NodeSize>>,
     mut measure_query: Query<(Entity, &mut ContentSize)>,
-    children_query: Query<(Entity, Ref<Children>), With<Node>>,
+    children_query: Query<(Entity, Ref<Children>), With<NodeSize>>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut node_geometry_query: Query<(
-        &mut Node,
+        &mut NodeSize,
         &mut NodeTransform,
         Option<&NodeTranslation>,
         Option<&NodeRotation>,
         Option<&NodeScale>,
     )>,
-    mut removed_nodes: RemovedComponents<Node>,
+    mut removed_nodes: RemovedComponents<NodeSize>,
+    just_children_query: Query<&Children>,
 ) {
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -317,13 +317,13 @@ pub fn ui_layout_system(
         inherited_transform: Affine2,
         node_id: Entity,
         node_geometry_query: &mut Query<(
-            &mut Node,
+            &mut NodeSize,
             &mut NodeTransform,
             Option<&NodeTranslation>,
             Option<&NodeRotation>,
             Option<&NodeScale>,
         )>,
-        children_query: &Query<&Children, (With<Node>, With<NodeTransform>)>,
+        children_query: &Query<&Children>,
         physical_to_logical_factor: f32,
     ) {
         if let Ok((mut node, mut transform, maybe_translation, maybe_rotation, maybe_scale)) =
@@ -381,7 +381,7 @@ pub fn ui_layout_system(
             Affine2::IDENTITY,
             node_id,
             &mut node_geometry_query,
-            &children_query,
+            &just_children_query,
             physical_to_logical_factor,
         );
     }

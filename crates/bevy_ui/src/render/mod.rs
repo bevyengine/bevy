@@ -8,8 +8,8 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::NodeTransform;
-use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
+use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, UiImage, UiStack};
+use crate::{NodeSize, NodeTransform};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -168,7 +168,7 @@ pub fn extract_uinodes(
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
-            &Node,
+            &NodeSize,
             &NodeTransform,
             &BackgroundColor,
             Option<&UiImage>,
@@ -281,7 +281,7 @@ pub fn extract_text_uinodes(
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
-            &Node,
+            &NodeSize,
             &NodeTransform,
             &Text,
             &TextLayoutInfo,
@@ -296,6 +296,7 @@ pub fn extract_text_uinodes(
         .map(|window| window.resolution.scale_factor() as f32)
         .unwrap_or(1.0);
 
+    let inverse_scale_factor = scale_factor.recip();
     let scaling = Affine2::from_scale(Vec2::splat(scale_factor.recip()));
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {

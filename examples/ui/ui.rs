@@ -286,8 +286,8 @@ struct ScrollingList {
 
 fn mouse_scroll(
     mut mouse_wheel_events: EventReader<MouseWheel>,
-    mut query_list: Query<(&mut ScrollingList, &mut Style, &Parent, &Node)>,
-    query_node: Query<&Node>,
+    mut query_list: Query<(&mut ScrollingList, &mut Style, &Parent, &NodeSize)>,
+    query_node: Query<&NodeSize>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.iter() {
         for (mut scrolling_list, mut style, parent, list_node) in &mut query_list {
