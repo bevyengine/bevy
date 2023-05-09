@@ -172,7 +172,7 @@ fn queue_text(
     text_settings: &TextSettings,
     scale_factor: f64,
     text: &Text,
-    node: Ref<Node>,
+    node: Ref<NodeSize>,
     mut text_flags: Mut<TextFlags>,
     mut text_layout_info: Mut<TextLayoutInfo>,
 ) {

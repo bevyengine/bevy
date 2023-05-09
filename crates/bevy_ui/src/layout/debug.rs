@@ -12,19 +12,18 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
         .iter()
         .map(|(entity, node)| (*node, *entity))
         .collect();
-    for (&entity, &node) in ui_surface.window_nodes.iter() {
-        let mut out = String::new();
-        print_node(
-            ui_surface,
-            &taffy_to_entity,
-            entity,
-            node,
-            false,
-            String::new(),
-            &mut out,
-        );
-        bevy_log::info!("Layout tree for window entity: {entity:?}\n{out}");
-    }
+    
+    let mut out = String::new();
+    print_node(
+        ui_surface,
+        &taffy_to_entity,
+        taffy_to_entity[&ui_surface.window_node],
+        ui_surface.window_node,
+        false,
+        String::new(),
+        &mut out,
+    );
+    bevy_log::info!("Layout tree for primary window entity:\n{out}");
 }
 
 /// Recursively navigates the layout tree printing each node's information.
