@@ -26,7 +26,19 @@ fn setup(mut commands: Commands) {
             ..Default::default()
         })
         .with_children(|builder| {
-            for (i, color) in [Color::RED, Color::GREEN, Color::YELLOW, Color::CYAN, Color::AQUAMARINE, Color::CRIMSON, Color::FUCHSIA, Color::PINK].into_iter().enumerate() {
+            for (i, color) in [
+                Color::RED,
+                Color::GREEN,
+                Color::YELLOW,
+                Color::CYAN,
+                Color::AQUAMARINE,
+                Color::CRIMSON,
+                Color::FUCHSIA,
+                Color::PINK,
+            ]
+            .into_iter()
+            .enumerate()
+            {
                 builder
                     .spawn(ButtonBundle {
                         style: Style {
