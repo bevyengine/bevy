@@ -66,7 +66,6 @@ pub fn build_ui_render(app: &mut App) {
     };
 
     render_app
-        .init_resource::<UiPipeline>()
         .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
         .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()

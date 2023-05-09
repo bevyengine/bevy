@@ -142,6 +142,8 @@ jobs:
           target: wasm32-unknown-unknown
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown
+        env:
+          RUSTFLAGS: --cfg=web_sys_unstable_apis
 
   markdownlint:
     runs-on: ubuntu-latest
