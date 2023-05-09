@@ -17,13 +17,13 @@ use thiserror::Error;
 /// Describes the size of a UI node
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
-pub struct NodeSize {
+pub struct Node {
     /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
 }
 
-impl NodeSize {
+impl Node {
     /// The calculated node size as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub fn size(&self) -> Vec2 {
@@ -62,13 +62,13 @@ impl NodeSize {
     }
 }
 
-impl NodeSize {
+impl Node {
     pub const DEFAULT: Self = Self {
         calculated_size: Vec2::ZERO,
     };
 }
 
-impl Default for NodeSize {
+impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
     }

@@ -2,7 +2,7 @@
 
 use crate::{CalculatedClip, NodeTransform, OverflowAxis, Style};
 
-use super::NodeSize;
+use super::Node;
 use bevy_ecs::{
     entity::Entity,
     query::{With, Without},
@@ -14,9 +14,9 @@ use bevy_math::Rect;
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
     mut commands: Commands,
-    root_node_query: Query<Entity, (With<NodeSize>, Without<Parent>)>,
+    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     mut node_query: Query<(
-        &NodeSize,
+        &Node,
         &NodeTransform,
         &Style,
         Option<&mut CalculatedClip>,
@@ -38,7 +38,7 @@ fn update_clipping(
     commands: &mut Commands,
     children_query: &Query<&Children>,
     node_query: &mut Query<(
-        &NodeSize,
+        &Node,
         &NodeTransform,
         &Style,
         Option<&mut CalculatedClip>,

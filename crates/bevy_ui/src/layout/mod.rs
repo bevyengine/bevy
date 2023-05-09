@@ -2,7 +2,7 @@ mod convert;
 pub mod debug;
 
 use crate::{
-    ContentSize, NodeRotation, NodeScale, NodeSize, NodeTransform, NodeTranslation, Style, UiScale,
+    ContentSize, NodeRotation, NodeScale, Node, NodeTransform, NodeTranslation, Style, UiScale,
 };
 
 use bevy_ecs::{
@@ -221,20 +221,20 @@ pub fn ui_layout_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
-    root_node_query: Query<Entity, (With<NodeSize>, Without<Parent>)>,
-    style_query: Query<(Entity, Ref<Style>), With<NodeSize>>,
+    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    style_query: Query<(Entity, Ref<Style>), With<Node>>,
     mut measure_query: Query<(Entity, &mut ContentSize)>,
-    children_query: Query<(Entity, Ref<Children>), With<NodeSize>>,
+    children_query: Query<(Entity, Ref<Children>), With<Node>>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut node_geometry_query: Query<(
-        &mut NodeSize,
+        &mut Node,
         &mut NodeTransform,
         Option<&NodeTranslation>,
         Option<&NodeRotation>,
         Option<&NodeScale>,
     )>,
-    mut removed_nodes: RemovedComponents<NodeSize>,
+    mut removed_nodes: RemovedComponents<Node>,
     just_children_query: Query<&Children>,
 ) {
     // assume one window for time being...
@@ -317,7 +317,7 @@ pub fn ui_layout_system(
         inherited_transform: Affine2,
         node_id: Entity,
         node_geometry_query: &mut Query<(
-            &mut NodeSize,
+            &mut Node,
             &mut NodeTransform,
             Option<&NodeTranslation>,
             Option<&NodeRotation>,

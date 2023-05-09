@@ -9,7 +9,7 @@ pub use pipeline::*;
 pub use render_pass::*;
 
 use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, UiImage, UiStack};
-use crate::{NodeSize, NodeTransform};
+use crate::{Node, NodeTransform};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -168,7 +168,7 @@ pub fn extract_uinodes(
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
-            &NodeSize,
+            &Node,
             &NodeTransform,
             &BackgroundColor,
             Option<&UiImage>,
@@ -281,7 +281,7 @@ pub fn extract_text_uinodes(
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
-            &NodeSize,
+            &Node,
             &NodeTransform,
             &Text,
             &TextLayoutInfo,
@@ -297,7 +297,7 @@ pub fn extract_text_uinodes(
         .unwrap_or(1.0);
 
     let inverse_scale_factor = scale_factor.recip();
-    let scaling = Affine2::from_scale(Vec2::splat(scale_factor.recip()));
+//    let scaling = Affine2::from_scale(Vec2::splat(inverse_scale_factor));
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, node_transform, text, text_layout_info, visibility, clip)) =
@@ -309,7 +309,7 @@ pub fn extract_text_uinodes(
             }
 
             let transform =
-                node_transform.0 * Affine2::from_translation(-0.5 * uinode.size()) * scaling;
+                node_transform.0 * Affine2::from_translation(-0.5 * uinode.size());
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
@@ -329,9 +329,10 @@ pub fn extract_text_uinodes(
                 let mut rect = atlas.textures[atlas_info.glyph_index];
                 rect.min *= inverse_scale_factor;
                 rect.max *= inverse_scale_factor;
+
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
-                    transform: transform * Affine2::from_translation(*position),
+                    transform: transform * Affine2::from_translation(*position * inverse_scale_factor),
                     color,
                     rect,
                     image: atlas.texture.clone_weak(),

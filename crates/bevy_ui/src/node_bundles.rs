@@ -3,7 +3,7 @@
 use crate::{
     widget::Button,
     widget::{TextFlags, UiImageSize},
-    BackgroundColor, ContentSize, FocusPolicy, Interaction, NodeSize, NodeTransform, Style,
+    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, NodeTransform, Style,
     UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
@@ -20,7 +20,7 @@ use bevy_text::{Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
     /// DescriNodeSizethe logical size of the node
-    pub node: NodeSize,
+    pub node: Node,
     /// The node's position, rotation, and scaling.
     pub node_transform: NodeTransform,
     /// Styles which control the layout (size and position) of the node and it's children
@@ -61,7 +61,7 @@ pub struct ImageBundle {
     ///
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub node: NodeSize,
+    pub node: Node,
     /// The node's position, rotation, and scaling.
     pub node_transform: NodeTransform,
     /// Describes the style including flexbox settings
@@ -95,7 +95,7 @@ pub struct ImageBundle {
 #[derive(Bundle, Debug)]
 pub struct TextBundle {
     /// Describes the logical size of the node
-    pub node: NodeSize,
+    pub node: Node,
     /// The node's position, rotation, and scaling.
     pub node_transform: NodeTransform,
     /// Describes the style including flexbox settings
@@ -188,7 +188,7 @@ impl TextBundle {
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
     /// Describes the logical size of the node
-    pub node: NodeSize,
+    pub node: Node,
     /// The node's position, rotation, and scaling.
     pub node_transform: NodeTransform,
     /// Marker component that signals this node is a button
