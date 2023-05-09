@@ -109,12 +109,7 @@ impl FromWorld for SpritePipeline {
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
-                        )
-                        .unwrap(),
-                    ),
+                    bytes_per_row: Some(image.texture_descriptor.size.width * format_size as u32),
                     rows_per_image: None,
                 },
                 image.texture_descriptor.size,
@@ -309,7 +304,7 @@ pub struct ExtractedSprite {
     pub rect: Option<Rect>,
     /// Change the on-screen size of the sprite
     pub custom_size: Option<Vec2>,
-    /// Handle to the `Image` of this sprite
+    /// Handle to the [`Image`] of this sprite
     /// PERF: storing a `HandleId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
     pub image_handle_id: HandleId,
     pub flip_x: bool,
@@ -396,7 +391,18 @@ pub fn extract_sprites(
             continue;
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-            let rect = Some(texture_atlas.textures[atlas_sprite.index]);
+            let rect = Some(
+                *texture_atlas
+                    .textures
+                    .get(atlas_sprite.index)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Sprite index {:?} does not exist for texture atlas handle {:?}.",
+                            atlas_sprite.index,
+                            texture_atlas_handle.id(),
+                        )
+                    }),
+            );
             extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
                 color: atlas_sprite.color,

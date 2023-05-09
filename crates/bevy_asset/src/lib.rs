@@ -80,7 +80,7 @@ impl Default for AssetPlugin {
 }
 
 impl AssetPlugin {
-    /// Creates an instance of the platform's default `AssetIo`.
+    /// Creates an instance of the platform's default [`AssetIo`].
     ///
     /// This is useful when providing a custom `AssetIo` instance that needs to
     /// delegate to the default `AssetIo` for the platform.
@@ -104,8 +104,10 @@ impl Plugin for AssetPlugin {
             app.insert_resource(asset_server);
         }
 
-        app.register_type::<HandleId>()
-            .add_systems(PreUpdate, asset_server::free_unused_assets_system);
+        app.register_type::<HandleId>();
+        app.register_type::<AssetPath>();
+
+        app.add_systems(PreUpdate, asset_server::free_unused_assets_system);
         app.init_schedule(LoadAssets);
         app.init_schedule(AssetEvents);
 

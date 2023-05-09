@@ -71,6 +71,7 @@ impl SparseSetIndex for WorldId {
         self.0
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Self(value)
     }

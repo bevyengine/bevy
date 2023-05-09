@@ -2,9 +2,16 @@
 
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
-use bevy_utils::tracing::trace;
+use bevy_utils::detailed_trace;
 use std::ops::{Deref, DerefMut};
-use std::{fmt, hash::Hash, iter::Chain, marker::PhantomData, slice::Iter};
+use std::{
+    cmp::Ordering,
+    fmt,
+    hash::{Hash, Hasher},
+    iter::Chain,
+    marker::PhantomData,
+    slice::Iter,
+};
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
@@ -16,7 +23,6 @@ impl<T> Event for T where T: Send + Sync + 'static {}
 ///
 /// An `EventId` can among other things be used to trace the flow of an event from the point it was
 /// sent to the point it was processed.
-#[derive(Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct EventId<E: Event> {
     pub id: usize,
     _marker: PhantomData<E>,
@@ -43,6 +49,32 @@ impl<E: Event> fmt::Debug for EventId<E> {
             std::any::type_name::<E>().split("::").last().unwrap(),
             self.id,
         )
+    }
+}
+
+impl<E: Event> PartialEq for EventId<E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<E: Event> Eq for EventId<E> {}
+
+impl<E: Event> PartialOrd for EventId<E> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<E: Event> Ord for EventId<E> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
+impl<E: Event> Hash for EventId<E> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash(&self.id, state);
     }
 }
 
@@ -419,10 +451,6 @@ pub struct ManualEventIteratorWithId<'a, E: Event> {
     unread: usize,
 }
 
-fn event_trace<E: Event>(id: EventId<E>) {
-    trace!("EventReader::iter() -> {}", id);
-}
-
 impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
     pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
         let a_index = (reader.last_event_count).saturating_sub(events.events_a.start_event_count);
@@ -459,7 +487,7 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
             .map(|instance| (&instance.event, instance.event_id))
         {
             Some(item) => {
-                event_trace(item.1);
+                detailed_trace!("EventReader::iter() -> {}", item.1);
                 self.reader.last_event_count += 1;
                 self.unread -= 1;
                 Some(item)
@@ -513,7 +541,7 @@ impl<E: Event> Events<E> {
             id: self.event_count,
             _marker: PhantomData,
         };
-        trace!("Events::send() -> id: {}", event_id);
+        detailed_trace!("Events::send() -> id: {}", event_id);
 
         let event_instance = EventInstance { event_id, event };
 
@@ -654,7 +682,7 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
         self.events_b.extend(events);
 
         if old_count != event_count {
-            trace!(
+            detailed_trace!(
                 "Events::extend() -> ids: ({}..{})",
                 self.event_count,
                 event_count
