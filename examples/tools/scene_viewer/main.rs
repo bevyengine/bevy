@@ -12,6 +12,8 @@ use bevy::{
     window::WindowPlugin,
 };
 
+#[cfg(feature = "animation")]
+mod animation_plugin;
 mod camera_controller_plugin;
 mod scene_viewer_plugin;
 
@@ -43,6 +45,9 @@ fn main() {
     .add_plugin(SceneViewerPlugin)
     .add_systems(Startup, setup)
     .add_systems(PreUpdate, setup_scene_after_load);
+
+    #[cfg(feature = "animation")]
+    app.add_plugin(animation_plugin::AnimationManipulationPlugin);
 
     app.run();
 }
