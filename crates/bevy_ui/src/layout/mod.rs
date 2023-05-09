@@ -2,7 +2,7 @@ mod convert;
 pub mod debug;
 
 use crate::{
-    ContentSize, NodeRotation, NodeScale, Node, NodeTransform, NodeTranslation, Style, UiScale,
+    ContentSize, Node, NodeRotation, NodeScale, NodeTransform, NodeTranslation, Style, UiScale,
 };
 
 use bevy_ecs::{

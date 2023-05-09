@@ -15,12 +15,7 @@ use bevy_math::Rect;
 pub fn update_clipping_system(
     mut commands: Commands,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    mut node_query: Query<(
-        &Node,
-        &NodeTransform,
-        &Style,
-        Option<&mut CalculatedClip>,
-    )>,
+    mut node_query: Query<(&Node, &NodeTransform, &Style, Option<&mut CalculatedClip>)>,
     children_query: Query<&Children>,
 ) {
     for root_node in &root_node_query {
@@ -37,12 +32,7 @@ pub fn update_clipping_system(
 fn update_clipping(
     commands: &mut Commands,
     children_query: &Query<&Children>,
-    node_query: &mut Query<(
-        &Node,
-        &NodeTransform,
-        &Style,
-        Option<&mut CalculatedClip>,
-    )>,
+    node_query: &mut Query<(&Node, &NodeTransform, &Style, Option<&mut CalculatedClip>)>,
     entity: Entity,
     maybe_inherited_clip: Option<Rect>,
 ) {

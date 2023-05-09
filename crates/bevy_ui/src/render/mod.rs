@@ -297,7 +297,7 @@ pub fn extract_text_uinodes(
         .unwrap_or(1.0);
 
     let inverse_scale_factor = scale_factor.recip();
-//    let scaling = Affine2::from_scale(Vec2::splat(inverse_scale_factor));
+    //    let scaling = Affine2::from_scale(Vec2::splat(inverse_scale_factor));
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, node_transform, text, text_layout_info, visibility, clip)) =
@@ -308,8 +308,7 @@ pub fn extract_text_uinodes(
                 continue;
             }
 
-            let transform =
-                node_transform.0 * Affine2::from_translation(-0.5 * uinode.size());
+            let transform = node_transform.0 * Affine2::from_translation(-0.5 * uinode.size());
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
@@ -332,7 +331,8 @@ pub fn extract_text_uinodes(
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
-                    transform: transform * Affine2::from_translation(*position * inverse_scale_factor),
+                    transform: transform
+                        * Affine2::from_translation(*position * inverse_scale_factor),
                     color,
                     rect,
                     image: atlas.texture.clone_weak(),
