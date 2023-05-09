@@ -315,8 +315,10 @@ pub fn prepare_view_uniforms(
     mut view_uniforms: ResMut<ViewUniforms>,
     views: Query<(Entity, &ExtractedView, Option<&TemporalJitter>)>,
 ) {
-    let mut writer = view_uniforms.uniforms.get_writer(&render_device, &render_queue);
-    for (entity, camera, temporal_jitter) in views.iter() {
+    let view_iter = views.iter();
+    let capacity = view_iter.len();
+    let Some(mut writer) = view_uniforms.uniforms.get_writer(capacity, &render_device, &render_queue) else  { return };
+    for (entity, camera, temporal_jitter) in view_iter {
         let viewport = camera.viewport.as_vec4();
         let unjittered_projection = camera.projection;
         let mut projection = unjittered_projection;

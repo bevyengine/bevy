@@ -132,8 +132,10 @@ fn prepare_uniform_components<C: Component>(
 ) where
     C: ShaderType + WriteInto,
 {
-    let mut writer = component_uniforms.uniforms.get_writer(&render_device, &render_queue);
-    let entities = components.iter()
+    let component_iter = components.iter();
+    let capacity = component_iter.len();
+    let Some(mut writer) = component_uniforms.uniforms.get_writer(capacity, &render_device, &render_queue) else { return };
+    let entities = component_iter
         .map(|(entity, component)| {
             (
                 entity,
