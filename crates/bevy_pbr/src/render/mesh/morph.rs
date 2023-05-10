@@ -43,7 +43,7 @@ const fn can_align(step: usize, target: usize) -> bool {
 fn add_to_alignment<const N: usize, T: Pod + Default>(buffer: &mut BufferVec<T>) {
     let t_size = mem::size_of::<T>();
     if !can_align(t_size, N) {
-        panic!("BufferVec should contain only types with a size multiple or divisible by N");
+        panic!("BufferVec should contain only types with a size multiple or divisible by N ({N})");
     }
     let buffer_size = buffer.len();
     let byte_size = t_size * buffer_size;
