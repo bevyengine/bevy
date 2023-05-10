@@ -939,7 +939,7 @@ pub fn queue_mesh_bind_group(
         ) {
             // (1) No model uniform.
             // (2) No morph uniform, mesh with morph target exists.
-            (None, ..) | (.., None, Some(_)) => {}
+            (None, _, _, _) | (_, _, None, Some(_)) => {}
 
             (Some(model), None, _, None) => {
                 let layout = &mesh_pipeline.mesh_layouts.model_only;
