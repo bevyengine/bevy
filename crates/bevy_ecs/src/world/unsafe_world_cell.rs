@@ -111,6 +111,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Component)] struct Player;
+    /// # fn store_but_dont_use<T>(_: T) {}
     /// # let mut world = World::new();
     /// // Make an UnsafeWorldCell.
     /// let world_cell = world.as_unsafe_world_cell();
