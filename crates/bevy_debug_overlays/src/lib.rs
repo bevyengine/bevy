@@ -76,7 +76,7 @@ struct GpuTimerLabelMarker;
 #[derive(Component)]
 struct GpuTimerDurationMarker;
 
-fn setup_gpu_time_overlay(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_gpu_time_overlay(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -102,25 +102,25 @@ fn setup_gpu_time_overlay(mut commands: Commands, asset_server: Res<AssetServer>
                         TextSection::new(
                             "GPU Time",
                             TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 16.0,
                                 color: Color::WHITE,
+                                ..default()
                             },
                         ),
                         TextSection::new(
                             " (ms)  Mean     Min      Max\n",
                             TextStyle {
-                                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                                 font_size: 10.0,
                                 color: Color::WHITE,
+                                ..default()
                             },
                         ),
                     ]));
                     parent.spawn(NodeBundle::default()).with_children(|parent| {
                         let style = TextStyle {
-                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                             font_size: 12.0,
                             color: Color::WHITE,
+                            ..default()
                         };
                         parent.spawn((
                             GpuTimerLabelMarker,
