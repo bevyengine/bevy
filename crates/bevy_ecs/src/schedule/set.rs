@@ -147,48 +147,69 @@ impl SystemSet for AnonymousSet {
     }
 }
 
-/// A [`SystemSet`] that is automatically populated with any systems
-/// that access the component `T`.
-pub struct ReadsComponent<T>(PhantomData<T>);
+macro_rules! generic_unit_struct {
+    ( $(#[$($tt:tt)*])* $name:ident) => {
+        $(#[$($tt)*])*
+        pub struct $name<T>(PhantomData<T>);
 
-impl<T> Default for ReadsComponent<T> {
-    fn default() -> Self {
-        Self(PhantomData)
+        impl<T> Default for $name<T> {
+            fn default() -> Self {
+                Self(PhantomData)
+            }
+        }
+
+        impl<T> Clone for $name<T> {
+            fn clone(&self) -> Self {
+                *self
+            }
+        }
+
+        impl<T> Copy for $name<T> {}
+
+        impl<T> PartialEq for $name<T> {
+            fn eq(&self, _: &Self) -> bool {
+                true
+            }
+        }
+
+        impl<T> Eq for $name<T> {}
+
+        impl<T> Hash for $name<T> {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.0.hash(state);
+            }
+        }
+
+        impl<T: 'static> std::fmt::Debug for $name<T> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(
+                    f,
+                    "{}<{}>",
+                    std::any::type_name::<Self>(),
+                    std::any::type_name::<T>()
+                )
+            }
+        }
+    };
+    ($( $(#[$($tt:tt)*])* $name:ident ),*) => {
+        $( generic_unit_struct!($(#[$($tt)*])* $name); )*
     }
 }
 
-impl<T> Clone for ReadsComponent<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T> Copy for ReadsComponent<T> {}
-
-impl<T> PartialEq for ReadsComponent<T> {
-    fn eq(&self, _: &Self) -> bool {
-        true
-    }
-}
-
-impl<T> Eq for ReadsComponent<T> {}
-
-impl<T> Hash for ReadsComponent<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-    }
-}
-
-impl<T: 'static> std::fmt::Debug for ReadsComponent<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}<{}>",
-            std::any::type_name::<Self>(),
-            std::any::type_name::<T>()
-        )
-    }
-}
+generic_unit_struct!(
+    /// A [`SystemSet`] that is automatically populated with any systems
+    /// that access the component `T`.
+    ReadsComponent,
+    /// A [`SystemSet`] that is automatically populated with any systems
+    /// that have mutable access to the component `T`.
+    WritesComponent,
+    /// A [`SystemSet`] that is automatically populated with any systems
+    /// that access the resource `T`.
+    ReadsResource,
+    /// A [`SystemSet`] that is automatically populated with any systems
+    /// that have mutable access to the component `T`.
+    WritesResource
+);
 
 impl<T: Component> SystemSet for ReadsComponent<T> {
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
@@ -197,49 +218,6 @@ impl<T: Component> SystemSet for ReadsComponent<T> {
 
     fn reads_component(&self) -> Option<ComponentDescriptor> {
         Some(ComponentDescriptor::new::<T>())
-    }
-}
-
-/// A [`SystemSet`] that is automatically populated with any systems
-/// that have mutable access to the component `T`.
-pub struct WritesComponent<T>(PhantomData<T>);
-
-impl<T> Default for WritesComponent<T> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<T> Clone for WritesComponent<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T> Copy for WritesComponent<T> {}
-
-impl<T> PartialEq for WritesComponent<T> {
-    fn eq(&self, _: &Self) -> bool {
-        true
-    }
-}
-
-impl<T> Eq for WritesComponent<T> {}
-
-impl<T> Hash for WritesComponent<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-    }
-}
-
-impl<T: 'static> std::fmt::Debug for WritesComponent<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}<{}>",
-            std::any::type_name::<Self>(),
-            std::any::type_name::<T>()
-        )
     }
 }
 
@@ -253,49 +231,6 @@ impl<T: Component> SystemSet for WritesComponent<T> {
     }
 }
 
-/// A [`SystemSet`] that is automatically populated with any systems
-/// that access the resource `T`.
-pub struct ReadsResource<T>(PhantomData<T>);
-
-impl<T> Default for ReadsResource<T> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<T> Clone for ReadsResource<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T> Copy for ReadsResource<T> {}
-
-impl<T> PartialEq for ReadsResource<T> {
-    fn eq(&self, _: &Self) -> bool {
-        true
-    }
-}
-
-impl<T> Eq for ReadsResource<T> {}
-
-impl<T> Hash for ReadsResource<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-    }
-}
-
-impl<T: 'static> std::fmt::Debug for ReadsResource<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}<{}>",
-            std::any::type_name::<Self>(),
-            std::any::type_name::<T>()
-        )
-    }
-}
-
 impl<T: Resource> SystemSet for ReadsResource<T> {
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
         Box::new(*self)
@@ -303,49 +238,6 @@ impl<T: Resource> SystemSet for ReadsResource<T> {
 
     fn reads_component(&self) -> Option<ComponentDescriptor> {
         Some(ComponentDescriptor::new_resource::<T>())
-    }
-}
-
-/// A [`SystemSet`] that is automatically populated with any systems
-/// that have mutable access to the component `T`.
-pub struct WritesResource<T>(PhantomData<T>);
-
-impl<T> Default for WritesResource<T> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<T> Clone for WritesResource<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T> Copy for WritesResource<T> {}
-
-impl<T> PartialEq for WritesResource<T> {
-    fn eq(&self, _: &Self) -> bool {
-        true
-    }
-}
-
-impl<T> Eq for WritesResource<T> {}
-
-impl<T> Hash for WritesResource<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-    }
-}
-
-impl<T: 'static> std::fmt::Debug for WritesResource<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}<{}>",
-            std::any::type_name::<Self>(),
-            std::any::type_name::<T>()
-        )
     }
 }
 
