@@ -129,8 +129,8 @@ impl<'w> UnsafeWorldCell<'w> {
     /// // Use mutable access to spawn an entity.
     /// world_mut.spawn(Player);
     ///
-    /// // Since we no longer use `world_mut` after this, we are once again
-    /// // allowed to access the world using `world_cell`.
+    /// // Since we never use `world_mut` after this, the borrow is released
+    /// // and we are once again allowed to access the world using `world_cell`.
     /// let archetypes = world_cell.archetypes();
     /// ```
     #[inline]
