@@ -919,6 +919,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
     }
 }
 
+struct MeshBindGroupCache {
+    model_only: Option<BindGroup>,
+    skinned: Option<BindGroup>,
+}
 pub fn queue_mesh_bind_group(
     mut meshes: ResMut<RenderAssets<Mesh>>,
     mesh_pipeline: Res<MeshPipeline>,
@@ -928,6 +932,21 @@ pub fn queue_mesh_bind_group(
     weights_uniform: Res<morph::Uniform>,
 ) {
     use bindings::group::{model_only, morphed, morphed_and_skinned, skinned};
+
+    let mut cache = MeshBindGroupCache {
+        model_only: None,
+        skinned: None,
+    };
+    let mut cached_model_only = |model| {
+        let layout = &mesh_pipeline.mesh_layouts.model_only;
+        let model_only = || model_only(&render_device, layout, model);
+        cache.model_only.get_or_insert_with(model_only).clone()
+    };
+    let mut cached_skinned = |model, skin| {
+        let layout = &mesh_pipeline.mesh_layouts.skinned;
+        let skinned = || skinned(&render_device, layout, model, skin);
+        cache.skinned.get_or_insert_with(skinned).clone()
+    };
     for (_, gpu_mesh) in meshes.iter_mut() {
         let has_skin = |_: &&Buffer| gpu_mesh.is_skinned();
         match (
@@ -942,8 +961,7 @@ pub fn queue_mesh_bind_group(
             (None, _, _, _) | (_, _, None, Some(_)) => {}
 
             (Some(model), None, _, None) => {
-                let layout = &mesh_pipeline.mesh_layouts.model_only;
-                gpu_mesh.bind_group = Some(model_only(&render_device, layout, model));
+                gpu_mesh.bind_group = Some(cached_model_only(model));
             }
             (Some(model), None, Some(weights), Some(targets)) => {
                 let layout = &mesh_pipeline.mesh_layouts.morphed;
@@ -951,8 +969,7 @@ pub fn queue_mesh_bind_group(
                     Some(morphed(&render_device, layout, model, weights, targets));
             }
             (Some(model), Some(skin), _, None) => {
-                let layout = &mesh_pipeline.mesh_layouts.skinned;
-                gpu_mesh.bind_group = Some(skinned(&render_device, layout, model, skin));
+                gpu_mesh.bind_group = Some(cached_skinned(model, skin));
             }
             (Some(model), Some(skin), Some(weights), Some(targets)) => {
                 let layout = &mesh_pipeline.mesh_layouts.morphed_and_skinned;
