@@ -415,7 +415,6 @@ impl ScheduleGraph {
             read_system_sets: HashMap::new(),
             write_system_sets: HashMap::new(),
             uninit_access_sets: Vec::new(),
-            maybe_default_base_set: Vec::new(),
             uninit: Vec::new(),
             hierarchy: Dag::new(),
             dependency: Dag::new(),

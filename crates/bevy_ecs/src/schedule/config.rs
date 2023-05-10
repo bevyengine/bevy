@@ -411,6 +411,8 @@ pub struct SystemSetConfig {
     pub(super) set: BoxedSystemSet,
     pub(super) graph_info: GraphInfo,
     pub(super) conditions: Vec<BoxedCondition>,
+    pub(super) on_read: Vec<ComponentDescriptor>,
+    pub(super) on_write: Vec<ComponentDescriptor>,
 }
 
 impl SystemSetConfig {
@@ -426,6 +428,8 @@ impl SystemSetConfig {
             set,
             graph_info: GraphInfo::default(),
             conditions: Vec::new(),
+            on_read: Vec::new(),
+            on_write: Vec::new(),
         }
     }
 }
