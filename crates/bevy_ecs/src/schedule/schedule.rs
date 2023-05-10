@@ -353,6 +353,10 @@ impl SystemSetNode {
     pub fn is_anonymous(&self) -> bool {
         self.inner.is_anonymous()
     }
+
+    pub fn is_access_set(&self) -> bool {
+        self.inner.reads_component().is_some() || self.inner.writes_component().is_some()
+    }
 }
 
 /// A [`BoxedSystem`] with metadata, stored in a [`ScheduleGraph`].

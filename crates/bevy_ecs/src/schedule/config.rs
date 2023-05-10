@@ -331,6 +331,10 @@ impl IntoSystemConfigs<()> for SystemConfigs {
             set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
+        assert!(
+            set.reads_component().is_none() && set.writes_component().is_none(),
+            "adding arbitrary systems to a world access set is not allowed"
+        );
 
         self.in_set_inner(set.dyn_clone());
 
@@ -418,6 +422,10 @@ impl SystemSetConfig {
         assert!(
             set.system_type().is_none(),
             "configuring system type sets is not allowed"
+        );
+        assert!(
+            set.reads_component().is_none() && set.writes_component().is_none(),
+            "configuring world access sets is not allowed"
         );
 
         Self {
@@ -518,6 +526,10 @@ impl IntoSystemSetConfig for SystemSetConfig {
         assert!(
             set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
+        );
+        assert!(
+            set.reads_component().is_none() && set.writes_component().is_none(),
+            "adding arbitrary systems to a world access set is not allowed"
         );
         self.graph_info.sets.push(Box::new(set));
         self
@@ -646,6 +658,10 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
         assert!(
             set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
+        );
+        assert!(
+            set.reads_component().is_none() && set.writes_component().is_none(),
+            "adding arbitrary systems to a world access set is not allowed"
         );
         for config in &mut self.sets {
             config.graph_info.sets.push(set.dyn_clone());
