@@ -14,7 +14,7 @@ use crate::{
     system::Resource,
 };
 use bevy_ptr::Ptr;
-use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData, sync::atomic::Ordering};
+use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -191,13 +191,17 @@ impl<'w> UnsafeWorldCell<'w> {
 
     /// Reads the current change tick of this world.
     #[inline]
+    #[deprecated = "this method has been renamed to `UnsafeWorldCell::change_tick`"]
     pub fn read_change_tick(self) -> Tick {
+        self.change_tick()
+    }
+
+    /// Gets the current change tick of this world.
+    #[inline]
+    pub fn change_tick(self) -> Tick {
         // SAFETY:
         // - we only access world metadata
-        let tick = unsafe { self.world_metadata() }
-            .change_tick
-            .load(Ordering::Acquire);
-        Tick::new(tick)
+        unsafe { self.world_metadata() }.read_change_tick()
     }
 
     #[inline]
@@ -382,7 +386,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // - index is in-bounds because the column is initialized and non-empty
         // - the caller promises that no other reference to the ticks of the same row can exist at the same time
         let ticks = unsafe {
-            TicksMut::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick())
+            TicksMut::from_tick_cells(ticks, self.last_change_tick(), self.change_tick())
         };
 
         Some(MutUntyped {
@@ -430,7 +434,7 @@ impl<'w> UnsafeWorldCell<'w> {
         self,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'w>> {
-        let change_tick = self.read_change_tick();
+        let change_tick = self.change_tick();
         // SAFETY: we only access data that the caller has ensured is unaliased and `self`
         //  has permission to access.
         let (ptr, ticks) = unsafe { self.unsafe_world() }
@@ -650,9 +654,7 @@ impl<'w> UnsafeEntityCell<'w> {
     #[inline]
     pub unsafe fn get_mut<T: Component>(self) -> Option<Mut<'w, T>> {
         // SAFETY: same safety requirements
-        unsafe {
-            self.get_mut_using_ticks(self.world.last_change_tick(), self.world.read_change_tick())
-        }
+        unsafe { self.get_mut_using_ticks(self.world.last_change_tick(), self.world.change_tick()) }
     }
 
     /// # Safety
@@ -744,7 +746,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 ticks: TicksMut::from_tick_cells(
                     cells,
                     self.world.last_change_tick(),
-                    self.world.read_change_tick(),
+                    self.world.change_tick(),
                 ),
             })
         }
