@@ -200,6 +200,14 @@ impl<'w> UnsafeWorldCell<'w> {
         Tick::new(tick)
     }
 
+    /// Gets the current change tick of this world.
+    #[inline]
+    pub fn change_tick(self) -> Tick {
+        // SAFETY:
+        // - we only access world metadata
+        unsafe { self.world_metadata() }.read_change_tick()
+    }
+
     #[inline]
     pub fn last_change_tick(self) -> Tick {
         // SAFETY:
