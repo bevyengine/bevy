@@ -63,7 +63,8 @@ mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
     use crate::schedule::{
-        IntoSystemConfigs, IntoSystemSetConfig, Schedule, ScheduleBuildSettings, SystemSet,
+        IntoSystemConfigs, ReadsComponent, ReadsResource, Schedule, ScheduleBuildSettings,
+        SystemSet, WritesComponent,
     };
     use crate::system::{Query, Res, ResMut};
     use crate::{
@@ -1718,18 +1719,16 @@ mod tests {
         #[derive(Component)]
         struct Conflict;
 
-        #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        struct ReadSet;
-
         fn before_read(_: Query<&mut Conflict>) {}
         fn does_read(_: Query<&A>, _: Query<&mut Conflict>) {}
 
         let mut world = World::new();
         let mut schedule = Schedule::new();
 
-        schedule.configure_set(ReadSet.on_read::<A>());
-
-        schedule.add_systems((before_read.before(ReadSet), does_read));
+        schedule.add_systems((
+            before_read.before(ReadsComponent::<A>::default()),
+            does_read,
+        ));
 
         // Panic if there are ambiguities.
         schedule.set_build_settings(ScheduleBuildSettings {
@@ -1742,19 +1741,14 @@ mod tests {
 
     #[test]
     fn write_component_with_access_set() {
-        #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        struct WriteSet;
-
         fn does_write(_q: Query<&mut A>) {}
         fn after_write(_q: Query<&A>) {}
 
         let mut world = World::new();
         let mut schedule = Schedule::new();
 
-        schedule.configure_set(WriteSet.on_write::<A>());
-
-        schedule.add_system(does_write);
-        schedule.add_system(after_write.after(WriteSet));
+        schedule.add_systems(does_write);
+        schedule.add_systems(after_write.after(WritesComponent::<A>::default()));
 
         // Panic if there are ambiguities.
         schedule.set_build_settings(ScheduleBuildSettings {
@@ -1782,13 +1776,11 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::new();
 
-        schedule.configure_sets((
-            Writers.on_write_resource::<R>(),
-            Readers.on_read_resource::<R>().after(Writers),
-        ));
-
         world.init_resource::<R>();
-        schedule.add_systems((send_system, read_system));
+        schedule.add_systems((
+            send_system.before(ReadsResource::<R>::default()),
+            read_system,
+        ));
 
         // Panic if there are ambiguities.
         schedule.set_build_settings(ScheduleBuildSettings {

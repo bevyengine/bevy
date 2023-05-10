@@ -1,14 +1,12 @@
 use bevy_utils::all_tuples;
 
 use crate::{
-    component::{Component, ComponentDescriptor},
     schedule::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
         ScheduleLabel,
     },
-    system::Resource,
     system::{BoxedSystem, IntoSystem, System},
 };
 
@@ -411,8 +409,6 @@ pub struct SystemSetConfig {
     pub(super) set: BoxedSystemSet,
     pub(super) graph_info: GraphInfo,
     pub(super) conditions: Vec<BoxedCondition>,
-    pub(super) on_read: Vec<ComponentDescriptor>,
-    pub(super) on_write: Vec<ComponentDescriptor>,
 }
 
 impl SystemSetConfig {
@@ -428,8 +424,6 @@ impl SystemSetConfig {
             set,
             graph_info: GraphInfo::default(),
             conditions: Vec::new(),
-            on_read: Vec::new(),
-            on_write: Vec::new(),
         }
     }
 }
@@ -453,22 +447,6 @@ pub trait IntoSystemSetConfig: Sized {
     /// Run after all systems in `set`.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
         self.into_config().after(set)
-    }
-    /// Automatically assign any system that reads `T` to this set.
-    fn on_read<T: Component>(self) -> SystemSetConfig {
-        self.into_config().on_read::<T>()
-    }
-    // Automatically assign any system that can write `T` to this set.
-    fn on_write<T: Component>(self) -> SystemSetConfig {
-        self.into_config().on_write::<T>()
-    }
-    /// Automatically assign any system that reads `T` to this set.
-    fn on_read_resource<T: Resource>(self) -> SystemSetConfig {
-        self.into_config().on_read_resource::<T>()
-    }
-    // Automatically assign any system that can write `T` to this set.
-    fn on_write_resource<T: Resource>(self) -> SystemSetConfig {
-        self.into_config().on_write_resource::<T>()
     }
     /// Run the systems in this set only if the [`Condition`] is `true`.
     ///
@@ -558,26 +536,6 @@ impl IntoSystemSetConfig for SystemSetConfig {
             DependencyKind::After,
             Box::new(set.into_system_set()),
         ));
-        self
-    }
-
-    fn on_read<T: Component>(mut self) -> SystemSetConfig {
-        self.on_read.push(ComponentDescriptor::new::<T>());
-        self
-    }
-
-    fn on_write<T: Component>(mut self) -> SystemSetConfig {
-        self.on_write.push(ComponentDescriptor::new::<T>());
-        self
-    }
-
-    fn on_read_resource<T: Resource>(mut self) -> SystemSetConfig {
-        self.on_read.push(ComponentDescriptor::new_resource::<T>());
-        self
-    }
-
-    fn on_write_resource<T: Resource>(mut self) -> SystemSetConfig {
-        self.on_write.push(ComponentDescriptor::new_resource::<T>());
         self
     }
 

@@ -708,23 +708,12 @@ impl ScheduleGraph {
             set,
             graph_info,
             mut conditions,
-            on_read,
-            on_write,
         } = set.into_config();
 
         let id = match self.system_set_ids.get(&set) {
             Some(&id) => id,
             None => self.add_set(set.dyn_clone()),
         };
-
-        for component in on_read {
-            self.uninit_access_sets
-                .push(PendingAccessSet::Read(component, id));
-        }
-        for component in on_write {
-            self.uninit_access_sets
-                .push(PendingAccessSet::Write(component, id));
-        }
 
         // graph updates are immediate
         self.update_graphs(id, graph_info)?;
@@ -742,7 +731,18 @@ impl ScheduleGraph {
         let id = NodeId::Set(self.system_sets.len());
         self.system_sets.push(SystemSetNode::new(set.dyn_clone()));
         self.system_set_conditions.push(None);
+
+        if let Some(component) = set.reads_component() {
+            self.uninit_access_sets
+                .push(PendingAccessSet::Read(component, id));
+        }
+        if let Some(component) = set.writes_component() {
+            self.uninit_access_sets
+                .push(PendingAccessSet::Write(component, id));
+        }
+
         self.system_set_ids.insert(set, id);
+
         id
     }
 
