@@ -43,26 +43,6 @@ fn get_serializable<'a, E: serde::ser::Error>(
     Ok(reflect_serialize.get_serializable(reflect_value))
 }
 
-/// Get the underlying [`TypeInfo`] of a given type.
-///
-/// If the given type is a [`TypeInfo::Dynamic`] then we need to try and look
-/// up the actual type in the registry.
-fn get_type_info<E: Error>(
-    type_info: &'static TypeInfo,
-    type_name: &str,
-    registry: &TypeRegistry,
-) -> Result<&'static TypeInfo, E> {
-    match type_info {
-        TypeInfo::Dynamic(..) => match registry.get_with_name(type_name) {
-            Some(registration) => Ok(registration.type_info()),
-            None => Err(Error::custom(format_args!(
-                "no registration found for dynamic type with name {type_name}",
-            ))),
-        },
-        info => Ok(info),
-    }
-}
-
 /// A general purpose serializer for reflected types.
 ///
 /// The serialized data will take the form of a map containing the following entries:
@@ -186,11 +166,15 @@ impl<'a> Serialize for StructSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let type_info = get_type_info(
-            self.struct_value.get_type_info(),
-            self.struct_value.type_name(),
-            self.registry,
-        )?;
+        let type_info = self
+            .struct_value
+            .get_represented_type_info()
+            .ok_or_else(|| {
+                Error::custom(format_args!(
+                    "cannot get type info for {}",
+                    self.struct_value.type_name()
+                ))
+            })?;
 
         let struct_info = match type_info {
             TypeInfo::Struct(struct_info) => struct_info,
@@ -235,11 +219,15 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let type_info = get_type_info(
-            self.tuple_struct.get_type_info(),
-            self.tuple_struct.type_name(),
-            self.registry,
-        )?;
+        let type_info = self
+            .tuple_struct
+            .get_represented_type_info()
+            .ok_or_else(|| {
+                Error::custom(format_args!(
+                    "cannot get type info for {}",
+                    self.tuple_struct.type_name()
+                ))
+            })?;
 
         let tuple_struct_info = match type_info {
             TypeInfo::TupleStruct(tuple_struct_info) => tuple_struct_info,
@@ -283,11 +271,12 @@ impl<'a> Serialize for EnumSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let type_info = get_type_info(
-            self.enum_value.get_type_info(),
-            self.enum_value.type_name(),
-            self.registry,
-        )?;
+        let type_info = self.enum_value.get_represented_type_info().ok_or_else(|| {
+            Error::custom(format_args!(
+                "cannot get type info for {}",
+                self.enum_value.type_name()
+            ))
+        })?;
 
         let enum_info = match type_info {
             TypeInfo::Enum(enum_info) => enum_info,

@@ -1,9 +1,12 @@
 use crate::{
+    component::Tick,
     storage::SparseSetIndex,
     system::{ReadOnlySystemParam, SystemParam},
     world::{FromWorld, World},
 };
 use std::sync::atomic::{AtomicUsize, Ordering};
+
+use super::unsafe_world_cell::UnsafeWorldCell;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 // We use usize here because that is the largest `Atomic` we want to require
@@ -55,10 +58,10 @@ unsafe impl SystemParam for WorldId {
     unsafe fn get_param<'world, 'state>(
         _: &'state mut Self::State,
         _: &crate::system::SystemMeta,
-        world: &'world super::World,
-        _: u32,
+        world: UnsafeWorldCell<'world>,
+        _: Tick,
     ) -> Self::Item<'world, 'state> {
-        world.id
+        world.world_metadata().id()
     }
 }
 
@@ -68,6 +71,7 @@ impl SparseSetIndex for WorldId {
         self.0
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Self(value)
     }

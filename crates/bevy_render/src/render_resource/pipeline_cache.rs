@@ -56,6 +56,11 @@ pub struct CachedRenderPipelineId(CachedPipelineId);
 impl CachedRenderPipelineId {
     /// An invalid cached render pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
+
+    #[inline]
+    pub fn id(&self) -> usize {
+        self.0
+    }
 }
 
 /// Index of a cached compute pipeline in a [`PipelineCache`].
@@ -65,6 +70,11 @@ pub struct CachedComputePipelineId(CachedPipelineId);
 impl CachedComputePipelineId {
     /// An invalid cached compute pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
+
+    #[inline]
+    pub fn id(&self) -> usize {
+        self.0
+    }
 }
 
 pub struct CachedPipeline {
@@ -184,7 +194,7 @@ impl ShaderCache {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 let mut shader_defs = shader_defs.to_vec();
-                #[cfg(feature = "webgl")]
+                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                 {
                     shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
@@ -742,6 +752,7 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
                 let msg = error.emit_to_string(source);
                 error!("failed to process shader:\n{}", msg);
             }
+            #[cfg(feature = "shader_format_glsl")]
             ShaderReflectError::GlslParse(errors) => {
                 let source = source
                     .get_glsl_source()
@@ -766,6 +777,7 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
 
                 error!("failed to process shader: \n{}", msg);
             }
+            #[cfg(feature = "shader_format_spirv")]
             ShaderReflectError::SpirVParse(error) => {
                 error!("failed to process shader:\n{}", error);
             }
@@ -808,9 +820,11 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
                 error!("failed to process shader: \n{}", msg);
             }
         },
+        #[cfg(feature = "shader_format_glsl")]
         AsModuleDescriptorError::WgslConversion(error) => {
             error!("failed to convert shader to wgsl: \n{}", error);
         }
+        #[cfg(feature = "shader_format_spirv")]
         AsModuleDescriptorError::SpirVConversion(error) => {
             error!("failed to convert shader to spirv: \n{}", error);
         }

@@ -1,4 +1,5 @@
 <!-- MD024 - The Headers from the Platform-Specific Examples should be identical  -->
+<!-- Use 'cargo run -p build-templated-pages -- build-example-page' to generate the final example README.md -->
 <!-- markdownlint-disable-file MD024 -->
 
 # Examples
@@ -206,7 +207,7 @@ Following is an example for `lighting`. For other examples, change the `lighting
 following commands.
 
 ```sh
-cargo build --release --example lighting --target wasm32-unknown-unknown
+cargo build --release --example lighting --target wasm32-unknown-unknown --features webgl
 wasm-bindgen --out-name wasm_example \
   --out-dir examples/wasm/target \
   --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
@@ -229,6 +230,19 @@ python3 -m http.server --directory examples/wasm
 # with ruby
 ruby -run -ehttpd examples/wasm
 ```
+
+#### WebGL2 and WebGPU
+
+Bevy support for WebGPU is being worked on, but is currently experimental.
+
+To build for WebGPU, you'll need to disable default features and add all those you need, making sure to omit the `webgl2` feature.
+
+Bevy has an helper to build its examples:
+
+- Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
+- Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
+
+This helper will log the command used to build the examples.
 
 ### Optimizing
 

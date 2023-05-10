@@ -1,4 +1,4 @@
-use bevy_app::{IntoSystemAppConfig, Plugin};
+use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 
 use bevy_ecs::{
@@ -22,7 +22,7 @@ use bevy_render::{
     view::{
         ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
     },
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 
@@ -101,11 +101,21 @@ impl Plugin for Mesh2dRenderPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<Mesh2dPipeline>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
-                .add_system(extract_mesh2d.in_schedule(ExtractSchedule))
-                .add_system(queue_mesh2d_bind_group.in_set(RenderSet::Queue))
-                .add_system(queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue));
+                .add_systems(ExtractSchedule, extract_mesh2d)
+                .add_systems(
+                    Render,
+                    (
+                        queue_mesh2d_bind_group.in_set(RenderSet::Queue),
+                        queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue),
+                    ),
+                );
+        }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<Mesh2dPipeline>();
         }
     }
 }
@@ -208,12 +218,7 @@ impl FromWorld for Mesh2dPipeline {
         });
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
-            let image = Image::new_fill(
-                Extent3d::default(),
-                TextureDimension::D2,
-                &[255u8; 4],
-                TextureFormat::bevy_default(),
-            );
+            let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
                 ImageSampler::Default => (**default_sampler).clone(),
@@ -232,12 +237,7 @@ impl FromWorld for Mesh2dPipeline {
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
-                        )
-                        .unwrap(),
-                    ),
+                    bytes_per_row: Some(image.texture_descriptor.size.width * format_size as u32),
                     rows_per_image: None,
                 },
                 image.texture_descriptor.size,
@@ -395,25 +395,33 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
             let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
-            if method == Mesh2dPipelineKey::TONEMAP_METHOD_NONE {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD {
-                shader_defs.push("TONEMAP_METHOD_REINHARD".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
-                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED {
-                shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_AGX {
-                shader_defs.push("TONEMAP_METHOD_AGX".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-            {
-                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
-                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
-                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            match method {
+                Mesh2dPipelineKey::TONEMAP_METHOD_NONE => {
+                    shader_defs.push("TONEMAP_METHOD_NONE".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD => {
+                    shader_defs.push("TONEMAP_METHOD_REINHARD".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE => {
+                    shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED => {
+                    shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_AGX => {
+                    shader_defs.push("TONEMAP_METHOD_AGX".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM => {
+                    shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC => {
+                    shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE => {
+                    shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+                }
+                _ => {}
             }
-
             // Debanding is tied to tonemapping in the shader, cannot run without it.
             if key.contains(Mesh2dPipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".into());
@@ -599,8 +607,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
                     pass.set_index_buffer(buffer.slice(..), 0, *index_format);
                     pass.draw_indexed(0..*count, 0, 0..1);
                 }
-                GpuBufferInfo::NonIndexed { vertex_count } => {
-                    pass.draw(0..*vertex_count, 0..1);
+                GpuBufferInfo::NonIndexed => {
+                    pass.draw(0..gpu_mesh.vertex_count, 0..1);
                 }
             }
             RenderCommandResult::Success

@@ -8,37 +8,29 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_core_pipeline::core_3d::Transparent3d;
-use bevy_ecs::{
-    prelude::*,
-    system::{lifetimeless::*, SystemParamItem},
-};
+use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand,
-        RenderCommandResult, RenderPhase, TrackedRenderPass,
+        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ComputedVisibility, ExtractedView, ViewUniformOffset, ViewUniforms, VisibleEntities},
+    view::{ComputedVisibility, ExtractedView, VisibleEntities},
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
-use bevy_utils::FloatOrd;
 use bevy_utils::{
     tracing::{error, warn},
     HashMap,
 };
-use std::{
-    hash::Hash,
-    num::{NonZeroU32, NonZeroU64},
-};
+use std::{hash::Hash, num::NonZeroU64};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderLightSystems {
@@ -225,9 +217,9 @@ pub struct GpuLights {
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
-#[cfg(not(feature = "webgl"))]
+#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 4;
-#[cfg(feature = "webgl")]
+#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 1;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
@@ -477,37 +469,43 @@ pub(crate) struct CubeMapFace {
     pub(crate) up: Vec3,
 }
 
-// see https://www.khronos.org/opengl/wiki/Cubemap_Texture
+// Cubemap faces are [+X, -X, +Y, -Y, +Z, -Z], per https://www.w3.org/TR/webgpu/#texture-view-creation
+// Note: Cubemap coordinates are left-handed y-up, unlike the rest of Bevy.
+// See https://registry.khronos.org/vulkan/specs/1.2/html/chap16.html#_cube_map_face_selection
+//
+// For each cubemap face, we take care to specify the appropriate target/up axis such that the rendered
+// texture using Bevy's right-handed y-up coordinate space matches the expected cubemap face in
+// left-handed y-up cubemap coordinates.
 pub(crate) const CUBE_MAP_FACES: [CubeMapFace; 6] = [
-    // 0 	GL_TEXTURE_CUBE_MAP_POSITIVE_X
-    CubeMapFace {
-        target: Vec3::NEG_X,
-        up: Vec3::NEG_Y,
-    },
-    // 1 	GL_TEXTURE_CUBE_MAP_NEGATIVE_X
+    // +X
     CubeMapFace {
         target: Vec3::X,
-        up: Vec3::NEG_Y,
+        up: Vec3::Y,
     },
-    // 2 	GL_TEXTURE_CUBE_MAP_POSITIVE_Y
+    // -X
     CubeMapFace {
-        target: Vec3::NEG_Y,
-        up: Vec3::Z,
+        target: Vec3::NEG_X,
+        up: Vec3::Y,
     },
-    // 3 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
+    // +Y
     CubeMapFace {
         target: Vec3::Y,
+        up: Vec3::Z,
+    },
+    // -Y
+    CubeMapFace {
+        target: Vec3::NEG_Y,
         up: Vec3::NEG_Z,
     },
-    // 4 	GL_TEXTURE_CUBE_MAP_POSITIVE_Z
+    // +Z (with left-handed conventions, pointing forwards)
     CubeMapFace {
         target: Vec3::NEG_Z,
-        up: Vec3::NEG_Y,
+        up: Vec3::Y,
     },
-    // 5 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+    // -Z (with left-handed conventions, pointing backwards)
     CubeMapFace {
         target: Vec3::Z,
-        up: Vec3::NEG_Y,
+        up: Vec3::Y,
     },
 ];
 
@@ -579,7 +577,6 @@ impl GlobalLightMeta {
 #[derive(Resource, Default)]
 pub struct LightMeta {
     pub view_gpu_lights: DynamicUniformBuffer<GpuLights>,
-    pub shadow_view_bind_group: Option<BindGroup>,
 }
 
 #[derive(Component)]
@@ -641,7 +638,7 @@ pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
 }
 
 pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
-    // spot light projection FOV is 2x the angle from spot light centre to outer edge
+    // spot light projection FOV is 2x the angle from spot light center to outer edge
     Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
 }
 
@@ -686,13 +683,13 @@ pub fn prepare_lights(
     let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
     let mut directional_lights: Vec<_> = directional_lights.iter().collect::<Vec<_>>();
 
-    #[cfg(not(feature = "webgl"))]
+    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
     let max_texture_array_layers = render_device.limits().max_texture_array_layers as usize;
-    #[cfg(not(feature = "webgl"))]
+    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
     let max_texture_cubes = max_texture_array_layers / 6;
-    #[cfg(feature = "webgl")]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
     let max_texture_array_layers = 1;
-    #[cfg(feature = "webgl")]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
     let max_texture_cubes = 1;
 
     if !*max_directional_lights_warning_emitted && directional_lights.len() > MAX_DIRECTIONAL_LIGHTS
@@ -998,7 +995,7 @@ pub fn prepare_lights(
                             base_mip_level: 0,
                             mip_level_count: None,
                             base_array_layer: (light_index * 6 + face_index) as u32,
-                            array_layer_count: NonZeroU32::new(1),
+                            array_layer_count: Some(1u32),
                         });
 
                 let view_light_entity = commands
@@ -1060,7 +1057,7 @@ pub fn prepare_lights(
                         base_mip_level: 0,
                         mip_level_count: None,
                         base_array_layer: (num_directional_cascades_enabled + light_index) as u32,
-                        array_layer_count: NonZeroU32::new(1),
+                        array_layer_count: Some(1u32),
                     });
 
             let view_light_entity = commands
@@ -1124,7 +1121,7 @@ pub fn prepare_lights(
                             base_mip_level: 0,
                             mip_level_count: None,
                             base_array_layer: directional_depth_texture_array_index,
-                            array_layer_count: NonZeroU32::new(1),
+                            array_layer_count: Some(1u32),
                         });
                 directional_depth_texture_array_index += 1;
 
@@ -1165,9 +1162,9 @@ pub fn prepare_lights(
                 .create_view(&TextureViewDescriptor {
                     label: Some("point_light_shadow_map_array_texture_view"),
                     format: None,
-                    #[cfg(not(feature = "webgl"))]
+                    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
                     dimension: Some(TextureViewDimension::CubeArray),
-                    #[cfg(feature = "webgl")]
+                    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                     dimension: Some(TextureViewDimension::Cube),
                     aspect: TextureAspect::All,
                     base_mip_level: 0,
@@ -1180,9 +1177,9 @@ pub fn prepare_lights(
             .create_view(&TextureViewDescriptor {
                 label: Some("directional_light_shadow_map_array_texture_view"),
                 format: None,
-                #[cfg(not(feature = "webgl"))]
+                #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
                 dimension: Some(TextureViewDimension::D2Array),
-                #[cfg(feature = "webgl")]
+                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                 dimension: Some(TextureViewDimension::D2),
                 aspect: TextureAspect::All,
                 base_mip_level: 0,
@@ -1549,25 +1546,6 @@ pub fn prepare_clusters(
     }
 }
 
-pub fn queue_shadow_view_bind_group<M: Material>(
-    render_device: Res<RenderDevice>,
-    prepass_pipeline: Res<PrepassPipeline<M>>,
-    mut light_meta: ResMut<LightMeta>,
-    view_uniforms: Res<ViewUniforms>,
-) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        light_meta.shadow_view_bind_group =
-            Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: view_binding,
-                }],
-                label: Some("shadow_view_bind_group"),
-                layout: &prepass_pipeline.view_layout,
-            }));
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
@@ -1677,7 +1655,7 @@ pub struct Shadow {
 }
 
 impl PhaseItem for Shadow {
-    type SortKey = FloatOrd;
+    type SortKey = usize;
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -1686,7 +1664,7 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        self.pipeline.id()
     }
 
     #[inline]
@@ -1696,7 +1674,10 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+        // The shadow phase is sorted by pipeline id for performance reasons.
+        // Grouping all draw commands using the same pipeline together performs
+        // better than rebinding everything at a high rate.
+        radsort::sort_by_key(items, |item| item.pipeline.id());
     }
 }
 
@@ -1713,8 +1694,6 @@ pub struct ShadowPassNode {
 }
 
 impl ShadowPassNode {
-    pub const IN_VIEW: &'static str = "view";
-
     pub fn new(world: &mut World) -> Self {
         Self {
             main_view_query: QueryState::new(world),
@@ -1724,10 +1703,6 @@ impl ShadowPassNode {
 }
 
 impl Node for ShadowPassNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(ShadowPassNode::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.main_view_query.update_archetypes(world);
         self.view_light_query.update_archetypes(world);
@@ -1739,7 +1714,7 @@ impl Node for ShadowPassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let view_entity = graph.view_entity();
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
             for view_light_entity in view_lights.lights.iter().copied() {
                 let (view_light, shadow_phase) = self
@@ -1770,33 +1745,5 @@ impl Node for ShadowPassNode {
         }
 
         Ok(())
-    }
-}
-
-pub struct SetShadowViewBindGroup<const I: usize>;
-impl<const I: usize> RenderCommand<Shadow> for SetShadowViewBindGroup<I> {
-    type Param = SRes<LightMeta>;
-    type ViewWorldQuery = Read<ViewUniformOffset>;
-    type ItemWorldQuery = ();
-
-    #[inline]
-    fn render<'w>(
-        _item: &Shadow,
-        view_uniform_offset: &'_ ViewUniformOffset,
-        _entity: (),
-        light_meta: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        pass.set_bind_group(
-            I,
-            light_meta
-                .into_inner()
-                .shadow_view_bind_group
-                .as_ref()
-                .unwrap(),
-            &[view_uniform_offset.offset],
-        );
-
-        RenderCommandResult::Success
     }
 }

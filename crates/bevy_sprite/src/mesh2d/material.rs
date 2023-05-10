@@ -1,4 +1,4 @@
-use bevy_app::{App, IntoSystemAppConfig, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
@@ -32,7 +32,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ComputedVisibility, ExtractedView, Msaa, Visibility, VisibleEntities},
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{FloatOrd, HashMap, HashSet};
@@ -157,17 +157,25 @@ where
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
-                .init_resource::<Material2dPipeline<M>>()
                 .init_resource::<ExtractedMaterials2d<M>>()
                 .init_resource::<RenderMaterials2d<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_system(extract_materials_2d::<M>.in_schedule(ExtractSchedule))
-                .add_system(
-                    prepare_materials_2d::<M>
-                        .in_set(RenderSet::Prepare)
-                        .after(PrepareAssetSet::PreAssetPrepare),
-                )
-                .add_system(queue_material2d_meshes::<M>.in_set(RenderSet::Queue));
+                .add_systems(ExtractSchedule, extract_materials_2d::<M>)
+                .add_systems(
+                    Render,
+                    (
+                        prepare_materials_2d::<M>
+                            .in_set(RenderSet::Prepare)
+                            .after(PrepareAssetSet::PreAssetPrepare),
+                        queue_material2d_meshes::<M>.in_set(RenderSet::Queue),
+                    ),
+                );
+        }
+    }
+
+    fn finish(&self, app: &mut App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<Material2dPipeline<M>>();
         }
     }
 }

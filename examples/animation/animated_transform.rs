@@ -1,4 +1,4 @@
-//! Create and play an animation defined by code that operates on the `Transform` component.
+//! Create and play an animation defined by code that operates on the [`Transform`] component.
 
 use std::f32::consts::PI;
 
@@ -11,7 +11,7 @@ fn main() {
             color: Color::WHITE,
             brightness: 1.0,
         })
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 

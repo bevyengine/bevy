@@ -82,7 +82,7 @@ impl FileAssetIo {
 
     /// Returns the root directory where assets are loaded from.
     ///
-    /// See `get_base_path`.
+    /// See [`get_base_path`](FileAssetIo::get_base_path).
     pub fn root_path(&self) -> &PathBuf {
         &self.root_path
     }
@@ -127,6 +127,7 @@ impl AssetIo for FileAssetIo {
         to_watch: &Path,
         to_reload: Option<PathBuf>,
     ) -> Result<(), AssetIoError> {
+        #![allow(unused_variables)]
         #[cfg(feature = "filesystem_watcher")]
         {
             let to_reload = to_reload.unwrap_or_else(|| to_watch.to_owned());
