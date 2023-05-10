@@ -324,13 +324,12 @@ fn setup(
         },
     ));
 
-    // UI
+    // example instructions
     commands.spawn(
         TextBundle::from_section(
             "",
             TextStyle {
-                font_size: 20.0,
-                color: Color::BLACK,
+                font_size: 20.,
                 ..default()
             },
         )

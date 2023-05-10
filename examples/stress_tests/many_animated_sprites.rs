@@ -1,10 +1,7 @@
 //! Renders a lot of animated sprites to allow performance testing.
 //!
-//! It sets up many animated sprites in different sizes and rotations,
-//! and at different scales in the world, and moves the camera over them.
-//!
-//! Having sprites out of the camera's field of view should also help stress
-//! test any future potential 2d frustum culling implementation.
+//! This example sets up many animated sprites in different sizes, rotations, and scales in the world.
+//! It also moves the camera over them to see how well frustum culling works.
 
 use std::time::Duration;
 

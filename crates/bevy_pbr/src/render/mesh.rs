@@ -106,7 +106,6 @@ impl Plugin for MeshRenderPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<MeshPipeline>()
                 .init_resource::<SkinnedMeshUniform>()
                 .add_systems(ExtractSchedule, (extract_meshes, extract_skinned_meshes))
                 .add_systems(
@@ -117,6 +116,12 @@ impl Plugin for MeshRenderPlugin {
                         queue_mesh_view_bind_groups.in_set(RenderSet::Queue),
                     ),
                 );
+        }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<MeshPipeline>();
         }
     }
 }
@@ -328,9 +333,9 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
-                        #[cfg(not(feature = "webgl"))]
+                        #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
                         view_dimension: TextureViewDimension::CubeArray,
-                        #[cfg(feature = "webgl")]
+                        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                         view_dimension: TextureViewDimension::Cube,
                     },
                     count: None,
@@ -349,9 +354,9 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
-                        #[cfg(not(feature = "webgl"))]
+                        #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
                         view_dimension: TextureViewDimension::D2Array,
-                        #[cfg(feature = "webgl")]
+                        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                         view_dimension: TextureViewDimension::D2,
                     },
                     count: None,
@@ -439,7 +444,9 @@ impl FromWorld for MeshPipeline {
             let tonemapping_lut_entries = get_lut_bind_group_layout_entries([14, 15]);
             entries.extend_from_slice(&tonemapping_lut_entries);
 
-            if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && !multisampled) {
+            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
+                || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
+            {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
                     [16, 17, 18],
                     multisampled,
@@ -1060,7 +1067,9 @@ pub fn queue_mesh_view_bind_groups(
             entries.extend_from_slice(&tonemapping_luts);
 
             // When using WebGL, we can't have a depth texture with multisampling
-            if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && msaa.samples() == 1) {
+            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
+                || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
+            {
                 entries.extend_from_slice(&prepass::get_bindings(
                     prepass_textures,
                     &mut fallback_images,
