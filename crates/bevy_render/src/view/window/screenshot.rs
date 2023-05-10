@@ -135,7 +135,9 @@ impl Plugin for ScreenshotPlugin {
             "screenshot.wgsl",
             Shader::from_wgsl
         );
+    }
 
+    fn finish(&self, app: &mut bevy_app::App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>();
         }
