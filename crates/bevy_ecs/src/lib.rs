@@ -63,7 +63,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
     use crate::schedule::{
-        IntoSystemConfig, IntoSystemSetConfig, Schedule, ScheduleBuildSettings, SystemSet,
+        IntoSystemConfigs, IntoSystemSetConfig, Schedule, ScheduleBuildSettings, SystemSet,
     };
     use crate::system::{Query, Res, ResMut};
     use crate::{
