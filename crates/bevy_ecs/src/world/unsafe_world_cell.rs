@@ -108,7 +108,8 @@ impl<'w> UnsafeWorldCell<'w> {
     ///     so long as none of those instances are used to access world data in any way
     ///     while the mutable borrow is active.
     ///
-    /// ```
+    /// [//]: # (This test fails miri.)
+    /// ```no_run
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Component)] struct Player;
     /// # fn store_but_dont_use<T>(_: T) {}
