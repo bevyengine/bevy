@@ -1,5 +1,4 @@
 use bevy_app::{App, Plugin, Startup, Update};
-use bevy_asset::AssetServer;
 use bevy_ecs::{
     prelude::Component,
     query::{With, Without},
