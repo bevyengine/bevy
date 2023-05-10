@@ -216,6 +216,9 @@ pub struct GpuLights {
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
+#[cfg(feature = "limit_directional_light")]
+pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
+#[cfg(not(feature = "limit_directional_light"))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 #[cfg(not(feature = "webgl"))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 4;

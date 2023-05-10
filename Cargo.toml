@@ -53,6 +53,7 @@ default = [
   "android_shared_stdcxx",
   "tonemapping_luts",
   "default_font",
+  "limit_directional_light",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -81,6 +82,9 @@ bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr"]
 
 # Adds PBR rendering
 bevy_pbr = ["bevy_internal/bevy_pbr", "bevy_asset", "bevy_render", "bevy_core_pipeline"]
+
+# Limit Directional Lights in PBR
+limit_directional_light = ["bevy_internal/limit_directional_light"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]
@@ -241,7 +245,7 @@ bevy_internal = { path = "crates/bevy_internal", version = "0.11.0-dev", default
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.11.0-dev", default-features = false, features = [
-  "webgl",
+  "webgl"
 ] }
 
 [dev-dependencies]
