@@ -58,57 +58,51 @@ pub struct Storages {
 ///
 /// Accessing world data that do not have access to, or mutably accessing
 /// data that you only have read-access to, is considered undefined behavior.
-pub struct UnsafeStorages<'a> {
-    pub sparse_sets: UnsafeSparseSets<'a>,
-    pub tables: UnsafeTables<'a>,
-    pub resources: UnsafeResources<'a, true>,
-    pub non_send_resources: UnsafeResources<'a, false>,
-}
+pub struct UnsafeStorages<'a>(&'a Storages);
 
 impl<'a> UnsafeStorages<'a> {
     pub(crate) fn new(storages: &'a Storages) -> Self {
-        Self {
-            sparse_sets: UnsafeSparseSets {
-                sparse_sets: &storages.sparse_sets,
-            },
-            tables: UnsafeTables {
-                tables: &storages.tables,
-            },
-            resources: UnsafeResources {
-                resources: &storages.resources,
-            },
-            non_send_resources: UnsafeResources {
-                resources: &storages.non_send_resources,
-            },
-        }
+        Self(storages)
     }
-}
 
-/// A view into the [`ComponentSparseSet`] collection of [`UnsafeStorages`].
-#[derive(Clone, Copy)]
-pub struct UnsafeSparseSets<'a> {
-    sparse_sets: &'a SparseSets,
-}
-
-impl<'a> UnsafeSparseSets<'a> {
     /// Gets a view into the [`ComponentSparseSet`] associated with `component_id`,
     /// if one exists.
-    pub fn get(self, component_id: ComponentId) -> Option<UnsafeComponentSparseSet<'a>> {
-        self.sparse_sets
+    pub fn get_sparse_set(self, component_id: ComponentId) -> Option<UnsafeComponentSparseSet<'a>> {
+        self.0
+            .sparse_sets
             .get(component_id)
             .map(|sparse_set| UnsafeComponentSparseSet { sparse_set })
     }
-}
 
-/// A view into the [`Table`] collection of [`UnsafeStorages`].
-#[derive(Clone, Copy)]
-pub struct UnsafeTables<'a> {
-    tables: &'a Tables,
-}
-
-impl<'a> UnsafeTables<'a> {
     /// Gets a view into the [`Table`] associated with `id`, if one exists.
-    pub fn get(self, id: TableId) -> Option<UnsafeTable<'a>> {
-        self.tables.get(id).map(|table| UnsafeTable { table })
+    pub fn get_table(self, id: TableId) -> Option<UnsafeTable<'a>> {
+        self.0.tables.get(id).map(|table| UnsafeTable { table })
+    }
+
+    /// Gets access to the resource's data store, if it is registered.
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] that self was obtained from has permission to access the resource
+    /// - no mutable reference to the resource exists at the same time
+    ///
+    /// [`UnsafeWorldCell`]: crate::world::unsafe_world_cell::UnsafeWorldCell
+    pub unsafe fn get_resource(self, component_id: ComponentId) -> Option<&'a ResourceData<true>> {
+        self.0.resources.get(component_id)
+    }
+
+    /// Gets access to the specified non-send resource's data store, if it is registered.
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] that self was obtained from has permission to access the resource
+    /// - no mutable reference to the resource exists at the same time
+    ///
+    /// [`UnsafeWorldCell`]: crate::world::unsafe_world_cell::UnsafeWorldCell
+    pub unsafe fn get_non_send_resource(
+        self,
+        component_id: ComponentId,
+    ) -> Option<&'a ResourceData<false>> {
+        self.0.non_send_resources.get(component_id)
     }
 }

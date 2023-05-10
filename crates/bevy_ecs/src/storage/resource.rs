@@ -286,25 +286,3 @@ impl<const SEND: bool> Resources<SEND> {
         }
     }
 }
-
-/// A view into a [`Resources`] collection of [`UnsafeStorages`].
-///
-/// [`UnsafeStorages`]: super::UnsafeStorages
-#[derive(Clone, Copy)]
-pub struct UnsafeResources<'a, const SEND: bool> {
-    pub(super) resources: &'a Resources<SEND>,
-}
-
-impl<'a, const SEND: bool> UnsafeResources<'a, SEND> {
-    /// Gets access to the resource's data store, if it is registered.
-    ///
-    /// # Safety
-    /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeWorldCell`] self as obtained from has permission to access the resource mutably
-    /// - no mutable reference to the resource exists at the same time
-    ///
-    /// [`UnsafeWorldCell`]: crate::world::unsafe_world_cell::UnsafeWorldCell
-    pub unsafe fn get(self, component_id: ComponentId) -> Option<&'a ResourceData<SEND>> {
-        self.resources.get(component_id)
-    }
-}
