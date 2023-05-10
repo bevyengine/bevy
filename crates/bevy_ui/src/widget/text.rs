@@ -172,11 +172,7 @@ pub fn text_system(
     let mut text_query = text_queries.p2();
     for entity in queued_text.drain(..) {
         if let Ok((node, text, mut text_layout_info)) = text_query.get_mut(entity) {
-            let physical_node_size = 
-                Vec2::new(
-                    bevy_text::scale_value(node.size().x, scale_factor),
-                    bevy_text::scale_value(node.size().y, scale_factor),
-                );
+            let physical_node_size = node.physical_size(scale_factor);
 
             match text_pipeline.queue_text(
                 &fonts,
