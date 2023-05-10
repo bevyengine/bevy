@@ -1219,16 +1219,16 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(gpu_mesh) = meshes.into_inner().get(mesh) else {
-            error!(
-                "An entity with the DynamicUniformIndex<mesh::Uniform> had a Handle<Mesh> not \
-                present in its RenderAssets<Mesh> (very unexpected)"
-            );
+            // An entity with the DynamicUniformIndex<mesh::Uniform> had a Handle<Mesh>
+            // not in `RenderAssets<Mesh>`. The mesh is either not loaded yet or
+            // dropped and this is a weak Handle.
             return RenderCommandResult::Failure;
         };
         let Some(bind_group) = &gpu_mesh.bind_group else {
             error!(
-                "The bind_group field of GpuMesh wasn't set in the render phase. This is odd, \
-                since it should be set by the queue_mesh_bind_group system."
+                "The bind_group field of GpuMesh wasn't set in the render phase. \
+                It should be set by the queue_mesh_bind_group system.\n\
+                This is a bevy bug! Please open an issue."
             );
             return RenderCommandResult::Failure;
         };
