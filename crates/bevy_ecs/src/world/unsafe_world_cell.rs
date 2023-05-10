@@ -191,7 +191,7 @@ impl<'w> UnsafeWorldCell<'w> {
 
     /// Reads the current change tick of this world.
     #[inline]
-    #[deprecated = "renamed to `UnsafeWorldCell::change_tick`"]
+    #[deprecated = "this method has been renamed to `UnsafeWorldCell::change_tick`"]
     pub fn read_change_tick(self) -> Tick {
         self.change_tick()
     }
