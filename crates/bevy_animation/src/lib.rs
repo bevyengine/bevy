@@ -514,7 +514,7 @@ fn apply_animation(
             // to run their animation. Any players in the children or descendants will log a warning
             // and do nothing.
             let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else { continue };
-            let Ok(mut morphs) = (unsafe { morphs.get_unchecked(target) }) else { continue };
+            let mut morphs = unsafe { morphs.get_unchecked(target) };
             for curve in curves {
                 // Some curves have only one keyframe used to set a transform
                 if curve.keyframe_timestamps.len() == 1 {
@@ -530,7 +530,9 @@ fn apply_animation(
                             transform.scale = transform.scale.lerp(keyframes[0], weight);
                         }
                         Keyframes::Weights(keyframes) => {
-                            lerp_morph_weights(morphs.weights_mut(), weight, keyframes, 0);
+                            if let Ok(morphs) = &mut morphs {
+                                lerp_morph_weights(morphs.weights_mut(), weight, keyframes, 0);
+                            }
                         }
                     }
                     continue;
@@ -578,7 +580,9 @@ fn apply_animation(
                         transform.scale = transform.scale.lerp(result, weight);
                     }
                     Keyframes::Weights(keyframes) => {
-                        lerp_morph_weights(morphs.weights_mut(), weight, keyframes, step_start);
+                        if let Ok(morphs) = &mut morphs {
+                            lerp_morph_weights(morphs.weights_mut(), weight, keyframes, step_start);
+                        }
                     }
                 }
             }
