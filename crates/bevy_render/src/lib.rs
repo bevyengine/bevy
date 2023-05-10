@@ -292,12 +292,6 @@ impl Plugin for RenderPlugin {
                     ),
                 );
 
-            if device_features.contains(wgpu::Features::TIMESTAMP_QUERY) {
-                let gpu_timers = GpuTimerScopes::default();
-                app.insert_resource(gpu_timers.clone());
-                render_app.insert_resource(gpu_timers);
-            }
-
             let (sender, receiver) = bevy_time::create_time_channels();
             app.insert_resource(receiver);
             render_app.insert_resource(sender);
@@ -367,6 +361,12 @@ impl Plugin for RenderPlugin {
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
                 .insert_resource(render_adapter.clone());
+
+            if device.features().contains(wgpu::Features::TIMESTAMP_QUERY) {
+                let gpu_timers = GpuTimerScopes::default();
+                app.insert_resource(gpu_timers.clone());
+                app.sub_app_mut(RenderApp).insert_resource(gpu_timers);
+            }
 
             let render_app = app.sub_app_mut(RenderApp);
 

@@ -43,6 +43,14 @@ pub struct DebugOverlaysPlugin {
 
 impl Plugin for DebugOverlaysPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(Startup, setup_gpu_time_overlay)
+            .add_systems(
+                Update,
+                draw_gpu_time_overlay.run_if(on_timer(self.ui_update_frequency)),
+            );
+    }
+
+    fn finish(&self, app: &mut App) {
         let wgpu_features = app.world.resource::<RenderDevice>().features();
         if !wgpu_features.contains(WgpuFeatures::TIMESTAMP_QUERY) {
             panic!("DebugOverlaysPlugin added but RenderPlugin::wgpu_settings did not contain WgpuFeatures::TIMESTAMP_QUERY.");
@@ -51,12 +59,6 @@ impl Plugin for DebugOverlaysPlugin {
         if env::var("GPU_LOCKED").unwrap_or_default() != "magic" {
             panic!("GPU clocks were not locked. Unable to get stable profiling results. Please rerun via the locking script.")
         }
-
-        app.add_systems(Startup, setup_gpu_time_overlay)
-            .add_systems(
-                Update,
-                draw_gpu_time_overlay.run_if(on_timer(self.ui_update_frequency)),
-            );
     }
 }
 
