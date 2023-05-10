@@ -29,7 +29,6 @@
 * `MorphStressTest.gltf`, [MorphStressTest] ([CC-BY 4.0] by Analytical Graphics, Inc, Model and textures by Ed Mackey)
 
 [MorphStressTest]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/MorphStressTest
-[Morph-Primitives Test]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/MorphPrimitivesTest
 [fox]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/Fox
 [by PixelMannen]: https://opengameart.org/content/fox-and-shiba
 [by @tomkranis on Sketchfab]: https://sketchfab.com/models/371dea88d7e04a76af5763f2a36866bc
