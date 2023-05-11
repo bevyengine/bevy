@@ -18,10 +18,6 @@ use bevy_text::{
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
 
-fn scale_value(value: f32, factor: f64) -> f32 {
-    (value as f64 * factor) as f32
-}
-
 /// Text system flags
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
@@ -178,10 +174,7 @@ fn queue_text(
 ) {
     // Skip the text node if it is waiting for a new measure func
     if !text_flags.needs_new_measure_func {
-        let node_size = Vec2::new(
-            scale_value(node.size().x, scale_factor),
-            scale_value(node.size().y, scale_factor),
-        );
+        let physical_node_size = node.physical_size(scale_factor);
 
         match text_pipeline.queue_text(
             fonts,
@@ -189,7 +182,7 @@ fn queue_text(
             scale_factor,
             text.alignment,
             text.linebreak_behavior,
-            node_size,
+            physical_node_size,
             font_atlas_set_storage,
             texture_atlases,
             textures,

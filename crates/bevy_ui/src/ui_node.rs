@@ -15,7 +15,7 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
 /// Describes the size of a UI node
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
     /// The size of the node as width and height in logical pixels
@@ -26,8 +26,17 @@ pub struct Node {
 impl Node {
     /// The calculated node size as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
-    pub fn size(&self) -> Vec2 {
+    pub const fn size(&self) -> Vec2 {
         self.calculated_size
+    }
+
+    /// Returns the size of the node in physical pixels based on the given scale factor.
+    #[inline]
+    pub fn physical_size(&self, scale_factor: f64) -> Vec2 {
+        Vec2::new(
+            (self.calculated_size.x as f64 * scale_factor) as f32,
+            (self.calculated_size.y as f64 * scale_factor) as f32,
+        )
     }
 
     /// Returns the logical pixel coordinates of the UI node, based on its [`GlobalTransform`].
@@ -38,11 +47,17 @@ impl Node {
 
     /// Returns the physical pixel coordinates of the UI node, based on its [`GlobalTransform`] and the scale factor.
     #[inline]
-    pub fn physical_rect(&self, transform: &GlobalTransform, scale_factor: f32) -> Rect {
+    pub fn physical_rect(&self, transform: &GlobalTransform, scale_factor: f64) -> Rect {
         let rect = self.logical_rect(transform);
         Rect {
-            min: rect.min / scale_factor,
-            max: rect.max / scale_factor,
+            min: Vec2::new(
+                (rect.min.x as f64 * scale_factor) as f32,
+                (rect.min.y as f64 * scale_factor) as f32,
+            ),
+            max: Vec2::new(
+                (rect.max.x as f64 * scale_factor) as f32,
+                (rect.max.y as f64 * scale_factor) as f32,
+            ),
         }
     }
 }
