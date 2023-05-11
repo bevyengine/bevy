@@ -43,7 +43,6 @@ use crate::prelude::UiCameraConfig;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::update_clipping_system;
@@ -103,6 +102,7 @@ impl Plugin for UiPlugin {
             .register_type::<JustifyItems>()
             .register_type::<JustifySelf>()
             .register_type::<Node>()
+            .register_type::<NodeTransform>()
             .register_type::<ZIndex>()
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
@@ -159,11 +159,9 @@ impl Plugin for UiPlugin {
         .add_systems(
             PostUpdate,
             (
-                ui_layout_system
-                    .in_set(UiSystem::Layout)
-                    .before(TransformSystem::TransformPropagate),
+                ui_layout_system.in_set(UiSystem::Layout),
                 ui_stack_system.in_set(UiSystem::Stack),
-                update_clipping_system.after(TransformSystem::TransformPropagate),
+                update_clipping_system,
             ),
         );
 

@@ -1,4 +1,4 @@
-use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiStack};
+use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, NodeTransform, UiStack};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -14,8 +14,6 @@ use bevy_reflect::{
     FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
 };
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ComputedVisibility};
-use bevy_transform::components::GlobalTransform;
-
 use bevy_window::{PrimaryWindow, Window};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -125,7 +123,7 @@ pub struct State {
 pub struct NodeQuery {
     entity: Entity,
     node: &'static Node,
-    global_transform: &'static GlobalTransform,
+    transform: &'static NodeTransform,
     interaction: Option<&'static mut Interaction>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
@@ -217,21 +215,10 @@ pub fn ui_focus_system(
                     }
                 }
 
-                let position = node.global_transform.translation();
-                let ui_position = position.truncate();
-                let extents = node.node.size() / 2.0;
-                let mut min = ui_position - extents;
-                if let Some(clip) = node.calculated_clip {
-                    min = Vec2::max(min, clip.clip.min);
-                }
-
                 // The mouse position relative to the node
                 // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
                 let relative_cursor_position = cursor_position.map(|cursor_position| {
-                    Vec2::new(
-                        (cursor_position.x - min.x) / node.node.size().x,
-                        (cursor_position.y - min.y) / node.node.size().y,
-                    )
+                    node.node.relative_position(node.transform, cursor_position)
                 });
 
                 // If the current cursor position is within the bounds of the node, consider it for

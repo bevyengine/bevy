@@ -1,14 +1,14 @@
 use crate::{Size, UiRect};
 use bevy_asset::Handle;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Rect, Vec2};
+use bevy_math::{Affine2, Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_reflect::ReflectFromReflect;
 use bevy_render::{
     color::Color,
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
-use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
@@ -30,20 +30,35 @@ impl Node {
         self.calculated_size
     }
 
-    /// Returns the logical pixel coordinates of the UI node, based on its [`GlobalTransform`].
+    /// Returns the logical pixel coordinates of the UI node, based on its [`NodeTransform`].
     #[inline]
-    pub fn logical_rect(&self, transform: &GlobalTransform) -> Rect {
-        Rect::from_center_size(transform.translation().truncate(), self.size())
+    pub fn logical_rect(&self, node_transform: &NodeTransform) -> Rect {
+        Rect::from_center_size(node_transform.translation, self.size())
     }
 
-    /// Returns the physical pixel coordinates of the UI node, based on its [`GlobalTransform`] and the scale factor.
+    /// Returns the physical pixel coordinates of the UI node, based on its [`NodeTransform`] and the scale factor.
     #[inline]
-    pub fn physical_rect(&self, transform: &GlobalTransform, scale_factor: f32) -> Rect {
-        let rect = self.logical_rect(transform);
+    pub fn physical_rect(&self, node_transform: &NodeTransform, scale_factor: f32) -> Rect {
+        let rect = self.logical_rect(node_transform);
         Rect {
-            min: rect.min / scale_factor,
-            max: rect.max / scale_factor,
+            min: rect.min * scale_factor,
+            max: rect.max * scale_factor,
         }
+    }
+
+    /// Checks if the given point is inside the UI node.
+    #[inline]
+    pub fn contains_point(&self, node_transform: &NodeTransform, point: Vec2) -> bool {
+        let d = node_transform.inverse().transform_point2(point);
+        let s = self.size() / 2.;
+        d.x.abs() <= s.x && d.y.abs() <= s.y
+    }
+
+    /// Returns the position of the point relative to the node, where x and y values between 0 and 1  are within the node.
+    #[inline]
+    pub fn relative_position(&self, node_transform: &NodeTransform, point: Vec2) -> Vec2 {
+        let d = node_transform.inverse().transform_point2(point);
+        d / self.size() + Vec2::new(0.5, 0.5)
     }
 }
 
@@ -54,6 +69,60 @@ impl Node {
 }
 
 impl Default for Node {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// The node's position, rotation, and scaling.
+#[derive(Component, Debug, Clone, Deref, Reflect)]
+#[reflect(Component, Default)]
+pub struct NodeTransform(pub(crate) Affine2);
+
+impl NodeTransform {
+    pub const DEFAULT: Self = Self(Affine2::IDENTITY);
+}
+
+impl Default for NodeTransform {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// Translation in logical pixels (before scaling) that is applied to the UI node and it's children
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
+#[reflect(Component)]
+pub struct NodeTranslation(pub Vec2);
+
+impl NodeTranslation {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self(Vec2::new(x, y))
+    }
+}
+
+/// Rotation in radians that is applied to the UI node and it's children
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
+#[reflect(Component)]
+pub struct NodeRotation(pub f32);
+
+/// Scaling that is applied to the UI node and it's children
+#[derive(Component, Debug, Clone, Deref, DerefMut, Reflect)]
+#[reflect(Component)]
+pub struct NodeScale(pub Vec2);
+
+impl NodeScale {
+    pub const DEFAULT: Self = Self(Vec2::ONE);
+
+    pub fn all(scalar: f32) -> Self {
+        Self(Vec2::splat(scalar))
+    }
+
+    pub fn new(x: f32, y: f32) -> Self {
+        Self(Vec2::new(x, y))
+    }
+}
+
+impl Default for NodeScale {
     fn default() -> Self {
         Self::DEFAULT
     }

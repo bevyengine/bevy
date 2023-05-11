@@ -1,7 +1,10 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style, UiScale};
+use crate::{
+    ContentSize, Node, NodeRotation, NodeScale, NodeTransform, NodeTranslation, Style, UiScale,
+};
+
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -13,8 +16,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
-use bevy_math::Vec2;
-use bevy_transform::components::Transform;
+use bevy_math::{Affine2, Vec2};
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
@@ -225,8 +227,15 @@ pub fn ui_layout_system(
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
-    mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
+    mut node_geometry_query: Query<(
+        &mut Node,
+        &mut NodeTransform,
+        Option<&NodeTranslation>,
+        Option<&NodeRotation>,
+        Option<&NodeScale>,
+    )>,
     mut removed_nodes: RemovedComponents<Node>,
+    just_children_query: Query<&Children>,
 ) {
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -301,33 +310,79 @@ pub fn ui_layout_system(
     // compute layouts
     ui_surface.compute_window_layouts();
 
-    let physical_to_logical_factor = 1. / logical_to_physical_factor;
+    let physical_to_logical_factor = (1. / logical_to_physical_factor) as f32;
 
-    let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
+    fn update_node_geometry_recursively(
+        ui_surface: &UiSurface,
+        inherited_transform: Affine2,
+        node_id: Entity,
+        node_geometry_query: &mut Query<(
+            &mut Node,
+            &mut NodeTransform,
+            Option<&NodeTranslation>,
+            Option<&NodeRotation>,
+            Option<&NodeScale>,
+        )>,
+        children_query: &Query<&Children>,
+        physical_to_logical_factor: f32,
+    ) {
+        if let Ok((mut node, mut transform, maybe_translation, maybe_rotation, maybe_scale)) =
+            node_geometry_query.get_mut(node_id)
+        {
+            let layout = ui_surface.get_layout(node_id).unwrap();
+            let new_size =
+                Vec2::new(layout.size.width, layout.size.height) * physical_to_logical_factor;
+            let new_position =
+                Vec2::new(layout.location.x, layout.location.y) * physical_to_logical_factor;
 
-    // PERF: try doing this incrementally
-    for (entity, mut node, mut transform, parent) in &mut node_transform_query {
-        let layout = ui_surface.get_layout(entity).unwrap();
-        let new_size = Vec2::new(
-            to_logical(layout.size.width),
-            to_logical(layout.size.height),
-        );
-        // only trigger change detection when the new value is different
-        if node.calculated_size != new_size {
-            node.calculated_size = new_size;
-        }
-        let mut new_position = transform.translation;
-        new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-        new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
-        if let Some(parent) = parent {
-            if let Ok(parent_layout) = ui_surface.get_layout(**parent) {
-                new_position.x -= to_logical(parent_layout.size.width / 2.0);
-                new_position.y -= to_logical(parent_layout.size.height / 2.0);
+            let half_size = 0.5 * new_size;
+
+            let mut calculated_transform = inherited_transform;
+            calculated_transform =
+                calculated_transform * Affine2::from_translation(new_position + half_size);
+
+            let other = Affine2::from_scale_angle_translation(
+                maybe_scale.map_or(Vec2::ONE, |scale| scale.0),
+                maybe_rotation.map_or(0., |rotation| rotation.0),
+                maybe_translation.map_or(Vec2::ZERO, |translation| translation.0),
+            );
+
+            calculated_transform = calculated_transform * other;
+
+            // only trigger change detection when the new value is different
+            if node.calculated_size != new_size {
+                node.calculated_size = new_size;
+            }
+
+            // only trigger change detection when the new value is different
+            if transform.0 != calculated_transform {
+                transform.0 = calculated_transform;
+            }
+
+            if let Ok(children) = children_query.get(node_id) {
+                calculated_transform = calculated_transform * Affine2::from_translation(-half_size);
+                for child in children.iter() {
+                    update_node_geometry_recursively(
+                        ui_surface,
+                        calculated_transform,
+                        *child,
+                        node_geometry_query,
+                        children_query,
+                        physical_to_logical_factor,
+                    );
+                }
             }
         }
-        // only trigger change detection when the new value is different
-        if transform.translation != new_position {
-            transform.translation = new_position;
-        }
+    }
+
+    for node_id in root_node_query.iter() {
+        update_node_geometry_recursively(
+            &ui_surface,
+            Affine2::IDENTITY,
+            node_id,
+            &mut node_geometry_query,
+            &just_children_query,
+            physical_to_logical_factor,
+        );
     }
 }

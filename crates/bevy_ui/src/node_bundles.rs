@@ -1,8 +1,10 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::{Button, TextFlags, UiImageSize},
-    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
+    widget::Button,
+    widget::{TextFlags, UiImageSize},
+    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, NodeTransform, Style, UiImage,
+    ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -11,15 +13,16 @@ use bevy_render::{
 };
 #[cfg(feature = "bevy_text")]
 use bevy_text::{Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
-use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
 ///
 /// Useful as a container for a variety of child nodes.
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
-    /// Describes the logical size of the node
+    /// DescriNodeSizethe logical size of the node
     pub node: Node,
+    /// The node's position, rotation, and scaling.
+    pub node_transform: NodeTransform,
     /// Styles which control the layout (size and position) of the node and it's children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
@@ -27,16 +30,6 @@ pub struct NodeBundle {
     pub background_color: BackgroundColor,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
-    /// The transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
@@ -51,10 +44,9 @@ impl Default for NodeBundle {
             // Transparent background
             background_color: Color::NONE.into(),
             node: Default::default(),
+            node_transform: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
@@ -70,7 +62,10 @@ pub struct ImageBundle {
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub node: Node,
-    /// Styles which control the layout (size and position) of the node and it's children
+    /// The node's position, rotation, and scaling.
+    pub node_transform: NodeTransform,
+    /// Describes the style including flexbox settings
+    /// StylesNodeSizech control the layout (size and position) of the node and it's children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
@@ -87,16 +82,6 @@ pub struct ImageBundle {
     pub image_size: UiImageSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
-    /// The transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
@@ -111,29 +96,22 @@ pub struct ImageBundle {
 pub struct TextBundle {
     /// Describes the logical size of the node
     pub node: Node,
+    /// The node's position, rotation, and scaling.
+    pub node_transform: NodeTransform,
+    /// Describes the style including flexbox settings
     /// Styles which control the layout (size and position) of the node and it's children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
-    /// Contains the text of the node
+    /// ContaiNodeSizehe text of the node
     pub text: Text,
     /// Text layout information
     pub text_layout_info: TextLayoutInfo,
     /// Text system flags
     pub text_flags: TextFlags,
     /// The calculated size based on the given image
-    pub calculated_size: ContentSize,
+    pub content_size: ContentSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
-    /// The transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
@@ -151,14 +129,13 @@ impl Default for TextBundle {
             text: Default::default(),
             text_layout_info: Default::default(),
             text_flags: Default::default(),
-            calculated_size: Default::default(),
+            content_size: Default::default(),
             // Transparent background
             background_color: BackgroundColor(Color::NONE),
             node: Default::default(),
+            node_transform: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
@@ -212,6 +189,8 @@ impl TextBundle {
 pub struct ButtonBundle {
     /// Describes the logical size of the node
     pub node: Node,
+    /// The node's position, rotation, and scaling.
+    pub node_transform: NodeTransform,
     /// Marker component that signals this node is a button
     pub button: Button,
     /// Styles which control the layout (size and position) of the node and it's children
@@ -227,16 +206,6 @@ pub struct ButtonBundle {
     pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
-    /// The transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
@@ -250,13 +219,12 @@ impl Default for ButtonBundle {
         Self {
             focus_policy: FocusPolicy::Block,
             node: Default::default(),
+            node_transform: Default::default(),
             button: Default::default(),
             style: Default::default(),
             interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),

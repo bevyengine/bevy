@@ -88,13 +88,13 @@ fn insert_context_hierarchy(
     // The node will be added either to global/parent based on its z-index type: global/local.
     let z_index = zindex_query.get(entity).unwrap_or(&ZIndex::Local(0));
     let (entity_context, z_index) = match z_index {
-        ZIndex::Local(value) => (parent_context.unwrap_or(global_context), *value),
-        ZIndex::Global(value) => (global_context, *value),
+        ZIndex::Local(value) => (parent_context.unwrap_or(global_context), value),
+        ZIndex::Global(value) => (global_context, value),
     };
 
     *total_entry_count += 1;
     entity_context.entries.push(StackingContextEntry {
-        z_index,
+        z_index: *z_index,
         entity,
         stack: new_context,
     });

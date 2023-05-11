@@ -91,27 +91,27 @@ fn setup(
         }),
     );
 
-    commands.spawn(TextBundle {
-        text: Text::from_section(
-            "Metallic",
-            TextStyle {
-                font_size: 36.0,
-                color: Color::WHITE,
+    commands.spawn((
+        TextBundle {
+            text: Text::from_section(
+                "Metallic",
+                TextStyle {
+                    font_size: 36.0,
+                    color: Color::WHITE,
+                    ..Default::default()
+                },
+            ),
+            style: Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(130.0),
+                right: Val::Px(0.0),
+
                 ..default()
             },
-        ),
-        style: Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(130.0),
-            right: Val::Px(0.0),
             ..default()
         },
-        transform: Transform {
-            rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
-            ..default()
-        },
-        ..default()
-    });
+        NodeRotation(std::f32::consts::PI / 2.),
+    ));
 
     commands.spawn((
         TextBundle::from_section(
