@@ -26,7 +26,7 @@ pub struct Timer {
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[reflect(Default)]
 pub struct NonZeroDuration {
-    duration: Duration
+    duration: Duration,
 }
 
 /// This macro fails to compile. I believe its because not all invocations of
@@ -42,11 +42,15 @@ macro_rules! check_non_zero_duration {
 
 impl NonZeroDuration {
     pub const fn new(duration: Duration) -> Self {
-        Self { duration: check_non_zero_duration(duration) }
+        Self {
+            duration: check_non_zero_duration(duration),
+        }
     }
 
     pub fn default() -> Self {
-        Self { duration: Duration::new(1, 0) }
+        Self {
+            duration: Duration::new(1, 0),
+        }
     }
 }
 
@@ -66,7 +70,7 @@ impl Timer {
     pub fn new(duration: Duration, mode: TimerMode) -> Self {
         Self {
             non_zero_duration: NonZeroDuration::new(duration),
-            mode: mode,
+            mode,
             ..Default::default()
         }
     }
