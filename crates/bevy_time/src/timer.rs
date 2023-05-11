@@ -29,21 +29,34 @@ pub struct NonZeroDuration {
     duration: Duration
 }
 
-// TODO: Try to find compile time check if possible.
-impl NonZeroDuration {
-    pub fn new(duration: Duration) -> Self {
-        // Runtime Check
-        if duration.is_zero() {
-            panic!("NonZeroDuration constructed with Duration that was zero")
-        }
+/// This macro fails to compile. I believe its because not all invocations of
+/// `NonZeroDuration::new()`are from a const context and therefore if `is_zero()`
+/// cannot always be evaluated at compile time
+/*
+macro_rules! check_non_zero_duration {
+    ($is_zero:expr) => {
+        if $is_zero { compile_error!("Duration cannot be zero") }
+    };
+}
+*/
 
-        Self { duration }
+impl NonZeroDuration {
+    pub const fn new(duration: Duration) -> Self {
+        Self { duration: check_non_zero_duration(duration) }
     }
 
     pub fn default() -> Self {
-        // TODO: Is this a sane default?
         Self { duration: Duration::new(1, 0) }
     }
+}
+
+const fn check_non_zero_duration(duration: Duration) -> Duration {
+    // This is a hack, but it catches issues from const contexts at compile time and all
+    // others at runtime
+    ["duration.is_zero() should always be false"][(duration.is_zero()) as usize];
+    // foo!(duration.is_zero()); // Fails -- See comment above check_non_zero_duration macro
+
+    return duration;
 }
 
 impl Timer {
@@ -598,13 +611,13 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn fail_me() {
+    fn non_zero_duration_fail_construction() {
         let _zero_duration: NonZeroDuration = NonZeroDuration::new(Duration::new(0, 0));
     }
 
     #[test]
     #[should_panic]
-    fn timer_from_seconds_zero() {
+    fn timer_from_seconds_zero_duration() {
         let _t = Timer::from_seconds(0.0, TimerMode::Repeating);
     }
 
