@@ -190,10 +190,10 @@ fn update_ordered_buttons(
 ) {
     let mut n = 0;
     if mouse_buttons.just_pressed(MouseButton::Left) {
-        n += 1;
+        n -= 1;
     }
     if mouse_buttons.just_pressed(MouseButton::Right) {
-        n -= -1;
+        n += 1;
     }
     let cursor_position = primary_window_query.single().cursor_position();
     for (node, global_transform, ordered_button, mut background_color, children, parent) in
