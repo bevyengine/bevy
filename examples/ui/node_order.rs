@@ -1,5 +1,5 @@
 /// An example that uses the `NodeOrder` component to reorder UI elements.
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::prelude::*;
 use bevy_internal::window::PrimaryWindow;
 
 fn main() {
@@ -22,13 +22,10 @@ struct DirectionButton;
 #[derive(Component)]
 struct DirectionLabel;
 
-#[derive(Component)]
-struct CursorText;
-
 fn setup(mut commands: Commands) {
     let initial_grid_direction = GridAutoFlow::Row;
     commands.spawn(Camera2dBundle::default());
-    
+
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -151,7 +148,7 @@ fn setup(mut commands: Commands) {
                     builder
                         .spawn((
                             DirectionButton,
-                            NodeBundle {
+                            ButtonBundle {
                                 style: Style {
                                     padding: UiRect::all(Val::Px(10.)),
                                     ..Default::default()
@@ -174,46 +171,41 @@ fn setup(mut commands: Commands) {
                             ));
                         });
                 });
-
-            builder.spawn((
-                TextBundle::from_section("cursor postion", TextStyle { font_size: 40., ..Default::default()} )
-                , CursorText
-            ));
         });
 }
 
 fn update_ordered_buttons(
     primary_window_query: Query<&Window, With<PrimaryWindow>>,
-    mut button_query: Query<
-        (
-            &Node,
-            &GlobalTransform,
-            &OrderedButton,
-            &mut BackgroundColor,
-            &Children,
-            &Parent,
-        ),
-    >,
+    mut button_query: Query<(
+        &Node,
+        &GlobalTransform,
+        &OrderedButton,
+        &mut BackgroundColor,
+        &Children,
+        &Parent,
+    )>,
     mut order_query: Query<&mut NodeOrder>,
-    mut label_query: Query<&mut Text, Without<CursorText>>,
-    mut cursor_text_query: Query<&mut Text, With<CursorText>>,
+    mut label_query: Query<&mut Text>,
     mouse_buttons: Res<Input<MouseButton>>,
 ) {
-    let n = 
-        if mouse_buttons.just_pressed(MouseButton::Left) {
-            println!("left");
-            1
-        } else if mouse_buttons.just_pressed(MouseButton::Right) {
-            println!("right");
-            -1
-        } else { 0 };
+    let mut n = 0;
+    if mouse_buttons.just_pressed(MouseButton::Left) {
+        n += 1;
+    }
+    if mouse_buttons.just_pressed(MouseButton::Right) {
+        n -= -1;
+    }
     let cursor_position = primary_window_query.single().cursor_position();
-    cursor_text_query.single_mut().sections[0].value = format!("{cursor_position:?}");
-    for (node, global_transform, ordered_button, mut background_color, children, parent) in &mut button_query {
-        if cursor_position.map(|cursor_position| 
+    for (node, global_transform, ordered_button, mut background_color, children, parent) in
+        &mut button_query
+    {
+        if cursor_position
+            .map(|cursor_position| {
                 Rect::from_center_size(global_transform.translation().truncate(), node.size())
-            .contains(cursor_position) 
-        ).unwrap_or(false) {
+                    .contains(cursor_position)
+            })
+            .unwrap_or(false)
+        {
             if n != 0 {
                 let mut node_order = order_query.get_mut(parent.get()).unwrap();
                 node_order.0 = (node_order.0 + n).rem_euclid(16);
