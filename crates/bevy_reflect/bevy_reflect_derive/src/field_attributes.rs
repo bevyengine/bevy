@@ -116,7 +116,7 @@ fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error
             format!("unknown attribute parameter: {}", path.to_token_stream()),
         )),
         Meta::NameValue(pair) if pair.path.is_ident(DEFAULT_ATTR) => {
-            if let Expr::Lit(ExprLit {lit: Lit::Str(lit_str), ..}) = &pair.value then {
+            if let Expr::Lit(ExprLit {lit: Lit::Str(lit_str), ..}) = &pair.value {
                 args.default = DefaultBehavior::Func(lit_str.parse()?);
                 Ok(())
             }
@@ -125,7 +125,7 @@ fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error
                     pair.span(),
                     format!("expected a string literal containing the name of a function, but found: {}", pair.to_token_stream()),
                 ))?
-            };
+            }
         }
         Meta::NameValue(pair) => {
             let path = &pair.path;
