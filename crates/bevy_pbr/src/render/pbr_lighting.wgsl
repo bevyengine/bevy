@@ -358,6 +358,13 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     let num_taps = i32(max(min(blur_intensity * 15.0, 1.0) * f32(MAX_TRANSMISSIVE_TAPS), 1.0));
     let num_spirals = (num_taps >> 3u) + 1;
     let random_angle = interleaved_gradient_noise(frag_coord.xy);
+#ifdef TAA
+    // Alternating pixel mesh: 0 or 1 on even/odd pixels, alternates every frame
+    let pixel_mesh = (i32(frag_coord.x) + i32(frag_coord.y) + i32(globals.frame_count)) % 2;
+#else
+    // Alternating pixel mesh: 0 or 1 on even/odd pixels
+    let pixel_mesh = (i32(frag_coord.x) + i32(frag_coord.y)) % 2;
+#endif
 
     var result = vec4<f32>(0.0);
     for (var i: i32 = 0; i < num_taps; i = i + 1) {
@@ -384,9 +391,6 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
             case 7: { sample_offset = sample_offsets[7]; }
             default: {}
         }
-
-        // Alternating pixel mesh: 0 or 1 on even/odd pixels, alternates every frame
-        let pixel_mesh = (i32(frag_coord.x) + i32(frag_coord.y) + i32(globals.frame_count)) % 2;
 
         // Rotate and correct for aspect ratio
         let rotated_sample_offset = (rotation_matrix * sample_offset) * vec2(1.0, aspect);
