@@ -132,7 +132,6 @@ pub(crate) struct ReflectTraits {
 }
 
 impl ReflectTraits {
-    // pub fn from_metas(metas: &Punctuated<Meta, Comma>) -> Result<Self, syn::Error> {
     pub fn from_metas(metas: Vec<Meta>) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         for meta in &metas {
