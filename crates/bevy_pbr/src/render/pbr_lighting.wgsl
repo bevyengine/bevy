@@ -417,7 +417,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         // warrant this treatment.
         // TODO: We can probably conditionally disable this if TAA is on, as it masks the artifacts well
         let normalized_rgb = normalize(sample.rgb);
-        result += vec4(min(sample.rgb, normalized_rgb / pow(clamp(blur_intensity * 4.0 - 0.25, 0.0, 1.0), 2.5)), sample.a);
+        result += vec4(min(sample.rgb, normalized_rgb / clamp(blur_intensity / 2.0, 0.0, 1.0)), sample.a);
     }
 
     result /= f32(num_taps);
