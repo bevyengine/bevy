@@ -26,7 +26,7 @@ pub struct Timer {
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[reflect(Default)]
 pub struct NonZeroDuration {
-    duration: Duration
+    duration: Duration,
 }
 
 // TODO: Try to find compile time check if possible.
@@ -42,7 +42,9 @@ impl NonZeroDuration {
 
     pub fn default() -> Self {
         // TODO: Is this a sane default?
-        Self { duration: Duration::new(1, 0) }
+        Self {
+            duration: Duration::new(1, 0),
+        }
     }
 }
 
@@ -53,7 +55,7 @@ impl Timer {
     pub fn new(duration: Duration, mode: TimerMode) -> Self {
         Self {
             non_zero_duration: NonZeroDuration::new(duration),
-            mode: mode,
+            mode,
             ..Default::default()
         }
     }
