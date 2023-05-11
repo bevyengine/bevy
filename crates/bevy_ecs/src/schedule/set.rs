@@ -167,7 +167,7 @@ macro_rules! access_set_enum {
             /// Any systems with access to `T` will be added to this set.
             ReadsOrWrites,
             #[doc(hidden)]
-            _Marker(PhantomData<T>),
+            _Marker(PhantomData<T>, std::convert::Infallible),
         }
 
         impl<T> Clone for $name<T> {
