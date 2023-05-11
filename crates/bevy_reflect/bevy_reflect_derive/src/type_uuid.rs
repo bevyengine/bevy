@@ -17,7 +17,7 @@ pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::To
     let mut uuid = None;
     for attribute in ast.attrs.iter().filter(|attr| attr.path().is_ident("uuid")) {
         let Meta::NameValue(ref name_value) = attribute.meta else {
-            continue
+            continue;
         };
 
         let uuid_str = match &name_value.value {
