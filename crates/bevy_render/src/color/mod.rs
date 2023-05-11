@@ -117,6 +117,8 @@ impl Color {
     pub const RED: Color = Color::rgb(1.0, 0.0, 0.0);
     /// <div style="background-color:rgb(98%, 50%, 45%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const SALMON: Color = Color::rgb(0.98, 0.5, 0.45);
+    /// <div style="background-color:rgb(61%, 30%, 8%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    pub const SADDLEBROW: Color = Color::rgb(0.61, 0.3, 0.08);
     /// <div style="background-color:rgb(18%, 55%, 34%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const SEA_GREEN: Color = Color::rgb(0.18, 0.55, 0.34);
     /// <div style="background-color:rgb(75%, 75%, 75%); width: 10px; padding: 10px; border: 1px solid;"></div>
