@@ -337,7 +337,7 @@ const SPIRAL_OFFSETS: array<vec2<f32>, 8> = array<vec2<f32>, 8>(
     vec2<f32>( 0.1250,  0.0000),
 );
 
-const MAX_TRANSMISSIVE_TAPS = 32;
+const MAX_TRANSMISSIVE_TAPS = 16;
 
 fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, perceptual_roughness: f32, distance: f32) -> vec4<f32> {
     // Calculate view aspect ratio, used to scale offset so that it's proportionate
