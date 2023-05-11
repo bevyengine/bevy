@@ -17,7 +17,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::{
     self as bevy_ecs,
-    component::{ComponentDescriptor, ComponentId, Components, Tick},
+    component::{ComponentId, Components, Tick},
     schedule::*,
     system::{BoxedSystem, Resource, System},
     world::World,
@@ -380,11 +380,6 @@ impl SystemNode {
     }
 }
 
-enum PendingAccessSet {
-    Read(ComponentDescriptor, NodeId),
-    Write(ComponentDescriptor, NodeId),
-}
-
 /// Metadata for a [`Schedule`].
 #[derive(Default)]
 pub struct ScheduleGraph {
@@ -395,7 +390,7 @@ pub struct ScheduleGraph {
     system_set_ids: HashMap<BoxedSystemSet, NodeId>,
     read_system_sets: HashMap<ComponentId, Vec<NodeId>>,
     write_system_sets: HashMap<ComponentId, Vec<NodeId>>,
-    uninit_access_sets: Vec<PendingAccessSet>,
+    uninit_access_sets: Vec<NodeId>,
     uninit: Vec<(NodeId, usize)>,
     hierarchy: Dag,
     dependency: Dag,
@@ -736,13 +731,8 @@ impl ScheduleGraph {
         self.system_sets.push(SystemSetNode::new(set.dyn_clone()));
         self.system_set_conditions.push(None);
 
-        if let Some(component) = set.reads_component() {
-            self.uninit_access_sets
-                .push(PendingAccessSet::Read(component, id));
-        }
-        if let Some(component) = set.writes_component() {
-            self.uninit_access_sets
-                .push(PendingAccessSet::Write(component, id));
+        if set.reads_component().is_some() || set.writes_component().is_some() {
+            self.uninit_access_sets.push(id);
         }
 
         self.system_set_ids.insert(set, id);
@@ -874,39 +864,42 @@ impl ScheduleGraph {
 
     /// Initializes any newly-added systems and conditions by calling [`System::initialize`]
     pub fn initialize(&mut self, world: &mut World) {
-        for pending in self.uninit_access_sets.drain(..) {
-            match pending {
-                PendingAccessSet::Read(component, node) => {
-                    let component = world
-                        .components
-                        .init_component_with_descriptor(&mut world.storages, component);
-                    self.read_system_sets
-                        .entry(component)
-                        .or_insert(Vec::new())
-                        .push(node);
-                    // Add any previously-added systems with read access to the set.
-                    for (id, ..) in self
-                        .systems()
-                        .filter(|(_, system, _)| system.component_access().has_read(component))
-                    {
-                        self.hierarchy.graph.add_edge(node, id, ());
-                    }
+        for node in self.uninit_access_sets.drain(..) {
+            let set = &self.system_sets[node.index()].inner;
+            let reads_component = set.reads_component();
+            let writes_component = set.reads_component();
+
+            if let Some(component) = reads_component {
+                let component = world
+                    .components
+                    .init_component_with_descriptor(&mut world.storages, component);
+                self.read_system_sets
+                    .entry(component)
+                    .or_insert(Vec::new())
+                    .push(node);
+                // Add any previously-added systems with read access to the set.
+                for (id, ..) in self
+                    .systems()
+                    .filter(|(_, system, _)| system.component_access().has_read(component))
+                {
+                    self.hierarchy.graph.add_edge(node, id, ());
                 }
-                PendingAccessSet::Write(component, node) => {
-                    let component = world
-                        .components
-                        .init_component_with_descriptor(&mut world.storages, component);
-                    self.write_system_sets
-                        .entry(component)
-                        .or_insert(Vec::new())
-                        .push(node);
-                    // Add any previously-added systems with write access to the set.
-                    for (id, ..) in self
-                        .systems()
-                        .filter(|(_, system, _)| system.component_access().has_read(component))
-                    {
-                        self.hierarchy.graph.add_edge(node, id, ());
-                    }
+            }
+
+            if let Some(component) = writes_component {
+                let component = world
+                    .components
+                    .init_component_with_descriptor(&mut world.storages, component);
+                self.write_system_sets
+                    .entry(component)
+                    .or_insert(Vec::new())
+                    .push(node);
+                // Add any previously-added systems with write access to the set.
+                for (id, ..) in self
+                    .systems()
+                    .filter(|(_, system, _)| system.component_access().has_read(component))
+                {
+                    self.hierarchy.graph.add_edge(node, id, ());
                 }
             }
         }
