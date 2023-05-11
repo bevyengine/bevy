@@ -866,10 +866,8 @@ impl ScheduleGraph {
     pub fn initialize(&mut self, world: &mut World) {
         for node in self.uninit_access_sets.drain(..) {
             let set = &self.system_sets[node.index()].inner;
-            let reads_component = set.reads_component();
-            let writes_component = set.reads_component();
 
-            if let Some(component) = reads_component {
+            if let Some(component) = set.reads_component() {
                 let component = world
                     .components
                     .init_component_with_descriptor(&mut world.storages, component);
@@ -878,15 +876,17 @@ impl ScheduleGraph {
                     .or_insert(Vec::new())
                     .push(node);
                 // Add any previously-added systems with read access to the set.
-                for (id, ..) in self
-                    .systems()
-                    .filter(|(_, system, _)| system.component_access().has_read(component))
-                {
-                    self.hierarchy.graph.add_edge(node, id, ());
+                for (i, system) in self.systems.iter().enumerate() {
+                    let Some(system) = system.inner.as_deref() else {
+                        continue;
+                    };
+                    if system.component_access().has_read(component) {
+                        self.hierarchy.graph.add_edge(node, NodeId::System(i), ());
+                    }
                 }
             }
 
-            if let Some(component) = writes_component {
+            if let Some(component) = set.writes_component() {
                 let component = world
                     .components
                     .init_component_with_descriptor(&mut world.storages, component);
@@ -895,11 +895,13 @@ impl ScheduleGraph {
                     .or_insert(Vec::new())
                     .push(node);
                 // Add any previously-added systems with write access to the set.
-                for (id, ..) in self
-                    .systems()
-                    .filter(|(_, system, _)| system.component_access().has_read(component))
-                {
-                    self.hierarchy.graph.add_edge(node, id, ());
+                for (i, system) in self.systems.iter().enumerate() {
+                    let Some(system) = system.inner.as_deref() else {
+                        continue;
+                    };
+                    if system.component_access().has_write(component) {
+                        self.hierarchy.graph.add_edge(node, NodeId::System(i), ());
+                    }
                 }
             }
         }
