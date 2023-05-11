@@ -43,12 +43,18 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             .iter()
             .filter(|a| a.path().is_ident(BUNDLE_ATTRIBUTE_NAME))
         {
-            let _ = attr.parse_nested_meta(|meta| {
+            if let Err(error) = attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
                     field_kind.push(BundleFieldKind::Ignore);
+                    Ok(())
+                } else {
+                    Err(meta.error(format!(
+                        "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_IGNORE_NAME}`"
+                    )))
                 }
-                Ok(())
-            });
+            }) {
+                return error.into_compile_error().into();
+            }
         }
 
         field_kind.push(BundleFieldKind::Component);
