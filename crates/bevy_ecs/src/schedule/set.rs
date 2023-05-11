@@ -192,14 +192,11 @@ macro_rules! access_set_enum {
             }
         }
     };
-    ($( $(#[$($tt:tt)*])* $name:ident, )*) => {
-        $( access_set_enum!($(#[$($tt)*])* $name); )*
-    }
 }
 
 access_set_enum!(
     /// [`SystemSet`]s that are automatically populated with systems that access the component `T`.
-    ComponentAccessSet,
+    ComponentAccessSet
 );
 
 impl<T: 'static> std::fmt::Debug for ComponentAccessSet<T> {
@@ -236,7 +233,7 @@ impl<T: Component> SystemSet for ComponentAccessSet<T> {
 
 access_set_enum!(
     /// [`SystemSet`]s that are automatically populated with systems that access the resource `T`.
-    ResourceAccessSet,
+    ResourceAccessSet
 );
 
 impl<T: 'static> std::fmt::Debug for ResourceAccessSet<T> {
