@@ -903,21 +903,19 @@ impl ScheduleGraph {
                     system.initialize(world);
 
                     let system_access = system.component_access();
-                    for component in system_access.reads() {
-                        let Some(read_sets) = self.read_system_sets.get(&component) else {
-                            continue;
-                        };
-                        for &set in read_sets {
-                            self.hierarchy.graph.add_edge(set, id, ());
-                        }
+                    for &set in system_access
+                        .reads()
+                        .filter_map(|id| self.read_system_sets.get(&id))
+                        .flatten()
+                    {
+                        self.hierarchy.graph.add_edge(set, id, ());
                     }
-                    for component in system_access.writes() {
-                        let Some(write_sets) = self.write_system_sets.get(&component) else {
-                            continue;
-                        };
-                        for &set in write_sets {
-                            self.hierarchy.graph.add_edge(set, id, ());
-                        }
+                    for &set in system_access
+                        .writes()
+                        .filter_map(|id| self.write_system_sets.get(&id))
+                        .flatten()
+                    {
+                        self.hierarchy.graph.add_edge(set, id, ());
                     }
 
                     if let Some(v) = self.system_conditions[index].as_mut() {
