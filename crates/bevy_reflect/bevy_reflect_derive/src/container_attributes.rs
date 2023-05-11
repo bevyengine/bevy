@@ -183,7 +183,7 @@ impl ReflectTraits {
 
                     list.parse_nested_meta(|meta| {
                         // This should be the path of the custom function
-                        let trait_func_ident = TraitImpl::Custom(meta.path.clone(), span);
+                        let trait_func_ident = TraitImpl::Custom(meta.path, span);
                         match ident.as_str() {
                             DEBUG_ATTR => {
                                 traits.debug.merge(trait_func_ident)?;
