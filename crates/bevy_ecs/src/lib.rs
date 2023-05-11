@@ -64,7 +64,7 @@ mod tests {
     use crate::prelude::Or;
     use crate::schedule::{
         IntoSystemConfigs, ReadsComponent, ReadsResource, Schedule, ScheduleBuildSettings,
-        SystemSet, WritesComponent,
+        WritesComponent,
     };
     use crate::system::{Query, Res, ResMut};
     use crate::{
@@ -1763,12 +1763,6 @@ mod tests {
     fn resource_with_access_set() {
         #[derive(Resource, Default)]
         struct R;
-
-        #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        struct Writers;
-
-        #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        struct Readers;
 
         fn send_system(_: ResMut<R>) {}
         fn read_system(_: Res<R>) {}
