@@ -184,12 +184,19 @@ impl ReflectTraits {
                     list.parse_nested_meta(|meta| {
                         // This should be the path of the custom function
                         let trait_func_ident = TraitImpl::Custom(meta.path.clone(), span);
-                        if meta.path.is_ident(DEBUG_ATTR) {
-                            traits.debug.merge(trait_func_ident)?;
-                        } else if meta.path.is_ident(PARTIAL_EQ_ATTR) {
-                            traits.partial_eq.merge(trait_func_ident)?;
-                        } else if meta.path.is_ident(HASH_ATTR) {
-                            traits.hash.merge(trait_func_ident)?;
+                        match ident.as_str() {
+                            DEBUG_ATTR => {
+                                traits.debug.merge(trait_func_ident)?;
+                            }
+                            PARTIAL_EQ_ATTR => {
+                                traits.partial_eq.merge(trait_func_ident)?;
+                            }
+                            HASH_ATTR => {
+                                traits.hash.merge(trait_func_ident)?;
+                            }
+                            _ => {
+                                return Err(syn::Error::new(span, "Can only use custom functions for special traits (i.e. `Hash`, `PartialEq`, `Debug`)"));
+                            }
                         }
                         Ok(())
                     })?;

@@ -148,11 +148,10 @@ impl<'a> ReflectDerive<'a> {
 
                     reflect_mode = Some(ReflectMode::Normal);
 
-                    let mut metas = vec![];
-                    meta_list.parse_nested_meta(|meta| {
-                        metas.push(Meta::Path(meta.path));
-                        Ok(())
-                    })?;
+                    let metas = meta_list
+                        .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?
+                        .into_iter()
+                        .collect();
                     let new_traits = ReflectTraits::from_metas(metas)?;
                     traits.merge(new_traits)?;
                 }
@@ -165,11 +164,10 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let mut metas = vec![];
-                    meta_list.parse_nested_meta(|meta| {
-                        metas.push(Meta::Path(meta.path));
-                        Ok(())
-                    })?;
+                    let metas = meta_list
+                        .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?
+                        .into_iter()
+                        .collect();
                     let new_traits = ReflectTraits::from_metas(metas)?;
                     traits.merge(new_traits)?;
                 }
