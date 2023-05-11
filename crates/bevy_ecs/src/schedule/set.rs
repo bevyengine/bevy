@@ -150,6 +150,7 @@ impl SystemSet for AnonymousSet {
 macro_rules! access_set_enum {
     ( $(#[$($tt:tt)*])* $name:ident) => {
         $(#[$($tt)*])*
+        #[non_exhaustive] // Discourages people from matching on `_Marker`.
         pub enum $name<T> {
             /// Any systems with read-only access to `T` will be added to this set.
             Reads,
