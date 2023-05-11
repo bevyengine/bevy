@@ -326,7 +326,7 @@ fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
 }
 
 // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
-const sample_offsets: array<vec2<f32>, 9> = array<vec2<f32>, 9>(
+const sample_offsets: array<vec2<f32>, 8> = array<vec2<f32>, 8>(
     vec2<f32>(-0.7071,  0.7071),
     vec2<f32>(-0.0000, -0.8750),
     vec2<f32>( 0.5303,  0.5303),
@@ -335,8 +335,9 @@ const sample_offsets: array<vec2<f32>, 9> = array<vec2<f32>, 9>(
     vec2<f32>(-0.0000,  0.3750),
     vec2<f32>(-0.1768, -0.1768),
     vec2<f32>( 0.1250,  0.0000),
-    vec2<f32>(-0.0404,  0.0404),
 );
+
+const MAX_TRANSMISSIVE_TAPS = 32;
 
 fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, perceptual_roughness: f32, distance: f32) -> vec4<f32> {
     // Calculate view aspect ratio, used to scale offset so that it's proportionate
@@ -354,12 +355,13 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     let blur_intensity = perceptual_roughness / distance;
 
     // Number of taps scale with blur intensity
-    // Minimum: 1, Maximum: 9
+    let num_taps = i32(max(min(blur_intensity * 5.0, 1.0) * f32(MAX_TRANSMISSIVE_TAPS), 1.0));
+    let num_spirals = (num_taps >> 3u) + 1;
 
-    let num_taps = i32(min(blur_intensity * 300.0, 8.0)) + 1;
     var result = vec4<f32>(0.0);
     for (var i: i32 = 0; i < num_taps; i = i + 1) {
-        let random_angle = 2.0 * PI * interleaved_gradient_noise(frag_coord.xy);
+        let current_spiral = (i >> 3u);
+        let random_angle = f32(current_spiral) / f32(num_spirals) * 2.0 * PI + 2.0 * PI * interleaved_gradient_noise(frag_coord.xy);
         let m = vec2(sin(random_angle), cos(random_angle));
         let rotation_matrix = mat2x2(
             m.y, -m.x,
@@ -368,7 +370,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
 
         // Get sample offset from array
         var sample_offset: vec2<f32>;
-        switch i {
+        switch i & 7 {
             // TODO: Figure out a more reasonable way of doing this, as WGSL
             // seems to only allow constant indexes into the constant array
             case 0: { sample_offset = sample_offsets[0]; }
@@ -379,7 +381,6 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
             case 5: { sample_offset = sample_offsets[5]; }
             case 6: { sample_offset = sample_offsets[6]; }
             case 7: { sample_offset = sample_offsets[7]; }
-            case 8: { sample_offset = sample_offsets[8]; }
             default: {}
         }
 
