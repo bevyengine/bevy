@@ -83,7 +83,6 @@ impl Plugin for CustomMaterialPlugin {
         app.add_plugin(ExtractComponentPlugin::<InstanceMaterialData>::default());
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
-            .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
             .add_systems(
                 Render,
@@ -92,6 +91,10 @@ impl Plugin for CustomMaterialPlugin {
                     prepare_instance_buffers.in_set(RenderSet::Prepare),
                 ),
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        app.sub_app_mut(RenderApp).init_resource::<CustomPipeline>();
     }
 }
 

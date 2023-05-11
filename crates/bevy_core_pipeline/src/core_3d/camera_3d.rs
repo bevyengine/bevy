@@ -8,7 +8,7 @@ use bevy_render::{
     camera::{Camera, CameraRenderGraph, Projection},
     extract_component::ExtractComponent,
     primitives::Frustum,
-    render_resource::LoadOp,
+    render_resource::{LoadOp, TextureUsages},
     view::{ColorGrading, VisibleEntities},
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -27,6 +27,9 @@ pub struct Camera3d {
     pub clear_color: ClearColorConfig,
     /// The depth clear operation to perform for the main 3d pass.
     pub depth_load_op: Camera3dDepthLoadOp,
+    /// The texture usages for the depth texture created for the main 3d pass.
+    pub depth_texture_usages: Camera3dDepthTextureUsage,
+
     /// How many individual steps should be performed in the transmissive 3d pass.
     ///
     /// Roughly corresponds to how many “layers of transparency” are rendered for
@@ -40,11 +43,26 @@ pub struct Camera3d {
 
 impl Default for Camera3d {
     fn default() -> Self {
-        Camera3d {
-            clear_color: ClearColorConfig::default(),
-            depth_load_op: Camera3dDepthLoadOp::default(),
+        Self {
+            clear_color: ClearColorConfig::Default,
+            depth_load_op: Default::default(),
+            depth_texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
             transmissive_steps: 1,
         }
+    }
+}
+
+#[derive(Clone, Copy, Reflect)]
+pub struct Camera3dDepthTextureUsage(u32);
+
+impl From<TextureUsages> for Camera3dDepthTextureUsage {
+    fn from(value: TextureUsages) -> Self {
+        Self(value.bits())
+    }
+}
+impl From<Camera3dDepthTextureUsage> for TextureUsages {
+    fn from(value: Camera3dDepthTextureUsage) -> Self {
+        Self::from_bits_truncate(value.0)
     }
 }
 

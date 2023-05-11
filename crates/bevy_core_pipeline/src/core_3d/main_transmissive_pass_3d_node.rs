@@ -1,66 +1,44 @@
 use super::{Camera3d, ViewTransmissionTexture};
 use crate::core_3d::Transmissive3d;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
     render_resource::{
         Extent3d, LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor,
     },
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ViewDepthTexture, ViewTarget},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use std::ops::Range;
 
-/// A [`Node`] that runs the [`Transmissive3d`] [`RenderPhase`].
-pub struct MainTransmissivePass3dNode {
-    query: QueryState<
-        (
-            &'static ExtractedCamera,
-            &'static Camera3d,
-            &'static RenderPhase<Transmissive3d>,
-            &'static ViewTarget,
-            Option<&'static ViewTransmissionTexture>,
-            &'static ViewDepthTexture,
-        ),
-        With<ExtractedView>,
-    >,
-}
+/// A [`bevy_render::render_graph::Node`] that runs the [`Transmissive3d`] [`RenderPhase`].
+#[derive(Default)]
+pub struct MainTransmissivePass3dNode;
 
-impl FromWorld for MainTransmissivePass3dNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            query: world.query_filtered(),
-        }
-    }
-}
-
-impl Node for MainTransmissivePass3dNode {
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
+impl ViewNode for MainTransmissivePass3dNode {
+    type ViewQuery = (
+        &'static ExtractedCamera,
+        &'static Camera3d,
+        &'static RenderPhase<Transmissive3d>,
+        &'static ViewTarget,
+        Option<&'static ViewTransmissionTexture>,
+        &'static ViewDepthTexture,
+    );
 
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
+        (camera, camera_3d, transmissive_phase, target, transmission, depth): QueryItem<
+            Self::ViewQuery,
+        >,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
-        let Ok((
-            camera,
-            camera_3d,
-            transmissive_phase,
-            target,
-            transmission,
-            depth,
-        )) = self.query.get_manual(world, view_entity) else {
-            // No window
-            return Ok(());
-        };
 
         let physical_target_size = camera.physical_target_size.unwrap();
 
