@@ -356,7 +356,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     let blur_intensity = (perceptual_roughness * perceptual_roughness) / distance;
 
     // Number of taps scale with blur intensity
-    let num_taps = i32(max(min(blur_intensity * 30.0, 1.0) * f32(MAX_TRANSMISSIVE_TAPS), 1.0));
+    let num_taps = i32(max(min(sqrt(blur_intensity) * 5.0, 1.0) * f32(MAX_TRANSMISSIVE_TAPS), 1.0));
     let num_spirals = (num_taps >> 3u) + 1;
     let random_angle = interleaved_gradient_noise(frag_coord.xy);
 #ifdef TAA
