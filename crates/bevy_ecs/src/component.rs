@@ -457,7 +457,8 @@ impl Components {
     ) -> usize {
         let index = components.len();
         let info = ComponentInfo::new(ComponentId(index), descriptor);
-        if info.descriptor.storage_type == StorageType::SparseSet {
+        // Resources are never stored in sparse sets.
+        if info.descriptor.storage_type == StorageType::SparseSet && !descriptor.is_resource {
             storages.sparse_sets.get_or_insert(&info);
         }
         components.push(info);
