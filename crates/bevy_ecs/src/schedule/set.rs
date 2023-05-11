@@ -191,7 +191,7 @@ macro_rules! generic_unit_struct {
             }
         }
     };
-    ($( $(#[$($tt:tt)*])* $name:ident ),*) => {
+    ($( $(#[$($tt:tt)*])* $name:ident, )*) => {
         $( generic_unit_struct!($(#[$($tt)*])* $name); )*
     }
 }
@@ -204,11 +204,17 @@ generic_unit_struct!(
     /// that have mutable access to the component `T`.
     WritesComponent,
     /// A [`SystemSet`] that is automatically populated with any systems
+    /// that access the component `T`.
+    ReadsOrWritesComponent,
+    /// A [`SystemSet`] that is automatically populated with any systems
     /// that have read-only access to the resource `T`.
     ReadsResource,
     /// A [`SystemSet`] that is automatically populated with any systems
     /// that have mutable access to the component `T`.
-    WritesResource
+    WritesResource,
+    /// A [`SystemSet`] that is automatically populated with any systems
+    /// that access the resource `T`.
+    ReadsOrWritesResource,
 );
 
 impl<T: Component> SystemSet for ReadsComponent<T> {
@@ -231,6 +237,20 @@ impl<T: Component> SystemSet for WritesComponent<T> {
     }
 }
 
+impl<T: Component> SystemSet for ReadsOrWritesComponent<T> {
+    fn dyn_clone(&self) -> Box<dyn SystemSet> {
+        Box::new(*self)
+    }
+
+    fn reads_component(&self) -> Option<ComponentDescriptor> {
+        Some(ComponentDescriptor::new::<T>())
+    }
+
+    fn writes_component(&self) -> Option<ComponentDescriptor> {
+        Some(ComponentDescriptor::new::<T>())
+    }
+}
+
 impl<T: Resource> SystemSet for ReadsResource<T> {
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
         Box::new(*self)
@@ -244,6 +264,20 @@ impl<T: Resource> SystemSet for ReadsResource<T> {
 impl<T: Resource> SystemSet for WritesResource<T> {
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
         Box::new(*self)
+    }
+
+    fn writes_component(&self) -> Option<ComponentDescriptor> {
+        Some(ComponentDescriptor::new_resource::<T>())
+    }
+}
+
+impl<T: Resource> SystemSet for ReadsOrWritesResource<T> {
+    fn dyn_clone(&self) -> Box<dyn SystemSet> {
+        Box::new(*self)
+    }
+
+    fn reads_component(&self) -> Option<ComponentDescriptor> {
+        Some(ComponentDescriptor::new_resource::<T>())
     }
 
     fn writes_component(&self) -> Option<ComponentDescriptor> {
