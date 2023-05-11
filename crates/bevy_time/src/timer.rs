@@ -22,15 +22,29 @@ pub struct Timer {
 
 /// Ensures that `duration` is never zero when being used in Timer. This simplifies edge cases
 /// and removes the need for repeated runtime checks for zero duration in `tick()`
-#[derive(Clone, Debug, Default, Reflect, FromReflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
-#[reflect(Default)]
+#[derive(Clone, Debug, Reflect, FromReflect)]
 pub struct NonZeroDuration {
     duration: Duration,
 }
 
+impl Default for NonZeroDuration {
+    fn default() -> Self {
+        Self {
+            duration: Duration::new(1, 0),
+        }
+    }
+}
+
+impl NonZeroDuration {
+    pub const fn new(duration: Duration) -> Self {
+        Self {
+            duration: check_non_zero_duration(duration),
+        }
+    }
+}
+
 /// This macro fails to compile. I believe its because not all invocations of
-/// `NonZeroDuration::new()`are from a const context and therefore if `is_zero()`
+/// `NonZeroDuration::new()`are from a const context and therefore `if $is_zero`
 /// cannot always be evaluated at compile time
 /*
 macro_rules! check_non_zero_duration {
@@ -39,20 +53,6 @@ macro_rules! check_non_zero_duration {
     };
 }
 */
-
-impl NonZeroDuration {
-    pub const fn new(duration: Duration) -> Self {
-        Self {
-            duration: check_non_zero_duration(duration),
-        }
-    }
-
-    pub fn default() -> Self {
-        Self {
-            duration: Duration::new(1, 0),
-        }
-    }
-}
 
 const fn check_non_zero_duration(duration: Duration) -> Duration {
     // This is a hack, but it catches issues from const contexts at compile time and all
