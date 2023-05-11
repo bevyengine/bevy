@@ -147,15 +147,18 @@ impl SystemSet for AnonymousSet {
     }
 }
 
-macro_rules! generic_unit_struct {
+macro_rules! access_set_enum {
     ( $(#[$($tt:tt)*])* $name:ident) => {
         $(#[$($tt)*])*
-        pub struct $name<T>(PhantomData<T>);
-
-        impl<T> Default for $name<T> {
-            fn default() -> Self {
-                Self(PhantomData)
-            }
+        pub enum $name<T> {
+            /// Any systems with read-only access to `T` will be added to this set.
+            Reads,
+            /// Any systems with mutable access to `T` will be added to this set.
+            Writes,
+            /// Any systems with access to `T` will be added to this set.
+            ReadsOrWrites,
+            #[doc(hidden)]
+            _Marker(PhantomData<T>),
         }
 
         impl<T> Clone for $name<T> {
@@ -167,8 +170,12 @@ macro_rules! generic_unit_struct {
         impl<T> Copy for $name<T> {}
 
         impl<T> PartialEq for $name<T> {
-            fn eq(&self, _: &Self) -> bool {
-                true
+            fn eq(&self, other: &Self) -> bool {
+                use $name::*;
+                match (self, other) {
+                    (Reads, Reads) | (Writes, Writes) | (ReadsOrWrites, ReadsOrWrites) => true,
+                    _ => false,
+                }
             }
         }
 
@@ -176,112 +183,91 @@ macro_rules! generic_unit_struct {
 
         impl<T> Hash for $name<T> {
             fn hash<H: Hasher>(&self, state: &mut H) {
-                self.0.hash(state);
-            }
-        }
-
-        impl<T: 'static> std::fmt::Debug for $name<T> {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(
-                    f,
-                    "{}<{}>",
-                    std::any::type_name::<Self>(),
-                    std::any::type_name::<T>()
-                )
+                match self {
+                    $name::Reads => 0,
+                    $name::Writes => 1,
+                    $name::ReadsOrWrites => 2,
+                    _ => 3,
+                }.hash(state);
             }
         }
     };
     ($( $(#[$($tt:tt)*])* $name:ident, )*) => {
-        $( generic_unit_struct!($(#[$($tt)*])* $name); )*
+        $( access_set_enum!($(#[$($tt)*])* $name); )*
     }
 }
 
-generic_unit_struct!(
-    /// A [`SystemSet`] that is automatically populated with any systems
-    /// that have read-only access to the component `T`.
-    ReadsComponent,
-    /// A [`SystemSet`] that is automatically populated with any systems
-    /// that have mutable access to the component `T`.
-    WritesComponent,
-    /// A [`SystemSet`] that is automatically populated with any systems
-    /// that access the component `T`.
-    ReadsOrWritesComponent,
-    /// A [`SystemSet`] that is automatically populated with any systems
-    /// that have read-only access to the resource `T`.
-    ReadsResource,
-    /// A [`SystemSet`] that is automatically populated with any systems
-    /// that have mutable access to the component `T`.
-    WritesResource,
-    /// A [`SystemSet`] that is automatically populated with any systems
-    /// that access the resource `T`.
-    ReadsOrWritesResource,
+access_set_enum!(
+    /// [`SystemSet`]s that are automatically populated with systems that access the component `T`.
+    ComponentAccessSet,
 );
 
-impl<T: Component> SystemSet for ReadsComponent<T> {
+impl<T: 'static> std::fmt::Debug for ComponentAccessSet<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Reads => write!(f, "ReadsComponent")?,
+            Self::Writes => write!(f, "WritesComponent")?,
+            Self::ReadsOrWrites => write!(f, "ReadsOrWritesComponent")?,
+            _ => {}
+        }
+        write!(f, "<{}>", std::any::type_name::<T>())
+    }
+}
+
+impl<T: Component> SystemSet for ComponentAccessSet<T> {
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
         Box::new(*self)
     }
 
     fn reads_component(&self) -> Option<ComponentDescriptor> {
-        Some(ComponentDescriptor::new::<T>())
-    }
-}
-
-impl<T: Component> SystemSet for WritesComponent<T> {
-    fn dyn_clone(&self) -> Box<dyn SystemSet> {
-        Box::new(*self)
+        match self {
+            Self::Reads | Self::ReadsOrWrites => Some(ComponentDescriptor::new::<T>()),
+            _ => None,
+        }
     }
 
     fn writes_component(&self) -> Option<ComponentDescriptor> {
-        Some(ComponentDescriptor::new::<T>())
+        match self {
+            Self::Writes | Self::ReadsOrWrites => Some(ComponentDescriptor::new::<T>()),
+            _ => None,
+        }
     }
 }
 
-impl<T: Component> SystemSet for ReadsOrWritesComponent<T> {
+access_set_enum!(
+    /// [`SystemSet`]s that are automatically populated with systems that access the resource `T`.
+    ResourceAccessSet,
+);
+
+impl<T: 'static> std::fmt::Debug for ResourceAccessSet<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Reads => write!(f, "ReadsResource")?,
+            Self::Writes => write!(f, "WritesResource")?,
+            Self::ReadsOrWrites => write!(f, "ReadsOrWritesResource")?,
+            _ => {}
+        }
+        write!(f, "<{}>", std::any::type_name::<T>())
+    }
+}
+
+impl<T: Resource> SystemSet for ResourceAccessSet<T> {
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
         Box::new(*self)
     }
 
     fn reads_component(&self) -> Option<ComponentDescriptor> {
-        Some(ComponentDescriptor::new::<T>())
+        match self {
+            Self::Reads | Self::ReadsOrWrites => Some(ComponentDescriptor::new_resource::<T>()),
+            _ => None,
+        }
     }
 
     fn writes_component(&self) -> Option<ComponentDescriptor> {
-        Some(ComponentDescriptor::new::<T>())
-    }
-}
-
-impl<T: Resource> SystemSet for ReadsResource<T> {
-    fn dyn_clone(&self) -> Box<dyn SystemSet> {
-        Box::new(*self)
-    }
-
-    fn reads_component(&self) -> Option<ComponentDescriptor> {
-        Some(ComponentDescriptor::new_resource::<T>())
-    }
-}
-
-impl<T: Resource> SystemSet for WritesResource<T> {
-    fn dyn_clone(&self) -> Box<dyn SystemSet> {
-        Box::new(*self)
-    }
-
-    fn writes_component(&self) -> Option<ComponentDescriptor> {
-        Some(ComponentDescriptor::new_resource::<T>())
-    }
-}
-
-impl<T: Resource> SystemSet for ReadsOrWritesResource<T> {
-    fn dyn_clone(&self) -> Box<dyn SystemSet> {
-        Box::new(*self)
-    }
-
-    fn reads_component(&self) -> Option<ComponentDescriptor> {
-        Some(ComponentDescriptor::new_resource::<T>())
-    }
-
-    fn writes_component(&self) -> Option<ComponentDescriptor> {
-        Some(ComponentDescriptor::new_resource::<T>())
+        match self {
+            Self::Writes | Self::ReadsOrWrites => Some(ComponentDescriptor::new_resource::<T>()),
+            _ => None,
+        }
     }
 }
 

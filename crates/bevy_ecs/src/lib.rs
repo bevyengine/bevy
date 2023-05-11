@@ -63,8 +63,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
     use crate::schedule::{
-        IntoSystemConfigs, ReadsComponent, ReadsResource, Schedule, ScheduleBuildSettings,
-        WritesComponent,
+        ComponentAccessSet, IntoSystemConfigs, ResourceAccessSet, Schedule, ScheduleBuildSettings,
     };
     use crate::system::{Query, Res, ResMut};
     use crate::{
@@ -1726,7 +1725,7 @@ mod tests {
         let mut schedule = Schedule::new();
 
         schedule.add_systems((
-            before_read.before(ReadsComponent::<A>::default()),
+            before_read.before(ComponentAccessSet::Reads::<A>),
             does_read,
         ));
 
@@ -1748,7 +1747,7 @@ mod tests {
         let mut schedule = Schedule::new();
 
         schedule.add_systems(does_write);
-        schedule.add_systems(after_write.after(WritesComponent::<A>::default()));
+        schedule.add_systems(after_write.after(ComponentAccessSet::Writes::<A>));
 
         // Panic if there are ambiguities.
         schedule.set_build_settings(ScheduleBuildSettings {
@@ -1772,7 +1771,7 @@ mod tests {
 
         world.init_resource::<R>();
         schedule.add_systems((
-            send_system.before(ReadsResource::<R>::default()),
+            send_system.before(ResourceAccessSet::Reads::<R>),
             read_system,
         ));
 
