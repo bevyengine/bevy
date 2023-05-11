@@ -22,14 +22,19 @@ pub struct Timer {
 
 /// Ensures that `duration` is never zero when being used in Timer. This simplifies edge cases
 /// and removes the need for repeated runtime checks for zero duration in `tick()`
-#[derive(Clone, Debug, Default, Reflect, FromReflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
-#[reflect(Default)]
+#[derive(Clone, Debug, Reflect, FromReflect)]
 pub struct NonZeroDuration {
     duration: Duration,
 }
 
-// TODO: Try to find compile time check if possible.
+impl Default for NonZeroDuration {
+    fn default() -> Self {
+        Self {
+            duration: Duration::new(1, 0),
+        }
+    }
+}
+
 impl NonZeroDuration {
     pub fn new(duration: Duration) -> Self {
         // Runtime Check
@@ -38,13 +43,6 @@ impl NonZeroDuration {
         }
 
         Self { duration }
-    }
-
-    pub fn default() -> Self {
-        // TODO: Is this a sane default?
-        Self {
-            duration: Duration::new(1, 0),
-        }
     }
 }
 
