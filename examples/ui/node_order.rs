@@ -1,5 +1,6 @@
 /// An example that uses the `NodeOrder` component to reorder UI elements.
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::prelude::*;
+use bevy_internal::window::PrimaryWindow;
 
 fn main() {
     App::new()
@@ -24,6 +25,7 @@ struct DirectionLabel;
 fn setup(mut commands: Commands) {
     let initial_grid_direction = GridAutoFlow::Row;
     commands.spawn(Camera2dBundle::default());
+
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -173,37 +175,53 @@ fn setup(mut commands: Commands) {
 }
 
 fn update_ordered_buttons(
-    mut button_query: Query<
-        (
-            &Interaction,
-            &OrderedButton,
-            &mut BackgroundColor,
-            &Children,
-            &Parent,
-        ),
-        Changed<Interaction>,
-    >,
+    primary_window_query: Query<&Window, With<PrimaryWindow>>,
+    mut button_query: Query<(
+        &Node,
+        &GlobalTransform,
+        &OrderedButton,
+        &mut BackgroundColor,
+        &Children,
+        &Parent,
+    )>,
     mut order_query: Query<&mut NodeOrder>,
     mut label_query: Query<&mut Text>,
+    mouse_buttons: Res<Input<MouseButton>>,
 ) {
-    for (interaction, ordered_button, mut background_color, children, parent) in &mut button_query {
-        match interaction {
-            Interaction::Clicked => {
+    let mut n = 0;
+    if mouse_buttons.just_pressed(MouseButton::Left) {
+        n += 1;
+    }
+    if mouse_buttons.just_pressed(MouseButton::Right) {
+        n -= -1;
+    }
+    let cursor_position = primary_window_query.single().cursor_position();
+    for (node, global_transform, ordered_button, mut background_color, children, parent) in
+        &mut button_query
+    {
+        if cursor_position
+            .map(|cursor_position| {
+                Rect::from_center_size(global_transform.translation().truncate(), node.size())
+                    .contains(cursor_position)
+            })
+            .unwrap_or(false)
+        {
+            if n != 0 {
                 let mut node_order = order_query.get_mut(parent.get()).unwrap();
-                node_order.0 = (node_order.0 + 1) % 16;
+                node_order.0 = (node_order.0 + n).rem_euclid(16);
                 let mut text = label_query.get_mut(children[0]).unwrap();
                 text.sections[0].value = format!("{}", node_order.0);
-            }
-            Interaction::Hovered => {
+            } else {
+                // hovered
                 background_color.0 = ordered_button.0.with_a(0.25);
                 let mut text = label_query.get_mut(children[0]).unwrap();
                 text.bypass_change_detection().sections[0].style.color = ordered_button.0;
             }
-            Interaction::None => {
-                background_color.0 = ordered_button.0;
-                let mut text = label_query.get_mut(children[0]).unwrap();
-                text.bypass_change_detection().sections[0].style.color = Color::BLACK;
-            }
+        } else {
+            // none
+            background_color.0 = ordered_button.0;
+            let mut text = label_query.get_mut(children[0]).unwrap();
+            text.bypass_change_detection().sections[0].style.color = Color::BLACK;
         }
     }
 }
