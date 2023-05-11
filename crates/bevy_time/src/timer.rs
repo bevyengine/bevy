@@ -14,10 +14,36 @@ use bevy_utils::Duration;
 #[reflect(Default)]
 pub struct Timer {
     stopwatch: Stopwatch,
-    duration: Duration,
+    non_zero_duration: NonZeroDuration,
     mode: TimerMode,
     finished: bool,
     times_finished_this_tick: u32,
+}
+
+/// Ensures that `duration` is never zero when being used in Timer. This simplifies edge cases
+/// and removes the need for repeated runtime checks for zero duration in `tick()`
+#[derive(Clone, Debug, Default, Reflect, FromReflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
+#[reflect(Default)]
+pub struct NonZeroDuration {
+    duration: Duration
+}
+
+// TODO: Try to find compile time check if possible.
+impl NonZeroDuration {
+    pub fn new(duration: Duration) -> Self {
+        // Runtime Check
+        if duration.is_zero() {
+            panic!("NonZeroDuration constructed with Duration that was zero")
+        }
+
+        Self { duration }
+    }
+
+    pub fn default() -> Self {
+        // TODO: Is this a sane default?
+        Self { duration: Duration::new(1, 0) }
+    }
 }
 
 impl Timer {
@@ -26,8 +52,8 @@ impl Timer {
     /// See also [`Timer::from_seconds`](Timer::from_seconds).
     pub fn new(duration: Duration, mode: TimerMode) -> Self {
         Self {
-            duration,
-            mode,
+            non_zero_duration: NonZeroDuration::new(duration),
+            mode: mode,
             ..Default::default()
         }
     }
@@ -41,7 +67,7 @@ impl Timer {
     /// ```
     pub fn from_seconds(duration: f32, mode: TimerMode) -> Self {
         Self {
-            duration: Duration::from_secs_f32(duration),
+            non_zero_duration: NonZeroDuration::new(Duration::from_secs_f32(duration)),
             mode,
             ..Default::default()
         }
@@ -137,7 +163,7 @@ impl Timer {
     /// ```
     #[inline]
     pub fn duration(&self) -> Duration {
-        self.duration
+        self.non_zero_duration.duration
     }
 
     /// Sets the duration of the timer.
@@ -152,7 +178,7 @@ impl Timer {
     /// ```
     #[inline]
     pub fn set_duration(&mut self, duration: Duration) {
-        self.duration = duration;
+        self.non_zero_duration = NonZeroDuration::new(duration);
     }
 
     /// Returns the mode of the timer.
@@ -562,5 +588,30 @@ mod tests {
         t.tick(Duration::from_secs_f32(5.0));
         assert!(!t.just_finished());
         assert!(!t.finished());
+    }
+
+    #[test]
+    fn default_non_zero_duration() {
+        let non_zero_duration = NonZeroDuration::default();
+        assert!(non_zero_duration.duration.as_secs_f32() == 1.0)
+    }
+
+    #[test]
+    #[should_panic]
+    fn fail_me() {
+        let _zero_duration: NonZeroDuration = NonZeroDuration::new(Duration::new(0, 0));
+    }
+
+    #[test]
+    #[should_panic]
+    fn timer_from_seconds_zero() {
+        let _t = Timer::from_seconds(0.0, TimerMode::Repeating);
+    }
+
+    #[test]
+    #[should_panic]
+    fn timer_set_zero_duration() {
+        let mut t = Timer::from_seconds(1.0, TimerMode::Repeating);
+        t.set_duration(Duration::ZERO);
     }
 }
