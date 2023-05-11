@@ -69,11 +69,6 @@ struct FragmentOutput {
 }
 
 @fragment
-// NOTE: in the future, if we do depth writes, we'll also need to disable
-// `@early_depth_test` for them, via a similar def (e.g. `MAY_DEPTH_WRITE`)
-#ifndef MAY_DISCARD
-@early_depth_test
-#endif
 fn fragment(in: FragmentInput) -> FragmentOutput {
     prepass_alpha_discard(in);
 
@@ -125,10 +120,6 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 }
 #else
 @fragment
-// NOTE: in the future, if we do depth writes, we'll also need to disable
-// `@early_depth_test` for them, via a similar def (e.g. `MAY_DEPTH_WRITE`)
-#ifndef MAY_DISCARD
-@early_depth_test
 #endif
 fn fragment(in: FragmentInput) {
     prepass_alpha_discard(in);
