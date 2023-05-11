@@ -326,7 +326,7 @@ fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
 }
 
 // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
-const sample_offsets: array<vec2<f32>, 8> = array<vec2<f32>, 8>(
+const SPIRAL_OFFSETS: array<vec2<f32>, 8> = array<vec2<f32>, 8>(
     vec2<f32>(-0.7071,  0.7071),
     vec2<f32>(-0.0000, -0.8750),
     vec2<f32>( 0.5303,  0.5303),
@@ -377,27 +377,27 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
             m.x, m.y
         );
 
-        // Get sample offset from array
-        var sample_offset: vec2<f32>;
+        // Get spiral offset from array
+        var spiral_offset: vec2<f32>;
         switch i & 7 {
             // TODO: Figure out a more reasonable way of doing this, as WGSL
             // seems to only allow constant indexes into the constant array
-            case 0: { sample_offset = sample_offsets[0]; }
-            case 1: { sample_offset = sample_offsets[1]; }
-            case 2: { sample_offset = sample_offsets[2]; }
-            case 3: { sample_offset = sample_offsets[3]; }
-            case 4: { sample_offset = sample_offsets[4]; }
-            case 5: { sample_offset = sample_offsets[5]; }
-            case 6: { sample_offset = sample_offsets[6]; }
-            case 7: { sample_offset = sample_offsets[7]; }
+            case 0: { spiral_offset = SPIRAL_OFFSETS[0]; }
+            case 1: { spiral_offset = SPIRAL_OFFSETS[1]; }
+            case 2: { spiral_offset = SPIRAL_OFFSETS[2]; }
+            case 3: { spiral_offset = SPIRAL_OFFSETS[3]; }
+            case 4: { spiral_offset = SPIRAL_OFFSETS[4]; }
+            case 5: { spiral_offset = SPIRAL_OFFSETS[5]; }
+            case 6: { spiral_offset = SPIRAL_OFFSETS[6]; }
+            case 7: { spiral_offset = SPIRAL_OFFSETS[7]; }
             default: {}
         }
 
         // Rotate and correct for aspect ratio
-        let rotated_sample_offset = (rotation_matrix * sample_offset) * vec2(1.0, aspect);
+        let rotated_spiral_offset = (rotation_matrix * spiral_offset) * vec2(1.0, aspect);
 
-        // Calucalte final offset position, with blur and sample offset
-        let modified_offset_position = offset_position + rotated_sample_offset * blur_intensity * (1.0 - f32(pixel_mesh) * 0.1);
+        // Calucalte final offset position, with blur and spiral offset
+        let modified_offset_position = offset_position + rotated_spiral_offset * blur_intensity * (1.0 - f32(pixel_mesh) * 0.1);
 
         // Use depth prepass data to reject values that are in front of the current fragment
         if (prepass_depth(vec4<f32>(modified_offset_position * view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z) {
