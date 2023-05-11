@@ -603,23 +603,23 @@ fn get_visibility_flag_value(meta: Meta) -> Result<ShaderStageVisibility> {
 
     use syn::Meta::Path;
     match meta {
-        // Parse `visibility(all)]`.
+        // Parse `#[visibility(all)]`.
         Path(path) if path == VISIBILITY_ALL => {
             return Ok(ShaderStageVisibility::All)
         }
-        // Parse `visibility(none)]`.
+        // Parse `#[visibility(none)]`.
         Path(path) if path == VISIBILITY_NONE => {
             return Ok(ShaderStageVisibility::None)
         }
-        // Parse `visibility(vertex, ...)]`.
+        // Parse `#[visibility(vertex, ...)]`.
         Path(path) if path == VISIBILITY_VERTEX => {
             visibility.vertex = true;
         }
-        // Parse `visibility(fragment, ...)]`.
+        // Parse `#[visibility(fragment, ...)]`.
         Path(path) if path == VISIBILITY_FRAGMENT => {
             visibility.fragment = true;
         }
-        // Parse `visibility(compute, ...)]`.
+        // Parse `#[visibility(compute, ...)]`.
         Path(path) if path == VISIBILITY_COMPUTE => {
             visibility.compute = true;
         }
