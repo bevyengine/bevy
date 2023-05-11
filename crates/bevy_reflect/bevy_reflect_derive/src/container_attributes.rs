@@ -45,9 +45,9 @@ pub(crate) enum TraitImpl {
 impl TraitImpl {
     /// Merges this [`TraitImpl`] with another.
     ///
-    /// Returns whichever value is not [`TraitImpl::NotImplemented`].
-    /// If both values are [`TraitImpl::NotImplemented`], then that is returned.
-    /// Otherwise, an error is returned if neither value is [`TraitImpl::NotImplemented`].
+    /// Update `self` with whichever value is not [`TraitImpl::NotImplemented`].
+    /// If `other` is [`TraitImpl::NotImplemented`], then `self` is not modified.
+    /// An error is returned if neither value is [`TraitImpl::NotImplemented`].
     pub fn merge(&mut self, other: TraitImpl) -> Result<(), syn::Error> {
         match (&self, other) {
             (TraitImpl::NotImplemented, value) => {
