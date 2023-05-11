@@ -15,7 +15,7 @@ fn main() {
 struct OrderedButtonContainer;
 
 #[derive(Component)]
-struct OrderedButton;
+struct OrderedButton(Color);
 
 #[derive(Component)]
 struct DirectionButton;
@@ -24,7 +24,7 @@ struct DirectionButton;
 struct DirectionLabel;
 
 fn setup(mut commands: Commands) {
-    let initial_direction = FlexDirection::Row;
+    let initial_grid_direction = GridAutoFlow::Row;
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn(NodeBundle {
@@ -35,20 +35,26 @@ fn setup(mut commands: Commands) {
                 align_items: AlignItems::Center,
                 gap: Size::all(Val::Px(20.)),
                 margin: UiRect::all(Val::Px(10.)),
+                border: UiRect::all(Val::Px(20.)),
                 ..Default::default()
             },
             background_color: Color::GRAY.into(),
             ..Default::default()
         })
         .with_children(|builder| {
+            builder.spawn(TextBundle::from_section(
+                "Click on a grid cell to change its order",
+                TextStyle {
+                    font_size: 40.,
+                    ..Default::default()
+                },
+            ));
+
             builder
                 .spawn(NodeBundle {
                     style: Style {
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        size: Size::all(Val::Px(600.)),
-                        min_size: Size::all(Val::Px(600.)),
-                        max_size: Size::all(Val::Px(600.)),
                         ..Default::default()
                     },
                     ..Default::default()
@@ -59,12 +65,15 @@ fn setup(mut commands: Commands) {
                             OrderedButtonContainer,
                             NodeBundle {
                                 style: Style {
-                                    padding: UiRect::all(Val::Px(10.)),
+                                    display: Display::Grid,
+                                    border: UiRect::all(Val::Px(10.)),
+                                    grid_template_rows: vec![RepeatedGridTrack::px(4, 100.)],
+                                    grid_template_columns: vec![RepeatedGridTrack::px(4, 100.)],
                                     gap: Size::all(Val::Px(10.)),
-                                    flex_direction: initial_direction,
+                                    grid_auto_flow: initial_grid_direction,
                                     ..Default::default()
                                 },
-                                background_color: Color::BLACK.into(),
+                                background_color: Color::DARK_GRAY.into(),
                                 ..Default::default()
                             },
                         ))
@@ -78,77 +87,125 @@ fn setup(mut commands: Commands) {
                                 Color::CRIMSON,
                                 Color::FUCHSIA,
                                 Color::PINK,
+                                Color::ORANGE,
+                                Color::ORANGE_RED,
+                                Color::LIME_GREEN,
+                                Color::YELLOW_GREEN,
+                                Color::GOLD,
+                                Color::VIOLET,
+                                Color::SILVER,
+                                Color::TEAL,
                             ]
                             .into_iter()
                             .enumerate()
                             {
                                 builder
-                                    .spawn((
-                                        OrderedButton,
-                                        ButtonBundle {
-                                            style: Style {
-                                                size: Size::all(Val::Px(60.)),
-                                                justify_content: JustifyContent::Center,
-                                                align_items: AlignItems::Center,
-                                                ..Default::default()
-                                            },
-                                            background_color: color.into(),
-                                            ..Default::default()
-                                        },
-                                    ))
+                                    .spawn(NodeBundle {
+                                        order: NodeOrder(i as i32),
+                                        background_color: Color::BLACK.into(),
+                                        ..Default::default()
+                                    })
                                     .with_children(|builder| {
-                                        builder.spawn(TextBundle::from_section(
-                                            format!("{i}"),
-                                            TextStyle {
-                                                font_size: 40.,
-                                                color: Color::BLACK,
-                                                ..Default::default()
-                                            },
-                                        ));
+                                        builder
+                                            .spawn((
+                                                OrderedButton(color),
+                                                ButtonBundle {
+                                                    style: Style {
+                                                        justify_content: JustifyContent::Center,
+                                                        align_items: AlignItems::Center,
+                                                        margin: UiRect::all(Val::Px(5.)),
+                                                        flex_grow: 1.0,
+                                                        ..Default::default()
+                                                    },
+                                                    background_color: color.into(),
+                                                    ..Default::default()
+                                                },
+                                            ))
+                                            .with_children(|builder| {
+                                                builder.spawn(TextBundle::from_section(
+                                                    format!("{i}"),
+                                                    TextStyle {
+                                                        font_size: 80.,
+                                                        color: Color::BLACK,
+                                                        ..Default::default()
+                                                    },
+                                                ));
+                                            });
                                     });
                             }
                         });
                 });
-
             builder
-                .spawn((
-                    DirectionButton,
-                    ButtonBundle {
-                        style: Style {
-                            padding: UiRect::all(Val::Px(10.)),
-                            ..Default::default()
-                        },
-                        background_color: Color::WHITE.into(),
+                .spawn(NodeBundle {
+                    style: Style {
+                        border: UiRect::all(Val::Px(10.)),
                         ..Default::default()
                     },
-                ))
+                    background_color: Color::DARK_GRAY.into(),
+                    ..Default::default()
+                })
                 .with_children(|builder| {
-                    builder.spawn((
-                        DirectionLabel,
-                        TextBundle::from_section(
-                            format!("FlexDirection::{initial_direction:?}"),
-                            TextStyle {
-                                font_size: 30.,
-                                color: Color::BLACK,
+                    builder
+                        .spawn((
+                            DirectionButton,
+                            ButtonBundle {
+                                style: Style {
+                                    padding: UiRect::all(Val::Px(10.)),
+                                    ..Default::default()
+                                },
+                                background_color: Color::WHITE.into(),
                                 ..Default::default()
                             },
-                        ),
-                    ));
+                        ))
+                        .with_children(|builder| {
+                            builder.spawn((
+                                DirectionLabel,
+                                TextBundle::from_section(
+                                    format!("GridAutoFlow::{initial_grid_direction:?}"),
+                                    TextStyle {
+                                        font_size: 30.,
+                                        color: Color::BLACK,
+                                        ..Default::default()
+                                    },
+                                ),
+                            ));
+                        });
                 });
         });
 }
 
 fn update_ordered_buttons(
-    mut order: Local<i32>,
     mut button_query: Query<
-        (&Interaction, &mut NodeOrder),
-        (Changed<Interaction>, With<OrderedButton>),
+        (
+            &Interaction,
+            &OrderedButton,
+            &mut BackgroundColor,
+            &Children,
+            &Parent,
+        ),
+        Changed<Interaction>,
     >,
+    mut order_query: Query<&mut NodeOrder>,
+    mut label_query: Query<&mut Text>,
 ) {
-    for (interaction, mut node_order) in &mut button_query {
-        if *interaction == Interaction::Clicked {
-            *order -= 1;
-            node_order.0 = *order;
+    for (interaction, ordered_button, mut background_color, children, parent) in &mut button_query {
+        match interaction {
+            Interaction::Clicked => {
+                let mut node_order = order_query.get_mut(parent.get()).unwrap();
+                node_order.0 = (node_order.0 + 1) % 16;
+                let mut text = label_query.get_mut(children[0]).unwrap();
+                text.sections[0].value = format!("{}", node_order.0);
+            }
+            Interaction::Hovered => {
+                background_color.0 = ordered_button.0.with_a(0.25);
+                let mut text = label_query.get_mut(children[0]).unwrap();
+                text.bypass_change_detection().sections[0].style.color = ordered_button.0;
+            }
+            Interaction::None => {
+                background_color.0 = ordered_button.0;
+                let mut text = label_query.get_mut(children[0]).unwrap();
+                text.bypass_change_detection().sections[0].style.color = Color::BLACK;
+            }
         }
     }
 }
@@ -166,14 +223,12 @@ fn update_direction_button(
             Interaction::Clicked => {
                 color.0 = Color::RED;
                 let mut style = button_container_query.single_mut();
-                style.flex_direction = match style.flex_direction {
-                    FlexDirection::Row => FlexDirection::RowReverse,
-                    FlexDirection::RowReverse => FlexDirection::Column,
-                    FlexDirection::Column => FlexDirection::ColumnReverse,
-                    FlexDirection::ColumnReverse => FlexDirection::Row,
+                style.grid_auto_flow = match style.grid_auto_flow {
+                    GridAutoFlow::Row => GridAutoFlow::Column,
+                    _ => GridAutoFlow::Row,
                 };
                 let mut text = direction_label_query.single_mut();
-                text.sections[0].value = format!("FlexDirection::{:?}", style.flex_direction);
+                text.sections[0].value = format!("GridAutoFlow::{:?}", style.grid_auto_flow);
             }
             Interaction::Hovered => {
                 color.0 = Color::YELLOW;
