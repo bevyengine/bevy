@@ -315,8 +315,13 @@ fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<
 
 // https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
 fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
+#ifdef TAA
     let frame = f32(globals.frame_count % 64u);
     let xy = pixel_coordinates + 5.588238 * frame;
+#else
+    // Don't vary noise per frame if TAA is not enabled
+    let xy = pixel_coordinates;
+#endif
     return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
 }
 
