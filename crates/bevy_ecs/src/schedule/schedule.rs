@@ -733,7 +733,7 @@ impl ScheduleGraph {
         self.system_sets.push(SystemSetNode::new(set.dyn_clone()));
         self.system_set_conditions.push(Vec::new());
 
-        if set.reads_component().is_some() || set.writes_component().is_some() {
+        if set.is_access_set() {
             self.uninit.push(PendingInit::AccessSet(id.index()));
         }
 

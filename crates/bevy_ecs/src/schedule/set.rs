@@ -34,6 +34,14 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
     /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 
+    /// Returns `true` if this system set is automatically populated based on
+    /// systems' world accesses.
+    /// The component tracked by this set is specified in either [`Self::reads_component`]
+    /// or [`Self::writes_component`].
+    fn is_access_set(&self) -> bool {
+        self.reads_component().is_some() || self.writes_component().is_some()
+    }
+
     /// If this returns `Some`, then that means any systems that have read-only access
     /// to the returned component will automatically be added to this set.
     /// This also means that outside configuration of this system set is disallowed.
