@@ -1,5 +1,6 @@
 //! Contains code related to documentation reflection (requires the `documentation` feature).
 
+use crate::fq_std::FQOption;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{Attribute, Lit, Meta};
@@ -69,9 +70,9 @@ impl Documentation {
 impl ToTokens for Documentation {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         if let Some(doc) = self.doc_string() {
-            quote!(Some(#doc)).to_tokens(tokens);
+            quote!(#FQOption::Some(#doc)).to_tokens(tokens);
         } else {
-            quote!(None).to_tokens(tokens);
+            quote!(#FQOption::None).to_tokens(tokens);
         }
     }
 }

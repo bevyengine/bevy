@@ -1,13 +1,17 @@
-use crate::{DirectionalLight, Material, PointLight, SpotLight, StandardMaterial};
+use crate::{
+    CascadeShadowConfig, Cascades, DirectionalLight, Material, PointLight, SpotLight,
+    StandardMaterial,
+};
 use bevy_asset::Handle;
-use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
+use bevy_ecs::{bundle::Bundle, component::Component, prelude::Entity, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
-    primitives::{CubemapFrusta, Frustum},
+    primitives::{CascadesFrusta, CubemapFrusta, Frustum},
     view::{ComputedVisibility, Visibility, VisibleEntities},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_utils::HashMap;
 
 /// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
 pub type PbrBundle = MaterialMeshBundle<StandardMaterial>;
@@ -63,6 +67,14 @@ impl CubemapVisibleEntities {
     }
 }
 
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component)]
+pub struct CascadesVisibleEntities {
+    /// Map of view entity to the visible entities for each cascade frustum.
+    #[reflect(ignore)]
+    pub entities: HashMap<Entity, Vec<VisibleEntities>>,
+}
+
 /// A component bundle for [`PointLight`] entities.
 #[derive(Debug, Bundle, Default)]
 pub struct PointLightBundle {
@@ -95,8 +107,10 @@ pub struct SpotLightBundle {
 #[derive(Debug, Bundle, Default)]
 pub struct DirectionalLightBundle {
     pub directional_light: DirectionalLight,
-    pub frustum: Frustum,
-    pub visible_entities: VisibleEntities,
+    pub frusta: CascadesFrusta,
+    pub cascades: Cascades,
+    pub cascade_shadow_config: CascadeShadowConfig,
+    pub visible_entities: CascadesVisibleEntities,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// Enables or disables the light

@@ -2,65 +2,40 @@ use std::sync::Mutex;
 
 use crate::fxaa::{CameraFxaaPipeline, Fxaa, FxaaPipeline};
 use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryState;
+use bevy_ecs::query::QueryItem;
 use bevy_render::{
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, FilterMode, Operations,
         PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
         TextureViewId,
     },
     renderer::RenderContext,
-    view::{ExtractedView, ViewTarget},
+    view::ViewTarget,
 };
 use bevy_utils::default;
 
+#[derive(Default)]
 pub struct FxaaNode {
-    query: QueryState<
-        (
-            &'static ViewTarget,
-            &'static CameraFxaaPipeline,
-            &'static Fxaa,
-        ),
-        With<ExtractedView>,
-    >,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
-impl FxaaNode {
-    pub const IN_VIEW: &'static str = "view";
-
-    pub fn new(world: &mut World) -> Self {
-        Self {
-            query: QueryState::new(world),
-            cached_texture_bind_group: Mutex::new(None),
-        }
-    }
-}
-
-impl Node for FxaaNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(FxaaNode::IN_VIEW, SlotType::Entity)]
-    }
-
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
+impl ViewNode for FxaaNode {
+    type ViewQuery = (
+        &'static ViewTarget,
+        &'static CameraFxaaPipeline,
+        &'static Fxaa,
+    );
 
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
+        (target, pipeline, fxaa): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let pipeline_cache = world.resource::<PipelineCache>();
         let fxaa_pipeline = world.resource::<FxaaPipeline>();
-
-        let (target, pipeline, fxaa) = match self.query.get_manual(world, view_entity) {
-            Ok(result) => result,
-            Err(_) => return Ok(()),
-        };
 
         if !fxaa.enabled {
             return Ok(());
@@ -78,7 +53,7 @@ impl Node for FxaaNode {
             Some((id, bind_group)) if source.id() == *id => bind_group,
             cached_bind_group => {
                 let sampler = render_context
-                    .render_device
+                    .render_device()
                     .create_sampler(&SamplerDescriptor {
                         mipmap_filter: FilterMode::Linear,
                         mag_filter: FilterMode::Linear,
@@ -88,7 +63,7 @@ impl Node for FxaaNode {
 
                 let bind_group =
                     render_context
-                        .render_device
+                        .render_device()
                         .create_bind_group(&BindGroupDescriptor {
                             label: None,
                             layout: &fxaa_pipeline.texture_bind_group,
@@ -120,7 +95,7 @@ impl Node for FxaaNode {
         };
 
         let mut render_pass = render_context
-            .command_encoder
+            .command_encoder()
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);

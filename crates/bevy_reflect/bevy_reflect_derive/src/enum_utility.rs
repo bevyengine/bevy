@@ -1,3 +1,4 @@
+use crate::fq_std::FQDefault;
 use crate::{
     derive_data::{EnumVariantFields, ReflectEnum},
     utility::ident_or_index,
@@ -36,10 +37,10 @@ pub(crate) fn get_variant_constructors(
             }
         };
         let mut reflect_index: usize = 0;
-        let constructor_fields = fields.iter().enumerate().map(|(declar_index, field)| {
-            let field_ident = ident_or_index(field.data.ident.as_ref(), declar_index);
+        let constructor_fields = fields.iter().enumerate().map(|(declare_index, field)| {
+            let field_ident = ident_or_index(field.data.ident.as_ref(), declare_index);
             let field_value = if field.attrs.ignore.is_ignored() {
-                quote! { Default::default() }
+                quote! { #FQDefault::default() }
             } else {
                 let error_repr = field.data.ident.as_ref().map_or_else(
                     || format!("at index {reflect_index}"),

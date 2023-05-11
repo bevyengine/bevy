@@ -5,9 +5,16 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+/// An object safe version of [`Eq`]. This trait is automatically implemented
+/// for any `'static` type that implements `Eq`.
 pub trait DynEq: Any {
+    /// Casts the type to `dyn Any`.
     fn as_any(&self) -> &dyn Any;
 
+    /// This method tests for `self` and `other` values to be equal.
+    ///
+    /// Implementers should avoid returning `true` when the underlying types are
+    /// not the same.
     fn dyn_eq(&self, other: &dyn DynEq) -> bool;
 }
 
@@ -27,9 +34,15 @@ where
     }
 }
 
+/// An object safe version of [`Hash`]. This trait is automatically implemented
+/// for any `'static` type that implements `Hash`.
 pub trait DynHash: DynEq {
+    /// Casts the type to `dyn Any`.
     fn as_dyn_eq(&self) -> &dyn DynEq;
 
+    /// Feeds this value into the given [`Hasher`].
+    ///
+    /// [`Hasher`]: std::hash::Hasher
     fn dyn_hash(&self, state: &mut dyn Hasher);
 }
 
@@ -45,6 +58,92 @@ where
         T::hash(self, &mut state);
         self.type_id().hash(&mut state);
     }
+}
+
+/// Macro to define a new label trait
+///
+/// # Example
+///
+/// ```
+/// # use bevy_utils::define_boxed_label;
+/// define_boxed_label!(MyNewLabelTrait);
+/// ```
+#[macro_export]
+macro_rules! define_boxed_label {
+    ($label_trait_name:ident) => {
+        /// A strongly-typed label.
+        pub trait $label_trait_name: 'static + Send + Sync + ::std::fmt::Debug {
+            /// Return's the [TypeId] of this label, or the the ID of the
+            /// wrappped label type for `Box<dyn
+            #[doc = stringify!($label_trait_name)]
+            /// >`
+            ///
+            /// [TypeId]: std::any::TypeId
+            fn inner_type_id(&self) -> ::std::any::TypeId {
+                std::any::TypeId::of::<Self>()
+            }
+
+            /// Clones this `
+            #[doc = stringify!($label_trait_name)]
+            /// `
+            fn dyn_clone(&self) -> Box<dyn $label_trait_name>;
+
+            /// Casts this value to a form where it can be compared with other type-erased values.
+            fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq;
+
+            /// Feeds this value into the given [`Hasher`].
+            ///
+            /// [`Hasher`]: std::hash::Hasher
+            fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher);
+        }
+
+        impl PartialEq for dyn $label_trait_name {
+            fn eq(&self, other: &Self) -> bool {
+                self.as_dyn_eq().dyn_eq(other.as_dyn_eq())
+            }
+        }
+
+        impl Eq for dyn $label_trait_name {}
+
+        impl ::std::hash::Hash for dyn $label_trait_name {
+            fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+                self.dyn_hash(state);
+            }
+        }
+
+        impl ::std::convert::AsRef<dyn $label_trait_name> for dyn $label_trait_name {
+            #[inline]
+            fn as_ref(&self) -> &Self {
+                self
+            }
+        }
+
+        impl Clone for Box<dyn $label_trait_name> {
+            fn clone(&self) -> Self {
+                self.dyn_clone()
+            }
+        }
+
+        impl $label_trait_name for Box<dyn $label_trait_name> {
+            fn inner_type_id(&self) -> ::std::any::TypeId {
+                (**self).inner_type_id()
+            }
+
+            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
+                // Be explicit that we want to use the inner value
+                // to avoid infinite recursion.
+                (**self).dyn_clone()
+            }
+
+            fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq {
+                (**self).as_dyn_eq()
+            }
+
+            fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher) {
+                (**self).dyn_hash(state);
+            }
+        }
+    };
 }
 
 /// Macro to define a new label trait

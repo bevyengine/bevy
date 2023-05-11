@@ -52,6 +52,10 @@ where
     pub fn remove(&mut self, input_device: T) -> Option<f32> {
         self.axis_data.remove(&input_device)
     }
+    /// Returns an iterator of all the input devices that have position data
+    pub fn devices(&self) -> impl ExactSizeIterator<Item = &T> {
+        self.axis_data.keys()
+    }
 }
 
 #[cfg(test)]
@@ -107,5 +111,35 @@ mod tests {
 
             assert_eq!(expected, actual);
         }
+    }
+
+    #[test]
+    fn test_axis_devices() {
+        let mut axis = Axis::<GamepadButton>::default();
+        assert_eq!(axis.devices().count(), 0);
+
+        axis.set(
+            GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger),
+            0.1,
+        );
+        assert_eq!(axis.devices().count(), 1);
+
+        axis.set(
+            GamepadButton::new(Gamepad::new(1), GamepadButtonType::LeftTrigger),
+            0.5,
+        );
+        assert_eq!(axis.devices().count(), 2);
+
+        axis.set(
+            GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger),
+            -0.1,
+        );
+        assert_eq!(axis.devices().count(), 2);
+
+        axis.remove(GamepadButton::new(
+            Gamepad::new(1),
+            GamepadButtonType::RightTrigger,
+        ));
+        assert_eq!(axis.devices().count(), 1);
     }
 }

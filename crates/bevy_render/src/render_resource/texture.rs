@@ -1,12 +1,9 @@
-use bevy_utils::Uuid;
+use crate::define_atomic_id;
 use std::ops::Deref;
 
 use crate::render_resource::resource_macros::*;
 
-/// A [`Texture`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct TextureId(Uuid);
-
+define_atomic_id!(TextureId);
 render_resource_wrapper!(ErasedTexture, wgpu::Texture);
 
 /// A GPU-accessible texture.
@@ -35,7 +32,7 @@ impl Texture {
 impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
         Texture {
-            id: TextureId(Uuid::new_v4()),
+            id: TextureId::new(),
             value: ErasedTexture::new(value),
         }
     }
@@ -50,38 +47,25 @@ impl Deref for Texture {
     }
 }
 
-/// A [`TextureView`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct TextureViewId(Uuid);
-
+define_atomic_id!(TextureViewId);
 render_resource_wrapper!(ErasedTextureView, wgpu::TextureView);
 render_resource_wrapper!(ErasedSurfaceTexture, wgpu::SurfaceTexture);
 
-/// This type combines wgpu's [`TextureView`](wgpu::TextureView) and
-/// [`SurfaceTexture`](wgpu::SurfaceTexture) into the same interface.
-#[derive(Clone, Debug)]
-pub enum TextureViewValue {
-    /// The value is an actual wgpu [`TextureView`](wgpu::TextureView).
-    TextureView(ErasedTextureView),
-
-    /// The value is a wgpu [`SurfaceTexture`](wgpu::SurfaceTexture), but dereferences to
-    /// a [`TextureView`](wgpu::TextureView).
-    SurfaceTexture {
-        // NOTE: The order of these fields is important because the view must be dropped before the
-        // frame is dropped
-        view: ErasedTextureView,
-        texture: ErasedSurfaceTexture,
-    },
-}
-
 /// Describes a [`Texture`] with its associated metadata required by a pipeline or [`BindGroup`](super::BindGroup).
-///
-/// May be converted from a [`TextureView`](wgpu::TextureView) or [`SurfaceTexture`](wgpu::SurfaceTexture)
-/// or dereferences to a wgpu [`TextureView`](wgpu::TextureView).
 #[derive(Clone, Debug)]
 pub struct TextureView {
     id: TextureViewId,
-    value: TextureViewValue,
+    value: ErasedTextureView,
+}
+
+pub struct SurfaceTexture {
+    value: ErasedSurfaceTexture,
+}
+
+impl SurfaceTexture {
+    pub fn try_unwrap(self) -> Option<wgpu::SurfaceTexture> {
+        self.value.try_unwrap()
+    }
 }
 
 impl TextureView {
@@ -90,34 +74,21 @@ impl TextureView {
     pub fn id(&self) -> TextureViewId {
         self.id
     }
-
-    /// Returns the [`SurfaceTexture`](wgpu::SurfaceTexture) of the texture view if it is of that type.
-    #[inline]
-    pub fn take_surface_texture(self) -> Option<wgpu::SurfaceTexture> {
-        match self.value {
-            TextureViewValue::TextureView(_) => None,
-            TextureViewValue::SurfaceTexture { texture, .. } => texture.try_unwrap(),
-        }
-    }
 }
 
 impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
         TextureView {
-            id: TextureViewId(Uuid::new_v4()),
-            value: TextureViewValue::TextureView(ErasedTextureView::new(value)),
+            id: TextureViewId::new(),
+            value: ErasedTextureView::new(value),
         }
     }
 }
 
-impl From<wgpu::SurfaceTexture> for TextureView {
+impl From<wgpu::SurfaceTexture> for SurfaceTexture {
     fn from(value: wgpu::SurfaceTexture) -> Self {
-        let view = ErasedTextureView::new(value.texture.create_view(&Default::default()));
-        let texture = ErasedSurfaceTexture::new(value);
-
-        TextureView {
-            id: TextureViewId(Uuid::new_v4()),
-            value: TextureViewValue::SurfaceTexture { texture, view },
+        SurfaceTexture {
+            value: ErasedSurfaceTexture::new(value),
         }
     }
 }
@@ -127,17 +98,20 @@ impl Deref for TextureView {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        match &self.value {
-            TextureViewValue::TextureView(value) => value,
-            TextureViewValue::SurfaceTexture { view, .. } => view,
-        }
+        &self.value
     }
 }
 
-/// A [`Sampler`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct SamplerId(Uuid);
+impl Deref for SurfaceTexture {
+    type Target = wgpu::SurfaceTexture;
 
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+define_atomic_id!(SamplerId);
 render_resource_wrapper!(ErasedSampler, wgpu::Sampler);
 
 /// A Sampler defines how a pipeline will sample from a [`TextureView`].
@@ -162,7 +136,7 @@ impl Sampler {
 impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
         Sampler {
-            id: SamplerId(Uuid::new_v4()),
+            id: SamplerId::new(),
             value: ErasedSampler::new(value),
         }
     }

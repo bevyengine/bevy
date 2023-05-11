@@ -1,5 +1,8 @@
-use crate::{clear_color::ClearColorConfig, tonemapping::Tonemapping};
-use bevy_ecs::{prelude::*, query::QueryItem};
+use crate::{
+    clear_color::ClearColorConfig,
+    tonemapping::{DebandDither, Tonemapping},
+};
+use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, CameraProjection, CameraRenderGraph, OrthographicProjection},
@@ -9,20 +12,11 @@ use bevy_render::{
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-#[derive(Component, Default, Reflect, Clone)]
+#[derive(Component, Default, Reflect, Clone, ExtractComponent)]
+#[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
 pub struct Camera2d {
     pub clear_color: ClearColorConfig,
-}
-
-impl ExtractComponent for Camera2d {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
-        Some(item.clone())
-    }
 }
 
 #[derive(Bundle)]
@@ -36,6 +30,7 @@ pub struct Camera2dBundle {
     pub global_transform: GlobalTransform,
     pub camera_2d: Camera2d,
     pub tonemapping: Tonemapping,
+    pub deband_dither: DebandDither,
 }
 
 impl Default for Camera2dBundle {
@@ -61,7 +56,7 @@ impl Camera2dBundle {
         let transform = Transform::from_xyz(0.0, 0.0, far - 0.1);
         let view_projection =
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        let frustum = Frustum::from_view_projection(
+        let frustum = Frustum::from_view_projection_custom_far(
             &view_projection,
             &transform.translation,
             &transform.back(),
@@ -76,7 +71,8 @@ impl Camera2dBundle {
             global_transform: Default::default(),
             camera: Camera::default(),
             camera_2d: Camera2d::default(),
-            tonemapping: Tonemapping::Disabled,
+            tonemapping: Tonemapping::None,
+            deband_dither: DebandDither::Disabled,
         }
     }
 }
