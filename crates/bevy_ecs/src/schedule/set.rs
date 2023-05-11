@@ -34,8 +34,8 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
     /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 
-    /// If this returns `Some`, then that means any systems that access to the
-    /// returned component will automatically be added to this set.
+    /// If this returns `Some`, then that means any systems that have read-only access
+    /// to the returned component will automatically be added to this set.
     /// This also means that outside configuration of this system set is disallowed.
     fn reads_component(&self) -> Option<ComponentDescriptor> {
         None
@@ -198,13 +198,13 @@ macro_rules! generic_unit_struct {
 
 generic_unit_struct!(
     /// A [`SystemSet`] that is automatically populated with any systems
-    /// that access the component `T`.
+    /// that have read-only access to the component `T`.
     ReadsComponent,
     /// A [`SystemSet`] that is automatically populated with any systems
     /// that have mutable access to the component `T`.
     WritesComponent,
     /// A [`SystemSet`] that is automatically populated with any systems
-    /// that access the resource `T`.
+    /// that have read-only access to the resource `T`.
     ReadsResource,
     /// A [`SystemSet`] that is automatically populated with any systems
     /// that have mutable access to the component `T`.
