@@ -92,15 +92,49 @@ impl<'w> UnsafeWorldCell<'w> {
         Self(world as *mut World, PhantomData)
     }
 
-    /// This `&mut World` counts as a mutable borrow of every resource and component for the purposes
-    /// of safety invariants that talk about borrows on component/resource data not existing. This is
-    /// true even for methods that do not explicitly call out `&mut World` as problematic.
+    /// Gets a mutable reference to the [`World`] this [`UnsafeWorldCell`] belongs to.
+    /// This is an incredibly error-prone operation and is only valid in a small number of circumstances.
     ///
     /// # Safety
-    /// - must have permission to access everything mutably
-    /// - there must be no other borrows on world
-    /// - returned borrow must not be used in any way if the world is accessed
-    ///   through other means than the `&mut World` after this call.
+    /// - `self` must have been obtained from a call to [`World::as_unsafe_world_cell`]
+    ///   (*not* `as_unsafe_world_cell_readonly` or any other method of construction that
+    ///   does not provide mutable access to the entire world).
+    ///   - This means that if you have an `UnsafeWorldCell` that you didn't create yourself,
+    ///     it is likely *unsound* to call this method.
+    /// - The returned `&mut World` *must* be unique: it must never be allowed to exist
+    ///   at the same time as any other borrows of the world or any accesses to its data.
+    ///   This includes safe ways of accessing world data, such as [`UnsafeWorldCell::archetypes`]:
+    ///   - Note that the `&mut World` *may* exist at the same time as instances of `UnsafeWorldCell`,
+    ///     so long as none of those instances are used to access world data in any way
+    ///     while the mutable borrow is active.
+    ///
+    /// [//]: # (This test fails miri.)
+    /// ```no_run
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)] struct Player;
+    /// # fn store_but_dont_use<T>(_: T) {}
+    /// # let mut world = World::new();
+    /// // Make an UnsafeWorldCell.
+    /// let world_cell = world.as_unsafe_world_cell();
+    ///
+    /// // SAFETY: `world_cell` was originally created from `&mut World`.
+    /// // We must be sure not to access any world data while `world_mut` is active.
+    /// let world_mut = unsafe { world_cell.world_mut() };
+    ///
+    /// // We can still use `world_cell` so long as we don't access the world with it.
+    /// store_but_dont_use(world_cell);
+    ///
+    /// // !!This is unsound!! Even though this method is safe, we cannot call it until
+    /// // `world_mut` is no longer active.
+    /// let tick = world_cell.read_change_tick();
+    ///
+    /// // Use mutable access to spawn an entity.
+    /// world_mut.spawn(Player);
+    ///
+    /// // Since we never use `world_mut` after this, the borrow is released
+    /// // and we are once again allowed to access the world using `world_cell`.
+    /// let archetypes = world_cell.archetypes();
+    /// ```
     #[inline]
     pub unsafe fn world_mut(self) -> &'w mut World {
         // SAFETY:
