@@ -34,7 +34,6 @@ use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData};
 /// APIs like [`System::component_access`](crate::system::System::component_access).
 ///
 /// A system then can be executed using [`System::run_unsafe`](crate::system::System::run_unsafe) with a `&World` and use methods with interior mutability to access resource values.
-/// access resource values.
 ///
 /// ### Example Usage
 ///
