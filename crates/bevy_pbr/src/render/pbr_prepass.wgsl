@@ -120,7 +120,6 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 }
 #else
 @fragment
-#endif
 fn fragment(in: FragmentInput) {
     prepass_alpha_discard(in);
 }
