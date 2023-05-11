@@ -415,7 +415,6 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         // maximum length of 1.0 to prevent stray “firefly” pixel artifacts. This can potentially make
         // very strong emissive meshes appear much dimmer, but the artifacts are noticeable enough to
         // warrant this treatment.
-        // TODO: We can probably conditionally disable this if TAA is on, as it masks the artifacts well
         let normalized_rgb = normalize(sample.rgb);
         result += vec4(min(sample.rgb, normalized_rgb / clamp(blur_intensity / 2.0, 0.0, 1.0)), sample.a);
     }
