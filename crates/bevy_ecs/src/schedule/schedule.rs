@@ -887,48 +887,48 @@ impl ScheduleGraph {
                     }
                 }
                 NodeId::Set(index) => {
-                    let set = self.system_sets[index].inner.as_ref();
-
                     // Initialize sets that are populated based on world accesses.
-
-                    if let Some(component) = set.reads_component() {
-                        let component = world
-                            .components
-                            .init_component_with_descriptor(&mut world.storages, component);
-                        self.read_system_sets
-                            .entry(component)
-                            .or_insert(Vec::new())
-                            .push(id);
-                        // Add any previously-added systems with read access to the set.
-                        for (i, system) in self.systems.iter().enumerate() {
-                            let Some(system) = system.inner.as_deref() else {
-                                continue;
-                            };
-                            if system.component_access().has_read(component) {
-                                self.hierarchy.graph.add_edge(id, NodeId::System(i), ());
+                    if i == 0 {
+                        let set = self.system_sets[index].inner.as_ref();
+                        if let Some(component) = set.reads_component() {
+                            let component = world
+                                .components
+                                .init_component_with_descriptor(&mut world.storages, component);
+                            self.read_system_sets
+                                .entry(component)
+                                .or_insert(Vec::new())
+                                .push(id);
+                            // Add any previously-added systems with read access to the set.
+                            for (i, system) in self.systems.iter().enumerate() {
+                                let Some(system) = system.inner.as_deref() else {
+                                    continue;
+                                };
+                                if system.component_access().has_read(component) {
+                                    self.hierarchy.graph.add_edge(id, NodeId::System(i), ());
+                                }
+                            }
+                        }
+                        if let Some(component) = set.writes_component() {
+                            let component = world
+                                .components
+                                .init_component_with_descriptor(&mut world.storages, component);
+                            self.write_system_sets
+                                .entry(component)
+                                .or_insert(Vec::new())
+                                .push(id);
+                            // Add any previously-added systems with write access to the set.
+                            for (i, system) in self.systems.iter().enumerate() {
+                                let Some(system) = system.inner.as_deref() else {
+                                    continue;
+                                };
+                                if system.component_access().has_write(component) {
+                                    self.hierarchy.graph.add_edge(id, NodeId::System(i), ());
+                                }
                             }
                         }
                     }
 
-                    if let Some(component) = set.writes_component() {
-                        let component = world
-                            .components
-                            .init_component_with_descriptor(&mut world.storages, component);
-                        self.write_system_sets
-                            .entry(component)
-                            .or_insert(Vec::new())
-                            .push(id);
-                        // Add any previously-added systems with write access to the set.
-                        for (i, system) in self.systems.iter().enumerate() {
-                            let Some(system) = system.inner.as_deref() else {
-                                continue;
-                            };
-                            if system.component_access().has_write(component) {
-                                self.hierarchy.graph.add_edge(id, NodeId::System(i), ());
-                            }
-                        }
-                    }
-
+                    // Initialize system set conditions.
                     if let Some(v) = self.system_set_conditions[index].as_mut() {
                         for condition in v.iter_mut().skip(i) {
                             condition.initialize(world);
