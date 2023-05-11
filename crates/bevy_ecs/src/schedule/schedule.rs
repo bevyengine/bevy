@@ -884,6 +884,13 @@ impl ScheduleGraph {
                         .entry(component)
                         .or_insert(Vec::new())
                         .push(node);
+                    // Add any previously-added systems with read access to the set.
+                    for (id, ..) in self
+                        .systems()
+                        .filter(|(_, system, _)| system.component_access().has_read(component))
+                    {
+                        self.hierarchy.graph.add_edge(node, id, ());
+                    }
                 }
                 PendingAccessSet::Write(component, node) => {
                     let component = world
@@ -893,6 +900,13 @@ impl ScheduleGraph {
                         .entry(component)
                         .or_insert(Vec::new())
                         .push(node);
+                    // Add any previously-added systems with write access to the set.
+                    for (id, ..) in self
+                        .systems()
+                        .filter(|(_, system, _)| system.component_access().has_read(component))
+                    {
+                        self.hierarchy.graph.add_edge(node, id, ());
+                    }
                 }
             }
         }
