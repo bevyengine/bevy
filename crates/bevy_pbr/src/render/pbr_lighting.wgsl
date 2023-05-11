@@ -350,12 +350,13 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     // roughness) or inside the material (due to subsurface scattering). Here, we only consider
     // the first scenario.
     //
-    // - Higher `perceptual_roughness` produces more blur
-    // - Objects produce blur proportional to their distance to the view
-    let blur_intensity = perceptual_roughness / distance;
+    // Blur intensity is:
+    // - squarely proportional to `perceptual_roughness`
+    // - inversely proportional to object distance to the view
+    let blur_intensity = (perceptual_roughness * perceptual_roughness) / distance;
 
     // Number of taps scale with blur intensity
-    let num_taps = i32(max(min(blur_intensity * 15.0, 1.0) * f32(MAX_TRANSMISSIVE_TAPS), 1.0));
+    let num_taps = i32(max(min(blur_intensity * 30.0, 1.0) * f32(MAX_TRANSMISSIVE_TAPS), 1.0));
     let num_spirals = (num_taps >> 3u) + 1;
     let random_angle = interleaved_gradient_noise(frag_coord.xy);
 #ifdef TAA
@@ -396,7 +397,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         let rotated_sample_offset = (rotation_matrix * sample_offset) * vec2(1.0, aspect);
 
         // Calucalte final offset position, with blur and sample offset
-        let modified_offset_position = offset_position + rotated_sample_offset * blur_intensity * blur_intensity * 2.5 * (1.0 - f32(pixel_mesh) * 0.1);
+        let modified_offset_position = offset_position + rotated_sample_offset * blur_intensity * (1.0 - f32(pixel_mesh) * 0.1);
 
         // Use depth prepass data to reject values that are in front of the current fragment
         if (prepass_depth(vec4<f32>(modified_offset_position * view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z) {
