@@ -842,7 +842,7 @@ pub enum WindowLevel {
     AlwaysOnTop,
 }
 
-/// The system window theme variant to use.
+/// The window theme variant to use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
