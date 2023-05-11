@@ -346,7 +346,6 @@ impl ComponentDescriptor {
     pub unsafe fn new_with_layout(
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
-        is_resource: bool,
         layout: Layout,
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     ) -> Self {
@@ -355,7 +354,7 @@ impl ComponentDescriptor {
             storage_type,
             is_send_and_sync: true,
             type_id: None,
-            is_resource,
+            is_resource: false,
             layout,
             drop,
         }
