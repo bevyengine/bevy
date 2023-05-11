@@ -357,12 +357,13 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     // Number of taps scale with blur intensity
     let num_taps = i32(max(min(blur_intensity * 5.0, 1.0) * f32(MAX_TRANSMISSIVE_TAPS), 1.0));
     let num_spirals = (num_taps >> 3u) + 1;
+    let random_angle = interleaved_gradient_noise(frag_coord.xy);
 
     var result = vec4<f32>(0.0);
     for (var i: i32 = 0; i < num_taps; i = i + 1) {
         let current_spiral = (i >> 3u);
-        let random_angle = f32(current_spiral) / f32(num_spirals) * 2.0 * PI + 2.0 * PI * interleaved_gradient_noise(frag_coord.xy);
-        let m = vec2(sin(random_angle), cos(random_angle));
+        let angle = (random_angle + f32(current_spiral) / f32(num_spirals)) * 2.0 * PI;
+        let m = vec2(sin(angle), cos(angle));
         let rotation_matrix = mat2x2(
             m.y, -m.x,
             m.x, m.y
