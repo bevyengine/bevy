@@ -7,6 +7,8 @@ use bevy_reflect::{FromReflect, Reflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
+use crate::WindowTheme;
+
 /// A window event that is sent whenever a window's logical size has changed.
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
@@ -289,4 +291,17 @@ pub struct WindowMoved {
     pub entity: Entity,
     /// Where the window moved to in physical pixels.
     pub position: IVec2,
+}
+
+/// An event that is sent when system window theme has changed.
+#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowThemeChanged {
+    pub window: Entity,
+    pub theme: WindowTheme,
 }

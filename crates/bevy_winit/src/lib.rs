@@ -41,7 +41,7 @@ use bevy_window::{
     exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
     ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
     WindowCloseRequested, WindowCreated, WindowFocused, WindowMoved, WindowResized,
-    WindowScaleFactorChanged,
+    WindowScaleFactorChanged, WindowThemeChanged,
 };
 
 #[cfg(target_os = "android")]
@@ -54,6 +54,7 @@ use winit::{
 
 use crate::accessibility::{AccessKitAdapters, AccessibilityPlugin, WinitActionHandlers};
 
+use crate::converters::convert_winit_theme;
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
@@ -227,6 +228,7 @@ struct WindowEvents<'w> {
     window_backend_scale_factor_changed: EventWriter<'w, WindowBackendScaleFactorChanged>,
     window_focused: EventWriter<'w, WindowFocused>,
     window_moved: EventWriter<'w, WindowMoved>,
+    window_theme_changed: EventWriter<'w, WindowThemeChanged>,
 }
 
 #[derive(SystemParam)]
@@ -613,6 +615,12 @@ pub fn winit_runner(mut app: App) {
                             window: window_entity,
                         }),
                     },
+                    WindowEvent::ThemeChanged(theme) => {
+                        window_events.window_theme_changed.send(WindowThemeChanged {
+                            window: window_entity,
+                            theme: convert_winit_theme(theme),
+                        });
+                    }
                     _ => {}
                 }
 
