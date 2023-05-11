@@ -915,8 +915,8 @@ impl ScheduleGraph {
                         // Add any previously-added systems with read access to the set.
                         for (i, system) in self.systems.iter().enumerate() {
                             let Some(system) = system.inner.as_deref() else {
-                                    continue;
-                                };
+                                continue;
+                            };
                             if system.component_access().has_read(component) {
                                 self.hierarchy.graph.add_edge(id, NodeId::System(i), ());
                             }
@@ -933,8 +933,8 @@ impl ScheduleGraph {
                         // Add any previously-added systems with write access to the set.
                         for (i, system) in self.systems.iter().enumerate() {
                             let Some(system) = system.inner.as_deref() else {
-                                    continue;
-                                };
+                                continue;
+                            };
                             if system.component_access().has_write(component) {
                                 self.hierarchy.graph.add_edge(id, NodeId::System(i), ());
                             }
