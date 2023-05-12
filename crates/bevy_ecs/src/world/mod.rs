@@ -1503,6 +1503,8 @@ impl World {
     /// parameter), this method returns [`Tick`] indicating the last time the exclusive system was run.
     ///
     /// Otherwise, this returns the `Tick` indicating the last time that [`World::clear_trackers`] was called.
+    ///
+    /// [`System`]: crate::system::System
     #[inline]
     pub fn last_change_tick(&self) -> Tick {
         self.last_change_tick

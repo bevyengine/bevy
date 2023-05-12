@@ -244,6 +244,8 @@ impl<'w> UnsafeWorldCell<'w> {
     /// the last time the system was run.
     ///
     /// See [`World::last_change_tick()`].
+    ///
+    /// [`System`]: crate::system::System
     #[inline]
     pub fn last_change_tick(self) -> Tick {
         // SAFETY:
