@@ -230,16 +230,25 @@ impl TextPipeline {
         // dbg!(a, b);
 
         // TODO: check height and width logic
-        let width = buffer
-            .layout_runs()
-            .map(|run| run.line_w)
-            .reduce(|max_w, w| max_w.max(w))
-            .map(|max_w| max_w as u32)
-            .unwrap();
-        let height = (buffer.layout_runs().count() as f32 * line_height)
-            .ceil()
-            .min(bounds.y) as u32;
-        let size = Vec2::new(width as f32, height as f32);
+        // TODO: move this to text measurement
+        let box_size = {
+            let width = buffer
+                .layout_runs()
+                .map(|run| run.line_w)
+                .reduce(|max_w, w| max_w.max(w))
+                .unwrap();
+            let height = buffer
+                .layout_runs()
+                .map(|run| run.glyphs)
+                .flat_map(|glyphs| {
+                    glyphs
+                        .iter()
+                        .map(|g| f32::from_bits(g.cache_key.font_size_bits))
+                        .reduce(|max_h, w| max_h.max(w))
+                })
+                .sum::<f32>();
+            Vec2::new(width, height)
+        };
 
         let glyphs = buffer.layout_runs().flat_map(|run| {
             run.glyphs
@@ -283,32 +292,47 @@ impl TextPipeline {
                 let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
                 let left = atlas_info.left as f32;
                 let top = atlas_info.top as f32;
-                let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
-                assert_eq!(atlas_info.width as f32, size.x);
-                assert_eq!(atlas_info.height as f32, size.y);
+                let glyph_size = Vec2::new(glyph_rect.width(), glyph_rect.height());
+                assert_eq!(atlas_info.width as f32, glyph_size.x);
+                assert_eq!(atlas_info.height as f32, glyph_size.y);
 
                 // offset by half the size because the origin is center
-                let x = size.x / 2.0 + left + layout_glyph.x_int as f32;
-                let y = line_y + layout_glyph.y_int as f32 - top + size.y / 2.0;
+                let x = glyph_size.x / 2.0 + left + layout_glyph.x_int as f32;
+                let y = line_y + layout_glyph.y_int as f32 - top + glyph_size.y / 2.0;
+                // TODO: cosmic text may handle text alignment in future
+                let x = x + match text_alignment {
+                    TextAlignment::Left => 0.0,
+                    TextAlignment::Center => (box_size.x - line_w) / 2.0,
+                    TextAlignment::Right => box_size.x - line_w,
+                };
                 let y = match y_axis_orientation {
                     YAxisOrientation::TopToBottom => y,
-                    YAxisOrientation::BottomToTop => height as f32 - y,
+                    YAxisOrientation::BottomToTop => box_size.y as f32 - y,
                 };
+
+                // TODO: confirm whether we need to offset by glyph baseline
+                // (this should be testable with a single line of text with
+                // fonts of different sizes and/or baselines)
 
                 let position = Vec2::new(x, y);
 
                 let pos_glyph = PositionedGlyph {
                     position,
-                    size,
+                    size: glyph_size,
                     atlas_info,
                     section_index,
                     // TODO: recreate the byte index, relevant for #1319
+                    // alternatively, reimplement cosmic-text's own hit tests for text
                     byte_index: 0,
                 };
                 Ok(pos_glyph)
-            }).collect::<Result<Vec<_>, _>>()?;
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(TextLayoutInfo { glyphs, size })
+        Ok(TextLayoutInfo {
+            glyphs,
+            size: box_size,
+        })
     }
 
     #[allow(clippy::too_many_arguments)]
