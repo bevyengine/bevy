@@ -47,15 +47,13 @@ impl Default for FontAtlasSet {
 }
 
 impl FontAtlasSet {
-    // TODO: update for cosmic_text
-    pub fn iter(&self) -> impl Iterator<Item = (&FontSizeKeyOld, &Vec<FontAtlas>)> {
-        self.font_atlases_old.iter()
+    pub fn iter(&self) -> impl Iterator<Item = (&FontSizeKey, &Vec<FontAtlas>)> {
+        self.font_atlases.iter()
     }
 
-    // TODO: update for cosmic_text
     pub fn has_glyph(&self, glyph_id: GlyphId, glyph_position: Point, font_size: f32) -> bool {
-        self.font_atlases_old
-            .get(&FloatOrd(font_size))
+        self.font_atlases
+            .get(&font_size.to_bits())
             .map_or(false, |font_atlas| {
                 font_atlas
                     .iter()
