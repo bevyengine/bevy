@@ -729,16 +729,14 @@ impl ScheduleGraph {
     }
 
     fn add_set(&mut self, set: BoxedSystemSet) -> NodeId {
-        let id = NodeId::Set(self.system_sets.len());
+        let index = self.system_sets.len();
         self.system_sets.push(SystemSetNode::new(set.dyn_clone()));
         self.system_set_conditions.push(Vec::new());
-
         if set.is_access_set() {
-            self.uninit.push(PendingInit::AccessSet(id.index()));
+            self.uninit.push(PendingInit::AccessSet(index));
         }
-
+        let id = NodeId::Set(index);
         self.system_set_ids.insert(set, id);
-
         id
     }
 
