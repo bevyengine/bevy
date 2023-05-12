@@ -190,6 +190,36 @@ impl PluginGroupBuilder {
             }
         }
     }
+
+    /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s
+    /// in the order specified, then wait for them to be [ready](Plugin::ready) and
+    /// [finishes](Plugin::finish) their setup.
+    ///
+    /// Unlike the [`finish`](Self::finish) method, this method will return a future that
+    /// will be complete once the [lifecycle of the plugins](Plugin) is finished, leaving only the
+    /// `cleanup` stage to do.
+    ///
+    /// # Panics
+    ///
+    /// Panics if one of the plugin in the group was already added to the application.
+    pub async fn finish_async(mut self, app: &mut App) {
+        for ty in &self.order {
+            if let Some(entry) = self.plugins.remove(ty) {
+                if entry.enabled {
+                    debug!("added plugin: {}", entry.plugin.name());
+                    if let Err(AppError::DuplicatePlugin { plugin_name }) =
+                        app.add_boxed_plugin_async(entry.plugin).await
+                    {
+                        panic!(
+                            "Error adding plugin {} in group {}: plugin was already added in application",
+                            plugin_name,
+                            self.group_name
+                        );
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// A plugin group which doesn't do anything. Useful for examples:
