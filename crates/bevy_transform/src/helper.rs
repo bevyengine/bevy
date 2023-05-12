@@ -85,14 +85,14 @@ mod tests {
     };
 
     #[test]
-    fn test() {
+    fn match_transform_propagation_systems() {
         // Single transform
-        test_inner(vec![Transform::from_translation(Vec3::X)
+        match_transform_propagation_systems_inner(vec![Transform::from_translation(Vec3::X)
             .with_rotation(Quat::from_rotation_y(TAU / 4.))
             .with_scale(Vec3::splat(2.))]);
 
         // Transform hierarchy
-        test_inner(vec![
+        match_transform_propagation_systems_inner(vec![
             Transform::from_translation(Vec3::X)
                 .with_rotation(Quat::from_rotation_y(TAU / 4.))
                 .with_scale(Vec3::splat(2.)),
@@ -105,7 +105,7 @@ mod tests {
         ]);
     }
 
-    fn test_inner(transforms: Vec<Transform>) {
+    fn match_transform_propagation_systems_inner(transforms: Vec<Transform>) {
         let mut app = App::new();
         app.add_plugin(TransformPlugin);
 
