@@ -241,18 +241,11 @@ impl TextPipeline {
             .min(bounds.y) as u32;
         let size = Vec2::new(width as f32, height as f32);
 
-        let glyphs = buffer
-            .layout_runs()
-            .flat_map(|run| {
-                run.glyphs
-                    .iter()
-                    .map(move |g| (g, run.line_i, run.line_w, run.line_y, run.rtl, run.text))
-            })
-            .collect::<Vec<_>>();
-
-        if glyphs.is_empty() {
-            return Ok(TextLayoutInfo::default());
-        }
+        let glyphs = buffer.layout_runs().flat_map(|run| {
+            run.glyphs
+                .iter()
+                .map(move |g| (g, run.line_i, run.line_w, run.line_y, run.rtl, run.text))
+        });
 
         // DEBUGGING:
         // for sg in glyphs.iter() {
@@ -263,8 +256,7 @@ impl TextPipeline {
         // DEBUGGING:
         // dbg!(glyphs.first().unwrap());
 
-        let glyphs_results = glyphs
-            .iter()
+        let glyphs = glyphs
             .map(|(layout_glyph, line_i, line_w, line_y, rtl, text)| {
                 let section_index = layout_glyph.metadata;
 
@@ -307,7 +299,7 @@ impl TextPipeline {
 
                 // offset by half the size because the origin is center
                 let x = size.x / 2.0 + left + layout_glyph.x_int as f32;
-                let y = *line_y + layout_glyph.y_int as f32 - top + size.y / 2.0;
+                let y = line_y + layout_glyph.y_int as f32 - top + size.y / 2.0;
                 let y = match y_axis_orientation {
                     YAxisOrientation::TopToBottom => y,
                     YAxisOrientation::BottomToTop => height as f32 - y,
@@ -323,13 +315,8 @@ impl TextPipeline {
                     // TODO: recreate the byte index, relevant for #1319
                     byte_index: 0,
                 };
-                Ok::<_, TextError>(pos_glyph)
-            });
-
-        let mut glyphs = Vec::with_capacity(glyphs_results.len());
-        for glyph_result in glyphs_results {
-            glyphs.push(glyph_result?);
-        }
+                Ok(pos_glyph)
+            }).collect::<Result<Vec<_>, _>>()?;
 
         Ok(TextLayoutInfo { glyphs, size })
     }
