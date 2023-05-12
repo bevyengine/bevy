@@ -595,7 +595,7 @@ mod tests {
     #[test]
     fn default_non_zero_duration() {
         let non_zero_duration = NonZeroDuration::default();
-        assert!(non_zero_duration.duration.as_secs_f32() == 1.0)
+        assert!(non_zero_duration.duration.as_secs_f32() == 1.0);
     }
 
     #[test]
