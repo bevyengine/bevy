@@ -720,7 +720,7 @@ impl App {
     /// # Panics
     ///
     /// Panics if the plugin was already added to the application.
-    pub async fn add_plugin_async<'a, T: Plugin>(&'a mut self, plugin: T) -> &'a mut Self {
+    pub async fn add_plugin_async<T: Plugin>(&mut self, plugin: T) -> &mut Self {
         match self.add_boxed_plugin_async(Box::new(plugin)).await {
             Ok(app) => app,
             Err(AppError::DuplicatePlugin { plugin_name }) => {
@@ -729,12 +729,12 @@ impl App {
         }
     }
 
-    pub(crate) async fn add_boxed_plugin_async<'a>(
-        &'a mut self,
+    pub(crate) async fn add_boxed_plugin_async(
+        &mut self,
         plugin: Box<dyn Plugin>,
     ) -> Result<&mut Self, AppError> {
-        struct FuturePlugin<'b>(&'b mut App, usize);
-        impl<'b> std::future::Future for FuturePlugin<'b> {
+        struct FuturePlugin<'a>(&'a mut App, usize);
+        impl<'a> std::future::Future for FuturePlugin<'a> {
             type Output = ();
 
             fn poll(
@@ -773,7 +773,7 @@ impl App {
                 }
                 self.0.plugin_registry = plugin_registry;
 
-                return std::task::Poll::Ready(());
+                std::task::Poll::Ready(())
             }
         }
         impl<'b> FuturePlugin<'b> {
