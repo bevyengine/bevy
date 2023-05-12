@@ -420,6 +420,15 @@ impl Mul<Transform> for Transform {
     }
 }
 
+impl Mul<GlobalTransform> for Transform {
+    type Output = GlobalTransform;
+
+    #[inline]
+    fn mul(self, global_transform: GlobalTransform) -> Self::Output {
+        GlobalTransform::from(self) * global_transform
+    }
+}
+
 impl Mul<Vec3> for Transform {
     type Output = Vec3;
 
