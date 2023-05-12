@@ -292,6 +292,24 @@ impl Window {
     pub fn set_physical_cursor_position(&mut self, position: Option<DVec2>) {
         self.internal.physical_cursor_position = position;
     }
+
+    /// The window's current theme
+    ///
+    /// ## Platform-specific
+    ///
+    /// - iOS / Android / Web / x11: Unsupported.
+    pub fn window_theme(&self) -> Option<WindowTheme> {
+        self.internal.window_theme
+    }
+
+    /// Set the window's theme
+    ///
+    /// ## Platform-specific
+    ///
+    /// - iOS / Android / Web / x11: Unsupported.
+    pub fn set_window_theme(&mut self, theme: Option<WindowTheme>) {
+        self.internal.window_theme = theme;
+    }
 }
 
 /// The size limits on a window.
@@ -667,6 +685,12 @@ pub struct InternalWindowState {
     maximize_request: Option<bool>,
     /// Unscaled cursor position.
     physical_cursor_position: Option<DVec2>,
+    /// The window's current theme
+    ///
+    /// ## Platform-specific
+    ///
+    /// - iOS / Android / Web / x11: Unsupported.
+    window_theme: Option<WindowTheme>,
 }
 
 impl InternalWindowState {
