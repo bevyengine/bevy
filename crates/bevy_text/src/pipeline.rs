@@ -82,7 +82,7 @@ pub struct TextLayoutInfoOld {
 
 /// Render information for a corresponding [`Text`](crate::Text) component.
 ///
-///  Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
+/// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
 #[derive(Component, Clone, Default, Debug)]
 pub struct TextLayoutInfo {
     pub glyphs: Vec<PositionedGlyph>,
@@ -98,32 +98,14 @@ impl TextPipeline {
             .or_insert_with(|| brush.add_font(handle.clone(), font.font.clone()))
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn queue_text(
+    pub fn create_buffer(
         &mut self,
         fonts: &Assets<Font>,
-        // TODO: TextSection should support referencing fonts via "Font Query" (Family, Stretch, Weight and Style)
         sections: &[TextSection],
-        scale_factor: f64,
-        // TODO: Implement text alignment
-        text_alignment: TextAlignment,
         linebreak_behavior: BreakLineOn,
         bounds: Vec2,
-        font_atlas_set_storage: &mut Assets<FontAtlasSet>,
-        texture_atlases: &mut Assets<TextureAtlas>,
-        textures: &mut Assets<Image>,
-        text_settings: &TextSettings,
-        font_atlas_warning: &mut FontAtlasWarning,
-        y_axis_orientation: YAxisOrientation,
-    ) -> Result<TextLayoutInfo, TextError> {
-        if sections.is_empty() {
-            return Ok(TextLayoutInfo::default());
-        }
-
-        // TODO: Support loading fonts without cloning the already loaded data (they are cloned in `add_span`)
-        let font_system = &mut self.font_system.0;
-        let swash_cache = &mut self.swash_cache.0;
-
+        scale_factor: f64,
+    ) -> Result<Buffer, TextError> {
         // TODO: Support multiple section font sizes, pending upstream implementation in cosmic_text
         // For now, just use the first section's size or a default
         let font_size = sections
@@ -136,6 +118,8 @@ impl TextPipeline {
         let line_height = font_size * 1.2;
         let (font_size, line_height) = (font_size as f32, line_height as f32);
         let metrics = Metrics::new(font_size, line_height);
+
+        let font_system = &mut self.font_system.0;
 
         // TODO: cache buffers (see Iced / glyphon)
         let mut buffer = Buffer::new(font_system, metrics);
@@ -219,6 +203,39 @@ impl TextPipeline {
             // Presumably the font(s) are not available yet
             return Err(TextError::NoSuchFont);
         }
+
+        Ok(buffer)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn queue_text(
+        &mut self,
+        fonts: &Assets<Font>,
+        // TODO: TextSection should support referencing fonts via "Font Query" (Family, Stretch, Weight and Style)
+        sections: &[TextSection],
+        scale_factor: f64,
+        // TODO: Implement text alignment
+        text_alignment: TextAlignment,
+        linebreak_behavior: BreakLineOn,
+        bounds: Vec2,
+        font_atlas_set_storage: &mut Assets<FontAtlasSet>,
+        texture_atlases: &mut Assets<TextureAtlas>,
+        textures: &mut Assets<Image>,
+        text_settings: &TextSettings,
+        font_atlas_warning: &mut FontAtlasWarning,
+        y_axis_orientation: YAxisOrientation,
+    ) -> Result<TextLayoutInfo, TextError> {
+        if sections.is_empty() {
+            return Ok(TextLayoutInfo::default());
+        }
+
+        // TODO: Support loading fonts without cloning the already loaded data (they are cloned in `add_span`)
+
+        let buffer =
+            self.create_buffer(fonts, sections, linebreak_behavior, bounds, scale_factor)?;
+
+        let font_system = &mut self.font_system.0;
+        let swash_cache = &mut self.swash_cache.0;
 
         // DEBUGGING:
         // let a = buffer.lines.iter().map(|l| l.text()).collect::<String>();
@@ -607,6 +624,7 @@ fn add_span(
 /// An iterator over the paragraphs in the input text.
 /// It is equivalent to [`core::str::Lines`] but follows `unicode-bidi` behaviour.
 // TODO: upstream to cosmic_text, see https://github.com/pop-os/cosmic-text/pull/124
+// TODO: create separate iterator that keeps the ranges, or simply use memory address introspection (as_ptr())
 pub struct BidiParagraphs<'text> {
     text: &'text str,
     info: std::vec::IntoIter<unicode_bidi::ParagraphInfo>,
