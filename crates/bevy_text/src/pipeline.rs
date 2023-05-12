@@ -264,16 +264,6 @@ impl TextPipeline {
                 let font_atlas_set = font_atlas_set_storage
                     .get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
 
-                let mut cache_key = layout_glyph.cache_key;
-                let position_x = cache_key.x_bin.as_float();
-                let position_y = cache_key.y_bin.as_float();
-                let (position_x, subpixel_x) = cosmic_text::SubpixelBin::new(position_x);
-                let (position_y, subpixel_y) = cosmic_text::SubpixelBin::new(position_y);
-                cache_key.x_bin = subpixel_x;
-                cache_key.y_bin = subpixel_y;
-                assert_eq!(layout_glyph.cache_key, cache_key);
-                assert_eq!([position_x, position_y], [0, 0]);
-
                 let atlas_info = font_atlas_set
                     .get_glyph_atlas_info_new(layout_glyph.cache_key)
                     .map(Ok)
