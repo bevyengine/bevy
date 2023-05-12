@@ -49,7 +49,7 @@ impl NonZeroDuration {
 /// `NonZeroDuration::new()`are from a const context and therefore `if $is_zero`
 /// cannot always be evaluated at compile time
 /*
-macro_rules! check_non_zero_duration {
+macro_rules! check_non_zero_duration_macro {
     ($is_zero:expr) => {
         if $is_zero { compile_error!("Duration cannot be zero") }
     };
@@ -59,10 +59,10 @@ macro_rules! check_non_zero_duration {
 const fn check_non_zero_duration(duration: Duration) -> Duration {
     // This is a hack, but it catches issues from const contexts at compile time and all
     // others at runtime
-    ["duration.is_zero() should always be false"][(duration.is_zero()) as usize];
-    // foo!(duration.is_zero()); // Fails -- See comment above check_non_zero_duration macro
+    let _check = ["duration.is_zero() should always be false"][(duration.is_zero()) as usize];
+    // check_non_zero_duration_macro!(duration.is_zero()); // Fails -- See comment above check_non_zero_duration macro
 
-    return duration;
+    duration
 }
 
 impl Timer {
@@ -612,7 +612,7 @@ mod tests {
     #[test]
     fn default_non_zero_duration() {
         let non_zero_duration = NonZeroDuration::default();
-        assert!(non_zero_duration.duration.as_secs_f32() == 1.0)
+        assert!(non_zero_duration.duration.as_secs_f32() == 1.0);
     }
 
     #[test]
