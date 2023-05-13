@@ -20,10 +20,12 @@ use syn::{
 enum BundleFieldKind {
     Component,
     Ignore,
+    Require,
 }
 
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
+const BUNDLE_ATTRIBUTE_REQUIRE_NAME: &str = "require";
 
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
@@ -44,6 +46,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                     if let Some(&NestedMeta::Meta(Meta::Path(ref path))) = nested.first() {
                         if path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
                             field_kind.push(BundleFieldKind::Ignore);
+                            continue 'field_loop;
+                        } else if path.is_ident(BUNDLE_ATTRIBUTE_REQUIRE_NAME) {
+                            field_kind.push(BundleFieldKind::Require);
                             continue 'field_loop;
                         }
 
@@ -77,6 +82,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
+    let mut field_requires = Vec::new();
     for ((field_type, field_kind), field) in
         field_type.iter().zip(field_kind.iter()).zip(field.iter())
     {
@@ -96,6 +102,15 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             BundleFieldKind::Ignore => {
                 field_from_components.push(quote! {
                     #field: ::std::default::Default::default(),
+                });
+            }
+
+            BundleFieldKind::Require => {
+                field_requires.push(quote! {
+                    <#field_type as #ecs_path::bundle::Bundle>::requires(components, storages, &mut *ids);
+                });
+                field_from_components.push(quote! {
+                    #field: #ecs_path::bundle::Require::default(),
                 });
             }
         }
@@ -126,6 +141,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 Self {
                     #(#field_from_components)*
                 }
+            }
+
+            fn requires(
+                components: &mut #ecs_path::component::Components,
+                storages: &mut #ecs_path::storage::Storages,
+                ids: &mut impl FnMut(#ecs_path::component::ComponentId)) {
+                #(#field_requires)*
             }
         }
 
