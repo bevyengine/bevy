@@ -62,7 +62,6 @@ impl Plugin for SpritePlugin {
         app.add_asset::<TextureAtlasLayout>()
             .register_asset_reflect::<TextureAtlasLayout>()
             .register_type::<Sprite>()
-            .register_type::<TextureAtlasSprite>()
             .register_type::<Anchor>()
             .register_type::<TextureAtlas>()
             .register_type::<Mesh2dHandle>()
@@ -108,14 +107,10 @@ pub fn calculate_bounds_2d(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
-    atlases: Res<Assets<TextureAtlas>>,
+    atlases: Res<Assets<TextureAtlasLayout>>,
     meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
     sprites_without_aabb: Query<
-        (Entity, &Sprite, &Handle<Image>),
-        (Without<Aabb>, Without<NoFrustumCulling>),
-    >,
-    atlases_without_aabb: Query<
-        (Entity, &TextureAtlasSprite, &Handle<TextureAtlas>),
+        (Entity, &Sprite, &Handle<Image>, Option<&TextureAtlas>),
         (Without<Aabb>, Without<NoFrustumCulling>),
     >,
 ) {
@@ -126,27 +121,17 @@ pub fn calculate_bounds_2d(
             }
         }
     }
-    for (entity, sprite, texture_handle) in &sprites_without_aabb {
-        if let Some(size) = sprite
-            .custom_size
-            .or_else(|| images.get(texture_handle).map(|image| image.size()))
-        {
-            let aabb = Aabb {
-                center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
-                half_extents: (0.5 * size).extend(0.0).into(),
-            };
-            commands.entity(entity).insert(aabb);
-        }
-    }
-    for (entity, atlas_sprite, atlas_handle) in &atlases_without_aabb {
-        if let Some(size) = atlas_sprite.custom_size.or_else(|| {
-            atlases
-                .get(atlas_handle)
-                .and_then(|atlas| atlas.textures.get(atlas_sprite.index))
-                .map(|rect| (rect.min - rect.max).abs())
+    for (entity, sprite, texture_handle, atlas) in &sprites_without_aabb {
+        if let Some(size) = sprite.custom_size.or_else(|| match atlas {
+            // We default to the texture size for regular sprites
+            None => images.get(texture_handle).map(|image| image.size()),
+            // We default to the drawn rect for atlas sprites
+            Some(atlas) => atlas
+                .texture_rect(&atlases)
+                .map(|rect| (rect.min - rect.max).abs()),
         }) {
             let aabb = Aabb {
-                center: (-atlas_sprite.anchor.as_vec() * size).extend(0.0).into(),
+                center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
                 half_extents: (0.5 * size).extend(0.0).into(),
             };
             commands.entity(entity).insert(aabb);

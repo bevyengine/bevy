@@ -163,7 +163,7 @@ fn queue_text(
     text_pipeline: &mut TextPipeline,
     font_atlas_warning: &mut FontAtlasWarning,
     font_atlas_set_storage: &mut Assets<FontAtlasSet>,
-    texture_atlases: &mut Assets<TextureAtlas>,
+    texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
     text_settings: &TextSettings,
     scale_factor: f64,
