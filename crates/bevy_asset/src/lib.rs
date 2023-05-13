@@ -9,6 +9,7 @@
 //! [asset storage]: struct.Assets.html
 
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 mod asset_server;
 mod assets;
@@ -46,18 +47,15 @@ pub use loader::*;
 pub use path::*;
 pub use reflect::*;
 
-use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
+use bevy_app::{prelude::*, MainScheduleOrder};
+use bevy_ecs::schedule::ScheduleLabel;
 
-/// [`SystemSet`]s for asset loading in an [`App`] schedule.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-#[system_set(base)]
-pub enum AssetSet {
-    /// Asset storages are updated.
-    LoadAssets,
-    /// Asset events are generated.
-    AssetEvents,
-}
+/// Asset storages are updated.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
+pub struct LoadAssets;
+/// Asset events are generated.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
+pub struct AssetEvents;
 
 /// Adds support for [`Assets`] to an App.
 ///
@@ -82,7 +80,7 @@ impl Default for AssetPlugin {
 }
 
 impl AssetPlugin {
-    /// Creates an instance of the platform's default `AssetIo`.
+    /// Creates an instance of the platform's default [`AssetIo`].
     ///
     /// This is useful when providing a custom `AssetIo` instance that needs to
     /// delegate to the default `AssetIo` for the platform.
@@ -106,24 +104,19 @@ impl Plugin for AssetPlugin {
             app.insert_resource(asset_server);
         }
 
-        app.register_type::<HandleId>();
-
-        app.configure_set(
-            AssetSet::LoadAssets
-                .before(CoreSet::PreUpdate)
-                .after(CoreSet::First),
-        )
-        .configure_set(
-            AssetSet::AssetEvents
-                .after(CoreSet::PostUpdate)
-                .before(CoreSet::Last),
-        )
-        .add_system(asset_server::free_unused_assets_system.in_base_set(CoreSet::PreUpdate));
+        app.register_type::<HandleId>()
+            .add_systems(PreUpdate, asset_server::free_unused_assets_system);
+        app.init_schedule(LoadAssets);
+        app.init_schedule(AssetEvents);
 
         #[cfg(all(
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system(io::filesystem_watcher_system.in_base_set(AssetSet::LoadAssets));
+        app.add_systems(LoadAssets, io::filesystem_watcher_system);
+
+        let mut order = app.world.resource_mut::<MainScheduleOrder>();
+        order.insert_after(First, LoadAssets);
+        order.insert_after(PostUpdate, AssetEvents);
     }
 }

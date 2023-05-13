@@ -1,6 +1,8 @@
 //! This module contains basic node bundles used to build UIs
 
-use crate::{BackgroundColor, FocusPolicy, Node, Style, ZIndex};
+use crate::{
+    BackgroundColor, FocusPolicy, Node, Style, ZIndex,
+};
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     prelude::{Color, ComputedVisibility},
@@ -15,7 +17,8 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 pub struct NodeBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// Describes the style including flexbox settings
+    /// Styles which control the layout (size and position) of the node and it's children
+    /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The background color, which serves as a "fill" for this node
     pub background_color: BackgroundColor,
@@ -24,7 +27,7 @@ pub struct NodeBundle {
     /// The transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `nodebundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///

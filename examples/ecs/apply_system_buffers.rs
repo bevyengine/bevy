@@ -15,14 +15,22 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<Timers>()
-        .add_systems((
-            setup.on_startup(),
-            despawn_old_and_spawn_new_fruits.before(CustomFlush),
-            apply_system_buffers.in_set(CustomFlush),
-            count_apple.after(CustomFlush),
-            count_orange,
-            bevy::window::close_on_esc,
-        ))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (
+                (
+                    despawn_old_and_spawn_new_fruits,
+                    // We encourage adding apply_system_buffers to a custom set
+                    // to improve diagnostics. This is optional, but useful when debugging!
+                    apply_system_buffers.in_set(CustomFlush),
+                    count_apple,
+                )
+                    .chain(),
+                count_orange,
+                bevy::window::close_on_esc,
+            ),
+        )
         .run();
 }
 
@@ -55,7 +63,7 @@ struct AppleCount;
 struct OrangeCount;
 
 // Setup the counters in the UI.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
     commands
@@ -74,9 +82,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextBundle::from_section(
                     "Apple: nothing counted yet".to_string(),
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 80.0,
                         color: Color::ORANGE,
+                        ..default()
                     },
                 ),
                 AppleCount,
@@ -85,9 +93,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextBundle::from_section(
                     "Orange: nothing counted yet".to_string(),
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 80.0,
                         color: Color::ORANGE,
+                        ..default()
                     },
                 ),
                 OrangeCount,

@@ -12,16 +12,15 @@ fn main() {
             }),
             ..default()
         }))
-        .add_systems((
-            setup.on_startup(),
-            display_override,
-            toggle_override,
-            change_scale_factor,
-        ))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (display_override, toggle_override, change_scale_factor),
+        )
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     // camera
     commands.spawn(Camera2dBundle::default());
     // root node
@@ -51,9 +50,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextBundle::from_section(
                             "Example text",
                             TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 30.0,
                                 color: Color::WHITE,
+                                ..default()
                             },
                         )
                         .with_style(Style {

@@ -24,13 +24,16 @@ fn main() {
         }))
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_systems((
-            change_title,
-            toggle_cursor,
-            toggle_vsync,
-            cycle_cursor_icon,
-            switch_level,
-        ))
+        .add_systems(
+            Update,
+            (
+                change_title,
+                toggle_cursor,
+                toggle_vsync,
+                cycle_cursor_icon,
+                switch_level,
+            ),
+        )
         .run();
 }
 

@@ -28,3 +28,6 @@ bevy_sprite = { path = "../bevy_sprite", version = "0.11.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.11.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.11.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.11.0-dev" }
+
+# other
+taffy = { version = "0.3.10" }

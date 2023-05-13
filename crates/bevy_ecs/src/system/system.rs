@@ -17,7 +17,7 @@ use std::borrow::Cow;
 ///
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
 /// It's possible to specify explicit execution order between specific systems,
-/// see [`IntoSystemConfig`](crate::schedule::IntoSystemConfig).
+/// see [`IntoSystemConfigs`](crate::schedule::IntoSystemConfigs).
 pub trait System: Send + Sync + 'static {
     /// The system's input. See [`In`](crate::system::In) for
     /// [`FunctionSystem`](crate::system::FunctionSystem)s.
@@ -49,11 +49,17 @@ pub trait System: Send + Sync + 'static {
     ///     1. This system is the only system running on the given world across all threads.
     ///     2. This system only runs in parallel with other systems that do not conflict with the
     ///        [`System::archetype_component_access()`].
+    ///
+    /// Additionally, the method [`Self::update_archetype_component_access`] must be called at some
+    /// point before this one, with the same exact [`World`]. If `update_archetype_component_access`
+    /// panics (or otherwise does not return for any reason), this method must not be called.
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out;
     /// Runs the system with the given input in the world.
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         self.update_archetype_component_access(world);
-        // SAFETY: world and resources are exclusively borrowed
+        // SAFETY:
+        // - World and resources are exclusively borrowed, which ensures no data access conflicts.
+        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world) }
     }
     fn apply_buffers(&mut self, world: &mut World);

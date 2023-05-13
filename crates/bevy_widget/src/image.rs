@@ -1,77 +1,95 @@
-use bevy_a11y::{
-    accesskit::{NodeBuilder, Role},
-    AccessibilityNode,
-};
-use bevy_app::{App, CoreSet, Plugin};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::Assets;
-use bevy_ecs::{
-    prelude::{Bundle, Entity},
-    query::{Changed, Without},
-    schedule::IntoSystemConfig,
-    system::{Commands, Query, Res},
-};
-use bevy_hierarchy::Children;
-use bevy_math::Vec2;
-use bevy_render::{
-    texture::Image,
-    view::{ComputedVisibility, Visibility},
-};
-use bevy_text::Text;
-use bevy_transform::prelude::{GlobalTransform, Transform};
-use bevy_ui::{
-    BackgroundColor, CalculatedSize, FocusPolicy, Node, Style, UiImage, UiSystem, ZIndex,
-};
-
 #[cfg(feature = "bevy_text")]
-use crate::text_system;
-use crate::{calc_name, Button};
+use bevy_ecs::query::Without;
+use bevy_ecs::{
+    prelude::{Component, Bundle},
+    query::With,
+    reflect::ReflectComponent,
+    system::{Query, Res}, schedule::IntoSystemConfigs,
+};
+use bevy_math::Vec2;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
+use bevy_render::{texture::Image, view::{Visibility, ComputedVisibility}};
+#[cfg(feature = "bevy_text")]
+use bevy_text::Text;
+use bevy_transform::prelude::{Transform, GlobalTransform};
+use bevy_ui::{measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiSystem, Style, BackgroundColor, FocusPolicy, ZIndex};
 
-/// Updates calculated size of the node based on the image provided
-pub fn update_image_calculated_size_system(
+use crate::text_system;
+
+/// The size of the image in physical pixels
+///
+/// This field is set automatically by `update_image_calculated_size_system`
+#[derive(Component, Debug, Copy, Clone, Default, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
+pub struct UiImageSize {
+    size: Vec2,
+}
+
+impl UiImageSize {
+    pub fn size(&self) -> Vec2 {
+        self.size
+    }
+}
+
+#[derive(Clone)]
+pub struct ImageMeasure {
+    // target size of the image
+    size: Vec2,
+}
+
+impl Measure for ImageMeasure {
+    fn measure(
+        &self,
+        width: Option<f32>,
+        height: Option<f32>,
+        _: AvailableSpace,
+        _: AvailableSpace,
+    ) -> Vec2 {
+        let mut size = self.size;
+        match (width, height) {
+            (None, None) => {}
+            (Some(width), None) => {
+                size.y = width * size.y / size.x;
+                size.x = width;
+            }
+            (None, Some(height)) => {
+                size.x = height * size.x / size.y;
+                size.y = height;
+            }
+            (Some(width), Some(height)) => {
+                size.x = width;
+                size.y = height;
+            }
+        }
+        size
+    }
+}
+
+/// Updates content size of the node based on the image provided
+pub fn update_image_content_size_system(
     textures: Res<Assets<Image>>,
-    #[cfg(feature = "bevy_text")] mut query: Query<(&mut CalculatedSize, &UiImage), Without<Text>>,
-    #[cfg(not(feature = "bevy_text"))] mut query: Query<(&mut CalculatedSize, &UiImage)>,
+    #[cfg(feature = "bevy_text")] mut query: Query<
+        (&mut ContentSize, &UiImage, &mut UiImageSize),
+        (With<Node>, Without<Text>),
+    >,
+    #[cfg(not(feature = "bevy_text"))] mut query: Query<
+        (&mut ContentSize, &UiImage, &mut UiImageSize),
+        With<Node>,
+    >,
 ) {
-    for (mut calculated_size, image) in &mut query {
+    for (mut content_size, image, mut image_size) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
             let size = Vec2::new(
                 texture.texture_descriptor.size.width as f32,
                 texture.texture_descriptor.size.height as f32,
             );
             // Update only if size has changed to avoid needless layout calculations
-            if size != calculated_size.size {
-                calculated_size.size = size;
-                calculated_size.preserve_aspect_ratio = true;
+            if size != image_size.size {
+                image_size.size = size;
+                content_size.set(ImageMeasure { size });
             }
-        }
-    }
-}
-
-fn image_changed(
-    mut commands: Commands,
-    mut query: Query<
-        (Entity, &Children, Option<&mut AccessibilityNode>),
-        (Changed<UiImage>, Without<Button>),
-    >,
-    texts: Query<&Text>,
-) {
-    for (entity, children, accessible) in &mut query {
-        let name = calc_name(&texts, children);
-        if let Some(mut accessible) = accessible {
-            accessible.set_role(Role::Image);
-            if let Some(name) = name {
-                accessible.set_name(name);
-            } else {
-                accessible.clear_name();
-            }
-        } else {
-            let mut node = NodeBuilder::new(Role::Image);
-            if let Some(name) = name {
-                node.set_name(name);
-            }
-            commands
-                .entity(entity)
-                .insert(AccessibilityNode::from(node));
         }
     }
 }
@@ -82,10 +100,8 @@ pub struct ImagePlugin;
 
 impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
-        app.add_system({
-            let system = update_image_calculated_size_system
-                .in_base_set(CoreSet::PostUpdate)
-                .before(UiSystem::Flex);
+        app.register_type::<UiImageSize>().add_systems(PostUpdate, {
+            let system = update_image_content_size_system.before(UiSystem::Layout);
             // Potential conflicts: `Assets<Image>`
             // They run independently since `widget::image_node_system` will only ever observe
             // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -96,20 +112,19 @@ impl Plugin for ImagePlugin {
                 .ambiguous_with(text_system);
 
             system
-        })
-        .add_system(image_changed);
+        });
     }
 }
 
 /// A UI node that is an image
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the size of the node
     pub node: Node,
     /// Describes the style including flexbox settings
     pub style: Style,
     /// The calculated size based on the given image
-    pub calculated_size: CalculatedSize,
+    pub calculated_size: ContentSize,
     /// The background color, which serves as a "fill" for this node
     ///
     /// Combines with `UiImage` to tint the provided image.

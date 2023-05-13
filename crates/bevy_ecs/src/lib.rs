@@ -1,4 +1,5 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
+#![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(target_pointer_width = "16")]
@@ -39,15 +40,14 @@ pub mod prelude {
         removal_detection::RemovedComponents,
         schedule::{
             apply_state_transition, apply_system_buffers, common_conditions::*, Condition,
-            IntoSystemConfig, IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig,
-            IntoSystemSetConfigs, NextState, OnEnter, OnExit, OnTransition, OnUpdate, Schedule,
-            Schedules, State, States, SystemSet,
+            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
+            OnEnter, OnExit, OnTransition, Schedule, Schedules, State, States, SystemSet,
         },
         system::{
             adapter as system_adapter,
             adapter::{dbg, error, ignore, info, unwrap, warn},
-            Commands, Deferred, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut,
-            ParallelCommands, ParamSet, Query, Res, ResMut, Resource, System, SystemParamFunction,
+            Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
+            ParamSet, Query, Res, ResMut, Resource, System, SystemParamFunction,
         },
         world::{FromWorld, World},
     };
@@ -55,7 +55,7 @@ pub mod prelude {
 
 pub use bevy_utils::all_tuples;
 
-/// A specialized hashmap type with Key of `TypeId`
+/// A specialized hashmap type with Key of [`TypeId`]
 type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 
 #[cfg(test)]

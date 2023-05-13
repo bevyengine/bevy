@@ -20,11 +20,14 @@ fn main() {
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_systems((spawn.on_startup(), update_text_bounds))
+        .add_systems(Startup, spawn)
+        .add_systems(Update, update_text_bounds)
         .run();
 }
 
 fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
+    warn!(include_str!("warning_string.txt"));
+
     commands.spawn(Camera2dBundle::default());
     let sections = (1..=50)
         .flat_map(|i| {
@@ -52,7 +55,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         text: Text {
             sections,
             alignment: TextAlignment::Center,
-            linebreak_behaviour: BreakLineOn::AnyCharacter,
+            linebreak_behavior: BreakLineOn::AnyCharacter,
         },
         ..Default::default()
     });

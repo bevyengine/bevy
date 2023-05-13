@@ -15,7 +15,12 @@ hdr = ["image/hdr"]
 tga = ["image/tga"]
 jpeg = ["image/jpeg"]
 bmp = ["image/bmp"]
+webp = ["image/webp"]
 dds = ["ddsfile"]
+bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
+
+shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out"]
+shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
 
 # For ktx2 supercompression
 zlib = ["flate2"]
@@ -51,10 +56,10 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.11.0-dev" }
 image = { version = "0.24", default-features = false }
 
 # misc
-wgpu = { version = "0.15.0", features = ["spirv"] }
-wgpu-hal = "0.15.1"
+wgpu = { version = "0.16.0" }
+wgpu-hal = "0.16.0"
 codespan-reporting = "0.11.0"
-naga = { version = "0.11.0", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
+naga = { version = "0.12.0", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2.1"
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
@@ -78,3 +83,16 @@ encase = { version = "0.5", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = ["profile-with-tracing"], optional = true }
 async-channel = "1.8"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    'Blob',
+    'Document',
+    'Element',
+    'HtmlElement',
+    'Node',
+    'Url',
+    'Window',
+] }
+wasm-bindgen = "0.2"

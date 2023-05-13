@@ -3,7 +3,7 @@ use bevy_ecs::query::QueryState;
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
     render_resource::{
         LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
@@ -33,10 +33,8 @@ pub struct PrepassNode {
     >,
 }
 
-impl PrepassNode {
-    pub const IN_VIEW: &'static str = "view";
-
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for PrepassNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             main_view_query: QueryState::new(world),
         }
@@ -44,10 +42,6 @@ impl PrepassNode {
 }
 
 impl Node for PrepassNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.main_view_query.update_archetypes(world);
     }
@@ -58,7 +52,7 @@ impl Node for PrepassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let view_entity = graph.view_entity();
         let Ok((
             camera,
             opaque_prepass_phase,
@@ -70,15 +64,34 @@ impl Node for PrepassNode {
         };
 
         let mut color_attachments = vec![];
-        if let Some(view_normals_texture) = &view_prepass_textures.normal {
-            color_attachments.push(Some(RenderPassColorAttachment {
-                view: &view_normals_texture.default_view,
+        color_attachments.push(
+            view_prepass_textures
+                .normal
+                .as_ref()
+                .map(|view_normals_texture| RenderPassColorAttachment {
+                    view: &view_normals_texture.default_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(Color::BLACK.into()),
+                        store: true,
+                    },
+                }),
+        );
+        color_attachments.push(view_prepass_textures.motion_vectors.as_ref().map(
+            |view_motion_vectors_texture| RenderPassColorAttachment {
+                view: &view_motion_vectors_texture.default_view,
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(Color::BLACK.into()),
+                    // Blue channel doesn't matter, but set to 1.0 for possible faster clear
+                    // https://gpuopen.com/performance/#clears
+                    load: LoadOp::Clear(Color::rgb_linear(1.0, 1.0, 1.0).into()),
                     store: true,
                 },
-            }));
+            },
+        ));
+        if color_attachments.iter().all(Option::is_none) {
+            // all attachments are none: clear the attachment list so that no fragment shader is required
+            color_attachments.clear();
         }
 
         {

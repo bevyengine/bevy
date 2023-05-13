@@ -1,4 +1,4 @@
-//! This example shows how you can know when a `Component` has been removed, so you can react to it.
+//! This example shows how you can know when a [`Component`] has been removed, so you can react to it.
 
 use bevy::prelude::*;
 
@@ -14,11 +14,9 @@ fn main() {
     // `CoreSet::Update', and the system that reacts on the removal in `CoreSet::PostUpdate`.
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((
-            setup.on_startup(),
-            remove_component,
-            react_on_removal.in_base_set(CoreSet::PostUpdate),
-        ))
+        .add_systems(Startup, setup)
+        .add_systems(Update, remove_component)
+        .add_systems(PostUpdate, react_on_removal)
         .run();
 }
 

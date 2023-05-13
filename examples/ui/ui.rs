@@ -16,7 +16,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
-        .add_systems((setup.on_startup(), mouse_scroll))
+        .add_systems(Startup, setup)
+        .add_systems(Update, mouse_scroll)
         .run();
 }
 
@@ -112,7 +113,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 flex_direction: FlexDirection::Column,
                                 align_self: AlignSelf::Stretch,
                                 size: Size::height(Val::Percent(50.)),
-                                overflow: Overflow::Hidden,
+                                overflow: Overflow::clip_y(),
                                 ..default()
                             },
                             background_color: Color::rgb(0.10, 0.10, 0.10).into(),

@@ -56,5 +56,9 @@ pub use crate::widget::prelude::*;
 pub use crate::dynamic_plugin::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_gizmos")]
+pub use crate::gizmos::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_gilrs")]
 pub use crate::gilrs::*;

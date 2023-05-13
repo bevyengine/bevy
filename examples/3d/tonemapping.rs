@@ -27,19 +27,25 @@ fn main() {
         .init_resource::<PerMethodSettings>()
         .insert_resource(CurrentScene(1))
         .insert_resource(SelectedParameter { value: 0, max: 4 })
-        .add_startup_systems((
-            setup,
-            setup_basic_scene,
-            setup_color_gradient_scene,
-            setup_image_viewer_scene,
-        ))
-        .add_systems((
-            update_image_viewer,
-            toggle_scene,
-            toggle_tonemapping_method,
-            update_color_grading_settings,
-            update_ui,
-        ))
+        .add_systems(
+            Startup,
+            (
+                setup,
+                setup_basic_scene,
+                setup_color_gradient_scene,
+                setup_image_viewer_scene,
+            ),
+        )
+        .add_systems(
+            Update,
+            (
+                update_image_viewer,
+                toggle_scene,
+                toggle_tonemapping_method,
+                update_color_grading_settings,
+                update_ui,
+            ),
+        )
         .run();
 }
 
@@ -69,9 +75,9 @@ fn setup(
         TextBundle::from_section(
             "",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 18.0,
                 color: Color::WHITE,
+                ..default()
             },
         )
         .with_style(Style {
@@ -237,7 +243,6 @@ fn setup_image_viewer_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     camera_transform: Res<CameraTransform>,
-    asset_server: Res<AssetServer>,
 ) {
     let mut transform = camera_transform.0;
     transform.translation += transform.forward();
@@ -267,9 +272,9 @@ fn setup_image_viewer_scene(
             TextBundle::from_section(
                 "Drag and drop an HDR or EXR file",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 36.0,
                     color: Color::BLACK,
+                    ..default()
                 },
             )
             .with_text_alignment(TextAlignment::Center)
@@ -307,7 +312,7 @@ fn update_image_viewer(
                 *drop_hovered = false;
             }
             FileDragAndDrop::HoveredFile { .. } => *drop_hovered = true,
-            FileDragAndDrop::HoveredFileCancelled { .. } => *drop_hovered = false,
+            FileDragAndDrop::HoveredFileCanceled { .. } => *drop_hovered = false,
         }
     }
 

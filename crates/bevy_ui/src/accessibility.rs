@@ -1,15 +1,32 @@
-use bevy_a11y::{accesskit::Rect, AccessibilityNode};
-use bevy_app::{App, Plugin};
-
+use crate::Node;
+use bevy_a11y::{
+    accesskit::Rect,
+    AccessibilityNode,
+};
+use bevy_app::{App, Plugin, Update};
 use bevy_ecs::{
     query::{Changed, Or},
     system::Query,
 };
-
+use bevy_hierarchy::Children;
 use bevy_render::prelude::Camera;
+use bevy_text::Text;
 use bevy_transform::prelude::GlobalTransform;
 
-use crate::Node;
+fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
+    let mut name = None;
+    for child in children.iter() {
+        if let Ok(text) = texts.get(*child) {
+            let values = text
+                .sections
+                .iter()
+                .map(|v| v.value.to_string())
+                .collect::<Vec<String>>();
+            name = Some(values.join(" "));
+        }
+    }
+    name.map(|v| v.into_boxed_str())
+}
 
 fn calc_bounds(
     camera: Query<(&Camera, &GlobalTransform)>,
@@ -40,6 +57,9 @@ pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(calc_bounds);
+        app.add_systems(
+            Update,
+            calc_bounds,
+        );
     }
 }

@@ -2,6 +2,8 @@
 
 use bevy_ecs::component::Component;
 use bevy_ecs::prelude::With;
+use bevy_ecs::reflect::ReflectComponent;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::ExtractComponent;
 
@@ -10,12 +12,13 @@ use bevy_render::extract_component::ExtractComponent;
 /// When a [`Camera`] doesn't have the [`UiCameraConfig`] component,
 /// it will display the UI by default.
 ///
-#[derive(Component, Clone, ExtractComponent)]
+#[derive(Component, Clone, ExtractComponent, Reflect, FromReflect)]
 #[extract_component_filter(With<Camera>)]
+#[reflect(Component, FromReflect, Default)]
 pub struct UiCameraConfig {
     /// Whether to output UI to this camera view.
     ///
-    /// When a `Camera` doesn't have the [`UiCameraConfig`] component,
+    /// When a [`Camera`] doesn't have the [`UiCameraConfig`] component,
     /// it will display the UI by default.
     pub show_ui: bool,
 }

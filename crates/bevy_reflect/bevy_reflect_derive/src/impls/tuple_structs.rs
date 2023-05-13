@@ -122,7 +122,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicTupleStruct {
                 let mut dynamic: #bevy_reflect_path::DynamicTupleStruct = #FQDefault::default();
-                dynamic.set_name(::std::string::ToString::to_string(#bevy_reflect_path::Reflect::type_name(self)));
+                dynamic.set_represented_type(#bevy_reflect_path::Reflect::get_represented_type_info(self));
                 #(dynamic.insert_boxed(#bevy_reflect_path::Reflect::clone_value(&self.#field_idents));)*
                 dynamic
             }
@@ -135,8 +135,8 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
 
             #[inline]
-            fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
-                <Self as #bevy_reflect_path::Typed>::type_info()
+            fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
+                #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
             #[inline]

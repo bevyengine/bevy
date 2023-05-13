@@ -1,17 +1,17 @@
 use bevy_a11y::accesskit::{NodeBuilder, Role};
 use bevy_a11y::AccessibilityNode;
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Update};
 use bevy_ecs::prelude::{Component, Entity};
 use bevy_ecs::query::Changed;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::system::{Commands, Query};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
 use bevy_text::Text;
 
 /// Marker struct for labels
-#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Default, Clone, Copy, Reflect, FromReflect)]
+#[reflect(Component, FromReflect, Default)]
 pub struct Label;
 
 fn label_changed(
@@ -44,12 +44,12 @@ fn label_changed(
     }
 }
 
-/// A plugin for button widgets
+/// A plugin for label widgets
 #[derive(Default)]
 pub struct LabelPlugin;
 
 impl Plugin for LabelPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Label>().add_system(label_changed);
+        app.register_type::<Label>().add_systems(Update, label_changed);
     }
 }

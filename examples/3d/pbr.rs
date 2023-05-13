@@ -5,7 +5,8 @@ use bevy::{asset::LoadState, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), environment_map_load_finish))
+        .add_systems(Startup, setup)
+        .add_systems(Update, environment_map_load_finish)
         .run();
 }
 
@@ -77,9 +78,9 @@ fn setup(
         TextBundle::from_section(
             "Perceptual Roughness",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 36.0,
                 color: Color::WHITE,
+                ..default()
             },
         )
         .with_style(Style {
@@ -94,9 +95,9 @@ fn setup(
         text: Text::from_section(
             "Metallic",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 36.0,
                 color: Color::WHITE,
+                ..default()
             },
         ),
         style: Style {
@@ -116,9 +117,9 @@ fn setup(
         TextBundle::from_section(
             "Loading Environment Map...",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 36.0,
                 color: Color::RED,
+                ..default()
             },
         )
         .with_style(Style {

@@ -9,8 +9,8 @@ fn main() {
             small: Vec2::new(640.0, 360.0),
         })
         .add_plugins(DefaultPlugins)
-        .add_startup_systems((setup_camera, setup_ui))
-        .add_systems((on_resize_system, toggle_resolution))
+        .add_systems(Startup, (setup_camera, setup_ui))
+        .add_systems(Update, (on_resize_system, toggle_resolution))
         .run();
 }
 
@@ -32,7 +32,7 @@ fn setup_camera(mut cmd: Commands) {
 }
 
 // Spawns the UI
-fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
+fn setup_ui(mut cmd: Commands) {
     // Node that fills entire background
     cmd.spawn(NodeBundle {
         style: Style {
@@ -47,9 +47,9 @@ fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
             TextBundle::from_section(
                 "Resolution",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 50.0,
                     color: Color::BLACK,
+                    ..default()
                 },
             ),
             ResolutionText,

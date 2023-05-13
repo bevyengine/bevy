@@ -2,11 +2,15 @@
 //! interaction state.
 
 use bevy::prelude::*;
+use bevy_internal::winit::WinitSettings;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), button_system))
+        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
+        .insert_resource(WinitSettings::desktop_app())
+        .add_systems(Startup, setup)
+        .add_systems(Update, button_system)
         .run();
 }
 
