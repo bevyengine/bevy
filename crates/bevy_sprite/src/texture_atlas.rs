@@ -5,8 +5,8 @@ use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use bevy_render::texture::Image;
 use bevy_utils::HashMap;
 
-/// Maps a layout for a texture. Used with the [`TextureAtlas`] component it allows to
-/// either draw a specific area of the target texture, or to animate a sprite sheet.
+/// Stores a map used to lookup the position of a texture in a [`TextureAtlas`].
+/// This can be used to either use and look up a specific section of a texture, or animate frame-by-frame as a sprite sheet.
 ///
 /// Optionaly it can store a mapping from sub texture handles to the related area index (see
 /// [`TextureAtlasBuilder`]).
@@ -23,7 +23,9 @@ pub struct TextureAtlasLayout {
     pub size: Vec2,
     /// The specific areas of the atlas where each texture can be found
     pub textures: Vec<Rect>,
-    /// Texture handle to area index mapping. Set by [`TextureAtlasBuilder`].
+    /// Maps from a specific image handle to the index in `textures` where they can be found.
+    ///
+    /// This field is set by [`TextureAtlasBuilder`].
     ///
     /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
     pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
