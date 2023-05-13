@@ -97,7 +97,6 @@ impl Plugin for GizmoPlugin {
 
             render_app
                 .add_render_command::<Transparent2d, DrawGizmoLines>()
-                .init_resource::<GizmoLinePipeline>()
                 .init_resource::<SpecializedMeshPipelines<GizmoLinePipeline>>()
                 .add_systems(Render, queue_gizmos_2d.in_set(RenderSet::Queue));
         }
@@ -109,9 +108,26 @@ impl Plugin for GizmoPlugin {
 
             render_app
                 .add_render_command::<Opaque3d, DrawGizmoLines>()
-                .init_resource::<GizmoPipeline>()
                 .init_resource::<SpecializedMeshPipelines<GizmoPipeline>>()
                 .add_systems(Render, queue_gizmos_3d.in_set(RenderSet::Queue));
+        }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
+
+        #[cfg(feature = "bevy_sprite")]
+        {
+            use pipeline_2d::*;
+
+            render_app.init_resource::<GizmoLinePipeline>();
+        }
+
+        #[cfg(feature = "bevy_pbr")]
+        {
+            use pipeline_3d::*;
+
+            render_app.init_resource::<GizmoPipeline>();
         }
     }
 }

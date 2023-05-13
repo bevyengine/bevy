@@ -59,11 +59,12 @@ impl Plugin for ButtonPlugin {
 /// A UI node that is a button
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
-    /// Describes the size of the node
+    /// Describes the logical size of the node
     pub node: Node,
     /// Marker component that signals this node is a button
     pub button: Button,
-    /// Describes the style including flexbox settings
+    /// Styles which control the layout (size and position) of the node and it's children
+    /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// Describes whether and how the button has been interacted with by the input
     pub interaction: Interaction,
@@ -111,3 +112,4 @@ impl Default for ButtonBundle {
         }
     }
 }
+
