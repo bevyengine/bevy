@@ -1,14 +1,7 @@
 use crate::Node;
-use bevy_a11y::{
-    accesskit::Rect,
-    AccessibilityNode,
-};
+use bevy_a11y::{accesskit::Rect, AccessibilityNode};
 use bevy_app::{App, Plugin, Update};
-use bevy_ecs::{
-    prelude::DetectChanges,
-    system::Query,
-    world::Ref,
-};
+use bevy_ecs::{prelude::DetectChanges, system::Query, world::Ref};
 use bevy_render::prelude::Camera;
 use bevy_transform::prelude::GlobalTransform;
 
@@ -40,9 +33,6 @@ pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            calc_bounds,
-        );
+        app.add_systems(Update, calc_bounds);
     }
 }

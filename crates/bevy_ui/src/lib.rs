@@ -34,8 +34,7 @@ use update::update_clipping_system;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*,
-        Interaction, UiScale,
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, Interaction, UiScale,
     };
 }
 
@@ -115,7 +114,8 @@ impl Plugin for UiPlugin {
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
-            ).add_systems(
+            )
+            .add_systems(
                 PostUpdate,
                 (
                     ui_layout_system

@@ -8,7 +8,7 @@ use bevy_ecs::{
     world::{Mut, Ref},
 };
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, prelude::ReflectDefault};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     camera::CameraUpdateSystem,
     prelude::Color,

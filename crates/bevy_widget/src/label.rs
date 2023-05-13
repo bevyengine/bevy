@@ -50,6 +50,7 @@ pub struct LabelPlugin;
 
 impl Plugin for LabelPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Label>().add_systems(Update, label_changed);
+        app.register_type::<Label>()
+            .add_systems(Update, label_changed);
     }
 }

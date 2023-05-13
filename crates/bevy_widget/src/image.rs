@@ -1,14 +1,17 @@
-use bevy_a11y::{AccessibilityNode, accesskit::{Role, NodeBuilder}};
+use bevy_a11y::{
+    accesskit::{NodeBuilder, Role},
+    AccessibilityNode,
+};
 use bevy_app::{App, Plugin, PostUpdate, Update};
 use bevy_asset::Assets;
 #[cfg(feature = "bevy_text")]
 use bevy_ecs::query::Without;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
-    query::{With, Changed},
+    query::{Changed, With},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
-    system::{Query, Res, Commands},
+    system::{Commands, Query, Res},
 };
 use bevy_hierarchy::Children;
 use bevy_math::Vec2;
@@ -25,7 +28,7 @@ use bevy_ui::{
     UiImage, UiSystem, ZIndex,
 };
 
-use crate::{text_system, Button, calc_name};
+use crate::{calc_name, text_system, Button};
 
 /// The size of the image in physical pixels
 ///

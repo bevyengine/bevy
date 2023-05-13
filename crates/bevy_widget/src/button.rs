@@ -52,7 +52,8 @@ pub struct ButtonPlugin;
 
 impl Plugin for ButtonPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Button>().add_systems(Update, button_changed);
+        app.register_type::<Button>()
+            .add_systems(Update, button_changed);
     }
 }
 
@@ -112,4 +113,3 @@ impl Default for ButtonBundle {
         }
     }
 }
-
