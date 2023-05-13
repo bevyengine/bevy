@@ -5,6 +5,7 @@ use bevy_utils::AHasher;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
+    ffi::OsStr,
     hash::{Hash, Hasher},
     path::{Path, PathBuf},
 };
@@ -183,10 +184,26 @@ impl<'a> From<&'a Path> for AssetPath<'a> {
 }
 
 impl<'a> From<PathBuf> for AssetPath<'a> {
-    fn from(path: PathBuf) -> Self {
-        AssetPath {
-            path: Cow::Owned(path),
-            label: None,
+    fn from(mut path_buf: PathBuf) -> Self {
+        match path_buf
+            .file_name()
+            .and_then(OsStr::to_str)
+            .map(ToOwned::to_owned)
+        {
+            Some(path) => {
+                let mut parts = path.splitn(2, '#');
+                path_buf.pop();
+                path_buf.join(parts.next().expect("Path must be set."));
+                let label = parts.next().map(String::from);
+                AssetPath {
+                    path: Cow::Owned(path_buf),
+                    label: label.map(Cow::Owned),
+                }
+            }
+            None => AssetPath {
+                path: Cow::Owned(path_buf),
+                label: None,
+            },
         }
     }
 }
