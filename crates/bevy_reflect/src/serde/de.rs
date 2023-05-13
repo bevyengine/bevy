@@ -1,3 +1,4 @@
+use crate::serde::deserialize_reflect::ReflectDeserializeReflect;
 use crate::serde::SerializationData;
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
@@ -386,7 +387,28 @@ pub struct TypedReflectDeserializer<'a> {
 }
 
 impl<'a> TypedReflectDeserializer<'a> {
+    // Creates a new [`TypedReflectDeserializer`] for the given type registration.
     pub fn new(registration: &'a TypeRegistration, registry: &'a TypeRegistry) -> Self {
+        Self {
+            registration,
+            registry,
+        }
+    }
+
+    /// Creates a new [`TypedReflectDeserializer`] for the given type `T`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` is not registered in the given [`TypeRegistry`].
+    pub fn of<T: Reflect>(registry: &'a TypeRegistry) -> Self {
+        let registration = registry
+            .get(std::any::TypeId::of::<T>())
+            .unwrap_or_else(|| {
+                panic!(
+                    "no registration found for type `{}`",
+                    std::any::type_name::<T>()
+                )
+            });
         Self {
             registration,
             registry,
@@ -406,6 +428,11 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
         // Handle both Value case and types that have a custom `ReflectDeserialize`
         if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserialize>() {
             let value = deserialize_reflect.deserialize(deserializer)?;
+            return Ok(value);
+        }
+
+        if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserializeReflect>() {
+            let value = deserialize_reflect.deserialize(deserializer, self.registry)?;
             return Ok(value);
         }
 
