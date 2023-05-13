@@ -8,25 +8,8 @@ use bevy_ecs::{
     query::{Changed, Or},
     system::Query,
 };
-use bevy_hierarchy::Children;
 use bevy_render::prelude::Camera;
-use bevy_text::Text;
 use bevy_transform::prelude::GlobalTransform;
-
-fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
-    let mut name = None;
-    for child in children.iter() {
-        if let Ok(text) = texts.get(*child) {
-            let values = text
-                .sections
-                .iter()
-                .map(|v| v.value.to_string())
-                .collect::<Vec<String>>();
-            name = Some(values.join(" "));
-        }
-    }
-    name.map(|v| v.into_boxed_str())
-}
 
 fn calc_bounds(
     camera: Query<(&Camera, &GlobalTransform)>,
