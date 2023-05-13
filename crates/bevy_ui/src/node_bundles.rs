@@ -1,7 +1,7 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::{Button, UiImageSize},
+    widget::{Button, TextFlags, UiImageSize},
     BackgroundColor, ContentSize, FocusPolicy, Node, Pressed, RelativeCursorPosition, Style,
     UiImage, ZIndex,
 };
@@ -119,6 +119,8 @@ pub struct TextBundle {
     pub text: Text,
     /// Text layout information
     pub text_layout_info: TextLayoutInfo,
+    /// Text system flags
+    pub text_flags: TextFlags,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
     /// Whether this node should block interaction with lower nodes
@@ -149,6 +151,7 @@ impl Default for TextBundle {
         Self {
             text: Default::default(),
             text_layout_info: Default::default(),
+            text_flags: Default::default(),
             calculated_size: Default::default(),
             // Transparent background
             background_color: BackgroundColor(Color::NONE),

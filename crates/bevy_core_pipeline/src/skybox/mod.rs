@@ -41,10 +41,7 @@ impl Plugin for SkyboxPlugin {
             Err(_) => return,
         };
 
-        let render_device = render_app.world.resource::<RenderDevice>().clone();
-
         render_app
-            .insert_resource(SkyboxPipeline::new(&render_device))
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .add_systems(
                 Render,
@@ -53,6 +50,17 @@ impl Plugin for SkyboxPlugin {
                     queue_skybox_bind_groups.in_set(RenderSet::Queue),
                 ),
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
+        let render_device = render_app.world.resource::<RenderDevice>().clone();
+
+        render_app.insert_resource(SkyboxPipeline::new(&render_device));
     }
 }
 
