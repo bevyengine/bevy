@@ -75,6 +75,10 @@ impl<T: Pod> BufferVec<T> {
         index
     }
 
+    pub fn append(&mut self, other: &mut BufferVec<T>) {
+        self.values.append(&mut other.values);
+    }
+
     pub fn set_label(&mut self, label: Option<&str>) {
         let label = label.map(str::to_string);
 
