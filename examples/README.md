@@ -354,7 +354,7 @@ Example | Description
 [Text](../examples/widget/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/widget/text_debug.rs) | An example for debugging text layout
 [Text Layout](../examples/widget/text_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text
-[Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
+[Text Wrap Debug](../examples/widget/text_wrap_debug.rs) | Demonstrates text wrapping
 
 ## Window
 
