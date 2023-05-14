@@ -14,7 +14,7 @@ use crate::{
     system::Resource,
 };
 use bevy_ptr::Ptr;
-use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData, sync::atomic::Ordering};
+use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -34,7 +34,6 @@ use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData, sync::atomic::Orde
 /// APIs like [`System::component_access`](crate::system::System::component_access).
 ///
 /// A system then can be executed using [`System::run_unsafe`](crate::system::System::run_unsafe) with a `&World` and use methods with interior mutability to access resource values.
-/// access resource values.
 ///
 /// ### Example Usage
 ///
@@ -92,15 +91,49 @@ impl<'w> UnsafeWorldCell<'w> {
         Self(world as *mut World, PhantomData)
     }
 
-    /// This `&mut World` counts as a mutable borrow of every resource and component for the purposes
-    /// of safety invariants that talk about borrows on component/resource data not existing. This is
-    /// true even for methods that do not explicitly call out `&mut World` as problematic.
+    /// Gets a mutable reference to the [`World`] this [`UnsafeWorldCell`] belongs to.
+    /// This is an incredibly error-prone operation and is only valid in a small number of circumstances.
     ///
     /// # Safety
-    /// - must have permission to access everything mutably
-    /// - there must be no other borrows on world
-    /// - returned borrow must not be used in any way if the world is accessed
-    ///   through other means than the `&mut World` after this call.
+    /// - `self` must have been obtained from a call to [`World::as_unsafe_world_cell`]
+    ///   (*not* `as_unsafe_world_cell_readonly` or any other method of construction that
+    ///   does not provide mutable access to the entire world).
+    ///   - This means that if you have an `UnsafeWorldCell` that you didn't create yourself,
+    ///     it is likely *unsound* to call this method.
+    /// - The returned `&mut World` *must* be unique: it must never be allowed to exist
+    ///   at the same time as any other borrows of the world or any accesses to its data.
+    ///   This includes safe ways of accessing world data, such as [`UnsafeWorldCell::archetypes`]:
+    ///   - Note that the `&mut World` *may* exist at the same time as instances of `UnsafeWorldCell`,
+    ///     so long as none of those instances are used to access world data in any way
+    ///     while the mutable borrow is active.
+    ///
+    /// [//]: # (This test fails miri.)
+    /// ```no_run
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)] struct Player;
+    /// # fn store_but_dont_use<T>(_: T) {}
+    /// # let mut world = World::new();
+    /// // Make an UnsafeWorldCell.
+    /// let world_cell = world.as_unsafe_world_cell();
+    ///
+    /// // SAFETY: `world_cell` was originally created from `&mut World`.
+    /// // We must be sure not to access any world data while `world_mut` is active.
+    /// let world_mut = unsafe { world_cell.world_mut() };
+    ///
+    /// // We can still use `world_cell` so long as we don't access the world with it.
+    /// store_but_dont_use(world_cell);
+    ///
+    /// // !!This is unsound!! Even though this method is safe, we cannot call it until
+    /// // `world_mut` is no longer active.
+    /// let tick = world_cell.read_change_tick();
+    ///
+    /// // Use mutable access to spawn an entity.
+    /// world_mut.spawn(Player);
+    ///
+    /// // Since we never use `world_mut` after this, the borrow is released
+    /// // and we are once again allowed to access the world using `world_cell`.
+    /// let archetypes = world_cell.archetypes();
+    /// ```
     #[inline]
     pub unsafe fn world_mut(self) -> &'w mut World {
         // SAFETY:
@@ -191,13 +224,17 @@ impl<'w> UnsafeWorldCell<'w> {
 
     /// Reads the current change tick of this world.
     #[inline]
+    #[deprecated = "this method has been renamed to `UnsafeWorldCell::change_tick`"]
     pub fn read_change_tick(self) -> Tick {
+        self.change_tick()
+    }
+
+    /// Gets the current change tick of this world.
+    #[inline]
+    pub fn change_tick(self) -> Tick {
         // SAFETY:
         // - we only access world metadata
-        let tick = unsafe { self.world_metadata() }
-            .change_tick
-            .load(Ordering::Acquire);
-        Tick::new(tick)
+        unsafe { self.world_metadata() }.read_change_tick()
     }
 
     #[inline]
@@ -382,7 +419,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // - index is in-bounds because the column is initialized and non-empty
         // - the caller promises that no other reference to the ticks of the same row can exist at the same time
         let ticks = unsafe {
-            TicksMut::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick())
+            TicksMut::from_tick_cells(ticks, self.last_change_tick(), self.change_tick())
         };
 
         Some(MutUntyped {
@@ -430,7 +467,7 @@ impl<'w> UnsafeWorldCell<'w> {
         self,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'w>> {
-        let change_tick = self.read_change_tick();
+        let change_tick = self.change_tick();
         // SAFETY: we only access data that the caller has ensured is unaliased and `self`
         //  has permission to access.
         let (ptr, ticks) = unsafe { self.unsafe_world() }
@@ -650,9 +687,7 @@ impl<'w> UnsafeEntityCell<'w> {
     #[inline]
     pub unsafe fn get_mut<T: Component>(self) -> Option<Mut<'w, T>> {
         // SAFETY: same safety requirements
-        unsafe {
-            self.get_mut_using_ticks(self.world.last_change_tick(), self.world.read_change_tick())
-        }
+        unsafe { self.get_mut_using_ticks(self.world.last_change_tick(), self.world.change_tick()) }
     }
 
     /// # Safety
@@ -744,7 +779,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 ticks: TicksMut::from_tick_cells(
                     cells,
                     self.world.last_change_tick(),
-                    self.world.read_change_tick(),
+                    self.world.change_tick(),
                 ),
             })
         }

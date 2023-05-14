@@ -1,11 +1,12 @@
 mod convert;
+pub mod debug;
 
 use crate::{ContentSize, Node, Style, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     event::EventReader,
-    query::{Changed, With, Without},
+    query::{With, Without},
     removal_detection::RemovedComponents,
     system::{Query, Res, ResMut, Resource},
     world::Ref,
@@ -221,7 +222,7 @@ pub fn ui_layout_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     style_query: Query<(Entity, Ref<Style>), With<Node>>,
     mut measure_query: Query<(Entity, &mut ContentSize)>,
-    children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
+    children_query: Query<(Entity, Ref<Children>), With<Node>>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
@@ -292,7 +293,9 @@ pub fn ui_layout_system(
         ui_surface.try_remove_children(entity);
     }
     for (entity, children) in &children_query {
-        ui_surface.update_children(entity, children);
+        if children.is_changed() {
+            ui_surface.update_children(entity, &children);
+        }
     }
 
     // compute layouts

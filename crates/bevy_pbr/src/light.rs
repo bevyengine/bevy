@@ -353,7 +353,7 @@ impl CascadeShadowConfigBuilder {
 
 impl Default for CascadeShadowConfigBuilder {
     fn default() -> Self {
-        if cfg!(feature = "webgl") {
+        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
             // Currently only support one cascade in webgl.
             Self {
                 num_cascades: 1,
