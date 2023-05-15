@@ -912,7 +912,7 @@ impl ScheduleGraph {
                             .push(id);
                         // Add any previously-added systems with read access to the set.
                         for (i, system) in self.systems.iter().enumerate() {
-                            let Some(system) = system.inner.as_deref() else {
+                            let Some(system) = &system.inner else {
                                 continue;
                             };
                             if system.component_access().has_read(component) {
@@ -929,7 +929,7 @@ impl ScheduleGraph {
                             .push(id);
                         // Add any previously-added systems with write access to the set.
                         for (i, system) in self.systems.iter().enumerate() {
-                            let Some(system) = system.inner.as_deref() else {
+                            let Some(system) = &system.inner else {
                                 continue;
                             };
                             if system.component_access().has_write(component) {
