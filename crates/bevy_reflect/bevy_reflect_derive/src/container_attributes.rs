@@ -132,7 +132,7 @@ pub(crate) struct ReflectTraits {
 }
 
 impl ReflectTraits {
-    pub fn from_metas(metas: Vec<Meta>) -> Result<Self, syn::Error> {
+    pub fn from_metas(metas: Punctuated<Meta, Comma>) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         for meta in &metas {
             match meta {
@@ -304,8 +304,7 @@ impl ReflectTraits {
 
 impl Parse for ReflectTraits {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let result = Punctuated::<Meta, Comma>::parse_terminated(input)?;
-        ReflectTraits::from_metas(result.into_iter().collect::<Vec<_>>())
+        ReflectTraits::from_metas(Punctuated::<Meta, Comma>::parse_terminated(input)?)
     }
 }
 

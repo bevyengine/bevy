@@ -148,12 +148,9 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-
-                    let metas = meta_list
-                        .parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?
-                        .into_iter()
-                        .collect();
-                    let new_traits = ReflectTraits::from_metas(metas)?;
+                    let new_traits = ReflectTraits::from_metas(
+                        meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
+                    )?;
                     traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -165,11 +162,9 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let metas = meta_list
-                        .parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?
-                        .into_iter()
-                        .collect();
-                    let new_traits = ReflectTraits::from_metas(metas)?;
+                    let new_traits = ReflectTraits::from_metas(
+                        meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
+                    )?;
                     traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
