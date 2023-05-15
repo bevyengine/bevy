@@ -106,6 +106,15 @@ fn main() {
                 .run()
                 .expect("Compiler errors of the Reflect compile fail tests seem to be different than expected! Check locally and compare rust versions.");
         }
+        {
+            // Macro Compile Fail Tests
+            // Run tests (they do not get executed with the workspace tests)
+            // - See crates/bevy_macros_compile_fail_tests/README.md
+            let _subdir = sh.push_dir("crates/bevy_macros_compile_fail_tests");
+            cmd!(sh, "cargo test --target-dir ../../target")
+                .run()
+                .expect("Compiler errors of the macros compile fail tests seem to be different than expected! Check locally and compare rust versions.");
+        }
     }
 
     if what_to_run.contains(Check::TEST) {
