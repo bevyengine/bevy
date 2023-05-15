@@ -219,7 +219,7 @@ description = \"{}\"
 
 [extra]
 technical_name = \"{}\"
-link = \"examples-webgpu/{}/{}\"
+link = \"{}/{}\"
 image = \"../static/screenshots/{}/{}.png\"
 code_path = \"content/examples-webgpu/{}\"
 github_code_path = \"{}\"
