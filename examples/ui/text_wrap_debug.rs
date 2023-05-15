@@ -26,7 +26,6 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             style: Style {
                 flex_direction: FlexDirection::Column,
                 width: Val::Percent(100.),
-                height: Val::Percent(100.),
                 ..Default::default()
             },
             background_color: Color::BLACK.into(),
