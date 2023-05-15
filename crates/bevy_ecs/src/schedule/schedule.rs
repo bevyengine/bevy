@@ -19,6 +19,7 @@ use crate::{
     self as bevy_ecs,
     component::{ComponentId, Components, Tick},
     schedule::*,
+    storage::SparseSet,
     system::{BoxedSystem, Resource, System},
     world::World,
 };
@@ -384,8 +385,8 @@ pub struct ScheduleGraph {
     system_sets: Vec<SystemSetNode>,
     system_set_conditions: Vec<Vec<BoxedCondition>>,
     system_set_ids: HashMap<BoxedSystemSet, NodeId>,
-    read_system_sets: HashMap<ComponentId, Vec<NodeId>>,
-    write_system_sets: HashMap<ComponentId, Vec<NodeId>>,
+    read_system_sets: SparseSet<ComponentId, Vec<NodeId>>,
+    write_system_sets: SparseSet<ComponentId, Vec<NodeId>>,
     uninit: Vec<PendingInit>,
     hierarchy: Dag,
     dependency: Dag,
@@ -415,8 +416,8 @@ impl ScheduleGraph {
             system_sets: Vec::new(),
             system_set_conditions: Vec::new(),
             system_set_ids: HashMap::new(),
-            read_system_sets: HashMap::new(),
-            write_system_sets: HashMap::new(),
+            read_system_sets: SparseSet::new(),
+            write_system_sets: SparseSet::new(),
             uninit: Vec::new(),
             hierarchy: Dag::new(),
             dependency: Dag::new(),
@@ -874,14 +875,14 @@ impl ScheduleGraph {
                     let system_access = system.component_access();
                     for &set in system_access
                         .reads()
-                        .filter_map(|id| self.read_system_sets.get(&id))
+                        .filter_map(|id| self.read_system_sets.get(id))
                         .flatten()
                     {
                         self.hierarchy.graph.add_edge(set, id, ());
                     }
                     for &set in system_access
                         .writes()
-                        .filter_map(|id| self.write_system_sets.get(&id))
+                        .filter_map(|id| self.write_system_sets.get(id))
                         .flatten()
                     {
                         self.hierarchy.graph.add_edge(set, id, ());
@@ -907,8 +908,7 @@ impl ScheduleGraph {
                             .components
                             .init_component_with_descriptor(&mut world.storages, component);
                         self.read_system_sets
-                            .entry(component)
-                            .or_insert(Vec::new())
+                            .get_or_insert_with(component, Vec::new)
                             .push(id);
                         // Add any previously-added systems with read access to the set.
                         for (i, system) in self.systems.iter().enumerate() {
@@ -925,8 +925,7 @@ impl ScheduleGraph {
                             .components
                             .init_component_with_descriptor(&mut world.storages, component);
                         self.write_system_sets
-                            .entry(component)
-                            .or_insert(Vec::new())
+                            .get_or_insert_with(component, Vec::new)
                             .push(id);
                         // Add any previously-added systems with write access to the set.
                         for (i, system) in self.systems.iter().enumerate() {
