@@ -13,7 +13,7 @@ impl AssetLoader for FontLoader {
         load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<()>> {
         Box::pin(async move {
-            let font = Font::try_from_bytes(bytes.into())?;
+            let font = Font::from_bytes(bytes.into());
             load_context.set_default_asset(LoadedAsset::new(font));
             Ok(())
         })

@@ -71,9 +71,6 @@ serialize = ["bevy_core/serialize", "bevy_input/serialize", "bevy_time/serialize
 wayland = ["bevy_winit/wayland"]
 x11 = ["bevy_winit/x11"]
 
-# enable rendering of font glyphs using subpixel accuracy
-subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
-
 # Optimise for WebGL2
 webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl"]
 

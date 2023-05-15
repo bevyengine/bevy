@@ -9,7 +9,6 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-subpixel_glyph_atlas = []
 default_font = []
 
 [dependencies]
@@ -27,9 +26,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
 
 # other
 anyhow = "1.0.4"
-ab_glyph = "0.2.6"
 cosmic-text = "0.8.0"
-glyph_brush_layout = "0.2.1"
 thiserror = "1.0"
 serde = {version = "1", features = ["derive"]}
 sys-locale = "0.3.0"

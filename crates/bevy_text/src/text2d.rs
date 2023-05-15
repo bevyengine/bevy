@@ -197,13 +197,7 @@ pub fn update_text2d_layout(
                     // queue for further processing
                     queue.insert(entity);
                 }
-                Err(e @ TextError::FailedToAddGlyphOld(_)) => {
-                    panic!("Fatal error when processing text: {e}.");
-                }
-                Err(e @ TextError::FailedToAddGlyph(_)) => {
-                    panic!("Fatal error when processing text: {e}.");
-                }
-                Err(e @ TextError::FailedToAcquireMutex) => {
+                Err(e @ TextError::FailedToAddGlyph(_) | e @ TextError::FailedToAcquireMutex) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => *text_layout_info = info,

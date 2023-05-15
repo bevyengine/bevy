@@ -100,13 +100,7 @@ fn create_text_measure(
             // Try again next frame
             text_flags.needs_new_measure_func = true;
         }
-        Err(e @ TextError::FailedToAddGlyph(_)) => {
-            panic!("Fatal error when processing text: {e}.");
-        }
-        Err(e @ TextError::FailedToAddGlyphOld(_)) => {
-            panic!("Fatal error when processing text: {e}.");
-        }
-        Err(e @ TextError::FailedToAcquireMutex) => {
+        Err(e @ TextError::FailedToAddGlyph(_) | e @ TextError::FailedToAcquireMutex) => {
             panic!("Fatal error when processing text: {e}.");
         }
     };
@@ -199,13 +193,7 @@ fn queue_text(
                 // There was an error processing the text layout, try again next frame
                 text_flags.needs_recompute = true;
             }
-            Err(e @ TextError::FailedToAddGlyph(_)) => {
-                panic!("Fatal error when processing text: {e}.");
-            }
-            Err(e @ TextError::FailedToAddGlyphOld(_)) => {
-                panic!("Fatal error when processing text: {e}.");
-            }
-            Err(e @ TextError::FailedToAcquireMutex) => {
+            Err(e @ TextError::FailedToAddGlyph(_) | e @ TextError::FailedToAcquireMutex) => {
                 panic!("Fatal error when processing text: {e}.");
             }
             Ok(info) => {

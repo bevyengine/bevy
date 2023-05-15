@@ -147,16 +147,6 @@ pub enum TextAlignment {
     Right,
 }
 
-impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
-    fn from(val: TextAlignment) -> Self {
-        match val {
-            TextAlignment::Left => glyph_brush_layout::HorizontalAlign::Left,
-            TextAlignment::Center => glyph_brush_layout::HorizontalAlign::Center,
-            TextAlignment::Right => glyph_brush_layout::HorizontalAlign::Right,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Reflect, FromReflect)]
 pub struct TextStyle {
     pub font: Handle<Font>,
@@ -186,13 +176,4 @@ pub enum BreakLineOn {
     /// This is closer to the behavior one might expect from text in a terminal.
     /// However it may lead to words being broken up across linebreaks.
     AnyCharacter,
-}
-
-impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
-    fn from(val: BreakLineOn) -> Self {
-        match val {
-            BreakLineOn::WordBoundary => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
-            BreakLineOn::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
-        }
-    }
 }

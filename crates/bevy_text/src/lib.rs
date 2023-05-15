@@ -5,7 +5,6 @@ mod font;
 mod font_atlas;
 mod font_atlas_set;
 mod font_loader;
-mod glyph_brush;
 mod pipeline;
 mod text;
 mod text2d;
@@ -15,7 +14,6 @@ pub use font::*;
 pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
-pub use glyph_brush::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
@@ -111,7 +109,7 @@ impl Plugin for TextPlugin {
             app,
             DEFAULT_FONT_HANDLE,
             "FiraMono-subset.ttf",
-            |bytes: &[u8]| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
+            |bytes: &[u8]| { Font::from_bytes(bytes.to_vec()) }
         );
     }
 }
