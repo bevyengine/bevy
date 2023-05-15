@@ -9,4 +9,6 @@ pub enum TextError {
     FailedToAddGlyphOld(GlyphId),
     #[error("failed to add glyph to newly-created atlas {0:?}")]
     FailedToAddGlyph(u16),
+    #[error("font system mutex could not be acquired or is poisoned")]
+    FailedToAcquireMutex,
 }

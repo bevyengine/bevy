@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use ab_glyph::{PxScale, ScaleFont};
 use bevy_asset::{Assets, Handle, HandleId};
 use bevy_ecs::component::Component;
@@ -5,7 +7,10 @@ use bevy_ecs::system::Resource;
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::{
+    tracing::{error, warn},
+    HashMap,
+};
 
 use cosmic_text::{Attrs, AttrsList, Buffer, BufferLine, Family, Metrics, Wrap};
 use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText};
@@ -16,14 +21,30 @@ use crate::{
     TextSettings, YAxisOrientation,
 };
 
-pub struct FontSystem(cosmic_text::FontSystem);
+// TODO: introduce FontQuery enum instead of Handle<Font>
+// TODO: cache buffers / store buffers on the entity
+// TODO: remove old implementation
+// TODO: reconstruct byte indices
+// TODO: rescale font sizes in all examples
+// TODO: fix any broken examples
+// TODO: solve spans with different font sizes
+// TODO: (future work) split text entities into section entities
+
+const MIN_WIDTH_CONTENT_BOUNDS: Vec2 = Vec2::new(0.0, f32::INFINITY);
+const MAX_WIDTH_CONTENT_BOUNDS: Vec2 = Vec2::new(f32::INFINITY, f32::INFINITY);
+
+// TODO: the only reason we need a mutex is due to TextMeasure
+// - is there a way to do this without it?
+pub struct FontSystem(Arc<Mutex<cosmic_text::FontSystem>>);
 
 impl Default for FontSystem {
     fn default() -> Self {
         let locale = sys_locale::get_locale().unwrap_or_else(|| String::from("en-US"));
         let db = cosmic_text::fontdb::Database::new();
         // TODO: consider using `cosmic_text::FontSystem::new()` (load system fonts by default)
-        Self(cosmic_text::FontSystem::new_with_locale_and_db(locale, db))
+        Self(Arc::new(Mutex::new(
+            cosmic_text::FontSystem::new_with_locale_and_db(locale, db),
+        )))
     }
 }
 
@@ -50,7 +71,14 @@ impl FontSystem {
     /// This should ideally run in a background thread.
     // TODO: This should run in a background thread.
     pub fn load_system_fonts(&mut self) {
-        self.0.db_mut().load_system_fonts();
+        match self.0.try_lock() {
+            Ok(mut font_system) => {
+                font_system.db_mut().load_system_fonts();
+            }
+            Err(err) => {
+                error!("Failed to acquire mutex: {:?}", err);
+            }
+        };
     }
 }
 
@@ -119,7 +147,11 @@ impl TextPipeline {
         let (font_size, line_height) = (font_size as f32, line_height as f32);
         let metrics = Metrics::new(font_size, line_height);
 
-        let font_system = &mut self.font_system.0;
+        let font_system = &mut self
+            .font_system
+            .0
+            .try_lock()
+            .map_err(|_| TextError::FailedToAcquireMutex)?;
 
         // TODO: cache buffers (see Iced / glyphon)
         let mut buffer = Buffer::new(font_system, metrics);
@@ -184,7 +216,10 @@ impl TextPipeline {
         buffer_lines.push(BufferLine::new(line_text, attrs_list));
 
         // node size (bounds) is already scaled by the systems that call queue_text
-        let buffer_height = bounds.y;
+        // TODO: cosmic text does not shape/layout text outside the buffer height
+        // consider a better way to do this
+        // let buffer_height = bounds.y;
+        let buffer_height = f32::INFINITY;
         buffer.set_size(font_system, bounds.x, buffer_height);
         buffer.lines = buffer_lines;
 
@@ -234,7 +269,11 @@ impl TextPipeline {
         let buffer =
             self.create_buffer(fonts, sections, linebreak_behavior, bounds, scale_factor)?;
 
-        let font_system = &mut self.font_system.0;
+        let font_system = &mut self
+            .font_system
+            .0
+            .try_lock()
+            .map_err(|_| TextError::FailedToAcquireMutex)?;
         let swash_cache = &mut self.swash_cache.0;
 
         // DEBUGGING:
@@ -248,24 +287,7 @@ impl TextPipeline {
 
         // TODO: check height and width logic
         // TODO: move this to text measurement
-        let box_size = {
-            let width = buffer
-                .layout_runs()
-                .map(|run| run.line_w)
-                .reduce(|max_w, w| max_w.max(w))
-                .unwrap();
-            let height = buffer
-                .layout_runs()
-                .map(|run| run.glyphs)
-                .flat_map(|glyphs| {
-                    glyphs
-                        .iter()
-                        .map(|g| f32::from_bits(g.cache_key.font_size_bits))
-                        .reduce(|max_h, w| max_h.max(w))
-                })
-                .sum::<f32>();
-            Vec2::new(width, height)
-        };
+        let box_size = buffer_dimensions(&buffer);
 
         let glyphs = buffer.layout_runs().flat_map(|run| {
             run.glyphs
@@ -438,8 +460,77 @@ impl TextPipeline {
         sections: &[TextSection],
         scale_factor: f64,
         text_alignment: TextAlignment,
-        linebreak_behaviour: BreakLineOn,
+        linebreak_behavior: BreakLineOn,
     ) -> Result<TextMeasureInfo, TextError> {
+        let mut buffer = self.create_buffer(
+            fonts,
+            sections,
+            linebreak_behavior,
+            MIN_WIDTH_CONTENT_BOUNDS,
+            scale_factor,
+        )?;
+
+        let min_width_content_size = buffer_dimensions(&buffer);
+
+        let max_width_content_size = {
+            let font_system = &mut self
+                .font_system
+                .0
+                .try_lock()
+                .map_err(|_| TextError::FailedToAcquireMutex)?;
+
+            buffer.set_size(
+                font_system,
+                MAX_WIDTH_CONTENT_BOUNDS.x,
+                MAX_WIDTH_CONTENT_BOUNDS.y,
+            );
+
+            let max_width_content_size = buffer_dimensions(&buffer);
+
+            max_width_content_size
+        };
+
+        Ok(TextMeasureInfo {
+            min_width_content_size,
+            max_width_content_size,
+            font_system: Arc::clone(&self.font_system.0),
+            buffer: Mutex::new(buffer),
+        })
+    }
+
+    pub fn create_text_measure_old(
+        &mut self,
+        fonts: &Assets<Font>,
+        sections: &[TextSection],
+        scale_factor: f64,
+        text_alignment: TextAlignment,
+        linebreak_behavior: BreakLineOn,
+    ) -> Result<TextMeasureInfoOld, TextError> {
+        let mut buffer = self.create_buffer(
+            fonts,
+            sections,
+            linebreak_behavior,
+            MIN_WIDTH_CONTENT_BOUNDS,
+            scale_factor,
+        )?;
+        let min_width_content_size = buffer_dimensions(&buffer);
+
+        let font_system = &mut self
+            .font_system
+            .0
+            .try_lock()
+            .map_err(|_| TextError::FailedToAcquireMutex)?;
+
+        buffer.set_size(
+            font_system,
+            MAX_WIDTH_CONTENT_BOUNDS.x,
+            MAX_WIDTH_CONTENT_BOUNDS.y,
+        );
+
+        let max_width_content_size = buffer_dimensions(&buffer);
+
+        dbg!(min_width_content_size, max_width_content_size);
+
         let mut auto_fonts = Vec::with_capacity(sections.len());
         let mut scaled_fonts = Vec::with_capacity(sections.len());
         let sections = sections
@@ -464,12 +555,12 @@ impl TextPipeline {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(TextMeasureInfo::new(
+        Ok(TextMeasureInfoOld::new(
             auto_fonts,
             scaled_fonts,
             sections,
             text_alignment,
-            linebreak_behaviour.into(),
+            linebreak_behavior.into(),
         ))
     }
 }
@@ -481,8 +572,36 @@ pub struct TextMeasureSection {
     pub font_id: FontId,
 }
 
-#[derive(Debug, Clone)]
+// TODO: is there a way to do this without mutexes?
 pub struct TextMeasureInfo {
+    pub min_width_content_size: Vec2,
+    pub max_width_content_size: Vec2,
+    buffer: Mutex<cosmic_text::Buffer>,
+    font_system: Arc<Mutex<cosmic_text::FontSystem>>,
+}
+
+impl std::fmt::Debug for TextMeasureInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TextMeasureInfo")
+            .field("min_width_content_size", &self.min_width_content_size)
+            .field("max_width_content_size", &self.max_width_content_size)
+            .field("buffer", &"_")
+            .field("font_system", &"_")
+            .finish()
+    }
+}
+
+impl TextMeasureInfo {
+    pub fn compute_size(&self, bounds: Vec2) -> Vec2 {
+        let font_system = &mut self.font_system.try_lock().expect("Failed to acquire lock");
+        let mut buffer = self.buffer.lock().expect("Failed to acquire the lock");
+        buffer.set_size(font_system, bounds.x, bounds.y);
+        buffer_dimensions(&buffer)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TextMeasureInfoOld {
     pub fonts: Vec<ab_glyph::FontArc>,
     pub scaled_fonts: Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>,
     pub sections: Vec<TextMeasureSection>,
@@ -492,7 +611,7 @@ pub struct TextMeasureInfo {
     pub max_width_content_size: Vec2,
 }
 
-impl TextMeasureInfo {
+impl TextMeasureInfoOld {
     fn new(
         fonts: Vec<ab_glyph::FontArc>,
         scaled_fonts: Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>,
@@ -511,12 +630,8 @@ impl TextMeasureInfo {
         };
 
         let section_texts = info.prepare_section_texts();
-        let min =
-            info.compute_size_from_section_texts(&section_texts, Vec2::new(0.0, f32::INFINITY));
-        let max = info.compute_size_from_section_texts(
-            &section_texts,
-            Vec2::new(f32::INFINITY, f32::INFINITY),
-        );
+        let min = info.compute_size_from_section_texts(&section_texts, MIN_WIDTH_CONTENT_BOUNDS);
+        let max = info.compute_size_from_section_texts(&section_texts, MAX_WIDTH_CONTENT_BOUNDS);
         info.min_width_content_size = min;
         info.max_width_content_size = max;
         info
@@ -619,6 +734,18 @@ fn add_span(
         .weight(face.weight)
         .color(cosmic_text::Color(section.style.color.as_linear_rgba_u32()));
     attrs_list.add_span(start..end, attrs);
+}
+
+fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
+    let width = buffer
+        .layout_runs()
+        .map(|run| run.line_w)
+        .reduce(|max_w, w| max_w.max(w))
+        .unwrap();
+    // TODO: support multiple line heights / font sizes (once supported by cosmic text)
+    let line_height = buffer.metrics().line_height;
+    let height = buffer.layout_runs().count() as f32 * line_height;
+    Vec2::new(width.ceil(), height.ceil())
 }
 
 /// An iterator over the paragraphs in the input text.

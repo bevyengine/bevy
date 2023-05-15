@@ -39,7 +39,6 @@ impl Default for TextFlags {
     }
 }
 
-#[derive(Clone)]
 pub struct TextMeasure {
     pub info: TextMeasureInfo,
 }
@@ -105,6 +104,9 @@ fn create_text_measure(
             panic!("Fatal error when processing text: {e}.");
         }
         Err(e @ TextError::FailedToAddGlyphOld(_)) => {
+            panic!("Fatal error when processing text: {e}.");
+        }
+        Err(e @ TextError::FailedToAcquireMutex) => {
             panic!("Fatal error when processing text: {e}.");
         }
     };
@@ -201,6 +203,9 @@ fn queue_text(
                 panic!("Fatal error when processing text: {e}.");
             }
             Err(e @ TextError::FailedToAddGlyphOld(_)) => {
+                panic!("Fatal error when processing text: {e}.");
+            }
+            Err(e @ TextError::FailedToAcquireMutex) => {
                 panic!("Fatal error when processing text: {e}.");
             }
             Ok(info) => {
