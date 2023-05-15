@@ -5,7 +5,8 @@ use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
-    Data, DataStruct, Error, Fields, LitInt, LitStr, Meta, Result, Token,
+    token::Comma,
+    Data, DataStruct, Error, Fields, LitInt, LitStr, Meta, Result,
 };
 
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
@@ -462,7 +463,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 /// like `#[uniform(LitInt, Ident)]`
 struct UniformBindingMeta {
     lit_int: LitInt,
-    _comma: Token![,],
+    _comma: Comma,
     ident: Ident,
 }
 
@@ -480,13 +481,13 @@ enum BindingMeta {
 /// This represents, for example, `#[texture(0, dimension = "2d_array")]`.
 struct BindingIndexOptions {
     lit_int: LitInt,
-    _comma: Token![,],
-    meta_list: Punctuated<Meta, Token![,]>,
+    _comma: Comma,
+    meta_list: Punctuated<Meta, Comma>,
 }
 
 impl Parse for BindingMeta {
     fn parse(input: ParseStream) -> Result<Self> {
-        if input.peek2(Token![,]) {
+        if input.peek2(Comma) {
             input.parse().map(Self::IndexWithOptions)
         } else {
             input.parse().map(Self::IndexOnly)
@@ -499,7 +500,7 @@ impl Parse for BindingIndexOptions {
         Ok(Self {
             lit_int: input.parse()?,
             _comma: input.parse()?,
-            meta_list: input.parse_terminated(Meta::parse, Token![,])?,
+            meta_list: input.parse_terminated(Meta::parse, Comma)?,
         })
     }
 }

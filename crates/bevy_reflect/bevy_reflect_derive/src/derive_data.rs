@@ -4,11 +4,12 @@ use crate::fq_std::{FQAny, FQDefault, FQSend, FQSync};
 use crate::utility::{members_to_serialization_denylist, WhereClauseOptions};
 use bit_set::BitSet;
 use quote::quote;
+use syn::token::Comma;
 
 use crate::{utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Token, Variant};
+use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Variant};
 
 pub(crate) enum ReflectDerive<'a> {
     Struct(ReflectStruct<'a>),
@@ -149,7 +150,7 @@ impl<'a> ReflectDerive<'a> {
                     reflect_mode = Some(ReflectMode::Normal);
 
                     let metas = meta_list
-                        .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?
+                        .parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?
                         .into_iter()
                         .collect();
                     let new_traits = ReflectTraits::from_metas(metas)?;
@@ -165,7 +166,7 @@ impl<'a> ReflectDerive<'a> {
 
                     reflect_mode = Some(ReflectMode::Value);
                     let metas = meta_list
-                        .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?
+                        .parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?
                         .into_iter()
                         .collect();
                     let new_traits = ReflectTraits::from_metas(metas)?;
@@ -260,7 +261,7 @@ impl<'a> ReflectDerive<'a> {
     }
 
     fn collect_enum_variants(
-        variants: &'a Punctuated<Variant, Token![,]>,
+        variants: &'a Punctuated<Variant, Comma>,
     ) -> Result<Vec<EnumVariant<'a>>, syn::Error> {
         let sifter: utility::ResultSifter<EnumVariant<'a>> = variants
             .iter()

@@ -13,8 +13,8 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, ConstParam,
-    DeriveInput, GenericParam, Ident, Index, Token, TypeParam,
+    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
+    ConstParam, DeriveInput, GenericParam, Ident, Index, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -303,7 +303,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     let shadowed_lifetimes: Vec<_> = generics.lifetimes().map(|_| quote!('_)).collect();
 
-    let mut punctuated_generics = Punctuated::<_, Token![,]>::new();
+    let mut punctuated_generics = Punctuated::<_, Comma>::new();
     punctuated_generics.extend(lifetimeless_generics.iter().map(|g| match g {
         GenericParam::Type(g) => GenericParam::Type(TypeParam {
             default: None,
@@ -316,14 +316,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => unreachable!(),
     }));
 
-    let mut punctuated_generic_idents = Punctuated::<_, Token![,]>::new();
+    let mut punctuated_generic_idents = Punctuated::<_, Comma>::new();
     punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
         GenericParam::Type(g) => &g.ident,
         GenericParam::Const(g) => &g.ident,
         _ => unreachable!(),
     }));
 
-    let punctuated_generics_no_bounds: Punctuated<_, Token![,]> = lifetimeless_generics
+    let punctuated_generics_no_bounds: Punctuated<_, Comma> = lifetimeless_generics
         .iter()
         .map(|&g| match g.clone() {
             GenericParam::Type(mut g) => {

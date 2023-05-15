@@ -6,7 +6,8 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
-    Attribute, Data, DataStruct, DeriveInput, Field, Index, Meta, Token,
+    token::Comma,
+    Attribute, Data, DataStruct, DeriveInput, Field, Index, Meta,
 };
 
 use crate::bevy_ecs_path;
@@ -43,7 +44,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
         }
 
         attr.parse_args_with(|input: ParseStream| {
-            let meta = input.parse_terminated(syn::Meta::parse, Token![,])?;
+            let meta = input.parse_terminated(syn::Meta::parse, Comma)?;
             for meta in meta {
                 let ident = meta.path().get_ident().unwrap_or_else(|| {
                     panic!(

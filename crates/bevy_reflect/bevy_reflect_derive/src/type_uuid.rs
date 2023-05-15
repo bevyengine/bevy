@@ -3,6 +3,7 @@ extern crate proc_macro;
 use bevy_macro_utils::BevyManifest;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
+use syn::token::Comma;
 use syn::*;
 use uuid::Uuid;
 
@@ -92,7 +93,7 @@ impl Parse for TypeUuidDef {
     fn parse(input: ParseStream) -> Result<Self> {
         let type_ident = input.parse::<Ident>()?;
         let generics = input.parse::<Generics>()?;
-        input.parse::<Token![,]>()?;
+        input.parse::<Comma>()?;
         let uuid = input.parse::<LitStr>()?.value();
         let uuid = Uuid::parse_str(&uuid).map_err(|err| input.error(format!("{err}")))?;
 
