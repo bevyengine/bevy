@@ -194,6 +194,7 @@ without UI components as a child of an entity with UI components, results may be
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
                 self.taffy.remove(node).unwrap();
+                self.needs_update = true;
             }
         }
     }
