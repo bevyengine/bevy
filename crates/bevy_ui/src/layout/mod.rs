@@ -263,14 +263,12 @@ pub fn ui_layout_system(
             return;
         };
 
-    let primary_window_modified = 
-        window_resize_events
+    let primary_window_modified = window_resize_events
         .iter()
         .any(|resized_window| resized_window.window == primary_window_entity)
-        ||
-        window_created_events
-        .iter()
-        .any(|window_created| window_created.window == primary_window_entity);
+        || window_created_events
+            .iter()
+            .any(|window_created| window_created.window == primary_window_entity);
 
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
