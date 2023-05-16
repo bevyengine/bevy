@@ -44,7 +44,7 @@ pub struct UiSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
     window_nodes: HashMap<Entity, taffy::node::Node>,
     taffy: Taffy,
-    pub needs_update: bool,
+    needs_update: bool,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
@@ -228,7 +228,8 @@ pub fn ui_layout_system(
     windows: Query<(Entity, &Window)>,
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
-    mut resize_events: EventReader<bevy_window::WindowResized>,
+    mut window_resize_events: EventReader<bevy_window::WindowResized>,
+    mut window_created_events: EventReader<bevy_window::WindowCreated>,
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     style_query: Query<(Entity, Ref<Style>), With<Node>>,
@@ -257,15 +258,20 @@ pub fn ui_layout_system(
             return;
         };
 
-    let resized = resize_events
+    let primary_window_modified = 
+        window_resize_events
         .iter()
-        .any(|resized_window| resized_window.window == primary_window_entity);
+        .any(|resized_window| resized_window.window == primary_window_entity)
+        ||
+        window_created_events
+        .iter()
+        .any(|window_created| window_created.window == primary_window_entity);
 
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
     let layout_context = LayoutContext::new(scale_factor, physical_size);
 
-    if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
+    if !scale_factor_events.is_empty() || ui_scale.is_changed() || primary_window_modified {
         scale_factor_events.clear();
         ui_surface.needs_update = true;
         for (entity, style) in style_query.iter() {
@@ -287,7 +293,7 @@ pub fn ui_layout_system(
         }
     }
 
-    if resized {
+    if primary_window_modified {
         // update window root nodes
         for (entity, window) in windows.iter() {
             ui_surface.update_window(entity, &window.resolution);
