@@ -109,7 +109,6 @@ impl Plugin for UiPlugin {
             .register_type::<Overflow>()
             .register_type::<OverflowAxis>()
             .register_type::<PositionType>()
-            .register_type::<Size>()
             .register_type::<UiRect>()
             .register_type::<Style>()
             .register_type::<BackgroundColor>()
