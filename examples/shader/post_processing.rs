@@ -70,8 +70,6 @@ impl Plugin for PostProcessPlugin {
         };
 
         render_app
-            // Initialize the pipeline
-            .init_resource::<PostProcessPipeline>()
             // Bevy's renderer uses a render graph which is a collection of nodes in a directed acyclic graph.
             // It currently runs on each view/camera and executes each node in the specified order.
             // It will make sure that any node that needs a dependency from another node
@@ -98,6 +96,17 @@ impl Plugin for PostProcessPlugin {
                     core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
                 ],
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        // We need to get the render app from the main app
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            // Initialize the pipeline
+            .init_resource::<PostProcessPipeline>();
     }
 }
 
