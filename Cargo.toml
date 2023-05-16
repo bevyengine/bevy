@@ -151,6 +151,9 @@ dds = ["bevy_internal/dds"]
 # KTX2 compressed texture support
 ktx2 = ["bevy_internal/ktx2"]
 
+# PNM image format support, includes pam, pbm, pgm and ppm
+pnm = ["bevy_internal/pnm"]
+
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
