@@ -62,10 +62,6 @@ impl FontAtlasSet {
         swash_cache: &mut cosmic_text::SwashCache,
         layout_glyph: &cosmic_text::LayoutGlyph,
     ) -> Result<GlyphAtlasInfoNew, TextError> {
-        // let glyph = layout_glyph.glyph();
-        // let glyph_id = glyph.id;
-        // let glyph_position = glyph.position;
-        // let font_size = glyph.scale.y;
         let font_atlases = self
             .font_atlases
             .entry(layout_glyph.cache_key.font_size_bits)

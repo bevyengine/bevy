@@ -29,9 +29,6 @@ use crate::{
 // TODO: (future work) text editing
 // TODO: font validation
 
-const MIN_WIDTH_CONTENT_BOUNDS: Vec2 = Vec2::new(0.0, f32::INFINITY);
-const MAX_WIDTH_CONTENT_BOUNDS: Vec2 = Vec2::new(f32::INFINITY, f32::INFINITY);
-
 // TODO: the only reason we need a mutex is due to TextMeasure
 // - is there a way to do this without it?
 pub struct FontSystem(Arc<Mutex<cosmic_text::FontSystem>>);
@@ -96,15 +93,6 @@ pub struct TextPipeline {
     swash_cache: SwashCache,
 }
 
-/// Render information for a corresponding [`Text`](crate::Text) component.
-///
-/// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
-#[derive(Component, Clone, Default, Debug)]
-pub struct TextLayoutInfo {
-    pub glyphs: Vec<PositionedGlyph>,
-    pub size: Vec2,
-}
-
 impl TextPipeline {
     pub fn create_buffer(
         &mut self,
@@ -136,7 +124,7 @@ impl TextPipeline {
         // TODO: cache buffers (see Iced / glyphon)
         let mut buffer = Buffer::new(font_system, metrics);
 
-        let mut buffer_lines = Vec::new();
+        buffer.lines.clear();
         let mut attrs_list = AttrsList::new(Attrs::new());
         let mut line_text = String::new();
         // all sections need to be combined and broken up into lines
@@ -179,7 +167,9 @@ impl TextPipeline {
                 let prev_attrs_list =
                     std::mem::replace(&mut attrs_list, AttrsList::new(Attrs::new()));
                 let prev_line_text = std::mem::take(&mut line_text);
-                buffer_lines.push(BufferLine::new(prev_line_text, prev_attrs_list));
+                buffer
+                    .lines
+                    .push(BufferLine::new(prev_line_text, prev_attrs_list));
                 add_span(
                     &mut line_text,
                     &mut attrs_list,
@@ -193,15 +183,14 @@ impl TextPipeline {
             }
         }
         // finalise last line
-        buffer_lines.push(BufferLine::new(line_text, attrs_list));
+        buffer.lines.push(BufferLine::new(line_text, attrs_list));
 
         // node size (bounds) is already scaled by the systems that call queue_text
         // TODO: cosmic text does not shape/layout text outside the buffer height
         // consider a better way to do this
         // let buffer_height = bounds.y;
         let buffer_height = f32::INFINITY;
-        buffer.set_size(font_system, bounds.x, buffer_height);
-        buffer.lines = buffer_lines;
+        buffer.set_size(font_system, bounds.x.ceil(), buffer_height);
 
         buffer.set_wrap(
             font_system,
@@ -244,8 +233,6 @@ impl TextPipeline {
             return Ok(TextLayoutInfo::default());
         }
 
-        // TODO: Support loading fonts without cloning the already loaded data (they are cloned in `add_span`)
-
         let buffer =
             self.create_buffer(fonts, sections, linebreak_behavior, bounds, scale_factor)?;
 
@@ -256,36 +243,14 @@ impl TextPipeline {
             .map_err(|_| TextError::FailedToAcquireMutex)?;
         let swash_cache = &mut self.swash_cache.0;
 
-        // DEBUGGING:
-        // let a = buffer.lines.iter().map(|l| l.text()).collect::<String>();
-        // let b = sections
-        //     .iter()
-        //     .map(|s| s.value.lines().collect::<String>())
-        //     .collect::<String>();
-        // println!();
-        // dbg!(a, b);
-
-        // TODO: check height and width logic
-        // TODO: move this to text measurement
         let box_size = buffer_dimensions(&buffer);
 
         let glyphs = buffer.layout_runs().flat_map(|run| {
             run.glyphs
                 .iter()
-                .map(move |g| (g, run.line_i, run.line_w, run.line_y, run.rtl, run.text))
-        });
-
-        // DEBUGGING:
-        // for sg in glyphs.iter() {
-        //     let (glyph, line_i, line_w, line_y, rtl, text) = sg;
-        //     dbg!(*line_i as i32 * line_height as i32 + glyph.y_int);
-        // }
-
-        // DEBUGGING:
-        // dbg!(glyphs.first().unwrap());
-
-        let glyphs = glyphs
-            .map(|(layout_glyph, line_i, line_w, line_y, rtl, text)| {
+                .map(move |layout_glyph| (layout_glyph, run.line_w, run.line_y))
+        })
+            .map(|(layout_glyph, line_w, line_y)| {
                 let section_index = layout_glyph.metadata;
 
                 let handle_font_atlas: Handle<FontAtlasSet> = sections[section_index].style.font.cast_weak();
@@ -326,7 +291,7 @@ impl TextPipeline {
                 };
                 let y = match y_axis_orientation {
                     YAxisOrientation::TopToBottom => y,
-                    YAxisOrientation::BottomToTop => box_size.y as f32 - y,
+                    YAxisOrientation::BottomToTop => box_size.y - y,
                 };
 
                 // TODO: confirm whether we need to offset by glyph baseline
@@ -359,9 +324,13 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         sections: &[TextSection],
         scale_factor: f64,
-        text_alignment: TextAlignment,
+        // TODO: not currently required
+        _text_alignment: TextAlignment,
         linebreak_behavior: BreakLineOn,
     ) -> Result<TextMeasureInfo, TextError> {
+        const MIN_WIDTH_CONTENT_BOUNDS: Vec2 = Vec2::new(0.0, f32::INFINITY);
+        const MAX_WIDTH_CONTENT_BOUNDS: Vec2 = Vec2::new(f32::INFINITY, f32::INFINITY);
+
         let mut buffer = self.create_buffer(
             fonts,
             sections,
@@ -385,9 +354,7 @@ impl TextPipeline {
                 MAX_WIDTH_CONTENT_BOUNDS.y,
             );
 
-            let max_width_content_size = buffer_dimensions(&buffer);
-
-            max_width_content_size
+            buffer_dimensions(&buffer)
         };
 
         Ok(TextMeasureInfo {
@@ -397,6 +364,15 @@ impl TextPipeline {
             buffer: Mutex::new(buffer),
         })
     }
+}
+
+/// Render information for a corresponding [`Text`](crate::Text) component.
+///
+/// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
+#[derive(Component, Clone, Default, Debug)]
+pub struct TextLayoutInfo {
+    pub glyphs: Vec<PositionedGlyph>,
+    pub size: Vec2,
 }
 
 // TODO: is there a way to do this without mutexes?
@@ -422,7 +398,7 @@ impl TextMeasureInfo {
     pub fn compute_size(&self, bounds: Vec2) -> Vec2 {
         let font_system = &mut self.font_system.try_lock().expect("Failed to acquire lock");
         let mut buffer = self.buffer.lock().expect("Failed to acquire the lock");
-        buffer.set_size(font_system, bounds.x, bounds.y);
+        buffer.set_size(font_system, bounds.x.ceil(), bounds.y.ceil());
         buffer_dimensions(&buffer)
     }
 }
@@ -450,14 +426,16 @@ fn add_span(
         .entry(font_handle_id)
         .or_insert_with(|| {
             let font = fonts.get(font_handle).unwrap();
+            let data = Arc::clone(&font.data);
             font_system
                 .db_mut()
-                .load_font_source(cosmic_text::fontdb::Source::Binary(font.data.clone()));
-            // TODO: validate this is the right font face. alternatively,
-            // 1. parse the face info using ttf-parser
-            // 2. push this face info into the db
-            // 3. query the db from the same face info we just pushed in to get the id
+                .load_font_source(cosmic_text::fontdb::Source::Binary(data));
+            // TODO: it is assumed this is the right font face
+            // see https://github.com/pop-os/cosmic-text/issues/125
+            // fontdb 0.14 returns the font ids from `load_font_source`
             let face_id = font_system.db().faces().last().unwrap().id;
+            // TODO: below may be required if we need to offset by the baseline (TBC)
+            // see https://github.com/pop-os/cosmic-text/issues/123
             // let font = font_system.get_font(face_id).unwrap();
             // map_font_id_to_metrics
             //     .entry(face_id)
@@ -480,15 +458,19 @@ fn add_span(
 }
 
 fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
+    // TODO: see https://github.com/pop-os/cosmic-text/issues/70 Let a Buffer figure out its height during set_size
+    // TODO: see https://github.com/pop-os/cosmic-text/issues/42 Request: Allow buffer dimensions to be undefined
+    // TODO: debug tonemapping example
     let width = buffer
         .layout_runs()
         .map(|run| run.line_w)
         .reduce(|max_w, w| max_w.max(w))
         .unwrap();
     // TODO: support multiple line heights / font sizes (once supported by cosmic text)
-    let line_height = buffer.metrics().line_height;
+    let line_height = buffer.metrics().line_height.ceil();
     let height = buffer.layout_runs().count() as f32 * line_height;
-    Vec2::new(width.ceil(), height.ceil())
+
+    Vec2::new(width, height).ceil()
 }
 
 /// An iterator over the paragraphs in the input text.
