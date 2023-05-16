@@ -304,7 +304,6 @@ pub fn ui_layout_system(
     // update window children (for now assuming all Nodes live in the primary window)
     ui_surface.needs_update |= ui_surface
         .set_window_children(primary_window_entity, root_node_query.iter())
-        && !removed_nodes.is_empty()
         && !removed_content_sizes.is_empty();
 
     // clean up removed nodes
