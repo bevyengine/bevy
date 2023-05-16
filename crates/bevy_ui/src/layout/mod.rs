@@ -75,6 +75,10 @@ impl Default for UiSurface {
 }
 
 impl UiSurface {
+    pub fn needs_update(&self) -> bool {
+        self.needs_update
+    }
+
     /// Retrieves the taffy node corresponding to given entity exists, or inserts a new taffy node into the layout if no corresponding node exists.
     /// Then convert the given `Style` and use it update the taffy node's style.
     pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {

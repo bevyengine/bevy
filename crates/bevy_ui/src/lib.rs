@@ -163,11 +163,11 @@ impl Plugin for UiPlugin {
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
                 ui_stack_system
-                    .run_if(|ui_surface: Res<UiSurface>| ui_surface.needs_update)
+                    .run_if(|ui_surface: Res<UiSurface>| ui_surface.needs_update())
                     .after(UiSystem::Layout)
                     .in_set(UiSystem::Stack),
                 update_clipping_system
-                    .run_if(|ui_surface: Res<UiSurface>| ui_surface.needs_update)
+                    .run_if(|ui_surface: Res<UiSurface>| ui_surface.needs_update())
                     .after(TransformSystem::TransformPropagate),
             ),
         );
