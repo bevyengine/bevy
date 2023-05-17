@@ -354,14 +354,14 @@ impl Transform {
     /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     pub fn look_to(&mut self, direction: Vec3, up: Vec3) {
-        let forward = -direction.try_normalize().unwrap_or(Vec3::Z);
+        let back = -direction.try_normalize().unwrap_or(Vec3::NEG_Z);
         let up = up.try_normalize().unwrap_or(Vec3::Y);
         let right = up
-            .cross(forward)
+            .cross(back)
             .try_normalize()
             .unwrap_or_else(|| up.any_orthonormal_vector());
-        let up = forward.cross(right);
-        self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
+        let up = back.cross(right);
+        self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, back));
     }
 
     /// Multiplies `self` with `transform` component by component, returning the
