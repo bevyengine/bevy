@@ -1636,6 +1636,24 @@ bevy_reflect::tests::should_reflect_debug::Test {
         assert_eq!("Foo".to_string(), format!("{foo:?}"));
     }
 
+    #[test]
+    fn custom_debug_function() {
+        #[derive(Reflect)]
+        #[reflect(Debug(custom_debug))]
+        struct Foo {
+            a: u32,
+        }
+
+        fn custom_debug(_x: &Foo, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "123")
+        }
+
+        let foo = Foo { a: 1 };
+        let foo: &dyn Reflect = &foo;
+
+        assert_eq!("123", format!("{:?}", foo));
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;

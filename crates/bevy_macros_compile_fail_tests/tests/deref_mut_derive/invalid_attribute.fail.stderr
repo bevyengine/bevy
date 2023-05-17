@@ -1,0 +1,11 @@
+error: unexpected token in attribute
+ --> tests/deref_mut_derive/invalid_attribute.fail.rs:7:34
+  |
+7 | struct TupleStruct(usize, #[deref()] String);
+  |                                  ^
+
+error: unexpected token in attribute
+  --> tests/deref_mut_derive/invalid_attribute.fail.rs:20:12
+   |
+20 |     #[deref()]
+   |            ^

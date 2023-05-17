@@ -814,10 +814,6 @@ mod tests {
 
     #[test]
     fn change_tick_wraparound() {
-        fn change_detected(query: Query<Ref<C>>) -> bool {
-            query.single().is_changed()
-        }
-
         let mut world = World::new();
         world.last_change_tick = Tick::new(u32::MAX);
         *world.change_tick.get_mut() = 0;
@@ -825,13 +821,12 @@ mod tests {
         // component added: 0, changed: 0
         world.spawn(C);
 
-        // system last ran: u32::MAX
-        let mut change_detected_system = IntoSystem::into_system(change_detected);
-        change_detected_system.initialize(&mut world);
+        world.increment_change_tick();
 
         // Since the world is always ahead, as long as changes can't get older than `u32::MAX` (which we ensure),
         // the wrapping difference will always be positive, so wraparound doesn't matter.
-        assert!(change_detected_system.run((), &mut world));
+        let mut query = world.query::<Ref<C>>();
+        assert!(query.single(&world).is_changed());
     }
 
     #[test]
