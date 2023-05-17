@@ -1,21 +1,21 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style, UiScale};
+use crate::{ContentSize, Node, NodeOrder, Style, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     event::EventReader,
     query::{With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, Resource},
+    system::{Local, Query, Res, ResMut, Resource},
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
@@ -157,16 +157,23 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Set the ui node entities without a [`Parent`] as children to the root node in the taffy layout.
-    pub fn set_window_children(
+    pub fn set_window_children<'a>(
         &mut self,
         parent_window: Entity,
-        children: impl Iterator<Item = Entity>,
+        orphaned_nodes: impl Iterator<Item = (Entity, &'a NodeOrder)>,
     ) {
         let taffy_node = self.window_nodes.get(&parent_window).unwrap();
-        let child_nodes = children
-            .map(|e| *self.entity_to_taffy.get(&e).unwrap())
-            .collect::<Vec<taffy::node::Node>>();
-        self.taffy.set_children(*taffy_node, &child_nodes).unwrap();
+        let mut unordered_orphans = orphaned_nodes
+            .map(|(e, node_order)| (*self.entity_to_taffy.get(&e).unwrap(), node_order.0))
+            .collect::<Vec<_>>();
+        unordered_orphans.sort_by_key(|(_, order)| *order);
+        let ordered_orphans = unordered_orphans
+            .into_iter()
+            .map(|(key, _)| key)
+            .collect::<Vec<_>>();
+        self.taffy
+            .set_children(*taffy_node, &ordered_orphans)
+            .unwrap();
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
@@ -210,6 +217,27 @@ pub enum LayoutError {
     TaffyError(taffy::error::TaffyError),
 }
 
+/// Sort all ui node children by their `NodeOrder`
+pub fn sort_ui_node_children(
+    mut sorted: Local<HashSet<Entity>>,
+    order_query: Query<(Ref<NodeOrder>, &Parent)>,
+    mut children_query: Query<&mut Children>,
+) {
+    sorted.clear();
+    for (order, parent) in order_query.iter() {
+        if order.is_changed() && !sorted.contains(&parent.get()) {
+            children_query
+                .get_mut(parent.get())
+                .unwrap()
+                .sort_by(|c, d| {
+                    let c_ord = order_query.get_component(*c).unwrap_or(&NodeOrder(0)).0;
+                    let d_ord = order_query.get_component(*d).unwrap_or(&NodeOrder(0)).0;
+                    c_ord.cmp(&d_ord)
+                });
+        }
+    }
+}
+
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
@@ -219,7 +247,7 @@ pub fn ui_layout_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    root_node_query: Query<(Entity, &NodeOrder), (With<Node>, Without<Parent>)>,
     style_query: Query<(Entity, Ref<Style>), With<Node>>,
     mut measure_query: Query<(Entity, &mut ContentSize)>,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,

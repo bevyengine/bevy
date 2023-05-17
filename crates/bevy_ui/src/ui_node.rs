@@ -74,6 +74,11 @@ impl Default for Node {
     }
 }
 
+/// Controls the order in which items are displayed.
+#[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component, Default)]
+pub struct NodeOrder(pub i32);
+
 /// Represents the possible value types for layout properties.
 ///
 /// This enum allows specifying values for various [`Style`] properties in different units,
