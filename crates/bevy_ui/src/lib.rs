@@ -55,8 +55,6 @@ pub struct UiPlugin;
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum UiSystem {
-    /// After this label, the UI node children will have been sorted according to their `NodeOrder`
-    SortChildren,
     /// After this label, the ui layout state has been updated
     Layout,
     /// After this label, input interactions with UI entities have been updated for this frame
@@ -162,9 +160,6 @@ impl Plugin for UiPlugin {
         .add_systems(
             PostUpdate,
             (
-                sort_ui_node_children
-                    .in_set(UiSystem::SortChildren)
-                    .before(ui_layout_system),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),

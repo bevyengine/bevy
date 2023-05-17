@@ -9,7 +9,7 @@ use bevy_ecs::{
     query::{Changed, With, Without},
     removal_detection::RemovedComponents,
     system::{Local, Query, Res, ResMut, Resource},
-    world::Ref,
+    world::Ref, prelude::DetectChangesMut,
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -217,27 +217,6 @@ pub enum LayoutError {
     TaffyError(taffy::error::TaffyError),
 }
 
-/// Sort all ui node children by their `NodeOrder`
-pub fn sort_ui_node_children(
-    mut sorted: Local<HashSet<Entity>>,
-    order_query: Query<(Ref<NodeOrder>, &Parent)>,
-    mut children_query: Query<&mut Children>,
-) {
-    sorted.clear();
-    for (order, parent) in order_query.iter() {
-        if order.is_changed() && !sorted.contains(&parent.get()) {
-            children_query
-                .get_mut(parent.get())
-                .unwrap()
-                .sort_by(|c, d| {
-                    let c_ord = order_query.get_component(*c).unwrap_or(&NodeOrder(0)).0;
-                    let d_ord = order_query.get_component(*d).unwrap_or(&NodeOrder(0)).0;
-                    c_ord.cmp(&d_ord)
-                });
-        }
-    }
-}
-
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
@@ -250,11 +229,13 @@ pub fn ui_layout_system(
     root_node_query: Query<(Entity, &NodeOrder), (With<Node>, Without<Parent>)>,
     style_query: Query<(Entity, Ref<Style>), With<Node>>,
     mut measure_query: Query<(Entity, &mut ContentSize)>,
-    children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
+    mut children_query: Query<(Entity, &mut Children), With<Node>>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
     mut removed_nodes: RemovedComponents<Node>,
+    changed_order_query: Query<&Parent, Changed<NodeOrder>>,
+    node_order_query: Query<&NodeOrder>,
 ) {
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -320,8 +301,22 @@ pub fn ui_layout_system(
     for entity in removed_children.iter() {
         ui_surface.try_remove_children(entity);
     }
-    for (entity, children) in &children_query {
-        ui_surface.update_children(entity, children);
+
+    for parent in changed_order_query.iter() {
+        let (_, mut children, ..) =  children_query.get_mut(parent.get()).unwrap();
+        children.set_changed();
+    }
+
+    for (entity, mut children) in children_query.iter_mut() {
+        if children.is_changed() {
+            children
+                .sort_by(|c, d| {
+                    let c_ord = node_order_query.get_component(*c).unwrap_or(&NodeOrder(0)).0;
+                    let d_ord = node_order_query.get_component(*d).unwrap_or(&NodeOrder(0)).0;
+                    c_ord.cmp(&d_ord)
+                });
+            ui_surface.update_children(entity, &children);
+        }
     }
 
     // compute layouts
