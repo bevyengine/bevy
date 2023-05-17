@@ -6,16 +6,17 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     event::EventReader,
+    prelude::DetectChangesMut,
     query::{Changed, With, Without},
     removal_detection::RemovedComponents,
-    system::{Local, Query, Res, ResMut, Resource},
-    world::Ref, prelude::DetectChangesMut,
+    system::{Query, Res, ResMut, Resource},
+    world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
@@ -303,18 +304,23 @@ pub fn ui_layout_system(
     }
 
     for parent in changed_order_query.iter() {
-        let (_, mut children, ..) =  children_query.get_mut(parent.get()).unwrap();
+        let (_, mut children) = children_query.get_mut(parent.get()).unwrap();
         children.set_changed();
     }
 
     for (entity, mut children) in children_query.iter_mut() {
         if children.is_changed() {
-            children
-                .sort_by(|c, d| {
-                    let c_ord = node_order_query.get_component(*c).unwrap_or(&NodeOrder(0)).0;
-                    let d_ord = node_order_query.get_component(*d).unwrap_or(&NodeOrder(0)).0;
-                    c_ord.cmp(&d_ord)
-                });
+            children.sort_by(|c, d| {
+                let c_ord = node_order_query
+                    .get_component(*c)
+                    .map(|n: &NodeOrder| n.0)
+                    .unwrap_or(0);
+                let d_ord = node_order_query
+                    .get_component(*d)
+                    .map(|n: &NodeOrder| n.0)
+                    .unwrap_or(0);
+                c_ord.cmp(&d_ord)
+            });
             ui_surface.update_children(entity, &children);
         }
     }

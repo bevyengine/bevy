@@ -208,7 +208,7 @@ fn update_ordered_buttons(
         {
             if n != 0 {
                 let mut node_order = order_query.get_mut(parent.get()).unwrap();
-                node_order.0 = (node_order.0 + n).rem_euclid(16);
+                node_order.0 += n;
                 let mut text = label_query.get_mut(children[0]).unwrap();
                 text.sections[0].value = format!("{}", node_order.0);
             } else {
