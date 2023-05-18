@@ -37,6 +37,7 @@ pub(crate) struct FQAny;
 pub(crate) struct FQBox;
 pub(crate) struct FQClone;
 pub(crate) struct FQDefault;
+pub(crate) struct FQHash;
 pub(crate) struct FQOption;
 pub(crate) struct FQResult;
 pub(crate) struct FQSend;
@@ -63,6 +64,12 @@ impl ToTokens for FQClone {
 impl ToTokens for FQDefault {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         quote!(::core::default::Default).to_tokens(tokens);
+    }
+}
+
+impl ToTokens for FQHash {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        quote!(::core::hash::Hash).to_tokens(tokens);
     }
 }
 

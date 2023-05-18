@@ -29,11 +29,9 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let hash_fn = reflect_struct
-        .meta()
-        .traits()
-        .get_hash_impl(bevy_reflect_path);
     let debug_fn = reflect_struct.meta().traits().get_debug_impl();
+
+    let hash_fn = reflect_struct.get_hash_impl();
     let partial_eq_fn = reflect_struct.meta()
         .traits()
         .get_partial_eq_impl(bevy_reflect_path)

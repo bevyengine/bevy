@@ -112,6 +112,12 @@ impl UnnamedField {
 /// [unnamed]: UnnamedField
 #[derive(Clone, Debug)]
 pub struct FieldMeta {
+    /// This field should not be used in its container's [`Reflect::reflect_hash`] implementation.
+    ///
+    /// This may be configured when [deriving `Reflect`] by adding `#[reflect(skip_hash)]` to the field.
+    ///
+    /// [deriving `Reflect`]: bevy_reflect_derive::Reflect
+    pub skip_hash: bool,
     /// The docstring of this field, if any.
     #[cfg(feature = "documentation")]
     pub docs: Option<&'static str>,
@@ -120,6 +126,7 @@ pub struct FieldMeta {
 impl FieldMeta {
     pub const fn new() -> Self {
         Self {
+            skip_hash: false,
             #[cfg(feature = "documentation")]
             docs: None,
         }

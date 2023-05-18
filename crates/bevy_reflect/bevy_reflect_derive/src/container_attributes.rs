@@ -173,6 +173,7 @@ impl ReflectTraits {
     pub fn from_metas(
         metas: Punctuated<Meta, Comma>,
         is_from_reflect_derive: bool,
+        is_reflect_value: bool,
     ) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         for meta in &metas {
@@ -196,7 +197,13 @@ impl ReflectTraits {
                         PARTIAL_EQ_ATTR => {
                             traits.partial_eq.merge(TraitImpl::Implemented(span))?;
                         }
-                        HASH_ATTR => {
+                        HASH_ATTR if !is_reflect_value => {
+                            return Err(syn::Error::new(
+                                span,
+                                "concrete `Hash` impl cannot be used for non-`reflect_value` types",
+                            ));
+                        }
+                        HASH_ATTR if is_reflect_value => {
                             traits.hash.merge(TraitImpl::Implemented(span))?;
                         }
                         // We only track reflected idents for traits not considered special
@@ -232,7 +239,13 @@ impl ReflectTraits {
                             PARTIAL_EQ_ATTR => {
                                 traits.partial_eq.merge(trait_func_ident)?;
                             }
-                            HASH_ATTR => {
+                            HASH_ATTR if !is_reflect_value => {
+                                return Err(syn::Error::new(
+                                    span,
+                                    "custom `Hash` function cannot be used for non-`reflect_value` types",
+                                ));
+                            }
+                            HASH_ATTR if is_reflect_value => {
                                 traits.hash.merge(trait_func_ident)?;
                             }
                             _ => {
@@ -376,7 +389,11 @@ impl ReflectTraits {
 
 impl Parse for ReflectTraits {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        ReflectTraits::from_metas(Punctuated::<Meta, Comma>::parse_terminated(input)?, false)
+        ReflectTraits::from_metas(
+            Punctuated::<Meta, Comma>::parse_terminated(input)?,
+            false,
+            true,
+        )
     }
 }
 

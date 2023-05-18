@@ -34,18 +34,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         variant_constructors,
     } = get_variant_constructors(reflect_enum, &ref_value, true);
 
-    let hash_fn = reflect_enum
-        .meta()
-        .traits()
-        .get_hash_impl(bevy_reflect_path)
-        .unwrap_or_else(|| {
-            quote! {
-                fn reflect_hash(&self) -> #FQOption<u64> {
-                    #bevy_reflect_path::enum_hash(self)
-                }
-            }
-        });
     let debug_fn = reflect_enum.meta().traits().get_debug_impl();
+    let hash_fn = reflect_enum.get_hash_impl();
     let partial_eq_fn = reflect_enum
         .meta()
         .traits()

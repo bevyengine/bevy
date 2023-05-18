@@ -617,8 +617,7 @@ mod tests {
 
     #[test]
     fn reflect_map() {
-        #[derive(Reflect, Hash)]
-        #[reflect(Hash)]
+        #[derive(Reflect)]
         struct Foo {
             a: u32,
             b: String,
@@ -677,13 +676,35 @@ mod tests {
     fn reflect_map_no_hash() {
         #[derive(Reflect)]
         struct Foo {
-            a: u32,
+            a: f32,
         }
 
-        let foo = Foo { a: 1 };
+        let foo = Foo { a: 1.23 };
 
         let mut map = DynamicMap::default();
         map.insert(foo, 10u32);
+    }
+
+    mod reflect_hash {
+        use super::*;
+
+        #[test]
+        fn should_hash_unit_struct() {
+            #[derive(Reflect)]
+            struct Foo;
+
+            #[derive(Reflect)]
+            struct Bar;
+
+            let foo = Foo;
+            assert!(foo.reflect_hash().is_some());
+
+            let foo2 = Foo;
+            assert_eq!(foo.reflect_hash(), foo2.reflect_hash());
+
+            let bar = Bar;
+            assert_ne!(foo.reflect_hash(), bar.reflect_hash());
+        }
     }
 
     #[test]
@@ -1796,8 +1817,8 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
     #[test]
     fn multiple_reflect_lists() {
-        #[derive(Hash, PartialEq, Reflect)]
-        #[reflect(Debug, Hash)]
+        #[derive(PartialEq, Reflect)]
+        #[reflect(Debug)]
         #[reflect(PartialEq)]
         struct Foo(i32);
 

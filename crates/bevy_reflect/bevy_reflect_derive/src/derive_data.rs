@@ -1,10 +1,13 @@
 use crate::container_attributes::{FromReflectAttrs, ReflectTraits};
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
+use crate::fq_std::{FQAny, FQHash, FQOption};
 use crate::type_path::parse_path_no_leading_colon;
-use crate::utility::{members_to_serialization_denylist, StringExpr, WhereClauseOptions};
+use crate::utility::{
+    ident_or_index, members_to_serialization_denylist, StringExpr, WhereClauseOptions,
+};
 use bit_set::BitSet;
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::token::Comma;
 
 use crate::{
@@ -14,8 +17,8 @@ use crate::{
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Meta, Path,
-    PathSegment, Type, TypeParam, Variant,
+    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, Index, LitStr,
+    Meta, Path, PathSegment, Type, TypeParam, Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -165,6 +168,7 @@ impl<'a> ReflectDerive<'a> {
                     let new_traits = ReflectTraits::from_metas(
                         meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
                         is_from_reflect_derive,
+                        false,
                     )?;
                     traits.merge(new_traits)?;
                 }
@@ -180,6 +184,7 @@ impl<'a> ReflectDerive<'a> {
                     let new_traits = ReflectTraits::from_metas(
                         meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
                         is_from_reflect_derive,
+                        true,
                     )?;
                     traits.merge(new_traits)?;
                 }
@@ -459,9 +464,11 @@ impl<'a> StructField<'a> {
         let doc_field = proc_macro2::TokenStream::new();
 
         let field_ty = &self.data.ty;
+        let skip_hash = self.attrs.skip_hash;
 
         let meta = quote! {
             #bevy_reflect_path::FieldMeta {
+                skip_hash: #skip_hash,
                 #doc_field
             }
         };
@@ -534,6 +541,41 @@ impl<'a> ReflectStruct<'a> {
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
         WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
+    }
+
+    /// Generate the `Reflect::reflect_hash` method for this struct as a `TokenStream`.
+    pub fn get_hash_impl(&self) -> TokenStream {
+        let bevy_reflect_path = &self.meta().bevy_reflect_path;
+        let fq_hash = FQHash;
+
+        let fields = self
+            .active_fields()
+            .map(|field| ident_or_index(field.data.ident.as_ref(), field.index));
+
+        let struct_type = if self.is_tuple {
+            quote!(TupleStruct)
+        } else {
+            quote!(Struct)
+        };
+
+        quote! {
+            fn reflect_hash(&self) -> #FQOption<u64> {
+                let mut hasher = #bevy_reflect_path::utility::reflect_hasher();
+                #FQHash::hash(&#FQAny::type_id(self), &mut hasher);
+                #FQHash::hash(&#bevy_reflect_path::#struct_type::field_len(self), &mut hasher);
+
+                #(
+                    #fq_hash::hash(
+                        &#bevy_reflect_path::Reflect::reflect_hash(&self.#fields)?,
+                        &mut hasher
+                    );
+                )*
+
+                #FQOption::Some(
+                    ::core::hash::Hasher::finish(&hasher)
+                )
+            }
+        }
     }
 
     /// Generate the `TypeInfo` for this struct as a `TokenStream`.
@@ -628,6 +670,46 @@ impl<'a> ReflectEnum<'a> {
         WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
     }
 
+    /// Generate the `Reflect::reflect_hash` method for this enum as a `TokenStream`.
+    pub fn get_hash_impl(&self) -> TokenStream {
+        let bevy_reflect_path = &self.meta().bevy_reflect_path;
+        let fq_hash = FQHash;
+        let ident = self
+            .meta()
+            .type_path()
+            .get_ident()
+            .expect("enums should never be anonymous");
+
+        let variants = self.variants.iter().map(|variant| {
+            variant.make_arm(ident, |fields| {
+                quote! {
+                    #(
+                        #fq_hash::hash(
+                            &#bevy_reflect_path::Reflect::reflect_hash(#fields)?,
+                            &mut hasher
+                        );
+                    )*
+                }
+            })
+        });
+
+        quote! {
+            fn reflect_hash(&self) -> #FQOption<u64> {
+                let mut hasher = #bevy_reflect_path::utility::reflect_hasher();
+                #FQHash::hash(&#FQAny::type_id(self), &mut hasher);
+                #FQHash::hash(&#bevy_reflect_path::Enum::field_len(self), &mut hasher);
+
+                match self {
+                    #(#variants)*
+                }
+
+                #FQOption::Some(
+                    ::core::hash::Hasher::finish(&hasher)
+                )
+            }
+        }
+    }
+
     /// Generate the `TypeInfo` for this enum as a `TokenStream`.
     pub fn to_type_info(&self, variant_info: Vec<TokenStream>) -> proc_macro2::TokenStream {
         let bevy_reflect_path = self.meta.bevy_reflect_path();
@@ -688,6 +770,44 @@ impl<'a> EnumVariant<'a> {
         match &self.fields {
             EnumVariantFields::Named(fields) | EnumVariantFields::Unnamed(fields) => fields,
             EnumVariantFields::Unit => &[],
+        }
+    }
+
+    /// Make an arm for this variant as it would be used in a match statement.
+    ///
+    /// This will generate a `TokenStream` like:
+    /// ```ignore
+    /// EnumName::VariantName { field_0, field_1, .. } => {
+    ///    // ...
+    /// }
+    /// ```
+    pub fn make_arm(
+        &self,
+        enum_ident: &Ident,
+        make_block: impl FnOnce(&[Ident]) -> TokenStream,
+    ) -> proc_macro2::TokenStream {
+        let ident = &self.data.ident;
+
+        let (field_idents, field_patterns): (Vec<_>, Vec<_>) = self
+            .active_fields()
+            .map(|field| {
+                if let Some(ident) = &field.data.ident {
+                    (ident.clone(), quote!(#ident))
+                } else {
+                    let index = Index::from(field.index);
+                    let ident = format_ident!("field_{}", field.index);
+                    let pattern = quote!(#index: #ident);
+                    (ident, pattern)
+                }
+            })
+            .unzip();
+
+        let block = make_block(&field_idents);
+
+        quote! {
+            #enum_ident::#ident { #(#field_patterns,)* .. } => {
+                #block
+            }
         }
     }
 }

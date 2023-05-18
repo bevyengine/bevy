@@ -11,6 +11,7 @@ use syn::{Attribute, Expr, ExprLit, Lit, Meta};
 
 pub(crate) static IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
 pub(crate) static IGNORE_ALL_ATTR: &str = "ignore";
+pub(crate) static SKIP_HASH_ATTR: &str = "skip_hash";
 
 pub(crate) static DEFAULT_ATTR: &str = "default";
 
@@ -52,6 +53,8 @@ pub(crate) struct ReflectFieldAttr {
     pub ignore: ReflectIgnoreBehavior,
     /// Sets the default behavior of this field.
     pub default: DefaultBehavior,
+    /// Determines if this field should be skipped when hashing.
+    pub skip_hash: bool,
 }
 
 /// Controls how the default value is determined for a field.
@@ -109,6 +112,10 @@ fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error
         }
         Meta::Path(path) if path.is_ident(DEFAULT_ATTR) => {
             args.default = DefaultBehavior::Default;
+            Ok(())
+        }
+        Meta::Path(path) if path.is_ident(SKIP_HASH_ATTR) => {
+            args.skip_hash = true;
             Ok(())
         }
         Meta::Path(path) => Err(syn::Error::new(

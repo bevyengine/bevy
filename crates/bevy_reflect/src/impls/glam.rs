@@ -5,7 +5,7 @@ use bevy_reflect_derive::{impl_reflect_struct, impl_reflect_value};
 use glam::*;
 
 impl_reflect_struct!(
-    #[reflect(Debug, Hash, PartialEq, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct IVec2 {
         x: i32,
@@ -13,7 +13,7 @@ impl_reflect_struct!(
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, Hash, PartialEq, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct IVec3 {
         x: i32,
@@ -22,7 +22,7 @@ impl_reflect_struct!(
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, Hash, PartialEq, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct IVec4 {
         x: i32,
@@ -33,7 +33,7 @@ impl_reflect_struct!(
 );
 
 impl_reflect_struct!(
-    #[reflect(Debug, Hash, PartialEq, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct UVec2 {
         x: u32,
@@ -41,7 +41,7 @@ impl_reflect_struct!(
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, Hash, PartialEq, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct UVec3 {
         x: u32,
@@ -50,7 +50,7 @@ impl_reflect_struct!(
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, Hash, PartialEq, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct UVec4 {
         x: u32,
