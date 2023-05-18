@@ -689,6 +689,35 @@ mod tests {
         use super::*;
 
         #[test]
+        fn should_hash_value() {
+            #[derive(Reflect, Hash, Clone)]
+            #[reflect_value(Hash)]
+            struct Foo(u32);
+
+            #[derive(Reflect, Clone)]
+            #[reflect_value]
+            struct Baz(u32);
+
+            // === Primitive === //
+            let value = 123u32;
+            assert!(value.reflect_hash().is_some());
+
+            // === Custom === //
+            let value = Foo(123);
+            assert!(value.reflect_hash().is_some());
+
+            let value2 = Foo(123);
+            assert_eq!(value.reflect_hash(), value2.reflect_hash());
+
+            let value3 = Foo(456);
+            assert_ne!(value.reflect_hash(), value3.reflect_hash());
+
+            // === Custom (not hashable) === //
+            let value = Baz(123);
+            assert!(value.reflect_hash().is_none());
+        }
+
+        #[test]
         fn should_hash_unit_struct() {
             #[derive(Reflect)]
             struct Foo;
@@ -704,6 +733,159 @@ mod tests {
 
             let bar = Bar;
             assert_ne!(foo.reflect_hash(), bar.reflect_hash());
+        }
+
+        #[test]
+        fn should_hash_tuple_struct() {
+            #[derive(Reflect)]
+            struct Foo(u32, #[reflect(skip_hash)] f32, Bar);
+
+            #[derive(Reflect)]
+            struct Bar(u32);
+
+            #[derive(Reflect)]
+            struct Baz(f32);
+
+            let foo = Foo(123, 3.45, Bar(678));
+            assert!(foo.reflect_hash().is_some());
+
+            let foo2 = Foo(123, 3.45, Bar(678));
+            assert_eq!(foo.reflect_hash(), foo2.reflect_hash());
+
+            let foo3 = Foo(123, 3.45, Bar(679));
+            assert_ne!(foo.reflect_hash(), foo3.reflect_hash());
+
+            let baz = Baz(1.23);
+            assert!(baz.reflect_hash().is_none());
+        }
+
+        #[test]
+        fn should_hash_struct() {
+            #[derive(Reflect)]
+            struct Foo {
+                a: u32,
+                #[reflect(skip_hash)]
+                b: f32,
+                c: Bar,
+            }
+
+            #[derive(Reflect)]
+            struct Bar {
+                a: u32,
+            }
+
+            #[derive(Reflect)]
+            struct Baz {
+                a: f32,
+            }
+
+            let foo = Foo {
+                a: 123,
+                b: 3.45,
+                c: Bar { a: 678 },
+            };
+            assert!(foo.reflect_hash().is_some());
+
+            let foo2 = Foo {
+                a: 123,
+                b: 3.45,
+                c: Bar { a: 678 },
+            };
+            assert_eq!(foo.reflect_hash(), foo2.reflect_hash());
+
+            let foo3 = Foo {
+                a: 123,
+                b: 3.45,
+                c: Bar { a: 679 },
+            };
+            assert_ne!(foo.reflect_hash(), foo3.reflect_hash());
+
+            let baz = Baz { a: 1.23 };
+            assert!(baz.reflect_hash().is_none());
+        }
+
+        #[test]
+        fn should_hash_enum() {
+            #[derive(Reflect)]
+            enum Foo {
+                UnitA,
+                UnitB,
+                Tuple(u32, #[reflect(skip_hash)] f32, Bar),
+                Struct {
+                    a: u32,
+                    #[reflect(skip_hash)]
+                    b: f32,
+                    c: Bar,
+                },
+            }
+
+            #[derive(Reflect)]
+            enum Bar {
+                UnitA,
+                Tuple(u32),
+                Struct { a: u32 },
+            }
+
+            #[derive(Reflect)]
+            enum Baz {
+                Unit,
+                Tuple(f32),
+                Struct { a: f32 },
+            }
+
+            // === Unit Variant === //
+            let foo = Foo::UnitA;
+            assert!(foo.reflect_hash().is_some());
+
+            let foo2 = Foo::UnitA;
+            assert_eq!(foo.reflect_hash(), foo2.reflect_hash());
+
+            let foo3 = Foo::UnitB;
+            assert_ne!(foo.reflect_hash(), foo3.reflect_hash());
+
+            let bar = Bar::UnitA;
+            assert_ne!(foo.reflect_hash(), bar.reflect_hash());
+
+            let baz = Baz::Unit;
+            assert!(baz.reflect_hash().is_some());
+
+            // === Tuple Variant === //
+            let foo = Foo::Tuple(123, 3.45, Bar::Tuple(678));
+            assert!(foo.reflect_hash().is_some());
+
+            let foo2 = Foo::Tuple(123, 3.45, Bar::Tuple(678));
+            assert_eq!(foo.reflect_hash(), foo2.reflect_hash());
+
+            let foo3 = Foo::Tuple(123, 3.45, Bar::Tuple(679));
+            assert_ne!(foo.reflect_hash(), foo3.reflect_hash());
+
+            let baz = Baz::Tuple(1.23);
+            assert!(baz.reflect_hash().is_none());
+
+            // === Struct Variant === //
+            let foo = Foo::Struct {
+                a: 123,
+                b: 3.45,
+                c: Bar::Struct { a: 678 },
+            };
+            assert!(foo.reflect_hash().is_some());
+
+            let foo2 = Foo::Struct {
+                a: 123,
+                b: 3.45,
+                c: Bar::Struct { a: 678 },
+            };
+            assert_eq!(foo.reflect_hash(), foo2.reflect_hash());
+
+            let foo3 = Foo::Struct {
+                a: 123,
+                b: 3.45,
+                c: Bar::Struct { a: 679 },
+            };
+            assert_ne!(foo.reflect_hash(), foo3.reflect_hash());
+
+            let baz = Baz::Struct { a: 1.23 };
+            assert!(baz.reflect_hash().is_none());
         }
     }
 

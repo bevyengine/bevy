@@ -46,7 +46,7 @@ pub struct MouseButtonInput {
 ///
 /// The resource is updated inside of the [`mouse_button_input_system`](crate::mouse::mouse_button_input_system).
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

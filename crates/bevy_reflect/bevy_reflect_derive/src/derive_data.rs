@@ -550,6 +550,7 @@ impl<'a> ReflectStruct<'a> {
 
         let fields = self
             .active_fields()
+            .filter(|field| !field.attrs.skip_hash)
             .map(|field| ident_or_index(field.data.ident.as_ref(), field.index));
 
         let struct_type = if self.is_tuple {
@@ -681,16 +682,25 @@ impl<'a> ReflectEnum<'a> {
             .expect("enums should never be anonymous");
 
         let variants = self.variants.iter().map(|variant| {
-            variant.make_arm(ident, |fields| {
-                quote! {
-                    #(
-                        #fq_hash::hash(
-                            &#bevy_reflect_path::Reflect::reflect_hash(#fields)?,
-                            &mut hasher
-                        );
-                    )*
-                }
-            })
+            let variant_name = variant.data.ident.to_string();
+            variant.make_arm(
+                ident,
+                |field| !field.attrs.skip_hash,
+                |fields| {
+                    quote! {
+                        // We use the variant name instead of discriminant here so
+                        // `DynamicEnum` proxies will result in the same hash.
+                        #fq_hash::hash(#variant_name, &mut hasher);
+
+                        #(
+                            #fq_hash::hash(
+                                &#bevy_reflect_path::Reflect::reflect_hash(#fields)?,
+                                &mut hasher
+                            );
+                        )*
+                    }
+                },
+            )
         });
 
         quote! {
@@ -784,12 +794,14 @@ impl<'a> EnumVariant<'a> {
     pub fn make_arm(
         &self,
         enum_ident: &Ident,
-        make_block: impl FnOnce(&[Ident]) -> TokenStream,
+        field_filter: impl FnMut(&&StructField) -> bool,
+        mut make_block: impl FnMut(&[Ident]) -> TokenStream,
     ) -> proc_macro2::TokenStream {
         let ident = &self.data.ident;
 
         let (field_idents, field_patterns): (Vec<_>, Vec<_>) = self
             .active_fields()
+            .filter(field_filter)
             .map(|field| {
                 if let Some(ident) = &field.data.ident {
                     (ident.clone(), quote!(#ident))

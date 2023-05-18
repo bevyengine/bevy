@@ -40,12 +40,12 @@ pub enum D {
     C { value: f32 },
 }
 
-/// Reflect has "built in" support for some common traits like `PartialEq`, `Hash`, and `Serialize`.
-/// These are exposed via methods like `Reflect::reflect_hash()`, `Reflect::reflect_partial_eq()`, and
-/// `Reflect::serializable()`. You can force these implementations to use the actual trait
+/// Reflect has "built in" support for some common traits like `PartialEq` and `Debug`.
+/// These are exposed via methods like `Reflect::reflect_partial_eq()` and `Reflect::debug()`.
+/// You can force these implementations to use the actual trait
 /// implementations (instead of their defaults) like this:
-#[derive(Reflect, Hash, Serialize, PartialEq, Eq)]
-#[reflect(Hash, Serialize, PartialEq)]
+#[derive(Reflect, Debug, PartialEq, Eq)]
+#[reflect(PartialEq, Debug)]
 pub struct E {
     x: usize,
 }

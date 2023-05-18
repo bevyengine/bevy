@@ -329,10 +329,10 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
         }
 
         let mut push_variant =
-            |variant: &EnumVariant, info_args: proc_macro2::TokenStream, field_len: usize| {
+            |_variant: &EnumVariant, info_args: proc_macro2::TokenStream, field_len: usize| {
                 #[cfg(feature = "documentation")]
                 let doc_field = {
-                    let doc = &variant.doc;
+                    let doc = &_variant.doc;
                     quote! {
                         docs: #doc
                     }

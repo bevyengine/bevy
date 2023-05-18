@@ -139,7 +139,7 @@ impl FromReflectAttrs {
 /// // `Hash` is a "special trait" and does not need (nor have) a ReflectHash struct
 ///
 /// #[derive(Reflect, Hash)]
-/// #[reflect(Hash)]
+/// #[reflect_value(Hash)]
 /// struct Foo;
 /// ```
 ///
@@ -154,7 +154,7 @@ impl FromReflectAttrs {
 ///
 /// #[derive(Reflect)]
 /// // Register the custom `Hash` function
-/// #[reflect(Hash(get_hash))]
+/// #[reflect_value(Hash(get_hash))]
 /// struct Foo;
 /// ```
 ///
@@ -178,7 +178,7 @@ impl ReflectTraits {
         let mut traits = ReflectTraits::default();
         for meta in &metas {
             match meta {
-                // Handles `#[reflect( Hash, Default, ... )]`
+                // Handles `#[reflect( Default, ... )]`
                 Meta::Path(path) => {
                     // Get the first ident in the path (hopefully the path only contains one and not `std::hash::Hash`)
                     let Some(segment) = path.segments.iter().next() else {

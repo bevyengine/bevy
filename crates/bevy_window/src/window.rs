@@ -813,7 +813,7 @@ pub enum MonitorSelection {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Hash)]
+#[reflect(Debug, PartialEq)]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
     /// Chooses FifoRelaxed -> Fifo based on availability.
@@ -853,7 +853,7 @@ pub enum PresentMode {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Hash)]
+#[reflect(Debug, PartialEq)]
 pub enum CompositeAlphaMode {
     /// Chooses either [`Opaque`](CompositeAlphaMode::Opaque) or [`Inherit`](CompositeAlphaMode::Inherit)
     /// automatically, depending on the `alpha_mode` that the current surface can support.
