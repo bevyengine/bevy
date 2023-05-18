@@ -3,6 +3,7 @@ use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::type_path::parse_path_no_leading_colon;
 use crate::utility::{members_to_serialization_denylist, StringExpr, WhereClauseOptions};
 use bit_set::BitSet;
+use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
@@ -67,6 +68,7 @@ pub(crate) struct ReflectStruct<'a> {
     meta: ReflectMeta<'a>,
     serialization_denylist: BitSet<u32>,
     fields: Vec<StructField<'a>>,
+    is_tuple: bool,
 }
 
 /// Enum data used by derive macros for `Reflect` and `FromReflect`.
@@ -268,7 +270,9 @@ impl<'a> ReflectDerive<'a> {
         return match &input.data {
             Data::Struct(data) => {
                 let fields = Self::collect_struct_fields(&data.fields)?;
+                let is_tuple = matches!(data.fields, Fields::Unnamed(..));
                 let reflect_struct = ReflectStruct {
+                    is_tuple,
                     meta,
                     serialization_denylist: members_to_serialization_denylist(
                         fields.iter().map(|v| v.attrs.ignore),
@@ -405,10 +409,78 @@ impl<'a> ReflectMeta<'a> {
         crate::registration::impl_get_type_registration(self, where_clause_options, None)
     }
 
+    pub fn to_type_info(&self) -> proc_macro2::TokenStream {
+        let bevy_reflect_path = self.bevy_reflect_path();
+
+        #[cfg(feature = "documentation")]
+        let doc_field = {
+            let doc = &self.docs;
+            quote! {
+                docs: #doc
+            }
+        };
+
+        #[cfg(not(feature = "documentation"))]
+        let doc_field = proc_macro2::TokenStream::new();
+
+        let meta = quote! {
+            #bevy_reflect_path::ValueMeta {
+                #doc_field
+            }
+        };
+
+        quote! {
+            #bevy_reflect_path::TypeInfo::Value(
+                #bevy_reflect_path::ValueInfo::new::<Self>()
+                    .with_meta(#meta)
+            )
+        }
+    }
+
     /// The collection of docstrings for this type, if any.
     #[cfg(feature = "documentation")]
     pub fn doc(&self) -> &crate::documentation::Documentation {
         &self.docs
+    }
+}
+
+impl<'a> StructField<'a> {
+    /// Generate the `NamedField`/`UnnamedField` for this field as a `TokenStream`.
+    pub fn to_field_info(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
+        #[cfg(feature = "documentation")]
+        let doc_field = {
+            let doc = &self.doc;
+            quote! {
+                docs: #doc
+            }
+        };
+
+        #[cfg(not(feature = "documentation"))]
+        let doc_field = proc_macro2::TokenStream::new();
+
+        let field_ty = &self.data.ty;
+
+        let meta = quote! {
+            #bevy_reflect_path::FieldMeta {
+                #doc_field
+            }
+        };
+
+        match &self.data.ident {
+            Some(ident) => {
+                let field_name = ident.to_string();
+                quote! {
+                    #bevy_reflect_path::NamedField::new::<#field_ty>(#field_name)
+                        .with_meta(#meta)
+                }
+            }
+            None => {
+                let field_index = self.index;
+                quote! {
+                    #bevy_reflect_path::UnnamedField::new::<#field_ty>(#field_index).with_meta(#meta)
+                }
+            }
+        }
     }
 }
 
@@ -440,13 +512,6 @@ impl<'a> ReflectStruct<'a> {
         )
     }
 
-    /// Get a collection of types which are exposed to the reflection API
-    pub fn active_types(&self) -> Vec<syn::Type> {
-        self.active_fields()
-            .map(|field| field.data.ty.clone())
-            .collect()
-    }
-
     /// Get an iterator of fields which are exposed to the reflection API
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields
@@ -469,6 +534,60 @@ impl<'a> ReflectStruct<'a> {
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
         WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
+    }
+
+    /// Generate the `TypeInfo` for this struct as a `TokenStream`.
+    pub fn to_type_info(&self) -> proc_macro2::TokenStream {
+        let bevy_reflect_path = self.meta.bevy_reflect_path();
+
+        let field_info = self
+            .active_fields()
+            .map(|field| field.to_field_info(bevy_reflect_path));
+
+        let string_name = self
+            .meta
+            .type_path()
+            .get_ident()
+            .expect("structs should never be anonymous")
+            .to_string();
+
+        #[cfg(feature = "documentation")]
+        let doc_field = {
+            let doc = &self.meta.doc();
+            quote! {
+                docs: #doc,
+            }
+        };
+
+        #[cfg(not(feature = "documentation"))]
+        let doc_field = proc_macro2::TokenStream::new();
+
+        let meta = if self.is_tuple {
+            quote! {
+                #bevy_reflect_path::TupleStructMeta {
+                    #doc_field
+                }
+            }
+        } else {
+            quote! {
+                #bevy_reflect_path::StructMeta {
+                    #doc_field
+                }
+            }
+        };
+
+        let (info_variant, info_ty) = if self.is_tuple {
+            (quote!(TupleStruct), quote!(TupleStructInfo))
+        } else {
+            (quote!(Struct), quote!(StructInfo))
+        };
+
+        quote! {
+            #bevy_reflect_path::TypeInfo::#info_variant(
+                #bevy_reflect_path::#info_ty::new::<Self>(#string_name, &[#(#field_info),*])
+                    .with_meta(#meta)
+            )
+        }
     }
 }
 
@@ -507,6 +626,42 @@ impl<'a> ReflectEnum<'a> {
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
         WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
+    }
+
+    /// Generate the `TypeInfo` for this enum as a `TokenStream`.
+    pub fn to_type_info(&self, variant_info: Vec<TokenStream>) -> proc_macro2::TokenStream {
+        let bevy_reflect_path = self.meta.bevy_reflect_path();
+
+        let string_name = self
+            .meta
+            .type_path()
+            .get_ident()
+            .expect("enums should never be anonymous")
+            .to_string();
+
+        #[cfg(feature = "documentation")]
+        let doc_field = {
+            let doc = &self.meta.doc();
+            quote! {
+                docs: #doc,
+            }
+        };
+
+        #[cfg(not(feature = "documentation"))]
+        let doc_field = proc_macro2::TokenStream::new();
+
+        let meta = quote! {
+            #bevy_reflect_path::EnumMeta {
+                #doc_field
+            }
+        };
+
+        quote! {
+            #bevy_reflect_path::TypeInfo::Enum(
+                #bevy_reflect_path::EnumInfo::new::<Self>(#string_name, &[#(#variant_info),*])
+                    .with_meta(#meta)
+            )
+        }
     }
 }
 

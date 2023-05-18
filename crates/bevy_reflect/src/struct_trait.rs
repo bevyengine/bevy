@@ -81,8 +81,7 @@ pub struct StructInfo {
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: StructMeta,
 }
 
 impl StructInfo {
@@ -109,15 +108,13 @@ impl StructInfo {
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
             field_indices,
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: StructMeta::new(),
         }
     }
 
-    /// Sets the docstring for this struct.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this struct.
+    pub fn with_meta(self, meta: StructMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// A slice containing the names of all fields in order.
@@ -173,15 +170,39 @@ impl StructInfo {
         self.type_id
     }
 
+    /// The metadata of the struct.
+    pub fn meta(&self) -> &StructMeta {
+        &self.meta
+    }
+
     /// Check if the given type matches the struct type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
+}
 
+/// Metadata for [structs], accessed via [`StructInfo::meta`].
+///
+/// [structs]: Struct
+#[derive(Clone, Debug)]
+pub struct StructMeta {
     /// The docstring of this struct, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl StructMeta {
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for StructMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

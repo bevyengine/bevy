@@ -112,8 +112,7 @@ pub struct ListInfo {
     type_id: TypeId,
     item_type_name: &'static str,
     item_type_id: TypeId,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: ListMeta,
 }
 
 impl ListInfo {
@@ -124,15 +123,13 @@ impl ListInfo {
             type_id: TypeId::of::<TList>(),
             item_type_name: std::any::type_name::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: ListMeta::new(),
         }
     }
 
-    /// Sets the docstring for this list.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this list.
+    pub fn with_meta(self, meta: ListMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// The [type name] of the list.
@@ -145,6 +142,11 @@ impl ListInfo {
     /// The [`TypeId`] of the list.
     pub fn type_id(&self) -> TypeId {
         self.type_id
+    }
+
+    /// The metadata of the list.
+    pub fn meta(&self) -> &ListMeta {
+        &self.meta
     }
 
     /// Check if the given type matches the list type.
@@ -168,11 +170,30 @@ impl ListInfo {
     pub fn item_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.item_type_id
     }
+}
 
+/// Metadata for [lists], accessed via [`ListInfo::meta`].
+///
+/// [lists]: List
+#[derive(Clone, Debug)]
+pub struct ListMeta {
     /// The docstring of this list, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl ListMeta {
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for ListMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -16,7 +16,6 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         .active_fields()
         .map(|field| Member::Unnamed(Index::from(field.index)))
         .collect::<Vec<_>>();
-    let field_types = reflect_struct.active_types();
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
@@ -40,48 +39,10 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             }
         });
 
-    #[cfg(feature = "documentation")]
-    let field_generator = {
-        let docs = reflect_struct
-            .active_fields()
-            .map(|field| quote::ToTokens::to_token_stream(&field.doc));
-        quote! {
-            #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents).with_docs(#docs) ,)*
-        }
-    };
-
-    #[cfg(not(feature = "documentation"))]
-    let field_generator = {
-        quote! {
-            #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents) ,)*
-        }
-    };
-
-    let string_name = struct_path.get_ident().unwrap().to_string();
-
-    #[cfg(feature = "documentation")]
-    let info_generator = {
-        let doc = reflect_struct.meta().doc();
-        quote! {
-           #bevy_reflect_path::TupleStructInfo::new::<Self>(#string_name, &fields).with_docs(#doc)
-        }
-    };
-
-    #[cfg(not(feature = "documentation"))]
-    let info_generator = {
-        quote! {
-            #bevy_reflect_path::TupleStructInfo::new::<Self>(#string_name, &fields)
-        }
-    };
-
     let typed_impl = impl_typed(
         reflect_struct.meta(),
         &where_clause_options,
-        quote! {
-            let fields = [#field_generator];
-            let info = #info_generator;
-            #bevy_reflect_path::TypeInfo::TupleStruct(info)
-        },
+        reflect_struct.to_type_info(),
     );
 
     let type_path_impl = impl_type_path(reflect_struct.meta(), &where_clause_options);

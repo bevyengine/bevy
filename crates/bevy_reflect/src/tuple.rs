@@ -141,8 +141,7 @@ pub struct TupleInfo {
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: TupleMeta,
 }
 
 impl TupleInfo {
@@ -157,15 +156,13 @@ impl TupleInfo {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: TupleMeta::new(),
         }
     }
 
-    /// Sets the docstring for this tuple.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this tuple.
+    pub fn with_meta(self, meta: TupleMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// Get the field at the given index.
@@ -195,15 +192,39 @@ impl TupleInfo {
         self.type_id
     }
 
+    /// The metadata of the struct.
+    pub fn meta(&self) -> &TupleMeta {
+        &self.meta
+    }
+
     /// Check if the given type matches the tuple type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
+}
 
+/// Metadata for [tuples], accessed via [`TupleInfo::meta`].
+///
+/// [tuples]: Tuple
+#[derive(Clone, Debug)]
+pub struct TupleMeta {
     /// The docstring of this tuple, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl TupleMeta {
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for TupleMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

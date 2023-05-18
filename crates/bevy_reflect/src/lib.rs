@@ -1612,9 +1612,9 @@ mod tests {
             let info = <SomeStruct as Typed>::type_info();
             if let TypeInfo::Struct(info) = info {
                 let mut fields = info.iter();
-                assert_eq!(Some(" The name"), fields.next().unwrap().docs());
-                assert_eq!(Some(" The index"), fields.next().unwrap().docs());
-                assert_eq!(None, fields.next().unwrap().docs());
+                assert_eq!(Some(" The name"), fields.next().unwrap().meta().docs);
+                assert_eq!(Some(" The index"), fields.next().unwrap().meta().docs);
+                assert_eq!(None, fields.next().unwrap().meta().docs);
             } else {
                 panic!("expected struct info");
             }
@@ -1641,22 +1641,22 @@ mod tests {
             let info = <SomeEnum as Typed>::type_info();
             if let TypeInfo::Enum(info) = info {
                 let mut variants = info.iter();
-                assert_eq!(None, variants.next().unwrap().docs());
+                assert_eq!(None, variants.next().unwrap().meta().docs);
 
                 let variant = variants.next().unwrap();
-                assert_eq!(Some(" Option A"), variant.docs());
+                assert_eq!(Some(" Option A"), variant.meta().docs);
                 if let VariantInfo::Tuple(variant) = variant {
                     let field = variant.field_at(0).unwrap();
-                    assert_eq!(Some(" Index"), field.docs());
+                    assert_eq!(Some(" Index"), field.meta().docs);
                 } else {
                     panic!("expected tuple variant")
                 }
 
                 let variant = variants.next().unwrap();
-                assert_eq!(Some(" Option B"), variant.docs());
+                assert_eq!(Some(" Option B"), variant.meta().docs);
                 if let VariantInfo::Struct(variant) = variant {
                     let field = variant.field_at(0).unwrap();
-                    assert_eq!(Some(" Name"), field.docs());
+                    assert_eq!(Some(" Name"), field.meta().docs);
                 } else {
                     panic!("expected struct variant")
                 }

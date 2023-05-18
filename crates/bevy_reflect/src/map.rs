@@ -99,8 +99,7 @@ pub struct MapInfo {
     key_type_id: TypeId,
     value_type_name: &'static str,
     value_type_id: TypeId,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: MapMeta,
 }
 
 impl MapInfo {
@@ -113,15 +112,13 @@ impl MapInfo {
             key_type_id: TypeId::of::<TKey>(),
             value_type_name: std::any::type_name::<TValue>(),
             value_type_id: TypeId::of::<TValue>(),
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: MapMeta::new(),
         }
     }
 
-    /// Sets the docstring for this map.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this map.
+    pub fn with_meta(self, meta: MapMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// The [type name] of the map.
@@ -134,6 +131,11 @@ impl MapInfo {
     /// The [`TypeId`] of the map.
     pub fn type_id(&self) -> TypeId {
         self.type_id
+    }
+
+    /// The metadata of the struct.
+    pub fn meta(&self) -> &MapMeta {
+        &self.meta
     }
 
     /// Check if the given type matches the map type.
@@ -174,11 +176,30 @@ impl MapInfo {
     pub fn value_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.value_type_id
     }
+}
 
+/// Metadata for [maps], accessed via [`MapInfo::meta`].
+///
+/// [maps]: Map
+#[derive(Clone, Debug)]
+pub struct MapMeta {
     /// The docstring of this map, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl MapMeta {
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for MapMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

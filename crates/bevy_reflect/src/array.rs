@@ -82,8 +82,7 @@ pub struct ArrayInfo {
     item_type_name: &'static str,
     item_type_id: TypeId,
     capacity: usize,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: ArrayMeta,
 }
 
 impl ArrayInfo {
@@ -100,15 +99,13 @@ impl ArrayInfo {
             item_type_name: std::any::type_name::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             capacity,
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: ArrayMeta::new(),
         }
     }
 
-    /// Sets the docstring for this array.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this array.
+    pub fn with_meta(self, meta: ArrayMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// The compile-time capacity of the array.
@@ -126,6 +123,11 @@ impl ArrayInfo {
     /// The [`TypeId`] of the array.
     pub fn type_id(&self) -> TypeId {
         self.type_id
+    }
+
+    /// The metadata of the array.
+    pub fn meta(&self) -> &ArrayMeta {
+        &self.meta
     }
 
     /// Check if the given type matches the array type.
@@ -149,11 +151,30 @@ impl ArrayInfo {
     pub fn item_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.item_type_id
     }
+}
 
+/// Metadata for [arrays], accessed via [`ArrayInfo::meta`].
+///
+/// [arrays]: Array
+#[derive(Clone, Debug)]
+pub struct ArrayMeta {
     /// The docstring of this array, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl ArrayMeta {
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for ArrayMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

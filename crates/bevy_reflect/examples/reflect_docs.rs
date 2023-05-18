@@ -43,7 +43,7 @@ fn main() {
     if let TypeInfo::Struct(struct_info) = player_info {
         for field in struct_info.iter() {
             let field_name = field.name();
-            let field_docs = field.docs().unwrap_or("<NO_DOCUMENTATION>");
+            let field_docs = field.meta().docs.unwrap_or("<NO_DOCUMENTATION>");
             println!("-----[ Player::{field_name} ]-----\n{field_docs}");
         }
     }
