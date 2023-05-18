@@ -5,7 +5,7 @@ use bevy_render::{
     texture::Image,
 };
 
-#[derive(Asset, Debug)]
+#[derive(Asset, Debug, Clone)]
 pub struct Font {
     pub font: FontArc,
 }

@@ -4,7 +4,14 @@ use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 use bevy_utils::detailed_trace;
 use std::ops::{Deref, DerefMut};
-use std::{fmt, hash::Hash, iter::Chain, marker::PhantomData, slice::Iter};
+use std::{
+    cmp::Ordering,
+    fmt,
+    hash::{Hash, Hasher},
+    iter::Chain,
+    marker::PhantomData,
+    slice::Iter,
+};
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
@@ -16,7 +23,6 @@ impl<T> Event for T where T: Send + Sync + 'static {}
 ///
 /// An `EventId` can among other things be used to trace the flow of an event from the point it was
 /// sent to the point it was processed.
-#[derive(Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct EventId<E: Event> {
     pub id: usize,
     _marker: PhantomData<E>,
@@ -43,6 +49,32 @@ impl<E: Event> fmt::Debug for EventId<E> {
             std::any::type_name::<E>().split("::").last().unwrap(),
             self.id,
         )
+    }
+}
+
+impl<E: Event> PartialEq for EventId<E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<E: Event> Eq for EventId<E> {}
+
+impl<E: Event> PartialOrd for EventId<E> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<E: Event> Ord for EventId<E> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
+impl<E: Event> Hash for EventId<E> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash(&self.id, state);
     }
 }
 

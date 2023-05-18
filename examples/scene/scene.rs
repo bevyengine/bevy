@@ -1,5 +1,5 @@
 //! This example illustrates loading scenes from files.
-use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
+use bevy::{asset::ChangeWatcher, prelude::*, tasks::IoTaskPool, utils::Duration};
 use std::{fs::File, io::Write};
 
 fn main() {

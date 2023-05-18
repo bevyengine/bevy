@@ -1,0 +1,80 @@
+{
+  "accessors": [
+    {
+      "bufferView": 0,
+      "byteOffset": 0,
+      "count": 4,
+      "componentType": 5126,
+      "type": "VEC3",
+      "min": [
+        -1.0,
+        -1.0,
+        0.0
+      ],
+      "max": [
+        1.0,
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 12,
+      "count": 4,
+      "componentType": 5126,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 28,
+      "count": 4,
+      "componentType": 5126,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 0,
+      "count": 6,
+      "componentType": 5123,
+      "type": "SCALAR"
+    }
+  ],
+  "asset": {
+    "version": "2.0"
+  },
+  "buffers": [
+    {
+      "byteLength": 172,
+      "uri": "data:application/gltf-buffer;base64,AACAvwAAgL8AAAAAAACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAIC/AAAAAAAAAD8AAAA/AAAAAAAAgD8AAAAAAACAPwAAAAAAAIC/AACAPwAAAAAAAAA/AAAAPwAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAAAAAAAAAAAAgD8AAAAAAACAPwAAgD8AAAAAAAAAAAAAAQACAAIAAQADAA=="
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 160,
+      "byteOffset": 0,
+      "byteStride": 40,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12,
+      "byteOffset": 160,
+      "target": 34962
+    }
+  ],
+  "meshes": [
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "COLOR_0": 1,
+            "__BARYCENTRIC": 2
+          },
+          "indices": 3
+        }
+      ]
+    }
+  ]
+}

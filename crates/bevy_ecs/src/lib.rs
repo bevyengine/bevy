@@ -55,7 +55,7 @@ pub mod prelude {
 
 pub use bevy_utils::all_tuples;
 
-/// A specialized hashmap type with Key of `TypeId`
+/// A specialized hashmap type with Key of [`TypeId`]
 type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 
 #[cfg(test)]

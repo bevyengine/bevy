@@ -26,6 +26,7 @@ pub use layout::*;
 pub use measurement::*;
 pub use render::*;
 pub use ui_node::*;
+use widget::UiImageSize;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -41,7 +42,7 @@ use bevy_app::prelude::*;
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_render::{extract_component::ExtractComponentPlugin, texture::Image};
+use bevy_render::{extract_component::ExtractComponentPlugin, texture::Image, RenderApp};
 use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
@@ -87,7 +88,7 @@ impl Plugin for UiPlugin {
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
-            .register_type::<CalculatedSize>()
+            .register_type::<ContentSize>()
             .register_type::<Direction>()
             .register_type::<Display>()
             .register_type::<FlexDirection>()
@@ -108,11 +109,11 @@ impl Plugin for UiPlugin {
             .register_type::<Overflow>()
             .register_type::<OverflowAxis>()
             .register_type::<PositionType>()
-            .register_type::<Size>()
             .register_type::<UiRect>()
             .register_type::<Style>()
             .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
+            .register_type::<UiImageSize>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
@@ -144,7 +145,7 @@ impl Plugin for UiPlugin {
         #[cfg(feature = "bevy_text")]
         app.add_plugin(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
-            let system = widget::update_image_calculated_size_system.before(UiSystem::Layout);
+            let system = widget::update_image_content_size_system.before(UiSystem::Layout);
             // Potential conflicts: `Assets<Image>`
             // They run independently since `widget::image_node_system` will only ever observe
             // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -168,5 +169,14 @@ impl Plugin for UiPlugin {
         );
 
         crate::render::build_ui_render(app);
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
+        render_app.init_resource::<UiPipeline>();
     }
 }

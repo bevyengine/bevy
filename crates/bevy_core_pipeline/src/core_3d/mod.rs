@@ -36,7 +36,7 @@ use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
-    render_graph::{EmptyNode, RenderGraphApp},
+    render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
         sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
         RenderPhase,
@@ -93,14 +93,20 @@ impl Plugin for Core3dPlugin {
         use graph::node::*;
         render_app
             .add_render_sub_graph(CORE_3D)
-            .add_render_graph_node::<PrepassNode>(CORE_3D, PREPASS)
+            .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(CORE_3D, PREPASS)
             .add_render_graph_node::<EmptyNode>(CORE_3D, START_MAIN_PASS)
-            .add_render_graph_node::<MainOpaquePass3dNode>(CORE_3D, MAIN_OPAQUE_PASS)
-            .add_render_graph_node::<MainTransparentPass3dNode>(CORE_3D, MAIN_TRANSPARENT_PASS)
+            .add_render_graph_node::<ViewNodeRunner<MainOpaquePass3dNode>>(
+                CORE_3D,
+                MAIN_OPAQUE_PASS,
+            )
+            .add_render_graph_node::<ViewNodeRunner<MainTransparentPass3dNode>>(
+                CORE_3D,
+                MAIN_TRANSPARENT_PASS,
+            )
             .add_render_graph_node::<EmptyNode>(CORE_3D, END_MAIN_PASS)
-            .add_render_graph_node::<TonemappingNode>(CORE_3D, TONEMAPPING)
+            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(CORE_3D, TONEMAPPING)
             .add_render_graph_node::<EmptyNode>(CORE_3D, END_MAIN_PASS_POST_PROCESSING)
-            .add_render_graph_node::<UpscalingNode>(CORE_3D, UPSCALING)
+            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(CORE_3D, UPSCALING)
             .add_render_graph_edges(
                 CORE_3D,
                 &[
@@ -257,7 +263,7 @@ pub fn prepare_core_3d_depth_textures(
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedCamera, Option<&DepthPrepass>),
+        (Entity, &ExtractedCamera, Option<&DepthPrepass>, &Camera3d),
         (
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
@@ -266,7 +272,7 @@ pub fn prepare_core_3d_depth_textures(
     >,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera, depth_prepass) in &views_3d {
+    for (entity, camera, depth_prepass, camera_3d) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -275,7 +281,7 @@ pub fn prepare_core_3d_depth_textures(
             .entry(camera.target.clone())
             .or_insert_with(|| {
                 // Default usage required to write to the depth texture
-                let mut usage = TextureUsages::RENDER_ATTACHMENT;
+                let mut usage = camera_3d.depth_texture_usages.into();
                 if depth_prepass.is_some() {
                     // Required to read the output of the prepass
                     usage |= TextureUsages::COPY_SRC;

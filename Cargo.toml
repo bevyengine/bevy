@@ -16,6 +16,7 @@ rust-version = "1.67.0"
 exclude = [
   "benches",
   "crates/bevy_ecs_compile_fail_tests",
+  "crates/bevy_macros_compile_fail_tests",
   "crates/bevy_reflect_compile_fail_tests",
 ]
 members = [
@@ -24,6 +25,7 @@ members = [
   "tools/ci",
   "tools/build-templated-pages",
   "tools/build-wasm-example",
+  "tools/example-showcase",
   "errors",
 ]
 
@@ -52,6 +54,7 @@ default = [
   "android_shared_stdcxx",
   "tonemapping_luts",
   "default_font",
+  "webgl2",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -147,6 +150,9 @@ dds = ["bevy_internal/dds"]
 # KTX2 compressed texture support
 ktx2 = ["bevy_internal/ktx2"]
 
+# PNM image format support, includes pam, pbm, pgm and ppm
+pnm = ["bevy_internal/pnm"]
+
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
@@ -222,14 +228,18 @@ glam_assert = ["bevy_internal/glam_assert"]
 # Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
 default_font = ["bevy_internal/default_font"]
 
+# Enable support for shaders in GLSL
+shader_format_glsl = ["bevy_internal/shader_format_glsl"]
+
+# Enable support for shaders in SPIR-V
+shader_format_spirv = ["bevy_internal/shader_format_spirv"]
+
+# Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm
+webgl2 = ["bevy_internal/webgl"]
+
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.0-dev", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.11.0-dev", default-features = false }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.11.0-dev", default-features = false, features = [
-  "webgl",
-] }
 
 [dev-dependencies]
 anyhow = "1.0.4"
@@ -316,6 +326,16 @@ path = "examples/2d/2d_shapes.rs"
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
 description = "Renders a rectangle, circle, and hexagon"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "custom_gltf_vertex_attribute"
+path = "examples/2d/custom_gltf_vertex_attribute.rs"
+
+[package.metadata.example.custom_gltf_vertex_attribute]
+name = "Custom glTF vertex attribute 2D"
+description = "Renders a glTF mesh in 2D with a custom vertex attribute"
 category = "2D Rendering"
 wasm = true
 
@@ -1258,6 +1278,16 @@ category = "Input"
 wasm = false
 
 [[example]]
+name = "gamepad_rumble"
+path = "examples/input/gamepad_rumble.rs"
+
+[package.metadata.example.gamepad_rumble]
+name = "Gamepad Rumble"
+description = "Shows how to rumble a gamepad using force feedback"
+category = "Input"
+wasm = false
+
+[[example]]
 name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
 
@@ -1641,7 +1671,7 @@ path = "examples/stress_tests/transform_hierarchy.rs"
 name = "Transform Hierarchy"
 description = "Various test cases for hierarchy and transform propagation performance"
 category = "Stress Tests"
-wasm = true
+wasm = false
 
 [[example]]
 name = "text_pipeline"
@@ -1786,6 +1816,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "size_constraints"
+path = "examples/ui/size_constraints.rs"
+
+[package.metadata.example.size_constraints]
+name = "Size Constraints"
+description = "Demonstrates how the to use the size constraints to control the size of a UI node."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text"
 path = "examples/ui/text.rs"
 
@@ -1816,12 +1856,23 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_wrap_debug"
+path = "examples/ui/text_wrap_debug.rs"
+
+[package.metadata.example.text_wrap_debug]
+name = "Text Wrap Debug"
+description = "Demonstrates text wrapping"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "grid"
 path = "examples/ui/grid.rs"
 
 [package.metadata.example.grid]
 name = "CSS Grid"
 description = "An example for CSS Grid layout"
+
 category = "UI (User Interface)"
 wasm = true
 
@@ -1914,7 +1965,7 @@ path = "examples/window/screenshot.rs"
 name = "Screenshot"
 description = "Shows how to save screenshots to disk"
 category = "Window"
-wasm = false
+wasm = true
 
 [[example]]
 name = "transparent_window"

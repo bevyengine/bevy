@@ -1,4 +1,4 @@
-use bevy_app::{App, Plugin, ScheduleRunnerPlugin, ScheduleRunnerSettings, Startup, Update};
+use bevy_app::{App, Plugin, ScheduleRunnerPlugin, Startup, Update};
 use bevy_asset::{
     io::{Reader, Writer},
     processor::{AssetProcessor, LoadAndSave},
@@ -14,13 +14,12 @@ use serde::{Deserialize, Serialize};
 
 fn main() {
     App::new()
-        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(2)))
         .add_plugin(TaskPoolPlugin::default())
         .add_plugin(LogPlugin {
             level: Level::TRACE,
             ..Default::default()
         })
-        .add_plugin(ScheduleRunnerPlugin::default())
+        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f32(2.0)))
         .add_plugin(AssetPlugin::processed_dev())
         .add_plugin(TextPlugin)
         .add_systems(Startup, setup)

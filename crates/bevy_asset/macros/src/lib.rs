@@ -20,7 +20,7 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
             if field
                 .attrs
                 .iter()
-                .any(|a| a.path.is_ident(DEPENDENCY_ATTRIBUTE))
+                .any(|a| a.path().is_ident(DEPENDENCY_ATTRIBUTE))
             {
                 if let Some(field_ident) = &field.ident {
                     field_visitors.push(quote! {
@@ -58,7 +58,7 @@ fn derive_dependency_visitor_internal(
             if field
                 .attrs
                 .iter()
-                .any(|a| a.path.is_ident(DEPENDENCY_ATTRIBUTE))
+                .any(|a| a.path().is_ident(DEPENDENCY_ATTRIBUTE))
             {
                 if let Some(field_ident) = &field.ident {
                     field_visitors.push(quote! {

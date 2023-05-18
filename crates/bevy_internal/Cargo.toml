@@ -35,6 +35,7 @@ bmp = ["bevy_render/bmp"]
 webp = ["bevy_render/webp"]
 basis-universal = ["bevy_render/basis-universal"]
 dds = ["bevy_render/dds"]
+pnm = ["bevy_render/pnm"]
 ktx2 = ["bevy_render/ktx2"]
 # For ktx2 supercompression
 zlib = ["bevy_render/zlib"]
@@ -56,6 +57,10 @@ symphonia-isomp4 = ["bevy_audio/symphonia-isomp4"]
 symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
+# Shader formats
+shader_format_glsl = ["bevy_render/shader_format_glsl"]
+shader_format_spirv = ["bevy_render/shader_format_spirv"]
+
 serialize = ["bevy_core/serialize", "bevy_input/serialize", "bevy_time/serialize", "bevy_window/serialize", "bevy_transform/serialize", "bevy_math/serialize", "bevy_scene/serialize"]
 
 # Display server protocol support (X11 is enabled by default)
@@ -69,7 +74,7 @@ subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl"]
 
 # enable systems that allow for automated testing on CI
-bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render?/ci_limits"]
+bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_time/bevy_ci_testing", "bevy_render?/bevy_ci_testing", "bevy_render?/ci_limits"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]

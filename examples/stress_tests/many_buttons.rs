@@ -69,6 +69,8 @@ fn button_system(
 }
 
 fn setup(mut commands: Commands) {
+    warn!(include_str!("warning_string.txt"));
+
     let count = ROW_COLUMN_COUNT;
     let count_f = count as f32;
     let as_rainbow = |i: usize| Color::hsl((i as f32 / count_f) * 360.0, 0.9, 0.8);
@@ -76,7 +78,7 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                width: Val::Percent(100.),
                 ..default()
             },
             ..default()
@@ -104,7 +106,8 @@ fn spawn_button(
     let mut builder = commands.spawn((
         ButtonBundle {
             style: Style {
-                size: Size::new(Val::Percent(width), Val::Percent(width)),
+                width: Val::Percent(width),
+                height: Val::Percent(width),
                 bottom: Val::Percent(100.0 / total * i as f32),
                 left: Val::Percent(100.0 / total * j as f32),
                 align_items: AlignItems::Center,
