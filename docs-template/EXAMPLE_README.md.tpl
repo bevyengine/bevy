@@ -52,6 +52,9 @@ git checkout v0.4.0
   - [WASM](#wasm)
     - [Setup](#setup-2)
     - [Build & Run](#build--run-2)
+    - [WebGL2 and WebGPU](#webgl2-and-webgpu)
+    - [Audio in the browsers](#audio-in-the-browsers)
+    - [Optimizing](#optimizing)
     - [Loading Assets](#loading-assets)
 
 # The Bare Minimum
@@ -243,6 +246,12 @@ Bevy has an helper to build its examples:
 - Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
 
 This helper will log the command used to build the examples.
+
+### Audio in the browsers
+
+For the moment, everything is single threaded, this can lead to stuttering when playing audio in browsers. Not all browsers react the same way for all games, you will have to experiment for your game.
+
+In browsers, audio is not authorized to start without being triggered by an user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interact with your game.
 
 ### Optimizing
 

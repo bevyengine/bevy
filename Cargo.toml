@@ -16,6 +16,7 @@ rust-version = "1.67.0"
 exclude = [
   "benches",
   "crates/bevy_ecs_compile_fail_tests",
+  "crates/bevy_macros_compile_fail_tests",
   "crates/bevy_reflect_compile_fail_tests",
 ]
 members = [
@@ -149,6 +150,9 @@ dds = ["bevy_internal/dds"]
 
 # KTX2 compressed texture support
 ktx2 = ["bevy_internal/ktx2"]
+
+# PNM image format support, includes pam, pbm, pgm and ppm
+pnm = ["bevy_internal/pnm"]
 
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
