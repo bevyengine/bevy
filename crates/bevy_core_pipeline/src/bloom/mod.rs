@@ -302,15 +302,15 @@ impl ViewNode for BloomNode {
 #[derive(Component)]
 struct BloomTexture {
     // First mip is half the screen resolution, successive mips are half the previous
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
     texture: CachedTexture,
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
     texture: Vec<CachedTexture>,
     mip_count: u32,
 }
 
 impl BloomTexture {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
     fn view(&self, base_mip_level: u32) -> TextureView {
         self.texture.texture.create_view(&TextureViewDescriptor {
             base_mip_level,
@@ -318,7 +318,7 @@ impl BloomTexture {
             ..Default::default()
         })
     }
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
     fn view(&self, base_mip_level: u32) -> TextureView {
         self.texture[base_mip_level as usize]
             .texture
@@ -361,9 +361,9 @@ fn prepare_bloom_textures(
                 view_formats: &[],
             };
 
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
             let texture = texture_cache.get(&render_device, texture_descriptor);
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
             let texture: Vec<CachedTexture> = (0..mip_count)
                 .map(|mip| {
                     texture_cache.get(
