@@ -20,7 +20,7 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 /// Therefore it is converted into a [`RenderAsset::ExtractedAsset`], which may be the same type
 /// as the render asset itself.
 ///
-/// After that in the [`RenderSet::Prepare`](crate::RenderSet::Prepare) step the extracted asset
+/// After that in the [`RenderSet::PrepareAssets`](crate::RenderSet::PrepareAssets) step the extracted asset
 /// is transformed into its GPU-representation of type [`RenderAsset::PreparedAsset`].
 pub trait RenderAsset: Asset {
     /// The representation of the asset in the "render world".
@@ -52,7 +52,7 @@ pub enum PrepareAssetSet {
 /// and prepares them for the GPU. They can then be accessed from the [`RenderAssets`] resource.
 ///
 /// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) and
-/// [`RenderSet::Prepare`](crate::RenderSet::Prepare) steps for the specified [`RenderAsset`].
+/// [`RenderSet::PrepareAssets`](crate::RenderSet::PrepareAssets) steps for the specified [`RenderAsset`].
 pub struct RenderAssetPlugin<A: RenderAsset> {
     prepare_asset_set: PrepareAssetSet,
     phantom: PhantomData<fn() -> A>,
@@ -92,7 +92,7 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
                         PrepareAssetSet::PostAssetPrepare,
                     )
                         .chain()
-                        .in_set(RenderSet::Prepare),
+                        .in_set(RenderSet::PrepareAssets),
                 )
                 .add_systems(
                     Render,

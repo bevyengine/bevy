@@ -208,7 +208,7 @@ where
                             .in_set(RenderSet::Prepare)
                             .after(PrepareAssetSet::PreAssetPrepare),
                         render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows),
-                        queue_material_meshes::<M>.in_set(RenderSet::Queue),
+                        queue_material_meshes::<M>.in_set(RenderSet::QueueMeshes),
                     ),
                 );
         }

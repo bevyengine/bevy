@@ -3,7 +3,8 @@ use crate::{
     prelude::Shader,
     render_resource::{ShaderType, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    view::ViewSet,
+    Extract, ExtractSchedule, Render, RenderApp,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
@@ -27,7 +28,10 @@ impl Plugin for GlobalsPlugin {
                 .init_resource::<GlobalsBuffer>()
                 .init_resource::<Time>()
                 .add_systems(ExtractSchedule, (extract_frame_count, extract_time))
-                .add_systems(Render, prepare_globals_buffer.in_set(RenderSet::Prepare));
+                .add_systems(
+                    Render,
+                    prepare_globals_buffer.in_set(ViewSet::PrepareUniforms),
+                );
         }
     }
 }

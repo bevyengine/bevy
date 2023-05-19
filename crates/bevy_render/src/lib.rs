@@ -44,12 +44,15 @@ pub mod prelude {
 
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
+pub use once_cell;
+use prelude::Mesh;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 use wgpu::Instance;
 
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, MeshPlugin},
+    render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::WgpuSettings,
@@ -82,14 +85,17 @@ pub enum RenderSet {
     /// The copy of [`apply_deferred`] that runs at the beginning of this schedule.
     /// This is used for applying the commands from the [`ExtractSchedule`]
     ExtractCommands,
-    /// Prepare render resources from the extracted data for the GPU.
-    Prepare,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
-    PrepareFlush,
-    /// Create [`BindGroups`](render_resource::BindGroup) that depend on
-    /// [`Prepare`](RenderSet::Prepare) data and queue up draw calls to run during the
-    /// [`Render`](RenderSet::Render) step.
+    /// Prepare assets that have been created/modified/removed this frame.
+    PrepareAssets,
+    /// Create any additional views such as those used for shadow mapping.
+    ManageViews,
+    /// The copy of [`apply_system_buffers`] that runs immediately after `ManageViews`.
+    ManageViewsFlush,
+    /// Queue drawable entities to phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
+    /// ready for sorting
     Queue,
+    /// A sub-set within Queue where mesh entity queue systems are executed
+    QueueMeshes,
     /// The copy of [`apply_deferred`] that runs immediately after [`Queue`](RenderSet::Queue).
     QueueFlush,
     // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
@@ -102,6 +108,11 @@ pub enum RenderSet {
     Render,
     /// The copy of [`apply_deferred`] that runs immediately after [`Render`](RenderSet::Render).
     RenderFlush,
+    /// Prepare render resources from the extracted data for the GPU based on their sorted order.
+    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on those data.
+    Prepare,
+    /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
+    PrepareFlush,
     /// Cleanup render resources here.
     Cleanup,
     /// The copy of [`apply_deferred`] that runs immediately after [`Cleanup`](RenderSet::Cleanup).
@@ -124,28 +135,38 @@ impl Render {
 
         // Create "stage-like" structure using buffer flushes + ordering
         schedule.add_systems((
-            apply_deferred.in_set(PrepareFlush),
+            apply_deferred.in_set(ManageViewsFlush),
             apply_deferred.in_set(QueueFlush),
             apply_deferred.in_set(PhaseSortFlush),
             apply_deferred.in_set(RenderFlush),
+            apply_deferred.in_set(PrepareFlush),
             apply_deferred.in_set(CleanupFlush),
         ));
 
         schedule.configure_sets(
             (
                 ExtractCommands,
-                Prepare,
-                PrepareFlush,
+                ManageViews,
+                ManageViewsFlush,
                 Queue,
                 QueueFlush,
                 PhaseSort,
                 PhaseSortFlush,
+                Prepare,
+                PrepareFlush,
                 Render,
                 RenderFlush,
                 Cleanup,
                 CleanupFlush,
             )
                 .chain(),
+        );
+
+        schedule.configure_sets((ExtractCommands, PrepareAssets).chain());
+        schedule.configure_set(
+            QueueMeshes
+                .in_set(RenderSet::Queue)
+                .after(prepare_assets::<Mesh>),
         );
 
         schedule

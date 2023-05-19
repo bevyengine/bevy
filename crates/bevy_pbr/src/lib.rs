@@ -272,9 +272,9 @@ impl Plugin for PbrPlugin {
             .configure_sets(
                 Render,
                 (
-                    RenderLightSystems::PrepareLights.in_set(RenderSet::Prepare),
-                    RenderLightSystems::PrepareClusters.in_set(RenderSet::Prepare),
-                    RenderLightSystems::QueueShadows.in_set(RenderSet::Queue),
+                    RenderLightSystems::PrepareLights.in_set(RenderSet::ManageViews),
+                    RenderLightSystems::PrepareClusters.in_set(RenderSet::ManageViews),
+                    RenderLightSystems::QueueShadows.in_set(RenderSet::QueueMeshes),
                 ),
             )
             .add_systems(
@@ -298,7 +298,13 @@ impl Plugin for PbrPlugin {
                         .before(ViewSet::PrepareUniforms),
                     render::prepare_clusters
                         .after(render::prepare_lights)
-                        .in_set(RenderLightSystems::PrepareClusters),
+                        .in_set(ViewSet::PrepareUniforms),
+                    // A sync is needed after prepare_clusters, before prepare_mesh_view_bind_groups,
+                    // because prepare_clusters inserts ViewClusterBindings on views
+                    apply_system_buffers
+                        .in_set(RenderSet::Prepare)
+                        .after(render::prepare_clusters)
+                        .before(prepare_mesh_view_bind_groups),
                     sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
                 ),
             )
