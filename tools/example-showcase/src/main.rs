@@ -262,7 +262,7 @@ header_message = \"Examples (WebGPU)\"
 
             if website_hacks {
                 // setting up the headers file for cloudflare for the correct Content-Type
-                let mut headers = File::create(root_path.join("headers")).unwrap();
+                let mut headers = File::create(root_path.join("_headers")).unwrap();
                 headers
                     .write_all(
                         "/*/wasm_example_bg.wasm
