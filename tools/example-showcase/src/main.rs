@@ -256,6 +256,17 @@ header_message = \"Examples (WebGPU)\"
             let _ = fs::create_dir_all(root_path);
 
             if website_hacks {
+                // setting up the headers file for cloudflare for the correct Content-Type
+                let mut headers = File::create(root_path.join("headers")).unwrap();
+                headers
+                    .write_all(
+                        "/*/wasm_example_bg.wasm
+  Content-Type: application/wasm
+"
+                        .as_bytes(),
+                    )
+                    .unwrap();
+
                 let sh = Shell::new().unwrap();
 
                 // setting a canvas by default to help with integration
