@@ -60,7 +60,6 @@ impl Plugin for TemporalAntiAliasPlugin {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
         render_app
-            .init_resource::<TAAPipeline>()
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
             .add_systems(ExtractSchedule, extract_taa_settings)
             .add_systems(
@@ -83,6 +82,12 @@ impl Plugin for TemporalAntiAliasPlugin {
                     core_3d::graph::node::TONEMAPPING,
                 ],
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+
+        render_app.init_resource::<TAAPipeline>();
     }
 }
 

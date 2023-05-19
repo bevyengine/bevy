@@ -1,4 +1,4 @@
-use crate::{Size, UiRect};
+use crate::UiRect;
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
@@ -15,7 +15,7 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
 /// Describes the size of a UI node
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
     /// The size of the node as width and height in logical pixels
@@ -26,8 +26,17 @@ pub struct Node {
 impl Node {
     /// The calculated node size as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
-    pub fn size(&self) -> Vec2 {
+    pub const fn size(&self) -> Vec2 {
         self.calculated_size
+    }
+
+    /// Returns the size of the node in physical pixels based on the given scale factor.
+    #[inline]
+    pub fn physical_size(&self, scale_factor: f64) -> Vec2 {
+        Vec2::new(
+            (self.calculated_size.x as f64 * scale_factor) as f32,
+            (self.calculated_size.y as f64 * scale_factor) as f32,
+        )
     }
 
     /// Returns the logical pixel coordinates of the UI node, based on its [`GlobalTransform`].
@@ -38,11 +47,17 @@ impl Node {
 
     /// Returns the physical pixel coordinates of the UI node, based on its [`GlobalTransform`] and the scale factor.
     #[inline]
-    pub fn physical_rect(&self, transform: &GlobalTransform, scale_factor: f32) -> Rect {
+    pub fn physical_rect(&self, transform: &GlobalTransform, scale_factor: f64) -> Rect {
         let rect = self.logical_rect(transform);
         Rect {
-            min: rect.min / scale_factor,
-            max: rect.max / scale_factor,
+            min: Vec2::new(
+                (rect.min.x as f64 * scale_factor) as f32,
+                (rect.min.y as f64 * scale_factor) as f32,
+            ),
+            max: Vec2::new(
+                (rect.max.x as f64 * scale_factor) as f32,
+                (rect.max.y as f64 * scale_factor) as f32,
+            ),
         }
     }
 }
@@ -336,32 +351,35 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/bottom>
     pub bottom: Val,
 
-    /// The ideal size of the node
+    /// The ideal width of the node. `width` is used when it is within the bounds defined by `min_width` and `max_width`.
     ///
-    /// `size.width` is used when it is within the bounds defined by `min_size.width` and `max_size.width`.
-    /// `size.height` is used when it is within the bounds defined by `min_size.height` and `max_size.height`.
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/width>
+    pub width: Val,
+
+    /// The ideal height of the node. `height` is used when it is within the bounds defined by `min_height` and `max_height`.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/width> <br />
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/height>
-    pub size: Size,
+    pub height: Val,
 
-    /// The minimum size of the node
+    /// The minimum width of the node. `min_width` is used if it is greater than either `width` and/or `max_width`.
     ///
-    /// `min_size.width` is used if it is greater than either `size.width` or `max_size.width`, or both.
-    /// `min_size.height` is used if it is greater than either `size.height` or `max_size.height`, or both.
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/min-width>
+    pub min_width: Val,
+
+    /// The minimum height of the node. `min_height` is used if it is greater than either `height` and/or `max_height`.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/min-width> <br />
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/min-height>
-    pub min_size: Size,
+    pub min_height: Val,
 
-    /// The maximum size of the node
+    /// The maximum width of the node. `max_width` is used if it is within the bounds defined by `min_width` and `width`.
     ///
-    /// `max_size.width` is used if it is within the bounds defined by `min_size.width` and `size.width`.
-    /// `max_size.height` is used if it is within the bounds defined by `min_size.height` and `size.height.
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/max-width>
+    pub max_width: Val,
+
+    /// The maximum height of the node. `max_height` is used if it is within the bounds defined by `min_height` and `height`.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/max-width> <br />
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/max-height>
-    pub max_size: Size,
+    pub max_height: Val,
 
     /// The aspect ratio of the node (defined as `width / height`)
     ///
@@ -506,12 +524,19 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-basis>
     pub flex_basis: Val,
 
-    /// The size of the gutters between items in flexbox layout or rows/columns in a grid layout
+    /// The size of the gutters between items in a vertical flexbox layout or between rows in a grid layout
     ///
     /// Note: Values of `Val::Auto` are not valid and are treated as zero.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gap>
-    pub gap: Size,
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/row-gap>
+    pub row_gap: Val,
+
+    /// The size of the gutters between items in a horizontal flexbox layout or between column in a grid layout
+    ///
+    /// Note: Values of `Val::Auto` are not valid and are treated as zero.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/column-gap>
+    pub column_gap: Val,
 
     /// Controls whether automatically placed grid items are placed row-wise or column-wise. And whether the sparse or dense packing algorithm is used.
     /// Only affect Grid layouts
@@ -576,12 +601,16 @@ impl Style {
         flex_grow: 0.0,
         flex_shrink: 1.0,
         flex_basis: Val::Auto,
-        size: Size::AUTO,
-        min_size: Size::AUTO,
-        max_size: Size::AUTO,
+        width: Val::Auto,
+        height: Val::Auto,
+        min_width: Val::Auto,
+        min_height: Val::Auto,
+        max_width: Val::Auto,
+        max_height: Val::Auto,
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
-        gap: Size::all(Val::Px(0.0)),
+        row_gap: Val::Px(0.0),
+        column_gap: Val::Px(0.0),
         grid_auto_flow: GridAutoFlow::DEFAULT,
         grid_template_rows: Vec::new(),
         grid_template_columns: Vec::new(),
