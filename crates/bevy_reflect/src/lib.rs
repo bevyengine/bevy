@@ -688,6 +688,104 @@ mod tests {
     mod reflect_hash {
         use super::*;
 
+        /// Helper macro for generating tests for [`Reflect::reflect_hash`].
+        ///
+        /// # Arguments
+        /// * `$title` - (Required) The string literal title of the test case.
+        /// * `$a` - (Required) A known hashable value. Should implement [`Clone`].
+        /// * `$b` - (Optional) A known hashable value with the same type as `$a` but a different value.
+        /// * `$c` - (Optional) A known non-hashable value.
+        ///
+        /// # Description
+        ///
+        /// Tests the following:
+        /// 1. `$a` should return a hash (concrete and dynamic)
+        /// 2. `$a` should return the same hash as its clone (concrete and dynamic)
+        /// 3. `$a` should not return the same hash as an equivalent non-proxy dynamic value
+        /// 4. `$a` should not return the same hash as `$b` (concrete and dynamic)
+        /// 5. `$c` should not return a hash (concrete and dynamic)
+        ///
+        macro_rules! validate_hash {
+            ($title: literal: $a: ident, $b: ident, $c: ident $(,)?) => {{
+                validate_hash!($title: $a, $b);
+
+                // 5.
+                assert!(
+                    $c.reflect_hash().is_none(),
+                    "{}: expected `c` to not be hashable",
+                    $title
+                );
+                assert!(
+                    $c.clone_value().reflect_hash().is_none(),
+                    "{}: expected proxy of `c` to not be hashable",
+                    $title
+                );
+            }};
+            ($title: literal: $a: ident, $b: ident $(,)?) => {{
+                use std::any::Any;
+
+                assert_eq!(
+                    $a.type_id(), $b.type_id(),
+                    "{}: expected `a` and `b` to be the same type",
+                    $title
+                );
+
+                validate_hash!($title: $a);
+
+                // 4.
+                assert_ne!(
+                    $a.reflect_hash(),
+                    $b.reflect_hash(),
+                    "{}: expected `a` to return a different hash than `b`",
+                    $title
+                );
+                assert_ne!(
+                    $a.reflect_hash(),
+                    $b.clone_value().reflect_hash(),
+                    "{}: expected `a` to return a different hash than a proxy of `b`",
+                    $title
+                );
+            }};
+            ($title: literal: $a: ident $(,)?) => {{
+                // 1.
+                assert!(
+                    $a.reflect_hash().is_some(),
+                    "{}: expected `a` to be hashable",
+                    $title
+                );
+                assert!(
+                    $a.clone_value().reflect_hash().is_some(),
+                    "{}: expected proxy of `a` to be hashable",
+                    $title
+                );
+
+                // 2.
+                let a2 = $a.clone();
+                assert_eq!(
+                    $a.reflect_hash(),
+                    a2.reflect_hash(),
+                    "{}: expected `a` to return the same hash as its clone",
+                    $title
+                );
+                assert_eq!(
+                    $a.reflect_hash(),
+                    a2.clone_value().reflect_hash(),
+                    "{}: expected `a` to return the same hash as a proxy of its clone",
+                    $title
+                );
+
+                // 3.
+                let mut a3 = $a.clone_dynamic();
+                a3.set_represented_type(None);
+                assert_ne!(
+                    $a.reflect_hash(),
+                    a3.reflect_hash(),
+                    "{}: expected `a` to return a different hash than a dynamic with the same value but not a proxy",
+                    $title
+                );
+            }};
+        }
+
         #[test]
         fn should_hash_value() {
             #[derive(Reflect, Hash, Clone)]
@@ -696,7 +794,7 @@ mod tests {
 
             #[derive(Reflect, Clone)]
             #[reflect_value]
-            struct Baz(u32);
+            struct Baz(/* Note: NOT f32 */ u32);
 
             // === Primitive === //
             let value = 123u32;
@@ -715,6 +813,39 @@ mod tests {
             // === Custom (not hashable) === //
             let value = Baz(123);
             assert!(value.reflect_hash().is_none());
+        }
+
+        #[test]
+        fn should_hash_tuple() {
+            let a = (123, 345, (678,));
+            let b = (123, 345, (679,));
+            let c = (1.23,);
+            validate_hash!("Tuple": a, b, c);
+        }
+
+        #[test]
+        fn should_hash_array() {
+            let a = [123, 345, 678];
+            let b = [123, 345, 679];
+            let c = [1.23];
+            validate_hash!("Array": a, b, c);
+        }
+
+        #[test]
+        fn should_hash_list() {
+            let a = vec![123, 345, 678];
+            let b = vec![123, 345, 679];
+            let c = vec![1.23];
+            validate_hash!("List": a, b, c);
+        }
+
+        #[test]
+        fn should_not_hash_map() {
+            // Note: The default `HashMap` is not hashable since it is unordered.
+            // However, other kinds of maps are hashable, such as `BTreeMap`.
+            // Once we support maps like `BTreeMap`, we can update this test.
+            let map = HashMap::<u32, u32>::new();
+            assert!(map.reflect_hash().is_none());
         }
 
         #[test]
@@ -737,76 +868,62 @@ mod tests {
 
         #[test]
         fn should_hash_tuple_struct() {
-            #[derive(Reflect)]
+            #[derive(Reflect, Clone)]
             struct Foo(u32, #[reflect(skip_hash)] f32, Bar);
 
-            #[derive(Reflect)]
+            #[derive(Reflect, Clone)]
             struct Bar(u32);
 
             #[derive(Reflect)]
             struct Baz(f32);
 
-            let foo = Foo(123, 3.45, Bar(678));
-            assert!(foo.reflect_hash().is_some());
+            let a = Foo(123, 3.45, Bar(678));
+            let b = Foo(123, 3.45, Bar(679));
+            let c = Baz(1.23);
 
-            let foo2 = Foo(123, 3.45, Bar(678));
-            assert_eq!(foo.reflect_hash(), foo2.reflect_hash());
-
-            let foo3 = Foo(123, 3.45, Bar(679));
-            assert_ne!(foo.reflect_hash(), foo3.reflect_hash());
-
-            let baz = Baz(1.23);
-            assert!(baz.reflect_hash().is_none());
+            validate_hash!("Tuple Struct": a, b, c);
         }
 
         #[test]
         fn should_hash_struct() {
-            #[derive(Reflect)]
+            #[derive(Reflect, Clone)]
             struct Foo {
-                a: u32,
+                x: u32,
                 #[reflect(skip_hash)]
-                b: f32,
-                c: Bar,
+                y: f32,
+                z: Bar,
             }
 
-            #[derive(Reflect)]
+            #[derive(Reflect, Clone)]
             struct Bar {
-                a: u32,
+                value: u32,
             }
 
             #[derive(Reflect)]
             struct Baz {
-                a: f32,
+                value: f32,
             }
 
-            let foo = Foo {
-                a: 123,
-                b: 3.45,
-                c: Bar { a: 678 },
+            let a = Foo {
+                x: 123,
+                y: 3.45,
+                z: Bar { value: 678 },
             };
-            assert!(foo.reflect_hash().is_some());
 
-            let foo2 = Foo {
-                a: 123,
-                b: 3.45,
-                c: Bar { a: 678 },
+            let b = Foo {
+                x: 123,
+                y: 3.45,
+                z: Bar { value: 679 },
             };
-            assert_eq!(foo.reflect_hash(), foo2.reflect_hash());
 
-            let foo3 = Foo {
-                a: 123,
-                b: 3.45,
-                c: Bar { a: 679 },
-            };
-            assert_ne!(foo.reflect_hash(), foo3.reflect_hash());
+            let c = Baz { value: 1.23 };
 
-            let baz = Baz { a: 1.23 };
-            assert!(baz.reflect_hash().is_none());
+            validate_hash!("Struct": a, b, c);
         }
 
         #[test]
         fn should_hash_enum() {
-            #[derive(Reflect)]
+            #[derive(Reflect, Clone)]
             enum Foo {
                 UnitA,
                 UnitB,
@@ -819,14 +936,14 @@ mod tests {
                 },
             }
 
-            #[derive(Reflect)]
+            #[derive(Reflect, Clone)]
             enum Bar {
                 UnitA,
                 Tuple(u32),
                 Struct { a: u32 },
             }
 
-            #[derive(Reflect)]
+            #[derive(Reflect, Clone)]
             enum Baz {
                 Unit,
                 Tuple(f32),
@@ -834,58 +951,32 @@ mod tests {
             }
 
             // === Unit Variant === //
-            let foo = Foo::UnitA;
-            assert!(foo.reflect_hash().is_some());
+            let a = Foo::UnitA;
+            let b = Foo::UnitB;
+            validate_hash!("Unit Variant": a, b);
 
-            let foo2 = Foo::UnitA;
-            assert_eq!(foo.reflect_hash(), foo2.reflect_hash());
-
-            let foo3 = Foo::UnitB;
-            assert_ne!(foo.reflect_hash(), foo3.reflect_hash());
-
-            let bar = Bar::UnitA;
-            assert_ne!(foo.reflect_hash(), bar.reflect_hash());
-
-            let baz = Baz::Unit;
-            assert!(baz.reflect_hash().is_some());
+            let c = Baz::Unit;
+            validate_hash!("Unit Variant (non-hashable sibling variants)": c);
 
             // === Tuple Variant === //
-            let foo = Foo::Tuple(123, 3.45, Bar::Tuple(678));
-            assert!(foo.reflect_hash().is_some());
-
-            let foo2 = Foo::Tuple(123, 3.45, Bar::Tuple(678));
-            assert_eq!(foo.reflect_hash(), foo2.reflect_hash());
-
-            let foo3 = Foo::Tuple(123, 3.45, Bar::Tuple(679));
-            assert_ne!(foo.reflect_hash(), foo3.reflect_hash());
-
-            let baz = Baz::Tuple(1.23);
-            assert!(baz.reflect_hash().is_none());
+            let a = Foo::Tuple(123, 3.45, Bar::Tuple(678));
+            let b = Foo::Tuple(123, 3.45, Bar::Tuple(679));
+            let c = Baz::Tuple(1.23);
+            validate_hash!("Tuple Variant": a, b, c);
 
             // === Struct Variant === //
-            let foo = Foo::Struct {
+            let a = Foo::Struct {
                 a: 123,
                 b: 3.45,
                 c: Bar::Struct { a: 678 },
             };
-            assert!(foo.reflect_hash().is_some());
-
-            let foo2 = Foo::Struct {
-                a: 123,
-                b: 3.45,
-                c: Bar::Struct { a: 678 },
-            };
-            assert_eq!(foo.reflect_hash(), foo2.reflect_hash());
-
-            let foo3 = Foo::Struct {
+            let b = Foo::Struct {
                 a: 123,
                 b: 3.45,
                 c: Bar::Struct { a: 679 },
             };
-            assert_ne!(foo.reflect_hash(), foo3.reflect_hash());
-
-            let baz = Baz::Struct { a: 1.23 };
-            assert!(baz.reflect_hash().is_none());
+            let c = Baz::Struct { a: 1.23 };
+            validate_hash!("Struct Variant": a, b, c);
         }
     }
 
