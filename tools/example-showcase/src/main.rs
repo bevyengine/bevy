@@ -9,6 +9,7 @@ use std::{
 };
 
 use clap::Parser;
+use pbr::ProgressBar;
 use toml_edit::Document;
 use xshell::{cmd, Shell};
 
@@ -175,7 +176,6 @@ header_message = \"Examples (WebGPU)\"
                 .unwrap();
 
             let mut categories = HashMap::new();
-
             for to_show in examples_to_run {
                 if !to_show.wasm {
                     continue;
@@ -266,6 +266,12 @@ header_message = \"Examples (WebGPU)\"
                 cmd!(sh, "sed -i.bak 's/asset_folder: \"assets\"/asset_folder: \"\\/assets\\/examples\\/\"/' crates/bevy_asset/src/lib.rs").run().unwrap();
             }
 
+            let mut pb = ProgressBar::new(
+                examples_to_build
+                    .iter()
+                    .filter(|to_build| to_build.wasm)
+                    .count() as u64,
+            );
             for to_build in examples_to_build {
                 if !to_build.wasm {
                     continue;
@@ -299,7 +305,9 @@ header_message = \"Examples (WebGPU)\"
                     Path::new("examples/wasm/target/wasm_example_bg.wasm.optimized"),
                     &example_path.join("wasm_example_bg.wasm"),
                 );
+                pb.inc();
             }
+            pb.finish_print("done");
         }
     }
 }
