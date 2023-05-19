@@ -9,6 +9,7 @@ use std::{
 };
 
 use clap::Parser;
+use pbr::ProgressBar;
 use toml_edit::Document;
 use xshell::{cmd, Shell};
 
@@ -53,6 +54,10 @@ enum Action {
         #[arg(long)]
         /// Enable hacks for Bevy website integration
         website_hacks: bool,
+
+        #[arg(long)]
+        /// Optimize the wasm file for size with wasm-opt
+        optimize_size: bool,
     },
 }
 
@@ -175,7 +180,6 @@ header_message = \"Examples (WebGPU)\"
                 .unwrap();
 
             let mut categories = HashMap::new();
-
             for to_show in examples_to_run {
                 if !to_show.wasm {
                     continue;
@@ -248,6 +252,7 @@ header_message = \"Examples (WebGPU)\"
         Action::BuildWebGPUExamples {
             content_folder,
             website_hacks,
+            optimize_size,
         } => {
             let examples_to_build = parse_examples();
 
@@ -256,6 +261,17 @@ header_message = \"Examples (WebGPU)\"
             let _ = fs::create_dir_all(root_path);
 
             if website_hacks {
+                // setting up the headers file for cloudflare for the correct Content-Type
+                let mut headers = File::create(root_path.join("_headers")).unwrap();
+                headers
+                    .write_all(
+                        "/*/wasm_example_bg.wasm
+  Content-Type: application/wasm
+"
+                        .as_bytes(),
+                    )
+                    .unwrap();
+
                 let sh = Shell::new().unwrap();
 
                 // setting a canvas by default to help with integration
@@ -266,6 +282,12 @@ header_message = \"Examples (WebGPU)\"
                 cmd!(sh, "sed -i.bak 's/asset_folder: \"assets\"/asset_folder: \"\\/assets\\/examples\\/\"/' crates/bevy_asset/src/lib.rs").run().unwrap();
             }
 
+            let mut pb = ProgressBar::new(
+                examples_to_build
+                    .iter()
+                    .filter(|to_build| to_build.wasm)
+                    .count() as u64,
+            );
             for to_build in examples_to_build {
                 if !to_build.wasm {
                     continue;
@@ -273,12 +295,21 @@ header_message = \"Examples (WebGPU)\"
 
                 let sh = Shell::new().unwrap();
                 let example = &to_build.technical_name;
-                cmd!(
-                    sh,
-                    "cargo run -p build-wasm-example -- --api webgpu {example}"
-                )
-                .run()
-                .unwrap();
+                if optimize_size {
+                    cmd!(
+                        sh,
+                        "cargo run -p build-wasm-example -- --api webgpu {example} --optimize-size"
+                    )
+                    .run()
+                    .unwrap();
+                } else {
+                    cmd!(
+                        sh,
+                        "cargo run -p build-wasm-example -- --api webgpu {example}"
+                    )
+                    .run()
+                    .unwrap();
+                }
 
                 let category_path = root_path.join(&to_build.category);
                 let _ = fs::create_dir_all(&category_path);
@@ -295,11 +326,20 @@ header_message = \"Examples (WebGPU)\"
                     Path::new("examples/wasm/target/wasm_example.js"),
                     &example_path.join("wasm_example.js"),
                 );
-                let _ = fs::rename(
-                    Path::new("examples/wasm/target/wasm_example_bg.wasm"),
-                    &example_path.join("wasm_example_bg.wasm"),
-                );
+                if optimize_size {
+                    let _ = fs::rename(
+                        Path::new("examples/wasm/target/wasm_example_bg.wasm.optimized"),
+                        &example_path.join("wasm_example_bg.wasm"),
+                    );
+                } else {
+                    let _ = fs::rename(
+                        Path::new("examples/wasm/target/wasm_example_bg.wasm"),
+                        &example_path.join("wasm_example_bg.wasm"),
+                    );
+                }
+                pb.inc();
             }
+            pb.finish_print("done");
         }
     }
 }
