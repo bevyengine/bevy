@@ -275,7 +275,7 @@ header_message = \"Examples (WebGPU)\"
                 let example = &to_build.technical_name;
                 cmd!(
                     sh,
-                    "cargo run -p build-wasm-example -- --api webgpu {example}"
+                    "cargo run -p build-wasm-example -- --api webgpu {example} --optimize-size"
                 )
                 .run()
                 .unwrap();
@@ -296,7 +296,7 @@ header_message = \"Examples (WebGPU)\"
                     &example_path.join("wasm_example.js"),
                 );
                 let _ = fs::rename(
-                    Path::new("examples/wasm/target/wasm_example_bg.wasm"),
+                    Path::new("examples/wasm/target/wasm_example_bg.wasm.optimized"),
                     &example_path.join("wasm_example_bg.wasm"),
                 );
             }
