@@ -302,17 +302,32 @@ impl ViewNode for BloomNode {
 #[derive(Component)]
 struct BloomTexture {
     // First mip is half the screen resolution, successive mips are half the previous
+    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
     texture: CachedTexture,
+    // WebGL does not support binding specific mip levels for sampling, fallback to separate textures instead
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    texture: Vec<CachedTexture>,
     mip_count: u32,
 }
 
 impl BloomTexture {
+    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
     fn view(&self, base_mip_level: u32) -> TextureView {
         self.texture.texture.create_view(&TextureViewDescriptor {
             base_mip_level,
             mip_level_count: Some(1u32),
             ..Default::default()
         })
+    }
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    fn view(&self, base_mip_level: u32) -> TextureView {
+        self.texture[base_mip_level as usize]
+            .texture
+            .create_view(&TextureViewDescriptor {
+                base_mip_level: 0,
+                mip_level_count: Some(1u32),
+                ..Default::default()
+            })
     }
 }
 
@@ -347,10 +362,29 @@ fn prepare_bloom_textures(
                 view_formats: &[],
             };
 
-            commands.entity(entity).insert(BloomTexture {
-                texture: texture_cache.get(&render_device, texture_descriptor),
-                mip_count,
-            });
+            #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+            let texture = texture_cache.get(&render_device, texture_descriptor);
+            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            let texture: Vec<CachedTexture> = (0..mip_count)
+                .map(|mip| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            size: Extent3d {
+                                width: (texture_descriptor.size.width >> mip).max(1),
+                                height: (texture_descriptor.size.height >> mip).max(1),
+                                depth_or_array_layers: 1,
+                            },
+                            mip_level_count: 1,
+                            ..texture_descriptor.clone()
+                        },
+                    )
+                })
+                .collect();
+
+            commands
+                .entity(entity)
+                .insert(BloomTexture { texture, mip_count });
         }
     }
 }
