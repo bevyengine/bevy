@@ -915,7 +915,7 @@ impl ScheduleGraph {
                             let Some(system) = &system.inner else {
                                 continue;
                             };
-                            if system.component_access().has_read(component) {
+                            if system.component_access().has_granular_read_only(component) {
                                 self.hierarchy.graph.add_edge(id, NodeId::System(i), ());
                             }
                         }

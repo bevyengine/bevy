@@ -116,6 +116,13 @@ impl<T: SparseSetIndex> Access<T> {
         self.reads_all || self.reads_and_writes.contains(index.sparse_set_index())
     }
 
+    /// Returns `true` if this has read-only access to the element given by `index`,
+    /// unless the access comes from [`Self::has_read_all`].
+    pub(crate) fn has_granular_read_only(&self, index: T) -> bool {
+        let index = index.sparse_set_index();
+        self.reads_and_writes.contains(index) && !self.writes.contains(index)
+    }
+
     /// Returns `true` if this can exclusively access the element given by `index`.
     pub fn has_write(&self, index: T) -> bool {
         self.writes.contains(index.sparse_set_index())
