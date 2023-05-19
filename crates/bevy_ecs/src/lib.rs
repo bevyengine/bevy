@@ -1785,6 +1785,32 @@ mod tests {
     }
 
     #[test]
+    fn access_set_late_init() {
+        #[derive(Component)]
+        struct C;
+
+        fn read_system(_: Query<&C>) {}
+        fn write_system(_: Query<&mut C>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::new();
+
+        // Make sure the system with write-access is initialized *before* the access set is mentioned.
+        schedule.add_systems(write_system);
+        schedule.run(&mut world);
+
+        schedule.add_systems(read_system.after(ComponentAccessSet::Writes::<C>));
+
+        // Panic if there are ambiguities.
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: bevy_ecs::schedule::LogLevel::Error,
+            ..Default::default()
+        });
+
+        schedule.run(&mut world);
+    }
+
+    #[test]
     fn access_set_reads_all_not_included() {
         #[derive(Resource, Default)]
         struct R;
