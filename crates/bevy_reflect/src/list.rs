@@ -429,13 +429,34 @@ impl<'a> ExactSizeIterator for ListIter<'a> {}
 
 /// Returns the `u64` hash of the given [list](List).
 #[inline]
-pub fn list_hash<L: List>(list: &L) -> Option<u64> {
+pub fn list_hash<L: List>(value: &L) -> Option<u64> {
     let mut hasher = reflect_hasher();
-    std::any::Any::type_id(list).hash(&mut hasher);
-    list.len().hash(&mut hasher);
-    for value in list.iter() {
-        hasher.write_u64(value.reflect_hash()?);
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::List(info) = info else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&value.len(), &mut hasher);
+
+            for element in value.iter() {
+                Hash::hash(&element.reflect_hash()?, &mut hasher);
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<L>(), &mut hasher);
+            Hash::hash(&value.len(), &mut hasher);
+
+            for element in value.iter() {
+                Hash::hash(&element.reflect_hash()?, &mut hasher);
+            }
+        }
     }
+
     Some(hasher.finish())
 }
 

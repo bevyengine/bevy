@@ -704,6 +704,7 @@ mod tests {
         /// 3. `$a` should not return the same hash as an equivalent non-proxy dynamic value
         /// 4. `$a` should not return the same hash as `$b` (concrete and dynamic)
         /// 5. `$c` should not return a hash (concrete and dynamic)
+        /// 6. Two non-proxy dynamics should return the same hash if they are equivalent
         ///
         macro_rules! validate_hash {
             ($title: literal: $a: ident, $b: ident, $c: ident $(,)?) => {{
@@ -781,6 +782,15 @@ mod tests {
                     $a.reflect_hash(),
                     a3.reflect_hash(),
                     "{}: expected `a` to return a different hash than a dynamic with the same value but not a proxy",
+                    $title
+                );
+
+                // 6.
+                let a4 = $a.clone_dynamic();
+                assert_eq!(
+                    a4.reflect_hash(),
+                    a4.clone_value().reflect_hash(),
+                    "{}: expected two non-proxy dynamic values of `a` to return the same hash",
                     $title
                 );
             }};

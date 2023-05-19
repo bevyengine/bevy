@@ -396,13 +396,34 @@ impl<'a> ExactSizeIterator for ArrayIter<'a> {}
 
 /// Returns the `u64` hash of the given [array](Array).
 #[inline]
-pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
+pub fn array_hash<A: Array>(value: &A) -> Option<u64> {
     let mut hasher = reflect_hasher();
-    std::any::Any::type_id(array).hash(&mut hasher);
-    array.len().hash(&mut hasher);
-    for value in array.iter() {
-        hasher.write_u64(value.reflect_hash()?);
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::Array(info) = info else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&value.len(), &mut hasher);
+
+            for element in value.iter() {
+                Hash::hash(&element.reflect_hash()?, &mut hasher);
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<A>(), &mut hasher);
+            Hash::hash(&value.len(), &mut hasher);
+
+            for element in value.iter() {
+                Hash::hash(&element.reflect_hash()?, &mut hasher);
+            }
+        }
     }
+
     Some(hasher.finish())
 }
 

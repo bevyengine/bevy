@@ -1,4 +1,6 @@
-use crate::{utility::reflect_hasher, Enum, Reflect, ReflectRef, VariantType};
+use crate::utility::reflect_hasher;
+use crate::{Enum, Reflect, ReflectRef, TypeInfo, VariantInfo, VariantType};
+use std::any::TypeId;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 
@@ -6,12 +8,60 @@ use std::hash::{Hash, Hasher};
 #[inline]
 pub fn enum_hash<TEnum: Enum>(value: &TEnum) -> Option<u64> {
     let mut hasher = reflect_hasher();
-    std::any::Any::type_id(value).hash(&mut hasher);
-    value.variant_name().hash(&mut hasher);
-    value.variant_type().hash(&mut hasher);
-    for field in value.iter_fields() {
-        hasher.write_u64(field.value().reflect_hash()?);
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::Enum(info) = info else {
+                return None;
+            };
+
+            let Some(variant) = info.variant(value.variant_name()) else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+            Hash::hash(variant.name(), &mut hasher);
+
+            match variant {
+                VariantInfo::Struct(info) => {
+                    for field in info.iter() {
+                        if field.meta().skip_hash {
+                            continue;
+                        }
+
+                        if let Some(value) = value.field(field.name()) {
+                            Hash::hash(&value.reflect_hash()?, &mut hasher);
+                        }
+                    }
+                }
+                VariantInfo::Tuple(info) => {
+                    for field in info.iter() {
+                        if field.meta().skip_hash {
+                            continue;
+                        }
+
+                        if let Some(value) = value.field_at(field.index()) {
+                            Hash::hash(&value.reflect_hash()?, &mut hasher);
+                        }
+                    }
+                }
+                VariantInfo::Unit(_) => {}
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<TEnum>(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+            Hash::hash(&value.variant_name(), &mut hasher);
+
+            for field in value.iter_fields() {
+                hasher.write_u64(field.value().reflect_hash()?);
+            }
+        }
     }
+
     Some(hasher.finish())
 }
 

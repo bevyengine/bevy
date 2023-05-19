@@ -12,6 +12,7 @@ use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
 };
 use bevy_reflect_derive::impl_reflect_value;
+use std::any::TypeId;
 use std::fmt;
 use std::{
     any::Any,
@@ -333,7 +334,15 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             fn reflect_hash(&self) -> Option<u64> {
-                crate::list_hash(self)
+                let mut hasher = reflect_hasher();
+                Hash::hash(&TypeId::of::<Self>(), &mut hasher);
+                Hash::hash(&self.len(), &mut hasher);
+
+                for element in self {
+                    Hash::hash(&element.reflect_hash()?, &mut hasher);
+                }
+
+                Some(hasher.finish())
             }
 
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -726,7 +735,15 @@ impl<T: Reflect + TypePath, const N: usize> Reflect for [T; N] {
 
     #[inline]
     fn reflect_hash(&self) -> Option<u64> {
-        crate::array_hash(self)
+        let mut hasher = reflect_hasher();
+        Hash::hash(&TypeId::of::<Self>(), &mut hasher);
+        Hash::hash(&self.len(), &mut hasher);
+
+        for element in self {
+            Hash::hash(&element.reflect_hash()?, &mut hasher);
+        }
+
+        Some(hasher.finish())
     }
 
     #[inline]
@@ -975,7 +992,20 @@ impl<T: FromReflect + TypePath> Reflect for Option<T> {
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        crate::enum_hash(self)
+        let mut hasher = reflect_hasher();
+        Hash::hash(&TypeId::of::<Self>(), &mut hasher);
+
+        match self {
+            None => {
+                Hash::hash("None", &mut hasher);
+            }
+            Some(value) => {
+                Hash::hash("Some", &mut hasher);
+                Hash::hash(&value.reflect_hash()?, &mut hasher);
+            }
+        }
+
+        Some(Hasher::finish(&hasher))
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

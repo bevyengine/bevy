@@ -1,13 +1,14 @@
-use bevy_reflect_derive::impl_type_path;
-
+use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, utility::GenericTypePathCell, FromReflect, GetTypeRegistration, Reflect,
     ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
     UnnamedField,
 };
+use bevy_reflect_derive::impl_type_path;
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::slice::Iter;
 
 /// A trait used to power [tuple-like] operations via [reflection].
@@ -401,6 +402,10 @@ impl Reflect for DynamicTuple {
         Ok(())
     }
 
+    fn reflect_hash(&self) -> Option<u64> {
+        tuple_hash(self)
+    }
+
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_partial_eq(self, value)
     }
@@ -418,6 +423,41 @@ impl Reflect for DynamicTuple {
 }
 
 impl_type_path!((in bevy_reflect) DynamicTuple);
+
+/// Returns the `u64` hash of the given [tuple](Tuple).
+#[inline]
+pub fn tuple_hash<T: Tuple>(value: &T) -> Option<u64> {
+    let mut hasher = reflect_hasher();
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::Tuple(info) = info else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+
+            for field in info.iter() {
+                if let Some(value) = value.field(field.index()) {
+                    Hash::hash(&value.reflect_hash()?, &mut hasher);
+                }
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<T>(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+
+            for field in value.iter_fields() {
+                Hash::hash(&field.reflect_hash()?, &mut hasher);
+            }
+        }
+    }
+
+    Some(hasher.finish())
+}
 
 /// Applies the elements of `b` to the corresponding elements of `a`.
 ///
@@ -512,8 +552,8 @@ macro_rules! impl_reflect_tuple {
 
             #[inline]
             fn field_len(&self) -> usize {
-                let indices: &[usize] = &[$($index as usize),*];
-                indices.len()
+                const INDICES: &[usize] = &[$($index as usize),*];
+                INDICES.len()
             }
 
             #[inline]
@@ -601,6 +641,18 @@ macro_rules! impl_reflect_tuple {
 
             fn clone_value(&self) -> Box<dyn Reflect> {
                 Box::new(self.clone_dynamic())
+            }
+
+            fn reflect_hash(&self) -> Option<u64> {
+                let mut hasher = crate::utility::reflect_hasher();
+                Hash::hash(&TypeId::of::<Self>(), &mut hasher);
+                Hash::hash(&self.field_len(), &mut hasher);
+
+                $(
+                    Hash::hash(&self.$index.reflect_hash()?, &mut hasher);
+                )*
+
+                Some(hasher.finish())
             }
 
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

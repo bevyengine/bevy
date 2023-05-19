@@ -1,10 +1,11 @@
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
+use crate::utility::reflect_hasher;
 use crate::{self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
 
 /// A trait used to power [map-like] operations via [reflection].
@@ -444,6 +445,43 @@ impl IntoIterator for DynamicMap {
 }
 
 impl<'a> ExactSizeIterator for MapIter<'a> {}
+
+/// Returns the `u64` hash of the given [map](Map).
+#[inline]
+pub fn map_hash<M: Map>(value: &M) -> Option<u64> {
+    let mut hasher = reflect_hasher();
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::Map(info) = info else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&info.key_type_id(), &mut hasher);
+            Hash::hash(&info.value_type_id(), &mut hasher);
+            Hash::hash(&value.len(), &mut hasher);
+
+            for (key, value) in value.iter() {
+                Hash::hash(&key.reflect_hash()?, &mut hasher);
+                Hash::hash(&value.reflect_hash()?, &mut hasher);
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<M>(), &mut hasher);
+            Hash::hash(&value.len(), &mut hasher);
+
+            for (key, value) in value.iter() {
+                Hash::hash(&key.reflect_hash()?, &mut hasher);
+                Hash::hash(&value.reflect_hash()?, &mut hasher);
+            }
+        }
+    }
+
+    Some(hasher.finish())
+}
 
 /// Compares a [`Map`] with a [`Reflect`] value.
 ///

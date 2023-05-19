@@ -1,10 +1,12 @@
 use bevy_reflect_derive::impl_type_path;
 
+use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::slice::Iter;
 
 /// A trait used to power [tuple struct-like] operations via [reflection].
@@ -395,6 +397,10 @@ impl Reflect for DynamicTupleStruct {
         Ok(())
     }
 
+    fn reflect_hash(&self) -> Option<u64> {
+        tuple_struct_hash(self)
+    }
+
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_struct_partial_eq(self, value)
     }
@@ -417,6 +423,45 @@ impl Debug for DynamicTupleStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
     }
+}
+
+/// Returns the `u64` hash of the given [tuple struct](TupleStruct).
+#[inline]
+pub fn tuple_struct_hash<T: TupleStruct>(value: &T) -> Option<u64> {
+    let mut hasher = reflect_hasher();
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::TupleStruct(info) = info else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+
+            for field in info.iter() {
+                if field.meta().skip_hash {
+                    continue;
+                }
+
+                if let Some(value) = value.field(field.index()) {
+                    Hash::hash(&value.reflect_hash()?, &mut hasher);
+                }
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<T>(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+
+            for field in value.iter_fields() {
+                Hash::hash(&field.reflect_hash()?, &mut hasher);
+            }
+        }
+    }
+
+    Some(hasher.finish())
 }
 
 /// Compares a [`TupleStruct`] with a [`Reflect`] value.

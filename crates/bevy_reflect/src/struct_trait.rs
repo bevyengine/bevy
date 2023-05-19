@@ -1,9 +1,11 @@
+use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::{
     any::{Any, TypeId},
     borrow::Cow,
@@ -493,6 +495,10 @@ impl Reflect for DynamicStruct {
         Ok(())
     }
 
+    fn reflect_hash(&self) -> Option<u64> {
+        struct_hash(self)
+    }
+
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         struct_partial_eq(self, value)
     }
@@ -515,6 +521,45 @@ impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
     }
+}
+
+/// Returns the `u64` hash of the given [struct](Struct).
+#[inline]
+pub fn struct_hash<S: Struct>(value: &S) -> Option<u64> {
+    let mut hasher = reflect_hasher();
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::Struct(info) = info else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+
+            for field in info.iter() {
+                if field.meta().skip_hash {
+                    continue;
+                }
+
+                if let Some(value) = value.field(field.name()) {
+                    Hash::hash(&value.reflect_hash()?, &mut hasher);
+                }
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<S>(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+
+            for field in value.iter_fields() {
+                Hash::hash(&field.reflect_hash()?, &mut hasher);
+            }
+        }
+    }
+
+    Some(hasher.finish())
 }
 
 /// Compares a [`Struct`] with a [`Reflect`] value.
