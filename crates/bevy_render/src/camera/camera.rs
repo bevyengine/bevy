@@ -125,7 +125,7 @@ impl Default for Camera {
             computed: Default::default(),
             target: Default::default(),
             output_mode: Default::default(),
-            hdr: true,
+            hdr: false,
             msaa_writeback: true,
         }
     }
