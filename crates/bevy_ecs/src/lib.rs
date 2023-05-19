@@ -1783,4 +1783,32 @@ mod tests {
 
         schedule.run(&mut world);
     }
+
+    #[test]
+    fn access_set_reads_all_not_included() {
+        #[derive(Resource, Default)]
+        struct R;
+
+        fn read_system(_: Res<R>) {}
+        fn read_all_system(_: &World) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::new();
+
+        world.init_resource::<R>();
+        schedule.add_systems((
+            read_system,
+            // This will cause a dependency cycle if `read_all_system` is included
+            // in the read-access set.
+            read_all_system.after(ResourceAccessSet::Reads::<R>),
+        ));
+
+        // Panic if there are ambiguities.
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: bevy_ecs::schedule::LogLevel::Error,
+            ..Default::default()
+        });
+
+        schedule.run(&mut world);
+    }
 }
