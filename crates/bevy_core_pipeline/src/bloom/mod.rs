@@ -304,6 +304,7 @@ struct BloomTexture {
     // First mip is half the screen resolution, successive mips are half the previous
     #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
     texture: CachedTexture,
+    // WebGL does not support binding specific mip levels for sampling, fallback to separate textures instead
     #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
     texture: Vec<CachedTexture>,
     mip_count: u32,
