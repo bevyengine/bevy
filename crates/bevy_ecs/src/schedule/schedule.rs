@@ -912,6 +912,8 @@ impl ScheduleGraph {
                             .push(id);
                         // Add any previously-added systems with read access to the set.
                         for (i, system) in self.systems.iter().enumerate() {
+                            // FIXME: This causes the `access_set_late_init` test to fail,
+                            // since any systems already in a schedule will be skipped here.
                             let Some(system) = &system.inner else {
                                 continue;
                             };
