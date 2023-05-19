@@ -7,7 +7,7 @@ use bevy_ecs::{
     event::EventReader,
     prelude::With,
     reflect::ReflectComponent,
-    system::{Local, Query, Res, ResMut},
+    system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
@@ -17,7 +17,7 @@ use bevy_render::{
     view::{ComputedVisibility, Visibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
+use bevy_sprite::{Anchor, ExtractedSprite, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
@@ -77,7 +77,8 @@ pub struct Text2dBundle {
 }
 
 pub fn extract_text2d_sprite(
-    mut extracted_sprites: ResMut<ExtractedSprites>,
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
@@ -91,6 +92,7 @@ pub fn extract_text2d_sprite(
         )>,
     >,
 ) {
+    let mut extracted_sprites: Vec<(Entity, ExtractedSprite)> = Vec::with_capacity(*previous_len);
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
@@ -125,19 +127,23 @@ pub fn extract_text2d_sprite(
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            extracted_sprites.sprites.push(ExtractedSprite {
+            extracted_sprites.push((
                 entity,
-                transform: transform * GlobalTransform::from_translation(position.extend(0.)),
-                color,
-                rect: Some(atlas.textures[atlas_info.glyph_index]),
-                custom_size: None,
-                image_handle_id: atlas.texture.id(),
-                flip_x: false,
-                flip_y: false,
-                anchor: Anchor::Center.as_vec(),
-            });
+                ExtractedSprite {
+                    transform: transform * GlobalTransform::from_translation(position.extend(0.)),
+                    color,
+                    rect: Some(atlas.textures[atlas_info.glyph_index]),
+                    custom_size: None,
+                    image_handle_id: atlas.texture.id(),
+                    flip_x: false,
+                    flip_y: false,
+                    anchor: Anchor::Center.as_vec(),
+                },
+            ));
         }
     }
+    *previous_len = extracted_sprites.len();
+    commands.insert_or_spawn_batch(extracted_sprites);
 }
 
 /// Updates the layout and size information whenever the text or style is changed.

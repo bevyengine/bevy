@@ -167,7 +167,7 @@ where
                         prepare_materials_2d::<M>
                             .in_set(RenderSet::Prepare)
                             .after(PrepareAssetSet::PreAssetPrepare),
-                        queue_material2d_meshes::<M>.in_set(RenderSet::Queue),
+                        queue_material2d_meshes::<M>.in_set(RenderSet::QueueMeshes),
                     ),
                 );
         }
@@ -415,7 +415,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                             // camera. As such we can just use mesh_z as the distance
                             sort_key: FloatOrd(mesh_z),
                             // This material is not batched
-                            batch_range: None,
+                            batch_size: 1,
                         });
                     }
                 }
