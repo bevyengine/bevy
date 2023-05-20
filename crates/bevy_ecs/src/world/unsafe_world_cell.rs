@@ -237,11 +237,20 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { self.world_metadata() }.read_change_tick()
     }
 
+    /// Returns the [`Tick`] indicating the last time that [`World::clear_trackers`] was called.
+    ///
+    /// If this `UnsafeWorldCell` was created from inside of an exclusive system (a [`System`] that
+    /// takes `&mut World` as its first parameter), this will instead return the `Tick` indicating
+    /// the last time the system was run.
+    ///
+    /// See [`World::last_change_tick()`].
+    ///
+    /// [`System`]: crate::system::System
     #[inline]
     pub fn last_change_tick(self) -> Tick {
         // SAFETY:
         // - we only access world metadata
-        unsafe { self.world_metadata() }.last_change_tick
+        unsafe { self.world_metadata() }.last_change_tick()
     }
 
     #[inline]

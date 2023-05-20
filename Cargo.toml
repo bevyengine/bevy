@@ -274,7 +274,7 @@ path = "examples/2d/bloom_2d.rs"
 name = "2D Bloom"
 description = "Illustrates bloom post-processing in 2d"
 category = "2D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "move_sprite"
@@ -535,7 +535,7 @@ path = "examples/3d/bloom_3d.rs"
 name = "3D Bloom"
 description = "Illustrates bloom configuration using HDR and emissive materials"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "load_gltf"
