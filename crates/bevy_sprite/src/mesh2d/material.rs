@@ -432,7 +432,7 @@ pub struct PreparedMaterial2d<T: Material2d> {
 }
 
 #[derive(Resource)]
-struct ExtractedMaterials2d<M: Material2d> {
+pub struct ExtractedMaterials2d<M: Material2d> {
     extracted: Vec<(Handle<M>, M)>,
     removed: Vec<Handle<M>>,
 }
@@ -458,7 +458,7 @@ impl<T: Material2d> Default for RenderMaterials2d<T> {
 
 /// This system extracts all created or modified assets of the corresponding [`Material2d`] type
 /// into the "render world".
-fn extract_materials_2d<M: Material2d>(
+pub fn extract_materials_2d<M: Material2d>(
     mut commands: Commands,
     mut events: Extract<EventReader<AssetEvent<M>>>,
     assets: Extract<Res<Assets<M>>>,
@@ -505,7 +505,7 @@ impl<M: Material2d> Default for PrepareNextFrameMaterials<M> {
 
 /// This system prepares all assets of the corresponding [`Material2d`] type
 /// which where extracted this frame for the GPU.
-fn prepare_materials_2d<M: Material2d>(
+pub fn prepare_materials_2d<M: Material2d>(
     mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
     mut extracted_assets: ResMut<ExtractedMaterials2d<M>>,
     mut render_materials: ResMut<RenderMaterials2d<M>>,
