@@ -16,6 +16,7 @@ rust-version = "1.67.0"
 exclude = [
   "benches",
   "crates/bevy_ecs_compile_fail_tests",
+  "crates/bevy_macros_compile_fail_tests",
   "crates/bevy_reflect_compile_fail_tests",
 ]
 members = [
@@ -24,6 +25,7 @@ members = [
   "tools/ci",
   "tools/build-templated-pages",
   "tools/build-wasm-example",
+  "tools/example-showcase",
   "errors",
 ]
 
@@ -150,6 +152,9 @@ dds = ["bevy_internal/dds"]
 # KTX2 compressed texture support
 ktx2 = ["bevy_internal/ktx2"]
 
+# PNM image format support, includes pam, pbm, pgm and ppm
+pnm = ["bevy_internal/pnm"]
+
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
@@ -273,7 +278,7 @@ path = "examples/2d/bloom_2d.rs"
 name = "2D Bloom"
 description = "Illustrates bloom post-processing in 2d"
 category = "2D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "move_sprite"
@@ -534,7 +539,7 @@ path = "examples/3d/bloom_3d.rs"
 name = "3D Bloom"
 description = "Illustrates bloom configuration using HDR and emissive materials"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "load_gltf"
@@ -1677,7 +1682,7 @@ path = "examples/stress_tests/transform_hierarchy.rs"
 name = "Transform Hierarchy"
 description = "Various test cases for hierarchy and transform propagation performance"
 category = "Stress Tests"
-wasm = true
+wasm = false
 
 [[example]]
 name = "text_pipeline"

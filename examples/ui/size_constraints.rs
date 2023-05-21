@@ -123,7 +123,8 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                 .spawn(NodeBundle {
                     style: Style {
                         align_items: AlignItems::Stretch,
-                        size: Size::new(Val::Percent(100.), Val::Px(100.)),
+                        width: Val::Percent(100.),
+                        height: Val::Px(100.),
                         padding: UiRect::all(Val::Px(4.)),
                         ..Default::default()
                     },
@@ -181,8 +182,8 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                min_size: Size::width(Val::Px(200.)),
-                                max_size: Size::width(Val::Px(200.)),
+                                min_width: Val::Px(200.),
+                                max_width: Val::Px(200.),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 ..Default::default()
@@ -259,7 +260,7 @@ fn spawn_button(
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::width(Val::Px(100.)),
+                        width: Val::Px(100.),
                         justify_content: JustifyContent::Center,
                         ..Default::default()
                     },
@@ -311,13 +312,13 @@ fn update_buttons(
                         style.flex_basis = value.0;
                     }
                     Constraint::Width => {
-                        style.size.width = value.0;
+                        style.width = value.0;
                     }
                     Constraint::MinWidth => {
-                        style.min_size.width = value.0;
+                        style.min_width = value.0;
                     }
                     Constraint::MaxWidth => {
-                        style.max_size.width = value.0;
+                        style.max_width = value.0;
                     }
                 }
             }

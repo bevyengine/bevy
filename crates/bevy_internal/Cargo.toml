@@ -36,6 +36,7 @@ bmp = ["bevy_render/bmp"]
 webp = ["bevy_render/webp"]
 basis-universal = ["bevy_render/basis-universal"]
 dds = ["bevy_render/dds"]
+pnm = ["bevy_render/pnm"]
 ktx2 = ["bevy_render/ktx2"]
 # For ktx2 supercompression
 zlib = ["bevy_render/zlib"]

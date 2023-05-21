@@ -444,9 +444,9 @@ impl SystemNode {
 #[derive(Default)]
 pub struct ScheduleGraph {
     systems: Vec<SystemNode>,
-    system_conditions: Vec<Option<Vec<BoxedCondition>>>,
+    system_conditions: Vec<Vec<BoxedCondition>>,
     system_sets: Vec<SystemSetNode>,
-    system_set_conditions: Vec<Option<Vec<BoxedCondition>>>,
+    system_set_conditions: Vec<Vec<BoxedCondition>>,
     system_set_ids: HashMap<BoxedSystemSet, NodeId>,
     uninit: Vec<(NodeId, usize)>,
     hierarchy: Dag,
@@ -529,20 +529,17 @@ impl ScheduleGraph {
             .enumerate()
             .filter_map(|(i, (system_node, condition))| {
                 let system = system_node.inner.as_deref()?;
-                let condition = condition.as_ref()?.as_slice();
-                Some((NodeId::System(i), system, condition))
+                Some((NodeId::System(i), system, condition.as_slice()))
             })
     }
 
     /// Returns an iterator over all system sets in this schedule.
     pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, &dyn SystemSet, &[BoxedCondition])> {
-        self.system_set_ids.iter().map(|(_, node_id)| {
+        self.system_set_ids.iter().map(|(_, &node_id)| {
             let set_node = &self.system_sets[node_id.index()];
             let set = &*set_node.inner;
-            let conditions = self.system_set_conditions[node_id.index()]
-                .as_deref()
-                .unwrap_or(&[]);
-            (*node_id, set, conditions)
+            let conditions = self.system_set_conditions[node_id.index()].as_slice();
+            (node_id, set, conditions)
         })
     }
 
@@ -726,7 +723,7 @@ impl ScheduleGraph {
         // system init has to be deferred (need `&mut World`)
         self.uninit.push((id, 0));
         self.systems.push(SystemNode::new(config.system));
-        self.system_conditions.push(Some(config.conditions));
+        self.system_conditions.push(config.conditions);
 
         Ok(id)
     }
@@ -772,8 +769,7 @@ impl ScheduleGraph {
         self.update_graphs(id, graph_info)?;
 
         // system init has to be deferred (need `&mut World`)
-        let system_set_conditions =
-            self.system_set_conditions[id.index()].get_or_insert_with(Vec::new);
+        let system_set_conditions = &mut self.system_set_conditions[id.index()];
         self.uninit.push((id, system_set_conditions.len()));
         system_set_conditions.append(&mut conditions);
 
@@ -783,7 +779,7 @@ impl ScheduleGraph {
     fn add_set(&mut self, set: BoxedSystemSet) -> NodeId {
         let id = NodeId::Set(self.system_sets.len());
         self.system_sets.push(SystemSetNode::new(set.dyn_clone()));
-        self.system_set_conditions.push(None);
+        self.system_set_conditions.push(Vec::new());
         self.system_set_ids.insert(set, id);
         id
     }
@@ -916,17 +912,13 @@ impl ScheduleGraph {
             match id {
                 NodeId::System(index) => {
                     self.systems[index].get_mut().unwrap().initialize(world);
-                    if let Some(v) = self.system_conditions[index].as_mut() {
-                        for condition in v.iter_mut() {
-                            condition.initialize(world);
-                        }
+                    for condition in &mut self.system_conditions[index] {
+                        condition.initialize(world);
                     }
                 }
                 NodeId::Set(index) => {
-                    if let Some(v) = self.system_set_conditions[index].as_mut() {
-                        for condition in v.iter_mut().skip(i) {
-                            condition.initialize(world);
-                        }
+                    for condition in self.system_set_conditions[index].iter_mut().skip(i) {
+                        condition.initialize(world);
                     }
                 }
             }
@@ -1187,11 +1179,7 @@ impl ScheduleGraph {
             .filter(|&(_i, id)| {
                 // ignore system sets that have no conditions
                 // ignore system type sets (already covered, they don't have conditions)
-                id.is_set()
-                    && self.system_set_conditions[id.index()]
-                        .as_ref()
-                        .filter(|v| !v.is_empty())
-                        .is_some()
+                id.is_set() && !self.system_set_conditions[id.index()].is_empty()
             })
             .unzip();
 
@@ -1279,7 +1267,7 @@ impl ScheduleGraph {
             .zip(schedule.system_conditions.drain(..))
         {
             self.systems[id.index()].inner = Some(system);
-            self.system_conditions[id.index()] = Some(conditions);
+            self.system_conditions[id.index()] = conditions;
         }
 
         for (id, conditions) in schedule
@@ -1287,7 +1275,7 @@ impl ScheduleGraph {
             .drain(..)
             .zip(schedule.set_conditions.drain(..))
         {
-            self.system_set_conditions[id.index()] = Some(conditions);
+            self.system_set_conditions[id.index()] = conditions;
         }
 
         *schedule = self.build_schedule(components)?;
@@ -1295,13 +1283,13 @@ impl ScheduleGraph {
         // move systems into new schedule
         for &id in &schedule.system_ids {
             let system = self.systems[id.index()].inner.take().unwrap();
-            let conditions = self.system_conditions[id.index()].take().unwrap();
+            let conditions = std::mem::take(&mut self.system_conditions[id.index()]);
             schedule.systems.push(system);
             schedule.system_conditions.push(conditions);
         }
 
         for &id in &schedule.set_ids {
-            let conditions = self.system_set_conditions[id.index()].take().unwrap();
+            let conditions = std::mem::take(&mut self.system_set_conditions[id.index()]);
             schedule.set_conditions.push(conditions);
         }
 

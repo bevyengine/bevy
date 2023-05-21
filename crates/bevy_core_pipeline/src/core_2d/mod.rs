@@ -27,7 +27,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::Camera,
     extract_component::ExtractComponentPlugin,
-    render_graph::{EmptyNode, RenderGraphApp},
+    render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
         batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
         DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
@@ -65,24 +65,22 @@ impl Plugin for Core2dPlugin {
                 ),
             );
 
-        {
-            use graph::node::*;
-            render_app
-                .add_render_sub_graph(CORE_2D)
-                .add_render_graph_node::<MainPass2dNode>(CORE_2D, MAIN_PASS)
-                .add_render_graph_node::<TonemappingNode>(CORE_2D, TONEMAPPING)
-                .add_render_graph_node::<EmptyNode>(CORE_2D, END_MAIN_PASS_POST_PROCESSING)
-                .add_render_graph_node::<UpscalingNode>(CORE_2D, UPSCALING)
-                .add_render_graph_edges(
-                    CORE_2D,
-                    &[
-                        MAIN_PASS,
-                        TONEMAPPING,
-                        END_MAIN_PASS_POST_PROCESSING,
-                        UPSCALING,
-                    ],
-                );
-        }
+        use graph::node::*;
+        render_app
+            .add_render_sub_graph(CORE_2D)
+            .add_render_graph_node::<MainPass2dNode>(CORE_2D, MAIN_PASS)
+            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(CORE_2D, TONEMAPPING)
+            .add_render_graph_node::<EmptyNode>(CORE_2D, END_MAIN_PASS_POST_PROCESSING)
+            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(CORE_2D, UPSCALING)
+            .add_render_graph_edges(
+                CORE_2D,
+                &[
+                    MAIN_PASS,
+                    TONEMAPPING,
+                    END_MAIN_PASS_POST_PROCESSING,
+                    UPSCALING,
+                ],
+            );
     }
 }
 

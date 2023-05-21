@@ -1,58 +1,35 @@
 use crate::core_3d::Transparent3d;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
     render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ViewDepthTexture, ViewTarget},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-/// A [`Node`] that runs the [`Transparent3d`] [`RenderPhase`].
-pub struct MainTransparentPass3dNode {
-    query: QueryState<
-        (
-            &'static ExtractedCamera,
-            &'static RenderPhase<Transparent3d>,
-            &'static ViewTarget,
-            &'static ViewDepthTexture,
-        ),
-        With<ExtractedView>,
-    >,
-}
+/// A [`bevy_render::render_graph::Node`] that runs the [`Transparent3d`] [`RenderPhase`].
+#[derive(Default)]
+pub struct MainTransparentPass3dNode;
 
-impl FromWorld for MainTransparentPass3dNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            query: world.query_filtered(),
-        }
-    }
-}
-
-impl Node for MainTransparentPass3dNode {
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
-
+impl ViewNode for MainTransparentPass3dNode {
+    type ViewQuery = (
+        &'static ExtractedCamera,
+        &'static RenderPhase<Transparent3d>,
+        &'static ViewTarget,
+        &'static ViewDepthTexture,
+    );
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
+        (camera, transparent_phase, target, depth): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
-        let Ok((
-            camera,
-            transparent_phase,
-            target,
-            depth,
-        )) = self.query.get_manual(world, view_entity) else {
-            // No window
-            return Ok(());
-        };
 
         if !transparent_phase.items.is_empty() {
             // Run the transparent pass, sorted back-to-front
