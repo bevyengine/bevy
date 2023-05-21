@@ -74,7 +74,7 @@ impl URect {
     /// ```
     #[inline]
     pub fn from_center_size(origin: UVec2, size: UVec2) -> Self {
-        assert!(origin.cmpge(size / 2).all(), "Origin must always be greater than or equal to (size / 2) otherwise you end up subtracting with overflow! Origin was {origin} and size was {size}");
+        assert!(origin.cmpge(size / 2).all(), "Origin must always be greater than or equal to (size / 2) otherwise the rectangle is undefined! Origin was {origin} and size was {size}");
         let half_size = size / 2;
         Self::from_center_half_size(origin, half_size)
     }
@@ -95,7 +95,7 @@ impl URect {
     /// ```
     #[inline]
     pub fn from_center_half_size(origin: UVec2, half_size: UVec2) -> Self {
-        assert!(origin.cmpge(half_size).all(), "Origin must always be greater than or equal to half_size otherwise you end up subtracting with overflow! Origin was {origin} and half_size was {half_size}");
+        assert!(origin.cmpge(half_size).all(), "Origin must always be greater than or equal to half_size otherwise the rectangle is undefined! Origin was {origin} and half_size was {half_size}");
         Self {
             min: origin - half_size,
             max: origin + half_size,
@@ -291,6 +291,7 @@ impl URect {
     /// ```
     #[inline]
     pub fn inset(&self, inset: u32) -> Self {
+        assert!(self.min.cmpge(UVec2::splat(inset)).all(), "Inset must be smaller than this rect's min otherwise the rectangle is undefined! Inset was {inset} and this rect's min was {}", self.min);
         let mut r = Self {
             min: self.min - inset,
             max: self.max + inset,
