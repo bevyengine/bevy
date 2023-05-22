@@ -10,6 +10,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity},
     query::{Changed, Without},
+    schedule::IntoSystemConfigs,
     system::{Commands, Query},
     world::Ref,
 };
@@ -149,10 +150,10 @@ impl Plugin for AccessibilityPlugin {
         app.add_systems(
             PostUpdate,
             (
-                calc_bounds.after(bevy_transform::TransformSystem::TransformPropagate), 
-                button_changed, 
-                image_changed, 
-                label_changed
+                calc_bounds.after(bevy_transform::TransformSystem::TransformPropagate),
+                button_changed,
+                image_changed,
+                label_changed,
             ),
         );
     }
