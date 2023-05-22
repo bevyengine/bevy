@@ -6,7 +6,7 @@ use bevy_a11y::{
     accesskit::{NodeBuilder, Rect, Role},
     AccessibilityNode,
 };
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity},
     query::{Changed, Without},
@@ -147,7 +147,7 @@ pub(crate) struct AccessibilityPlugin;
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            Update,
+            PostUpdate,
             (calc_bounds, button_changed, image_changed, label_changed),
         );
     }
