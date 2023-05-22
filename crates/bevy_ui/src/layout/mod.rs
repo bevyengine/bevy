@@ -236,7 +236,7 @@ pub fn ui_layout_system(
         ui_surface.try_remove_measure(entity);
     }
 
-    // update and remove children
+    // remove taffy children corresponding to removed `Children`
     for entity in removed_children.iter() {
         ui_surface.try_remove_children(entity);
     }
@@ -293,6 +293,7 @@ pub fn ui_layout_system(
     // update window children (for now assuming all Nodes live in the primary window)
     ui_surface.set_window_children(primary_window_entity, root_node_query.iter());
 
+    // update children
     for (entity, children) in &children_query {
         if children.is_changed() {
             ui_surface.update_children(entity, &children);
