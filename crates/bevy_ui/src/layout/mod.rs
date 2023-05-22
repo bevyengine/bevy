@@ -169,7 +169,7 @@ pub enum LayoutError {
 }
 
 // Insert new UI nodes into the UI layout
-pub fn insert_new_ui_nodes_system(
+pub fn insert_ui_nodes_system(
     mut ui_surface: ResMut<UiSurface>,
     mut removed_nodes: RemovedComponents<NodeSize>,
     mut node_keys_query: Query<(Entity, &mut Node)>,

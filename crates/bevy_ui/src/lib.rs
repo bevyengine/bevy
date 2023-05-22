@@ -160,7 +160,7 @@ impl Plugin for UiPlugin {
         .add_systems(
             PostUpdate,
             (
-                insert_new_ui_nodes_system
+                insert_ui_nodes_system
                     .in_set(UiSystem::Insert)
                     .before(UiSystem::Layout),
                 ui_layout_system
