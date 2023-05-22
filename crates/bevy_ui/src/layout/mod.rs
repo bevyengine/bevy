@@ -12,7 +12,7 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_log::warn;
+use bevy_log::{warn, info};
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
@@ -98,11 +98,13 @@ impl UiSurface {
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
+        info!("update children {entity:?} -> {children:?}");
         let mut taffy_children = Vec::with_capacity(children.len());
         for child in children {
             if let Some(taffy_node) = self.entity_to_taffy.get(child) {
                 taffy_children.push(*taffy_node);
             } else {
+                warn!("children {entity:?} -> {children:?}");
                 warn!(
                     "Unstyled child in a UI entity hierarchy. You are using an entity \
 without UI components as a child of an entity with UI components, results may be unexpected."
@@ -182,6 +184,7 @@ without UI components as a child of an entity with UI components, results may be
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
+                info!("Removed UI node: {entity:?} -> {node:?}");
                 self.taffy.remove(node).unwrap();
             }
         }
@@ -191,6 +194,7 @@ without UI components as a child of an entity with UI components, results may be
     /// Does not compute the layout geometry, `compute_window_layouts` should be run before using this function.
     pub fn get_layout(&self, entity: Entity) -> Result<&taffy::layout::Layout, LayoutError> {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
+            info!("Get layout node: {entity:?} -> {taffy_node:?}");
             self.taffy
                 .layout(*taffy_node)
                 .map_err(LayoutError::TaffyError)
@@ -237,15 +241,9 @@ pub fn ui_layout_system(
         ui_surface.try_remove_measure(entity);
     }
 
-    // remove and update children
+    // remove children
     for entity in removed_children.iter() {
         ui_surface.try_remove_children(entity);
-    }
-
-    for (entity, children) in &children_query {
-        if children.is_changed() {
-            ui_surface.update_children(entity, &children);
-        }
     }
 
     // assume one window for time being...
@@ -286,10 +284,20 @@ pub fn ui_layout_system(
         for (entity, style) in style_query.iter() {
             ui_surface.upsert_node(entity, &style, &layout_context);
         }
+
+        for (entity, children) in &children_query {
+            ui_surface.update_children(entity, &children);
+        }
     } else {
         for (entity, style) in style_query.iter() {
             if style.is_changed() {
                 ui_surface.upsert_node(entity, &style, &layout_context);
+            }
+        }
+
+        for (entity, children) in &children_query {
+            if children.is_changed() {
+                ui_surface.update_children(entity, &children);
             }
         }
     }
@@ -299,6 +307,9 @@ pub fn ui_layout_system(
             ui_surface.update_measure(entity, measure_func);
         }
     }
+
+    // update children
+    
 
     // update window children (for now assuming all Nodes live in the primary window)
     ui_surface.set_window_children(primary_window_entity, root_node_query.iter());
@@ -335,4 +346,5 @@ pub fn ui_layout_system(
             transform.translation = new_position;
         }
     }
+    debug::print_ui_layout_tree(&ui_surface);
 }
