@@ -264,7 +264,7 @@ pub fn ui_layout_system(
             return;
         };
 
-        let primary_window_modified = window_resize_events
+    let primary_window_modified = window_resize_events
         .iter()
         .any(|resized_window| resized_window.window == primary_window_entity)
         || window_created_events
