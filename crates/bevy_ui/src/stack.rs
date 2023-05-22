@@ -3,7 +3,7 @@
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::prelude::*;
 
-use crate::{NodeSize, ZIndex};
+use crate::{Node, ZIndex};
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -32,8 +32,8 @@ struct StackingContextEntry {
 /// Then flatten that tree into back-to-front ordered `UiStack`.
 pub fn ui_stack_system(
     mut ui_stack: ResMut<UiStack>,
-    root_node_query: Query<Entity, (With<NodeSize>, Without<Parent>)>,
-    zindex_query: Query<&ZIndex, With<NodeSize>>,
+    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    zindex_query: Query<&ZIndex, With<Node>>,
     children_query: Query<&Children>,
 ) {
     // Generate `StackingContext` tree
@@ -59,7 +59,7 @@ pub fn ui_stack_system(
 
 /// Generate z-index based UI node tree
 fn insert_context_hierarchy(
-    zindex_query: &Query<&ZIndex, With<NodeSize>>,
+    zindex_query: &Query<&ZIndex, With<Node>>,
     children_query: &Query<&Children>,
     entity: Entity,
     global_context: &mut StackingContext,
