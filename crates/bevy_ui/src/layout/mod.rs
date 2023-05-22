@@ -236,9 +236,15 @@ pub fn ui_layout_system(
         ui_surface.try_remove_measure(entity);
     }
 
-    // remove taffy children corresponding to removed `Children`
+    // remove and update children
     for entity in removed_children.iter() {
         ui_surface.try_remove_children(entity);
+    }
+
+    for (entity, children) in &children_query {
+        if children.is_changed() {
+            ui_surface.update_children(entity, &children);
+        }
     }
 
     // assume one window for time being...
@@ -292,13 +298,6 @@ pub fn ui_layout_system(
 
     // update window children (for now assuming all Nodes live in the primary window)
     ui_surface.set_window_children(primary_window_entity, root_node_query.iter());
-
-    // update children
-    for (entity, children) in &children_query {
-        if children.is_changed() {
-            ui_surface.update_children(entity, &children);
-        }
-    }
 
     // compute layouts
     ui_surface.compute_window_layouts();
