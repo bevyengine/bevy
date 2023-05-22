@@ -341,5 +341,4 @@ pub fn ui_layout_system(
             transform.translation = new_position;
         }
     }
-    debug::print_ui_layout_tree(&ui_surface);
 }
