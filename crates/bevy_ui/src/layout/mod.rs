@@ -209,6 +209,16 @@ pub fn ui_layout_system(
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut node_transform_query: Query<(&Node, &mut NodeSize, &mut Transform)>,
 ) {
+    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    for entity in removed_content_sizes.iter() {
+        ui_surface.try_remove_measure(entity);
+    }
+
+    // remove children
+    for entity in removed_children.iter() {
+        ui_surface.try_remove_children(entity);
+    }
+
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let (primary_window_entity, logical_to_physical_factor, physical_size) =
@@ -258,11 +268,6 @@ pub fn ui_layout_system(
         }
     }
 
-    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_content_sizes.iter() {
-        ui_surface.try_remove_measure(entity);
-    }
-
     for (node, mut content_size) in measure_query.iter_mut() {
         if let Some(measure_func) = content_size.measure_func.take() {
             ui_surface
@@ -278,10 +283,7 @@ pub fn ui_layout_system(
         root_node_query.iter().map(|node| node.taffy_node),
     );
 
-    // update and remove children
-    for entity in removed_children.iter() {
-        ui_surface.try_remove_children(entity);
-    }
+    // update children
     for (node, children) in &children_query {
         if children.is_changed() {
             ui_surface.update_children(node.taffy_node, &children);
