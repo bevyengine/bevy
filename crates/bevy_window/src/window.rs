@@ -190,7 +190,7 @@ pub struct Window {
     ///
     /// ## Platform-specific
     ///
-    /// - iOS / Android / Web / x11: Unsupported.
+    /// Does nothing on iOS, Android, Web and x11.
     pub preferred_theme: Option<WindowTheme>,
 }
 
