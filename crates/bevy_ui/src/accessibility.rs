@@ -148,7 +148,12 @@ impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            (calc_bounds, button_changed, image_changed, label_changed),
+            (
+                calc_bounds.after(bevy_transform::TransformSystem::TransformPropagate), 
+                button_changed, 
+                image_changed, 
+                label_changed
+            ),
         );
     }
 }
