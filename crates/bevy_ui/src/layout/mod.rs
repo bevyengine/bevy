@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style, UiScale};
+use crate::{ContentSize, Node, NodeSize, Style, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -73,31 +73,8 @@ impl Default for UiSurface {
 }
 
 impl UiSurface {
-    /// Retrieves the taffy node corresponding to given entity exists, or inserts a new taffy node into the layout if no corresponding node exists.
-    /// Then convert the given `Style` and use it update the taffy node's style.
-    pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {
-        let mut added = false;
-        let taffy = &mut self.taffy;
-        let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
-            added = true;
-            taffy.new_leaf(convert::from_style(context, style)).unwrap()
-        });
-
-        if !added {
-            self.taffy
-                .set_style(*taffy_node, convert::from_style(context, style))
-                .unwrap();
-        }
-    }
-
-    /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`].
-    pub fn update_measure(&mut self, entity: Entity, measure_func: taffy::node::MeasureFunc) {
-        let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
-        self.taffy.set_measure(*taffy_node, Some(measure_func)).ok();
-    }
-
     /// Update the children of the taffy node corresponding to the given [`Entity`].
-    pub fn update_children(&mut self, entity: Entity, children: &Children) {
+    pub fn update_children(&mut self, taffy_node: taffy::node::Node, children: &Children) {
         let mut taffy_children = Vec::with_capacity(children.len());
         for child in children {
             if let Some(taffy_node) = self.entity_to_taffy.get(child) {
@@ -110,9 +87,8 @@ without UI components as a child of an entity with UI components, results may be
             }
         }
 
-        let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
         self.taffy
-            .set_children(*taffy_node, &taffy_children)
+            .set_children(taffy_node, &taffy_children)
             .unwrap();
     }
 
@@ -160,12 +136,10 @@ without UI components as a child of an entity with UI components, results may be
     pub fn set_window_children(
         &mut self,
         parent_window: Entity,
-        children: impl Iterator<Item = Entity>,
+        children: impl Iterator<Item = taffy::node::Node>,
     ) {
         let taffy_node = self.window_nodes.get(&parent_window).unwrap();
-        let child_nodes = children
-            .map(|e| *self.entity_to_taffy.get(&e).unwrap())
-            .collect::<Vec<taffy::node::Node>>();
+        let child_nodes = children.collect::<Vec<taffy::node::Node>>();
         self.taffy.set_children(*taffy_node, &child_nodes).unwrap();
     }
 
@@ -186,28 +160,32 @@ without UI components as a child of an entity with UI components, results may be
             }
         }
     }
-
-    /// Get the layout geometry for the taffy node corresponding to the ui node [`Entity`].
-    /// Does not compute the layout geometry, `compute_window_layouts` should be run before using this function.
-    pub fn get_layout(&self, entity: Entity) -> Result<&taffy::layout::Layout, LayoutError> {
-        if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
-            self.taffy
-                .layout(*taffy_node)
-                .map_err(LayoutError::TaffyError)
-        } else {
-            warn!(
-                "Styled child in a non-UI entity hierarchy. You are using an entity \
-with UI components as a child of an entity without UI components, results may be unexpected."
-            );
-            Err(LayoutError::InvalidHierarchy)
-        }
-    }
 }
 
 #[derive(Debug)]
 pub enum LayoutError {
     InvalidHierarchy,
     TaffyError(taffy::error::TaffyError),
+}
+
+// Insert new UI nodes into the UI layout
+pub fn insert_new_ui_nodes_system(
+    mut ui_surface: ResMut<UiSurface>,
+    mut node_keys_query: Query<(Entity, &mut Node)>,
+) {
+    for (entity, mut node) in node_keys_query.iter_mut() {
+        // Users can only instantiate `Node` components containing a null key
+        if node.is_null() {
+            node.taffy_key = ui_surface
+                .taffy
+                .new_leaf(taffy::style::Style::default())
+                .unwrap();
+            if let Some(replaced_node) = ui_surface.entity_to_taffy.insert(entity, node.taffy_key) {
+                // If the user has replaced the `Node` component of a UI node entity that already has an associated taffy node, the old taffy node must be removed.
+                ui_surface.taffy.remove(replaced_node).unwrap();
+            }
+        }
+    }
 }
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
@@ -219,14 +197,14 @@ pub fn ui_layout_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    style_query: Query<(Entity, Ref<Style>), With<Node>>,
-    mut measure_query: Query<(Entity, &mut ContentSize)>,
-    children_query: Query<(Entity, Ref<Children>), With<Node>>,
+    root_node_query: Query<&Node, Without<Parent>>,
+    style_query: Query<(&Node, Ref<Style>)>,
+    mut measure_query: Query<(&Node, &mut ContentSize)>,
+    children_query: Query<(&Node, Ref<Children>)>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
-    mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
-    mut removed_nodes: RemovedComponents<Node>,
+    mut node_transform_query: Query<(&Node, &mut NodeSize, &mut Transform)>,
+    mut removed_nodes: RemovedComponents<NodeSize>,
 ) {
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -260,20 +238,29 @@ pub fn ui_layout_system(
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
         scale_factor_events.clear();
         // update all nodes
-        for (entity, style) in style_query.iter() {
-            ui_surface.upsert_node(entity, &style, &layout_context);
+        for (node, style) in style_query.iter() {
+            ui_surface
+                .taffy
+                .set_style(node.taffy_key, convert::from_style(&layout_context, &style))
+                .unwrap();
         }
     } else {
-        for (entity, style) in style_query.iter() {
+        for (node, style) in style_query.iter() {
             if style.is_changed() {
-                ui_surface.upsert_node(entity, &style, &layout_context);
+                ui_surface
+                    .taffy
+                    .set_style(node.taffy_key, convert::from_style(&layout_context, &style))
+                    .unwrap();
             }
         }
     }
 
-    for (entity, mut content_size) in measure_query.iter_mut() {
+    for (node, mut content_size) in measure_query.iter_mut() {
         if let Some(measure_func) = content_size.measure_func.take() {
-            ui_surface.update_measure(entity, measure_func);
+            ui_surface
+                .taffy
+                .set_measure(node.taffy_key, Some(measure_func))
+                .ok();
         }
     }
 
@@ -286,15 +273,18 @@ pub fn ui_layout_system(
     }
 
     // update window children (for now assuming all Nodes live in the primary window)
-    ui_surface.set_window_children(primary_window_entity, root_node_query.iter());
+    ui_surface.set_window_children(
+        primary_window_entity,
+        root_node_query.iter().map(|node| node.taffy_key),
+    );
 
     // update and remove children
     for entity in removed_children.iter() {
         ui_surface.try_remove_children(entity);
     }
-    for (entity, children) in &children_query {
+    for (node, children) in &children_query {
         if children.is_changed() {
-            ui_surface.update_children(entity, &children);
+            ui_surface.update_children(node.taffy_key, &children);
         }
     }
 
@@ -305,22 +295,27 @@ pub fn ui_layout_system(
 
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
+    let taffy_window = ui_surface.window_nodes.get(&primary_window_entity).unwrap();
+
     // PERF: try doing this incrementally
-    for (entity, mut node, mut transform, parent) in &mut node_transform_query {
-        let layout = ui_surface.get_layout(entity).unwrap();
+    for (node, mut node_size, mut transform) in &mut node_transform_query {
+        let layout = ui_surface.taffy.layout(node.taffy_key).unwrap();
         let new_size = Vec2::new(
             to_logical(layout.size.width),
             to_logical(layout.size.height),
         );
         // only trigger change detection when the new value is different
-        if node.calculated_size != new_size {
-            node.calculated_size = new_size;
+        if node_size.calculated_size != new_size {
+            node_size.calculated_size = new_size;
         }
         let mut new_position = transform.translation;
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
-        if let Some(parent) = parent {
-            if let Ok(parent_layout) = ui_surface.get_layout(**parent) {
+
+        let taffy_parent =
+            taffy::tree::LayoutTree::parent(&ui_surface.taffy, node.taffy_key).unwrap();
+        if taffy_parent != *taffy_window {
+            if let Ok(parent_layout) = ui_surface.taffy.layout(taffy_parent) {
                 new_position.x -= to_logical(parent_layout.size.width / 2.0);
                 new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }

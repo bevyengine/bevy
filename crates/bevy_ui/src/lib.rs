@@ -55,7 +55,9 @@ pub struct UiPlugin;
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum UiSystem {
-    /// After this label, the ui layout state has been updated
+    /// After this label, new UI nodes have been inserted
+    Insert,
+    /// After this label, the UI layout state has been updated
     Layout,
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
@@ -102,7 +104,7 @@ impl Plugin for UiPlugin {
             .register_type::<JustifyContent>()
             .register_type::<JustifyItems>()
             .register_type::<JustifySelf>()
-            .register_type::<Node>()
+            .register_type::<NodeSize>()
             .register_type::<ZIndex>()
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
@@ -158,6 +160,9 @@ impl Plugin for UiPlugin {
         .add_systems(
             PostUpdate,
             (
+                insert_new_ui_nodes_system
+                    .in_set(UiSystem::Insert)
+                    .before(UiSystem::Layout),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),

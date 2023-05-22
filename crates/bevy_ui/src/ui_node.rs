@@ -14,16 +14,45 @@ use smallvec::SmallVec;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
+/// Used internally to lookup a UI node's corresponding entry in the UI's layout tree.
+///
+/// UI nodes must have this component
+#[derive(Component, Debug, Default)]
+pub struct Node {
+    // Indentifier for the Taffy node in the Taffy layout tree stored in [`crate::layout::UiSurface`] that corresponds to the UI node entity with this component.
+    //
+    // Users can only instantiate null nodes, the keys are managed internally by the UI's layout systems.
+    pub(crate) taffy_key: taffy::node::Node,
+}
+
+impl Node {
+    // Returns true if this taffy key is null.
+    // A UI node entity with a null `taffy_node` value has not been added to the layout tree.
+    #[inline]
+    pub(crate) fn is_null(&self) -> bool {
+        // The default value for `taffy::node::Node` is null
+        self.taffy_key == taffy::node::Node::default()
+    }
+}
+
+impl Clone for Node {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
 /// Describes the size of a UI node
+///
+/// All UI nodes must have this component.
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
-pub struct Node {
+pub struct NodeSize {
     /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
 }
 
-impl Node {
+impl NodeSize {
     /// The calculated node size as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub const fn size(&self) -> Vec2 {
@@ -62,13 +91,13 @@ impl Node {
     }
 }
 
-impl Node {
+impl NodeSize {
     pub const DEFAULT: Self = Self {
         calculated_size: Vec2::ZERO,
     };
 }
 
-impl Default for Node {
+impl Default for NodeSize {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -278,6 +307,8 @@ impl Val {
 }
 
 /// Describes the style of a UI container node
+///
+/// All UI nodes must have this component
 ///
 /// Node's can be laid out using either Flexbox or CSS Grid Layout.<br />
 /// See below for general learning resources and for documentation on the individual style properties.
