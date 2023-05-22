@@ -22,7 +22,7 @@ pub struct Node {
     // Indentifier for the Taffy node in the Taffy layout tree stored in [`crate::layout::UiSurface`] that corresponds to the UI node entity with this component.
     //
     // Users can only instantiate null nodes, the keys are managed internally by the UI's layout systems.
-    pub(crate) taffy_key: taffy::node::Node,
+    pub(crate) taffy_node: taffy::node::Node,
 }
 
 impl Node {
@@ -31,7 +31,7 @@ impl Node {
     #[inline]
     pub(crate) fn is_null(&self) -> bool {
         // The default value for `taffy::node::Node` is null
-        self.taffy_key == taffy::node::Node::default()
+        self.taffy_node == taffy::node::Node::default()
     }
 }
 
