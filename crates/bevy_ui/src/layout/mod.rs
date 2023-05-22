@@ -288,7 +288,7 @@ pub fn ui_layout_system(
         if let Some(measure_func) = content_size.measure_func.take() {
             ui_surface.update_measure(entity, measure_func);
         }
-    }        
+    }
 
     // update window children (for now assuming all Nodes live in the primary window)
     ui_surface.set_window_children(primary_window_entity, root_node_query.iter());
