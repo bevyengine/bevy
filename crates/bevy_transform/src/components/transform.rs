@@ -349,7 +349,7 @@ impl Transform {
     /// and [`Transform::up`] points towards `up`.
     ///
     /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
-    /// * if `direction` is zero, `Vec3::Z` is used instead
+    /// * if `direction` is zero, `Vec3::NEG_Z` is used instead
     /// * if `up` is zero, `Vec3::Y` is used instead
     /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
