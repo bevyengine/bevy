@@ -304,8 +304,6 @@ pub fn ui_layout_system(
         }
     }
 
-    // update children
-
     // update window children (for now assuming all Nodes live in the primary window)
     ui_surface.set_window_children(primary_window_entity, root_node_query.iter());
 
