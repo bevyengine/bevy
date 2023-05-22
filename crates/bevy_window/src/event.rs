@@ -293,7 +293,7 @@ pub struct WindowMoved {
     pub position: IVec2,
 }
 
-/// An event that is sent when system changed window theme.
+/// An event sent when system changed window theme.
 ///
 /// This event is only sent when the window is relying on the system theme to control its appearance.
 /// i.e. It is only sent when [`Window::preferred_theme`](crate::window::Window::preferred_theme) is `None` and the system theme changes.
