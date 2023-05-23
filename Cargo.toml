@@ -1510,6 +1510,7 @@ wasm = true
 [[example]]
 name = "shader_material_glsl"
 path = "examples/shader/shader_material_glsl.rs"
+required-features = ["shader_format_glsl"]
 
 [package.metadata.example.shader_material_glsl]
 name = "Material - GLSL"
