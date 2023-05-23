@@ -10,7 +10,7 @@ use bevy_a11y::{
     accesskit::{ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, Role, TreeUpdate},
     AccessKitEntityExt, AccessibilityNode, AccessibilityRequested, Focus,
 };
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
@@ -166,7 +166,7 @@ impl Plugin for AccessibilityPlugin {
             .init_resource::<WinitActionHandlers>()
             .add_event::<ActionRequest>()
             .add_systems(
-                Update,
+                PostUpdate,
                 (
                     handle_window_focus,
                     window_closed,
