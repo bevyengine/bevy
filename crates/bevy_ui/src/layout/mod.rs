@@ -44,7 +44,7 @@ pub struct UiSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
     window_nodes: HashMap<Entity, taffy::node::Node>,
     taffy: Taffy,
-    needs_update: bool,
+    layout_updated: bool,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
@@ -69,14 +69,15 @@ impl Default for UiSurface {
             entity_to_taffy: Default::default(),
             window_nodes: Default::default(),
             taffy: Taffy::new(),
-            needs_update: false,
+            layout_updated: false,
         }
     }
 }
 
 impl UiSurface {
-    pub fn needs_update(&self) -> bool {
-        self.needs_update
+    /// Returns true if the UI layout was updated by `ui_layout_system` the last time it ran.
+    pub fn layout_updated(&self) -> bool {
+        self.layout_updated
     }
 
     /// Retrieves the taffy node corresponding to given entity exists, or inserts a new taffy node into the layout if no corresponding node exists.
@@ -198,7 +199,7 @@ without UI components as a child of an entity with UI components, results may be
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
                 self.taffy.remove(node).unwrap();
-                self.needs_update = true;
+                self.layout_updated = true;
             }
         }
     }
@@ -245,7 +246,7 @@ pub fn ui_layout_system(
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
-    ui_surface.needs_update = false;
+    ui_surface.layout_updated = false;
 
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -276,14 +277,14 @@ pub fn ui_layout_system(
 
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || primary_window_modified {
         scale_factor_events.clear();
-        ui_surface.needs_update = true;
+        ui_surface.layout_updated = true;
         for (entity, style) in style_query.iter() {
             ui_surface.upsert_node(entity, &style, &layout_context);
         }
     } else {
         for (entity, style) in style_query.iter() {
             if style.is_changed() {
-                ui_surface.needs_update = true;
+                ui_surface.layout_updated = true;
                 ui_surface.upsert_node(entity, &style, &layout_context);
             }
         }
@@ -291,7 +292,7 @@ pub fn ui_layout_system(
 
     for (entity, mut content_size) in measure_query.iter_mut() {
         if let Some(measure_func) = content_size.measure_func.take() {
-            ui_surface.needs_update = true;
+            ui_surface.layout_updated = true;
             ui_surface.update_measure(entity, measure_func);
         }
     }
@@ -304,7 +305,7 @@ pub fn ui_layout_system(
     }
 
     // update window children (for now assuming all Nodes live in the primary window)
-    ui_surface.needs_update |= ui_surface
+    ui_surface.layout_updated |= ui_surface
         .set_window_children(primary_window_entity, root_node_query.iter())
         && !removed_content_sizes.is_empty();
 
@@ -318,16 +319,16 @@ pub fn ui_layout_system(
 
     // update and remove children
     for entity in removed_children.iter() {
-        ui_surface.needs_update |= ui_surface.try_remove_children(entity);
+        ui_surface.layout_updated |= ui_surface.try_remove_children(entity);
     }
     for (entity, children) in &children_query {
         if children.is_changed() {
-            ui_surface.needs_update = true;
+            ui_surface.layout_updated = true;
             ui_surface.update_children(entity, &children);
         }
     }
 
-    if ui_surface.needs_update {
+    if ui_surface.layout_updated {
         // compute layouts
         ui_surface.compute_window_layouts();
 

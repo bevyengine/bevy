@@ -143,7 +143,7 @@ impl Plugin for UiPlugin {
         );
         #[cfg(feature = "bevy_text")]
         app.add_plugin(accessibility::AccessibilityPlugin);
-        app.add_systems(PostUpdate, {
+        app.add_systems(PostUpdate, { 
             let system = widget::update_image_content_size_system.before(UiSystem::Layout);
             // Potential conflicts: `Assets<Image>`
             // They run independently since `widget::image_node_system` will only ever observe
@@ -163,11 +163,11 @@ impl Plugin for UiPlugin {
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
                 ui_stack_system
-                    .run_if(|ui_surface: Res<UiSurface>| ui_surface.needs_update())
+                    .run_if(|ui_surface: Res<UiSurface>| ui_surface.layout_updated())
                     .after(UiSystem::Layout)
                     .in_set(UiSystem::Stack),
                 update_clipping_system
-                    .run_if(|ui_surface: Res<UiSurface>| ui_surface.needs_update())
+                    .run_if(|ui_surface: Res<UiSurface>| ui_surface.layout_updated())
                     .after(TransformSystem::TransformPropagate),
             ),
         );
