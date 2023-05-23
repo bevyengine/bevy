@@ -400,7 +400,10 @@ fn toggle_tonemapping_method(
         *method = Tonemapping::BlenderFilmic;
     }
 
-    *color_grading = *per_method_settings.settings.get(&method).unwrap();
+    *color_grading = *per_method_settings
+        .settings
+        .get::<Tonemapping>(&method)
+        .unwrap();
 }
 
 #[derive(Resource)]
