@@ -22,6 +22,7 @@ use bevy_app::{PluginGroup, PluginGroupBuilder};
 /// * [`SpritePlugin`](crate::sprite::SpritePlugin) - with feature `bevy_sprite`
 /// * [`TextPlugin`](crate::text::TextPlugin) - with feature `bevy_text`
 /// * [`UiPlugin`](crate::ui::UiPlugin) - with feature `bevy_ui`
+/// * [`WidgetPlugin`](crate::widget::WidgetPlugin) - with feature `bevy_widget`
 /// * [`PbrPlugin`](crate::pbr::PbrPlugin) - with feature `bevy_pbr`
 /// * [`GltfPlugin`](crate::gltf::GltfPlugin) - with feature `bevy_gltf`
 /// * [`AudioPlugin`](crate::audio::AudioPlugin) - with feature `bevy_audio`
@@ -106,6 +107,11 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "bevy_ui")]
         {
             group = group.add(bevy_ui::UiPlugin::default());
+        }
+
+        #[cfg(feature = "bevy_widget")]
+        {
+            group = group.add(bevy_widget::WidgetPlugin::default());
         }
 
         #[cfg(feature = "bevy_pbr")]

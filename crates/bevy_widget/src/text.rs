@@ -1,20 +1,29 @@
-use crate::{ContentSize, Measure, Node, UiScale};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::Assets;
 use bevy_ecs::{
-    prelude::{Component, DetectChanges},
+    prelude::{Bundle, Component, DetectChanges, ReflectComponent},
     query::With,
-    reflect::ReflectComponent,
+    schedule::IntoSystemConfigs,
     system::{Local, Query, Res, ResMut},
     world::{Mut, Ref},
 };
 use bevy_math::Vec2;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
-use bevy_text::{
-    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextSettings, YAxisOrientation,
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::{
+    camera::CameraUpdateSystem,
+    prelude::Color,
+    texture::Image,
+    view::{ComputedVisibility, Visibility},
 };
+use bevy_sprite::TextureAtlas;
+#[cfg(feature = "bevy_text")]
+use bevy_text::{
+    Font, FontAtlasSet, FontAtlasWarning, Text, TextAlignment, TextError, TextLayoutInfo,
+    TextMeasureInfo, TextPipeline, TextSection, TextSettings, TextStyle, YAxisOrientation,
+};
+use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_ui::{BackgroundColor, ContentSize, Measure, Node, UiScale};
+use bevy_ui::{FocusPolicy, Style, UiSystem, ZIndex};
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
 
@@ -274,5 +283,130 @@ pub fn text_system(
                 text_layout_info,
             );
         }
+    }
+}
+
+/// A plugin for adding text rendering
+#[derive(Default)]
+pub struct TextPlugin;
+
+impl Plugin for TextPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            PostUpdate,
+            (
+                measure_text_system
+                    .before(UiSystem::Layout)
+                    // Potential conflict: `Assets<Image>`
+                    // In practice, they run independently since `bevy_render::camera_update_system`
+                    // will only ever observe its own render target, and `widget::measure_text_system`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(CameraUpdateSystem)
+                    // Potential conflict: `Assets<Image>`
+                    // Since both systems will only ever insert new [`Image`] assets,
+                    // they will never observe each other's effects.
+                    .ambiguous_with(bevy_text::update_text2d_layout),
+                text_system.after(UiSystem::Layout),
+            ),
+        );
+    }
+}
+
+/// A UI node that is text
+#[derive(Bundle, Debug)]
+pub struct TextBundle {
+    /// Describes the logical size of the node
+    pub node: Node,
+    /// Styles which control the layout (size and position) of the node and it's children
+    /// In some cases these styles also affect how the node drawn/painted.
+    pub style: Style,
+    /// Contains the text of the node
+    pub text: Text,
+    /// Text layout information
+    pub text_layout_info: TextLayoutInfo,
+    /// Text system flags
+    pub text_flags: TextFlags,
+    /// The calculated size based on the given image
+    pub calculated_size: ContentSize,
+    /// Whether this node should block interaction with lower nodes
+    pub focus_policy: FocusPolicy,
+    /// The transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub transform: Transform,
+    /// The global transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
+    /// The background color that will fill the containing node
+    pub background_color: BackgroundColor,
+}
+
+impl Default for TextBundle {
+    fn default() -> Self {
+        Self {
+            text: Default::default(),
+            text_layout_info: Default::default(),
+            text_flags: Default::default(),
+            calculated_size: Default::default(),
+            // Transparent background
+            background_color: BackgroundColor(Color::NONE),
+            node: Default::default(),
+            style: Default::default(),
+            focus_policy: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+            z_index: Default::default(),
+        }
+    }
+}
+
+impl TextBundle {
+    /// Create a [`TextBundle`] from a single section.
+    ///
+    /// See [`Text::from_section`] for usage.
+    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
+        Self {
+            text: Text::from_section(value, style),
+            ..Default::default()
+        }
+    }
+
+    /// Create a [`TextBundle`] from a list of sections.
+    ///
+    /// See [`Text::from_sections`] for usage.
+    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
+        Self {
+            text: Text::from_sections(sections),
+            ..Default::default()
+        }
+    }
+
+    /// Returns this [`TextBundle`] with a new [`TextAlignment`] on [`Text`].
+    pub const fn with_text_alignment(mut self, alignment: TextAlignment) -> Self {
+        self.text.alignment = alignment;
+        self
+    }
+
+    /// Returns this [`TextBundle`] with a new [`Style`].
+    pub fn with_style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// Returns this [`TextBundle`] with a new [`BackgroundColor`].
+    pub const fn with_background_color(mut self, color: Color) -> Self {
+        self.background_color = BackgroundColor(color);
+        self
     }
 }

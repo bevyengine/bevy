@@ -56,6 +56,7 @@ git checkout v0.4.0
   - [Tools](#tools)
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
+  - [Widget](#widget)
   - [Window](#window)
 
 - [Tests](#tests)
@@ -335,7 +336,6 @@ Example | Description
 
 Example | Description
 --- | ---
-[Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
@@ -343,14 +343,21 @@ Example | Description
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
-[Text](../examples/ui/text.rs) | Illustrates creating and updating text
-[Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
-[Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
+
+## Widget
+
+Example | Description
+--- | ---
+[Button](../examples/widget/button.rs) | Illustrates creating and updating a button
+[Text](../examples/widget/text.rs) | Illustrates creating and updating text
+[Text Debug](../examples/widget/text_debug.rs) | An example for debugging text layout
+[Text Layout](../examples/widget/text_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text
+[Text Wrap Debug](../examples/widget/text_wrap_debug.rs) | Demonstrates text wrapping
 
 ## Window
 

@@ -44,6 +44,7 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "bevy_widget",
   "png",
   "hdr",
   "ktx2",
@@ -99,6 +100,9 @@ bevy_text = ["bevy_internal/bevy_text"]
 
 # A custom ECS-driven UI framework
 bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite"]
+
+# A collection of widgets built on top of bevy_ui
+bevy_widget = ["bevy_internal/bevy_widget"]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
@@ -1763,16 +1767,6 @@ wasm = true
 
 # UI (User Interface)
 [[example]]
-name = "button"
-path = "examples/ui/button.rs"
-
-[package.metadata.example.button]
-name = "Button"
-description = "Illustrates creating and updating a button"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
 name = "window_fallthrough"
 path = "examples/ui/window_fallthrough.rs"
 
@@ -1833,42 +1827,12 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "text"
-path = "examples/ui/text.rs"
-
-[package.metadata.example.text]
-name = "Text"
-description = "Illustrates creating and updating text"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
-name = "text_debug"
-path = "examples/ui/text_debug.rs"
-
-[package.metadata.example.text_debug]
-name = "Text Debug"
-description = "An example for debugging text layout"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
 name = "flex_layout"
 path = "examples/ui/flex_layout.rs"
 
 [package.metadata.example.flex_layout]
 name = "Flex Layout"
 description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
-name = "text_wrap_debug"
-path = "examples/ui/text_wrap_debug.rs"
-
-[package.metadata.example.text_wrap_debug]
-name = "Text Wrap Debug"
-description = "Demonstrates text wrapping"
 category = "UI (User Interface)"
 wasm = true
 
@@ -1922,6 +1886,57 @@ name = "UI Scaling"
 description = "Illustrates how to scale the UI"
 category = "UI (User Interface)"
 wasm = true
+
+# Widget
+[[example]]
+name = "button"
+path = "examples/widget/button.rs"
+
+[package.metadata.example.button]
+name = "Button"
+description = "Illustrates creating and updating a button"
+category = "Widget"
+wasm = true
+
+[[example]]
+name = "text"
+path = "examples/widget/text.rs"
+
+[package.metadata.example.text]
+name = "Text"
+description = "Illustrates creating and updating text"
+category = "Widget"
+wasm = true
+
+[[example]]
+name = "text_debug"
+path = "examples/widget/text_debug.rs"
+
+[package.metadata.example.text_debug]
+name = "Text Debug"
+description = "An example for debugging text layout"
+category = "Widget"
+wasm = true
+
+[[example]]
+name = "text_wrap_debug"
+path = "examples/widget/text_wrap_debug.rs"
+
+[package.metadata.example.text_wrap_debug]
+name = "Text Wrap Debug"
+description = "Demonstrates text wrapping"
+category = "Widget"
+wasm = true
+
+[[example]]
+name = "text_layout"
+path = "examples/widget/text_layout.rs"
+
+[package.metadata.example.text_layout]
+name = "Text Layout"
+description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text"
+category = "Widget"
+wasm = false
 
 # Window
 [[example]]

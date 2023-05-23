@@ -96,7 +96,7 @@ android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
 # screen readers and forks.)
 accesskit_unix = ["bevy_winit/accesskit_unix"]
 
-bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
+bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text", "bevy_widget?/bevy_text"]
 
 bevy_render = ["dep:bevy_render", "bevy_scene?/bevy_render"]
 # Enable assertions to check the validity of parameters passed to glam
@@ -136,6 +136,7 @@ bevy_scene = { path = "../bevy_scene", optional = true, version = "0.11.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.11.0-dev" }
 bevy_text = { path = "../bevy_text", optional = true, version = "0.11.0-dev" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.11.0-dev" }
+bevy_widget = { path = "../bevy_widget", optional = true, version = "0.11.0-dev" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.11.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.11.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.11.0-dev", default-features = false }

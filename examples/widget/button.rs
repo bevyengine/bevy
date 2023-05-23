@@ -1,7 +1,8 @@
 //! This example illustrates how to create a button that changes color and text based on its
 //! interaction state.
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::prelude::*;
+use bevy_internal::winit::WinitSettings;
 
 fn main() {
     App::new()

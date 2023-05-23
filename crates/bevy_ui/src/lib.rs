@@ -17,25 +17,24 @@ pub mod camera_config;
 pub mod measurement;
 pub mod node_bundles;
 pub mod update;
-pub mod widget;
 
 #[cfg(feature = "bevy_text")]
-use bevy_render::camera::CameraUpdateSystem;
 use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
+use bevy_transform::TransformSystem;
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
+use stack::ui_stack_system;
 pub use ui_node::*;
-use widget::UiImageSize;
+use update::update_clipping_system;
 
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, widget::Label,
-        Interaction, UiScale,
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, Interaction, UiScale,
     };
 }
 
@@ -43,10 +42,7 @@ use crate::prelude::UiCameraConfig;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_transform::TransformSystem;
-use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::update_clipping_system;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -113,58 +109,21 @@ impl Plugin for UiPlugin {
             .register_type::<Style>()
             .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
-            .register_type::<UiImageSize>()
             .register_type::<Val>()
-            .register_type::<widget::Button>()
-            .register_type::<widget::Label>()
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+            )
+            .add_systems(
+                PostUpdate,
+                (
+                    ui_layout_system
+                        .in_set(UiSystem::Layout)
+                        .before(TransformSystem::TransformPropagate),
+                    ui_stack_system.in_set(UiSystem::Stack),
+                    update_clipping_system.after(TransformSystem::TransformPropagate),
+                ),
             );
-        // add these systems to front because these must run before transform update systems
-        #[cfg(feature = "bevy_text")]
-        app.add_systems(
-            PostUpdate,
-            (
-                widget::measure_text_system
-                    .before(UiSystem::Layout)
-                    // Potential conflict: `Assets<Image>`
-                    // In practice, they run independently since `bevy_render::camera_update_system`
-                    // will only ever observe its own render target, and `widget::measure_text_system`
-                    // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(CameraUpdateSystem)
-                    // Potential conflict: `Assets<Image>`
-                    // Since both systems will only ever insert new [`Image`] assets,
-                    // they will never observe each other's effects.
-                    .ambiguous_with(bevy_text::update_text2d_layout),
-                widget::text_system.after(UiSystem::Layout),
-            ),
-        );
-        #[cfg(feature = "bevy_text")]
-        app.add_plugin(accessibility::AccessibilityPlugin);
-        app.add_systems(PostUpdate, {
-            let system = widget::update_image_content_size_system.before(UiSystem::Layout);
-            // Potential conflicts: `Assets<Image>`
-            // They run independently since `widget::image_node_system` will only ever observe
-            // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
-            // will never modify a pre-existing `Image` asset.
-            #[cfg(feature = "bevy_text")]
-            let system = system
-                .ambiguous_with(bevy_text::update_text2d_layout)
-                .ambiguous_with(widget::text_system);
-
-            system
-        })
-        .add_systems(
-            PostUpdate,
-            (
-                ui_layout_system
-                    .in_set(UiSystem::Layout)
-                    .before(TransformSystem::TransformPropagate),
-                ui_stack_system.in_set(UiSystem::Stack),
-                update_clipping_system.after(TransformSystem::TransformPropagate),
-            ),
-        );
 
         crate::render::build_ui_render(app);
     }
