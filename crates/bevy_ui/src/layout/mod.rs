@@ -181,10 +181,11 @@ pub fn insert_ui_nodes_system(
         // Users can only instantiate `Node` components containing a null key
         if node.is_null() {
             node.taffy_node = ui_surface
-                    .taffy
-                    .new_leaf(taffy::style::Style::default())
-                    .unwrap();
-            if let Some(old_taffy_node) = ui_surface.entity_to_taffy.insert(entity, node.taffy_node) {
+                .taffy
+                .new_leaf(taffy::style::Style::default())
+                .unwrap();
+            if let Some(old_taffy_node) = ui_surface.entity_to_taffy.insert(entity, node.taffy_node)
+            {
                 ui_surface.taffy.remove(old_taffy_node).unwrap();
             }
         }
@@ -244,11 +245,9 @@ pub fn ui_layout_system(
 
     let window_changed = window_resized_events
         .iter()
-        .any(|resized_window| resized_window.window == primary_window_entity)
-        ||
-        window_created_events
-        .iter()
-        .any(|created_window| created_window.window == primary_window_entity);
+        .map(|resized| resized.window)
+        .chain(window_created_events.iter().map(|created| created.window))
+        .any(|window| window == primary_window_entity);
 
     // update window root nodes
     for (entity, window) in windows.iter() {
@@ -265,7 +264,10 @@ pub fn ui_layout_system(
         for (node, style) in style_query.iter() {
             ui_surface
                 .taffy
-                .set_style(node.taffy_node, convert::from_style(&layout_context, &style))
+                .set_style(
+                    node.taffy_node,
+                    convert::from_style(&layout_context, &style),
+                )
                 .unwrap();
         }
     } else {
@@ -273,7 +275,10 @@ pub fn ui_layout_system(
             if style.is_changed() {
                 ui_surface
                     .taffy
-                    .set_style(node.taffy_node, convert::from_style(&layout_context, &style))
+                    .set_style(
+                        node.taffy_node,
+                        convert::from_style(&layout_context, &style),
+                    )
                     .unwrap();
             }
         }
