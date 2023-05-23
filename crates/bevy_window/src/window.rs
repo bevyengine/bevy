@@ -190,7 +190,7 @@ pub struct Window {
     ///
     /// ## Platform-specific
     ///
-    /// Does nothing on iOS, Android, Web and x11.
+    /// Ignored on iOS, Android, and Web.
     pub preferred_theme: Option<WindowTheme>,
 }
 
@@ -297,7 +297,7 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - iOS / Android / Web / x11: Unsupported.
+    /// Ignored on iOS, Android, and Web.
     pub fn window_theme(&self) -> Option<WindowTheme> {
         self.internal.window_theme
     }
@@ -306,7 +306,7 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - iOS / Android / Web / x11: Unsupported.
+    /// Ignored on iOS, Android, and Web.
     pub fn set_window_theme(&mut self, theme: Option<WindowTheme>) {
         self.internal.window_theme = theme;
     }
@@ -689,7 +689,7 @@ pub struct InternalWindowState {
     ///
     /// ## Platform-specific
     ///
-    /// - iOS / Android / Web / x11: Unsupported.
+    /// Ignored on iOS, Android, and Web.
     window_theme: Option<WindowTheme>,
 }
 
