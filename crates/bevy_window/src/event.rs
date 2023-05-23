@@ -24,9 +24,8 @@ pub struct WindowResized {
     pub height: f32,
 }
 
-// TODO: This would redraw all windows ? If yes, update docs to reflect this
-/// An event that indicates the window should redraw, even if its control flow is set to `Wait` and
-/// there have been no window events.
+/// An event that indicates all of the application's windows should be redrawn,
+/// even if their control flow is set to `Wait` and there have been no window events.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
