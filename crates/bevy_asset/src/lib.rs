@@ -69,8 +69,8 @@ impl Default for AssetPlugin {
 impl AssetPlugin {
     const DEFAULT_FILE_SOURCE: &str = "assets";
     /// NOTE: this is in the Default sub-folder to make this forward compatible with "import profiles"
-    /// and to allow us to put the "processor transaction log" at `.imported_assets/log`
-    const DEFAULT_FILE_DESTINATION: &str = ".imported_assets/Default";
+    /// and to allow us to put the "processor transaction log" at `imported_assets/log`
+    const DEFAULT_FILE_DESTINATION: &str = "imported_assets/Default";
 
     pub fn processed() -> Self {
         Self::Processed {

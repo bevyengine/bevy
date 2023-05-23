@@ -55,7 +55,7 @@ pub enum LogEntryError {
     UnfinishedTransaction(PathBuf),
 }
 
-const LOG_PATH: &str = ".imported_assets/log";
+const LOG_PATH: &str = "imported_assets/log";
 const ENTRY_BEGIN: &str = "Begin ";
 const ENTRY_END: &str = "End ";
 
