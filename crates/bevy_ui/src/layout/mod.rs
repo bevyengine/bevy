@@ -180,13 +180,12 @@ pub fn insert_ui_nodes_system(
     for (entity, mut node) in node_keys_query.iter_mut() {
         // Users can only instantiate `Node` components containing a null key
         if node.is_null() {
-            if let Some(old_taffy_node) = ui_surface.entity_to_taffy.insert(entity, node.taffy_node) {
-                node.taffy_node = old_taffy_node;
-            } else {
-                node.taffy_node = ui_surface
+            node.taffy_node = ui_surface
                     .taffy
                     .new_leaf(taffy::style::Style::default())
                     .unwrap();
+            if let Some(old_taffy_node) = ui_surface.entity_to_taffy.insert(entity, node.taffy_node) {
+                ui_surface.taffy.remove(old_taffy_node).unwrap();
             }
         }
     }
@@ -217,6 +216,13 @@ pub fn ui_layout_system(
     // remove children
     for entity in removed_children.iter() {
         ui_surface.try_remove_children(entity);
+    }
+
+    // update children
+    for (node, children) in &children_query {
+        if children.is_changed() {
+            ui_surface.update_children(node.taffy_node, &children);
+        }
     }
 
     // assume one window for time being...
@@ -282,13 +288,6 @@ pub fn ui_layout_system(
         primary_window_entity,
         root_node_query.iter().map(|node| node.taffy_node),
     );
-
-    // update children
-    for (node, children) in &children_query {
-        if children.is_changed() {
-            ui_surface.update_children(node.taffy_node, &children);
-        }
-    }
 
     // compute layouts
     ui_surface.compute_window_layouts();
