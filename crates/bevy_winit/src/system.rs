@@ -23,7 +23,7 @@ use winit::{
 use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
 use crate::{
     accessibility::{AccessKitAdapters, WinitActionHandlers},
-    converters::{self, convert_window_level, convert_window_theme, convert_winit_theme},
+    converters::{self, convert_window_level},
     get_best_videomode, get_fitting_videomode, WinitWindows,
 };
 
@@ -64,7 +64,7 @@ pub(crate) fn create_window<'a>(
         );
 
         if let Some(theme) = winit_window.theme() {
-            window.set_window_theme(Some(convert_winit_theme(theme)));
+            window.set_window_theme(Some(theme.into()));
         }
 
         window
@@ -302,9 +302,8 @@ pub(crate) fn changed_window(
             }
 
             if window.window_theme() != cache.window.window_theme() {
-                if let Some(theme) = window.window_theme() {
-                    winit_window.set_theme(Some(convert_window_theme(theme)));
-                }
+                let theme = window.window_theme();
+                winit_window.set_theme(theme.map(Into::into));
             }
 
             cache.window = window.clone();
