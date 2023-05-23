@@ -171,15 +171,16 @@ impl AssetServer {
         };
 
         if should_load {
-            let owned_handle = handle.clone();
-            let owned_path = path.to_owned();
+            let mut owned_handle = Some(handle.clone());
+            let mut owned_path = path.to_owned();
             let server = self.clone();
             IoTaskPool::get()
                 .spawn(async move {
-                    if let Err(err) = server
-                        .load_internal(Some(owned_handle), owned_path, false)
-                        .await
-                    {
+                    if owned_path.label().is_some() {
+                        owned_path.remove_label();
+                        owned_handle = None;
+                    }
+                    if let Err(err) = server.load_internal(owned_handle, owned_path, false).await {
                         error!("{}", err);
                     }
                 })
