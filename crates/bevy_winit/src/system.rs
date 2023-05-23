@@ -64,7 +64,7 @@ pub(crate) fn create_window<'a>(
         );
 
         if let Some(theme) = winit_window.theme() {
-            window.set_window_theme(Some(theme.into()));
+            window.window_theme = Some(theme.into());
         }
 
         window
@@ -301,9 +301,8 @@ pub(crate) fn changed_window(
                 ));
             }
 
-            if window.window_theme() != cache.window.window_theme() {
-                let theme = window.window_theme();
-                winit_window.set_theme(theme.map(Into::into));
+            if window.window_theme != cache.window.window_theme {
+                winit_window.set_theme(window.window_theme.map(Into::into));
             }
 
             cache.window = window.clone();

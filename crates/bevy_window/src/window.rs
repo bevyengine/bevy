@@ -191,7 +191,7 @@ pub struct Window {
     /// ## Platform-specific
     ///
     /// Ignored on iOS, Android, and Web.
-    pub preferred_theme: Option<WindowTheme>,
+    pub window_theme: Option<WindowTheme>,
 }
 
 impl Default for Window {
@@ -216,7 +216,7 @@ impl Default for Window {
             fit_canvas_to_parent: false,
             prevent_default_event_handling: true,
             canvas: None,
-            preferred_theme: None,
+            window_theme: None,
         }
     }
 }
@@ -291,24 +291,6 @@ impl Window {
     /// Set the physical cursor position in this window
     pub fn set_physical_cursor_position(&mut self, position: Option<DVec2>) {
         self.internal.physical_cursor_position = position;
-    }
-
-    /// The window's current theme
-    ///
-    /// ## Platform-specific
-    ///
-    /// Ignored on iOS, Android, and Web.
-    pub fn window_theme(&self) -> Option<WindowTheme> {
-        self.internal.window_theme
-    }
-
-    /// Set the window's theme
-    ///
-    /// ## Platform-specific
-    ///
-    /// Ignored on iOS, Android, and Web.
-    pub fn set_window_theme(&mut self, theme: Option<WindowTheme>) {
-        self.internal.window_theme = theme;
     }
 }
 
