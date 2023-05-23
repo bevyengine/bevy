@@ -198,7 +198,8 @@ pub fn ui_layout_system(
     windows: Query<(Entity, &Window)>,
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
-    mut resize_events: EventReader<bevy_window::WindowResized>,
+    mut window_resized_events: EventReader<bevy_window::WindowResized>,
+    mut window_created_events: EventReader<bevy_window::WindowCreated>,
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<&Node, Without<Parent>>,
     style_query: Query<(&Node, Ref<Style>)>,
@@ -241,9 +242,13 @@ pub fn ui_layout_system(
             return;
         };
 
-    let resized = resize_events
+    let window_changed = window_resized_events
         .iter()
-        .any(|resized_window| resized_window.window == primary_window_entity);
+        .any(|resized_window| resized_window.window == primary_window_entity)
+        ||
+        window_created_events
+        .iter()
+        .any(|created_window| created_window.window == primary_window_entity);
 
     // update window root nodes
     for (entity, window) in windows.iter() {
@@ -254,7 +259,7 @@ pub fn ui_layout_system(
 
     let layout_context = LayoutContext::new(scale_factor, physical_size);
 
-    if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
+    if !scale_factor_events.is_empty() || ui_scale.is_changed() || window_changed {
         scale_factor_events.clear();
         // update all nodes
         for (node, style) in style_query.iter() {
