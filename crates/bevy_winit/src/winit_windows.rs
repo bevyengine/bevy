@@ -16,10 +16,7 @@ use winit::{
     monitor::MonitorHandle,
 };
 
-use crate::{
-    accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers},
-    converters::convert_window_level,
-};
+use crate::accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers};
 
 /// A resource which maps window entities to [`winit`] library windows.
 #[derive(Debug, Default)]
@@ -91,7 +88,7 @@ impl WinitWindows {
         };
 
         winit_window_builder = winit_window_builder
-            .with_window_level(convert_window_level(window.window_level))
+            .with_window_level(window.window_level.into())
             .with_resizable(window.resizable)
             .with_decorations(window.decorations)
             .with_transparent(window.transparent);
