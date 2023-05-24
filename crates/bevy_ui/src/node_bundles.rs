@@ -10,7 +10,7 @@ use bevy_render::{
     view::Visibility,
 };
 #[cfg(feature = "bevy_text")]
-use bevy_text::{Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
+use bevy_text::{MultiLineAlignment, Text, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -189,7 +189,7 @@ impl TextBundle {
     }
 
     /// Returns this [`TextBundle`] with a new [`TextAlignment`] on [`Text`].
-    pub const fn with_text_alignment(mut self, alignment: TextAlignment) -> Self {
+    pub const fn with_text_alignment(mut self, alignment: MultiLineAlignment) -> Self {
         self.text.alignment = alignment;
         self
     }

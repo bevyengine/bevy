@@ -11,7 +11,8 @@ use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText};
 
 use crate::{
     error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font, FontAtlasSet,
-    FontAtlasWarning, PositionedGlyph, TextAlignment, TextSection, TextSettings, YAxisOrientation,
+    FontAtlasWarning, MultiLineAlignment, PositionedGlyph, TextSection, TextSettings,
+    YAxisOrientation,
 };
 
 #[derive(Default, Resource)]
@@ -44,7 +45,7 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         sections: &[TextSection],
         scale_factor: f64,
-        text_alignment: TextAlignment,
+        text_alignment: MultiLineAlignment,
         linebreak_behavior: BreakLineOn,
         bounds: Vec2,
         font_atlas_set_storage: &mut Assets<FontAtlasSet>,
@@ -123,7 +124,7 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         sections: &[TextSection],
         scale_factor: f64,
-        text_alignment: TextAlignment,
+        text_alignment: MultiLineAlignment,
         linebreak_behaviour: BreakLineOn,
     ) -> Result<TextMeasureInfo, TextError> {
         let mut auto_fonts = Vec::with_capacity(sections.len());
@@ -172,7 +173,7 @@ pub struct TextMeasureInfo {
     pub fonts: Vec<ab_glyph::FontArc>,
     pub scaled_fonts: Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>,
     pub sections: Vec<TextMeasureSection>,
-    pub text_alignment: TextAlignment,
+    pub text_alignment: MultiLineAlignment,
     pub linebreak_behaviour: glyph_brush_layout::BuiltInLineBreaker,
     pub min_width_content_size: Vec2,
     pub max_width_content_size: Vec2,
@@ -183,7 +184,7 @@ impl TextMeasureInfo {
         fonts: Vec<ab_glyph::FontArc>,
         scaled_fonts: Vec<ab_glyph::PxScaleFont<ab_glyph::FontArc>>,
         sections: Vec<TextMeasureSection>,
-        text_alignment: TextAlignment,
+        text_alignment: MultiLineAlignment,
         linebreak_behaviour: glyph_brush_layout::BuiltInLineBreaker,
     ) -> Self {
         let mut info = Self {

@@ -11,9 +11,8 @@ use crate::{Font, DEFAULT_FONT_HANDLE};
 #[reflect(Component, Default)]
 pub struct Text {
     pub sections: Vec<TextSection>,
-    /// The text's internal alignment.
-    /// Should not affect its position within a container.
-    pub alignment: TextAlignment,
+    /// How multiple lines in a column of text should be aligned.
+    pub alignment: MultiLineAlignment,
     /// How the text should linebreak when running out of the bounds determined by max_size
     pub linebreak_behavior: BreakLineOn,
 }
@@ -22,7 +21,7 @@ impl Default for Text {
     fn default() -> Self {
         Self {
             sections: Default::default(),
-            alignment: TextAlignment::Left,
+            alignment: MultiLineAlignment::Left,
             linebreak_behavior: BreakLineOn::WordBoundary,
         }
     }
@@ -102,7 +101,7 @@ impl Text {
     }
 
     /// Returns this [`Text`] with a new [`TextAlignment`].
-    pub const fn with_alignment(mut self, alignment: TextAlignment) -> Self {
+    pub const fn with_alignment(mut self, alignment: MultiLineAlignment) -> Self {
         self.alignment = alignment;
         self
     }
@@ -132,27 +131,24 @@ impl TextSection {
     }
 }
 
-/// Describes horizontal alignment preference for positioning & bounds.
+/// How multiple lines in a column of text should be aligned.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub enum TextAlignment {
-    /// Leftmost character is immediately to the right of the render position.<br/>
-    /// Bounds start from the render position and advance rightwards.
+pub enum MultiLineAlignment {
+    /// Each line of text begins at the left edge of the column.
     Left,
-    /// Leftmost & rightmost characters are equidistant to the render position.<br/>
-    /// Bounds start from the render position and advance equally left & right.
+    /// Each line of text in the column is centered.
     Center,
-    /// Rightmost character is immediately to the left of the render position.<br/>
-    /// Bounds start from the render position and advance leftwards.
+    /// Each line of text ends at the right edge of the column.
     Right,
 }
 
-impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
-    fn from(val: TextAlignment) -> Self {
+impl From<MultiLineAlignment> for glyph_brush_layout::HorizontalAlign {
+    fn from(val: MultiLineAlignment) -> Self {
         match val {
-            TextAlignment::Left => glyph_brush_layout::HorizontalAlign::Left,
-            TextAlignment::Center => glyph_brush_layout::HorizontalAlign::Center,
-            TextAlignment::Right => glyph_brush_layout::HorizontalAlign::Right,
+            MultiLineAlignment::Left => glyph_brush_layout::HorizontalAlign::Left,
+            MultiLineAlignment::Center => glyph_brush_layout::HorizontalAlign::Center,
+            MultiLineAlignment::Right => glyph_brush_layout::HorizontalAlign::Right,
         }
     }
 }

@@ -54,7 +54,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Text2dBundle {
         text: Text {
             sections,
-            alignment: TextAlignment::Center,
+            alignment: MultiLineAlignment::Center,
             linebreak_behavior: BreakLineOn::AnyCharacter,
         },
         ..Default::default()
