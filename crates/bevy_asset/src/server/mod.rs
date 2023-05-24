@@ -263,7 +263,7 @@ impl AssetServer {
         };
 
         match self
-            .load_with_meta_loader_and_reader(&path, meta, &*loader, &mut *reader, true)
+            .load_with_meta_loader_and_reader(&path, meta, &*loader, &mut *reader, true, false)
             .await
         {
             Ok(mut loaded_asset) => {
@@ -469,17 +469,7 @@ impl AssetServer {
             .0
     }
 
-    pub async fn load_direct<'a>(
-        &self,
-        path: impl Into<AssetPath<'a>>,
-    ) -> Result<ErasedLoadedAsset, AssetLoadError> {
-        let path: AssetPath = path.into();
-        let (meta, loader, mut reader) = self.get_meta_loader_and_reader(&path).await?;
-        self.load_with_meta_loader_and_reader(&path, meta, &*loader, &mut *reader, false)
-            .await
-    }
-
-    async fn get_meta_loader_and_reader<'a>(
+    pub(crate) async fn get_meta_loader_and_reader<'a>(
         &'a self,
         asset_path: &'a AssetPath<'_>,
     ) -> Result<
@@ -541,8 +531,14 @@ impl AssetServer {
         loader: &dyn ErasedAssetLoader,
         reader: &mut Reader<'_>,
         load_dependencies: bool,
+        populate_hashes: bool,
     ) -> Result<ErasedLoadedAsset, AssetLoadError> {
-        let load_context = LoadContext::new(self, asset_path.to_owned(), load_dependencies);
+        let load_context = LoadContext::new(
+            self,
+            asset_path.to_owned(),
+            load_dependencies,
+            populate_hashes,
+        );
         loader.load(reader, meta, load_context).await.map_err(|e| {
             AssetLoadError::AssetLoaderError {
                 loader: loader.type_name(),

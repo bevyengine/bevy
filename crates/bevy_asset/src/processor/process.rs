@@ -214,6 +214,7 @@ impl<'a> ProcessContext<'a> {
                 &*loader,
                 &mut self.asset_bytes,
                 false,
+                true,
             )
             .await?;
         for (path, full_hash) in loaded_asset.loader_dependencies.iter() {

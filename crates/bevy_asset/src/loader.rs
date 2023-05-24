@@ -1,6 +1,6 @@
 use crate::{
     io::{AssetReaderError, Reader},
-    meta::{AssetMeta, AssetMetaDyn, Settings, META_FORMAT_VERSION},
+    meta::{AssetMeta, AssetMetaDyn, AssetMetaProcessedInfoMinimal, Settings, META_FORMAT_VERSION},
     path::AssetPath,
     Asset, AssetLoadError, AssetServer, Assets, Handle, UntypedAssetId, UntypedHandle,
 };
@@ -227,6 +227,7 @@ impl<A: Asset> AssetContainer for A {
 pub struct LoadContext<'a> {
     asset_server: &'a AssetServer,
     should_load_dependencies: bool,
+    populate_hashes: bool,
     asset_path: AssetPath<'static>,
     dependencies: HashSet<UntypedHandle>,
     /// Direct dependencies used by this loader.
@@ -239,10 +240,12 @@ impl<'a> LoadContext<'a> {
         asset_server: &'a AssetServer,
         asset_path: AssetPath<'static>,
         load_dependencies: bool,
+        populate_hashes: bool,
     ) -> Self {
         Self {
             asset_server,
             asset_path,
+            populate_hashes,
             should_load_dependencies: load_dependencies,
             dependencies: HashSet::default(),
             loader_dependencies: HashMap::default(),
@@ -262,6 +265,7 @@ impl<'a> LoadContext<'a> {
             self.asset_server,
             self.asset_path.with_label(label),
             self.should_load_dependencies,
+            self.populate_hashes,
         )
     }
 
@@ -335,13 +339,25 @@ impl<'a> LoadContext<'a> {
     pub async fn read_asset_bytes<'b>(
         &mut self,
         path: &'b Path,
-    ) -> Result<Vec<u8>, AssetReaderError> {
+    ) -> Result<Vec<u8>, ReadAssetBytesError> {
         let mut reader = self.asset_server.reader().read(path).await?;
+        let hash = if self.populate_hashes {
+            // NOTE: ensure meta is read while the asset bytes reader is still active to ensure transactionality
+            // See `ProcessorGatdReader` for more info
+            let meta_bytes = self.asset_server.reader().read_meta_bytes(path).await?;
+            let minimal: AssetMetaProcessedInfoMinimal = ron::de::from_bytes(&meta_bytes)
+                .map_err(|e| DeserializeMetaError::DeserializeMinimal(e))?;
+            let processed_info = minimal
+                .processed_info
+                .ok_or(ReadAssetBytesError::MissingAssetHash)?;
+            processed_info.full_hash
+        } else {
+            0
+        };
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        todo!("populate hash here");
-        // self.loader_dependencies
-        //     .insert(AssetPath::new(path.to_owned(), None));
+        self.loader_dependencies
+            .insert(AssetPath::new(path.to_owned(), None), hash);
         Ok(bytes)
     }
 
@@ -378,14 +394,29 @@ impl<'a> LoadContext<'a> {
         path: impl Into<AssetPath<'b>>,
     ) -> Result<ErasedLoadedAsset, LoadDirectError> {
         let path = path.into();
-        let loaded_asset = self
-            .asset_server
-            .load_direct(path.to_owned())
-            .await
-            .map_err(|e| LoadDirectError {
+        let to_error = |e: AssetLoadError| -> LoadDirectError {
+            LoadDirectError {
                 dependency: path.to_owned(),
                 error: e,
-            })?;
+            }
+        };
+        let (meta, loader, mut reader) = self
+            .asset_server
+            .get_meta_loader_and_reader(&path)
+            .await
+            .map_err(to_error)?;
+        let loaded_asset = self
+            .asset_server
+            .load_with_meta_loader_and_reader(
+                &path,
+                meta,
+                &*loader,
+                &mut *reader,
+                false,
+                self.populate_hashes,
+            )
+            .await
+            .map_err(to_error)?;
         let info = loaded_asset
             .meta
             .as_ref()
@@ -394,4 +425,17 @@ impl<'a> LoadContext<'a> {
         self.loader_dependencies.insert(path.to_owned(), hash);
         Ok(loaded_asset)
     }
+}
+
+#[derive(Error, Debug)]
+pub enum ReadAssetBytesError {
+    #[error(transparent)]
+    DeserializeMetaError(#[from] DeserializeMetaError),
+    #[error(transparent)]
+    AssetReaderError(#[from] AssetReaderError),
+    /// Encountered an I/O error while loading an asset.
+    #[error("Encountered an io error while loading asset: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
+    MissingAssetHash,
 }

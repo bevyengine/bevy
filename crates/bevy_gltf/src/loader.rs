@@ -1,8 +1,7 @@
 use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
 use anyhow::Result;
 use bevy_asset::{
-    io::{AssetReaderError, Reader},
-    AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext,
+    io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
 };
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
@@ -61,7 +60,7 @@ pub enum GltfError {
     #[error("You may need to add the feature for the file format: {0}")]
     ImageError(#[from] TextureError),
     #[error("failed to read bytes from an asset path: {0}")]
-    AssetReaderError(#[from] AssetReaderError),
+    ReadAssetBytesError(#[from] ReadAssetBytesError),
     #[error("failed to load asset from an asset path: {0}")]
     AssetLoadError(#[from] AssetLoadError),
     #[error("Missing sampler for animation {0}")]
@@ -604,7 +603,6 @@ async fn load_texture<'a, 'b>(
                 // TODO: this should use load() (or at least, load_direct_async), once we can pass in
                 // is_srgb configuration to the loader directly
                 let bytes = load_context.read_asset_bytes(&image_path).await?;
-
                 let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
                 let image_type = ImageType::Extension(extension);
 
