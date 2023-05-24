@@ -76,6 +76,7 @@ fn main() {
             features.push("android_shared_stdcxx");
             features.push("tonemapping_luts");
             features.push("default_font");
+            features.push("shader_format_glsl");
             default_features = false;
         }
     }
