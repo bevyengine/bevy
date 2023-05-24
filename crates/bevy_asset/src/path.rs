@@ -5,17 +5,23 @@ use bevy_utils::AHasher;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
-    fmt::Display,
+    fmt::{Debug, Display},
     hash::{Hash, Hasher},
     path::{Path, PathBuf},
 };
 
 /// Represents a path to an asset in the file system.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Eq, PartialEq, Hash, Clone, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq, Hash, Serialize, Deserialize, FromReflect)]
 pub struct AssetPath<'a> {
     pub path: Cow<'a, Path>,
     pub label: Option<Cow<'a, str>>,
+}
+
+impl<'a> Debug for AssetPath<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self, f)
+    }
 }
 
 impl<'a> Display for AssetPath<'a> {

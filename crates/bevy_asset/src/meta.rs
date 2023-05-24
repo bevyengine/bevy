@@ -26,14 +26,17 @@ impl<L: AssetLoader, P: Process> AssetMeta<L, P> {
 
 #[derive(Serialize, Deserialize)]
 pub enum AssetAction<LoaderSettings, ProcessSettings> {
+    /// Load the asset with the given loader and settings
     Load {
         loader: String,
         settings: LoaderSettings,
     },
+    /// Process the asset with the given processor and settings
     Process {
         processor: String,
         settings: ProcessSettings,
     },
+    /// Do nothing with the asset
     Ignore,
 }
 
