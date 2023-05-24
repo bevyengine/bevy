@@ -204,7 +204,7 @@ pub enum LayoutError {
     TaffyError(taffy::error::TaffyError),
 }
 
-/// Track's window and scale factor changes and sets the [`LayoutContext`].
+/// Checks for window and scale factor changes and manages the [`LayoutContext`].
 pub fn ui_windows_system(
     mut commands: Commands,
     ui_scale: Res<UiScale>,
