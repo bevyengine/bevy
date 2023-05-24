@@ -97,7 +97,7 @@ where
     }
 
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError> {
-        let meta: AssetMeta<L, ()> = ron::de::from_bytes(meta)?;
+        let meta = AssetMeta::<L, ()>::deserialize(meta)?;
         Ok(Box::new(meta))
     }
 

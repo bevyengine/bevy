@@ -410,7 +410,11 @@ impl AssetProcessor {
                         let meta = processor.deserialize_meta(&meta_bytes)?;
                         (meta, Some(processor))
                     }
-                    AssetActionMinimal::Ignore => return Ok(ProcessResult::Ignored),
+                    AssetActionMinimal::Ignore => {
+                        let meta: Box<dyn AssetMetaDyn> =
+                            Box::new(AssetMeta::<(), ()>::deserialize(&meta_bytes)?);
+                        (meta, None)
+                    }
                 };
                 (meta, meta_bytes, processor)
             }
@@ -715,7 +719,6 @@ impl AssetProcessorData {
 pub enum ProcessResult {
     Processed(ProcessedInfo),
     SkippedNotChanged,
-    Ignored,
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -842,12 +845,6 @@ impl ProcessorAssetInfos {
                 for path in dependants {
                     self.check_reprocess_queue.push_back(path.path().to_owned());
                 }
-            }
-            Ok(ProcessResult::Ignored) => {
-                debug!(
-                    "Ignoring processing of asset {:?} because it was configured to be ignored",
-                    asset_path
-                );
             }
             Ok(ProcessResult::SkippedNotChanged) => {
                 debug!(

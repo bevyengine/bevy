@@ -1,4 +1,4 @@
-use crate::{self as bevy_asset, AssetDependencyVisitor};
+use crate::{self as bevy_asset, AssetDependencyVisitor, DeserializeMetaError};
 use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
@@ -21,6 +21,10 @@ impl<L: AssetLoader, P: Process> AssetMeta<L, P> {
             processed_info: None,
             asset,
         }
+    }
+
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, DeserializeMetaError> {
+        Ok(ron::de::from_bytes(bytes)?)
     }
 }
 
