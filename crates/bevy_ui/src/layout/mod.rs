@@ -131,8 +131,8 @@ without UI components as a child of an entity with UI components, results may be
                 *node,
                 taffy::style::Style {
                     size: taffy::geometry::Size {
-                        width: taffy::style::Dimension::Points(physical_size.x as f32),
-                        height: taffy::style::Dimension::Points(physical_size.y as f32),
+                        width: taffy::style::Dimension::Points(physical_size.x),
+                        height: taffy::style::Dimension::Points(physical_size.y),
                     },
                     ..Default::default()
                 },
