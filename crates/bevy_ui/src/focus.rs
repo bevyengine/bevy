@@ -124,7 +124,7 @@ pub struct State {
 #[world_query(mutable)]
 pub struct NodeQuery {
     entity: Entity,
-    node: &'static NodeSize,
+    size: &'static NodeSize,
     global_transform: &'static GlobalTransform,
     interaction: Option<&'static mut Interaction>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
@@ -219,7 +219,7 @@ pub fn ui_focus_system(
 
                 let position = node.global_transform.translation();
                 let ui_position = position.truncate();
-                let extents = node.node.size() / 2.0;
+                let extents = node.size.size() / 2.0;
                 let mut min = ui_position - extents;
                 if let Some(clip) = node.calculated_clip {
                     min = Vec2::max(min, clip.clip.min);
@@ -229,8 +229,8 @@ pub fn ui_focus_system(
                 // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
                 let relative_cursor_position = cursor_position.map(|cursor_position| {
                     Vec2::new(
-                        (cursor_position.x - min.x) / node.node.size().x,
-                        (cursor_position.y - min.y) / node.node.size().y,
+                        (cursor_position.x - min.x) / node.size.size().x,
+                        (cursor_position.y - min.y) / node.size.size().y,
                     )
                 });
 

@@ -168,13 +168,13 @@ fn queue_text(
     text_settings: &TextSettings,
     scale_factor: f64,
     text: &Text,
-    node: Ref<NodeSize>,
+    node_size: Ref<NodeSize>,
     mut text_flags: Mut<TextFlags>,
     mut text_layout_info: Mut<TextLayoutInfo>,
 ) {
     // Skip the text node if it is waiting for a new measure func
     if !text_flags.needs_new_measure_func {
-        let physical_node_size = node.physical_size(scale_factor);
+        let physical_node_size = node_size.physical_size(scale_factor);
 
         match text_pipeline.queue_text(
             fonts,
@@ -236,8 +236,8 @@ pub fn text_system(
 
     if *last_scale_factor == scale_factor {
         // Scale factor unchanged, only recompute text for modified text nodes
-        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
-            if node.is_changed() || text_flags.needs_recompute {
+        for (node_size, text, text_layout_info, text_flags) in text_query.iter_mut() {
+            if node_size.is_changed() || text_flags.needs_recompute {
                 queue_text(
                     &fonts,
                     &mut text_pipeline,
@@ -248,7 +248,7 @@ pub fn text_system(
                     &text_settings,
                     scale_factor,
                     text,
-                    node,
+                    node_size,
                     text_flags,
                     text_layout_info,
                 );
@@ -258,7 +258,7 @@ pub fn text_system(
         // Scale factor changed, recompute text for all text nodes
         *last_scale_factor = scale_factor;
 
-        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
+        for (node_size, text, text_layout_info, text_flags) in text_query.iter_mut() {
             queue_text(
                 &fonts,
                 &mut text_pipeline,
@@ -269,7 +269,7 @@ pub fn text_system(
                 &text_settings,
                 scale_factor,
                 text,
-                node,
+                node_size,
                 text_flags,
                 text_layout_info,
             );
