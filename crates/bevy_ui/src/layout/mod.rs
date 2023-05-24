@@ -20,21 +20,21 @@ use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChan
 use std::fmt;
 use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
-pub struct LayoutContext {
-    pub scale_factor: f64,
+/// Window information needed to compute the UI layout
+#[derive(Default, Debug, Copy, Clone)]
+pub struct WindowContext {
+    /// Size of the window in physical pixels
     pub physical_size: Vec2,
-    pub min_size: f32,
-    pub max_size: f32,
+    /// Logical_coords = physical_coords * scale_factor
+    pub scale_factor: f64,
 }
 
-impl LayoutContext {
-    /// create new a [`LayoutContext`] from the window's physical size and scale factor
+impl WindowContext {
+    /// create new a [`WindowContext`] from the window's physical size and scale factor
     fn new(scale_factor: f64, physical_size: Vec2) -> Self {
         Self {
             scale_factor,
             physical_size,
-            min_size: physical_size.x.min(physical_size.y),
-            max_size: physical_size.x.max(physical_size.y),
         }
     }
 }
@@ -75,7 +75,7 @@ impl Default for UiSurface {
 impl UiSurface {
     /// Retrieves the taffy node corresponding to given entity exists, or inserts a new taffy node into the layout if no corresponding node exists.
     /// Then convert the given `Style` and use it update the taffy node's style.
-    pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {
+    pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &WindowContext) {
         let mut added = false;
         let taffy = &mut self.taffy;
         let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
@@ -212,7 +212,7 @@ pub enum LayoutError {
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
-pub fn ui_layout_system(
+pub fn ui_layout_system(    
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
     ui_scale: Res<UiScale>,
@@ -228,7 +228,7 @@ pub fn ui_layout_system(
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
-    // assume one window for time being...
+// assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let (primary_window_entity, logical_to_physical_factor, physical_size) =
         if let Ok((entity, primary_window)) = primary_window.get_single() {
@@ -255,7 +255,7 @@ pub fn ui_layout_system(
 
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
-    let layout_context = LayoutContext::new(scale_factor, physical_size);
+    let layout_context = WindowContext::new(scale_factor, physical_size);
 
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
         scale_factor_events.clear();
@@ -321,7 +321,7 @@ pub fn ui_layout_system(
         new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
         if let Some(parent) = parent {
             if let Ok(parent_layout) = ui_surface.get_layout(**parent) {
-                new_position.x -= to_logical(parent_layout.size.width / 2.0);
+                                                                                                                          new_position.x -= to_logical(parent_layout.size.width / 2.0);
                 new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }
         }

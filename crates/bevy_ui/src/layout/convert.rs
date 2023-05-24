@@ -7,12 +7,12 @@ use crate::{
     Val,
 };
 
-use super::LayoutContext;
+use super::WindowContext;
 
 impl Val {
     fn into_length_percentage_auto(
         self,
-        context: &LayoutContext,
+        context: &WindowContext,
     ) -> taffy::style::LengthPercentageAuto {
         match self {
             Val::Auto => taffy::style::LengthPercentageAuto::Auto,
@@ -21,10 +21,10 @@ impl Val {
                 (context.scale_factor * value as f64) as f32,
             ),
             Val::VMin(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.min_size * value / 100.)
+                taffy::style::LengthPercentageAuto::Points(context.physical_size.min_element() * value / 100.)
             }
             Val::VMax(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.max_size * value / 100.)
+                taffy::style::LengthPercentageAuto::Points(context.physical_size.max_element() * value / 100.)
             }
             Val::Vw(value) => {
                 taffy::style::LengthPercentageAuto::Points(context.physical_size.x * value / 100.)
@@ -35,7 +35,7 @@ impl Val {
         }
     }
 
-    fn into_length_percentage(self, context: &LayoutContext) -> taffy::style::LengthPercentage {
+    fn into_length_percentage(self, context: &WindowContext) -> taffy::style::LengthPercentage {
         match self.into_length_percentage_auto(context) {
             taffy::style::LengthPercentageAuto::Auto => taffy::style::LengthPercentage::Points(0.0),
             taffy::style::LengthPercentageAuto::Percent(value) => {
@@ -47,7 +47,7 @@ impl Val {
         }
     }
 
-    fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
+    fn into_dimension(self, context: &WindowContext) -> taffy::style::Dimension {
         self.into_length_percentage_auto(context).into()
     }
 }
@@ -63,7 +63,7 @@ impl UiRect {
     }
 }
 
-pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style {
+pub fn from_style(context: &WindowContext, style: &Style) -> taffy::style::Style {
     taffy::style::Style {
         display: style.display.into(),
         position: style.position_type.into(),
@@ -298,7 +298,7 @@ impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement> 
 }
 
 impl MinTrackSizingFunction {
-    fn into_taffy(self, context: &LayoutContext) -> taffy::style::MinTrackSizingFunction {
+    fn into_taffy(self, context: &WindowContext) -> taffy::style::MinTrackSizingFunction {
         match self {
             MinTrackSizingFunction::Px(val) => taffy::style::MinTrackSizingFunction::Fixed(
                 Val::Px(val).into_length_percentage(context),
@@ -314,7 +314,7 @@ impl MinTrackSizingFunction {
 }
 
 impl MaxTrackSizingFunction {
-    fn into_taffy(self, context: &LayoutContext) -> taffy::style::MaxTrackSizingFunction {
+    fn into_taffy(self, context: &WindowContext) -> taffy::style::MaxTrackSizingFunction {
         match self {
             MaxTrackSizingFunction::Px(val) => taffy::style::MaxTrackSizingFunction::Fixed(
                 Val::Px(val).into_length_percentage(context),
@@ -345,7 +345,7 @@ impl MaxTrackSizingFunction {
 impl GridTrack {
     fn into_taffy_track(
         self,
-        context: &LayoutContext,
+        context: &WindowContext,
     ) -> taffy::style::NonRepeatedTrackSizingFunction {
         let min = self.min_sizing_function.into_taffy(context);
         let max = self.max_sizing_function.into_taffy(context);
@@ -356,7 +356,7 @@ impl GridTrack {
 impl RepeatedGridTrack {
     fn clone_into_repeated_taffy_track(
         &self,
-        context: &LayoutContext,
+        context: &WindowContext,
     ) -> taffy::style::TrackSizingFunction {
         if self.tracks.len() == 1 && self.repetition == GridTrackRepetition::Count(1) {
             let min = self.tracks[0].min_sizing_function.into_taffy(context);
@@ -466,7 +466,7 @@ mod tests {
             grid_column: GridPlacement::start(4),
             grid_row: GridPlacement::span(3),
         };
-        let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
+        let viewport_values = WindowContext::new(1.0, bevy_math::Vec2::new(800., 600.));
         let taffy_style = from_style(&viewport_values, &bevy_style);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
@@ -633,7 +633,7 @@ mod tests {
     #[test]
     fn test_into_length_percentage() {
         use taffy::style::LengthPercentage;
-        let context = LayoutContext::new(2.0, bevy_math::Vec2::new(800., 600.));
+        let context = WindowContext::new(2.0, bevy_math::Vec2::new(800., 600.));
         let cases = [
             (Val::Auto, LengthPercentage::Points(0.)),
             (Val::Percent(1.), LengthPercentage::Percent(0.01)),
