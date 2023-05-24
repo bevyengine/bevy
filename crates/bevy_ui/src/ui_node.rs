@@ -858,9 +858,9 @@ impl Default for Direction {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(FromReflect, PartialEq, Serialize, Deserialize)]
 pub enum Display {
-    /// Use Flexbox layout model to determine the position of this [`Node`].
+    /// Use Flexbox layout model to determine the position of this UI node.
     Flex,
-    /// Use CSS Grid layout model to determine the position of this [`Node`].
+    /// Use CSS Grid layout model to determine the position of this UI node.
     Grid,
     /// Use no layout, don't render this node and its children.
     ///
@@ -1622,7 +1622,7 @@ pub struct CalculatedClip {
     pub clip: Rect,
 }
 
-/// Indicates that this [`Node`] entity's front-to-back ordering is not controlled solely
+/// Indicates that this UI node entity's front-to-back ordering is not controlled solely
 /// by its location in the UI hierarchy. A node with a higher z-index will appear on top
 /// of other nodes with a lower z-index.
 ///
