@@ -370,12 +370,29 @@ impl CameraRenderGraph {
     }
 }
 
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Component,
+    Reflect,
+    FromReflect,
+)]
+#[reflect(Component, Default)]
+pub struct ManualTextureViewHandle(pub u32);
+
 /// Stores [`TextureView`]s for use as a [`RenderTarget`], along with their size as a [`UVec2`].
 #[derive(Default, Clone, Resource, ExtractResource)]
-pub struct ManualTextureViews(HashMap<u32, (TextureView, UVec2)>);
+pub struct ManualTextureViews(HashMap<ManualTextureViewHandle, (TextureView, UVec2)>);
 
 impl std::ops::Deref for ManualTextureViews {
-    type Target = HashMap<u32, (TextureView, UVec2)>;
+    type Target = HashMap<ManualTextureViewHandle, (TextureView, UVec2)>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -397,7 +414,7 @@ pub enum RenderTarget {
     /// Image to which the camera's view is rendered.
     Image(Handle<Image>),
     /// Texture View to which the camera's view is rendered.
-    TextureView(u32),
+    TextureView(ManualTextureViewHandle),
 }
 
 /// Normalized version of the render target.
@@ -410,7 +427,7 @@ pub enum NormalizedRenderTarget {
     /// Image to which the camera's view is rendered.
     Image(Handle<Image>),
     /// Texture View to which the camera's view is rendered.
-    TextureView(u32),
+    TextureView(ManualTextureViewHandle),
 }
 
 impl Default for RenderTarget {
