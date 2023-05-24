@@ -123,7 +123,7 @@ impl Plugin for UiPlugin {
                 PreUpdate,
                 (
                     ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
-                    ui_windows_system,
+                    ui_windows_system.in_set(UiSystem::Window),
                 ),
             );
         // add these systems to front because these must run before transform update systems
