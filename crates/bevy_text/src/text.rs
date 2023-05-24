@@ -33,7 +33,7 @@ impl Text {
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, TextAlignment};
+    /// # use bevy_text::{Font, Text, TextStyle, MultiLineAlignment};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
@@ -56,7 +56,7 @@ impl Text {
     ///         color: Color::WHITE,
     ///     },
     /// ) // You can still add an alignment.
-    /// .with_alignment(TextAlignment::Center);
+    /// .with_alignment(MultiLineAlignment::Center);
     /// ```
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
@@ -100,7 +100,7 @@ impl Text {
         }
     }
 
-    /// Returns this [`Text`] with a new [`TextAlignment`].
+    /// Returns this [`Text`] with a new [`MultiLineAlignment`].
     pub const fn with_alignment(mut self, alignment: MultiLineAlignment) -> Self {
         self.alignment = alignment;
         self
