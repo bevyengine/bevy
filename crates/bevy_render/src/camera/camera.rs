@@ -370,6 +370,7 @@ impl CameraRenderGraph {
     }
 }
 
+/// A unique id that corresponds to a specific [`TextureView`] in the [`ManualTextureViews`] collection.
 #[derive(
     Default,
     Debug,
