@@ -30,7 +30,7 @@ pub struct KeyboardInput {
     pub state: ButtonState,
 }
 
-impl From<&winit::event::KeyboardInput> for KeyboardInput {
+impl From<winit::event::KeyboardInput> for KeyboardInput {
     fn from(keyboard_input: &winit::event::KeyboardInput) -> Self {
         KeyboardInput {
             scan_code: keyboard_input.scancode,
