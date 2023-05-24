@@ -20,11 +20,21 @@ use bevy_window::{PrimaryWindow, Window};
 use std::fmt;
 use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
-#[derive(Component, Default, Debug, Copy, Clone)]
+#[derive(Component, Debug, Copy, Clone)]
 pub struct LayoutContext {
     pub physical_size: Vec2,
     pub scale_factor: f64,
     pub physical_to_logical_factor: f64,
+}
+
+impl Default for LayoutContext {
+    fn default() -> Self {
+        Self {
+            physical_size: Vec2::new(800., 600.),
+            scale_factor: 1.0,
+            physical_to_logical_factor: 1.0,
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -332,5 +342,103 @@ pub fn ui_layout_system(
         if transform.translation != new_position {
             transform.translation = new_position;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::debug;
+    use crate::prelude::*;
+    use crate::ui_layout_system;
+    use crate::LayoutContext;
+    use crate::UiSurface;
+    use bevy_ecs::schedule::Schedule;
+    use bevy_ecs::world::World;
+    use bevy_math::Vec2;
+    use bevy_utils::prelude::default;
+    use taffy::tree::LayoutTree;
+
+    #[test]
+    fn spawn_and_despawn_ui_node() {
+        let mut world = World::new();
+        world.init_resource::<UiSurface>();
+
+        let layout_entity = world
+            .spawn(LayoutContext {
+                physical_size: Vec2::new(800., 600.),
+                ..default()
+            })
+            .id();
+
+        let ui_node = world
+            .spawn(NodeBundle {
+                style: Style {
+                    width: Val::Percent(25.),
+                    ..default()
+                },
+                ..default()
+            })
+            .id();
+
+        let mut ui_schedule = Schedule::default();
+        ui_schedule.add_systems(ui_layout_system);
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+
+        // `layout_entity` should have an associated Taffy root node
+        let taffy_root = *ui_surface
+            .window_nodes
+            .get(&layout_entity)
+            .expect("Window node not found.");
+
+        // `ui_node` should have an associated Taffy node
+        let taffy_node = *ui_surface
+            .entity_to_taffy
+            .get(&ui_node)
+            .expect("UI node entity should have an associated Taffy node after layout update");
+
+        // `window_node` should be the only child of `taffy_root`
+        assert_eq!(ui_surface.taffy.child_count(taffy_root).unwrap(), 1);
+        assert!(
+            ui_surface
+                .taffy
+                .children(taffy_root)
+                .unwrap()
+                .contains(&taffy_node),
+            "Root UI Node entity's corresponding Taffy node is not a child of the root Taffy node."
+        );
+
+        // `taffy_root` should be the parent of `window_node`
+        assert_eq!(
+            ui_surface.taffy.parent(taffy_node),
+            Some(taffy_root),
+            "Root UI Node entity's corresponding Taffy node is not a child of the root Taffy node."
+        );
+
+        ui_schedule.run(&mut world);
+
+        let derived_size = world.get::<Node>(ui_node).unwrap().calculated_size;
+        approx::assert_relative_eq!(derived_size.x, 200.);
+        approx::assert_relative_eq!(derived_size.y, 600.);
+
+        world.despawn(ui_node);
+        ui_schedule.run(&mut world);
+        let ui_surface = world.resource::<UiSurface>();
+
+        // `ui_node`'s associated taffy node should be deleted
+        assert!(
+            !ui_surface.entity_to_taffy.contains_key(&ui_node),
+            "Despawned UI node has an associated Taffy node after layout update"
+        );
+
+        // `taffy_root` should have no remaining children
+        assert_eq!(
+            ui_surface.taffy.child_count(taffy_root).unwrap(),
+            0,
+            "Taffy root node has children after despawning all root UI nodes."
+        );
+
+        debug::print_ui_layout_tree(ui_surface);
     }
 }
