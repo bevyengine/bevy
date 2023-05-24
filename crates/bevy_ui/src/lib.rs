@@ -55,12 +55,14 @@ pub struct UiPlugin;
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum UiSystem {
-    /// After this label, the ui layout state has been updated
+    /// After this label, the UI layout state has been updated
     Layout,
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
     /// After this label, the [`UiStack`] resource has been updated
     Stack,
+    /// After this label, the [`LayoutContext`] has been updated
+    Window,
 }
 
 /// The current scale of the UI.
@@ -119,7 +121,10 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .add_systems(
                 PreUpdate,
-                ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+                (
+                    ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+                    ui_windows_system,
+                ),
             );
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
