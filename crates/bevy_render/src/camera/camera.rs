@@ -370,7 +370,7 @@ impl CameraRenderGraph {
     }
 }
 
-/// Stores Texture Views used as render targets.
+/// Stores [`TextureView`]s for use as a [`RenderTarget`], along with their size as a [`UVec2`].
 #[derive(Default, Clone, Resource, ExtractResource)]
 pub struct ManualTextureViews(HashMap<u32, (TextureView, UVec2)>);
 
