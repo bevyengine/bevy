@@ -9,9 +9,12 @@ use crate::{
         processor_gated::ProcessorGatedReader, AssetProvider, AssetProviders, AssetReader,
         AssetReaderError, AssetSourceEvent, AssetWatcher, AssetWriter, AssetWriterError,
     },
-    meta::{AssetActionMinimal, AssetMetaMinimal, AssetMetaProcessedInfoMinimal, ProcessedInfo},
+    meta::{
+        AssetAction, AssetActionMinimal, AssetMeta, AssetMetaDyn, AssetMetaMinimal,
+        AssetMetaProcessedInfoMinimal, ProcessedInfo,
+    },
     AssetLoadError, AssetLoaderError, AssetPath, AssetServer, DeserializeMetaError,
-    LoadDirectError,
+    LoadDirectError, MissingAssetLoaderForExtensionError,
 };
 use bevy_ecs::prelude::*;
 use bevy_log::{debug, error, trace, warn};
@@ -419,8 +422,14 @@ impl AssetProcessor {
                     let meta = processor.default_meta();
                     (meta, Some(processor))
                 } else {
-                    let loader = server.get_path_asset_loader(&asset_path)?;
-                    (loader.default_meta(), None)
+                    match server.get_path_asset_loader(&asset_path) {
+                        Ok(loader) => (loader.default_meta(), None),
+                        Err(MissingAssetLoaderForExtensionError { .. }) => {
+                            let meta: Box<dyn AssetMetaDyn> =
+                                Box::new(AssetMeta::<(), ()>::new(AssetAction::Ignore));
+                            (meta, None)
+                        }
+                    }
                 };
                 let meta_bytes = meta.serialize();
                 // write meta to source location if it doesn't already exist

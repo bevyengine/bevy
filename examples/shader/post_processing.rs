@@ -30,7 +30,6 @@ use bevy::{
         view::{ExtractedView, ViewTarget},
         RenderApp,
     },
-    utils::Duration,
 };
 
 fn main() {

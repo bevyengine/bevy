@@ -1,6 +1,6 @@
 use crate::{
     io::{AssetReaderError, Reader},
-    meta::{AssetMeta, AssetMetaDyn, AssetMetaProcessedInfoMinimal, Settings, META_FORMAT_VERSION},
+    meta::{AssetMeta, AssetMetaDyn, AssetMetaProcessedInfoMinimal, Settings},
     path::AssetPath,
     Asset, AssetLoadError, AssetServer, Assets, Handle, UntypedAssetId, UntypedHandle,
 };
@@ -102,14 +102,10 @@ where
     }
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {
-        Box::new(AssetMeta::<L, ()> {
-            processed_info: None,
-            meta_format_version: META_FORMAT_VERSION.to_string(),
-            asset: crate::meta::AssetAction::Load {
-                loader: self.type_name().to_string(),
-                settings: L::Settings::default(),
-            },
-        })
+        Box::new(AssetMeta::<L, ()>::new(crate::meta::AssetAction::Load {
+            loader: self.type_name().to_string(),
+            settings: L::Settings::default(),
+        }))
     }
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.

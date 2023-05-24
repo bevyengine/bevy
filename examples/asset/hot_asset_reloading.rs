@@ -2,7 +2,7 @@
 //! running. This lets you immediately see the results of your changes without restarting the game.
 //! This example illustrates hot reloading mesh changes.
 
-use bevy::{asset::ChangeWatcher, prelude::*, utils::Duration};
+use bevy::prelude::*;
 
 fn main() {
     App::new()

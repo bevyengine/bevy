@@ -1,9 +1,6 @@
 use crate::{
     io::{AssetReaderError, AssetWriterError, Writer},
-    meta::{
-        AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings,
-        META_FORMAT_VERSION,
-    },
+    meta::{AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings},
     processor::AssetProcessor,
     saver::AssetSaver,
     AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
@@ -86,14 +83,10 @@ impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
             let AssetAction::Process { settings, .. } = meta.asset else {
                 return Err(ProcessError::WrongMetaType);
             };
-            let loader_meta = AssetMeta::<Loader, ()> {
-                meta_format_version: META_FORMAT_VERSION.to_string(),
-                asset: AssetAction::Load {
-                    loader: std::any::type_name::<Loader>().to_string(),
-                    settings: settings.loader_settings,
-                },
-                processed_info: None,
-            };
+            let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
+                loader: std::any::type_name::<Loader>().to_string(),
+                settings: settings.loader_settings,
+            });
             let loaded_asset = context.load_source_asset(loader_meta).await?;
             let output_settings = self
                 .saver
@@ -145,14 +138,11 @@ impl<P: Process> ErasedProcessor for P {
                     .map(|i| i.full_hash),
             );
             context.new_processed_info.full_hash = full_hash;
-            let output_meta: Box<dyn AssetMetaDyn> = Box::new(AssetMeta::<P::OutputLoader, ()> {
-                meta_format_version: META_FORMAT_VERSION.to_string(),
-                asset: AssetAction::Load {
+            let output_meta: Box<dyn AssetMetaDyn> =
+                Box::new(AssetMeta::<P::OutputLoader, ()>::new(AssetAction::Load {
                     loader: std::any::type_name::<P::OutputLoader>().to_string(),
                     settings: loader_settings,
-                },
-                processed_info: Some(context.new_processed_info.clone()),
-            });
+                }));
             Ok(output_meta)
         }
         .boxed()
@@ -164,14 +154,10 @@ impl<P: Process> ErasedProcessor for P {
     }
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {
-        Box::new(AssetMeta::<(), P> {
-            meta_format_version: META_FORMAT_VERSION.to_string(),
-            processed_info: None,
-            asset: AssetAction::Process {
-                processor: std::any::type_name::<P>().to_string(),
-                settings: P::Settings::default(),
-            },
-        })
+        Box::new(AssetMeta::<(), P>::new(AssetAction::Process {
+            processor: std::any::type_name::<P>().to_string(),
+            settings: P::Settings::default(),
+        }))
     }
 }
 

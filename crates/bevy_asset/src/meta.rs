@@ -1,4 +1,4 @@
-use crate as bevy_asset;
+use crate::{self as bevy_asset, AssetDependencyVisitor};
 use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
@@ -12,6 +12,16 @@ pub struct AssetMeta<L: AssetLoader, P: Process> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub processed_info: Option<ProcessedInfo>,
     pub asset: AssetAction<L::Settings, P::Settings>,
+}
+
+impl<L: AssetLoader, P: Process> AssetMeta<L, P> {
+    pub fn new(asset: AssetAction<L::Settings, P::Settings>) -> Self {
+        Self {
+            meta_format_version: META_FORMAT_VERSION.to_string(),
+            processed_info: None,
+            asset,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -98,7 +108,7 @@ impl_downcast!(Settings);
 
 /// The () processor should never be called. This implementation exists to make the meta format nicer to work with.
 impl Process for () {
-    type Asset = NullAsset;
+    type Asset = ();
     type Settings = ();
     type OutputLoader = ();
 
@@ -112,12 +122,17 @@ impl Process for () {
     }
 }
 
-#[derive(Asset)]
-pub struct NullAsset;
+impl Asset for () {}
+
+impl AssetDependencyVisitor for () {
+    fn visit_dependencies(&self, _visit: &mut impl FnMut(bevy_asset::UntypedHandle)) {
+        unreachable!()
+    }
+}
 
 /// The () loader should never be called. This implementation exists to make the meta format nicer to work with.
 impl AssetLoader for () {
-    type Asset = NullAsset;
+    type Asset = ();
     type Settings = ();
     fn load<'a>(
         &'a self,
