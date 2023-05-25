@@ -22,7 +22,7 @@ impl EntityCountDiagnosticsPlugin {
         diagnostics.add(Diagnostic::new(Self::ENTITY_COUNT, "entity_count", 20));
     }
 
-    pub fn diagnostic_system(mut diagnostics: ResMut<Diagnostics>, entities: &Entities) {
+    pub fn diagnostic_system(diagnostics: Res<Diagnostics>, entities: &Entities) {
         diagnostics.add_measurement(Self::ENTITY_COUNT, || entities.len() as f64);
     }
 }

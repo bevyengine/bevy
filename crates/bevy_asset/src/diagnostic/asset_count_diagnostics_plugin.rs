@@ -52,7 +52,7 @@ impl<T: Asset> AssetCountDiagnosticsPlugin<T> {
     }
 
     /// Updates the asset count of `T` assets.
-    pub fn diagnostic_system(mut diagnostics: ResMut<Diagnostics>, assets: Res<Assets<T>>) {
+    pub fn diagnostic_system(diagnostics: Res<Diagnostics>, assets: Res<Assets<T>>) {
         diagnostics.add_measurement(Self::diagnostic_id(), || assets.len() as f64);
     }
 }

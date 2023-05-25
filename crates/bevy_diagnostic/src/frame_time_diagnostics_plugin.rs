@@ -30,7 +30,7 @@ impl FrameTimeDiagnosticsPlugin {
     }
 
     pub fn diagnostic_system(
-        mut diagnostics: ResMut<Diagnostics>,
+        diagnostics: Res<Diagnostics>,
         time: Res<Time>,
         frame_count: Res<FrameCount>,
     ) {

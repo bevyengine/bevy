@@ -1,6 +1,7 @@
-use bevy_ecs::system::Resource;
+use bevy_ecs::system::{ResMut, Resource};
 use bevy_log::warn;
 use bevy_utils::{Duration, Instant, StableHashMap, Uuid};
+use crossbeam_channel::{bounded, Receiver, Sender};
 use std::{borrow::Cow, collections::VecDeque};
 
 use crate::MAX_DIAGNOSTIC_NAME_WIDTH;
@@ -41,19 +42,30 @@ pub struct Diagnostic {
     ema_smoothing_factor: f64,
     max_history_length: usize,
     pub is_enabled: bool,
+    channels: (
+        Sender<DiagnosticMeasurement>,
+        Receiver<DiagnosticMeasurement>,
+    ),
 }
 
 impl Diagnostic {
     /// Add a new value as a [`DiagnosticMeasurement`]. Its timestamp will be [`Instant::now`].
-    pub fn add_measurement(&mut self, value: f64) {
+    pub fn add_measurement(&self, value: f64) {
         let time = Instant::now();
+        let measurement = DiagnosticMeasurement { time, value };
+        if let Err(_) = self.channels.0.send(measurement) {
+            warn!("Diagnostic failed to send");
+        }
+    }
 
+    /// Integrate a new [`DiagnosticMeasurement`]. This is only called from the [diagnostic_system].
+    fn integrate_measurement(&mut self, measurement: DiagnosticMeasurement) {
         if let Some(previous) = self.measurement() {
-            let delta = (time - previous.time).as_secs_f64();
+            let delta = (measurement.time - previous.time).as_secs_f64();
             let alpha = (delta / self.ema_smoothing_factor).clamp(0.0, 1.0);
-            self.ema += alpha * (value - self.ema);
+            self.ema += alpha * (measurement.value - self.ema);
         } else {
-            self.ema = value;
+            self.ema = measurement.value;
         }
 
         if self.max_history_length > 1 {
@@ -63,14 +75,13 @@ impl Diagnostic {
                 }
             }
 
-            self.sum += value;
+            self.sum += measurement.value;
         } else {
             self.history.clear();
-            self.sum = value;
+            self.sum = measurement.value;
         }
 
-        self.history
-            .push_back(DiagnosticMeasurement { time, value });
+        self.history.push_back(measurement);
     }
 
     /// Create a new diagnostic with the given ID, name and maximum history.
@@ -98,6 +109,7 @@ impl Diagnostic {
             ema: 0.0,
             ema_smoothing_factor: 2.0 / 21.0,
             is_enabled: true,
+            channels: bounded(max_history_length.max(1)),
         }
     }
 
@@ -230,13 +242,13 @@ impl Diagnostics {
     /// Add a measurement to an enabled [`Diagnostic`]. The measurement is passed as a function so that
     /// it will be evaluated only if the [`Diagnostic`] is enabled. This can be useful if the value is
     /// costly to calculate.
-    pub fn add_measurement<F>(&mut self, id: DiagnosticId, value: F)
+    pub fn add_measurement<F>(&self, id: DiagnosticId, value: F)
     where
         F: FnOnce() -> f64,
     {
         if let Some(diagnostic) = self
             .diagnostics
-            .get_mut(&id)
+            .get(&id)
             .filter(|diagnostic| diagnostic.is_enabled)
         {
             diagnostic.add_measurement(value());
@@ -246,5 +258,14 @@ impl Diagnostics {
     /// Return an iterator over all [`Diagnostic`].
     pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
         self.diagnostics.values()
+    }
+}
+
+/// Integrate all of the new measurements made since the last call.
+pub fn diagnostic_system(mut diagnostics: ResMut<Diagnostics>) {
+    for diagnostic in diagnostics.diagnostics.values_mut() {
+        while let Ok(value) = diagnostic.channels.1.try_recv() {
+            diagnostic.integrate_measurement(value);
+        }
     }
 }
