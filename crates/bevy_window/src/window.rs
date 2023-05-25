@@ -190,8 +190,8 @@ pub struct Window {
     ///
     /// ## Platform-specific
     ///
-    /// Does nothing on iOS, Android, Web and x11.
-    pub preferred_theme: Option<WindowTheme>,
+    /// Ignored on iOS, Android, and Web.
+    pub window_theme: Option<WindowTheme>,
 }
 
 impl Default for Window {
@@ -216,7 +216,7 @@ impl Default for Window {
             fit_canvas_to_parent: false,
             prevent_default_event_handling: true,
             canvas: None,
-            preferred_theme: None,
+            window_theme: None,
         }
     }
 }
@@ -291,24 +291,6 @@ impl Window {
     /// Set the physical cursor position in this window
     pub fn set_physical_cursor_position(&mut self, position: Option<DVec2>) {
         self.internal.physical_cursor_position = position;
-    }
-
-    /// The window's current theme
-    ///
-    /// ## Platform-specific
-    ///
-    /// - iOS / Android / Web / x11: Unsupported.
-    pub fn window_theme(&self) -> Option<WindowTheme> {
-        self.internal.window_theme
-    }
-
-    /// Set the window's theme
-    ///
-    /// ## Platform-specific
-    ///
-    /// - iOS / Android / Web / x11: Unsupported.
-    pub fn set_window_theme(&mut self, theme: Option<WindowTheme>) {
-        self.internal.window_theme = theme;
     }
 }
 
@@ -689,7 +671,7 @@ pub struct InternalWindowState {
     ///
     /// ## Platform-specific
     ///
-    /// - iOS / Android / Web / x11: Unsupported.
+    /// Ignored on iOS, Android, and Web.
     window_theme: Option<WindowTheme>,
 }
 
@@ -880,4 +862,22 @@ pub enum WindowTheme {
 
     /// Use the dark variant.
     Dark,
+}
+
+impl From<winit::window::Theme> for WindowTheme {
+    fn from(theme: winit::window::Theme) -> Self {
+        match theme {
+            winit::window::Theme::Light => WindowTheme::Light,
+            winit::window::Theme::Dark => WindowTheme::Dark,
+        }
+    }
+}
+
+impl From<WindowTheme> for winit::window::Theme {
+    fn from(theme: WindowTheme) -> Self {
+        match theme {
+            WindowTheme::Light => winit::window::Theme::Light,
+            WindowTheme::Dark => winit::window::Theme::Dark,
+        }
+    }
 }

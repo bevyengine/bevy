@@ -18,7 +18,7 @@ fn main() {
                 fit_canvas_to_parent: true,
                 // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
                 prevent_default_event_handling: false,
-                preferred_theme: Some(WindowTheme::Dark),
+                window_theme: Some(WindowTheme::Dark),
                 ..default()
             }),
             ..default()
@@ -100,11 +100,11 @@ fn toggle_theme(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
     if input.just_pressed(KeyCode::F) {
         let mut window = windows.single_mut();
 
-        if let Some(current_theme) = window.window_theme() {
-            window.set_window_theme(match current_theme {
+        if let Some(current_theme) = window.window_theme {
+            window.window_theme = match current_theme {
                 WindowTheme::Light => Some(WindowTheme::Dark),
                 WindowTheme::Dark => Some(WindowTheme::Light),
-            });
+            };
         }
     }
 }
