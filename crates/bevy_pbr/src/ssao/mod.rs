@@ -1,12 +1,13 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core_pipeline::{
+    core_3d::CORE_3D,
     prelude::Camera3d,
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
-    query::{QueryState, With},
+    query::{QueryItem, With},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
@@ -17,7 +18,7 @@ use bevy_render::{
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::Camera,
-    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
         BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
@@ -96,34 +97,26 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             return;
         }
 
-        let render_app = app.sub_app_mut(RenderApp);
-
         render_app
             .init_resource::<SSAOPipelines>()
             .init_resource::<SpecializedComputePipelines<SSAOPipelines>>()
             .add_systems(ExtractSchedule, extract_ssao_settings)
             .add_systems(Render, prepare_ssao_textures.in_set(RenderSet::Prepare))
             .add_systems(Render, prepare_ssao_pipelines.in_set(RenderSet::Prepare))
-            .add_systems(Render, queue_ssao_bind_groups.in_set(RenderSet::Queue));
-
-        let ssao_node = SSAONode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
-        let draw_3d_graph = graph
-            .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
-            .unwrap();
-        draw_3d_graph.add_node(
-            draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
-            ssao_node,
-        );
-        // PREPASS -> SCREEN_SPACE_AMBIENT_OCCLUSION -> MAIN_PASS
-        draw_3d_graph.add_node_edge(
-            bevy_core_pipeline::core_3d::graph::node::PREPASS,
-            draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
-        );
-        draw_3d_graph.add_node_edge(
-            draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
-            bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
-        );
+            .add_systems(Render, queue_ssao_bind_groups.in_set(RenderSet::Queue))
+            .add_render_graph_node::<ViewNodeRunner<SSAONode>>(
+                CORE_3D,
+                draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
+            )
+            .add_render_graph_edges(
+                CORE_3D,
+                &[
+                    // PREPASS -> SCREEN_SPACE_AMBIENT_OCCLUSION -> MAIN_PASS
+                    bevy_core_pipeline::core_3d::graph::node::PREPASS,
+                    draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
+                    bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
+                ],
+            );
     }
 }
 
@@ -182,42 +175,30 @@ impl ScreenSpaceAmbientOcclusionSettings {
     }
 }
 
-struct SSAONode {
-    view_query: QueryState<(
+#[derive(Default)]
+struct SSAONode {}
+
+impl ViewNode for SSAONode {
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static SSAOPipelineId,
         &'static SSAOBindGroups,
         &'static ViewUniformOffset,
-    )>,
-}
-
-impl SSAONode {
-    fn new(world: &mut World) -> Self {
-        Self {
-            view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for SSAONode {
-    fn update(&mut self, world: &mut World) {
-        self.view_query.update_archetypes(world);
-    }
+    );
 
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
+        (camera, pipeline_id, bind_groups, view_uniform_offset): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipelines = world.resource::<SSAOPipelines>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let (
-            Ok((camera, pipeline_id, bind_groups, view_uniform_offset)),
             Some(preprocess_depth_pipeline),
             Some(spatial_denoise_pipeline),
         ) = (
-            self.view_query.get_manual(world, graph.view_entity()),
             pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
             pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
         ) else {
