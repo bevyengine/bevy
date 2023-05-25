@@ -28,6 +28,7 @@ pub fn ui_windows_system(
                 maybe_layout_context,
             )
         } else {
+            // No primary window
             return;
         };
 
@@ -40,6 +41,7 @@ pub fn ui_windows_system(
     };
 
     if let Some(mut layout_context) = maybe_layout_context {
+        // Only trigger change detection if there are changes to the window's size or scale factor.
         if approx::relative_ne!(
             layout_context.root_node_size.x,
             new_layout_context.root_node_size.x

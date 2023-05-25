@@ -26,7 +26,7 @@ pub struct LayoutContext {
     ///
     /// Should match the size of the output window in physical pixels of the display device.
     pub root_node_size: Vec2,
-    /// `Style` properties of UI node entites with `Val::Px` values are multiplied by the `combined_scale_factor` before they are copied to the `Taffy` layout tree.
+    /// [`Style`] properties of UI node entites with `Val::Px` values are multiplied by the `combined_scale_factor` before they are copied to the Taffy layout tree.
     ///
     /// `combined_scale_factor` is calculated by multiplying together the `scale_factor` of the output window and [`crate::UiScale`].
     pub combined_scale_factor: f64,
@@ -304,7 +304,7 @@ pub fn ui_layout_system(
         }
 
         let mut new_position = transform.translation;
-        
+
         // The `location` of Taffy nodes is placed at the top right corner of the node, while Bevy UI nodes are positioned around their center.
         // So the center of the Taffy node must be calculated first by adding half its size to its location.
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
