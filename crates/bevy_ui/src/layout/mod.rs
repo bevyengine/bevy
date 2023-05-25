@@ -288,7 +288,7 @@ pub fn ui_layout_system(
     // compute layouts
     ui_surface.compute_window_layouts();
 
-    // layout_to_logical_factor is the reciprocal of the `scale_factor` of the target window, and does not include `UiScale`.
+    // `layout_to_logical_factor` is the reciprocal of the `scale_factor` of the target window, and does not include `UiScale`.
     let to_logical = |v| (layout_context.layout_to_logical_factor * v as f64) as f32;
 
     // PERF: try doing this incrementally
