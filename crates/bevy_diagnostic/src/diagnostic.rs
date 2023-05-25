@@ -53,12 +53,12 @@ impl Diagnostic {
     pub fn add_measurement(&self, value: f64) {
         let time = Instant::now();
         let measurement = DiagnosticMeasurement { time, value };
-        if let Err(_) = self.channels.0.send(measurement) {
-            warn!("Diagnostic failed to send");
+        if let Err(e) = self.channels.0.send(measurement) {
+            warn!("Diagnostic failed to send: {e:?}");
         }
     }
 
-    /// Integrate a new [`DiagnosticMeasurement`]. This is only called from the [diagnostic_system].
+    /// Integrate a new [`DiagnosticMeasurement`]. This is only called from the ['diagnostic_system'].
     fn integrate_measurement(&mut self, measurement: DiagnosticMeasurement) {
         if let Some(previous) = self.measurement() {
             let delta = (measurement.time - previous.time).as_secs_f64();

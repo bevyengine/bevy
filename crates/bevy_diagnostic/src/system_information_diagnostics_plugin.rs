@@ -37,7 +37,10 @@ impl SystemInformationDiagnosticsPlugin {
     not(feature = "dynamic_linking")
 ))]
 pub mod internal {
-    use bevy_ecs::{prelude::ResMut, system::Local};
+    use bevy_ecs::{
+        prelude::{Res, ResMut},
+        system::Local,
+    };
     use bevy_log::info;
     use sysinfo::{CpuExt, CpuRefreshKind, RefreshKind, System, SystemExt};
 
@@ -65,7 +68,7 @@ pub mod internal {
     }
 
     pub(crate) fn diagnostic_system(
-        mut diagnostics: ResMut<Diagnostics>,
+        diagnostics: Res<Diagnostics>,
         mut sysinfo: Local<Option<System>>,
     ) {
         if sysinfo.is_none() {
