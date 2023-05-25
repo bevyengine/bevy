@@ -13,7 +13,7 @@
 @group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
 @group(0) @binding(1) var normals: texture_2d<f32>;
 @group(0) @binding(2) var hilbert_index: texture_2d<u32>;
-@group(0) @binding(3) var ambient_occlusion: texture_storage_2d<rgba8unorm, write>;
+@group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r16float, write>;
 @group(0) @binding(4) var depth_differences: texture_storage_2d<r32uint, write>;
 @group(0) @binding(5) var<uniform> globals: Globals;
 @group(1) @binding(0) var point_clamp_sampler: sampler;
@@ -80,40 +80,6 @@ fn load_and_reconstruct_view_space_position(uv: vec2<f32>, sample_mip_level: f32
     return reconstruct_view_space_position(depth, uv);
 }
 
-fn rotation_matrix(to: vec3<f32>) -> mat3x3<f32> {
-    let fromm = vec3(0.0, 0.0, -1.0);
-
-    let e = dot(fromm, to);
-    let f = abs(e);
-
-    if f > 0.9997 {
-        return mat3x3(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0);
-    }
-
-    let v = cross(fromm, to);
-    let h = 1.0 / (1.0 + e);
-    let hvx = h * v.x;
-    let hvz = h * v.z;
-    let hvxy = hvx * v.y;
-    let hvxz = hvx * v.z;
-    let hvyz = hvz * v.y;
-
-    var mtx: mat3x3<f32>;
-    mtx[0][0] = e + hvx * v.x;
-    mtx[0][1] = hvxy - v.z;
-    mtx[0][2] = hvxz + v.y;
-
-    mtx[1][0] = hvxy + v.z;
-    mtx[1][1] = e + h * v.y * v.y;
-    mtx[1][2] = hvyz - v.x;
-
-    mtx[2][0] = hvxz - v.y;
-    mtx[2][1] = hvyz + v.x;
-    mtx[2][2] = e + hvz * v.z;
-
-    return mtx;
-}
-
 @compute
 @workgroup_size(8, 8, 1)
 fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -139,7 +105,6 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let sample_scale = (-0.5 * effect_radius * view.projection[0][0]) / pixel_position.z;
 
     var visibility = 0.0;
-    var bent_normal = vec3(0.0);
     for (var slice_t = 0.0; slice_t < slice_count; slice_t += 1.0) {
         let slice = slice_t + noise.x;
         let phi = (PI / slice_count) * slice;
@@ -193,16 +158,10 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let v1 = (cos_norm + 2.0 * horizon_1 * sin(n) - cos(2.0 * horizon_1 - n)) / 4.0;
         let v2 = (cos_norm + 2.0 * horizon_2 * sin(n) - cos(2.0 * horizon_2 - n)) / 4.0;
         visibility += projected_normal_length * (v1 + v2);
-
-        let t0 = (6.0 * sin(horizon_2 - n) - sin(3.0 * horizon_2 - n) + 6.0 * sin(horizon_1 - n) - sin(3.0 * horizon_1 - n) + 16.0 * sin(n) - 3.0 * (sin(horizon_2 + n) + sin(horizon_1 + n))) / 12.0;
-        let t1 = (-cos(3.0 * horizon_2 - n) - cos(3.0 * horizon_1 - n) + 8.0 * cos(n) - 3.0 * (cos(horizon_2 + n) + cos(horizon_1 + n))) / 12.0;
-        bent_normal += (rotation_matrix(view_vec) * vec3(omega * vec2(t0, t1), -t1)) * projected_normal_length;
     }
-
     visibility /= slice_count;
     visibility = pow(visibility, 1.5);
     visibility = clamp(visibility, 0.03, 1.0);
-    bent_normal = normalize(bent_normal);
 
-    textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(bent_normal, visibility));
+    textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(visibility, 0.0, 0.0, 0.0));
 }

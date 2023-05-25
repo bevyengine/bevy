@@ -13,7 +13,7 @@
 
 @group(0) @binding(0) var ambient_occlusion_noisy: texture_2d<f32>;
 @group(0) @binding(1) var depth_differences: texture_2d<u32>;
-@group(0) @binding(2) var ambient_occlusion: texture_storage_2d<rgba8unorm, write>;
+@group(0) @binding(2) var ambient_occlusion: texture_storage_2d<r16float, write>;
 @group(1) @binding(0) var point_clamp_sampler: sampler;
 @group(1) @binding(1) var<uniform> view: View;
 
@@ -80,5 +80,5 @@ fn spatial_denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let denoised_visibility = sum / sum_weight;
 
-    textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(vec3(0.0), denoised_visibility));
+    textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(denoised_visibility, 0.0, 0.0, 0.0));
 }
