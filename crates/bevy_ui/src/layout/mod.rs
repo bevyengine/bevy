@@ -22,17 +22,17 @@ use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 /// Information needed by the layout systems to determine the size and scaling of UI nodes in a UI layout
 #[derive(Component, Debug, Copy, Clone)]
 pub struct LayoutContext {
-    /// The size of the root node in the layout tree
+    /// The size of the root node in the layout tree.
     ///
     /// Should match the size of the output window in physical pixels of the display device.
     pub root_node_size: Vec2,
     /// `Style` properties of UI node entites with `Val::Px` values are multiplied by the `combined_scale_factor` before they are copied to the `Taffy` layout tree.
     ///
-    /// `combined_scale_factor` is calculated by multiplying together the `scale_factor` of the output window and [`UiScale::scale`]
+    /// `combined_scale_factor` is calculated by multiplying together the `scale_factor` of the output window and [`crate::UiScale`].
     pub combined_scale_factor: f64,
     /// After the UI layout has been computed, all layout coordinates are multiplied by `layout_to_logical_factor` to determine the calculated size of each UI Node that is stored in its [`Node`] component.
     ///
-    /// `layout_to_logical_factor` is the reciprocal of the target window's `scale_factor` and doesn't include `UiScale`.
+    /// `layout_to_logical_factor` is the reciprocal of the target window's `scale_factor` and doesn't include [`crate::UiScale`].
     pub layout_to_logical_factor: f64,
 }
 
@@ -81,7 +81,7 @@ impl Default for UiSurface {
 
 impl UiSurface {
     /// Retrieves the taffy node corresponding to given entity exists, or inserts a new taffy node into the layout if no corresponding node exists.
-    /// Then convert the given `Style` and use it update the taffy node's style.
+    /// Then convert the given [`Style`] and use it update the taffy node's style.
     pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {
         let mut added = false;
         let taffy = &mut self.taffy;
@@ -181,7 +181,7 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    /// Removes each entity from the internal map and then removes their associated node from taffy
+    /// Removes each entity from the internal map and then removes their associated node from Taffy
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
@@ -239,7 +239,7 @@ pub fn ui_layout_system(
     if layout_context.is_changed() {
         // Update all nodes
         //
-        // All nodes have to be updated on changes to the `layout_context` so any viewport values can be recalculated.
+        // All nodes have to be updated on changes to the `LayoutContext` so any viewport values can be recalculated.
         for (entity, style) in style_query.iter() {
             ui_surface.upsert_node(entity, &style, &layout_context);
         }
@@ -304,6 +304,7 @@ pub fn ui_layout_system(
         }
 
         let mut new_position = transform.translation;
+        
         // The `location` of Taffy nodes is placed at the top right corner of the node, while Bevy UI nodes are positioned around their center.
         // So the center of the Taffy node must be calculated first by adding half its size to its location.
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
