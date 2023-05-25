@@ -100,9 +100,9 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.frag_coord.xy), 0i);
-        occlusion = min(occlusion, gtao_multibounce(ssao.a, pbr_input.material.base_color.rgb));
-        pbr_input.bent_N = ssao.rgb;
+        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.frag_coord.xy), 0i).r;
+        let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
+        occlusion = min(occlusion, ssao_multibounce);
 #endif
         pbr_input.occlusion = occlusion;
 

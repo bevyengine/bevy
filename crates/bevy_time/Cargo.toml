@@ -11,6 +11,7 @@ keywords = ["bevy"]
 [features]
 default = []
 serialize = ["serde"]
+bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
 
 [dependencies]
 # bevy

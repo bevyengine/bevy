@@ -24,7 +24,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
 # MacOS
 [target.'cfg(all(target_os="macos"))'.dependencies]
 # Some features of sysinfo are not supported by apple. This will disable those features on apple devices
-sysinfo = { version = "0.28.1", default-features = false, features = [
+sysinfo = { version = "0.29.0", default-features = false, features = [
     "apple-app-store",
 ] }
 
