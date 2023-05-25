@@ -30,9 +30,9 @@ pub struct LayoutContext {
     ///
     /// `combined_scale_factor` is calculated by multiplying together the `scale_factor` of the output window and [`UiScale::scale`]
     pub combined_scale_factor: f64,
-    /// After the UI layout has been computed, all layout coordinates are multiplied by `physical_to_logical_factor` to determine the calculated size of each UI Node that is stored in its [`Node`] component.
+    /// After the UI layout has been computed, all layout coordinates are multiplied by `layout_to_logical_factor` to determine the calculated size of each UI Node that is stored in its [`Node`] component.
     ///
-    /// `physical_to_logical` factor is the reciprocal of the target window's `scale_factor` and doesn't include `UiScale`.
+    /// `layout_to_logical_factor` is the reciprocal of the target window's `scale_factor` and doesn't include `UiScale`.
     pub layout_to_logical_factor: f64,
 }
 
