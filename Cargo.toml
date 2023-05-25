@@ -404,7 +404,7 @@ path = "examples/2d/texture_atlas.rs"
 name = "Texture Atlas"
 description = "Generates a texture atlas (sprite sheet) from individual sprites"
 category = "2D Rendering"
-wasm = true
+wasm = false
 
 [[example]]
 name = "transparency_2d"
@@ -906,7 +906,7 @@ path = "examples/asset/asset_loading.rs"
 name = "Asset Loading"
 description = "Demonstrates various methods to load assets"
 category = "Assets"
-wasm = true
+wasm = false
 
 [[example]]
 name = "custom_asset"
