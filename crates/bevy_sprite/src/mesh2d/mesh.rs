@@ -101,7 +101,6 @@ impl Plugin for Mesh2dRenderPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<Mesh2dPipeline>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_systems(ExtractSchedule, extract_mesh2d)
                 .add_systems(
@@ -111,6 +110,12 @@ impl Plugin for Mesh2dRenderPlugin {
                         queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue),
                     ),
                 );
+        }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<Mesh2dPipeline>();
         }
     }
 }
@@ -390,25 +395,33 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
             let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
-            if method == Mesh2dPipelineKey::TONEMAP_METHOD_NONE {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD {
-                shader_defs.push("TONEMAP_METHOD_REINHARD".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
-                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED {
-                shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_AGX {
-                shader_defs.push("TONEMAP_METHOD_AGX".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-            {
-                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
-                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
-            } else if method == Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
-                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            match method {
+                Mesh2dPipelineKey::TONEMAP_METHOD_NONE => {
+                    shader_defs.push("TONEMAP_METHOD_NONE".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD => {
+                    shader_defs.push("TONEMAP_METHOD_REINHARD".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE => {
+                    shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED => {
+                    shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_AGX => {
+                    shader_defs.push("TONEMAP_METHOD_AGX".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM => {
+                    shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC => {
+                    shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
+                }
+                Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE => {
+                    shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+                }
+                _ => {}
             }
-
             // Debanding is tied to tonemapping in the shader, cannot run without it.
             if key.contains(Mesh2dPipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".into());

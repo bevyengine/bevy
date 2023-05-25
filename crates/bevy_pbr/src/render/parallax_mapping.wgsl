@@ -21,14 +21,14 @@ fn parallaxed_uv(
     max_layer_count: f32,
     max_steps: u32,
     // The original interpolated uv
-    uv: vec2<f32>,
+    original_uv: vec2<f32>,
     // The vector from the camera to the fragment at the surface in tangent space
     Vt: vec3<f32>,
 ) -> vec2<f32> {
     if max_layer_count < 1.0 {
-        return uv;
+        return original_uv;
     }
-    var uv = uv;
+    var uv = original_uv;
 
     // Steep Parallax Mapping
     // ======================
