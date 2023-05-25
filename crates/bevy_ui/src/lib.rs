@@ -10,6 +10,7 @@ mod layout;
 mod render;
 mod stack;
 mod ui_node;
+mod window;
 
 #[cfg(feature = "bevy_text")]
 mod accessibility;
@@ -29,6 +30,7 @@ pub use measurement::*;
 pub use render::*;
 pub use ui_node::*;
 use widget::UiImageSize;
+pub use window::*;
 
 #[doc(hidden)]
 pub mod prelude {

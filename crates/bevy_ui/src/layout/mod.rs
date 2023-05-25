@@ -1,14 +1,14 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style, UiScale};
+use crate::{ContentSize, Node, Style};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     prelude::Component,
     query::{With, Without},
     removal_detection::RemovedComponents,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Query, ResMut, Resource},
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
@@ -16,23 +16,32 @@ use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
-use bevy_window::{PrimaryWindow, Window};
 use std::fmt;
 use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
+/// Information needed by the layout systems to determine the size and scaling of UI nodes in a UI layout
 #[derive(Component, Debug, Copy, Clone)]
 pub struct LayoutContext {
-    pub physical_size: Vec2,
-    pub scale_factor: f64,
-    pub physical_to_logical_factor: f64,
+    /// The size of the root node in the layout tree
+    ///
+    /// Should match the size of the output window in physical pixels of the display device.
+    pub root_node_size: Vec2,
+    /// `Style` properties of UI node entites with `Val::Px` values are multiplied by the `combined_scale_factor` before they are copied to the `Taffy` layout tree.
+    ///
+    /// `combined_scale_factor` is calculated by multiplying together the `scale_factor` of the output window and [`UiScale::scale`]
+    pub combined_scale_factor: f64,
+    /// After the UI layout has been computed, all layout coordinates are multiplied by `physical_to_logical_factor` to determine the calculated size of each UI Node that is stored in its [`Node`] component.
+    ///
+    /// `physical_to_logical` factor is the reciprocal of the target window's `scale_factor` and doesn't include `UiScale`.
+    pub layout_to_logical_factor: f64,
 }
 
 impl Default for LayoutContext {
     fn default() -> Self {
         Self {
-            physical_size: Vec2::new(800., 600.),
-            scale_factor: 1.0,
-            physical_to_logical_factor: 1.0,
+            root_node_size: Vec2::new(800., 600.),
+            combined_scale_factor: 1.0,
+            layout_to_logical_factor: 1.0,
         }
     }
 }
@@ -40,7 +49,7 @@ impl Default for LayoutContext {
 #[derive(Resource)]
 pub struct UiSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
-    window_nodes: HashMap<Entity, taffy::node::Node>,
+    root_nodes: HashMap<Entity, taffy::node::Node>,
     taffy: Taffy,
 }
 
@@ -55,7 +64,7 @@ impl fmt::Debug for UiSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("UiSurface")
             .field("entity_to_taffy", &self.entity_to_taffy)
-            .field("window_nodes", &self.window_nodes)
+            .field("window_nodes", &self.root_nodes)
             .finish()
     }
 }
@@ -64,7 +73,7 @@ impl Default for UiSurface {
     fn default() -> Self {
         Self {
             entity_to_taffy: Default::default(),
-            window_nodes: Default::default(),
+            root_nodes: Default::default(),
             taffy: Taffy::new(),
         }
     }
@@ -129,10 +138,10 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Retrieve or insert the root layout node and update its size to match the size of the window.
-    pub fn update_window(&mut self, window: Entity, physical_size: Vec2) {
+    pub fn update_root_nodes(&mut self, window: Entity, physical_size: Vec2) {
         let taffy = &mut self.taffy;
         let node = self
-            .window_nodes
+            .root_nodes
             .entry(window)
             .or_insert_with(|| taffy.new_leaf(taffy::style::Style::default()).unwrap());
 
@@ -151,12 +160,12 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Set the ui node entities without a [`Parent`] as children to the root node in the taffy layout.
-    pub fn set_window_children(
+    pub fn set_root_nodes_children(
         &mut self,
         parent_window: Entity,
         children: impl Iterator<Item = Entity>,
     ) {
-        let taffy_node = self.window_nodes.get(&parent_window).unwrap();
+        let taffy_node = self.root_nodes.get(&parent_window).unwrap();
         let child_nodes = children
             .map(|e| *self.entity_to_taffy.get(&e).unwrap())
             .collect::<Vec<taffy::node::Node>>();
@@ -165,7 +174,7 @@ without UI components as a child of an entity with UI components, results may be
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
     pub fn compute_window_layouts(&mut self) {
-        for window_node in self.window_nodes.values() {
+        for window_node in self.root_nodes.values() {
             self.taffy
                 .compute_layout(*window_node, Size::MAX_CONTENT)
                 .unwrap();
@@ -204,54 +213,6 @@ pub enum LayoutError {
     TaffyError(taffy::error::TaffyError),
 }
 
-/// Checks for window and scale factor changes and manages the [`LayoutContext`].
-pub fn ui_windows_system(
-    mut commands: Commands,
-    ui_scale: Res<UiScale>,
-    mut primary_window: Query<(Entity, &Window, Option<&mut LayoutContext>), With<PrimaryWindow>>,
-) {
-    let (primary_window_entity, logical_to_physical_factor, physical_size, maybe_layout_context) =
-        if let Ok((entity, primary_window, maybe_layout_context)) = primary_window.get_single_mut()
-        {
-            (
-                entity,
-                primary_window.resolution.scale_factor(),
-                Vec2::new(
-                    primary_window.resolution.physical_width() as f32,
-                    primary_window.resolution.physical_height() as f32,
-                ),
-                maybe_layout_context,
-            )
-        } else {
-            return;
-        };
-
-    let scale_factor = logical_to_physical_factor * ui_scale.scale;
-    let physical_to_logical_factor = logical_to_physical_factor.recip();
-    let new_layout_context = LayoutContext {
-        physical_size,
-        scale_factor,
-        physical_to_logical_factor,
-    };
-
-    if let Some(mut layout_context) = maybe_layout_context {
-        if approx::relative_ne!(
-            layout_context.physical_size.x,
-            new_layout_context.physical_size.x
-        ) && approx::relative_ne!(
-            layout_context.physical_size.y,
-            new_layout_context.physical_size.y
-        ) && approx::relative_ne!(layout_context.scale_factor, new_layout_context.scale_factor)
-        {
-            *layout_context = new_layout_context;
-        }
-    } else {
-        commands
-            .entity(primary_window_entity)
-            .insert(new_layout_context);
-    }
-}
-
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
@@ -266,15 +227,19 @@ pub fn ui_layout_system(
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
-    let Ok((primary_window_entity, layout_context)) = layout_context_query.get_single() else {
+    // Only one `LayoutContext` is supported at the moment (corresponding to the primary window).
+    let Ok((ui_root_entity, layout_context)) = layout_context_query.get_single() else {
+        // No layout context found, return without updating.
         return;
     };
 
-    // update window root nodes
-    ui_surface.update_window(primary_window_entity, layout_context.physical_size);
+    // Update root nodes
+    ui_surface.update_root_nodes(ui_root_entity, layout_context.root_node_size);
 
     if layout_context.is_changed() {
-        // update all nodes
+        // Update all nodes
+        //
+        // All nodes have to be updated on changes to the `layout_context` so any viewport values can be recalculated.
         for (entity, style) in style_query.iter() {
             ui_surface.upsert_node(entity, &style, &layout_context);
         }
@@ -286,27 +251,34 @@ pub fn ui_layout_system(
         }
     }
 
+    // Add new `MeasureFunc`s to the `Taffy` layout tree
     for (entity, mut content_size) in measure_query.iter_mut() {
         if let Some(measure_func) = content_size.measure_func.take() {
+            // The `ContentSize` component only holds a `MeasureFunc` temporarily until it reaches here and is moved into the `Taffy` layout tree.
             ui_surface.update_measure(entity, measure_func);
         }
     }
 
-    // clean up removed nodes
+    // Only entities with a `Node` component are considered UI node entities.
+    // When a `Node` component of an entity is removed, the Taffy node associated with that entity must be deleted from the Taffy layout tree.
     ui_surface.remove_entities(removed_nodes.iter());
 
-    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding Taffy node.
     for entity in removed_content_sizes.iter() {
         ui_surface.try_remove_measure(entity);
     }
 
-    // update window children (for now assuming all Nodes live in the primary window)
-    ui_surface.set_window_children(primary_window_entity, root_node_query.iter());
+    // Set the associated Taffy nodes of UI node entities without a `Parent` component to be children of the UI's root Taffy node
+    ui_surface.set_root_nodes_children(ui_root_entity, root_node_query.iter());
 
-    // update and remove children
+    // Remove the associated Taffy children of entities which had their `Children` component removed since the last layout update
+    //
+    // This must be performed before `update_children` to account for cases where a `Children` component has been both removed and then reinserted between layout updates.
     for entity in removed_children.iter() {
         ui_surface.try_remove_children(entity);
     }
+
+    // If the `Children` of a UI node entity have been changed since the last layout update, the children of the associated Taffy node must be updated.
     for (entity, children) in &children_query {
         if children.is_changed() {
             ui_surface.update_children(entity, &children);
@@ -316,7 +288,8 @@ pub fn ui_layout_system(
     // compute layouts
     ui_surface.compute_window_layouts();
 
-    let to_logical = |v| (layout_context.physical_to_logical_factor * v as f64) as f32;
+    // layout_to_logical_factor is the reciprocal of the `scale_factor` of the target window, and does not include `UiScale`.
+    let to_logical = |v| (layout_context.layout_to_logical_factor * v as f64) as f32;
 
     // PERF: try doing this incrementally
     for (entity, mut node, mut transform, parent) in &mut node_transform_query {
@@ -329,11 +302,16 @@ pub fn ui_layout_system(
         if node.calculated_size != new_size {
             node.calculated_size = new_size;
         }
+
         let mut new_position = transform.translation;
+        // The `location` of Taffy nodes is placed at the top right corner of the node, while Bevy UI nodes are positioned around their center.
+        // So the center of the Taffy node must be calculated first by adding half its size to its location.
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
+
         if let Some(parent) = parent {
             if let Ok(parent_layout) = ui_surface.get_layout(**parent) {
+                // The location of each Taffy node in the layout is given relative to its parent.
                 new_position.x -= to_logical(parent_layout.size.width / 2.0);
                 new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }
@@ -365,7 +343,7 @@ mod tests {
 
         let layout_entity = world
             .spawn(LayoutContext {
-                physical_size: Vec2::new(800., 600.),
+                root_node_size: Vec2::new(800., 600.),
                 ..default()
             })
             .id();
@@ -388,7 +366,7 @@ mod tests {
 
         // `layout_entity` should have an associated Taffy root node
         let taffy_root = *ui_surface
-            .window_nodes
+            .root_nodes
             .get(&layout_entity)
             .expect("Window node not found.");
 
