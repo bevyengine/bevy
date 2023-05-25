@@ -71,8 +71,10 @@ fn load_normal_view_space(uv: vec2<f32>) -> vec3<f32> {
 }
 
 fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
-    let f = vec2(view.inverse_projection[0][0], view.inverse_projection[1][1]);
-    return vec3(uv * f * -depth, depth);
+    let clip_xy = vec2<f32>(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y);
+    let t = view.inverse_projection * vec4<f32>(clip_xy, depth, 1.0);
+    let view_xyz = t.xyz / t.w;
+    return view_xyz;
 }
 
 fn load_and_reconstruct_view_space_position(uv: vec2<f32>, sample_mip_level: f32) -> vec3<f32> {
@@ -160,7 +162,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
         visibility += projected_normal_length * (v1 + v2);
     }
     visibility /= slice_count;
-    visibility = pow(visibility, 1.5);
+    visibility = pow(visibility, 2.1);
     visibility = clamp(visibility, 0.03, 1.0);
 
     textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(visibility, 0.0, 0.0, 0.0));
