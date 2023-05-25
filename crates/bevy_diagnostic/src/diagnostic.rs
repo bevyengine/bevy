@@ -58,7 +58,7 @@ impl Diagnostic {
         }
     }
 
-    /// Integrate a new [`DiagnosticMeasurement`]. This is only called from the ['diagnostic_system'].
+    /// Integrate a new [`DiagnosticMeasurement`]. This is only called from the [`diagnostic_system`].
     fn integrate_measurement(&mut self, measurement: DiagnosticMeasurement) {
         if let Some(previous) = self.measurement() {
             let delta = (measurement.time - previous.time).as_secs_f64();
