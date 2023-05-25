@@ -52,8 +52,6 @@ const SPATIAL_DENOISE_SHADER_HANDLE: HandleUntyped =
 const GTAO_UTILS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 366465052568786);
 
-// TODO: Support MSAA
-
 /// Plugin for screen space ambient occlusion.
 pub struct ScreenSpaceAmbientOcclusionPlugin;
 
@@ -80,7 +78,9 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         );
 
         app.register_type::<ScreenSpaceAmbientOcclusionSettings>();
+    }
 
+    fn finish(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
         if !render_app
@@ -96,7 +96,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             return;
         }
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let render_app = app.sub_app_mut(RenderApp);
 
         render_app
             .init_resource::<SSAOPipelines>()
