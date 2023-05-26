@@ -20,7 +20,7 @@ pub struct TextureAtlas {
     /// The specific areas of the atlas where each texture can be found
     pub textures: Vec<Rect>,
     /// Mapping from texture handle to index
-    pub(crate) texture_handles: Option<HashMap<Handle<Image>, usize>>,
+    pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
 }
 
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]

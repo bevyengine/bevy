@@ -16,7 +16,7 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
         }),
         ..default()
@@ -63,7 +63,7 @@ fn setup(mut commands: Commands) {
             commands.spawn(TextBundle {
                 text: text.clone(),
                 style: Style {
-                    size: Size::width(Val::Px(1000.)),
+                    width: Val::Px(1000.),
                     ..Default::default()
                 },
                 ..Default::default()
