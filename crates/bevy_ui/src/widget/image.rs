@@ -1,9 +1,9 @@
-use crate::{measurement::AvailableSpace, ContentSize, Measure, Node, UiImage};
+use crate::{measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiScale};
 use bevy_asset::Assets;
 #[cfg(feature = "bevy_text")]
 use bevy_ecs::query::Without;
 use bevy_ecs::{
-    prelude::Component,
+    prelude::{Component, DetectChanges},
     query::With,
     reflect::ReflectComponent,
     system::{Query, Res},
@@ -37,7 +37,7 @@ impl UiImageSize {
 #[derive(Clone)]
 /// Used to calculate the size of UI image nodes
 pub struct ImageMeasure {
-    /// The target size of the image in physical pixels
+    /// The size of the image's texture
     pub size: Vec2,
 }
 
@@ -71,8 +71,9 @@ impl Measure for ImageMeasure {
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
-    mut previous_scale_factor: bevy_ecs::system::Local<f32>,
+    mut previous_scale_factor: bevy_ecs::system::Local<f64>,
     windows: Query<&Window, With<PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
     #[cfg(feature = "bevy_text")] mut query: Query<
         (&mut ContentSize, &UiImage, &mut UiImageSize),
@@ -83,10 +84,10 @@ pub fn update_image_content_size_system(
         With<Node>,
     >,
 ) {
-    let scale_factor = windows
+    let window_scale_factor = windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.) as f32;
+        .unwrap_or(1.);
 
     for (mut content_size, image, mut image_size) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
@@ -95,15 +96,15 @@ pub fn update_image_content_size_system(
                 texture.texture_descriptor.size.height as f32,
             );
             // Update only if size or scale factor has changed to avoid needless layout calculations
-            if size != image_size.size || scale_factor != *previous_scale_factor {
+            if size != image_size.size || window_scale_factor != *previous_scale_factor || ui_scale.is_changed() {
                 image_size.size = size;
                 content_size.set(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical
-                    size: size * scale_factor,
+                    size: size * (window_scale_factor * ui_scale.scale) as f32,
                 });
             }
         }
     }
 
-    *previous_scale_factor = scale_factor;
+    *previous_scale_factor = window_scale_factor;
 }
