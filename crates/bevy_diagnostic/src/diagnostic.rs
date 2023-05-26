@@ -1,4 +1,4 @@
-use bevy_ecs::system::{ResMut, Resource};
+use bevy_ecs::system::{Deferred, Res, ResMut, Resource, SystemBuffer, SystemParam};
 use bevy_log::warn;
 use bevy_utils::{Duration, Instant, StableHashMap, Uuid};
 use crossbeam_channel::{bounded, Receiver, Sender};
@@ -255,10 +255,67 @@ impl Diagnostics {
         }
     }
 
+    /// Add a measurement to an enabled [`Diagnostic`]. The measurement is passed as a function so that
+    /// it will be evaluated only if the [`Diagnostic`] is enabled. This can be useful if the value is
+    /// costly to calculate.
+    fn integrate_measurement(&mut self, id: DiagnosticId, measurement: DiagnosticMeasurement) {
+        if let Some(diagnostic) = self.diagnostics.get_mut(&id) {
+            diagnostic.integrate_measurement(measurement);
+        }
+    }
+
     /// Return an iterator over all [`Diagnostic`].
     pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
         self.diagnostics.values()
     }
+}
+
+#[derive(SystemParam)]
+pub struct DiagnosticsParam<'w, 's> {
+    diagnostics: Res<'w, Diagnostics>,
+    queue: Deferred<'s, DiagnosticsBuffer>,
+}
+
+impl<'w, 's> DiagnosticsParam<'w, 's> {
+    pub fn add_measurement<F>(&mut self, id: DiagnosticId, value: F)
+    where
+        F: FnOnce() -> f64,
+    {
+        if self
+            .diagnostics
+            .get(id)
+            .filter(|diagnostic| diagnostic.is_enabled)
+            .is_some()
+        {
+            let measurement = DiagnosticMeasurement {
+                time: Instant::now(),
+                value: value(),
+            };
+            self.queue.0.insert(id, measurement);
+        }
+    }
+}
+
+#[derive(Default)]
+struct DiagnosticsBuffer(StableHashMap<DiagnosticId, DiagnosticMeasurement>);
+
+impl SystemBuffer for DiagnosticsBuffer {
+    fn apply(
+        &mut self,
+        _system_meta: &bevy_ecs::system::SystemMeta,
+        world: &mut bevy_ecs::world::World,
+    ) {
+        let mut diagnostics = world.resource_mut::<Diagnostics>();
+        for (id, measurement) in self.0.drain() {
+            diagnostics.integrate_measurement(id, measurement);
+        }
+    }
+}
+
+const EXAMPLE_ID: DiagnosticId = DiagnosticId::from_u128(0x12452362436);
+
+fn example_system(mut diagnostics: DiagnosticsParam) {
+    diagnostics.add_measurement(EXAMPLE_ID, || 10.0);
 }
 
 /// Integrate all of the new measurements made since the last call.
