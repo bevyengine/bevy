@@ -206,7 +206,7 @@ pub struct DiagnosticsStore {
 impl DiagnosticsStore {
     /// Add a new [`Diagnostic`].
     ///
-    /// If possible, prefer calling [`register_diagnostic`] on [`App`].
+    /// If possible, prefer calling [`App::register_diagnostic`].
     pub fn add(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.insert(diagnostic.id, diagnostic);
     }
