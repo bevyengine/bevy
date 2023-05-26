@@ -4,6 +4,7 @@ use bevy::{
     diagnostic::{Diagnostic, DiagnosticId, Diagnostics, LogDiagnosticsPlugin},
     prelude::*,
 };
+use bevy_internal::diagnostic::DiagnosticsParam;
 
 fn main() {
     App::new()
@@ -31,7 +32,7 @@ fn setup_diagnostic_system(mut diagnostics: ResMut<Diagnostics>) {
     ));
 }
 
-fn my_system(diagnostics: Res<Diagnostics>) {
+fn my_system(mut diagnostics: DiagnosticsParam) {
     // Add a measurement of 10.0 for our diagnostic each time this system runs.
     diagnostics.add_measurement(SYSTEM_ITERATION_COUNT, || 10.0);
 }

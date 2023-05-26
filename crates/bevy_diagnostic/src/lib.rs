@@ -19,12 +19,10 @@ pub struct DiagnosticsPlugin;
 
 impl Plugin for DiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Diagnostics>()
-            .add_systems(
-                Startup,
-                system_information_diagnostics_plugin::internal::log_system_info,
-            )
-            .add_systems(Last, diagnostic::diagnostic_system);
+        app.init_resource::<Diagnostics>().add_systems(
+            Startup,
+            system_information_diagnostics_plugin::internal::log_system_info,
+        );
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::{Diagnostic, DiagnosticId, Diagnostics};
+use crate::{Diagnostic, DiagnosticId, Diagnostics, DiagnosticsParam};
 use bevy_app::prelude::*;
 use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
@@ -30,7 +30,7 @@ impl FrameTimeDiagnosticsPlugin {
     }
 
     pub fn diagnostic_system(
-        diagnostics: Res<Diagnostics>,
+        mut diagnostics: DiagnosticsParam,
         time: Res<Time>,
         frame_count: Res<FrameCount>,
     ) {

@@ -1,7 +1,6 @@
-use bevy_ecs::system::{Deferred, Res, ResMut, Resource, SystemBuffer, SystemParam};
+use bevy_ecs::system::{Deferred, Res, Resource, SystemBuffer, SystemParam};
 use bevy_log::warn;
 use bevy_utils::{Duration, Instant, StableHashMap, Uuid};
-use crossbeam_channel::{bounded, Receiver, Sender};
 use std::{borrow::Cow, collections::VecDeque};
 
 use crate::MAX_DIAGNOSTIC_NAME_WIDTH;
@@ -29,6 +28,15 @@ pub struct DiagnosticMeasurement {
     pub value: f64,
 }
 
+impl From<f64> for DiagnosticMeasurement {
+    fn from(value: f64) -> Self {
+        DiagnosticMeasurement {
+            time: Instant::now(),
+            value,
+        }
+    }
+}
+
 /// A timeline of [`DiagnosticMeasurement`]s of a specific type.
 /// Diagnostic examples: frames per second, CPU usage, network latency
 #[derive(Debug)]
@@ -42,24 +50,13 @@ pub struct Diagnostic {
     ema_smoothing_factor: f64,
     max_history_length: usize,
     pub is_enabled: bool,
-    channels: (
-        Sender<DiagnosticMeasurement>,
-        Receiver<DiagnosticMeasurement>,
-    ),
 }
 
 impl Diagnostic {
-    /// Add a new value as a [`DiagnosticMeasurement`]. Its timestamp will be [`Instant::now`].
-    pub fn add_measurement(&self, value: f64) {
-        let time = Instant::now();
-        let measurement = DiagnosticMeasurement { time, value };
-        if let Err(e) = self.channels.0.send(measurement) {
-            warn!("Diagnostic failed to send: {e:?}");
-        }
-    }
+    /// Add a new value as a [`DiagnosticMeasurement`].
+    pub fn add_measurement(&mut self, value: impl Into<DiagnosticMeasurement>) {
+        let measurement = value.into();
 
-    /// Integrate a new [`DiagnosticMeasurement`]. This is only called from the [`diagnostic_system`].
-    fn integrate_measurement(&mut self, measurement: DiagnosticMeasurement) {
         if let Some(previous) = self.measurement() {
             let delta = (measurement.time - previous.time).as_secs_f64();
             let alpha = (delta / self.ema_smoothing_factor).clamp(0.0, 1.0);
@@ -109,7 +106,6 @@ impl Diagnostic {
             ema: 0.0,
             ema_smoothing_factor: 2.0 / 21.0,
             is_enabled: true,
-            channels: bounded(max_history_length.max(1)),
         }
     }
 
@@ -239,28 +235,9 @@ impl Diagnostics {
             .and_then(|diagnostic| diagnostic.measurement())
     }
 
-    /// Add a measurement to an enabled [`Diagnostic`]. The measurement is passed as a function so that
-    /// it will be evaluated only if the [`Diagnostic`] is enabled. This can be useful if the value is
-    /// costly to calculate.
-    pub fn add_measurement<F>(&self, id: DiagnosticId, value: F)
-    where
-        F: FnOnce() -> f64,
-    {
-        if let Some(diagnostic) = self
-            .diagnostics
-            .get(&id)
-            .filter(|diagnostic| diagnostic.is_enabled)
-        {
-            diagnostic.add_measurement(value());
-        }
-    }
-
-    /// Add a measurement to an enabled [`Diagnostic`]. The measurement is passed as a function so that
-    /// it will be evaluated only if the [`Diagnostic`] is enabled. This can be useful if the value is
-    /// costly to calculate.
-    fn integrate_measurement(&mut self, id: DiagnosticId, measurement: DiagnosticMeasurement) {
+    fn add_measurement(&mut self, id: DiagnosticId, measurement: DiagnosticMeasurement) {
         if let Some(diagnostic) = self.diagnostics.get_mut(&id) {
-            diagnostic.integrate_measurement(measurement);
+            diagnostic.add_measurement(measurement);
         }
     }
 
@@ -272,17 +249,20 @@ impl Diagnostics {
 
 #[derive(SystemParam)]
 pub struct DiagnosticsParam<'w, 's> {
-    diagnostics: Res<'w, Diagnostics>,
+    store: Res<'w, Diagnostics>,
     queue: Deferred<'s, DiagnosticsBuffer>,
 }
 
 impl<'w, 's> DiagnosticsParam<'w, 's> {
+    /// Add a measurement to an enabled [`Diagnostic`]. The measurement is passed as a function so that
+    /// it will be evaluated only if the [`Diagnostic`] is enabled. This can be useful if the value is
+    /// costly to calculate.
     pub fn add_measurement<F>(&mut self, id: DiagnosticId, value: F)
     where
         F: FnOnce() -> f64,
     {
         if self
-            .diagnostics
+            .store
             .get(id)
             .filter(|diagnostic| diagnostic.is_enabled)
             .is_some()
@@ -307,22 +287,7 @@ impl SystemBuffer for DiagnosticsBuffer {
     ) {
         let mut diagnostics = world.resource_mut::<Diagnostics>();
         for (id, measurement) in self.0.drain() {
-            diagnostics.integrate_measurement(id, measurement);
-        }
-    }
-}
-
-const EXAMPLE_ID: DiagnosticId = DiagnosticId::from_u128(0x12452362436);
-
-fn example_system(mut diagnostics: DiagnosticsParam) {
-    diagnostics.add_measurement(EXAMPLE_ID, || 10.0);
-}
-
-/// Integrate all of the new measurements made since the last call.
-pub fn diagnostic_system(mut diagnostics: ResMut<Diagnostics>) {
-    for diagnostic in diagnostics.diagnostics.values_mut() {
-        while let Ok(value) = diagnostic.channels.1.try_recv() {
-            diagnostic.integrate_measurement(value);
+            diagnostics.add_measurement(id, measurement);
         }
     }
 }

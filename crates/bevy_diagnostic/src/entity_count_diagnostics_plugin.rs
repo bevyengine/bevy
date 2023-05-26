@@ -1,7 +1,7 @@
 use bevy_app::prelude::*;
 use bevy_ecs::{entity::Entities, prelude::*};
 
-use crate::{Diagnostic, DiagnosticId, Diagnostics};
+use crate::{Diagnostic, DiagnosticId, Diagnostics, DiagnosticsParam};
 
 /// Adds "entity count" diagnostic to an App
 #[derive(Default)]
@@ -22,7 +22,7 @@ impl EntityCountDiagnosticsPlugin {
         diagnostics.add(Diagnostic::new(Self::ENTITY_COUNT, "entity_count", 20));
     }
 
-    pub fn diagnostic_system(diagnostics: Res<Diagnostics>, entities: &Entities) {
+    pub fn diagnostic_system(mut diagnostics: DiagnosticsParam, entities: &Entities) {
         diagnostics.add_measurement(Self::ENTITY_COUNT, || entities.len() as f64);
     }
 }
