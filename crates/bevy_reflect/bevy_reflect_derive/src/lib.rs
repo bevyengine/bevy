@@ -92,15 +92,17 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 ///   A custom implementation may be provided using `#[reflect(Debug(my_debug_func))]` where
 ///   `my_debug_func` is the path to a function matching the signature:
 ///   `(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result`.
-/// * `#[reflect(PartialEq)]` will force the implementation of `Reflect::reflect_partial_eq` to rely on
+/// * `#[reflect_value(PartialEq)]` will force the implementation of `Reflect::reflect_partial_eq` to rely on
 ///   the type's [`PartialEq`] implementation.
-///   A custom implementation may be provided using `#[reflect(PartialEq(my_partial_eq_func))]` where
+///   A custom implementation may be provided using `#[reflect_value(PartialEq(my_partial_eq_func))]` where
 ///   `my_partial_eq_func` is the path to a function matching the signature:
 ///   `(&self, value: &dyn #bevy_reflect_path::Reflect) -> bool`.
-/// * `#[reflect(Hash)]` will force the implementation of `Reflect::reflect_hash` to rely on
+///   This may only be used for values derived with the `#[reflect_value]` attribute.
+/// * `#[reflect_value(Hash)]` will force the implementation of `Reflect::reflect_hash` to rely on
 ///   the type's [`Hash`] implementation.
-///   A custom implementation may be provided using `#[reflect(Hash(my_hash_func))]` where
+///   A custom implementation may be provided using `#[reflect_value(Hash(my_hash_func))]` where
 ///   `my_hash_func` is the path to a function matching the signature: `(&self) -> u64`.
+///   This may only be used for values derived with the `#[reflect_value]` attribute.
 /// * `#[reflect(Default)]` will register the `ReflectDefault` type data as normal.
 ///   However, it will also affect how certain other operations are performed in order
 ///   to improve performance and/or robustness.
@@ -150,6 +152,14 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 ///
 /// What this does is register the `SerializationData` type within the `GetTypeRegistration` implementation,
 /// which will be used by the reflection serializers to determine whether or not the field is serializable.
+///
+/// ## `#[reflect(skip_hash)]`
+///
+/// This attribute excludes the field from the hash computation in `Reflect::reflect_hash`.
+///
+/// ## `#[reflect(skip_partial_eq)]`
+///
+/// This attribute excludes the field from comparison in `Reflect::reflect_partial_eq`.
 ///
 /// [`reflect_trait`]: macro@reflect_trait
 #[proc_macro_derive(Reflect, attributes(reflect, reflect_value, type_path, type_name))]
