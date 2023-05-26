@@ -1257,9 +1257,9 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let mesh_index = mesh_index.index();
         match (skin_index, morph_index) {
             (None, None) => set_bind_group(&[mesh_index]),
-            (Some(joint), None) => set_bind_group(&[mesh_index, joint.index]),
+            (Some(skin), None) => set_bind_group(&[mesh_index, skin.index]),
             (None, Some(morph)) => set_bind_group(&[mesh_index, morph.index]),
-            (Some(joint), Some(morph)) => set_bind_group(&[mesh_index, joint.index, morph.index]),
+            (Some(skin), Some(morph)) => set_bind_group(&[mesh_index, skin.index, morph.index]),
         };
         RenderCommandResult::Success
     }
