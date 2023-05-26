@@ -8,7 +8,7 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::NodeSize;
+use crate::Node;
 use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, UiImage, UiStack};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -168,7 +168,7 @@ pub fn extract_uinodes(
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
-            &NodeSize,
+            &Node,
             &GlobalTransform,
             &BackgroundColor,
             Option<&UiImage>,
@@ -281,7 +281,7 @@ pub fn extract_text_uinodes(
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
-            &NodeSize,
+            &Node,
             &GlobalTransform,
             &Text,
             &TextLayoutInfo,

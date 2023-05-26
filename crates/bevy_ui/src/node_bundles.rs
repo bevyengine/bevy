@@ -2,7 +2,7 @@
 
 use crate::{
     widget::{Button, TextFlags, UiImageSize},
-    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, NodeSize, Style, UiImage, ZIndex,
+    BackgroundColor, ContentSize, FocusPolicy, Interaction, UiKey, Node, Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -19,9 +19,9 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
     /// Used internally. All UI nodes must have this component.
-    pub node: Node,
+    pub node: UiKey,
     /// Describes the logical size of the node
-    pub node_size: NodeSize,
+    pub node_size: Node,
     /// Styles which control the layout (size and position) of the node and it's children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
@@ -69,12 +69,12 @@ impl Default for NodeBundle {
 #[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Used internally. All UI nodes must have this component.
-    pub node: Node,
+    pub ui_key: UiKey,
     /// Describes the logical size of the node
     ///
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub node_size: NodeSize,
+    pub node: Node,
     /// Styles which control the layout (size and position) of the node and it's children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
@@ -115,9 +115,9 @@ pub struct ImageBundle {
 #[derive(Bundle, Debug)]
 pub struct TextBundle {
     /// Used internally. All UI nodes must have this component.
-    pub taffy: Node,
+    pub taffy: UiKey,
     /// Describes the logical size of the node
-    pub node_size: NodeSize,
+    pub node_size: Node,
     /// Styles which control the layout (size and position) of the node and it's children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
@@ -219,9 +219,9 @@ impl TextBundle {
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
     /// Used internally. All UI nodes must have this component.
-    pub node: Node,
+    pub node: UiKey,
     /// Describes the logical size of the node
-    pub node_size: NodeSize,
+    pub node_size: Node,
     /// Marker component that signals this node is a button
     pub button: Button,
     /// Styles which control the layout (size and position) of the node and it's children

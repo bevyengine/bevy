@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, NodeSize, Style, UiScale};
+use crate::{ContentSize, UiKey, Node, Style, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -171,8 +171,8 @@ pub enum LayoutError {
 // Insert new UI nodes into the UI layout
 pub fn insert_ui_nodes_system(
     mut ui_surface: ResMut<UiSurface>,
-    mut removed_nodes: RemovedComponents<Node>,
-    mut node_keys_query: Query<(Entity, &mut Node)>,
+    mut removed_nodes: RemovedComponents<UiKey>,
+    mut node_keys_query: Query<(Entity, &mut UiKey)>,
 ) {
     // clean up removed nodes first
     ui_surface.remove_entities(removed_nodes.iter());
@@ -202,13 +202,13 @@ pub fn ui_layout_system(
     mut window_resized_events: EventReader<bevy_window::WindowResized>,
     mut window_created_events: EventReader<bevy_window::WindowCreated>,
     mut ui_surface: ResMut<UiSurface>,
-    root_node_query: Query<&Node, Without<Parent>>,
-    style_query: Query<(&Node, Ref<Style>)>,
-    mut measure_query: Query<(&Node, &mut ContentSize)>,
-    children_query: Query<(&Node, Ref<Children>)>,
+    root_node_query: Query<&UiKey, Without<Parent>>,
+    style_query: Query<(&UiKey, Ref<Style>)>,
+    mut measure_query: Query<(&UiKey, &mut ContentSize)>,
+    children_query: Query<(&UiKey, Ref<Children>)>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
-    mut node_transform_query: Query<(&Node, &mut NodeSize, &mut Transform)>,
+    mut node_transform_query: Query<(&UiKey, &mut Node, &mut Transform)>,
 ) {
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_content_sizes.iter() {

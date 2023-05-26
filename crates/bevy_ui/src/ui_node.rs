@@ -17,15 +17,17 @@ use thiserror::Error;
 /// Used internally to lookup a UI node's corresponding entry in the UI's layout tree.
 ///
 /// UI nodes must have this component
-#[derive(Component, Debug, Default)]
-pub struct Node {
+#[derive(Component, Debug, Default, Reflect)]
+#[reflect(Component, Default)]
+pub struct UiKey {
     // Indentifier for the Taffy node in the Taffy layout tree stored in [`crate::layout::UiSurface`] that corresponds to the UI node entity with this component.
     //
     // Users can only instantiate null nodes, the keys are managed internally by the UI's layout systems.
+    #[reflect(ignore)]
     pub(crate) taffy_node: taffy::node::Node,
 }
 
-impl Node {
+impl UiKey {
     // Returns true if this taffy key is null.
     // A UI node entity with a null `taffy_node` value has not been added to the layout tree.
     #[inline]
@@ -35,7 +37,7 @@ impl Node {
     }
 }
 
-impl Clone for Node {
+impl Clone for UiKey {
     fn clone(&self) -> Self {
         Self::default()
     }
@@ -46,13 +48,13 @@ impl Clone for Node {
 /// All UI nodes must have this component.
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
-pub struct NodeSize {
+pub struct Node {
     /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
 }
 
-impl NodeSize {
+impl Node {
     /// The calculated node size as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub const fn size(&self) -> Vec2 {
@@ -91,13 +93,13 @@ impl NodeSize {
     }
 }
 
-impl NodeSize {
+impl Node {
     pub const DEFAULT: Self = Self {
         calculated_size: Vec2::ZERO,
     };
 }
 
-impl Default for NodeSize {
+impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
     }

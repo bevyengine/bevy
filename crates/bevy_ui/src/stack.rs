@@ -124,19 +124,19 @@ mod tests {
     };
     use bevy_hierarchy::BuildChildren;
 
-    use crate::{NodeSize, UiStack, ZIndex};
+    use crate::{Node, UiStack, ZIndex};
 
     use super::ui_stack_system;
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
 
-    fn node_with_zindex(name: &'static str, z_index: ZIndex) -> (Label, NodeSize, ZIndex) {
-        (Label(name), NodeSize::default(), z_index)
+    fn node_with_zindex(name: &'static str, z_index: ZIndex) -> (Label, Node, ZIndex) {
+        (Label(name), Node::default(), z_index)
     }
 
-    fn node_without_zindex(name: &'static str) -> (Label, NodeSize) {
-        (Label(name), NodeSize::default())
+    fn node_without_zindex(name: &'static str) -> (Label, Node) {
+        (Label(name), Node::default())
     }
 
     /// Tests the UI Stack system.
