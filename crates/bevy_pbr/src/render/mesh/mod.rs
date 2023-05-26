@@ -681,15 +681,15 @@ pub fn set_mesh_binding_defs(
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
 ) -> BindGroupLayout {
-    let skinned = layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
+    let has_skin = layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
         && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT);
-    let morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
+    let has_morph = key.intersects(MeshPipelineKey::MORPH_TARGETS);
     let mut add_skin_data = || {
         shader_defs.push("SKINNED".into());
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
     };
-    match (skinned, morphed) {
+    match (has_skin, has_morph) {
         (true, false) => {
             add_skin_data();
             mesh_layouts.skinned.clone()
