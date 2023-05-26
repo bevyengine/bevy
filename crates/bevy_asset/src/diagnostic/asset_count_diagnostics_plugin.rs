@@ -1,7 +1,7 @@
 use crate::{Asset, Assets};
 use bevy_app::prelude::*;
 use bevy_diagnostic::{
-    Diagnostic, DiagnosticId, Diagnostics, DiagnosticsParam, MAX_DIAGNOSTIC_NAME_WIDTH,
+    Diagnostic, DiagnosticId, Diagnostics, DiagnosticsStore, MAX_DIAGNOSTIC_NAME_WIDTH,
 };
 use bevy_ecs::prelude::*;
 
@@ -34,7 +34,7 @@ impl<T: Asset> AssetCountDiagnosticsPlugin<T> {
     }
 
     /// Registers the asset count diagnostic for the current application.
-    pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
+    pub fn setup_system(mut diagnostics: ResMut<DiagnosticsStore>) {
         let asset_type_name = std::any::type_name::<T>();
         let max_length = MAX_DIAGNOSTIC_NAME_WIDTH - "asset_count ".len();
         diagnostics.add(Diagnostic::new(
@@ -54,7 +54,7 @@ impl<T: Asset> AssetCountDiagnosticsPlugin<T> {
     }
 
     /// Updates the asset count of `T` assets.
-    pub fn diagnostic_system(mut diagnostics: DiagnosticsParam, assets: Res<Assets<T>>) {
+    pub fn diagnostic_system(mut diagnostics: Diagnostics, assets: Res<Assets<T>>) {
         diagnostics.add_measurement(Self::diagnostic_id(), || assets.len() as f64);
     }
 }

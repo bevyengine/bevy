@@ -1,3 +1,4 @@
+use bevy_app::App;
 use bevy_ecs::system::{Deferred, Res, Resource, SystemBuffer, SystemParam};
 use bevy_log::warn;
 use bevy_utils::{Duration, Instant, StableHashMap, Uuid};
@@ -207,13 +208,13 @@ impl Diagnostic {
 
 /// A collection of [Diagnostic]s
 #[derive(Debug, Default, Resource)]
-pub struct Diagnostics {
+pub struct DiagnosticsStore {
     // This uses a [`StableHashMap`] to ensure that the iteration order is deterministic between
     // runs when all diagnostics are inserted in the same order.
     diagnostics: StableHashMap<DiagnosticId, Diagnostic>,
 }
 
-impl Diagnostics {
+impl DiagnosticsStore {
     /// Add a new [`Diagnostic`].
     pub fn add(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.insert(diagnostic.id, diagnostic);
@@ -235,12 +236,6 @@ impl Diagnostics {
             .and_then(|diagnostic| diagnostic.measurement())
     }
 
-    fn add_measurement(&mut self, id: DiagnosticId, measurement: DiagnosticMeasurement) {
-        if let Some(diagnostic) = self.diagnostics.get_mut(&id) {
-            diagnostic.add_measurement(measurement);
-        }
-    }
-
     /// Return an iterator over all [`Diagnostic`].
     pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
         self.diagnostics.values()
@@ -248,12 +243,12 @@ impl Diagnostics {
 }
 
 #[derive(SystemParam)]
-pub struct DiagnosticsParam<'w, 's> {
-    store: Res<'w, Diagnostics>,
+pub struct Diagnostics<'w, 's> {
+    store: Res<'w, DiagnosticsStore>,
     queue: Deferred<'s, DiagnosticsBuffer>,
 }
 
-impl<'w, 's> DiagnosticsParam<'w, 's> {
+impl<'w, 's> Diagnostics<'w, 's> {
     /// Add a measurement to an enabled [`Diagnostic`]. The measurement is passed as a function so that
     /// it will be evaluated only if the [`Diagnostic`] is enabled. This can be useful if the value is
     /// costly to calculate.
@@ -285,9 +280,26 @@ impl SystemBuffer for DiagnosticsBuffer {
         _system_meta: &bevy_ecs::system::SystemMeta,
         world: &mut bevy_ecs::world::World,
     ) {
-        let mut diagnostics = world.resource_mut::<Diagnostics>();
+        let mut diagnostics = world.resource_mut::<DiagnosticsStore>();
         for (id, measurement) in self.0.drain() {
-            diagnostics.add_measurement(id, measurement);
+            if let Some(diagnostic) = diagnostics.get_mut(id) {
+                diagnostic.add_measurement(measurement);
+            }
         }
+    }
+}
+
+/// Easy way to register a new diagnostic with an App.
+/// This could equally be a native fn of the app behind a feature flag.
+pub trait RegisterDiagnostic {
+    fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self;
+}
+
+impl RegisterDiagnostic for App {
+    fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self {
+        let mut diagnostics = self.world.resource_mut::<DiagnosticsStore>();
+        diagnostics.add(diagnostic);
+
+        self
     }
 }

@@ -1,7 +1,7 @@
 use std::f32::consts::TAU;
 
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::PresentMode,
 };
@@ -90,7 +90,7 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnostics>) {
+fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
     let mut text = query.single_mut();
 
     let Some(fps) = diag.get(FrameTimeDiagnosticsPlugin::FPS).and_then(|fps| fps.smoothed()) else {
