@@ -5,7 +5,7 @@ pub use wgpu::PrimitiveTopology;
 use crate::{
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset},
-    render_resource::{BindGroup, Buffer, VertexBufferLayout},
+    render_resource::{Buffer, VertexBufferLayout},
     renderer::RenderDevice,
 };
 use bevy_core::cast_slice;
@@ -824,8 +824,6 @@ pub struct GpuMesh {
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
-    /// The bind group used for this specific mesh.
-    pub bind_group: Option<BindGroup>,
 }
 impl GpuMesh {
     pub fn has_skin(&self) -> bool {
@@ -891,7 +889,6 @@ impl RenderAsset for Mesh {
             buffer_info,
             primitive_topology: mesh.primitive_topology(),
             layout: mesh_vertex_buffer_layout,
-            bind_group: None,
         })
     }
 }

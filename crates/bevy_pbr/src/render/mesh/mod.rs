@@ -90,6 +90,7 @@ impl Plugin for MeshRenderPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<SkinnedMeshUniform>()
+                .init_resource::<MeshBindGroups>()
                 .add_systems(ExtractSchedule, (extract_meshes, extract_skinned_meshes))
                 .add_systems(
                     Render,
@@ -846,36 +847,57 @@ impl SpecializedMeshPipeline for MeshPipeline {
     }
 }
 
+#[derive(Resource, Default)]
+pub struct MeshBindGroups {
+    pub model_only: Option<BindGroup>,
+    pub skinned: Option<BindGroup>,
+}
+impl MeshBindGroups {
+    pub fn reset(&mut self) {
+        self.model_only = None;
+        self.skinned = None;
+    }
+    pub fn get(&self, has_skin: bool) -> Option<&BindGroup> {
+        if has_skin {
+            self.skinned.as_ref()
+        } else {
+            self.model_only.as_ref()
+        }
+    }
+}
+
 pub fn queue_mesh_bind_group(
-    mut meshes: ResMut<RenderAssets<Mesh>>,
+    meshes: Res<RenderAssets<Mesh>>,
+    mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<ComponentUniforms<MeshUniform>>,
     skinned_mesh_uniform: Res<SkinnedMeshUniform>,
 ) {
     use bindings::group::{model_only, skinned};
-    let layouts = &mesh_pipeline.mesh_layouts;
-    let (model_only, skinned) = match (mesh_uniforms.buffer(), skinned_mesh_uniform.buffer.buffer())
-    {
-        // No model uniform.
-        (None, _) => (None, None),
 
-        (Some(model), None) => (
-            Some(model_only(&render_device, &layouts.model_only, model)),
-            None,
-        ),
-        (Some(model), Some(skin)) => (
-            Some(model_only(&render_device, &layouts.model_only, model)),
-            Some(skinned(&render_device, &layouts.skinned, model, skin)),
-        ),
-    };
-    for (_, gpu_mesh) in meshes.iter_mut() {
-        let bind_group = if gpu_mesh.has_skin() {
-            skinned.clone()
-        } else {
-            model_only.clone()
-        };
-        gpu_mesh.bind_group = bind_group;
+    groups.reset();
+
+    for (_, gpu_mesh) in meshes.iter() {
+        let has_skin = |_: &&Buffer| gpu_mesh.has_skin();
+        match (
+            mesh_uniforms.buffer(),
+            skinned_mesh_uniform.buffer.buffer().filter(has_skin),
+        ) {
+            // No model uniform.
+            (None, _) => {}
+
+            (Some(model), None) => {
+                let layout = &mesh_pipeline.mesh_layouts.model_only;
+                let group = || model_only(&render_device, layout, model);
+                groups.model_only.get_or_insert_with(group);
+            }
+            (Some(model), Some(skin)) => {
+                let layout = &mesh_pipeline.mesh_layouts.skinned;
+                let group = || skinned(&render_device, layout, model, skin);
+                groups.skinned.get_or_insert_with(group);
+            }
+        }
     }
 }
 
@@ -1096,10 +1118,9 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
 
 pub struct SetMeshBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
-    type Param = SRes<RenderAssets<Mesh>>;
+    type Param = SRes<MeshBindGroups>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = (
-        Read<Handle<Mesh>>,
         Read<DynamicUniformIndex<MeshUniform>>,
         Option<Read<SkinnedMeshJoints>>,
     );
@@ -1107,21 +1128,17 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     fn render<'w>(
         _item: &P,
         _view: (),
-        (mesh, mesh_index, skin_index): ROQueryItem<'_, Self::ItemWorldQuery>,
-        meshes: SystemParamItem<'w, '_, Self::Param>,
+        (mesh_index, skin_index): ROQueryItem<'_, Self::ItemWorldQuery>,
+        bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(gpu_mesh) = meshes.into_inner().get(mesh) else {
+        let bind_groups = bind_groups.into_inner();
+        let has_skin = skin_index.is_some();
+        let Some(bind_group) = bind_groups.get(has_skin) else {
             error!(
-                "An entity with the DynamicUniformIndex<mesh::Uniform> had a Handle<Mesh> not \
-                present in its RenderAssets<Mesh> (very unexpected)"
-            );
-            return RenderCommandResult::Failure;
-        };
-        let Some(bind_group) = &gpu_mesh.bind_group else {
-            error!(
-                "The bind_group field of GpuMesh wasn't set in the render phase. This is odd, \
-                since it should be set by the queue_mesh_bind_group system."
+                "The MeshBindGroups resource wasn't set in the render phase. \
+                It should be set by the queue_mesh_bind_group system.\n\
+                This is a bevy bug! Please open an issue."
             );
             return RenderCommandResult::Failure;
         };
