@@ -673,7 +673,10 @@ impl MeshPipelineKey {
     }
 }
 
-pub fn set_mesh_binding_defs(
+fn has_skin(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
+    layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX) && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
+}
+pub fn set_special_mesh_attributes(
     mesh_layouts: &MeshLayouts,
     layout: &Hashed<InnerMeshVertexBufferLayout>,
     offset: u32,
@@ -681,15 +684,13 @@ pub fn set_mesh_binding_defs(
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
 ) -> BindGroupLayout {
-    let has_skin = layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
-        && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT);
-    let has_morph = key.intersects(MeshPipelineKey::MORPH_TARGETS);
     let mut add_skin_data = || {
         shader_defs.push("SKINNED".into());
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
     };
-    match (has_skin, has_morph) {
+    let has_morph = key.intersects(MeshPipelineKey::MORPH_TARGETS);
+    match (has_skin(layout), has_morph) {
         (true, false) => {
             add_skin_data();
             mesh_layouts.skinned.clone()
@@ -764,7 +765,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         };
 
-        bind_group_layout.push(set_mesh_binding_defs(
+        bind_group_layout.push(set_special_mesh_attributes(
             &self.mesh_layouts,
             layout,
             5,
@@ -957,7 +958,7 @@ pub fn queue_mesh_bind_group(
     groups.reset();
 
     for (id, gpu_mesh) in meshes.iter() {
-        let has_skin = |_: &&Buffer| gpu_mesh.is_skinned();
+        let has_skin = |_: &&Buffer| has_skin(&gpu_mesh.layout);
         match (
             mesh_uniforms.buffer(),
             // Both GPU mesh has skin and SkinnedMeshUniform exists

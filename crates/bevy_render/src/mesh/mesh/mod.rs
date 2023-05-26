@@ -100,13 +100,6 @@ impl Mesh {
         }
     }
 
-    /// Whether this mesh has skeletal skinning vertex attributes.
-    pub fn is_skinned(&self) -> bool {
-        let weight_id = &Self::ATTRIBUTE_JOINT_WEIGHT.id;
-        let index_id = &Self::ATTRIBUTE_JOINT_INDEX.id;
-        self.attributes.contains_key(weight_id) && self.attributes.contains_key(index_id)
-    }
-
     /// Returns the topology of the mesh.
     pub fn primitive_topology(&self) -> PrimitiveTopology {
         self.primitive_topology
@@ -858,14 +851,6 @@ pub struct GpuMesh {
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
-}
-impl GpuMesh {
-    /// Whether this mesh has skeletal skinning vertex attributes.
-    pub fn is_skinned(&self) -> bool {
-        let weight_id = Mesh::ATTRIBUTE_JOINT_WEIGHT.id;
-        let index_id = Mesh::ATTRIBUTE_JOINT_INDEX.id;
-        self.layout.contains(weight_id) && self.layout.contains(index_id)
-    }
 }
 
 /// The index/vertex buffer info of a [`GpuMesh`].
