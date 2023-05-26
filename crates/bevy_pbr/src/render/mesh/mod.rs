@@ -944,7 +944,7 @@ impl MeshBindGroups {
 }
 
 pub fn queue_mesh_bind_group(
-    mut meshes: ResMut<RenderAssets<Mesh>>,
+    meshes: Res<RenderAssets<Mesh>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
@@ -956,7 +956,7 @@ pub fn queue_mesh_bind_group(
 
     groups.reset();
 
-    for (id, gpu_mesh) in meshes.iter_mut() {
+    for (id, gpu_mesh) in meshes.iter() {
         let has_skin = |_: &&Buffer| gpu_mesh.is_skinned();
         match (
             mesh_uniforms.buffer(),
