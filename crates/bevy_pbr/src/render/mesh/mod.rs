@@ -9,7 +9,7 @@ use crate::{
     MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Assets, Handle, HandleId, HandleUntyped};
 use bevy_core_pipeline::{
     prepass::ViewPrepassTextures,
     tonemapping::{
@@ -44,7 +44,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, Hashed};
+use bevy_utils::{tracing::error, HashMap, Hashed};
 
 #[cfg(doc)]
 use bevy_render::mesh::morph::MorphAttributes;
@@ -117,6 +117,7 @@ impl Plugin for MeshRenderPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<SkinnedMeshUniform>()
+                .init_resource::<MeshBindGroups>()
                 .init_resource::<morph::Uniform>()
                 .add_systems(
                     ExtractSchedule,
@@ -303,7 +304,7 @@ pub struct MeshLayouts {
     pub morphed: BindGroupLayout,
     /// Also includes both uniforms for skinning and morph targets, also the
     /// morph target [`MorphAttributes`] binding.
-    pub morphed_and_skinned: BindGroupLayout,
+    pub morphed_skinned: BindGroupLayout,
 }
 
 #[derive(Resource, Clone)]
@@ -557,7 +558,7 @@ impl FromWorld for MeshPipeline {
                 model_only: bindings::layout::model_only(&render_device),
                 skinned: bindings::layout::skinned(&render_device),
                 morphed: bindings::layout::morphed(&render_device),
-                morphed_and_skinned: bindings::layout::morphed_and_skinned(&render_device),
+                morphed_skinned: bindings::layout::morphed_skinned(&render_device),
             },
         }
     }
@@ -696,7 +697,7 @@ pub fn set_mesh_binding_defs(
         (true, true) => {
             add_skin_data();
             shader_defs.push("MORPH_TARGETS".into());
-            mesh_layouts.morphed_and_skinned.clone()
+            mesh_layouts.morphed_skinned.clone()
         }
         (false, true) => {
             shader_defs.push("MORPH_TARGETS".into());
@@ -919,35 +920,43 @@ impl SpecializedMeshPipeline for MeshPipeline {
     }
 }
 
-struct MeshBindGroupCache {
+/// Bind groups for meshes currently loaded.
+#[derive(Resource, Default)]
+pub struct MeshBindGroups {
     model_only: Option<BindGroup>,
     skinned: Option<BindGroup>,
+    morph_targets: HashMap<HandleId, BindGroup>,
 }
+impl MeshBindGroups {
+    pub fn reset(&mut self) {
+        self.model_only = None;
+        self.skinned = None;
+        self.morph_targets.clear();
+    }
+    /// Get the `BindGroup` for `GpuMesh` with given `handle_id`.
+    pub fn get(&self, handle_id: HandleId, has_skin: bool, has_morph: bool) -> Option<&BindGroup> {
+        match (has_skin, has_morph) {
+            (_, true) => self.morph_targets.get(&handle_id),
+            (true, false) => self.skinned.as_ref(),
+            (false, false) => self.model_only.as_ref(),
+        }
+    }
+}
+
 pub fn queue_mesh_bind_group(
     mut meshes: ResMut<RenderAssets<Mesh>>,
+    mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<ComponentUniforms<MeshUniform>>,
     skinned_mesh_uniform: Res<SkinnedMeshUniform>,
     weights_uniform: Res<morph::Uniform>,
 ) {
-    use bindings::group::{model_only, morphed, morphed_and_skinned, skinned};
+    use bindings::group::{model_only, morphed, morphed_skinned, skinned};
 
-    let mut cache = MeshBindGroupCache {
-        model_only: None,
-        skinned: None,
-    };
-    let mut cached_model_only = |model| {
-        let layout = &mesh_pipeline.mesh_layouts.model_only;
-        let model_only = || model_only(&render_device, layout, model);
-        cache.model_only.get_or_insert_with(model_only).clone()
-    };
-    let mut cached_skinned = |model, skin| {
-        let layout = &mesh_pipeline.mesh_layouts.skinned;
-        let skinned = || skinned(&render_device, layout, model, skin);
-        cache.skinned.get_or_insert_with(skinned).clone()
-    };
-    for (_, gpu_mesh) in meshes.iter_mut() {
+    groups.reset();
+
+    for (id, gpu_mesh) in meshes.iter_mut() {
         let has_skin = |_: &&Buffer| gpu_mesh.is_skinned();
         match (
             mesh_uniforms.buffer(),
@@ -961,26 +970,24 @@ pub fn queue_mesh_bind_group(
             (None, _, _, _) | (_, _, None, Some(_)) => {}
 
             (Some(model), None, _, None) => {
-                gpu_mesh.bind_group = Some(cached_model_only(model));
+                let layout = &mesh_pipeline.mesh_layouts.model_only;
+                let group = || model_only(&render_device, layout, model);
+                groups.model_only.get_or_insert_with(group);
             }
             (Some(model), None, Some(weights), Some(targets)) => {
                 let layout = &mesh_pipeline.mesh_layouts.morphed;
-                gpu_mesh.bind_group =
-                    Some(morphed(&render_device, layout, model, weights, targets));
+                let group = morphed(&render_device, layout, model, weights, targets);
+                groups.morph_targets.insert(id.id(), group);
             }
             (Some(model), Some(skin), _, None) => {
-                gpu_mesh.bind_group = Some(cached_skinned(model, skin));
+                let layout = &mesh_pipeline.mesh_layouts.skinned;
+                let group = || skinned(&render_device, layout, model, skin);
+                groups.skinned.get_or_insert_with(group);
             }
             (Some(model), Some(skin), Some(weights), Some(targets)) => {
-                let layout = &mesh_pipeline.mesh_layouts.morphed_and_skinned;
-                gpu_mesh.bind_group = Some(morphed_and_skinned(
-                    &render_device,
-                    layout,
-                    model,
-                    skin,
-                    weights,
-                    targets,
-                ));
+                let layout = &mesh_pipeline.mesh_layouts.morphed_skinned;
+                let group = morphed_skinned(&render_device, layout, model, skin, weights, targets);
+                groups.morph_targets.insert(id.id(), group);
             }
         }
     }
@@ -1218,7 +1225,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
 
 pub struct SetMeshBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
-    type Param = SRes<RenderAssets<Mesh>>;
+    type Param = SRes<MeshBindGroups>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = (
         Read<Handle<Mesh>>,
@@ -1232,18 +1239,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         _item: &P,
         _view: (),
         (mesh, mesh_index, skin_index, morph_index): ROQueryItem<Self::ItemWorldQuery>,
-        meshes: SystemParamItem<'w, '_, Self::Param>,
+        bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(gpu_mesh) = meshes.into_inner().get(mesh) else {
-            // An entity with the DynamicUniformIndex<mesh::Uniform> had a Handle<Mesh>
-            // not in `RenderAssets<Mesh>`. The mesh is either not loaded yet or
-            // dropped and this is a weak Handle.
-            return RenderCommandResult::Failure;
-        };
-        let Some(bind_group) = &gpu_mesh.bind_group else {
+        let bind_groups = bind_groups.into_inner();
+        let has_skin = skin_index.is_some();
+        let has_morph = morph_index.is_some();
+        let Some(bind_group) = bind_groups.get(mesh.id(), has_skin, has_morph) else {
             error!(
-                "The bind_group field of GpuMesh wasn't set in the render phase. \
+                "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the queue_mesh_bind_group system.\n\
                 This is a bevy bug! Please open an issue."
             );

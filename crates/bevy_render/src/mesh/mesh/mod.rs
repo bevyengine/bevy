@@ -6,7 +6,7 @@ use crate::{
     prelude::Image,
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-    render_resource::{BindGroup, Buffer, TextureView, VertexBufferLayout},
+    render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
 };
 use bevy_asset::Handle;
@@ -858,7 +858,6 @@ pub struct GpuMesh {
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
-    pub bind_group: Option<BindGroup>,
 }
 impl GpuMesh {
     /// Whether this mesh has skeletal skinning vertex attributes.
@@ -926,7 +925,6 @@ impl RenderAsset for Mesh {
             primitive_topology: mesh.primitive_topology(),
             layout: mesh_vertex_buffer_layout,
             morph_targets: mesh.morph_targets.and_then(|mt| mt.binding(images)),
-            bind_group: None,
         })
     }
 }

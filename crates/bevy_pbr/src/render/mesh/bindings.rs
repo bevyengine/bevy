@@ -80,7 +80,7 @@ pub mod layout {
             label: Some("morphed_mesh_layout"),
         })
     }
-    pub fn morphed_and_skinned(render_device: &RenderDevice) -> BindGroupLayout {
+    pub fn morphed_skinned(render_device: &RenderDevice) -> BindGroupLayout {
         render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 layout_entry::model(0),
@@ -88,7 +88,7 @@ pub mod layout {
                 layout_entry::weights(2),
                 layout_entry::targets(3),
             ],
-            label: Some("morphed_and_skinned_mesh_layout"),
+            label: Some("morphed_skinned_mesh_layout"),
         })
     }
 }
@@ -177,7 +177,7 @@ pub mod group {
             label: Some("morphed_mesh_bind_group"),
         })
     }
-    pub fn morphed_and_skinned(
+    pub fn morphed_skinned(
         render_device: &RenderDevice,
         layout: &BindGroupLayout,
         model: &Buffer,
@@ -193,7 +193,7 @@ pub mod group {
                 entry::targets(3, targets),
             ],
             layout,
-            label: Some("morphed_and_skinned_mesh_bind_group"),
+            label: Some("morphed_skinned_mesh_bind_group"),
         })
     }
 }
