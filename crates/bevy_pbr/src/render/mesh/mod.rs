@@ -619,6 +619,10 @@ impl MeshPipelineKey {
     }
 }
 
+fn has_skin(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
+    layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX) && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
+}
+
 pub fn set_special_mesh_attributes(
     mesh_layouts: &MeshLayouts,
     layout: &Hashed<InnerMeshVertexBufferLayout>,
@@ -626,9 +630,7 @@ pub fn set_special_mesh_attributes(
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
 ) -> BindGroupLayout {
-    let skinned = layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
-        && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT);
-    if skinned {
+    if has_skin(layout) {
         shader_defs.push("SKINNED".into());
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
@@ -879,7 +881,7 @@ pub fn queue_mesh_bind_group(
     groups.reset();
 
     for (_, gpu_mesh) in meshes.iter() {
-        let has_skin = |_: &&Buffer| gpu_mesh.has_skin();
+        let has_skin = |_: &&Buffer| has_skin(&gpu_mesh.layout);
         match (
             mesh_uniforms.buffer(),
             skinned_mesh_uniform.buffer.buffer().filter(has_skin),

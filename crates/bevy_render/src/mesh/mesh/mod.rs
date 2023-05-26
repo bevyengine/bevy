@@ -825,13 +825,6 @@ pub struct GpuMesh {
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
 }
-impl GpuMesh {
-    pub fn has_skin(&self) -> bool {
-        let weight_id = Mesh::ATTRIBUTE_JOINT_WEIGHT.id;
-        let index_id = Mesh::ATTRIBUTE_JOINT_INDEX.id;
-        self.layout.contains(weight_id) && self.layout.contains(index_id)
-    }
-}
 
 /// The index/vertex buffer info of a [`GpuMesh`].
 #[derive(Debug, Clone)]
