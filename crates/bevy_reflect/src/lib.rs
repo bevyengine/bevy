@@ -994,7 +994,7 @@ mod tests {
     mod reflect_partial_eq {
         use super::*;
 
-        #[derive(Reflect, FromReflect, Clone)]
+        #[derive(Reflect, Clone)]
         #[reflect_value]
         struct NotComparable;
 
@@ -1359,7 +1359,7 @@ mod tests {
                 },
             }
 
-            #[derive(Reflect, FromReflect, Clone)]
+            #[derive(Reflect, Clone)]
             enum Bar {
                 UnitA,
                 Tuple(u32),
@@ -1552,7 +1552,6 @@ mod tests {
     #[test]
     fn reflect_complex_patch() {
         #[derive(Reflect, Eq, PartialEq, Debug)]
-        #[reflect(PartialEq)]
         struct Foo {
             a: u32,
             #[reflect(ignore)]
@@ -1566,7 +1565,6 @@ mod tests {
         }
 
         #[derive(Reflect, Eq, PartialEq, Clone, Debug)]
-        #[reflect(PartialEq)]
         struct Bar {
             x: u32,
         }
@@ -1804,7 +1802,6 @@ mod tests {
     #[test]
     fn reflect_take() {
         #[derive(Reflect, Debug, PartialEq)]
-        #[reflect(PartialEq)]
         struct Bar {
             x: u32,
         }
@@ -2515,7 +2512,6 @@ bevy_reflect::tests::should_reflect_debug::Test {
     fn multiple_reflect_lists() {
         #[derive(PartialEq, Reflect)]
         #[reflect(Debug)]
-        #[reflect(PartialEq)]
         struct Foo(i32);
 
         impl Debug for Foo {

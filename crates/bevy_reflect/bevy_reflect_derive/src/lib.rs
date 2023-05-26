@@ -422,7 +422,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 /// use bevy::prelude::Vec3;
 ///
 /// impl_reflect_struct!(
-///     #[reflect(PartialEq, Serialize, Deserialize, Default)]
+///     #[reflect(Serialize, Deserialize, Default)]
 ///     #[type_path = "bevy::prelude"]
 ///     struct Vec3 {
 ///         x: f32,

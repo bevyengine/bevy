@@ -19,7 +19,6 @@ mod tests {
     #[test]
     fn test_serialization_struct() {
         #[derive(Debug, Reflect, PartialEq)]
-        #[reflect(PartialEq)]
         struct TestStruct {
             a: i32,
             #[reflect(ignore)]
@@ -61,7 +60,6 @@ mod tests {
     #[test]
     fn test_serialization_tuple_struct() {
         #[derive(Debug, Reflect, PartialEq)]
-        #[reflect(PartialEq)]
         struct TestStruct(
             i32,
             #[reflect(ignore)] i32,

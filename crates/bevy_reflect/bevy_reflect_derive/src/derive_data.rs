@@ -35,9 +35,9 @@ pub(crate) enum ReflectDerive<'a> {
 ///
 /// ```ignore
 /// #[derive(Reflect)]
-/// //                          traits
-/// //        |----------------------------------------|
-/// #[reflect(PartialEq, Serialize, Deserialize, Default)]
+/// //                    traits
+/// //        |-----------------------------|
+/// #[reflect(Serialize, Deserialize, Default)]
 /// //            type_name       generics
 /// //     |-------------------||----------|
 /// struct ThingThatImReflecting<T1, T2, T3> {/* ... */}
@@ -60,7 +60,7 @@ pub(crate) struct ReflectMeta<'a> {
 ///
 /// ```ignore
 /// #[derive(Reflect)]
-/// #[reflect(PartialEq, Serialize, Deserialize, Default)]
+/// #[reflect(Serialize, Deserialize, Default)]
 /// struct ThingThatImReflecting<T1, T2, T3> {
 ///     x: T1, // |
 ///     y: T2, // |- fields
@@ -80,7 +80,7 @@ pub(crate) struct ReflectStruct<'a> {
 ///
 /// ```ignore
 /// #[derive(Reflect)]
-/// #[reflect(PartialEq, Serialize, Deserialize, Default)]
+/// #[reflect(Serialize, Deserialize, Default)]
 /// enum ThingThatImReflecting<T1, T2, T3> {
 ///     A(T1),                  // |
 ///     B,                      // |- variants

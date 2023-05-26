@@ -46,7 +46,6 @@ use bevy_reflect::Reflect;
 /// };
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
 pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
     pub left: Val,

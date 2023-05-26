@@ -3,7 +3,7 @@
 //! A container attribute is an attribute which applies to an entire struct or enum
 //! as opposed to a particular field or variant. An example of such an attribute is
 //! the derive helper attribute for `Reflect`, which looks like:
-//! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
+//! `#[reflect(Debug, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
 use crate::fq_std::{FQAny, FQOption};
 use crate::utility;
@@ -16,7 +16,7 @@ use syn::token::Comma;
 use syn::{LitBool, Meta, Path};
 
 // The "special" trait idents that are used internally for reflection.
-// Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
+// Received via attributes like `#[reflect_value(PartialEq, Hash, ...)]`
 const DEBUG_ATTR: &str = "Debug";
 const PARTIAL_EQ_ATTR: &str = "PartialEq";
 const HASH_ATTR: &str = "Hash";
@@ -194,13 +194,19 @@ impl ReflectTraits {
                         DEBUG_ATTR => {
                             traits.debug.merge(TraitImpl::Implemented(span))?;
                         }
-                        PARTIAL_EQ_ATTR => {
+                        PARTIAL_EQ_ATTR if !is_reflect_value => {
+                            return Err(syn::Error::new(
+                                span,
+                                "concrete `PartialEq` impl can only be used for items marked `#[reflect_value]`",
+                            ));
+                        }
+                        PARTIAL_EQ_ATTR if is_reflect_value => {
                             traits.partial_eq.merge(TraitImpl::Implemented(span))?;
                         }
                         HASH_ATTR if !is_reflect_value => {
                             return Err(syn::Error::new(
                                 span,
-                                "concrete `Hash` impl cannot be used for non-`reflect_value` types",
+                                "concrete `Hash` impl can only be used for items marked `#[reflect_value]`",
                             ));
                         }
                         HASH_ATTR if is_reflect_value => {

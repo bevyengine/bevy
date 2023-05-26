@@ -470,7 +470,7 @@ mod tests {
     }
 
     #[derive(Clone, Component, Reflect, PartialEq)]
-    #[reflect(Component, MapEntities, PartialEq)]
+    #[reflect(Component, MapEntities)]
     struct MyEntityRef(Entity);
 
     impl MapEntities for MyEntityRef {

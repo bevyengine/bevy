@@ -13,7 +13,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// - Only available on **`macOS`**.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -30,7 +30,7 @@ pub struct TouchpadMagnify(pub f32);
 ///
 /// - Only available on **`macOS`**.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
