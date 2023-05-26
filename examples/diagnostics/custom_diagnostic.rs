@@ -1,10 +1,9 @@
 //! This example illustrates how to create a custom diagnostic.
 
 use bevy::{
-    diagnostic::{Diagnostic, DiagnosticId, LogDiagnosticsPlugin},
+    diagnostic::{Diagnostic, DiagnosticId, Diagnostics, LogDiagnosticsPlugin, RegisterDiagnostic},
     prelude::*,
 };
-use bevy_internal::diagnostic::{Diagnostics, RegisterDiagnostic};
 
 fn main() {
     App::new()
@@ -13,7 +12,6 @@ fn main() {
         // It just visualizes our diagnostics in the console.
         .add_plugin(LogDiagnosticsPlugin::default())
         // Diagnostics must be initialized before measurements can be added.
-        // In general it's a good idea to set them up in a "startup system".
         .register_diagnostic(
             Diagnostic::new(SYSTEM_ITERATION_COUNT, "system_iteration_count", 10)
                 .with_suffix(" iterations"),

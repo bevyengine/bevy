@@ -29,15 +29,6 @@ pub struct DiagnosticMeasurement {
     pub value: f64,
 }
 
-impl From<f64> for DiagnosticMeasurement {
-    fn from(value: f64) -> Self {
-        DiagnosticMeasurement {
-            time: Instant::now(),
-            value,
-        }
-    }
-}
-
 /// A timeline of [`DiagnosticMeasurement`]s of a specific type.
 /// Diagnostic examples: frames per second, CPU usage, network latency
 #[derive(Debug)]
@@ -55,9 +46,7 @@ pub struct Diagnostic {
 
 impl Diagnostic {
     /// Add a new value as a [`DiagnosticMeasurement`].
-    pub fn add_measurement(&mut self, value: impl Into<DiagnosticMeasurement>) {
-        let measurement = value.into();
-
+    pub fn add_measurement(&mut self, measurement: DiagnosticMeasurement) {
         if let Some(previous) = self.measurement() {
             let delta = (measurement.time - previous.time).as_secs_f64();
             let alpha = (delta / self.ema_smoothing_factor).clamp(0.0, 1.0);
@@ -216,6 +205,8 @@ pub struct DiagnosticsStore {
 
 impl DiagnosticsStore {
     /// Add a new [`Diagnostic`].
+    ///
+    /// If possible, prefer calling [`register_diagnostic`] on [`App`].
     pub fn add(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.insert(diagnostic.id, diagnostic);
     }
@@ -242,6 +233,7 @@ impl DiagnosticsStore {
     }
 }
 
+/// Record new [`DiagnosticMeasurement`]'s.
 #[derive(SystemParam)]
 pub struct Diagnostics<'w, 's> {
     store: Res<'w, DiagnosticsStore>,
@@ -289,13 +281,26 @@ impl SystemBuffer for DiagnosticsBuffer {
     }
 }
 
-/// Easy way to register a new diagnostic with an App.
-/// This could equally be a native fn of the app behind a feature flag.
+/// Extend [`App`] with new `register_diagnostic` function.
 pub trait RegisterDiagnostic {
     fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self;
 }
 
 impl RegisterDiagnostic for App {
+    /// Register a new [`Diagnostic`] with an [`App`].
+    ///
+    /// ```rust
+    /// use bevy_app::App;
+    /// use bevy_diagnostic::{Diagnostic, DiagnosticsPlugin, DiagnosticId, RegisterDiagnostic};
+    ///
+    /// const UNIQUE_DIAG_ID: DiagnosticId = DiagnosticId::from_u128(42);
+    ///
+    /// App::new()
+    ///     .add_plugin(DiagnosticsPlugin)
+    ///     // Must only be called after the `DiagnosticsPlugin` has been added.
+    ///     .register_diagnostic(Diagnostic::new(UNIQUE_DIAG_ID, "example", 10))
+    ///     .run();
+    /// ```
     fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self {
         let mut diagnostics = self.world.resource_mut::<DiagnosticsStore>();
         diagnostics.add(diagnostic);
