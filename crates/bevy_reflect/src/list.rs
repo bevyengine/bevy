@@ -495,18 +495,17 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
-    let ReflectRef::List(list) = b.reflect_ref() else {
+    let ReflectRef::List(b) = b.reflect_ref()  else {
         return Some(false);
     };
 
-    if a.len() != list.len() {
+    if a.len() != b.len() {
         return Some(false);
     }
 
-    for (a_value, b_value) in a.iter().zip(list.iter()) {
-        let eq_result = a_value.reflect_partial_eq(b_value);
-        if let failed @ (Some(false) | None) = eq_result {
-            return failed;
+    for (a_value, b_value) in a.iter().zip(b.iter()) {
+        if !a_value.reflect_partial_eq(b_value)? {
+            return Some(false);
         }
     }
 

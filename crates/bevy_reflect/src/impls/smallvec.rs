@@ -150,8 +150,30 @@ where
         Some(hasher.finish())
     }
 
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        crate::list_partial_eq(self, value)
+    fn reflect_partial_eq(&self, other: &dyn Reflect) -> Option<bool> {
+        if let Some(other) = other.downcast_ref::<Self>() {
+            for (a, b) in <[T::Item]>::iter(self).zip(<[T::Item]>::iter(other)) {
+                if !a.reflect_partial_eq(b)? {
+                    return Some(false);
+                }
+            }
+        } else {
+            let ReflectRef::List(other) = Reflect::reflect_ref(other) else {
+                return Some(false);
+            };
+
+            if other.len() != self.len() {
+                return Some(false);
+            }
+
+            for (a, b) in self.iter().zip(other.iter()) {
+                if !a.reflect_partial_eq(b)? {
+                    return Some(false);
+                }
+            }
+        }
+
+        Some(true)
     }
 }
 

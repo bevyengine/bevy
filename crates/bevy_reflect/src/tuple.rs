@@ -487,7 +487,7 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
-    let ReflectRef::Tuple(b) = b.reflect_ref() else {
+    let ReflectRef::Tuple(b) = b.reflect_ref()  else {
         return Some(false);
     };
 
@@ -495,10 +495,9 @@ pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
         return Some(false);
     }
 
-    for (a_field, b_field) in a.iter_fields().zip(b.iter_fields()) {
-        let eq_result = a_field.reflect_partial_eq(b_field);
-        if let failed @ (Some(false) | None) = eq_result {
-            return failed;
+    for (value_a, value_b) in a.iter_fields().zip(b.iter_fields()) {
+        if !value_a.reflect_partial_eq(value_b)? {
+            return Some(false);
         }
     }
 
@@ -655,8 +654,35 @@ macro_rules! impl_reflect_tuple {
                 Some(hasher.finish())
             }
 
-            fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-                crate::tuple_partial_eq(self, value)
+            fn reflect_partial_eq(&self, other: &dyn Reflect) -> Option<bool> {
+                #[allow(unused_variables)]
+                if let Some(other) = other.downcast_ref::<Self>() {
+                    $(
+                        if !self.$index.reflect_partial_eq(&other.$index)? {
+                            return Some(false);
+                        }
+                    )*
+                } else {
+                    let ReflectRef::Tuple(other) = Reflect::reflect_ref(other) else {
+                        return Some(false);
+                    };
+
+                    if other.field_len() != self.field_len() {
+                        return Some(false);
+                    }
+
+                    $(
+                        let Some(other_field) = other.field($index) else {
+                            return Some(false);
+                        };
+
+                        if !self.$index.reflect_partial_eq(other_field)? {
+                            return Some(false);
+                        }
+                    )*
+                }
+
+                Some(true)
             }
         }
 

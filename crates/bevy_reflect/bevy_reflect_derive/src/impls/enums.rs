@@ -36,17 +36,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
     let debug_fn = reflect_enum.meta().traits().get_debug_impl();
     let hash_fn = reflect_enum.get_hash_impl();
-    let partial_eq_fn = reflect_enum
-        .meta()
-        .traits()
-        .get_partial_eq_impl(bevy_reflect_path)
-        .unwrap_or_else(|| {
-            quote! {
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
-                    #bevy_reflect_path::enum_partial_eq(self, value)
-                }
-            }
-        });
+    let partial_eq_fn = reflect_enum.get_partial_eq_impl();
 
     let typed_impl = impl_typed(
         reflect_enum.meta(),

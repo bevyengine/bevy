@@ -12,6 +12,7 @@ use syn::{Attribute, Expr, ExprLit, Lit, Meta};
 pub(crate) static IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
 pub(crate) static IGNORE_ALL_ATTR: &str = "ignore";
 pub(crate) static SKIP_HASH_ATTR: &str = "skip_hash";
+pub(crate) static SKIP_PARTIAL_EQ_ATTR: &str = "skip_partial_eq";
 
 pub(crate) static DEFAULT_ATTR: &str = "default";
 
@@ -55,6 +56,8 @@ pub(crate) struct ReflectFieldAttr {
     pub default: DefaultBehavior,
     /// Determines if this field should be skipped when hashing.
     pub skip_hash: bool,
+    /// Determines if this field should be skipped when comparing for equality.
+    pub skip_partial_eq: bool,
 }
 
 /// Controls how the default value is determined for a field.
@@ -116,6 +119,10 @@ fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error
         }
         Meta::Path(path) if path.is_ident(SKIP_HASH_ATTR) => {
             args.skip_hash = true;
+            Ok(())
+        }
+        Meta::Path(path) if path.is_ident(SKIP_PARTIAL_EQ_ATTR) => {
+            args.skip_partial_eq = true;
             Ok(())
         }
         Meta::Path(path) => Err(syn::Error::new(

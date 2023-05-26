@@ -1,9 +1,9 @@
-use bevy_reflect_derive::impl_type_path;
-
+use crate::equality_utility::{compare_tuple_structs, extract_info, get_type_info_pair};
 use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, UnnamedField,
 };
+use bevy_reflect_derive::impl_type_path;
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
@@ -469,31 +469,24 @@ pub fn tuple_struct_hash<T: TupleStruct>(value: &T) -> Option<u64> {
 /// Returns true if and only if all of the following are true:
 /// - `b` is a tuple struct;
 /// - `b` has the same number of fields as `a`;
-/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise fields of `a` and `b`.
+/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise fields of `a` and `b`[^1]
 ///
-/// Returns [`None`] if the comparison couldn't even be performed.
+/// Returns `None` if the comparison cannot be performed.
+///
+/// [^1]: If a field is marked with `#[reflect(skip_partial_eq)]`, then it will be skipped
+///       unless the corresponding field in `b` is not marked with `#[reflect(skip_partial_eq)]`,
+///       in which case the comparison will return `Some(false)`.
 #[inline]
 pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
+    let ReflectRef::TupleStruct(b) = b.reflect_ref()  else {
         return Some(false);
     };
 
-    if a.field_len() != tuple_struct.field_len() {
-        return Some(false);
-    }
+    let (info_a, info_b) = get_type_info_pair(a.as_reflect(), b.as_reflect());
+    let info_a = extract_info!(info_a, TypeInfo::TupleStruct(info) => Some(info));
+    let info_b = extract_info!(info_b, TypeInfo::TupleStruct(info) => Some(info));
 
-    for (i, value) in tuple_struct.iter_fields().enumerate() {
-        if let Some(field_value) = a.field(i) {
-            let eq_result = field_value.reflect_partial_eq(value);
-            if let failed @ (Some(false) | None) = eq_result {
-                return failed;
-            }
-        } else {
-            return Some(false);
-        }
-    }
-
-    Some(true)
+    compare_tuple_structs!(a, b, info_a, info_b, accessor=.field)
 }
 
 /// The default debug formatter for [`TupleStruct`] types.

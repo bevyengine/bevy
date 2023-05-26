@@ -24,17 +24,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
 
     let debug_fn = reflect_struct.meta().traits().get_debug_impl();
     let hash_fn = reflect_struct.get_hash_impl();
-    let partial_eq_fn = reflect_struct
-        .meta()
-        .traits()
-        .get_partial_eq_impl(bevy_reflect_path)
-        .unwrap_or_else(|| {
-            quote! {
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
-                    #bevy_reflect_path::tuple_struct_partial_eq(self, value)
-                }
-            }
-        });
+    let partial_eq_fn = reflect_struct.get_partial_eq_impl();
 
     let typed_impl = impl_typed(
         reflect_struct.meta(),

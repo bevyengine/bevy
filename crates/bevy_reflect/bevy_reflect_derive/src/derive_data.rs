@@ -465,10 +465,12 @@ impl<'a> StructField<'a> {
 
         let field_ty = &self.data.ty;
         let skip_hash = self.attrs.skip_hash;
+        let skip_partial_eq = self.attrs.skip_partial_eq;
 
         let meta = quote! {
             #bevy_reflect_path::FieldMeta {
                 skip_hash: #skip_hash,
+                skip_partial_eq: #skip_partial_eq,
                 #doc_field
             }
         };
@@ -541,6 +543,38 @@ impl<'a> ReflectStruct<'a> {
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
         WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
+    }
+
+    /// Generate the `Reflect::reflect_partial_eq` method for this struct as a `TokenStream`.
+    pub fn get_partial_eq_impl(&self) -> TokenStream {
+        let bevy_reflect_path = &self.meta().bevy_reflect_path;
+        let fq_option = FQOption;
+
+        let fields = self
+            .active_fields()
+            .filter(|field| !field.attrs.skip_partial_eq)
+            .map(|field| ident_or_index(field.data.ident.as_ref(), field.index));
+
+        let dynamic_function = if self.is_tuple {
+            quote!(tuple_struct_partial_eq)
+        } else {
+            quote!(struct_partial_eq)
+        };
+
+        quote! {
+            fn reflect_partial_eq(&self, other: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
+                if let #FQOption::Some(other) = <dyn #bevy_reflect_path::Reflect>::downcast_ref::<Self>(other) {
+                    #(
+                        if !#bevy_reflect_path::Reflect::reflect_partial_eq(&self.#fields, &other.#fields)? {
+                            return #fq_option::Some(false);
+                        }
+                    )*
+                    #FQOption::Some(true)
+                } else {
+                    #bevy_reflect_path::#dynamic_function(self, other)
+                }
+            }
+        }
     }
 
     /// Generate the `Reflect::reflect_hash` method for this struct as a `TokenStream`.
@@ -671,6 +705,76 @@ impl<'a> ReflectEnum<'a> {
         WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
     }
 
+    /// Generate the `Reflect::reflect_partial_eq` method for this enum as a `TokenStream`.
+    pub fn get_partial_eq_impl(&self) -> TokenStream {
+        let bevy_reflect_path = &self.meta().bevy_reflect_path;
+        let fq_option = FQOption;
+        let ident = self
+            .meta()
+            .type_path()
+            .get_ident()
+            .expect("enums should never be anonymous");
+
+        // Essentially builds out match-arms of the following form:
+        // ```
+        // Enum::Variant { 0: field_0, 2: field_2, .. } => {
+        //   match other {
+        //     Enum::Variant { 0: other_0, 2: other_2, .. } => {
+        //        // Compare fields...
+        //     }
+        //     _ => return Some(false),
+        //   }
+        // }
+        // ```
+        let variants_concrete = self.variants.iter().map(|variant| {
+            variant.make_arm(
+                ident,
+                "field",
+                |field| !field.attrs.skip_partial_eq,
+                |fields| {
+                    let field_idents = fields.iter().map(|(_, ident)| ident).collect::<Vec<_>>();
+                    let other_arm = variant.make_arm(
+                        ident,
+                        "other",
+                        |field| !field.attrs.skip_partial_eq,
+                        |other_fields| {
+                            let other_idents = other_fields.iter().map(|(_, ident)| ident);
+                            quote! {
+                                #(
+                                    if !#bevy_reflect_path::Reflect::reflect_partial_eq(#field_idents, #other_idents)? {
+                                        return #fq_option::Some(false);
+                                    }
+                                )*
+                            }
+                        }
+                    );
+
+                    quote! {
+                        match other {
+                            #other_arm
+                            _ => {
+                                return #FQOption::Some(false);
+                            }
+                        }
+                    }
+                },
+            )
+        });
+
+        quote! {
+            fn reflect_partial_eq(&self, other: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
+                if let #FQOption::Some(other) = <dyn #bevy_reflect_path::Reflect>::downcast_ref::<Self>(other) {
+                    match self {
+                        #(#variants_concrete)*
+                    }
+                    #FQOption::Some(true)
+                } else {
+                    #bevy_reflect_path::enum_partial_eq(self, other)
+                }
+            }
+        }
+    }
+
     /// Generate the `Reflect::reflect_hash` method for this enum as a `TokenStream`.
     pub fn get_hash_impl(&self) -> TokenStream {
         let bevy_reflect_path = &self.meta().bevy_reflect_path;
@@ -685,8 +789,10 @@ impl<'a> ReflectEnum<'a> {
             let variant_name = variant.data.ident.to_string();
             variant.make_arm(
                 ident,
+                "field",
                 |field| !field.attrs.skip_hash,
                 |fields| {
+                    let field_idents = fields.iter().map(|(_, ident)| ident);
                     quote! {
                         // We use the variant name instead of discriminant here so
                         // `DynamicEnum` proxies will result in the same hash.
@@ -694,7 +800,7 @@ impl<'a> ReflectEnum<'a> {
 
                         #(
                             #fq_hash::hash(
-                                &#bevy_reflect_path::Reflect::reflect_hash(#fields)?,
+                                &#bevy_reflect_path::Reflect::reflect_hash(#field_idents)?,
                                 &mut hasher
                             );
                         )*
@@ -787,34 +893,37 @@ impl<'a> EnumVariant<'a> {
     ///
     /// This will generate a `TokenStream` like:
     /// ```ignore
-    /// EnumName::VariantName { field_0, field_1, .. } => {
+    /// EnumName::VariantName { a: prefix_a, b: prefix_b, .. } => {
     ///    // ...
     /// }
     /// ```
     pub fn make_arm(
         &self,
         enum_ident: &Ident,
+        field_prefix: &str,
         field_filter: impl FnMut(&&StructField) -> bool,
-        mut make_block: impl FnMut(&[Ident]) -> TokenStream,
+        mut make_block: impl FnMut(&[(&StructField, Ident)]) -> TokenStream,
     ) -> proc_macro2::TokenStream {
         let ident = &self.data.ident;
 
-        let (field_idents, field_patterns): (Vec<_>, Vec<_>) = self
+        let (fields, field_patterns): (Vec<_>, Vec<_>) = self
             .active_fields()
             .filter(field_filter)
             .map(|field| {
                 if let Some(ident) = &field.data.ident {
-                    (ident.clone(), quote!(#ident))
+                    let new_ident = format_ident!("{}_{}", field_prefix, ident);
+                    let pattern = quote!(#ident: #new_ident);
+                    ((field, new_ident), pattern)
                 } else {
                     let index = Index::from(field.index);
-                    let ident = format_ident!("field_{}", field.index);
+                    let ident = format_ident!("{}_{}", field_prefix, field.index);
                     let pattern = quote!(#index: #ident);
-                    (ident, pattern)
+                    ((field, ident), pattern)
                 }
             })
             .unzip();
 
-        let block = make_block(&field_idents);
+        let block = make_block(&fields);
 
         quote! {
             #enum_ident::#ident { #(#field_patterns,)* .. } => {

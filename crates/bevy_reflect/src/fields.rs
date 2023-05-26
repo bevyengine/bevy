@@ -118,6 +118,12 @@ pub struct FieldMeta {
     ///
     /// [deriving `Reflect`]: bevy_reflect_derive::Reflect
     pub skip_hash: bool,
+    /// This field should not be used in its container's [`Reflect::reflect_partial_eq`] implementation.
+    ///
+    /// This may be configured when [deriving `Reflect`] by adding `#[reflect(skip_partial_eq)]` to the field.
+    ///
+    /// [deriving `Reflect`]: bevy_reflect_derive::Reflect
+    pub skip_partial_eq: bool,
     /// The docstring of this field, if any.
     #[cfg(feature = "documentation")]
     pub docs: Option<&'static str>,
@@ -127,6 +133,7 @@ impl FieldMeta {
     pub const fn new() -> Self {
         Self {
             skip_hash: false,
+            skip_partial_eq: false,
             #[cfg(feature = "documentation")]
             docs: None,
         }

@@ -1,3 +1,4 @@
+use crate::equality_utility::{compare_structs, extract_info, get_type_info_pair};
 use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
@@ -568,32 +569,23 @@ pub fn struct_hash<S: Struct>(value: &S) -> Option<u64> {
 /// - `b` is a struct;
 /// - For each field in `a`, `b` contains a field with the same name and
 ///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
-///   values.
+///   values[^1]
 ///
-/// Returns [`None`] if the comparison couldn't even be performed.
-#[inline]
+/// Returns `None` if the comparison cannot be performed.
+///
+/// [^1]: If a field is marked with `#[reflect(skip_partial_eq)]`, then it will be skipped
+///       unless the corresponding field in `b` is not marked with `#[reflect(skip_partial_eq)]`,
+///       in which case the comparison will return `Some(false)`.
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    let ReflectRef::Struct(struct_value) = b.reflect_ref()  else {
+    let ReflectRef::Struct(b) = b.reflect_ref()  else {
         return Some(false);
     };
 
-    if a.field_len() != struct_value.field_len() {
-        return Some(false);
-    }
+    let (info_a, info_b) = get_type_info_pair(a.as_reflect(), b.as_reflect());
+    let info_a = extract_info!(info_a, TypeInfo::Struct(info) => Some(info));
+    let info_b = extract_info!(info_b, TypeInfo::Struct(info) => Some(info));
 
-    for (i, value) in struct_value.iter_fields().enumerate() {
-        let name = struct_value.name_at(i).unwrap();
-        if let Some(field_value) = a.field(name) {
-            let eq_result = field_value.reflect_partial_eq(value);
-            if let failed @ (Some(false) | None) = eq_result {
-                return failed;
-            }
-        } else {
-            return Some(false);
-        }
-    }
-
-    Some(true)
+    compare_structs!(a, b, info_a, info_b)
 }
 
 /// The default debug formatter for [`Struct`] types.

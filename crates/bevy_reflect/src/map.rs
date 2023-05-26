@@ -494,21 +494,20 @@ pub fn map_hash<M: Map>(value: &M) -> Option<u64> {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
-    let ReflectRef::Map(map) = b.reflect_ref() else {
+    let ReflectRef::Map(b) = b.reflect_ref()  else {
         return Some(false);
     };
 
-    if a.len() != map.len() {
+    if a.len() != b.len() {
         return Some(false);
     }
 
-    for (key, value) in a.iter() {
-        if let Some(map_value) = map.get(key) {
-            let eq_result = value.reflect_partial_eq(map_value);
-            if let failed @ (Some(false) | None) = eq_result {
-                return failed;
-            }
-        } else {
+    for (key, value_a) in a.iter() {
+        let Some(value_b) = b.get(key) else {
+            return Some(false);
+        };
+
+        if !value_a.reflect_partial_eq(value_b)? {
             return Some(false);
         }
     }

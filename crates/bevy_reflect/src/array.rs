@@ -454,17 +454,19 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bool> {
-    match reflect.reflect_ref() {
-        ReflectRef::Array(reflect_array) if reflect_array.len() == array.len() => {
-            for (a, b) in array.iter().zip(reflect_array.iter()) {
-                let eq_result = a.reflect_partial_eq(b);
-                if let failed @ (Some(false) | None) = eq_result {
-                    return failed;
-                }
-            }
+pub fn array_partial_eq<A: Array>(a: &A, b: &dyn Reflect) -> Option<bool> {
+    let ReflectRef::Array(b) = b.reflect_ref()  else {
+        return Some(false);
+    };
+
+    if a.len() != b.len() {
+        return Some(false);
+    }
+
+    for (value_a, value_b) in a.iter().zip(b.iter()) {
+        if !value_a.reflect_partial_eq(value_b)? {
+            return Some(false);
         }
-        _ => return Some(false),
     }
 
     Some(true)
