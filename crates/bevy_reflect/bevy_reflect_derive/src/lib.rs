@@ -157,11 +157,24 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 ///
 /// This attribute excludes the field from the hash computation in `Reflect::reflect_hash`.
 ///
+/// It's recommended that when using this attribute, the `#[reflect(skip_partial_eq)]` attribute also be used.
+/// This is to uphold the following [property]:
+/// ```text
+/// a.reflect_partial_eq(b) -> a.reflect_hash() == b.reflect_hash()
+/// ```
+///
 /// ## `#[reflect(skip_partial_eq)]`
 ///
 /// This attribute excludes the field from comparison in `Reflect::reflect_partial_eq`.
 ///
+/// It's recommended that when using this attribute, the `#[reflect(skip_hash)]` attribute also be used.
+/// This is to uphold the following [property]:
+/// ```text
+/// a.reflect_partial_eq(b) -> a.reflect_hash() == b.reflect_hash()
+/// ```
+///
 /// [`reflect_trait`]: macro@reflect_trait
+/// [property]: https://doc.rust-lang.org/std/hash/trait.Hash.html#hash-and-eq
 #[proc_macro_derive(Reflect, attributes(reflect, reflect_value, type_path, type_name))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
