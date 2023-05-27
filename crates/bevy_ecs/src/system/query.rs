@@ -1362,6 +1362,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w mut Quer
 pub enum QueryComponentError {
     /// The [`Query`] does not have read access to the requested component.
     /// 
+    /// This error occurs when the requested component is not included in the original query.
+    ///
     /// # Example
     ///
     /// ```
