@@ -45,8 +45,8 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
 use crate::{
-    prepare_lights, set_special_mesh_attributes, AlphaMode, DrawMesh, Material, MaterialPipeline,
-    MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials,
+    bindings, is_skinned, prepare_lights, AlphaMode, DrawMesh, Material, MaterialPipeline,
+    MaterialPipelineKey, MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials,
     SetMaterialBindGroup, SetMeshBindGroup, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 
@@ -219,7 +219,7 @@ pub fn update_mesh_previous_global_transforms(
 pub struct PrepassPipeline<M: Material> {
     pub view_layout_motion_vectors: BindGroupLayout,
     pub view_layout_no_motion_vectors: BindGroupLayout,
-    pub mesh_layouts: MeshLayouts,
+    pub mesh_layouts: bindings::MeshLayouts,
     pub material_layout: BindGroupLayout,
     pub material_vertex_shader: Option<Handle<Shader>>,
     pub material_fragment_shader: Option<Handle<Shader>>,
@@ -335,32 +335,32 @@ where
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut bind_group_layouts = vec![if key
-            .mesh_key
-            .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
-        {
-            self.view_layout_motion_vectors.clone()
-        } else {
-            self.view_layout_no_motion_vectors.clone()
-        }];
+        let mesh_key = key.mesh_key;
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
-        // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
-        // The main limitation right now is that bind group order is hardcoded in shaders.
-        bind_group_layouts.insert(1, self.material_layout.clone());
+        shader_defs.push(ShaderDefVal::UInt(
+            "MAX_DIRECTIONAL_LIGHTS".to_string(),
+            MAX_DIRECTIONAL_LIGHTS as u32,
+        ));
+        shader_defs.push(ShaderDefVal::UInt(
+            "MAX_CASCADES_PER_LIGHT".to_string(),
+            MAX_CASCADES_PER_LIGHT as u32,
+        ));
 
-        if key.mesh_key.contains(MeshPipelineKey::DEPTH_PREPASS) {
+        if mesh_key.contains(MeshPipelineKey::DEPTH_PREPASS) {
             shader_defs.push("DEPTH_PREPASS".into());
         }
 
-        if key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD) {
+        if mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
+            shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+        }
+
+        if mesh_key.contains(MeshPipelineKey::MAY_DISCARD) {
             shader_defs.push("MAY_DISCARD".into());
         }
 
-        let blend_key = key
-            .mesh_key
-            .intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
+        let blend_key = mesh_key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
         if blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
             shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
         }
@@ -373,26 +373,14 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as u32,
-        ));
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_CASCADES_PER_LIGHT".to_string(),
-            MAX_CASCADES_PER_LIGHT as u32,
-        ));
-        if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
-            shader_defs.push("DEPTH_CLAMP_ORTHO".into());
-        }
-
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
 
-        if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
-            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(2));
+        if mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
             shader_defs.push("NORMAL_PREPASS".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(2));
 
             if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
                 shader_defs.push("VERTEX_TANGENTS".into());
@@ -400,35 +388,47 @@ where
             }
         }
 
-        if key
-            .mesh_key
-            .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
-        {
+        if is_skinned(layout) {
+            shader_defs.push("SKINNED".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
+        }
+
+        if mesh_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
-        if key
-            .mesh_key
-            .intersects(MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::MOTION_VECTOR_PREPASS)
-        {
+        let prepass_fragment =
+            MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::MOTION_VECTOR_PREPASS;
+
+        if mesh_key.intersects(prepass_fragment) {
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
 
-        let bind_group = set_special_mesh_attributes(
-            &self.mesh_layouts,
-            layout,
-            4,
-            &mut shader_defs,
-            &mut vertex_attributes,
-        );
-        bind_group_layouts.insert(2, bind_group);
+        let view_layout = if mesh_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+            &self.view_layout_motion_vectors
+        } else {
+            &self.view_layout_no_motion_vectors
+        };
+        let mesh_layout = if is_skinned(layout) {
+            &self.mesh_layouts.skinned
+        } else {
+            &self.mesh_layouts.model_only
+        };
+        // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
+        // The main limitation right now is that bind group order is hardcoded in shaders.
+        let bind_group_layouts = vec![
+            view_layout.clone(),
+            self.material_layout.clone(),
+            mesh_layout.clone(),
+        ];
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
         let mut targets = vec![];
         targets.push(
-            key.mesh_key
+            mesh_key
                 .contains(MeshPipelineKey::NORMAL_PREPASS)
                 .then_some(ColorTargetState {
                     format: NORMAL_PREPASS_FORMAT,
@@ -437,7 +437,7 @@ where
                 }),
         );
         targets.push(
-            key.mesh_key
+            mesh_key
                 .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
                 .then_some(ColorTargetState {
                     format: MOTION_VECTOR_PREPASS_FORMAT,
@@ -455,7 +455,7 @@ where
         // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
         // prepass shader
         let fragment_required = !targets.is_empty()
-            || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
+            || (mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && self.material_fragment_shader.is_some());
 
         let fragment = fragment_required.then(|| {
@@ -490,7 +490,7 @@ where
             fragment,
             layout: bind_group_layouts,
             primitive: PrimitiveState {
-                topology: key.mesh_key.primitive_topology(),
+                topology: mesh_key.primitive_topology(),
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
                 cull_mode: None,

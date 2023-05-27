@@ -1,5 +1,12 @@
 //! Bind [`group`] layout related definitions for the mesh pipeline.
 
+use bevy_render::{
+    render_resource::{
+        BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor, Buffer,
+    },
+    renderer::RenderDevice,
+};
+
 /// Individual [`layout`] entries.
 mod layout_entry {
     use crate::render::mesh::JOINT_BUFFER_SIZE;
@@ -28,28 +35,7 @@ mod layout_entry {
         buffer(binding, JOINT_BUFFER_SIZE as u64, ShaderStages::VERTEX)
     }
 }
-/// [`BindGroupLayout`](bevy_render::render_resource::BindGroupLayout)s.
-pub mod layout {
-    use bevy_render::{
-        render_resource::{BindGroupLayout, BindGroupLayoutDescriptor},
-        renderer::RenderDevice,
-    };
 
-    use super::layout_entry;
-
-    pub fn model_only(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[layout_entry::model(0)],
-            label: Some("mesh_layout"),
-        })
-    }
-    pub fn skinned(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[layout_entry::model(0), layout_entry::skinning(1)],
-            label: Some("skinned_mesh_layout"),
-        })
-    }
-}
 /// Individual [`BindGroupEntry`](bevy_render::render_resource::BindGroupEntry)
 /// for bind [`group`]s.
 mod entry {
@@ -76,35 +62,60 @@ mod entry {
         entry(binding, JOINT_BUFFER_SIZE as u64, buffer)
     }
 }
-/// [`BindGroup`](bevy_render::render_resource::BindGroup)s.
-pub mod group {
-    use bevy_render::{
-        render_resource::{BindGroup, BindGroupDescriptor, BindGroupLayout, Buffer},
-        renderer::RenderDevice,
-    };
 
-    use super::entry;
+/// All possible [`BindGroupLayout`]s in bevy's default mesh shader (`mesh.wgsl`).
+#[derive(Clone)]
+pub struct MeshLayouts {
+    /// The mesh model uniform (transform) and nothing else.
+    pub model_only: BindGroupLayout,
 
-    pub fn model_only(
-        render_device: &RenderDevice,
-        layout: &BindGroupLayout,
-        model: &Buffer,
-    ) -> BindGroup {
+    /// Also includes the uniform for skinning
+    pub skinned: BindGroupLayout,
+}
+impl MeshLayouts {
+    /// Prepare the layouts used by the default bevy [`Mesh`].
+    ///
+    /// [`Mesh`]: bevy_render::prelude::Mesh
+    pub fn new(render_device: &RenderDevice) -> Self {
+        MeshLayouts {
+            model_only: Self::model_only_layout(render_device),
+            skinned: Self::skinned_layout(render_device),
+        }
+    }
+
+    // ---------- create individual BindGroupLayouts ----------
+
+    fn model_only_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[layout_entry::model(0)],
+            label: Some("mesh_layout"),
+        })
+    }
+    fn skinned_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[layout_entry::model(0), layout_entry::skinning(1)],
+            label: Some("skinned_mesh_layout"),
+        })
+    }
+
+    // ---------- BindGroup methods ----------
+
+    pub fn model_only(&self, render_device: &RenderDevice, model: &Buffer) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
+            layout: &self.model_only,
             entries: &[entry::model(0, model)],
-            layout,
             label: Some("model_only_mesh_bind_group"),
         })
     }
     pub fn skinned(
+        &self,
         render_device: &RenderDevice,
-        layout: &BindGroupLayout,
         model: &Buffer,
         skin: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
+            layout: &self.skinned,
             entries: &[entry::model(0, model), entry::skinning(1, skin)],
-            layout,
             label: Some("skinned_mesh_bind_group"),
         })
     }

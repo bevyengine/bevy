@@ -25,8 +25,7 @@ use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        GpuBufferInfo, InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout,
-        VertexAttributeDescriptor,
+        GpuBufferInfo, Mesh, MeshVertexBufferLayout,
     },
     prelude::Msaa,
     render_asset::RenderAssets,
@@ -41,9 +40,9 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, Hashed};
+use bevy_utils::tracing::error;
 
-mod bindings;
+pub mod bindings;
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
@@ -260,20 +259,11 @@ pub fn extract_skinned_meshes(
     commands.insert_or_spawn_batch(values);
 }
 
-/// All possible [`BindGroupLayout`]s in bevy's default mesh shader (`mesh.wgsl`).
-#[derive(Clone)]
-pub struct MeshLayouts {
-    /// The mesh model uniform (transform) and nothing else.
-    pub model_only: BindGroupLayout,
-    /// Also includes the uniform for skinning
-    pub skinned: BindGroupLayout,
-}
-
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
     pub view_layout: BindGroupLayout,
     pub view_layout_multisampled: BindGroupLayout,
-    pub mesh_layouts: MeshLayouts,
+    pub mesh_layouts: bindings::MeshLayouts,
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
@@ -504,10 +494,7 @@ impl FromWorld for MeshPipeline {
             view_layout_multisampled,
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
-            mesh_layouts: MeshLayouts {
-                model_only: bindings::layout::model_only(&render_device),
-                skinned: bindings::layout::skinned(&render_device),
-            },
+            mesh_layouts: bindings::MeshLayouts::new(&render_device),
         }
     }
 }
@@ -619,26 +606,8 @@ impl MeshPipelineKey {
     }
 }
 
-fn has_skin(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
+pub fn is_skinned(layout: &MeshVertexBufferLayout) -> bool {
     layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX) && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
-}
-
-pub fn set_special_mesh_attributes(
-    mesh_layouts: &MeshLayouts,
-    layout: &Hashed<InnerMeshVertexBufferLayout>,
-    offset: u32,
-    shader_defs: &mut Vec<ShaderDefVal>,
-    vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
-) -> BindGroupLayout {
-    if has_skin(layout) {
-        shader_defs.push("SKINNED".into());
-        vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
-        vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
-
-        mesh_layouts.skinned.clone()
-    } else {
-        mesh_layouts.model_only.clone()
-    }
 }
 
 impl SpecializedMeshPipeline for MeshPipeline {
@@ -652,8 +621,21 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
+        shader_defs.push(ShaderDefVal::UInt(
+            "MAX_DIRECTIONAL_LIGHTS".to_string(),
+            MAX_DIRECTIONAL_LIGHTS as u32,
+        ));
+        shader_defs.push(ShaderDefVal::UInt(
+            "MAX_CASCADES_PER_LIGHT".to_string(),
+            MAX_CASCADES_PER_LIGHT as u32,
+        ));
+
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
+        }
+
+        if key.msaa_samples() != 1 {
+            shader_defs.push("MULTISAMPLED".into());
         }
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
@@ -665,15 +647,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("VERTEX_NORMALS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
         }
-
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as u32,
-        ));
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_CASCADES_PER_LIGHT".to_string(),
-            MAX_CASCADES_PER_LIGHT as u32,
-        ));
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
@@ -690,21 +663,23 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
-        let mut bind_group_layout = match key.msaa_samples() {
-            1 => vec![self.view_layout.clone()],
-            _ => {
-                shader_defs.push("MULTISAMPLED".into());
-                vec![self.view_layout_multisampled.clone()]
-            }
-        };
+        if is_skinned(layout) {
+            shader_defs.push("SKINNED".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(5));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(6));
+        }
 
-        bind_group_layout.push(set_special_mesh_attributes(
-            &self.mesh_layouts,
-            layout,
-            5,
-            &mut shader_defs,
-            &mut vertex_attributes,
-        ));
+        let view_layout = if key.msaa_samples() != 1 {
+            &self.view_layout_multisampled
+        } else {
+            &self.view_layout
+        };
+        let mesh_layout = if is_skinned(layout) {
+            &self.mesh_layouts.skinned
+        } else {
+            &self.mesh_layouts.model_only
+        };
+        let bind_group_layout = vec![view_layout.clone(), mesh_layout.clone()];
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
@@ -854,13 +829,15 @@ pub struct MeshBindGroups {
     pub model_only: Option<BindGroup>,
     pub skinned: Option<BindGroup>,
 }
+
 impl MeshBindGroups {
     pub fn reset(&mut self) {
         self.model_only = None;
         self.skinned = None;
     }
-    pub fn get(&self, has_skin: bool) -> Option<&BindGroup> {
-        if has_skin {
+
+    pub fn get(&self, is_skinned: bool) -> Option<&BindGroup> {
+        if is_skinned {
             self.skinned.as_ref()
         } else {
             self.model_only.as_ref()
@@ -876,27 +853,25 @@ pub fn queue_mesh_bind_group(
     mesh_uniforms: Res<ComponentUniforms<MeshUniform>>,
     skinned_mesh_uniform: Res<SkinnedMeshUniform>,
 ) {
-    use bindings::group::{model_only, skinned};
-
     groups.reset();
 
+    let layout = &mesh_pipeline.mesh_layouts;
+
     for (_, gpu_mesh) in meshes.iter() {
-        let has_skin = |_: &&Buffer| has_skin(&gpu_mesh.layout);
+        let is_skinned = |_: &&Buffer| is_skinned(&gpu_mesh.layout);
         match (
             mesh_uniforms.buffer(),
-            skinned_mesh_uniform.buffer.buffer().filter(has_skin),
+            skinned_mesh_uniform.buffer.buffer().filter(is_skinned),
         ) {
             // No model uniform.
             (None, _) => {}
 
             (Some(model), None) => {
-                let layout = &mesh_pipeline.mesh_layouts.model_only;
-                let group = || model_only(&render_device, layout, model);
+                let group = || layout.model_only(&render_device, model);
                 groups.model_only.get_or_insert_with(group);
             }
             (Some(model), Some(skin)) => {
-                let layout = &mesh_pipeline.mesh_layouts.skinned;
-                let group = || skinned(&render_device, layout, model, skin);
+                let group = || layout.skinned(&render_device, model, skin);
                 groups.skinned.get_or_insert_with(group);
             }
         }
@@ -1134,17 +1109,18 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let error_message = "The MeshBindGroups resource wasn't set in the render phase. \
+            It should be set by the queue_mesh_bind_group system.\n\
+            This is a bevy bug! Please open an issue.";
+
         let bind_groups = bind_groups.into_inner();
-        let has_skin = skin_index.is_some();
-        let Some(bind_group) = bind_groups.get(has_skin) else {
-            error!(
-                "The MeshBindGroups resource wasn't set in the render phase. \
-                It should be set by the queue_mesh_bind_group system.\n\
-                This is a bevy bug! Please open an issue."
-            );
+        let is_skinned = skin_index.is_some();
+
+        let Some(bind_group) = bind_groups.get(is_skinned) else {
+            error!(error_message);
             return RenderCommandResult::Failure;
         };
-        let mut set_bind_group = |indices: &[u32]| pass.set_bind_group(I, bind_group, indices);
+        let mut set_bind_group = |indices| pass.set_bind_group(I, bind_group, indices);
         let mesh_index = mesh_index.index();
         if let Some(skin) = skin_index {
             set_bind_group(&[mesh_index, skin.index]);
