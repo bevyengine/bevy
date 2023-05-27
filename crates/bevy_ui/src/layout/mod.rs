@@ -250,8 +250,9 @@ pub fn ui_layout_system(
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
+    // If a UI root entity is deleted, its associated Taffy root node must also be deleted.
     for entity in removed_layouts.iter() {
-        if let Some(taffy_node) = ui_surface.entity_to_taffy.remove(&entity) {
+        if let Some(taffy_node) = ui_surface.root_nodes.remove(&entity) {
             let _ = ui_surface.taffy.remove(taffy_node);
         }
     }
