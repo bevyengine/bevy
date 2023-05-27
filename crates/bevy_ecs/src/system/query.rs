@@ -1389,6 +1389,8 @@ pub enum QueryComponentError {
     MissingReadAccess,
     /// The [`Query`] does not have write access to the requested component.
     /// 
+    /// This error occurs when the requested component is not included in the original query, or the mutability of the requested component is mismatched with the original query.
+    ///
     /// # Example
     ///
     /// ```
