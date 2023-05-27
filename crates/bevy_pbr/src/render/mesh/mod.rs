@@ -618,6 +618,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        // If you are updating this specialize impl, check the PrepassPipeline<M>
+        // specialize impl in prepass/mod.rs, you probably need to update it as well.
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
@@ -824,9 +826,20 @@ impl SpecializedMeshPipeline for MeshPipeline {
     }
 }
 
+/// [`BindGroup`]s used for [`Mesh`]es in bevy's default PBR shader.
 #[derive(Resource, Default)]
 pub struct MeshBindGroups {
+    /// The [`BindGroup`] for default [`Mesh`]es.
+    ///
+    /// This is set to `Some` by [`queue_mesh_bind_group`] when [`MeshUniform`]'s
+    /// buffer is set and there is at least one [`Mesh`].
     pub model_only: Option<BindGroup>,
+
+    /// The [`BindGroup`] for skinned meshes.
+    ///
+    /// This is set to `Some` by [`queue_mesh_bind_group`] when the
+    /// [`SkinnedMeshUniform`] buffer is set and
+    /// there is at least a [`Mesh`] with skinning attributes.
     pub skinned: Option<BindGroup>,
 }
 
