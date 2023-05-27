@@ -375,7 +375,6 @@ mod tests {
     use crate::UiSurface;
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::world::World;
-    use bevy_math::Vec2;
     use bevy_utils::prelude::default;
     use taffy::tree::LayoutTree;
 
@@ -383,13 +382,9 @@ mod tests {
     fn spawn_and_despawn_ui_node() {
         let mut world = World::new();
         world.init_resource::<UiSurface>();
+        world.init_resource::<UiScale>();
 
-        let layout_entity = world
-            .spawn(LayoutContext {
-                root_node_size: Vec2::new(800., 600.),
-                ..default()
-            })
-            .id();
+        let layout_entity = world.spawn(LayoutContext::default()).id();
 
         let ui_node = world
             .spawn(NodeBundle {
