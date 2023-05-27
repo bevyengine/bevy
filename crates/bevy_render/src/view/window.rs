@@ -123,7 +123,7 @@ fn extract_windows(
             window.resolution.physical_height().max(1),
         );
 
-        let mut extracted_window = extracted_windows.entry(entity).or_insert(ExtractedWindow {
+        let extracted_window = extracted_windows.entry(entity).or_insert(ExtractedWindow {
             entity,
             handle: handle.clone(),
             physical_width: new_width,
