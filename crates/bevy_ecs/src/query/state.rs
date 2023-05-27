@@ -1307,7 +1307,7 @@ mod tests {
 /// [`QueryState::single`] or [`QueryState::single_mut`].
 #[derive(Debug)]
 pub enum QuerySingleError {
-    /// No entities fit the query.
+    /// No entity fits the query.
     NoEntities(&'static str),
     /// Multiple entities fit the query.
     MultipleEntities(&'static str),
