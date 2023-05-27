@@ -10,7 +10,6 @@ mod layout;
 mod render;
 mod stack;
 mod ui_node;
-mod window;
 
 #[cfg(feature = "bevy_text")]
 mod accessibility;
@@ -30,7 +29,6 @@ pub use measurement::*;
 pub use render::*;
 pub use ui_node::*;
 use widget::UiImageSize;
-pub use window::*;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -63,8 +61,6 @@ pub enum UiSystem {
     Focus,
     /// After this label, the [`UiStack`] resource has been updated
     Stack,
-    /// After this label, the [`LayoutContext`] has been updated
-    Window,
 }
 
 /// The current scale of the UI.
@@ -123,10 +119,7 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .add_systems(
                 PreUpdate,
-                (
-                    ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
-                    ui_windows_system.in_set(UiSystem::Window),
-                ),
+                (ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),),
             );
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
@@ -172,6 +165,16 @@ impl Plugin for UiPlugin {
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             ),
         );
+
+        if let Ok(entity) = app
+            .world
+            .query_filtered::<Entity, With<bevy_window::PrimaryWindow>>()
+            .get_single(&app.world)
+        {
+            app.world
+                .entity_mut(entity)
+                .insert(LayoutContext::default());
+        }
 
         crate::render::build_ui_render(app);
     }

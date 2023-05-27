@@ -1,26 +1,30 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style};
+use crate::{ContentSize, Node, Style, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     prelude::Component,
     query::{With, Without},
+    reflect::ReflectComponent,
     removal_detection::RemovedComponents,
-    system::{Query, ResMut, Resource},
+    system::{ParamSet, Query, Res, ResMut, Resource},
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::Vec2;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
+use bevy_window::Window;
 use std::fmt;
 use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
-/// Information needed by the layout systems to determine the size and scaling of UI nodes in a UI layout
-#[derive(Component, Debug, Copy, Clone)]
+/// Marks an entity as `UI root entity` with an associated root Taffy node and holds the resolution and scale factor information necessary to compute a UI layout.
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component, Default)]
 pub struct LayoutContext {
     /// The size of the root node in the layout tree.
     ///
@@ -30,7 +34,7 @@ pub struct LayoutContext {
     ///
     /// `combined_scale_factor` is calculated by multiplying together the `scale_factor` of the output window and [`crate::UiScale`].
     pub combined_scale_factor: f64,
-    /// After the UI layout has been computed, all layout coordinates are multiplied by `layout_to_logical_factor` to determine the calculated size of each UI Node that is stored in its [`Node`] component.
+    /// After a UI layout has been computed, the layout coordinates are multiplied by `layout_to_logical_factor` to determine the final size of each UI Node entity to be stored in its [`Node`] component.
     ///
     /// `layout_to_logical_factor` is the reciprocal of the target window's `scale_factor` and doesn't include [`crate::UiScale`].
     pub layout_to_logical_factor: f64,
@@ -45,6 +49,20 @@ impl Default for LayoutContext {
         }
     }
 }
+
+impl LayoutContext {
+    fn relative_ne(&self, other: &Self) -> bool {
+        approx::relative_ne!(self.root_node_size.x, other.root_node_size.x,)
+            || approx::relative_ne!(self.root_node_size.y, other.root_node_size.y,)
+            || approx::relative_ne!(self.combined_scale_factor, other.combined_scale_factor)
+            || approx::relative_ne!(
+                self.layout_to_logical_factor,
+                other.layout_to_logical_factor,
+            )
+    }
+}
+
+pub struct UiLayout {}
 
 #[derive(Resource)]
 pub struct UiSurface {
@@ -216,7 +234,12 @@ pub enum LayoutError {
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
-    layout_context_query: Query<(Entity, Ref<LayoutContext>)>,
+    ui_scale: Res<UiScale>,
+    mut removed_layouts: RemovedComponents<LayoutContext>,
+    mut context_params: ParamSet<(
+        Query<(&Window, &mut LayoutContext)>,
+        Query<(Entity, Ref<LayoutContext>)>,
+    )>,
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     style_query: Query<(Entity, Ref<Style>), With<Node>>,
@@ -227,13 +250,34 @@ pub fn ui_layout_system(
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
-    // Only one `LayoutContext` is supported at the moment (corresponding to the primary window).
-    let Ok((ui_root_entity, layout_context)) = layout_context_query.get_single() else {
-        // No layout context found, return without updating.
+    for entity in removed_layouts.iter() {
+        if let Some(taffy_node) = ui_surface.entity_to_taffy.remove(&entity) {
+            let _ = ui_surface.taffy.remove(taffy_node);
+        }
+    }
+
+    let mut windows_query = context_params.p0();
+    for (window, mut layout_context) in &mut windows_query {
+        let new_layout_context = LayoutContext {
+            root_node_size: Vec2::new(
+                window.resolution.physical_width() as f32,
+                window.resolution.physical_height() as f32,
+            ),
+            combined_scale_factor: window.resolution.scale_factor() * ui_scale.scale,
+            layout_to_logical_factor: window.resolution.scale_factor().recip(),
+        };
+        if layout_context.relative_ne(&new_layout_context) {
+            *layout_context = new_layout_context;
+        }
+    }
+
+    let ui_roots_query = context_params.p1();
+
+    // If more than one UI root exists, only the first from the query is updated.
+    let Some((ui_root_entity, layout_context)) = ui_roots_query.iter().next() else {
         return;
     };
 
-    // Update root nodes
     ui_surface.update_root_nodes(ui_root_entity, layout_context.root_node_size);
 
     if layout_context.is_changed() {
@@ -305,14 +349,11 @@ pub fn ui_layout_system(
 
         let mut new_position = transform.translation;
 
-        // The `location` of Taffy nodes is placed at the top right corner of the node, while Bevy UI nodes are positioned around their center.
-        // So the center of the Taffy node must be calculated first by adding half its size to its location.
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
 
         if let Some(parent) = parent {
             if let Ok(parent_layout) = ui_surface.get_layout(**parent) {
-                // The location of each Taffy node in the layout is given relative to its parent.
                 new_position.x -= to_logical(parent_layout.size.width / 2.0);
                 new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }
