@@ -7,7 +7,6 @@ use bevy_render::{
     renderer::RenderDevice,
 };
 
-/// Individual [`layout`] entries.
 mod layout_entry {
     use crate::render::mesh::JOINT_BUFFER_SIZE;
     use crate::MeshUniform;
@@ -36,8 +35,6 @@ mod layout_entry {
     }
 }
 
-/// Individual [`BindGroupEntry`](bevy_render::render_resource::BindGroupEntry)
-/// for bind [`group`]s.
 mod entry {
     use crate::render::mesh::JOINT_BUFFER_SIZE;
     use crate::MeshUniform;
