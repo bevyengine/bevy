@@ -162,7 +162,6 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
         visibility += projected_normal_length * (v1 + v2);
     }
     visibility /= slice_count;
-    visibility = pow(visibility, 2.1);
     visibility = clamp(visibility, 0.03, 1.0);
 
     textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(visibility, 0.0, 0.0, 0.0));
