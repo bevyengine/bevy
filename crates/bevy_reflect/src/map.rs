@@ -49,8 +49,11 @@ pub trait Map: Reflect {
     /// If no value is associated with `key`, returns `None`.
     fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect>;
 
-    /// Returns the key-value pair at `index` by reference, or `None` if out of bounds.
+    /// Returns the key-value pair at `index` by references, or `None` if out of bounds.
     fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)>;
+
+    /// Returns the key-value pair at `index` by references where value reference is mutable, or `None` if out of bounds.
+    fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)>;
 
     /// Returns the number of elements in the map.
     fn len(&self) -> usize;
@@ -255,6 +258,12 @@ impl Map for DynamicMap {
         self.values
             .get(index)
             .map(|(key, value)| (&**key, &**value))
+    }
+
+    fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)> {
+        self.values
+            .get_mut(index)
+            .map(|(key, value)| (&**key, &mut **value))
     }
 
     fn insert_boxed(
