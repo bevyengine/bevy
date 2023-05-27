@@ -13,7 +13,7 @@ pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
 ///
 /// Implemented for functions and closures that convert into [`System<In=(), Out=bool>`](crate::system::System)
 /// with [read-only](crate::system::ReadOnlySystemParam) parameters.
-pub trait Condition<Marker>: sealed::Condition<Marker> {
+pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and_then` return `true`.
     ///
@@ -58,7 +58,7 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
     ///
     /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
-    fn and_then<M, C: Condition<M>>(self, and_then: C) -> AndThen<Self::System, C::System> {
+    fn and_then<M, C: Condition<M, In>>(self, and_then: C) -> AndThen<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(and_then);
         let name = format!("{} && {}", a.name(), b.name());
@@ -105,7 +105,7 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// # app.run(&mut world);
     /// # assert!(world.resource::<C>().0);
     /// ```
-    fn or_else<M, C: Condition<M>>(self, or_else: C) -> OrElse<Self::System, C::System> {
+    fn or_else<M, C: Condition<M, In>>(self, or_else: C) -> OrElse<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(or_else);
         let name = format!("{} || {}", a.name(), b.name());
@@ -113,22 +113,22 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     }
 }
 
-impl<Marker, F> Condition<Marker> for F where F: sealed::Condition<Marker> {}
+impl<Marker, In, F> Condition<Marker, In> for F where F: sealed::Condition<Marker, In> {}
 
 mod sealed {
     use crate::system::{IntoSystem, ReadOnlySystem};
 
-    pub trait Condition<Marker>:
-        IntoSystem<(), bool, Marker, System = Self::ReadOnlySystem>
+    pub trait Condition<Marker, In>:
+        IntoSystem<In, bool, Marker, System = Self::ReadOnlySystem>
     {
         // This associated type is necessary to let the compiler
         // know that `Self::System` is `ReadOnlySystem`.
-        type ReadOnlySystem: ReadOnlySystem<In = (), Out = bool>;
+        type ReadOnlySystem: ReadOnlySystem<In = In, Out = bool>;
     }
 
-    impl<Marker, F> Condition<Marker> for F
+    impl<Marker, In, F> Condition<Marker, In> for F
     where
-        F: IntoSystem<(), bool, Marker>,
+        F: IntoSystem<In, bool, Marker>,
         F::System: ReadOnlySystem,
     {
         type ReadOnlySystem = F::System;
