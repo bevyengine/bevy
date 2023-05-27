@@ -91,7 +91,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             .allowed_usages
             .contains(TextureUsages::STORAGE_BINDING)
         {
-            warn!("ScreenSpaceAmbientOcclusionPlugin not loaded. TextureFormat::R16Float does not support TextureUsages::STORAGE_BINDING.");
+            warn!("ScreenSpaceAmbientOcclusionPlugin not loaded. GPU lacks support: TextureFormat::R16Float does not support TextureUsages::STORAGE_BINDING.");
             return;
         }
 
@@ -102,7 +102,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             .max_storage_textures_per_shader_stage
             < 5
         {
-            warn!("ScreenSpaceAmbientOcclusionPlugin not loaded. Limits::max_storage_textures_per_shader_stage is less than 5.");
+            warn!("ScreenSpaceAmbientOcclusionPlugin not loaded. GPU lacks support: Limits::max_storage_textures_per_shader_stage is less than 5.");
             return;
         }
 
