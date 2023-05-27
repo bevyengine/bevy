@@ -1361,7 +1361,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w mut Quer
 #[derive(Debug, PartialEq, Eq)]
 pub enum QueryComponentError {
     /// The [`Query`] does not have read access to the requested component.
-    /// 
+    ///
     /// This error occurs when the requested component is not included in the original query.
     ///
     /// # Example
@@ -1388,7 +1388,7 @@ pub enum QueryComponentError {
     /// # bevy_ecs::system::assert_is_system(get_missing_read_access_error);
     MissingReadAccess,
     /// The [`Query`] does not have write access to the requested component.
-    /// 
+    ///
     /// This error occurs when the requested component is not included in the original query, or the mutability of the requested component is mismatched with the original query.
     ///
     /// # Example

@@ -1167,13 +1167,13 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum QueryEntityError {
     /// The given [`Entity`]'s components do not match the query.
-    /// 
+    ///
     /// Either it does not have a requested component, or it has a component which the query filters out.
     QueryDoesNotMatch(Entity),
     /// The given [`Entity`] does not exist.
     NoSuchEntity(Entity),
     /// The [`Entity`] was requested mutably more than once.
-    /// 
+    ///
     /// See [`QueryState::get_many_mut`] for an example.
     AliasedMutability(Entity),
 }
