@@ -1162,12 +1162,19 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 }
 
-/// An error that occurs when retrieving a specific [`Entity`]'s query result.
+/// An error that occurs when retrieving a specific [`Entity`]'s query result from [`QueryState`].
 // TODO: return the type_name as part of this error
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum QueryEntityError {
+    /// The given [`Entity`]'s components do not match the query.
+    /// 
+    /// Either it does not have a requested component, or it has a component which the query filters out.
     QueryDoesNotMatch(Entity),
+    /// The given [`Entity`] does not exist.
     NoSuchEntity(Entity),
+    /// The [`Entity`] was requested mutably more than once.
+    /// 
+    /// See [`QueryState::get_many_mut`] for an example.
     AliasedMutability(Entity),
 }
 
@@ -1177,7 +1184,7 @@ impl fmt::Display for QueryEntityError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             QueryEntityError::QueryDoesNotMatch(_) => {
-                write!(f, "The given entity does not have the requested component.")
+                write!(f, "The given entity's components do not match the query.")
             }
             QueryEntityError::NoSuchEntity(_) => write!(f, "The requested entity does not exist."),
             QueryEntityError::AliasedMutability(_) => {
@@ -1300,7 +1307,9 @@ mod tests {
 /// [`QueryState::single`] or [`QueryState::single_mut`].
 #[derive(Debug)]
 pub enum QuerySingleError {
+    /// No entities fit the query.
     NoEntities(&'static str),
+    /// Multiple entities fit the query.
     MultipleEntities(&'static str),
 }
 

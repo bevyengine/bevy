@@ -1054,7 +1054,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns a mutable reference to the component `T` of the given entity.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryComponentError`] is returned instead.
     ///
     /// # Example
     ///
@@ -1090,7 +1090,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns a mutable reference to the component `T` of the given entity.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryComponentError`] is returned instead.
     ///
     /// # Safety
     ///
@@ -1357,12 +1357,59 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w mut Quer
     }
 }
 
-/// An error that occurs when retrieving a specific [`Entity`]'s component from a [`Query`]
+/// An error that occurs when retrieving a specific [`Entity`]'s component from a [`Query`].
 #[derive(Debug, PartialEq, Eq)]
 pub enum QueryComponentError {
+    /// The [`Query`] does not have read access to the requested component.
+    /// 
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, system::QueryComponentError};
+    /// #
+    /// # #[derive(Component)]
+    /// # struct OtherComponent;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct RequestedComponent;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct SpecificEntity {
+    /// #     entity: Entity,
+    /// # }
+    /// #
+    /// fn get_missing_read_access_error(query: Query<&OtherComponent>, res: Res<SpecificEntity>) {
+    ///     if let Err(QueryComponentError::MissingReadAccess) = query.get_component::<RequestedComponent>(res.entity) {
+    ///         println!("query doesn't have read access to RequestedComponent");
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(get_missing_read_access_error);
     MissingReadAccess,
+    /// The [`Query`] does not have write access to the requested component.
+    /// 
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, system::QueryComponentError};
+    /// #
+    /// # #[derive(Component)]
+    /// # struct RequestedComponent;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct SpecificEntity {
+    /// #     entity: Entity,
+    /// # }
+    /// #
+    /// fn get_missing_write_access_error(mut query: Query<&RequestedComponent>, res: Res<SpecificEntity>) {
+    ///     if let Err(QueryComponentError::MissingWriteAccess) = query.get_component_mut::<RequestedComponent>(res.entity) {
+    ///         println!("query doesn't have write access to RequestedComponent");
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(get_missing_read_access_error);
     MissingWriteAccess,
+    /// The given [`Entity`] does not have the requested component.
     MissingComponent,
+    /// The requested [`Entity`] does not exist.
     NoSuchEntity,
 }
 
