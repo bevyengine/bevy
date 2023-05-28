@@ -23,7 +23,7 @@ use std::fmt;
 use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
 /// Marks an entity as `UI root entity` with an associated root Taffy node and holds the resolution and scale factor information necessary to compute a UI layout.
-#[derive(Component, Debug, Reflect)]
+#[derive(Component, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default)]
 pub struct LayoutContext {
     /// The size of the root node in the layout tree.
@@ -47,18 +47,6 @@ impl Default for LayoutContext {
             combined_scale_factor: 1.0,
             layout_to_logical_factor: 1.0,
         }
-    }
-}
-
-impl LayoutContext {
-    fn relative_ne(&self, other: &Self) -> bool {
-        approx::relative_ne!(self.root_node_size.x, other.root_node_size.x,)
-            || approx::relative_ne!(self.root_node_size.y, other.root_node_size.y,)
-            || approx::relative_ne!(self.combined_scale_factor, other.combined_scale_factor)
-            || approx::relative_ne!(
-                self.layout_to_logical_factor,
-                other.layout_to_logical_factor,
-            )
     }
 }
 
@@ -267,7 +255,7 @@ pub fn ui_layout_system(
             combined_scale_factor: window.resolution.scale_factor() * ui_scale.scale,
             layout_to_logical_factor: window.resolution.scale_factor().recip(),
         };
-        if layout_context.relative_ne(&new_layout_context) {
+        if *layout_context != new_layout_context {
             *layout_context = new_layout_context;
         }
     }
@@ -375,6 +363,7 @@ mod tests {
     use crate::UiSurface;
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::world::World;
+    use bevy_math::Vec2;
     use bevy_utils::prelude::default;
     use taffy::tree::LayoutTree;
 
@@ -435,8 +424,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let derived_size = world.get::<Node>(ui_node).unwrap().calculated_size;
-        approx::assert_relative_eq!(derived_size.x, 200.);
-        approx::assert_relative_eq!(derived_size.y, 600.);
+        assert!(derived_size.abs_diff_eq(Vec2::new(200., 600.), 0.01));
 
         world.despawn(ui_node);
         ui_schedule.run(&mut world);
