@@ -90,7 +90,7 @@ impl<I: PhaseItem> RenderPhase<I> {
         }
     }
 
-    /// Renders a range of the [`PhaseItem`]s using their corresponding draw functions.
+    /// Renders all [`PhaseItem`]s in the provided `range` (based on their index in `self.items`) using their corresponding draw functions.
     pub fn render_range<'w>(
         &self,
         render_pass: &mut TrackedRenderPass<'w>,

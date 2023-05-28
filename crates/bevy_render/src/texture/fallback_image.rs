@@ -17,7 +17,9 @@ use crate::{
 /// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
 /// which can be used in situations where an image was not explicitly defined. The most common
 /// use case is [`AsBindGroup`] implementations (such as materials) that support optional textures.
-/// [`FallbackImage`] defaults to a 1x1 fully white texture, making multiplying colors with it a no-op.
+///
+/// Defaults to a 1x1 fully opaque white texture, (1.0, 1.0, 1.0, 1.0) which makes multiplying
+/// it with other colors a no-op.
 #[derive(Resource, Deref)]
 pub struct FallbackImage(GpuImage);
 
@@ -25,7 +27,7 @@ pub struct FallbackImage(GpuImage);
 /// which can be used in place of [`FallbackImage`], when a fully transparent or black fallback
 /// is required instead of fully opaque white.
 ///
-/// Defaults to a 1x1 fully transparent black texture (0.0, 0.0, 0.0, 0.0), which makes adding
+/// Defaults to a 1x1 fully transparent black texture, (0.0, 0.0, 0.0, 0.0) which makes adding
 /// or alpha-blending it to other colors a no-op.
 #[derive(Resource, Deref)]
 pub struct FallbackImageZero(GpuImage);
