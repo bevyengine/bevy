@@ -82,7 +82,7 @@ impl fmt::Debug for UiSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("UiSurface")
             .field("entity_to_taffy", &self.entity_to_taffy)
-            .field("window_nodes", &self.root_nodes)
+            .field("root_nodes", &self.root_nodes)
             .finish()
     }
 }
