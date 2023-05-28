@@ -1162,7 +1162,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 }
 
-/// An error that occurs when retrieving a specific [`Entity`]'s query result from [`QueryState`].
+/// An error that occurs when retrieving a specific [`Entity`]'s query result from [`Query`](crate::system::Query) or [`QueryState`].
 // TODO: return the type_name as part of this error
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum QueryEntityError {
@@ -1303,8 +1303,8 @@ mod tests {
     }
 }
 
-/// An error that occurs when evaluating a [`QueryState`] as a single expected resulted via
-/// [`QueryState::single`] or [`QueryState::single_mut`].
+/// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`] as a single expected result via
+/// [`get_single`](crate::system::Query::get_single) or [`get_single_mut`](crate::system::Query::get_single_mut).
 #[derive(Debug)]
 pub enum QuerySingleError {
     /// No entity fits the query.
