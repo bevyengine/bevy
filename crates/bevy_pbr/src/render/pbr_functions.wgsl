@@ -271,7 +271,7 @@ fn pbr(
 #endif // PREPASS_FRAGMENT
 
 #ifndef PREPASS_FRAGMENT
-fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
+fn apply_fog(fog: Fog, input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
     let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
 
     // `length()` is used here instead of just `view_to_world.z` since that produces more
@@ -297,13 +297,13 @@ fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_wo
     }
 
     if fog.mode == FOG_MODE_LINEAR {
-        return linear_fog(input_color, distance, scattering);
+        return linear_fog(fog, input_color, distance, scattering);
     } else if fog.mode == FOG_MODE_EXPONENTIAL {
-        return exponential_fog(input_color, distance, scattering);
+        return exponential_fog(fog, input_color, distance, scattering);
     } else if fog.mode == FOG_MODE_EXPONENTIAL_SQUARED {
-        return exponential_squared_fog(input_color, distance, scattering);
+        return exponential_squared_fog(fog, input_color, distance, scattering);
     } else if fog.mode == FOG_MODE_ATMOSPHERIC {
-        return atmospheric_fog(input_color, distance, scattering);
+        return atmospheric_fog(fog, input_color, distance, scattering);
     } else {
         return input_color;
     }
