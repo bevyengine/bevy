@@ -253,6 +253,7 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { self.world_metadata() }.last_change_tick()
     }
 
+    /// Increments the world's current change tick and returns the old value.
     #[inline]
     pub fn increment_change_tick(self) -> Tick {
         // SAFETY:
