@@ -9,7 +9,7 @@ use crate::{
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
         ScheduleLabel,
     },
-    system::{BoxedSystem, In, IntoSystem, System},
+    system::{BoxedSystem, IntoSystem, System},
 };
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
@@ -50,12 +50,89 @@ where
     E: Debug + 'static,
 {
     fn into_configs(self) -> SystemConfigs {
-        SystemConfigs::new_system(Box::new(self.pipe(
-            |In(value): In<Result<(), E>>| match value {
-                Ok(()) => {}
-                Err(err) => panic!("{err:?}"),
-            },
-        )))
+        /// System adapter that panics if the wrapped system returns an error.
+        struct Unwrap<S>(S);
+
+        impl<S, E> System for Unwrap<S>
+        where
+            S: System<In = (), Out = Result<(), E>>,
+            E: Debug,
+        {
+            type In = ();
+            type Out = ();
+
+            fn name(&self) -> std::borrow::Cow<'static, str> {
+                self.0.name()
+            }
+
+            fn type_id(&self) -> std::any::TypeId {
+                self.0.type_id()
+            }
+
+            fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
+                self.0.component_access()
+            }
+
+            fn archetype_component_access(
+                &self,
+            ) -> &crate::query::Access<crate::archetype::ArchetypeComponentId> {
+                self.0.archetype_component_access()
+            }
+
+            fn is_send(&self) -> bool {
+                self.0.is_send()
+            }
+
+            fn is_exclusive(&self) -> bool {
+                self.0.is_exclusive()
+            }
+
+            unsafe fn run_unsafe(
+                &mut self,
+                input: Self::In,
+                world: &crate::world::World,
+            ) -> Self::Out {
+                if let Err(e) = self.0.run_unsafe(input, world) {
+                    panic!("System '{}' returned an error: {e:?}", self.0.name());
+                }
+            }
+
+            fn run(&mut self, input: Self::In, world: &mut crate::world::World) -> Self::Out {
+                if let Err(e) = self.0.run(input, world) {
+                    panic!("System '{}' returned an error: {e:?}", self.0.name());
+                }
+            }
+
+            fn apply_buffers(&mut self, world: &mut crate::world::World) {
+                self.0.apply_buffers(world);
+            }
+
+            fn initialize(&mut self, world: &mut crate::world::World) {
+                self.0.initialize(world);
+            }
+
+            fn update_archetype_component_access(&mut self, world: &crate::world::World) {
+                self.0.update_archetype_component_access(world);
+            }
+
+            fn check_change_tick(&mut self, change_tick: crate::component::Tick) {
+                self.0.check_change_tick(change_tick);
+            }
+
+            fn get_last_run(&self) -> crate::component::Tick {
+                self.0.get_last_run()
+            }
+
+            fn set_last_run(&mut self, last_run: crate::component::Tick) {
+                self.0.set_last_run(last_run);
+            }
+
+            fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+                self.0.default_system_sets()
+            }
+        }
+
+        SystemConfigs::new_system(Box::new(Unwrap(IntoSystem::into_system(self))))
     }
 }
 
