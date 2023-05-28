@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use bevy_utils::all_tuples;
 
 use crate::{
@@ -7,7 +9,7 @@ use crate::{
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
         ScheduleLabel,
     },
-    system::{BoxedSystem, IntoSystem, System},
+    system::{BoxedSystem, In, IntoSystem, System},
 };
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
@@ -33,12 +35,27 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: BoxedSystemSet) {
     }
 }
 
-impl<Marker, F> IntoSystemConfigs<Marker> for F
+impl<Marker, F> IntoSystemConfigs<(Marker,)> for F
 where
     F: IntoSystem<(), (), Marker>,
 {
     fn into_configs(self) -> SystemConfigs {
         SystemConfigs::new_system(Box::new(IntoSystem::into_system(self)))
+    }
+}
+
+impl<Marker, F, E> IntoSystemConfigs<(Marker, E)> for F
+where
+    F: IntoSystem<(), Result<(), E>, Marker>,
+    E: Debug + 'static,
+{
+    fn into_configs(self) -> SystemConfigs {
+        SystemConfigs::new_system(Box::new(self.pipe(
+            |In(value): In<Result<(), E>>| match value {
+                Ok(()) => {}
+                Err(err) => panic!("{err:?}"),
+            },
+        )))
     }
 }
 
