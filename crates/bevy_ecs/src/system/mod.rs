@@ -1734,6 +1734,34 @@ mod tests {
     }
 
     #[test]
+    fn system_returning_result() {
+        #[derive(Resource)]
+        struct ShouldErr(bool);
+
+        fn result_system(flag: Res<ShouldErr>) -> Result<(), impl std::fmt::Debug> {
+            if flag.0 {
+                return Err("Jeepers creepers");
+            }
+            Ok(())
+        }
+
+        let mut schedule = Schedule::new();
+        schedule.add_systems(result_system);
+
+        let mut world = World::new();
+
+        // The system will return Ok, so the schedule should not panic.
+        world.insert_resource(ShouldErr(false));
+        schedule.run(&mut world);
+
+        // The system will return Err, so this time the schedule *should* panic.
+        world.insert_resource(ShouldErr(true));
+        let panic =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| schedule.run(&mut world)));
+        assert!(panic.is_err());
+    }
+
+    #[test]
     fn assert_systems() {
         use std::str::FromStr;
 
