@@ -1,11 +1,11 @@
 use bevy_reflect::{
     FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
 };
-use bevy_utils::AHasher;
+use bevy_utils::{AHasher, RandomState};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
-    hash::{Hash, Hasher},
+    hash::{BuildHasher, Hash, Hasher},
     path::{Path, PathBuf},
 };
 
@@ -130,7 +130,7 @@ impl AssetPathId {
 
 /// this hasher provides consistent results across runs
 pub(crate) fn get_hasher() -> AHasher {
-    AHasher::new_with_keys(42, 23)
+    RandomState::with_seeds(42, 23, 13, 8).build_hasher()
 }
 
 impl<'a, T> From<T> for AssetPathId
