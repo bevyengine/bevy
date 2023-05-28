@@ -17,9 +17,18 @@ use crate::{
 /// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
 /// which can be used in situations where an image was not explicitly defined. The most common
 /// use case is [`AsBindGroup`] implementations (such as materials) that support optional textures.
-/// [`FallbackImage`] defaults to a 1x1 fully white texture, making blending colors with it a no-op.
+/// [`FallbackImage`] defaults to a 1x1 fully white texture, making multiplying colors with it a no-op.
 #[derive(Resource, Deref)]
 pub struct FallbackImage(GpuImage);
+
+/// A [`RenderApp`](crate::RenderApp) resource that contains a _zero-filled_ "fallback image",
+/// which can be used in place of [`FallbackImage`], when a fully transparent or black fallback
+/// is required instead of fully opaque white.
+///
+/// Defaults to a 1x1 fully transparent black texture (0.0, 0.0, 0.0, 0.0), which makes adding
+/// or alpha-blending it to other colors a no-op.
+#[derive(Resource, Deref)]
+pub struct FallbackImageZero(GpuImage);
 
 /// A [`RenderApp`](crate::RenderApp) resource that contains a "cubemap fallback image",
 /// which can be used in situations where an image was not explicitly defined. The most common
@@ -34,9 +43,10 @@ fn fallback_image_new(
     format: TextureFormat,
     dimension: TextureViewDimension,
     samples: u32,
+    value: u8,
 ) -> GpuImage {
-    // TODO make this configurable
-    let data = vec![255; format.pixel_size()];
+    // TODO make this configurable per channel
+    let data = vec![value; format.pixel_size()];
 
     let extents = Extent3d {
         width: 1,
@@ -92,6 +102,24 @@ impl FromWorld for FallbackImage {
             TextureFormat::bevy_default(),
             TextureViewDimension::D2,
             1,
+            255,
+        ))
+    }
+}
+
+impl FromWorld for FallbackImageZero {
+    fn from_world(world: &mut bevy_ecs::prelude::World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        let render_queue = world.resource::<RenderQueue>();
+        let default_sampler = world.resource::<DefaultImageSampler>();
+        Self(fallback_image_new(
+            render_device,
+            render_queue,
+            default_sampler,
+            TextureFormat::bevy_default(),
+            TextureViewDimension::D2,
+            1,
+            0,
         ))
     }
 }
@@ -108,6 +136,7 @@ impl FromWorld for FallbackImageCubemap {
             TextureFormat::bevy_default(),
             TextureViewDimension::Cube,
             1,
+            255,
         ))
     }
 }
@@ -148,6 +177,7 @@ impl<'w> FallbackImagesMsaa<'w> {
                 TextureFormat::bevy_default(),
                 TextureViewDimension::D2,
                 sample_count,
+                255,
             )
         })
     }
@@ -171,6 +201,7 @@ impl<'w> FallbackImagesDepth<'w> {
                 TextureFormat::Depth32Float,
                 TextureViewDimension::D2,
                 sample_count,
+                255,
             )
         })
     }
