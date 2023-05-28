@@ -53,6 +53,12 @@ where
         /// System adapter that panics if the wrapped system returns an error.
         struct Unwrap<S>(S);
 
+        #[track_caller]
+        #[inline(never)]
+        fn panic_message(name: &str, err: impl Debug) -> ! {
+            panic!("System '{name}' returned an error: {err:?}");
+        }
+
         impl<S, E> System for Unwrap<S>
         where
             S: System<In = (), Out = Result<(), E>>,
@@ -93,13 +99,13 @@ where
                 world: &crate::world::World,
             ) -> Self::Out {
                 if let Err(e) = self.0.run_unsafe(input, world) {
-                    panic!("System '{}' returned an error: {e:?}", self.0.name());
+                    panic_message(&self.0.name(), e);
                 }
             }
 
             fn run(&mut self, input: Self::In, world: &mut crate::world::World) -> Self::Out {
                 if let Err(e) = self.0.run(input, world) {
-                    panic!("System '{}' returned an error: {e:?}", self.0.name());
+                    panic_message(&self.0.name(), e);
                 }
             }
 
