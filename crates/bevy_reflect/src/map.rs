@@ -532,8 +532,12 @@ mod tests {
         map.insert(1usize, values[2].to_string());
 
         let (key_r, value_r) = map.get_at(1).expect("Item wasn't found");
-        let value = value_r.downcast_ref::<String>().expect("Couldn't downcast to String");
-        let key = key_r.downcast_ref::<usize>().expect("Couldn't downcast to usize");
+        let value = value_r
+            .downcast_ref::<String>()
+            .expect("Couldn't downcast to String");
+        let key = key_r
+            .downcast_ref::<usize>()
+            .expect("Couldn't downcast to usize");
         assert_eq!(key, &1usize);
         assert_eq!(value, &values[2].to_owned());
 
@@ -551,16 +555,19 @@ mod tests {
         map.insert(1usize, values[2].to_string());
 
         let (key_r, value_r) = map.get_at_mut(1).expect("Item wasn't found");
-        let value = value_r.downcast_mut::<String>().expect("Couldn't downcast to String");
-        let key = key_r.downcast_ref::<usize>().expect("Couldn't downcast to usize");
+        let value = value_r
+            .downcast_mut::<String>()
+            .expect("Couldn't downcast to String");
+        let key = key_r
+            .downcast_ref::<usize>()
+            .expect("Couldn't downcast to usize");
         assert_eq!(key, &1usize);
         assert_eq!(value, &mut values[2].to_owned());
 
         *value = values[0].to_owned();
 
         assert_eq!(
-            map
-                .get(&1usize as &dyn Reflect)
+            map.get(&1usize as &dyn Reflect)
                 .expect("Item wasn't found")
                 .downcast_ref::<String>()
                 .expect("Couldn't downcast to String"),
