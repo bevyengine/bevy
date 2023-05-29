@@ -16,7 +16,7 @@ use thiserror::Error;
 
 /// Used internally to identify a UI node's corresponding entry in the UI's layout tree.
 ///
-/// UI nodes must have this component
+/// All UI nodes must have this component.
 #[derive(Component, Debug, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct UiKey {
