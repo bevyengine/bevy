@@ -55,8 +55,6 @@ pub struct UiPlugin;
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum UiSystem {
-    /// After this label, new UI nodes have been inserted
-    Insert,
     /// After this label, the UI layout state has been updated
     Layout,
     /// After this label, input interactions with UI entities have been updated for this frame
@@ -161,9 +159,6 @@ impl Plugin for UiPlugin {
         .add_systems(
             PostUpdate,
             (
-                insert_ui_nodes_system
-                    .in_set(UiSystem::Insert)
-                    .before(UiSystem::Layout),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),

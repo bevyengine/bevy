@@ -1,4 +1,4 @@
-use crate::{measurement::AvailableSpace, ContentSize, Measure, UiKey, UiImage};
+use crate::{measurement::AvailableSpace, ContentSize, Measure, UiImage, UiKey};
 use bevy_asset::Assets;
 #[cfg(feature = "bevy_text")]
 use bevy_ecs::query::Without;
