@@ -1,8 +1,9 @@
 use std::{
     collections::HashMap,
+    ffi::OsStr,
     fs::{self, File},
     io::Write,
-    path::{Path, PathBuf},
+    path::Path,
     process::exit,
     thread,
     time::{Duration, Instant},
@@ -240,8 +241,10 @@ header_message = \"Examples (WebGPU)\"
                             code_path
                                 .components()
                                 .skip(1)
-                                .collect::<PathBuf>()
-                                .display(),
+                                .map(|v| v.as_os_str())
+                                .collect::<Vec<_>>()
+                                .join(OsStr::new("/"))
+                                .to_string_lossy(),
                             &to_show.path,
                         )
                         .as_bytes(),
