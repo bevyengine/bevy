@@ -56,6 +56,7 @@ pub enum ImageFormatSetting {
 #[derive(Serialize, Deserialize, Default)]
 pub struct ImageLoaderSettings {
     pub format: ImageFormatSetting,
+    pub is_srgb: bool,
 }
 
 impl AssetLoader for ImageLoader {
@@ -77,13 +78,16 @@ impl AssetLoader for ImageLoader {
                 ImageFormatSetting::FromExtension => ImageType::Extension(ext),
                 ImageFormatSetting::Format(format) => ImageType::Format(format),
             };
-            Ok(
-                Image::from_buffer(&bytes, image_type, self.supported_compressed_formats, true)
-                    .map_err(|err| FileTextureError {
-                        error: err,
-                        path: format!("{}", load_context.path().display()),
-                    })?,
+            Ok(Image::from_buffer(
+                &bytes,
+                image_type,
+                self.supported_compressed_formats,
+                settings.is_srgb,
             )
+            .map_err(|err| FileTextureError {
+                error: err,
+                path: format!("{}", load_context.path().display()),
+            })?)
         })
     }
 

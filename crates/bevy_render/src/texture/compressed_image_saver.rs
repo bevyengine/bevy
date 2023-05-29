@@ -20,8 +20,13 @@ impl AssetSaver for CompressedImageSaver {
         let mut compressor_params = basis_universal::CompressorParams::new();
         compressor_params.set_basis_format(basis_universal::BasisTextureFormat::UASTC4x4);
         compressor_params.set_generate_mipmaps(true);
-        // TODO: look up color space
-        compressor_params.set_color_space(basis_universal::ColorSpace::Srgb);
+        let is_srgb = image.texture_descriptor.format.is_srgb();
+        let color_space = if is_srgb {
+            basis_universal::ColorSpace::Srgb
+        } else {
+            basis_universal::ColorSpace::Linear
+        };
+        compressor_params.set_color_space(color_space);
         compressor_params.set_uastc_quality_level(basis_universal::UASTC_QUALITY_DEFAULT);
 
         let mut source_image = compressor_params.source_image_mut(0);
@@ -38,6 +43,7 @@ impl AssetSaver for CompressedImageSaver {
             writer.write_all(&compressed_basis_data).await?;
             Ok(ImageLoaderSettings {
                 format: ImageFormatSetting::Format(ImageFormat::Basis),
+                is_srgb,
             })
         }
         .boxed()
