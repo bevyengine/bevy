@@ -1372,7 +1372,7 @@ pub enum QueryComponentError {
     /// # #[derive(Component)]
     /// # struct OtherComponent;
     /// #
-    /// # #[derive(Component)]
+    /// # #[derive(Component, PartialEq, Debug)]
     /// # struct RequestedComponent;
     /// #
     /// # #[derive(Resource)]
@@ -1381,9 +1381,11 @@ pub enum QueryComponentError {
     /// # }
     /// #
     /// fn get_missing_read_access_error(query: Query<&OtherComponent>, res: Res<SpecificEntity>) {
-    ///     if let Err(QueryComponentError::MissingReadAccess) = query.get_component::<RequestedComponent>(res.entity) {
-    ///         println!("query doesn't have read access to RequestedComponent");
-    ///     }
+    ///     assert_eq!(
+    ///         query.get_component::<RequestedComponent>(res.entity),
+    ///         Err(QueryComponentError::MissingReadAccess),
+    ///     );
+    ///     println!("query doesn't have read access to RequestedComponent because it does not appear in Query<&OtherComponent>");
     /// }
     /// # bevy_ecs::system::assert_is_system(get_missing_read_access_error);
     /// ```
@@ -1397,7 +1399,7 @@ pub enum QueryComponentError {
     /// ```
     /// # use bevy_ecs::{prelude::*, system::QueryComponentError};
     /// #
-    /// # #[derive(Component)]
+    /// # #[derive(Component, PartialEq, Debug)]
     /// # struct RequestedComponent;
     /// #
     /// # #[derive(Resource)]
@@ -1406,9 +1408,11 @@ pub enum QueryComponentError {
     /// # }
     /// #
     /// fn get_missing_write_access_error(mut query: Query<&RequestedComponent>, res: Res<SpecificEntity>) {
-    ///     if let Err(QueryComponentError::MissingWriteAccess) = query.get_component_mut::<RequestedComponent>(res.entity) {
-    ///         println!("query doesn't have write access to RequestedComponent");
-    ///     }
+    ///     assert_eq!(
+    ///         query.get_component::<RequestedComponent>(res.entity),
+    ///         Err(QueryComponentError::MissingWriteAccess),
+    ///     );
+    ///     println!("query doesn't have write access to RequestedComponent because it doesn't have &mut in Query<&RequestedComponent>");
     /// }
     /// # bevy_ecs::system::assert_is_system(get_missing_write_access_error);
     /// ```
