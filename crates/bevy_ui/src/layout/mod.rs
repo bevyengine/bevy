@@ -28,7 +28,7 @@ use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 pub struct LayoutContext {
     /// The size of the root node in the layout tree.
     ///
-    /// Should match the size of the output window in physical pixels of the display device.
+    /// Set automatically during layout computation to the size of the output window in physical pixels of the display device.
     pub root_node_size: Vec2,
     /// [`Style`] properties of UI node entites with `Val::Px` values are multiplied by the `combined_scale_factor` before they are copied to the Taffy layout tree.
     ///
