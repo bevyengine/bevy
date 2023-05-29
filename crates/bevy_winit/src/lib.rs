@@ -54,6 +54,7 @@ use winit::{
 
 use crate::accessibility::{AccessKitAdapters, AccessibilityPlugin, WinitActionHandlers};
 
+use crate::converters::convert_winit_theme;
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
@@ -617,7 +618,7 @@ pub fn winit_runner(mut app: App) {
                     WindowEvent::ThemeChanged(theme) => {
                         window_events.window_theme_changed.send(WindowThemeChanged {
                             window: window_entity,
-                            theme: theme.into(),
+                            theme: convert_winit_theme(theme),
                         });
                     }
                     _ => {}
