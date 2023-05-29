@@ -27,16 +27,6 @@ pub struct UiKey {
     pub(crate) taffy_node: taffy::node::Node,
 }
 
-impl UiKey {
-    // Returns true if this taffy key is null.
-    // A UI node entity with a null `taffy_node` value has not been added to the layout tree.
-    #[inline]
-    pub(crate) fn is_null(&self) -> bool {
-        // The default value for `taffy::node::Node` is null
-        self.taffy_node == taffy::node::Node::default()
-    }
-}
-
 /// Describes the size of a UI node
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
