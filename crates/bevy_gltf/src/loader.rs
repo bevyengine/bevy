@@ -401,7 +401,9 @@ async fn load_gltf<'a, 'b, 'c>(
                 loader.supported_compressed_formats,
             )
             .await?;
-            load_context.add_labeled_asset(label, texture);
+            if let Some(image) = texture {
+                load_context.add_labeled_asset(label, image);
+            }
         }
     } else {
         #[cfg(not(target_arch = "wasm32"))]
@@ -421,7 +423,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             supported_compressed_formats,
                         )
                         .await;
-                        image.map(|i| load_context.finish(i, None))
+                        image.map(|i| i.map(|i| load_context.finish(i, None)))
                     });
                 });
             })
@@ -433,7 +435,9 @@ async fn load_gltf<'a, 'b, 'c>(
                 res.ok()
             })
             .for_each(|loaded_asset| {
-                load_context.add_loaded_labeled_asset(loaded_asset);
+                if let Some(loaded_asset) = loaded_asset {
+                    load_context.add_loaded_labeled_asset(loaded_asset);
+                }
             });
     }
 
@@ -576,50 +580,44 @@ async fn load_texture<'a, 'b>(
     linear_textures: &HashSet<usize>,
     load_context: &mut LoadContext<'b>,
     supported_compressed_formats: CompressedImageFormats,
-) -> Result<Image, GltfError> {
+) -> Result<Option<Image>, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
-    let mut texture = match gltf_texture.source().source() {
+    match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
             let start = view.offset();
             let end = view.offset() + view.length();
             let buffer = &buffer_data[view.buffer().index()][start..end];
-            Image::from_buffer(
+            let mut image = Image::from_buffer(
                 buffer,
                 ImageType::MimeType(mime_type),
                 supported_compressed_formats,
                 is_srgb,
-            )?
+            )?;
+            image.sampler_descriptor = ImageSampler::Descriptor(texture_sampler(&gltf_texture));
+            Ok(Some(image))
         }
         gltf::image::Source::Uri { uri, mime_type } => {
             let uri = percent_encoding::percent_decode_str(uri)
                 .decode_utf8()
                 .unwrap();
             let uri = uri.as_ref();
-            let (bytes, image_type) = if let Ok(data_uri) = DataUri::parse(uri) {
-                (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type))
+            if let Ok(data_uri) = DataUri::parse(uri) {
+                let bytes = data_uri.decode()?;
+                let image_type = ImageType::MimeType(data_uri.mime_type);
+                Ok(Some(Image::from_buffer(
+                    &bytes,
+                    mime_type.map(ImageType::MimeType).unwrap_or(image_type),
+                    supported_compressed_formats,
+                    is_srgb,
+                )?))
             } else {
                 let parent = load_context.path().parent().unwrap();
                 let image_path = parent.join(uri);
-                // TODO: this should use load() (or at least, load_direct_async), once we can pass in
-                // is_srgb configuration to the loader directly
-                let bytes = load_context.read_asset_bytes(&image_path).await?;
-                let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
-                let image_type = ImageType::Extension(extension);
-
-                (bytes, image_type)
-            };
-
-            Image::from_buffer(
-                &bytes,
-                mime_type.map(ImageType::MimeType).unwrap_or(image_type),
-                supported_compressed_formats,
-                is_srgb,
-            )?
+                let _handle: Handle<Image> = load_context.load(image_path);
+                Ok(None)
+            }
         }
-    };
-    texture.sampler_descriptor = ImageSampler::Descriptor(texture_sampler(&gltf_texture));
-
-    Ok(texture)
+    }
 }
 
 /// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
@@ -632,37 +630,32 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         let color = pbr.base_color_factor();
         let base_color_texture = pbr.base_color_texture().map(|info| {
             // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
-            let label = texture_label(&info.texture());
-            load_context.get_label_handle(&label)
+            texture_handle(load_context, &info.texture())
         });
 
         let normal_map_texture: Option<Handle<Image>> =
             material.normal_texture().map(|normal_texture| {
                 // TODO: handle normal_texture.scale
                 // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
-                let label = texture_label(&normal_texture.texture());
-                load_context.get_label_handle(&label)
+                texture_handle(load_context, &normal_texture.texture())
             });
 
         let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
             // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
-            let label = texture_label(&info.texture());
-            load_context.get_label_handle(&label)
+            texture_handle(load_context, &info.texture())
         });
 
         let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
             // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-            let label = texture_label(&occlusion_texture.texture());
-            load_context.get_label_handle(&label)
+            texture_handle(load_context, &occlusion_texture.texture())
         });
 
         let emissive = material.emissive_factor();
         let emissive_texture = material.emissive_texture().map(|info| {
             // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-            let label = texture_label(&info.texture());
-            load_context.get_label_handle(&label)
+            texture_handle(load_context, &info.texture())
         });
 
         StandardMaterial {
@@ -919,6 +912,29 @@ fn material_label(material: &gltf::Material) -> String {
 /// Returns the label for the `texture`.
 fn texture_label(texture: &gltf::Texture) -> String {
     format!("Texture{}", texture.index())
+}
+
+fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Handle<Image> {
+    match texture.source().source() {
+        gltf::image::Source::View { .. } => {
+            let label = texture_label(texture);
+            load_context.get_label_handle(&label)
+        }
+        gltf::image::Source::Uri { uri, .. } => {
+            let uri = percent_encoding::percent_decode_str(uri)
+                .decode_utf8()
+                .unwrap();
+            let uri = uri.as_ref();
+            if let Ok(_data_uri) = DataUri::parse(uri) {
+                let label = texture_label(texture);
+                load_context.get_label_handle(&label)
+            } else {
+                let parent = load_context.path().parent().unwrap();
+                let image_path = parent.join(uri);
+                load_context.load(image_path)
+            }
+        }
+    }
 }
 
 /// Returns the label for the `node`.

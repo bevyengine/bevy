@@ -106,10 +106,9 @@ impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
 pub trait ErasedProcessor: Send + Sync {
     fn process<'a>(
         &'a self,
-        context: ProcessContext<'a>,
+        context: &'a mut ProcessContext,
         meta: Box<dyn AssetMetaDyn>,
         writer: &'a mut Writer,
-        asset_hash: u64,
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>>;
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
     fn default_meta(&self) -> Box<dyn AssetMetaDyn>;
@@ -118,26 +117,15 @@ pub trait ErasedProcessor: Send + Sync {
 impl<P: Process> ErasedProcessor for P {
     fn process<'a>(
         &'a self,
-        mut context: ProcessContext<'a>,
+        context: &'a mut ProcessContext,
         meta: Box<dyn AssetMetaDyn>,
         writer: &'a mut Writer,
-        asset_hash: u64,
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>> {
         async move {
             let meta = meta
                 .downcast::<AssetMeta<(), P>>()
                 .map_err(|_e| ProcessError::WrongMetaType)?;
-            let loader_settings =
-                <P as Process>::process(self, &mut context, *meta, writer).await?;
-            let full_hash = AssetProcessor::get_full_hash(
-                asset_hash,
-                context
-                    .new_processed_info
-                    .process_dependencies
-                    .iter()
-                    .map(|i| i.full_hash),
-            );
-            context.new_processed_info.full_hash = full_hash;
+            let loader_settings = <P as Process>::process(self, context, *meta, writer).await?;
             let output_meta: Box<dyn AssetMetaDyn> =
                 Box::new(AssetMeta::<P::OutputLoader, ()>::new(AssetAction::Load {
                     loader: std::any::type_name::<P::OutputLoader>().to_string(),
@@ -164,10 +152,10 @@ impl<P: Process> ErasedProcessor for P {
 /// Provides scoped data access to the [`AssetProcessor`].
 /// This must only expose processor data that is represented in the asset's hash.
 pub struct ProcessContext<'a> {
+    pub(crate) new_processed_info: &'a mut ProcessedInfo,
     processor: &'a AssetProcessor,
     path: &'a AssetPath<'static>,
     asset_bytes: &'a [u8],
-    new_processed_info: &'a mut ProcessedInfo,
 }
 
 impl<'a> ProcessContext<'a> {

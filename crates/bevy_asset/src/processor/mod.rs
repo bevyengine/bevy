@@ -504,14 +504,26 @@ impl AssetProcessor {
         }
 
         if let Some(processor) = processor {
-            let context =
-                ProcessContext::new(self, &asset_path, &asset_bytes, &mut new_processed_info);
-            let processed_meta = processor
-                .process(context, source_meta, &mut *writer, new_hash)
-                .await?;
+            let mut processed_meta = {
+                let mut context =
+                    ProcessContext::new(self, &asset_path, &asset_bytes, &mut new_processed_info);
+                processor
+                    .process(&mut context, source_meta, &mut *writer)
+                    .await?
+            };
+
             // TODO: error handling
             writer.flush().await.unwrap();
 
+            let full_hash = AssetProcessor::get_full_hash(
+                new_hash,
+                new_processed_info
+                    .process_dependencies
+                    .iter()
+                    .map(|i| i.full_hash),
+            );
+            new_processed_info.full_hash = full_hash;
+            *processed_meta.processed_info_mut() = Some(new_processed_info.clone());
             let meta_bytes = processed_meta.serialize();
             meta_writer.write_all(&meta_bytes).await.unwrap();
             meta_writer.flush().await.unwrap();
