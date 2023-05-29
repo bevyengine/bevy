@@ -99,7 +99,7 @@ fn star(
     // We can now spawn the entities for the star and the camera
     commands.spawn((
         // We use a marker component to identify the custom colored meshes
-        ColoredMesh2d::default(),
+        ColoredMesh2d,
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
         Mesh2dHandle(meshes.add(star)),
         // This bundle's components are needed for something to be rendered

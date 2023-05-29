@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::mem;
+use std::ops::Deref;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
@@ -92,6 +93,14 @@ impl<S: States> State<S> {
 impl<S: States> PartialEq<S> for State<S> {
     fn eq(&self, other: &S) -> bool {
         self.get() == other
+    }
+}
+
+impl<S: States> Deref for State<S> {
+    type Target = S;
+
+    fn deref(&self) -> &Self::Target {
+        self.get()
     }
 }
 
