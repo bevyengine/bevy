@@ -293,7 +293,7 @@ pub fn ui_layout_system(
             ui_surface
                 .taffy
                 .set_measure(ui_key.taffy_node, Some(measure_func))
-                .ok();
+                .unwrap();
         }
     }
 

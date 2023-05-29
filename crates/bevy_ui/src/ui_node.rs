@@ -38,8 +38,6 @@ impl UiKey {
 }
 
 /// Describes the size of a UI node
-///
-/// All UI nodes must have this component.
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
