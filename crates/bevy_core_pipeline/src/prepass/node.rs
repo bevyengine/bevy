@@ -67,6 +67,7 @@ impl ViewNode for PrepassNode {
                 view: &view_motion_vectors_texture.default_view,
                 resolve_target: None,
                 ops: Operations {
+                    // Red and Green channels are X and Y components of the motion vectors
                     // Blue channel doesn't matter, but set to 0.0 for possible faster clear
                     // https://gpuopen.com/performance/#clears
                     load: LoadOp::Clear(Color::rgb_linear(0.0, 0.0, 0.0).into()),

@@ -90,7 +90,7 @@ impl<I: PhaseItem> RenderPhase<I> {
         }
     }
 
-    /// Renders a range of the [`PhaseItem`]s using their corresponding draw functions.
+    /// Renders all [`PhaseItem`]s in the provided `range` (based on their index in `self.items`) using their corresponding draw functions.
     pub fn render_range<'w>(
         &self,
         render_pass: &mut TrackedRenderPass<'w>,
@@ -104,9 +104,9 @@ impl<I: PhaseItem> RenderPhase<I> {
 
         for item in self
             .items
+            .get(range)
+            .expect("`Range` provided to `render_range()` is out of bounds")
             .iter()
-            .skip(range.start)
-            .take(range.end - range.start)
         {
             let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
             draw_function.draw(world, render_pass, view, item);

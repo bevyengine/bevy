@@ -13,7 +13,7 @@ use crate::{
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, TextureCache},
+    texture::{BevyDefault, CachedTexture, TextureCache},
     Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -205,8 +205,11 @@ impl ViewTarget {
     /// Retrieve this target's color attachment. This will use [`Self::sampled_main_texture_view`] and resolve to [`Self::main_texture`] if
     /// the target has sampling enabled. Otherwise it will use [`Self::main_texture`] directly.
     pub fn get_color_attachment(&self, ops: Operations<Color>) -> RenderPassColorAttachment {
-        match &self.main_textures.sampled_view {
-            Some(sampled_texture_view) => RenderPassColorAttachment {
+        match &self.main_textures.sampled {
+            Some(CachedTexture {
+                default_view: sampled_texture_view,
+                ..
+            }) => RenderPassColorAttachment {
                 view: sampled_texture_view,
                 resolve_target: Some(self.main_texture_view()),
                 ops,
@@ -230,9 +233,9 @@ impl ViewTarget {
     /// The "main" unsampled texture.
     pub fn main_texture(&self) -> &Texture {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            &self.main_textures.a
+            &self.main_textures.a.texture
         } else {
-            &self.main_textures.b
+            &self.main_textures.b.texture
         }
     }
 
@@ -244,18 +247,18 @@ impl ViewTarget {
     /// ahead of time.
     pub fn main_texture_other(&self) -> &Texture {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            &self.main_textures.b
+            &self.main_textures.b.texture
         } else {
-            &self.main_textures.a
+            &self.main_textures.a.texture
         }
     }
 
     /// The "main" unsampled texture.
     pub fn main_texture_view(&self) -> &TextureView {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            &self.main_textures.a_view
+            &self.main_textures.a.default_view
         } else {
-            &self.main_textures.b_view
+            &self.main_textures.b.default_view
         }
     }
 
@@ -267,20 +270,26 @@ impl ViewTarget {
     /// ahead of time.
     pub fn main_texture_other_view(&self) -> &TextureView {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            &self.main_textures.b_view
+            &self.main_textures.b.default_view
         } else {
-            &self.main_textures.a_view
+            &self.main_textures.a.default_view
         }
     }
 
     /// The "main" sampled texture.
     pub fn sampled_main_texture(&self) -> Option<&Texture> {
-        self.main_textures.sampled.as_ref()
+        self.main_textures
+            .sampled
+            .as_ref()
+            .map(|sampled| &sampled.texture)
     }
 
     /// The "main" sampled texture view.
     pub fn sampled_main_texture_view(&self) -> Option<&TextureView> {
-        self.main_textures.sampled_view.as_ref()
+        self.main_textures
+            .sampled
+            .as_ref()
+            .map(|sampled| &sampled.default_view)
     }
 
     #[inline]
@@ -318,13 +327,13 @@ impl ViewTarget {
         // if the old main texture is a, then the post processing must write from a to b
         if old_is_a_main_texture == 0 {
             PostProcessWrite {
-                source: &self.main_textures.a_view,
-                destination: &self.main_textures.b_view,
+                source: &self.main_textures.a.default_view,
+                destination: &self.main_textures.b.default_view,
             }
         } else {
             PostProcessWrite {
-                source: &self.main_textures.b_view,
-                destination: &self.main_textures.a_view,
+                source: &self.main_textures.b.default_view,
+                destination: &self.main_textures.a.default_view,
             }
         }
     }
@@ -385,12 +394,9 @@ pub fn prepare_view_uniforms(
 
 #[derive(Clone)]
 struct MainTargetTextures {
-    a: Texture,
-    a_view: TextureView,
-    b: Texture,
-    b_view: TextureView,
-    sampled: Option<Texture>,
-    sampled_view: Option<TextureView>,
+    a: CachedTexture,
+    b: CachedTexture,
+    sampled: Option<CachedTexture>,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
@@ -458,7 +464,7 @@ fn prepare_view_targets(
                                 ..descriptor
                             },
                         );
-                        let (sampled_texture, sampled_view) = if msaa.samples() > 1 {
+                        let sampled = if msaa.samples() > 1 {
                             let sampled = texture_cache.get(
                                 &render_device,
                                 TextureDescriptor {
@@ -472,17 +478,14 @@ fn prepare_view_targets(
                                     view_formats: descriptor.view_formats,
                                 },
                             );
-                            (Some(sampled.texture), Some(sampled.default_view))
+                            Some(sampled)
                         } else {
-                            (None, None)
+                            None
                         };
                         MainTargetTextures {
-                            a: a.texture,
-                            a_view: a.default_view,
-                            b: b.texture,
-                            b_view: b.default_view,
-                            sampled: sampled_texture,
-                            sampled_view,
+                            a,
+                            b,
+                            sampled,
                             main_texture: Arc::new(AtomicUsize::new(0)),
                         }
                     });
