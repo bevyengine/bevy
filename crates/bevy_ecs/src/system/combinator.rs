@@ -300,3 +300,25 @@ where
         b(value)
     }
 }
+
+pub type ProductSystem<SystemA, SystemB> = CombinatorSystem<CartesianProduct, SystemA, SystemB>;
+
+pub struct CartesianProduct;
+
+impl<In, A, B> Combine<A, B> for CartesianProduct
+where
+    In: Copy,
+    A: System<In = In>,
+    B: System<In = In>,
+{
+    type In = In;
+    type Out = (A::Out, B::Out);
+
+    fn combine(
+        input: Self::In,
+        a: impl FnOnce(In) -> A::Out,
+        b: impl FnOnce(In) -> B::Out,
+    ) -> Self::Out {
+        (a(input), b(input))
+    }
+}
