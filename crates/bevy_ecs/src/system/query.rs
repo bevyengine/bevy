@@ -1386,6 +1386,7 @@ pub enum QueryComponentError {
     ///     }
     /// }
     /// # bevy_ecs::system::assert_is_system(get_missing_read_access_error);
+    /// ```
     MissingReadAccess,
     /// The [`Query`] does not have write access to the requested component.
     ///
@@ -1409,7 +1410,8 @@ pub enum QueryComponentError {
     ///         println!("query doesn't have write access to RequestedComponent");
     ///     }
     /// }
-    /// # bevy_ecs::system::assert_is_system(get_missing_read_access_error);
+    /// # bevy_ecs::system::assert_is_system(get_missing_write_access_error);
+    /// ```
     MissingWriteAccess,
     /// The given [`Entity`] does not have the requested component.
     MissingComponent,
