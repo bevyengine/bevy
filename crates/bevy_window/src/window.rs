@@ -832,3 +832,13 @@ pub enum WindowLevel {
     /// The window will always be on top of normal windows.
     AlwaysOnTop,
 }
+
+impl From<WindowLevel> for winit::window::WindowLevel {
+    fn from(window_level: WindowLevel) -> Self {
+        match window_level {
+            WindowLevel::AlwaysOnBottom => winit::window::WindowLevel::AlwaysOnBottom,
+            WindowLevel::Normal => winit::window::WindowLevel::Normal,
+            WindowLevel::AlwaysOnTop => winit::window::WindowLevel::AlwaysOnTop,
+        }
+    }
+}

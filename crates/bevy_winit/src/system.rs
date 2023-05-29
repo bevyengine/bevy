@@ -23,7 +23,6 @@ use winit::{
 use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
 use crate::{
     accessibility::{AccessKitAdapters, WinitActionHandlers},
-    converters::{self, convert_window_level},
     get_best_videomode, get_fitting_videomode, WinitWindows,
 };
 
@@ -184,7 +183,7 @@ pub(crate) fn changed_window(
             }
 
             if window.cursor.icon != cache.window.cursor.icon {
-                winit_window.set_cursor_icon(converters::convert_cursor_icon(window.cursor.icon));
+                winit_window.set_cursor_icon(window.cursor.icon.into());
             }
 
             if window.cursor.grab_mode != cache.window.cursor.grab_mode {
@@ -266,7 +265,7 @@ pub(crate) fn changed_window(
             }
 
             if window.window_level != cache.window.window_level {
-                winit_window.set_window_level(convert_window_level(window.window_level));
+                winit_window.set_window_level(window.window_level.into());
             }
 
             // Currently unsupported changes

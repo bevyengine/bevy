@@ -446,9 +446,7 @@ pub fn winit_runner(mut app: App) {
                             });
                     }
                     WindowEvent::KeyboardInput { ref input, .. } => {
-                        input_events
-                            .keyboard_input
-                            .send(converters::convert_keyboard_input(input));
+                        input_events.keyboard_input.send(input.into());
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let physical_position = DVec2::new(position.x, position.y);
@@ -475,8 +473,8 @@ pub fn winit_runner(mut app: App) {
                     }
                     WindowEvent::MouseInput { state, button, .. } => {
                         input_events.mouse_button_input.send(MouseButtonInput {
-                            button: converters::convert_mouse_button(button),
-                            state: converters::convert_element_state(state),
+                            button: button.into(),
+                            state: state.into(),
                         });
                     }
                     WindowEvent::MouseWheel { delta, .. } => match delta {
