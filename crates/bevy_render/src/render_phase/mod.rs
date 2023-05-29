@@ -104,9 +104,9 @@ impl<I: PhaseItem> RenderPhase<I> {
 
         for item in self
             .items
+            .get(range)
+            .expect("`Range` provided to `render_range()` is out of bounds")
             .iter()
-            .skip(range.start)
-            .take(range.end - range.start)
         {
             let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
             draw_function.draw(world, render_pass, view, item);
