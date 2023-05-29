@@ -14,16 +14,20 @@ fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f3
     if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
-    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+    }
+
+#ifdef MAY_DISCARD
+    else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
         if color.a >= material.alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
         } else {
-            // NOTE: output_color.a < in.material.alpha_cutoff should not is not rendered
-            // NOTE: This and any other discards mean that early-z testing cannot be done!
+            // NOTE: output_color.a < in.material.alpha_cutoff should not be rendered
             discard;
         }
     }
+#endif
+
     return color;
 }
 

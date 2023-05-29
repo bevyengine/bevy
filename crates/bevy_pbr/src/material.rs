@@ -472,6 +472,9 @@ pub fn queue_material_meshes<M: Material>(
                         AlphaMode::Multiply => {
                             mesh_key |= MeshPipelineKey::BLEND_MULTIPLY;
                         }
+                        AlphaMode::Mask(_) => {
+                            mesh_key |= MeshPipelineKey::MAY_DISCARD;
+                        }
                         _ => (),
                     }
 
