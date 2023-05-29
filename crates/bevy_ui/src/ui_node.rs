@@ -14,15 +14,15 @@ use smallvec::SmallVec;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
-/// Used internally to lookup a UI node's corresponding entry in the UI's layout tree.
+/// Used internally to identify a UI node's corresponding entry in the UI's layout tree.
 ///
 /// UI nodes must have this component
 #[derive(Component, Debug, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct UiKey {
-    // Indentifier for the Taffy node in the Taffy layout tree stored in [`crate::layout::UiSurface`] that corresponds to the UI node entity with this component.
-    //
-    // Users can only instantiate null nodes, the keys are managed internally by the UI's layout systems.
+    /// Indentifier for the Taffy node in the Taffy layout tree stored in [`super::layout::UiSurface`] that corresponds to the UI node entity with this component.
+    ///
+    /// Users can only instantiate null nodes using `UiKey::default()`, the keys are set and managed internally by [`super::layout::ui_layout_system`].
     #[reflect(ignore)]
     pub(crate) taffy_node: taffy::node::Node,
 }
@@ -34,12 +34,6 @@ impl UiKey {
     pub(crate) fn is_null(&self) -> bool {
         // The default value for `taffy::node::Node` is null
         self.taffy_node == taffy::node::Node::default()
-    }
-}
-
-impl Clone for UiKey {
-    fn clone(&self) -> Self {
-        Self::default()
     }
 }
 

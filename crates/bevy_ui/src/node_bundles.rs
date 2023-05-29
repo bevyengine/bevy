@@ -16,7 +16,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 /// The basic UI node
 ///
 /// Useful as a container for a variety of child nodes.
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Debug)]
 pub struct NodeBundle {
     /// Used internally. All UI nodes must have this component.
     pub node: UiKey,
@@ -216,7 +216,7 @@ impl TextBundle {
 }
 
 /// A UI node that is a button
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Debug)]
 pub struct ButtonBundle {
     /// Used internally. All UI nodes must have this component.
     pub node: UiKey,

@@ -197,7 +197,7 @@ pub fn ui_layout_system(
 
     let mut ui_keys_query = ui_queries_param_set.p0();
     for (entity, mut ui_key) in ui_keys_query.iter_mut() {
-        // Users can only instantiate `Node` components containing a null key
+        // Users can only instantiate `UiKey` components containing a null key
         if ui_key.is_null() {
             ui_key.taffy_node = ui_surface
                 .taffy
