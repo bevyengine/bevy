@@ -994,9 +994,7 @@ pub fn queue_mesh_view_bind_groups(
     render_device: Res<RenderDevice>,
     mesh_pipeline: Res<MeshPipeline>,
     shadow_samplers: Res<ShadowSamplers>,
-    light_meta: Res<LightMeta>,
-    global_light_meta: Res<GlobalLightMeta>,
-    fog_meta: Res<FogMeta>,
+    (light_meta, global_light_meta, fog_meta): (Res<LightMeta>, Res<GlobalLightMeta>, Res<FogMeta>),
     view_uniforms: Res<ViewUniforms>,
     views: Query<(
         Entity,
