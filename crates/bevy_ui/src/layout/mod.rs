@@ -23,7 +23,7 @@ use std::fmt;
 use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
 /// Marks an entity as `UI root entity` with an associated root Taffy node and holds the resolution and scale factor information necessary to compute a UI layout.
-#[derive(Component, Debug, Reflect, PartialEq)]
+#[derive(Component, Debug, Default, Reflect, PartialEq)]
 #[reflect(Component, Default)]
 pub struct LayoutContext {
     /// The size of the root node in the layout tree.
@@ -39,17 +39,6 @@ pub struct LayoutContext {
     /// `layout_to_logical_factor` is the reciprocal of the target window's `scale_factor` and doesn't include [`crate::UiScale`].
     pub layout_to_logical_factor: f64,
 }
-
-impl Default for LayoutContext {
-    fn default() -> Self {
-        Self {
-            root_node_size: Vec2::new(800., 600.),
-            combined_scale_factor: 1.0,
-            layout_to_logical_factor: 1.0,
-        }
-    }
-}
-
 pub struct UiLayout {}
 
 #[derive(Resource)]
@@ -373,7 +362,11 @@ mod tests {
         world.init_resource::<UiSurface>();
         world.init_resource::<UiScale>();
 
-        let layout_entity = world.spawn(LayoutContext::default()).id();
+        let layout_entity = world.spawn(LayoutContext {
+            root_node_size: Vec2::new(800., 600.),
+            combined_scale_factor: 1.,
+            layout_to_logical_factor: 1.,
+        }).id();
 
         let ui_node = world
             .spawn(NodeBundle {
