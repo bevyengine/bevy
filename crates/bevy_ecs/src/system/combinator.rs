@@ -320,7 +320,7 @@ where
 ///     world.insert_resource(Message("42".to_string()));
 ///     world.insert_resource(Signal("217".to_string()));
 ///
-///     // pipe the joined system's output into the `filter_system`s input
+///     // join the two systems together
 ///     let mut joined_system = parse_message_system.join(parse_signal_system);
 ///     joined_system.initialize(&mut world);
 ///     assert_eq!(joined_system.run((), &mut world), (Ok(42), Ok(217)));
