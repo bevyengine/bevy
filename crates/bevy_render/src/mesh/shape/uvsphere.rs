@@ -52,7 +52,7 @@ impl From<UVSphere> for Mesh {
 
                 vertices.push([x, y, z]);
                 normals.push([x * length_inv, y * length_inv, z * length_inv]);
-                uvs.push([(j as f32) / sectors, (i as f32) / stacks]);
+                uvs.push([(j as f32) / sectors, 1.0 - (i as f32) / stacks]);
             }
         }
 
