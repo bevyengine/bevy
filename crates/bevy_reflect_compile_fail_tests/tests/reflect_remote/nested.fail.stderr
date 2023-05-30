@@ -155,17 +155,24 @@ error[E0308]: mismatched types
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0308]: mismatched types
-  --> tests/reflect_remote/nested.fail.rs:37:5
+  --> tests/reflect_remote/nested.fail.rs:40:28
    |
 37 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `TheirOuter<T>`
+   |     ------------------------------------------------------- in this procedural macro expansion
 ...
-41 |         pub inner: super::external_crate::TheirInner<T>,
-   |                    ------------------------------------ expected due to this
+40 |         #[reflect(remote = "MyOuter<T>")]
+   |                            ^^^^^^^^^^^^
+   |                            |
+   |                            expected `TheirOuter<T>`, found `TheirInner<T>`
+   |                            expected due to this
    |
-   = note: expected struct `TheirInner<T>`
-              found struct `TheirOuter<T>`
+   = note: expected struct `TheirOuter<T>`
+              found struct `TheirInner<T>`
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: try wrapping the expression in `external_crate::TheirOuter`
+   |
+40 |         #[reflect(remote = external_crate::TheirOuter { inner: "MyOuter<T>" })]
+   |                            +++++++++++++++++++++++++++++++++++              +
 
 error[E0308]: `?` operator has incompatible types
   --> tests/reflect_remote/nested.fail.rs:51:5

@@ -41,6 +41,8 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
     let assertions = impl_assertions(&derive_data);
     let definition_assertions = generate_remote_definition_assertions(&derive_data);
 
+    let reflect_remote_impl = impl_reflect_remote(&derive_data, &remote_ty);
+
     let (reflect_impls, from_reflect_impl) = match derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
             impls::impl_struct(&struct_data),
@@ -77,6 +79,8 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
         #wrapper_definition
 
         const _: () = {
+            #reflect_remote_impl
+
             #reflect_impls
 
             #from_reflect_impl
@@ -114,6 +118,25 @@ fn generate_remote_wrapper(input: &DeriveInput, remote_ty: &TypePath) -> proc_ma
         #(#attrs)*
         #[repr(transparent)]
         #vis struct #ident #ty_generics (pub #remote_ty) #where_clause;
+    }
+}
+
+fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macro2::TokenStream {
+    let bevy_reflect_path = input.meta().bevy_reflect_path();
+
+    let type_path = input.meta().type_path();
+    let (impl_generics, ty_generics, where_clause) =
+        input.meta().type_path().generics().split_for_impl();
+
+    let where_reflect_clause = input
+        .where_clause_options()
+        .extend_where_clause(where_clause);
+
+    quote! {
+        // SAFE: The generated wrapper type is guaranteed to be valid and repr(transparent) over the remote type.
+        unsafe impl #impl_generics #bevy_reflect_path::ReflectRemote for #type_path #ty_generics #where_reflect_clause {
+            type Remote = #remote_ty;
+        }
     }
 }
 
@@ -155,6 +178,8 @@ pub(crate) fn generate_remote_assertions(
         generics: &'a Generics,
         remote_ty: &'a Type,
     }
+
+    let bevy_reflect_path = derive_data.meta().bevy_reflect_path();
 
     let fields: Box<dyn Iterator<Item = RemoteAssertionData>> = match derive_data {
         ReflectDerive::Struct(data)
@@ -203,14 +228,22 @@ pub(crate) fn generate_remote_assertions(
             };
             let (impl_generics, _, where_clause) = field.generics.split_for_impl();
 
+            let where_reflect_clause = derive_data
+                .where_clause_options()
+                .extend_where_clause(where_clause);
+
             let ty = &field.ty;
             let remote_ty = field.remote_ty;
             let assertion_ident = format_ident!("assert__{}__is_valid_remote", ident);
 
-            quote! {
+            let span = create_assertion_span(remote_ty.span());
+
+            quote_spanned! {span=>
                 #[allow(non_snake_case)]
-                fn #assertion_ident #impl_generics (#ident: #remote_ty) #where_clause {
-                    let _: #ty = #ident.0;
+                fn #assertion_ident #impl_generics () #where_reflect_clause {
+                    let _: <#remote_ty as #bevy_reflect_path::ReflectRemote>::Remote = (|| -> #FQOption<#ty> {
+                        None
+                    })().unwrap();
                 }
             }
         })
@@ -248,13 +281,9 @@ fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_ma
     let self_expr_path = derive_data.remote_ty().unwrap().as_expr_path().unwrap();
     let (impl_generics, _, where_clause) = meta.type_path().generics().split_for_impl();
 
-    /// Creates a span located around the given one, but resolves to the assertion's context.
-    ///
-    /// This should allow the compiler to point back to the line and column in the user's code,
-    /// while still attributing the error to the `reflect_remote` macro.
-    fn create_assertion_span(span: Span) -> Span {
-        Span::call_site().located_at(span)
-    }
+    let where_reflect_clause = derive_data
+        .where_clause_options()
+        .extend_where_clause(where_clause);
 
     let assertions = match derive_data {
         ReflectDerive::Struct(data)
@@ -323,11 +352,19 @@ fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_ma
             #[allow(unused_variables)]
             #[allow(unused_assignments)]
             #[allow(unreachable_patterns)]
-            fn assert_wrapper_definition_matches_remote_type #impl_generics (mut #self_ident: #self_ty) #where_clause {
+            fn assert_wrapper_definition_matches_remote_type #impl_generics (mut #self_ident: #self_ty) #where_reflect_clause {
                 #assertions
             }
         };
     }
+}
+
+/// Creates a span located around the given one, but resolves to the assertion's context.
+///
+/// This should allow the compiler to point back to the line and column in the user's code,
+/// while still attributing the error to the macro.
+fn create_assertion_span(span: Span) -> Span {
+    Span::call_site().located_at(span)
 }
 
 /// A reflected type's remote type.

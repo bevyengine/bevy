@@ -16,8 +16,8 @@ use crate::{
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Meta, Path,
-    PathSegment, Type, TypeParam, Variant,
+    parse_quote, parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident,
+    LitStr, Meta, Path, PathSegment, Type, TypeParam, Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -394,6 +394,16 @@ impl<'a> ReflectDerive<'a> {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => data.meta(),
             Self::Enum(data) => data.meta(),
             Self::Value(meta) => meta,
+        }
+    }
+
+    pub fn where_clause_options(&self) -> WhereClauseOptions {
+        match self {
+            Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
+                data.where_clause_options()
+            }
+            Self::Enum(data) => data.where_clause_options(),
+            Self::Value(meta) => WhereClauseOptions::new(meta),
         }
     }
 
@@ -1040,6 +1050,28 @@ impl<'a> ReflectTypePath<'a> {
     /// [anonymous]: ReflectTypePath::Anonymous
     pub fn type_ident(&self) -> Option<StringExpr> {
         self.get_ident().map(StringExpr::from)
+    }
+
+    /// Returns the true type regardless of whether a custom path is specified.
+    ///
+    /// To get the custom path if there is one, use [`Self::get_path`].
+    ///
+    /// For example, the type `Foo<T: Debug>` would return `Foo<T>`.
+    pub fn true_type(&self) -> Type {
+        match self {
+            Self::Primitive(ident) => parse_quote!(#ident),
+            Self::Internal {
+                ident, generics, ..
+            } => {
+                let (_, ty_generics, _) = generics.split_for_impl();
+                parse_quote!(#ident #ty_generics)
+            }
+            Self::External { path, generics, .. } => {
+                let (_, ty_generics, _) = generics.split_for_impl();
+                parse_quote!(#path #ty_generics)
+            }
+            Self::Anonymous { qualified_type, .. } => qualified_type.clone(),
+        }
     }
 }
 
