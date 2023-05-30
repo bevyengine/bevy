@@ -61,7 +61,7 @@ impl Measure for TextMeasure {
             AvailableSpace::MaxContent => self.info.max_width_content_size.x,
         });
 
-        let out = height
+        height
             .map_or_else(
                 || match available_width {
                     AvailableSpace::Definite(_) => self.info.compute_size(Vec2::new(x, f32::MAX)),
@@ -70,9 +70,7 @@ impl Measure for TextMeasure {
                 },
                 |y| Vec2::new(x, y),
             )
-            .ceil();
-        println!("--> size: {}", out);
-        out
+            .ceil()
     }
 }
 

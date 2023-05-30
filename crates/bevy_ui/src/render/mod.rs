@@ -246,8 +246,14 @@ pub fn extract_default_ui_camera_view<T: Component>(
             camera.physical_viewport_size(),
         ) {
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
-            let projection_matrix =
-                Mat4::orthographic_rh(0.0, logical_size.x * scale, logical_size.y * scale, 0.0, 0.0, UI_CAMERA_FAR);
+            let projection_matrix = Mat4::orthographic_rh(
+                0.0,
+                logical_size.x * scale,
+                logical_size.y * scale,
+                0.0,
+                0.0,
+                UI_CAMERA_FAR,
+            );
             let default_camera_view = commands
                 .spawn(ExtractedView {
                     projection: projection_matrix,
@@ -297,7 +303,8 @@ pub fn extract_text_uinodes(
     let scale_factor = windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.0) * ui_scale.scale;
+        .unwrap_or(1.0)
+        * ui_scale.scale;
 
     let inverse_scale_factor = (scale_factor as f32).recip();
 
