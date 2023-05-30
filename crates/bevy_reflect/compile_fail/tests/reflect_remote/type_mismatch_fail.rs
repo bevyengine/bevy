@@ -22,10 +22,10 @@ mod structs {
     }
 
     #[derive(Reflect)]
-    //~^ ERROR: mismatched types
     struct MyStruct {
         // Reason: Should use `MyFoo`
         #[reflect(remote = "MyBar")]
+        //~^ ERROR: mismatched types
         foo: external_crate::TheirFoo,
     }
 }
@@ -46,10 +46,10 @@ mod tuple_structs {
     struct MyBar(pub i32);
 
     #[derive(Reflect)]
-    //~^ ERROR: mismatched types
     struct MyStruct(
         // Reason: Should use `MyFoo`
         #[reflect(remote = "MyBar")] external_crate::TheirFoo,
+        //~^ ERROR: mismatched types
     );
 }
 
@@ -80,11 +80,11 @@ mod enums {
     }
 
     #[derive(Reflect)]
-    //~^ ERROR: mismatched types
     enum MyStruct {
         Value(
             // Reason: Should use `MyFoo`
             #[reflect(remote = "MyBar")] external_crate::TheirFoo,
+            //~^ ERROR: mismatched types
         ),
     }
 }

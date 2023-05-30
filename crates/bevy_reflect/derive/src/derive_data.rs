@@ -394,6 +394,16 @@ impl<'a> ReflectDerive<'a> {
         }
     }
 
+    pub fn where_clause_options(&self) -> WhereClauseOptions {
+        match self {
+            Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
+                data.where_clause_options()
+            }
+            Self::Enum(data) => data.where_clause_options(),
+            Self::Value(meta) => WhereClauseOptions::new(meta),
+        }
+    }
+
     fn collect_struct_fields(fields: &'a Fields) -> Result<Vec<StructField<'a>>, syn::Error> {
         let mut active_index = 0;
         let sifter: utility::ResultSifter<StructField<'a>> = fields
@@ -1205,6 +1215,28 @@ impl<'a> ReflectTypePath<'a> {
     /// [anonymous]: ReflectTypePath::Anonymous
     pub fn type_ident(&self) -> Option<StringExpr> {
         self.get_ident().map(StringExpr::from)
+    }
+
+    /// Returns the true type regardless of whether a custom path is specified.
+    ///
+    /// To get the custom path if there is one, use [`Self::get_path`].
+    ///
+    /// For example, the type `Foo<T: Debug>` would return `Foo<T>`.
+    pub fn true_type(&self) -> proc_macro2::TokenStream {
+        match self {
+            Self::Primitive(ident) => quote!(#ident),
+            Self::Internal {
+                ident, generics, ..
+            } => {
+                let (_, ty_generics, _) = generics.split_for_impl();
+                quote!(#ident #ty_generics)
+            }
+            Self::External { path, generics, .. } => {
+                let (_, ty_generics, _) = generics.split_for_impl();
+                quote!(#path #ty_generics)
+            }
+            Self::Anonymous { qualified_type, .. } => qualified_type.to_token_stream(),
+        }
     }
 }
 

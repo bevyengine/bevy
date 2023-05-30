@@ -532,6 +532,7 @@ mod list;
 mod map;
 mod path;
 mod reflect;
+mod remote;
 mod set;
 mod struct_trait;
 mod tuple;
@@ -582,6 +583,7 @@ pub use list::*;
 pub use map::*;
 pub use path::*;
 pub use reflect::*;
+pub use remote::*;
 pub use set::*;
 pub use struct_trait::*;
 pub use tuple::*;
@@ -2626,11 +2628,12 @@ bevy_reflect::tests::Test {
                 pub a: TheirInner<T>,
                 pub b: TheirInner<bool>,
             }
+
             pub struct TheirInner<T>(pub T);
         }
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
-        struct MyOuter<T: FromReflect> {
+        struct MyOuter<T: FromReflect + Typed + GetTypeRegistration> {
             #[reflect(remote = "MyInner<T>")]
             pub a: external_crate::TheirInner<T>,
             #[reflect(remote = "MyInner<bool>")]
@@ -2678,7 +2681,7 @@ bevy_reflect::tests::Test {
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
         #[derive(Debug)]
-        enum MyOuter<T: FromReflect + Debug> {
+        enum MyOuter<T: FromReflect + Typed + Debug + GetTypeRegistration> {
             Unit,
             Tuple(#[reflect(remote = "MyInner<T>")] external_crate::TheirInner<T>),
             Struct {
@@ -2791,7 +2794,7 @@ bevy_reflect::tests::Test {
         }
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
-        struct MyOuter<T: FromReflect> {
+        struct MyOuter<T: FromReflect + Typed + GetTypeRegistration> {
             #[reflect(remote = "MyInner<T>")]
             pub inner: external_crate::TheirInner<T>,
         }
