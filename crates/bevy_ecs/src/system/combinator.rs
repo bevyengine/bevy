@@ -301,11 +301,11 @@ where
     }
 }
 
-pub type ProductSystem<SystemA, SystemB> = CombinatorSystem<CartesianProduct, SystemA, SystemB>;
+pub type JoinSystem<SystemA, SystemB> = CombinatorSystem<Join, SystemA, SystemB>;
 
-pub struct CartesianProduct;
+pub struct Join;
 
-impl<In, A, B> Combine<A, B> for CartesianProduct
+impl<In, A, B> Combine<A, B> for Join
 where
     In: Copy,
     A: System<In = In>,

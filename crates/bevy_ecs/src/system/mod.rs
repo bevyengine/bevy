@@ -112,7 +112,7 @@ mod query;
 mod system;
 mod system_param;
 
-use std::{borrow::Cow, iter::Product};
+use std::borrow::Cow;
 
 pub use combinator::*;
 pub use commands::*;
@@ -226,14 +226,14 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
         PipeSystem::new(system_a, system_b, Cow::Owned(name))
     }
 
-    fn product<B, I, O, M>(self, system: B) -> ProductSystem<Self::System, B::System>
+    fn join<B, I, O, M>(self, system: B) -> JoinSystem<Self::System, B::System>
     where
         B:IntoSystem<I, O, M>,
     {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);
-        let name = format!("Product({}, {})", system_a.name(), system_b.name());
-        ProductSystem::new(system_a, system_b, Cow::Owned(name))
+        let name = format!("Join({}, {})", system_a.name(), system_b.name());
+        JoinSystem::new(system_a, system_b, Cow::Owned(name))
     }
 }
 
