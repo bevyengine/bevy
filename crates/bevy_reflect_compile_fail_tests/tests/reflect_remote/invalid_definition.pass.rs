@@ -35,7 +35,7 @@ mod enums {
         }
     }
 
-    #[reflect_remote(external_crate::TheirStruct, FromReflect)]
+    #[reflect_remote(external_crate::TheirStruct)]
     enum MyStruct {
         Unit,
         Tuple(u32),

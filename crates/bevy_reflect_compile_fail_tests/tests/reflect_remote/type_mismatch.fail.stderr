@@ -42,19 +42,22 @@ help: you can convert a `u32` to an `i32` and panic if the converted value doesn
    |                                                ++++++++++++++++++++
 
 error[E0308]: mismatched types
-  --> tests/reflect_remote/type_mismatch.fail.rs:70:5
+  --> tests/reflect_remote/type_mismatch.fail.rs:73:15
    |
-70 |     #[reflect_remote(external_crate::TheirBar)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `u32`, found `i32`
-...
-73 |         Value(u32),
-   |               --- expected due to this
+70 |       #[reflect_remote(external_crate::TheirBar)]
+   |       -------------------------------------------
+   |       |
+   |  _____in this procedural macro expansion
+   | |
+71 | |     enum MyBar {
+72 | |         // Reason: Should use `i32`
+73 | |         Value(u32),
+   | |               ^^-
+   | |_______________|_|
+   |                 | expected due to the type of this binding
+   |                 expected `i32`, found `u32`
    |
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
-help: you can convert an `i32` to a `u32` and panic if the converted value doesn't fit
-   |
-70 |     #[reflect_remote(external_crate::TheirBar)].try_into().unwrap()
-   |                                                ++++++++++++++++++++
 
 error[E0308]: mismatched types
   --> tests/reflect_remote/type_mismatch.fail.rs:76:14

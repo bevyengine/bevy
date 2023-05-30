@@ -139,21 +139,20 @@ error[E0308]: `?` operator has incompatible types
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0308]: mismatched types
-  --> tests/reflect_remote/nested.fail.rs:24:5
+  --> tests/reflect_remote/nested.fail.rs:27:20
    |
 24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `MyInner<T>`, found `TheirInner<T>`
+   |     -------------------------------------------------------
+   |     |
+   |     expected due to the type of this binding
+   |     in this procedural macro expansion
 ...
 27 |         pub inner: MyInner<T>,
-   |                    ---------- expected due to this
+   |                    ^^^^^^^^^^ expected `TheirInner<T>`, found `MyInner<T>`
    |
-   = note: expected struct `incorrect_inner_type::MyInner<T>`
-              found struct `TheirInner<T>`
+   = note: expected struct `TheirInner<T>`
+              found struct `incorrect_inner_type::MyInner<T>`
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
-help: try wrapping the expression in `incorrect_inner_type::MyInner`
-   |
-24 |     incorrect_inner_type::MyInner(#[reflect_remote(super::external_crate::TheirOuter<T>)])
-   |     ++++++++++++++++++++++++++++++                                                       +
 
 error[E0308]: mismatched types
   --> tests/reflect_remote/nested.fail.rs:37:5
@@ -182,16 +181,19 @@ error[E0308]: `?` operator has incompatible types
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0308]: mismatched types
-  --> tests/reflect_remote/nested.fail.rs:51:5
+  --> tests/reflect_remote/nested.fail.rs:55:20
    |
 51 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<bool>`, found `TheirInner<T>`
+   |     -------------------------------------------------------
+   |     |
+   |     expected due to the type of this binding
+   |     in this procedural macro expansion
 52 |     struct MyOuter<T: Reflect> {
    |                    - this type parameter
 ...
 55 |         pub inner: super::external_crate::TheirInner<bool>,
-   |                    --------------------------------------- expected due to this
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `TheirInner<bool>`
    |
-   = note: expected struct `TheirInner<bool>`
-              found struct `TheirInner<T>`
+   = note: expected struct `TheirInner<T>`
+              found struct `TheirInner<bool>`
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
