@@ -8,11 +8,11 @@ mod structs {
     }
 
     #[reflect_remote(external_crate::TheirStruct)]
-    //~^ ERROR: mismatched types
-    //~| ERROR: `?` operator has incompatible types
+    //~^ ERROR: `?` operator has incompatible types
     struct MyStruct {
         // Reason: Should be `u32`
         pub value: bool,
+        //~^ ERROR: mismatched types
     }
 }
 
@@ -24,11 +24,11 @@ mod tuple_structs {
     }
 
     #[reflect_remote(external_crate::TheirStruct)]
-    //~^ ERROR: mismatched types
-    //~| ERROR: `?` operator has incompatible types
+    //~^ ERROR: `?` operator has incompatible types
     struct MyStruct(
         // Reason: Should be `u32`
         pub bool,
+        //~^ ERROR: mismatched types
     );
 }
 
@@ -44,9 +44,7 @@ mod enums {
     }
 
     #[reflect_remote(external_crate::TheirStruct)]
-    //~^ ERROR: mismatched types
-    //~| ERROR: mismatched types
-    //~| ERROR: variant `enums::external_crate::TheirStruct::Unit` does not have a field named `0`
+    //~^ ERROR: variant `enums::external_crate::TheirStruct::Unit` does not have a field named `0`
     //~| ERROR: variant `enums::external_crate::TheirStruct::Unit` has no field named `0`
     //~| ERROR: `?` operator has incompatible types
     //~| ERROR: `?` operator has incompatible types
@@ -55,8 +53,10 @@ mod enums {
         Unit(i32),
         // Reason: Should be `u32`
         Tuple(bool),
+        //~^ ERROR: mismatched types
         // Reason: Should be `usize`
         Struct { value: String },
+        //~^ ERROR: mismatched types
     }
 }
 

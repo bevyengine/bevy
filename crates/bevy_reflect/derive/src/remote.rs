@@ -2,9 +2,10 @@ use crate::derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImp
 use crate::impls::impl_assertions;
 use crate::utility::ident_or_index;
 use crate::{from_reflect, impls, ReflectDerive, REFLECT_ATTRIBUTE_NAME};
+use bevy_macro_utils::fq_std::FQOption;
 use proc_macro::TokenStream;
-use proc_macro2::Ident;
-use quote::{format_ident, quote};
+use proc_macro2::{Ident, Span};
+use quote::{format_ident, quote, quote_spanned};
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
 use syn::token::PathSep;
@@ -247,38 +248,58 @@ fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_ma
     let self_expr_path = derive_data.remote_ty().unwrap().as_expr_path().unwrap();
     let (impl_generics, _, where_clause) = meta.type_path().generics().split_for_impl();
 
+    /// Creates a span located around the given one, but resolves to the assertion's context.
+    ///
+    /// This should allow the compiler to point back to the line and column in the user's code,
+    /// while still attributing the error to the `reflect_remote` macro.
+    fn create_assertion_span(span: Span) -> Span {
+        Span::call_site().located_at(span)
+    }
+
     let assertions = match derive_data {
         ReflectDerive::Struct(data)
         | ReflectDerive::TupleStruct(data)
         | ReflectDerive::UnitStruct(data) => {
-            let field_member = data
-                .fields()
-                .iter()
-                .map(|field| ident_or_index(field.data.ident.as_ref(), field.declaration_index));
-            let field_ty = data.fields().iter().map(|field| &field.data.ty);
-            quote! {
-                #(let _: #field_ty = #self_ident.#field_member;)*
+            let mut output = proc_macro2::TokenStream::new();
+
+            for field in data.fields() {
+                let field_member =
+                    ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                let field_ty = &field.data.ty;
+                let span = create_assertion_span(field_ty.span());
+
+                output.extend(quote_spanned! {span=>
+                    #self_ident.#field_member = (|| -> #FQOption<#field_ty> {None})().unwrap();
+                });
             }
+
+            output
         }
         ReflectDerive::Enum(data) => {
             let variants = data.variants().iter().map(|variant| {
                 let ident = &variant.data.ident;
 
-                let field_member = variant.fields().iter().map(|field| {
-                    ident_or_index(field.data.ident.as_ref(), field.declaration_index)
-                });
-                let field_ident = variant
-                    .fields()
-                    .iter()
-                    .map(|field| format_ident!("field_{}", field.declaration_index))
-                    .collect::<Vec<_>>();
-                let field_ty = variant.fields().iter().map(|field| &field.data.ty);
+                let mut output = proc_macro2::TokenStream::new();
 
-                quote! {
-                    #self_expr_path::#ident {#(#field_member: #field_ident),*} => {
-                        #(let _: #field_ty = #field_ident;)*
-                    }
+                if variant.fields().is_empty() {
+                    return quote!(#self_expr_path::#ident => {});
                 }
+
+                for field in variant.fields() {
+                    let field_member =
+                        ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                    let field_ident = format_ident!("field_{}", field_member);
+                    let field_ty = &field.data.ty;
+                    let span = create_assertion_span(field_ty.span());
+
+                    output.extend(quote_spanned! {span=>
+                        #self_expr_path::#ident {#field_member: mut #field_ident, ..} => {
+                            #field_ident =  (|| -> #FQOption<#field_ty> {None})().unwrap();
+                        }
+                    });
+                }
+
+                output
             });
 
             quote! {
@@ -299,7 +320,10 @@ fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_ma
     quote! {
         const _: () = {
             #[allow(non_snake_case)]
-            fn assert_wrapper_definition_matches_remote_type #impl_generics (#self_ident: #self_ty) #where_clause {
+            #[allow(unused_variables)]
+            #[allow(unused_assignments)]
+            #[allow(unreachable_patterns)]
+            fn assert_wrapper_definition_matches_remote_type #impl_generics (mut #self_ident: #self_ty) #where_clause {
                 #assertions
             }
         };
