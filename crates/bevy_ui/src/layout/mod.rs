@@ -23,7 +23,7 @@ use std::fmt;
 use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
 /// The resolution and scale factor information necessary to compute a UI layout.
-/// 
+///
 /// `ui_layout_system` queries for the first entity with this component, adds a node in the UI layout tree corresponding to the entity, and then makes that node the parent of the of the entire tree.
 /// Added automatically to the [`PrimaryWindow`] entity.
 #[derive(Component, Debug, Default, Reflect, PartialEq)]
@@ -365,11 +365,13 @@ mod tests {
         world.init_resource::<UiSurface>();
         world.init_resource::<UiScale>();
 
-        let layout_entity = world.spawn(LayoutContext {
-            root_node_size: Vec2::new(800., 600.),
-            combined_scale_factor: 1.,
-            layout_to_logical_factor: 1.,
-        }).id();
+        let layout_entity = world
+            .spawn(LayoutContext {
+                root_node_size: Vec2::new(800., 600.),
+                combined_scale_factor: 1.,
+                layout_to_logical_factor: 1.,
+            })
+            .id();
 
         let ui_node = world
             .spawn(NodeBundle {
