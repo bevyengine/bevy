@@ -2,7 +2,7 @@
 
 use crate::{
     widget::{Button, TextFlags, UiImageSize},
-    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage, UiKey, ZIndex,
+    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage, UiNodeId, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -19,9 +19,9 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 #[derive(Bundle, Debug)]
 pub struct NodeBundle {
     /// Used internally. All UI nodes must have this component.
-    pub node: UiKey,
+    pub id: UiNodeId,
     /// Describes the logical size of the node
-    pub node_size: Node,
+    pub node: Node,
     /// Styles which control the layout (size and position) of the node and it's children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
@@ -52,8 +52,8 @@ impl Default for NodeBundle {
         NodeBundle {
             // Transparent background
             background_color: Color::NONE.into(),
+            id: Default::default(),
             node: Default::default(),
-            node_size: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
             transform: Default::default(),
@@ -69,7 +69,7 @@ impl Default for NodeBundle {
 #[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Used internally. All UI nodes must have this component.
-    pub ui_key: UiKey,
+    pub id: UiNodeId,
     /// Describes the logical size of the node
     ///
     /// This field is automatically managed by the UI layout system.
@@ -115,9 +115,9 @@ pub struct ImageBundle {
 #[derive(Bundle, Debug)]
 pub struct TextBundle {
     /// Used internally. All UI nodes must have this component.
-    pub taffy: UiKey,
+    pub id: UiNodeId,
     /// Describes the logical size of the node
-    pub node_size: Node,
+    pub node: Node,
     /// Styles which control the layout (size and position) of the node and it's children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
@@ -161,8 +161,8 @@ impl Default for TextBundle {
             calculated_size: Default::default(),
             // Transparent background
             background_color: BackgroundColor(Color::NONE),
-            taffy: Default::default(),
-            node_size: Default::default(),
+            id: Default::default(),
+            node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
             transform: Default::default(),
@@ -219,9 +219,9 @@ impl TextBundle {
 #[derive(Bundle, Debug)]
 pub struct ButtonBundle {
     /// Used internally. All UI nodes must have this component.
-    pub node: UiKey,
+    pub id: UiNodeId,
     /// Describes the logical size of the node
-    pub node_size: Node,
+    pub node: Node,
     /// Marker component that signals this node is a button
     pub button: Button,
     /// Styles which control the layout (size and position) of the node and it's children
@@ -259,8 +259,8 @@ impl Default for ButtonBundle {
     fn default() -> Self {
         Self {
             focus_policy: FocusPolicy::Block,
+            id: Default::default(),
             node: Default::default(),
-            node_size: Default::default(),
             button: Default::default(),
             style: Default::default(),
             interaction: Default::default(),

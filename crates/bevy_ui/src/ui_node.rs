@@ -14,17 +14,16 @@ use smallvec::SmallVec;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
-/// Used internally to identify a UI node's corresponding entry in the UI's layout tree.
+/// Identifier for the UI node's associated entry in the UI's layout tree.
 ///
+/// Users can only instantiate null nodes using `UiNodeId::default()`, the keys are set and managed internally by [`super::layout::ui_layout_system`].
 /// All UI nodes must have this component.
-#[derive(Component, Debug, Default, Reflect)]
+#[derive(Component, Debug, Default, Deref, Reflect)]
 #[reflect(Component, Default)]
-pub struct UiKey {
-    /// Indentifier for the Taffy node in the Taffy layout tree stored in [`super::layout::UiSurface`] that corresponds to the UI node entity with this component.
-    ///
-    /// Users can only instantiate null nodes using `UiKey::default()`, the keys are set and managed internally by [`super::layout::ui_layout_system`].
+pub struct UiNodeId {
+    
     #[reflect(ignore)]
-    pub(crate) taffy_node: taffy::node::Node,
+    pub(crate) id: NodeId,
 }
 
 /// Describes the size of a UI node
