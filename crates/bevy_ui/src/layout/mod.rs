@@ -25,7 +25,7 @@ use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 /// The resolution and scale factor information necessary to compute a UI layout.
 ///
 /// `ui_layout_system` queries for the first entity with this component, adds a node in the UI layout tree corresponding to the entity, and then makes that node the parent of the of the entire tree.
-/// Added automatically to the [`PrimaryWindow`] entity.
+/// Added automatically to the primary window entity.
 #[derive(Component, Debug, Default, Reflect, PartialEq)]
 #[reflect(Component, Default)]
 pub struct LayoutContext {
