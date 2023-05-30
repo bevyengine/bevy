@@ -1,9 +1,9 @@
 use crate::{
     camera::CameraProjection,
+    camera::{ManualTextureViewHandle, ManualTextureViews},
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::TextureView,
-    texture::BevyDefault,
     view::{ColorGrading, ExtractedView, ExtractedWindows, VisibleEntities},
     Extract,
 };
@@ -22,13 +22,11 @@ use bevy_log::warn;
 use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
-use bevy_render_macros::ExtractResource;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
 };
-
 use std::{borrow::Cow, ops::Range};
 use wgpu::{BlendState, Extent3d, LoadOp, TextureFormat};
 
@@ -370,42 +368,6 @@ impl CameraRenderGraph {
     }
 }
 
-/// A unique id that corresponds to a specific [`TextureView`] in the [`ManualTextureViews`] collection.
-#[derive(
-    Default,
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Component,
-    Reflect,
-    FromReflect,
-)]
-#[reflect(Component, Default)]
-pub struct ManualTextureViewHandle(pub u32);
-
-/// Stores [`TextureView`]s for use as a [`RenderTarget`], along with their size as a [`UVec2`].
-#[derive(Default, Clone, Resource, ExtractResource)]
-pub struct ManualTextureViews(HashMap<ManualTextureViewHandle, (TextureView, UVec2)>);
-
-impl std::ops::Deref for ManualTextureViews {
-    type Target = HashMap<ManualTextureViewHandle, (TextureView, UVec2)>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for ManualTextureViews {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 /// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`](bevy_window::Window)
 /// swapchain or an [`Image`].
 #[derive(Debug, Clone, Reflect)]
@@ -465,7 +427,7 @@ impl NormalizedRenderTarget {
                 images.get(image_handle).map(|image| &image.texture_view)
             }
             NormalizedRenderTarget::TextureView(id) => {
-                manual_texture_views.get(id).map(|(tex, _)| tex)
+                manual_texture_views.get(id).map(|tex| &tex.texture_view)
             }
         }
     }
@@ -475,6 +437,7 @@ impl NormalizedRenderTarget {
         &self,
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<Image>,
+        manual_texture_views: &'a ManualTextureViews,
     ) -> Option<TextureFormat> {
         match self {
             NormalizedRenderTarget::Window(window_ref) => windows
@@ -483,7 +446,9 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Image(image_handle) => {
                 images.get(image_handle).map(|image| image.texture_format)
             }
-            NormalizedRenderTarget::TextureView(_) => Some(TextureFormat::bevy_default()),
+            NormalizedRenderTarget::TextureView(id) => {
+                manual_texture_views.get(id).map(|tex| tex.format)
+            }
         }
     }
 
@@ -513,12 +478,10 @@ impl NormalizedRenderTarget {
                 })
             }
             NormalizedRenderTarget::TextureView(id) => {
-                manual_texture_views
-                    .get(id)
-                    .map(|(_, size)| RenderTargetInfo {
-                        physical_size: *size,
-                        scale_factor: 1.0,
-                    })
+                manual_texture_views.get(id).map(|tex| RenderTargetInfo {
+                    physical_size: tex.size,
+                    scale_factor: 1.0,
+                })
             }
         }
     }

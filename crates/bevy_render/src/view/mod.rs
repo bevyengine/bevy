@@ -381,7 +381,7 @@ fn prepare_view_targets(
         if let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target) {
             if let (Some(out_texture_view), Some(out_texture_format)) = (
                 target.get_texture_view(&windows, &images, &manual_texture_views),
-                target.get_texture_format(&windows, &images),
+                target.get_texture_format(&windows, &images, &manual_texture_views),
             ) {
                 let size = Extent3d {
                     width: target_size.x,

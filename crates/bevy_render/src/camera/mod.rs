@@ -1,10 +1,12 @@
 #[allow(clippy::module_inception)]
 mod camera;
 mod camera_driver_node;
+mod manual_texture_view;
 mod projection;
 
 pub use camera::*;
 pub use camera_driver_node::*;
+pub use manual_texture_view::*;
 pub use projection::*;
 
 use crate::{
