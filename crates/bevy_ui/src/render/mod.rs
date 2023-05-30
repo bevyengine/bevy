@@ -281,6 +281,7 @@ pub fn extract_text_uinodes(
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_stack: Extract<Res<UiStack>>,
+    ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -295,10 +296,10 @@ pub fn extract_text_uinodes(
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
-        .map(|window| window.resolution.scale_factor() as f32)
-        .unwrap_or(1.0);
+        .map(|window| window.resolution.scale_factor())
+        .unwrap_or(1.0) * ui_scale.scale;
 
-    let inverse_scale_factor = scale_factor.recip();
+    let inverse_scale_factor = (scale_factor as f32).recip();
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
