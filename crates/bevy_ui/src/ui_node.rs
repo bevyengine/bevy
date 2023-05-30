@@ -1,5 +1,6 @@
 use crate::UiRect;
 use bevy_asset::Handle;
+use bevy_derive::Deref;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
@@ -20,11 +21,7 @@ use thiserror::Error;
 /// All UI nodes must have this component.
 #[derive(Component, Debug, Default, Deref, Reflect)]
 #[reflect(Component, Default)]
-pub struct UiNodeId {
-    
-    #[reflect(ignore)]
-    pub(crate) id: NodeId,
-}
+pub struct UiNodeId(#[reflect(ignore)] pub(crate) taffy::node::Node);
 
 /// Describes the size of a UI node
 #[derive(Component, Debug, Copy, Clone, Reflect)]
