@@ -174,7 +174,8 @@ fn queue_text(
 ) {
     // Skip the text node if it is waiting for a new measure func
     if !text_flags.needs_new_measure_func {
-        let physical_node_size = node.physical_size(scale_factor);
+        // `scale_factor` is already multiplied by `UiScale`
+        let physical_node_size = node.physical_size(scale_factor, 1.);
 
         match text_pipeline.queue_text(
             fonts,
