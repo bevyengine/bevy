@@ -423,6 +423,36 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(InsertOrSpawnBatch { bundles_iter });
     }
 
+    /// Pushes a [`Command`] to the queue for for adding a bundle to already created entities.
+    ///
+    /// `bundles_iter` is a type that can be converted into an ([`Entity`], [`Bundle`]) iterator
+    /// (it can also be a collection).
+    ///
+    /// When the command is applied,
+    /// for each (`Entity`, `Bundle`) pair in the given `bundles_iter`,
+    /// The `Bundle` is added to the entity.
+    ///
+    /// This method is equivalent to iterating `bundles_iter`,
+    /// calling [`get`](Self::get) for each bundle,
+    /// and passing it to [`insert`](EntityCommands::insert),
+    /// but it is faster due to memory pre-allocation.
+    ///
+    /// # Note
+    ///
+    /// TODO: Is the below note still something we should attach here since this method doesn't do any spawning?
+    ///
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
+    /// worked out to share an ID space (which doesn't happen by default).
+    pub fn insert_batch<I, B>(&mut self, bundles_iter: I)
+    where
+        I: IntoIterator + Send + Sync + 'static,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle,
+    {
+        self.queue.push(InsertBatch { bundles_iter });
+    }
+
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
     ///
     /// The inferred value is determined by the [`FromWorld`] trait of the resource.
@@ -904,6 +934,26 @@ where
                 invalid_entities
             );
         }
+    }
+}
+
+pub struct InsertBatch<I, B>
+where
+    I: IntoIterator + Send + Sync + 'static,
+    B: Bundle,
+    I::IntoIter: Iterator<Item = (Entity, B)>,
+{
+    pub bundles_iter: I,
+}
+
+impl<I, B> Command for InsertBatch<I, B>
+where
+    I: IntoIterator + Send + Sync + 'static,
+    B: Bundle,
+    I::IntoIter: Iterator<Item = (Entity, B)>,
+{
+    fn write(self, world: &mut World) {
+        world.insert_batch(self.bundles_iter);
     }
 }
 

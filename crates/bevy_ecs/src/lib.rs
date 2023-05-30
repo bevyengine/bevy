@@ -1708,4 +1708,64 @@ mod tests {
             "new entity was spawned and received C component"
         );
     }
+
+    #[test]
+    fn insert_batch() {
+        let mut world = World::default();
+        let e0 = world.spawn(A(0)).id();
+        let e1 = world.spawn(B(1)).id();
+
+        let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
+
+        world.insert_batch(values);
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(0)),
+            "existing component was preserved"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "pre-existing entity received correct B component"
+        );
+        assert_eq!(
+            world.get::<B>(e1),
+            Some(&B(1)),
+            "pre-existing entity received correct B component"
+        );
+        assert_eq!(
+            world.get::<C>(e0),
+            Some(&C),
+            "pre-existing entity received C component"
+        );
+        assert_eq!(
+            world.get::<C>(e1),
+            Some(&C),
+            "pre-existing entity received C component"
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn insert_batch_not_spawned() {
+        let mut world = World::default();
+        let e0 = Entity::from_raw(0);
+
+        let values = vec![(e0, (B(0), C))];
+
+        world.insert_batch(values);
+    }
+
+    #[test]
+    #[should_panic]
+    fn insert_batch_invalid() {
+        let mut world = World::default();
+        let e0 = world.spawn_empty().id();
+        let invalid_e0 = Entity::new(e0.index(), 1);
+
+        let values = vec![(invalid_e0, (B(2), C))];
+
+        world.insert_batch(values);
+    }
 }

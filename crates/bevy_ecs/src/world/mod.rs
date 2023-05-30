@@ -1266,6 +1266,73 @@ impl World {
         }
     }
 
+    /// For a given batch of ([Entity], [Bundle]) pairs, inserts the [Bundle] (if the entity already exists) else
+    /// panics
+    /// This is faster than doing equivalent operations one-by-one and faster than `insert_or_spawn_batch`
+    /// No return value. Function will panic at the first [Entity] that was not already spawned
+    ///
+    /// # Note
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`World::spawn_batch`].
+    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
+    /// worked out to share an ID space (which doesn't happen by default).
+    ///
+    /// ```
+    /// use bevy_ecs::{entity::Entity, world::World, component::Component};
+    /// #[derive(Component)]
+    /// struct A(&'static str);
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct B(f32);
+    ///
+    /// let mut world = World::new();
+    /// let e0 = world.spawn_empty().id();
+    /// let e1 = world.spawn_empty().id();
+    /// world.insert_batch(vec![
+    ///   (e0, (A("a"), B(0.0))), // the first entity
+    ///   (e1, (A("b"), B(1.0))), // the second entity
+    /// ]);
+    ///
+    /// assert_eq!(world.get::<B>(e0), Some(&B(0.0)));
+    /// ```
+    pub fn insert_batch<I, B>(&mut self, iter: I)
+    where
+        I: IntoIterator,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle,
+    {
+        self.flush();
+
+        let change_tick = self.change_tick();
+
+        let bundle_info = self
+            .bundles
+            .init_info::<B>(&mut self.components, &mut self.storages);
+
+        for (entity, bundle) in iter {
+            // Directly get the Entity location instead of polling via `alloc_at_without_replacement`
+            match self.entities.get(entity) {
+                Some(location) if location != EntityLocation::INVALID => {
+                    let mut inserter = bundle_info.get_bundle_inserter(
+                        &mut self.entities,
+                        &mut self.archetypes,
+                        &mut self.components,
+                        &mut self.storages,
+                        location.archetype_id,
+                        change_tick,
+                    );
+
+                    // SAFETY: `entity` is valid, `location` matches entity
+                    unsafe { inserter.insert(entity, location, bundle) };
+                }
+
+                Some(location) if location == EntityLocation::INVALID => {
+                    panic!("Entity was either pending or invalid and has an invalid EntityLocation")
+                }
+
+                Some(_) | None => panic!("Entity location could not be determined - Index: {} Generation {}", entity.index(), entity.generation())
+            }
+        }
+    }
+
     /// Temporarily removes the requested resource from this [`World`], runs custom user code,
     /// then re-adds the resource before returning.
     ///
