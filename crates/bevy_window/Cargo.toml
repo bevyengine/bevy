@@ -27,9 +27,3 @@ raw-window-handle = "0.5"
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
-winit = { version = "0.28", default-features = false }
-
-[target.'cfg(target_os = "android")'.dependencies]
-winit = { version = "0.28", default-features = false, features = [
-    "android-native-activity",
-] }

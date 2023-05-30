@@ -667,12 +667,6 @@ pub struct InternalWindowState {
     maximize_request: Option<bool>,
     /// Unscaled cursor position.
     physical_cursor_position: Option<DVec2>,
-    /// The window's current theme
-    ///
-    /// ## Platform-specific
-    ///
-    /// Ignored on iOS, Android, and Web.
-    window_theme: Option<WindowTheme>,
 }
 
 impl InternalWindowState {
@@ -862,22 +856,4 @@ pub enum WindowTheme {
 
     /// Use the dark variant.
     Dark,
-}
-
-impl From<winit::window::Theme> for WindowTheme {
-    fn from(theme: winit::window::Theme) -> Self {
-        match theme {
-            winit::window::Theme::Light => WindowTheme::Light,
-            winit::window::Theme::Dark => WindowTheme::Dark,
-        }
-    }
-}
-
-impl From<WindowTheme> for winit::window::Theme {
-    fn from(theme: WindowTheme) -> Self {
-        match theme {
-            WindowTheme::Light => winit::window::Theme::Light,
-            WindowTheme::Dark => winit::window::Theme::Dark,
-        }
-    }
 }
