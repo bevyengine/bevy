@@ -42,13 +42,13 @@ impl From<UVSphere> for Mesh {
 
         for i in 0..sphere.stacks + 1 {
             let stack_angle = PI / 2. - (i as f32) * stack_step;
-            let xy = sphere.radius * stack_angle.cos();
-            let z = sphere.radius * stack_angle.sin();
+            let xz = sphere.radius * stack_angle.cos();
+            let y = sphere.radius * stack_angle.sin();
 
             for j in 0..sphere.sectors + 1 {
                 let sector_angle = (j as f32) * sector_step;
-                let x = xy * sector_angle.cos();
-                let y = xy * sector_angle.sin();
+                let x = xz * sector_angle.cos();
+                let z = xz * sector_angle.sin();
 
                 vertices.push([x, y, z]);
                 normals.push([x * length_inv, y * length_inv, z * length_inv]);
@@ -66,13 +66,13 @@ impl From<UVSphere> for Mesh {
             let mut k2 = k1 + sphere.sectors + 1;
             for _j in 0..sphere.sectors {
                 if i != 0 {
-                    indices.push(k1 as u32);
                     indices.push(k2 as u32);
+                    indices.push(k1 as u32);
                     indices.push((k1 + 1) as u32);
                 }
                 if i != sphere.stacks - 1 {
-                    indices.push((k1 + 1) as u32);
                     indices.push(k2 as u32);
+                    indices.push((k1 + 1) as u32);
                     indices.push((k2 + 1) as u32);
                 }
                 k1 += 1;
