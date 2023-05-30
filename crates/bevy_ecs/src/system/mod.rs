@@ -226,6 +226,8 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
         PipeSystem::new(system_a, system_b, Cow::Owned(name))
     }
 
+    // Join the output `a` of this system `A` with the output `b` of system `B`, creating a compound
+    // system that outputs `(a, b)`.
     fn join<B, I, O, M>(self, system: B) -> JoinSystem<Self::System, B::System>
     where
         B:IntoSystem<I, O, M>,
