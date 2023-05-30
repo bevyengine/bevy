@@ -8,6 +8,7 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
+use crate::UiScale;
 use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -230,8 +231,10 @@ pub struct DefaultCameraView(pub Entity);
 
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
+    ui_scale: Extract<Res<UiScale>>,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
+    let scale = ui_scale.scale as f32;
     for (entity, camera, camera_ui) in &query {
         // ignore cameras with disabled ui
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
@@ -244,7 +247,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
         ) {
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix =
-                Mat4::orthographic_rh(0.0, logical_size.x, logical_size.y, 0.0, 0.0, UI_CAMERA_FAR);
+                Mat4::orthographic_rh(0.0, logical_size.x * scale, logical_size.y * scale, 0.0, 0.0, UI_CAMERA_FAR);
             let default_camera_view = commands
                 .spawn(ExtractedView {
                     projection: projection_matrix,
