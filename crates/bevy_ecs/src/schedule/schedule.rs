@@ -221,7 +221,7 @@ impl Schedule {
 
     /// Set whether the schedule applies buffers on final time or not. This is a catchall
     /// incase a system uses commands but was not explicitly ordered after a
-    /// [`apply_system_buffers`](crate::prelude::apply_system_buffers). By default this
+    /// [`apply_deferred`](crate::prelude::apply_deferred). By default this
     /// setting is true, but may be disabled if needed.
     pub fn set_apply_final_buffers(&mut self, apply_final_buffers: bool) -> &mut Self {
         self.executor.set_apply_final_buffers(apply_final_buffers);
@@ -295,7 +295,7 @@ impl Schedule {
     ///
     /// This is used in rendering to extract data from the main world, storing the data in system buffers,
     /// before applying their buffers in a different world.
-    pub fn apply_system_buffers(&mut self, world: &mut World) {
+    pub fn apply_deferred(&mut self, world: &mut World) {
         for system in &mut self.executable.systems {
             system.apply_buffers(world);
         }

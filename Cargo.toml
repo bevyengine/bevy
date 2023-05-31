@@ -1043,12 +1043,12 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "apply_system_buffers"
-path = "examples/ecs/apply_system_buffers.rs"
+name = "apply_deferred"
+path = "examples/ecs/apply_deferred.rs"
 
-[package.metadata.example.apply_system_buffers]
+[package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
-description = "Show how to use `apply_system_buffers` system"
+description = "Show how to use `apply_deferred` system"
 category = "ECS (Entity Component System)"
 wasm = false
 

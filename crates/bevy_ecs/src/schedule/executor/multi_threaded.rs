@@ -18,7 +18,7 @@ use crate::{
     prelude::Resource,
     query::Access,
     schedule::{
-        is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
+        is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
     system::BoxedSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -233,7 +233,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         if self.apply_final_buffers {
             // Do one final apply buffers after all systems have completed
             // Commands should be applied while on the scope's thread, not the executor's thread
-            let res = apply_system_buffers(&self.unapplied_systems, systems, world);
+            let res = apply_deferred(&self.unapplied_systems, systems, world);
             if let Err(payload) = res {
                 let mut panic_payload = self.panic_payload.lock().unwrap();
                 *panic_payload = Some(payload);
@@ -556,14 +556,14 @@ impl MultiThreadedExecutor {
 
         let sender = self.sender.clone();
         let panic_payload = self.panic_payload.clone();
-        if is_apply_system_buffers(system) {
+        if is_apply_deferred(system) {
             // TODO: avoid allocation
             let unapplied_systems = self.unapplied_systems.clone();
             self.unapplied_systems.clear();
             let task = async move {
                 #[cfg(feature = "trace")]
                 let system_guard = system_span.enter();
-                let res = apply_system_buffers(&unapplied_systems, systems, world);
+                let res = apply_deferred(&unapplied_systems, systems, world);
                 #[cfg(feature = "trace")]
                 drop(system_guard);
                 // tell the executor that the system finished
@@ -681,7 +681,7 @@ impl MultiThreadedExecutor {
     }
 }
 
-fn apply_system_buffers(
+fn apply_deferred(
     unapplied_systems: &FixedBitSet,
     systems: &[SyncUnsafeCell<BoxedSystem>],
     world: &mut World,

@@ -4,9 +4,7 @@ use fixedbitset::FixedBitSet;
 use std::panic::AssertUnwindSafe;
 
 use crate::{
-    schedule::{
-        is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
-    },
+    schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
 
@@ -87,10 +85,10 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
 
             let system = &mut schedule.systems[system_index];
-            if is_apply_system_buffers(system) {
+            if is_apply_deferred(system) {
                 #[cfg(feature = "trace")]
                 let system_span = info_span!("system", name = &*name).entered();
-                self.apply_system_buffers(schedule, world);
+                self.apply_deferred(schedule, world);
                 #[cfg(feature = "trace")]
                 system_span.exit();
             } else {
@@ -110,7 +108,7 @@ impl SystemExecutor for SingleThreadedExecutor {
         }
 
         if self.apply_final_buffers {
-            self.apply_system_buffers(schedule, world);
+            self.apply_deferred(schedule, world);
         }
         self.evaluated_sets.clear();
         self.completed_systems.clear();
@@ -127,7 +125,7 @@ impl SingleThreadedExecutor {
         }
     }
 
-    fn apply_system_buffers(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+    fn apply_deferred(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         for system_index in self.unapplied_systems.ones() {
             let system = &mut schedule.systems[system_index];
             system.apply_buffers(world);

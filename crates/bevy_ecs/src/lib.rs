@@ -39,7 +39,7 @@ pub mod prelude {
         query::{Added, AnyOf, Changed, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_state_transition, apply_system_buffers, common_conditions::*, Condition,
+            apply_deferred, apply_state_transition, common_conditions::*, Condition,
             IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
             OnEnter, OnExit, OnTransition, Schedule, Schedules, State, States, SystemSet,
         },

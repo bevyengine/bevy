@@ -212,10 +212,7 @@ impl Plugin for VisibilityPlugin {
 
         app
             // We add an AABB component in CalculateBounds, which must be ready on the same frame.
-            .add_systems(
-                PostUpdate,
-                apply_system_buffers.in_set(CalculateBoundsFlush),
-            )
+            .add_systems(PostUpdate, apply_deferred.in_set(CalculateBoundsFlush))
             .configure_set(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
             .add_systems(
                 PostUpdate,

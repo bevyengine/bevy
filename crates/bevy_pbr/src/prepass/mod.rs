@@ -165,7 +165,7 @@ where
                         prepare_previous_view_projection_uniforms
                             .in_set(RenderSet::Prepare)
                             .after(PrepassLightsViewFlush),
-                        apply_system_buffers
+                        apply_deferred
                             .in_set(RenderSet::Prepare)
                             .in_set(PrepassLightsViewFlush)
                             .after(prepare_lights),

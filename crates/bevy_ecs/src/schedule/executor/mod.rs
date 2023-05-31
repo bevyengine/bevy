@@ -84,11 +84,11 @@ impl SystemSchedule {
 /// - This function (currently) does nothing if it's called manually or wrapped inside a [`PipeSystem`](crate::system::PipeSystem).
 /// - Modifying a [`Schedule`](super::Schedule) may change the order buffers are applied.
 #[allow(unused_variables)]
-pub fn apply_system_buffers(world: &mut World) {}
+pub fn apply_deferred(world: &mut World) {}
 
-/// Returns `true` if the [`System`](crate::system::System) is an instance of [`apply_system_buffers`].
-pub(super) fn is_apply_system_buffers(system: &BoxedSystem) -> bool {
+/// Returns `true` if the [`System`](crate::system::System) is an instance of [`apply_deferred`].
+pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
     use std::any::Any;
     // deref to use `System::type_id` instead of `Any::type_id`
-    system.as_ref().type_id() == apply_system_buffers.type_id()
+    system.as_ref().type_id() == apply_deferred.type_id()
 }

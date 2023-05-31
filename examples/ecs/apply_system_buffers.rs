@@ -1,4 +1,4 @@
-//! This example illustrates how to use the `apply_system_buffers` system
+//! This example illustrates how to use the `apply_deferred` system
 //! to flush commands added by systems that have already run,
 //! but have not had their buffers applied yet.
 //!
@@ -7,7 +7,7 @@
 //! added to `CoreSet::Update`) but want to flush commands immediately.
 //!
 //! It is important that systems are ordered correctly with respect to
-//! `apply_system_buffers`, to avoid surprising non-deterministic system execution order.
+//! `apply_deferred`, to avoid surprising non-deterministic system execution order.
 
 use bevy::prelude::*;
 
@@ -21,9 +21,9 @@ fn main() {
             (
                 (
                     despawn_old_and_spawn_new_fruits,
-                    // We encourage adding apply_system_buffers to a custom set
+                    // We encourage adding apply_deferred to a custom set
                     // to improve diagnostics. This is optional, but useful when debugging!
-                    apply_system_buffers.in_set(CustomFlush),
+                    apply_deferred.in_set(CustomFlush),
                     count_apple,
                 )
                     .chain(),

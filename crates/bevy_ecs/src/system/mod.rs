@@ -491,7 +491,7 @@ mod tests {
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
-        schedule::{apply_system_buffers, IntoSystemConfigs, Schedule},
+        schedule::{apply_deferred, IntoSystemConfigs, Schedule},
         system::{
             adapter::new, Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
             QueryComponentError, Res, ResMut, Resource, System, SystemState,
@@ -717,7 +717,7 @@ mod tests {
 
         let mut schedule = Schedule::default();
 
-        schedule.add_systems((incr_e_on_flip, apply_system_buffers, World::clear_trackers).chain());
+        schedule.add_systems((incr_e_on_flip, apply_deferred, World::clear_trackers).chain());
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);
