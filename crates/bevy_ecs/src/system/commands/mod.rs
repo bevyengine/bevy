@@ -200,7 +200,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
     pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
-        self.add(GetOrSpawn { entity });
+        self.add(move |world: &mut World| {
+            world.get_or_spawn(entity);
+        });
         EntityCommands {
             entity,
             commands: self,
@@ -850,16 +852,6 @@ where
 {
     fn write(self, world: &mut World) {
         world.spawn(self.bundle);
-    }
-}
-
-pub struct GetOrSpawn {
-    entity: Entity,
-}
-
-impl Command for GetOrSpawn {
-    fn write(self, world: &mut World) {
-        world.get_or_spawn(self.entity);
     }
 }
 
