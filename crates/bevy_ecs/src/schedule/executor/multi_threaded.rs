@@ -17,9 +17,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     prelude::Resource,
     query::Access,
-    schedule::{
-        is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
-    },
+    schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     system::BoxedSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -108,8 +106,8 @@ pub struct MultiThreadedExecutor {
     completed_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
     unapplied_systems: FixedBitSet,
-    /// Setting when true applies system buffers after all systems have run
-    apply_final_buffers: bool,
+    /// Setting when true applies deferred system buffers after all systems have run
+    apply_final_deferred: bool,
     /// When set, tells the executor that a thread has panicked.
     panic_payload: Arc<Mutex<Option<Box<dyn Any + Send>>>>,
     /// When set, stops the executor from running any more systems.
@@ -127,8 +125,8 @@ impl SystemExecutor for MultiThreadedExecutor {
         ExecutorKind::MultiThreaded
     }
 
-    fn set_apply_final_buffers(&mut self, value: bool) {
-        self.apply_final_buffers = value;
+    fn set_apply_final_deferred(&mut self, value: bool) {
+        self.apply_final_deferred = value;
     }
 
     fn init(&mut self, schedule: &SystemSchedule) {
@@ -230,7 +228,7 @@ impl SystemExecutor for MultiThreadedExecutor {
             },
         );
 
-        if self.apply_final_buffers {
+        if self.apply_final_deferred {
             // Do one final apply buffers after all systems have completed
             // Commands should be applied while on the scope's thread, not the executor's thread
             let res = apply_deferred(&self.unapplied_systems, systems, world);
@@ -278,7 +276,7 @@ impl MultiThreadedExecutor {
             skipped_systems: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
-            apply_final_buffers: true,
+            apply_final_deferred: true,
             panic_payload: Arc::new(Mutex::new(None)),
             stop_spawning: false,
         }

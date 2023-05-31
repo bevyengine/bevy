@@ -269,7 +269,7 @@ impl Plugin for RenderPlugin {
             render_app.main_schedule_label = Box::new(Render);
 
             let mut extract_schedule = Schedule::new();
-            extract_schedule.set_apply_final_buffers(false);
+            extract_schedule.set_apply_final_deferred(false);
 
             render_app
                 .add_schedule(ExtractSchedule, extract_schedule)
