@@ -1,3 +1,5 @@
+//! Contains APIs for retrieving data from the world.
+
 mod access;
 mod fetch;
 mod filter;

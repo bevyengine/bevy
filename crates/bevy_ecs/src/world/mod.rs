@@ -1,3 +1,5 @@
+//! Defines the [`World`] and APIs for accessing it directly.
+
 mod entity_ref;
 pub mod error;
 mod spawn_batch;
