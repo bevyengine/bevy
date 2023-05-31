@@ -392,8 +392,9 @@ pub unsafe trait WorldQuery {
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
     ///
-    /// If this type does not implement [`ReadOnlyWorldQuery`], then the caller must ensure that
-    /// it is impossible for more than one `Self::Item` to exist for the same entity at any given time.
+    /// If `update_component_access` includes any mutable accesses, then the caller must ensure
+    /// that `fetch` is called no more than once for each `entity`/`table_row` in each archetype.
+    /// If `Self` implements [`ReadOnlyWorldQuery`], then this can safely be called multiple times.
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
