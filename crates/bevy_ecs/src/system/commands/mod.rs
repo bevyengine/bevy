@@ -959,7 +959,7 @@ impl<T> Remove<T> {
     pub const fn new(entity: Entity) -> Self {
         Self {
             entity,
-            _marker: PhantomData::<T>,
+            _marker: PhantomData,
         }
     }
 }
@@ -980,7 +980,7 @@ impl<R: Resource + FromWorld> InitResource<R> {
     /// Creates a [`Command`] which will insert a default created [`Resource`] into the [`World`]
     pub const fn new() -> Self {
         Self {
-            _marker: PhantomData::<R>,
+            _marker: PhantomData,
         }
     }
 }
@@ -1011,7 +1011,7 @@ impl<R: Resource> RemoveResource<R> {
     /// Creates a [`Command`] which will remove a [`Resource`] from the [`World`]
     pub const fn new() -> Self {
         Self {
-            _marker: PhantomData::<R>,
+            _marker: PhantomData,
         }
     }
 }
