@@ -258,6 +258,7 @@ impl SystemExecutor for MultiThreadedExecutor {
 }
 
 impl MultiThreadedExecutor {
+    /// Creates a new multi-threaded executor for use in a [`Schedule`](super::super::Schedule).
     pub fn new() -> Self {
         let (sender, receiver) = async_channel::unbounded();
         Self {
@@ -737,6 +738,7 @@ impl Default for MainThreadExecutor {
 }
 
 impl MainThreadExecutor {
+    /// Creates a new executor that can be used to run systems on the main thread.
     pub fn new() -> Self {
         MainThreadExecutor(TaskPool::get_thread_executor())
     }

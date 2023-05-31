@@ -98,6 +98,8 @@ impl SystemExecutor for SimpleExecutor {
 }
 
 impl SimpleExecutor {
+    /// Creates a new simple executor for use in a [`Schedule`](super::super::Schedule).
+    /// This calls each system in order and immediately calls [`System::apply_buffers`](crate::system::System::apply_buffers).
     pub const fn new() -> Self {
         Self {
             evaluated_sets: FixedBitSet::new(),
