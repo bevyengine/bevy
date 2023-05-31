@@ -19,14 +19,14 @@ pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
 /// ```
 /// # use bevy_ecs::prelude;
 /// fn every_other_time() -> impl Condition<()> {
-///     IntoSystem::into_system(|flag: Local<bool>| {
+///     IntoSystem::into_system(|mut flag: Local<bool>| {
 ///         *flag = !*flag;
 ///         *flag
 ///     })
 /// }
 ///
 /// # #[derive(Resource)] struct DidRun(bool);
-/// # fn my_system(did_run: ResMut<DidRun>) { did_run.0 = true; }
+/// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
 /// # let mut schedule = Schedule::new();
 /// schedule.add_systems(my_system.run_if(every_other_time()));
 /// # let mut world = World::new();
@@ -49,7 +49,7 @@ pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
 /// # fn always_true() -> bool { true }
 /// # let mut schedule = Schedule::new();
 /// # #[derive(Resource)] struct DidRun(bool);
-/// # fn my_system(did_run: ResMut<DidRun>) { did_run.0 = true; }
+/// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
 /// schedule.add_systems(my_system.run_if(always_true.pipe(identity())));
 /// # let mut world = World::new();
 /// # world.insert_resource(DidRun(false));
