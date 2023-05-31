@@ -348,6 +348,8 @@ where
     }
 }
 
+/// A marker type used to distinguish regular function systems from exclusive function systems.
+#[doc(hidden)]
 pub struct IsFunctionSystem;
 
 impl<Marker, F> IntoSystem<F::In, F::Out, (IsFunctionSystem, Marker)> for F
