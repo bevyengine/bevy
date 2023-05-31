@@ -33,7 +33,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
-                hdr: true,
+                //hdr: true,
                 ..default()
             },
             transform: Transform::from_xyz(0.7, 0.7, 1.0)

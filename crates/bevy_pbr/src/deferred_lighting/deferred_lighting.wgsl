@@ -130,7 +130,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
     output_rgb = powsafe(output_rgb, 1.0 / 2.2);
-    output_rgb = output_rgb + screen_space_dither(in.frag_coord.xy);
+    output_rgb = output_rgb + screen_space_dither(frag_coord.xy);
     // This conversion back to linear space is required because our output texture format is
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
     output_rgb = powsafe(output_rgb, 2.2);

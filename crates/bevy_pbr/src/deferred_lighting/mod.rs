@@ -6,7 +6,8 @@ use bevy_core_pipeline::{
     prelude::{Camera3d, ClearColor},
     prepass::{DeferredPrepass, ViewPrepassTextures},
     tonemapping::{
-        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
+        get_lut_bind_group_layout_entries, get_lut_bindings, DebandDither, Tonemapping,
+        TonemappingLuts,
     },
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
@@ -112,7 +113,7 @@ impl ViewNode for DeferredLightingNode {
             view_uniform_offset,
             view_lights_offset,
             view_fog_offset,
-            mesh_bind_group,
+            mesh_view_bind_group,
             target,
             camera_3d,
             deferred_lighting_pipeline,
@@ -143,7 +144,7 @@ impl ViewNode for DeferredLightingNode {
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(
             0,
-            &mesh_bind_group.value,
+            &mesh_view_bind_group.value,
             &[
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
@@ -172,7 +173,34 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
 
-        // TODO insert tonemapping etc...
+        if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
+            shader_defs.push("TONEMAP_IN_SHADER".into());
+
+            let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
+
+            if method == MeshPipelineKey::TONEMAP_METHOD_NONE {
+                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD {
+                shader_defs.push("TONEMAP_METHOD_REINHARD".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
+                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED {
+                shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_AGX {
+                shader_defs.push("TONEMAP_METHOD_AGX".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM {
+                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
+                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
+                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            }
+
+            // Debanding is tied to tonemapping in the shader, cannot run without it.
+            if key.contains(MeshPipelineKey::DEBAND_DITHER) {
+                shader_defs.push("DEBAND_DITHER".into());
+            }
+        }
 
         shader_defs.push(ShaderDefVal::UInt(
             "MAX_DIRECTIONAL_LIGHTS".to_string(),
@@ -231,14 +259,44 @@ pub fn prepare_deferred_lighting_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
     differed_lighting_pipeline: Res<DeferredLightingLayout>,
-    views: Query<(Entity, &ExtractedView), With<DeferredPrepass>>,
+    views: Query<
+        (
+            Entity,
+            &ExtractedView,
+            Option<&Tonemapping>,
+            Option<&DebandDither>,
+        ),
+        With<DeferredPrepass>,
+    >,
 ) {
-    for (entity, view) in &views {
-        let pipeline_id = pipelines.specialize(
-            &pipeline_cache,
-            &differed_lighting_pipeline,
-            MeshPipelineKey::from_hdr(view.hdr),
-        );
+    for (entity, view, tonemapping, dither) in &views {
+        let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
+
+        if !view.hdr {
+            if let Some(tonemapping) = tonemapping {
+                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+                view_key |= match tonemapping {
+                    Tonemapping::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
+                    Tonemapping::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
+                    Tonemapping::ReinhardLuminance => {
+                        MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
+                    }
+                    Tonemapping::AcesFitted => MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED,
+                    Tonemapping::AgX => MeshPipelineKey::TONEMAP_METHOD_AGX,
+                    Tonemapping::SomewhatBoringDisplayTransform => {
+                        MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+                    }
+                    Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+                    Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+                };
+            }
+            if let Some(DebandDither::Enabled) = dither {
+                view_key |= MeshPipelineKey::DEBAND_DITHER;
+            }
+        }
+
+        let pipeline_id =
+            pipelines.specialize(&pipeline_cache, &differed_lighting_pipeline, view_key);
 
         commands
             .entity(entity)
