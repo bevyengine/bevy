@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 trace = []
-wayland = ["winit/wayland"]
+wayland = ["winit/wayland", "winit/wayland-csd-adwaita"]
 x11 = ["winit/x11"]
 accesskit_unix = ["accesskit_winit/accesskit_unix"]
 
