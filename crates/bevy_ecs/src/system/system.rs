@@ -61,6 +61,7 @@ pub trait System: Send + Sync + 'static {
         // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world) }
     }
+    /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.
     fn apply_deferred(&mut self, world: &mut World);
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
