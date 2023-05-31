@@ -37,6 +37,8 @@ pub use bevy_ecs_macros::States;
 ///
 /// ```
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
+    /// The type returned when iterating over all instances of this type.
+    /// See [`Self::variants`].
     type Iter: Iterator<Item = Self>;
 
     /// Returns an iterator over all the state variants.
