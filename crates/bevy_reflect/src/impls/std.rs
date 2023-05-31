@@ -379,10 +379,7 @@ macro_rules! impl_reflect_for_hashmap {
             }
 
             fn iter(&self) -> MapIter {
-                MapIter {
-                    map: self,
-                    index: 0,
-                }
+                MapIter::new(self)
             }
 
             fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
