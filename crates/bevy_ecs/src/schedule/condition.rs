@@ -11,7 +11,7 @@ pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
 
 /// A system that determines if one or more scheduled systems should run.
 ///
-/// Implemented for functions and closures that convert into [`System<In=(), Out=bool>`](crate::system::System)
+/// Implemented for functions and closures that convert into [`System<Out=bool>`](crate::system::System)
 /// with [read-only](crate::system::ReadOnlySystemParam) parameters.
 pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// Returns a new run condition that only returns `true`
