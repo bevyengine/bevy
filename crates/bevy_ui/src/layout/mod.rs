@@ -440,7 +440,5 @@ mod tests {
             0,
             "Taffy root node has children after despawning all root UI nodes."
         );
-
-        debug::print_ui_layout_tree(ui_surface);
     }
 }
