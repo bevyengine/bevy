@@ -489,10 +489,10 @@ impl<P: Point> CubicCurve<P> {
 
     /// An iterator that returns values of `t` uniformly spaced over `0..=subdivisions`.
     #[inline]
-    fn iter_uniformly(&self, subdivisions: usize) -> impl ExactSizeIterator<Item = f32> {
+    fn iter_uniformly(&self, subdivisions: usize) -> impl Iterator<Item = f32> {
         let segments = self.segments.len() as f32;
         let step = segments / subdivisions as f32;
-        (0..subdivisions.saturating_add(1)).map(move |i| i as f32 * step)
+        (0..=subdivisions).map(move |i| i as f32 * step)
     }
 
     /// The list of segments contained in this `CubicCurve`.
