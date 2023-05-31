@@ -3,7 +3,7 @@ mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
-use bevy_render::{ExtractSchedule, Render};
+use bevy_render::{ExtractSchedule, Render, view};
 #[cfg(feature = "bevy_text")]
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
@@ -181,7 +181,6 @@ fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) 
 pub fn extract_uinode_borders(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
-    ui_scale: Extract<Res<UiScale>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<
@@ -207,7 +206,7 @@ pub fn extract_uinode_borders(
             Vec2::new(
                 window.resolution.physical_width() as f32,
                 window.resolution.physical_height() as f32,
-            ) / (window.resolution.scale_factor() * ui_scale.scale) as f32
+            ) / window.resolution.scale_factor() as f32
         })
         .unwrap_or(Vec2::ZERO);
 
@@ -227,7 +226,7 @@ pub fn extract_uinode_borders(
             let parent_width = parent
                 .and_then(|parent| parent_node_query.get(parent.get()).ok())
                 .map(|parent_node| parent_node.size().x)
-                .unwrap_or(0.);
+                .unwrap_or(viewport_size.x);
             let left = resolve_border_thickness(style.border.left, parent_width, viewport_size);
             let right = resolve_border_thickness(style.border.right, parent_width, viewport_size);
             let top = resolve_border_thickness(style.border.top, parent_width, viewport_size);
