@@ -22,7 +22,7 @@ pub struct Timer {
 
 /// Ensures that `duration` is never zero when being used in Timer. This simplifies edge cases
 /// and removes the need for repeated runtime checks for zero duration in [Timer::tick](Timer::tick)
-#[derive(Clone, Debug, Reflect, FromReflect)]
+#[derive(Clone, Debug, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[reflect(Default)]
 pub struct NonZeroDuration {
