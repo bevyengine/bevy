@@ -80,6 +80,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub(crate) fn new_readonly(world: &'w World) -> Self {
         // SAFETY: `SyncUnsafeCell<World>` has the same representation as `World`,
         // so we can safely cast the latter to the former.
+        // The caller is forbidden from mutating the world with the returned value.
         Self(unsafe { &*(world as *const _ as *const _) })
     }
 
