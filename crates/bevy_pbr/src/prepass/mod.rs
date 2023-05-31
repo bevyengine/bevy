@@ -364,8 +364,8 @@ where
             shader_defs.push("DEPTH_PREPASS".into());
         }
 
-        if key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK) {
-            shader_defs.push("ALPHA_MASK".into());
+        if key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD) {
+            shader_defs.push("MAY_DISCARD".into());
         }
 
         let blend_key = key
@@ -467,9 +467,7 @@ where
         // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
         // prepass shader
         let fragment_required = !targets.is_empty()
-            || ((key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
-                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
-                || blend_key == MeshPipelineKey::BLEND_ALPHA)
+            || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && self.material_fragment_shader.is_some());
 
         let fragment = fragment_required.then(|| {
@@ -967,7 +965,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
                 AlphaMode::Opaque => {}
-                AlphaMode::Mask(_) => mesh_key |= MeshPipelineKey::ALPHA_MASK,
+                AlphaMode::Mask(_) => mesh_key |= MeshPipelineKey::MAY_DISCARD,
                 AlphaMode::Blend
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add

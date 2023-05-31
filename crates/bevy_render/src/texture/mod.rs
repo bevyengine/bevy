@@ -120,6 +120,7 @@ impl Plugin for ImagePlugin {
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))
                 .init_resource::<FallbackImage>()
+                .init_resource::<FallbackImageZero>()
                 .init_resource::<FallbackImageCubemap>()
                 .init_resource::<FallbackImageMsaaCache>()
                 .init_resource::<FallbackImageDepthCache>();

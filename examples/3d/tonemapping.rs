@@ -430,7 +430,7 @@ fn update_color_grading_settings(
     mut selected_parameter: ResMut<SelectedParameter>,
 ) {
     let method = tonemapping.single();
-    let mut color_grading = per_method_settings.settings.get_mut(method).unwrap();
+    let color_grading = per_method_settings.settings.get_mut(method).unwrap();
     let mut dt = time.delta_seconds() * 0.25;
     if keys.pressed(KeyCode::Left) {
         dt = -dt;
