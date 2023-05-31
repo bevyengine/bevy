@@ -6,7 +6,6 @@
 //! This is a fairly low level example and assumes some familiarity with rendering concepts and wgpu.
 
 use bevy::{
-    asset::ChangeWatcher,
     core_pipeline::{
         clear_color::ClearColorConfig, core_3d,
         fullscreen_vertex_shader::fullscreen_shader_vertex_state,
