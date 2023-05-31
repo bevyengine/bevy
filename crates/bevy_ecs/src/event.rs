@@ -19,11 +19,15 @@ use std::{
 pub trait Event: Send + Sync + 'static {}
 impl<T> Event for T where T: Send + Sync + 'static {}
 
-/// An `EventId` uniquely identifies an event.
+/// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///
 /// An `EventId` can among other things be used to trace the flow of an event from the point it was
 /// sent to the point it was processed.
+///
+/// [`World`]: crate::world::World
 pub struct EventId<E: Event> {
+    /// Uniquely identifies the event associated with this ID.
+    // This value corresponds to the order in which each event was added to the world.
     pub id: usize,
     _marker: PhantomData<E>,
 }
@@ -177,6 +181,7 @@ impl<E: Event> Default for Events<E> {
 }
 
 impl<E: Event> Events<E> {
+    /// Returns the index of the oldest event stored in the event buffer.
     pub fn oldest_event_count(&self) -> usize {
         self.events_a
             .start_event_count
@@ -329,12 +334,17 @@ pub struct EventWriter<'w, E: Event> {
 }
 
 impl<'w, E: Event> EventWriter<'w, E> {
-    /// Sends an `event`. [`EventReader`]s can then read the event.
+    /// Sends an `event`, which can later be read by [`EventReader`]s.
+    ///
     /// See [`Events`] for details.
     pub fn send(&mut self, event: E) {
         self.events.send(event);
     }
 
+    /// Sends a list of `events` all at once, which can later be read by [`EventReader`]s.
+    /// This is more efficient than sending each event individually.
+    ///
+    /// See [`Events`] for details.
     pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) {
         self.events.extend(events);
     }
@@ -348,6 +358,8 @@ impl<'w, E: Event> EventWriter<'w, E> {
     }
 }
 
+/// Stores the state for an [`EventReader`].
+/// Access to the [`Events<E>`] resource is required to read any incoming events.
 #[derive(Debug)]
 pub struct ManualEventReader<E: Event> {
     last_event_count: usize,
@@ -408,6 +420,7 @@ impl<E: Event> ManualEventReader<E> {
     }
 }
 
+/// An iterator that yields any unread events from an [`EventReader`] or [`ManualEventReader`].
 pub struct ManualEventIterator<'a, E: Event> {
     iter: ManualEventIteratorWithId<'a, E>,
 }
@@ -444,6 +457,7 @@ impl<'a, E: Event> ExactSizeIterator for ManualEventIterator<'a, E> {
     }
 }
 
+/// An iterator that yields any unread events (and their IDs) from an [`EventReader`] or [`ManualEventReader`].
 #[derive(Debug)]
 pub struct ManualEventIteratorWithId<'a, E: Event> {
     reader: &'a mut ManualEventReader<E>,
@@ -452,6 +466,7 @@ pub struct ManualEventIteratorWithId<'a, E: Event> {
 }
 
 impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
+    /// Creates a new iterator that yields any `events` that have not yet been seen by `reader`.
     pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
         let a_index = (reader.last_event_count).saturating_sub(events.events_a.start_event_count);
         let b_index = (reader.last_event_count).saturating_sub(events.events_b.start_event_count);
@@ -602,12 +617,13 @@ impl<E: Event> Events<E> {
         self.events_b.clear();
     }
 
+    /// Returns the number of events currently stored in the event buffer.
     #[inline]
     pub fn len(&self) -> usize {
         self.events_a.len() + self.events_b.len()
     }
 
-    /// Returns true if there are no events in this collection.
+    /// Returns true if there are no events currently stored in the event buffer.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
