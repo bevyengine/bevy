@@ -150,6 +150,13 @@ pub struct SystemState<Param: SystemParam + 'static> {
 }
 
 impl<Param: SystemParam> SystemState<Param> {
+    /// Creates a new [`SystemState`] with default state.
+    ///
+    /// ## Note
+    /// For users of [`SystemState::get_manual`] or [`get_manual_mut`](SystemState::get_manual_mut):
+    ///
+    /// `new` does not cache any of the world's archetypes, so you must call [`SystemState::update_archetypes`]
+    /// manually before calling `get_manual{_mut}`.
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
