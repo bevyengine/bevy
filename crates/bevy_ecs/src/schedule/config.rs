@@ -10,6 +10,7 @@ use crate::{
         ScheduleLabel,
     },
     system::{BoxedSystem, IntoSystem, System},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
@@ -93,11 +94,7 @@ where
                 self.0.is_exclusive()
             }
 
-            unsafe fn run_unsafe(
-                &mut self,
-                input: Self::In,
-                world: &crate::world::World,
-            ) -> Self::Out {
+            unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
                 if let Err(e) = self.0.run_unsafe(input, world) {
                     panic_message(&self.0.name(), e);
                 }
@@ -117,7 +114,7 @@ where
                 self.0.initialize(world);
             }
 
-            fn update_archetype_component_access(&mut self, world: &crate::world::World) {
+            fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
                 self.0.update_archetype_component_access(world);
             }
 
