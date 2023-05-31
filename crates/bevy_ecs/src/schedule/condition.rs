@@ -17,7 +17,7 @@ pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
 /// # Examples
 /// A condition that returns true every other time it's called.
 /// ```
-/// # use bevy_ecs::prelude;
+/// # use bevy_ecs::prelude::*;
 /// fn every_other_time() -> impl Condition<()> {
 ///     IntoSystem::into_system(|mut flag: Local<bool>| {
 ///         *flag = !*flag;
