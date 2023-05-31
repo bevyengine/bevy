@@ -946,6 +946,7 @@ pub mod common_conditions {
 /// See [`common_conditions::not`] for examples.
 pub type NotSystem<T> = AdapterSystem<NotMarker, T>;
 
+/// Used with [`AdapterSystem`] to negate the output of a system via the [`Not`] operator.
 #[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct NotMarker;
