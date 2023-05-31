@@ -77,6 +77,10 @@ pub trait System: Send + Sync + 'static {
     /// `world` may only be used to access metadata. This can be done in safe code
     /// via functions such as [`UnsafeWorldCell::archetypes`].
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell);
+    /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
+    ///
+    /// This method must be called periodically to ensure that change detection behaves correctly.
+    /// When using bevy's default configuration, this will be called for you as needed.
     fn check_change_tick(&mut self, change_tick: Tick);
     /// Returns the system's default [system sets](crate::schedule::SystemSet).
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
