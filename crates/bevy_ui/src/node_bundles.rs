@@ -1,9 +1,8 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    ZIndex,
+    widget::{Button, TextFlags, UiImageSize},
+    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -33,7 +32,7 @@ pub struct NodeBundle {
     /// The transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `nodebundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
@@ -67,7 +66,7 @@ impl Default for NodeBundle {
 }
 
 /// A UI node that is an image
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
     ///
@@ -78,7 +77,7 @@ pub struct ImageBundle {
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
-    pub calculated_size: CalculatedSize,
+    pub calculated_size: ContentSize,
     /// The background color, which serves as a "fill" for this node
     ///
     /// Combines with `UiImage` to tint the provided image.
@@ -111,7 +110,7 @@ pub struct ImageBundle {
 
 #[cfg(feature = "bevy_text")]
 /// A UI node that is text
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Debug)]
 pub struct TextBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -122,8 +121,10 @@ pub struct TextBundle {
     pub text: Text,
     /// Text layout information
     pub text_layout_info: TextLayoutInfo,
+    /// Text system flags
+    pub text_flags: TextFlags,
     /// The calculated size based on the given image
-    pub calculated_size: CalculatedSize,
+    pub calculated_size: ContentSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -152,6 +153,7 @@ impl Default for TextBundle {
         Self {
             text: Default::default(),
             text_layout_info: Default::default(),
+            text_flags: Default::default(),
             calculated_size: Default::default(),
             // Transparent background
             background_color: BackgroundColor(Color::NONE),
@@ -213,7 +215,6 @@ impl TextBundle {
 pub struct ButtonBundle {
     /// Describes the logical size of the node
     pub node: Node,
-
     /// Marker component that signals this node is a button
     pub button: Button,
     /// Styles which control the layout (size and position) of the node and it's children

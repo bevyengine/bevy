@@ -1,12 +1,13 @@
 use bevy_ecs::prelude::Component;
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use std::fmt::Formatter;
 pub use taffy::style::AvailableSpace;
 
-impl std::fmt::Debug for CalculatedSize {
+impl std::fmt::Debug for ContentSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CalculatedSize").finish()
+        f.debug_struct("ContentSize").finish()
     }
 }
 
@@ -21,9 +22,6 @@ pub trait Measure: Send + Sync + 'static {
         available_width: AvailableSpace,
         available_height: AvailableSpace,
     ) -> Vec2;
-
-    /// Clone and box self.
-    fn dyn_clone(&self) -> Box<dyn Measure>;
 }
 
 /// A `FixedMeasure` is a `Measure` that ignores all constraints and
@@ -43,35 +41,42 @@ impl Measure for FixedMeasure {
     ) -> Vec2 {
         self.size
     }
-
-    fn dyn_clone(&self) -> Box<dyn Measure> {
-        Box::new(self.clone())
-    }
 }
 
-/// A node with a `CalculatedSize` component is a node where its size
+/// A node with a `ContentSize` component is a node where its size
 /// is based on its content.
 #[derive(Component, Reflect)]
-pub struct CalculatedSize {
+#[reflect(Component)]
+pub struct ContentSize {
     /// The `Measure` used to compute the intrinsic size
     #[reflect(ignore)]
-    pub measure: Box<dyn Measure>,
+    pub(crate) measure_func: Option<taffy::node::MeasureFunc>,
+}
+
+impl ContentSize {
+    /// Set a `Measure` for this function
+    pub fn set(&mut self, measure: impl Measure) {
+        let measure_func =
+            move |size: taffy::prelude::Size<Option<f32>>,
+                  available: taffy::prelude::Size<AvailableSpace>| {
+                let size =
+                    measure.measure(size.width, size.height, available.width, available.height);
+                taffy::prelude::Size {
+                    width: size.x,
+                    height: size.y,
+                }
+            };
+        self.measure_func = Some(taffy::node::MeasureFunc::Boxed(Box::new(measure_func)));
+    }
 }
 
 #[allow(clippy::derivable_impls)]
-impl Default for CalculatedSize {
+impl Default for ContentSize {
     fn default() -> Self {
         Self {
-            // Default `FixedMeasure` always returns zero size.
-            measure: Box::<FixedMeasure>::default(),
-        }
-    }
-}
-
-impl Clone for CalculatedSize {
-    fn clone(&self) -> Self {
-        Self {
-            measure: self.measure.dyn_clone(),
+            measure_func: Some(taffy::node::MeasureFunc::Raw(|_, _| {
+                taffy::prelude::Size::ZERO
+            })),
         }
     }
 }

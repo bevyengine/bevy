@@ -683,6 +683,17 @@ impl Color {
         }
     }
 
+    /// Converts a `Color` to a `[u8; 4]` from sRGB colorspace
+    pub fn as_rgba_u8(&self) -> [u8; 4] {
+        let [r, g, b, a] = self.as_rgba_f32();
+        [
+            (r * u8::MAX as f32) as u8,
+            (g * u8::MAX as f32) as u8,
+            (b * u8::MAX as f32) as u8,
+            (a * u8::MAX as f32) as u8,
+        ]
+    }
+
     /// Converts a `Color` to a `[f32; 4]` from sRGB colorspace
     pub fn as_rgba_f32(self: Color) -> [f32; 4] {
         match self {

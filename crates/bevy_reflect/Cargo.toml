@@ -31,7 +31,7 @@ thiserror = "1.0"
 once_cell = "1.11"
 serde = "1"
 smallvec = { version = "1.6", features = ["serde", "union", "const_generics"], optional = true }
-glam = { version = "0.23", features = ["serde"], optional = true }
+glam = { version = "0.24", features = ["serde"], optional = true }
 
 [dev-dependencies]
 ron = "0.8.0"

@@ -72,9 +72,7 @@ impl Plugin for GameOfLifeComputePlugin {
         // for operation on by the compute shader and display on the sprite.
         app.add_plugin(ExtractResourcePlugin::<GameOfLifeImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
-        render_app
-            .init_resource::<GameOfLifePipeline>()
-            .add_systems(Render, queue_bind_group.in_set(RenderSet::Queue));
+        render_app.add_systems(Render, queue_bind_group.in_set(RenderSet::Queue));
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("game_of_life", GameOfLifeNode::default());
@@ -82,6 +80,11 @@ impl Plugin for GameOfLifeComputePlugin {
             "game_of_life",
             bevy::render::main_graph::node::CAMERA_DRIVER,
         );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+        render_app.init_resource::<GameOfLifePipeline>();
     }
 }
 

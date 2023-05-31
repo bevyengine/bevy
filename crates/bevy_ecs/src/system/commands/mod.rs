@@ -62,6 +62,10 @@ pub trait Command: Send + 'static {
 /// * inserting resources
 /// * etc.
 ///
+/// For a version of [`Commands`] that works in parallel contexts (such as
+/// within [`Query::par_iter`](crate::system::Query::par_iter)) see
+/// [`ParallelCommands`]
+///
 /// # Usage
 ///
 /// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_system_buffers`] runs.
@@ -184,7 +188,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a [`Command`] to the queue for creating a new [`Entity`] if the given one does not exists,
     /// and returns its corresponding [`EntityCommands`].
     ///
-    /// This method silently fails by returning `EntityCommands`
+    /// This method silently fails by returning [`EntityCommands`]
     /// even if the given `Entity` cannot be spawned.
     ///
     /// See [`World::get_or_spawn`] for more details.
@@ -345,7 +349,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Pushes a [`Command`] to the queue for creating entities with a particular [`Bundle`] type.
     ///
-    /// `bundles_iter` is a type that can be converted into a `Bundle` iterator
+    /// `bundles_iter` is a type that can be converted into a [`Bundle`] iterator
     /// (it can also be a collection).
     ///
     /// This method is equivalent to iterating `bundles_iter`

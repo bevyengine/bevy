@@ -116,7 +116,6 @@ impl Plugin for CASPlugin {
             Err(_) => return,
         };
         render_app
-            .init_resource::<CASPipeline>()
             .init_resource::<SpecializedRenderPipelines<CASPipeline>>()
             .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
 
@@ -148,6 +147,14 @@ impl Plugin for CASPlugin {
                     ],
                 );
         }
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+        render_app.init_resource::<CASPipeline>();
     }
 }
 

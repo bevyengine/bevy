@@ -106,7 +106,6 @@ impl Plugin for MeshRenderPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<MeshPipeline>()
                 .init_resource::<SkinnedMeshUniform>()
                 .add_systems(ExtractSchedule, (extract_meshes, extract_skinned_meshes))
                 .add_systems(
@@ -117,6 +116,12 @@ impl Plugin for MeshRenderPlugin {
                         queue_mesh_view_bind_groups.in_set(RenderSet::Queue),
                     ),
                 );
+        }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<MeshPipeline>();
         }
     }
 }
@@ -328,9 +333,9 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
-                        #[cfg(not(feature = "webgl"))]
+                        #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
                         view_dimension: TextureViewDimension::CubeArray,
-                        #[cfg(feature = "webgl")]
+                        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                         view_dimension: TextureViewDimension::Cube,
                     },
                     count: None,
@@ -349,9 +354,9 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
-                        #[cfg(not(feature = "webgl"))]
+                        #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
                         view_dimension: TextureViewDimension::D2Array,
-                        #[cfg(feature = "webgl")]
+                        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                         view_dimension: TextureViewDimension::D2,
                     },
                     count: None,
@@ -439,7 +444,9 @@ impl FromWorld for MeshPipeline {
             let tonemapping_lut_entries = get_lut_bind_group_layout_entries([14, 15]);
             entries.extend_from_slice(&tonemapping_lut_entries);
 
-            if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && !multisampled) {
+            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
+                || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
+            {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
                     [16, 17, 18],
                     multisampled,
@@ -514,12 +521,7 @@ impl FromWorld for MeshPipeline {
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
-                        )
-                        .unwrap(),
-                    ),
+                    bytes_per_row: Some(image.texture_descriptor.size.width * format_size as u32),
                     rows_per_image: None,
                 },
                 image.texture_descriptor.size,
@@ -580,9 +582,11 @@ bitflags::bitflags! {
         const DEPTH_PREPASS                     = (1 << 3);
         const NORMAL_PREPASS                    = (1 << 4);
         const MOTION_VECTOR_PREPASS             = (1 << 5);
-        const ALPHA_MASK                        = (1 << 6);
+        const MAY_DISCARD                       = (1 << 6); // Guards shader codepaths that may discard, allowing early depth tests in most cases
+                                                            // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
         const ENVIRONMENT_MAP                   = (1 << 7);
         const DEPTH_CLAMP_ORTHO                 = (1 << 8);
+        const TAA                               = (1 << 9);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
@@ -793,8 +797,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
+        if key.contains(MeshPipelineKey::MAY_DISCARD) {
+            shader_defs.push("MAY_DISCARD".into());
+        }
+
         if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
             shader_defs.push("ENVIRONMENT_MAP".into());
+        }
+
+        if key.contains(MeshPipelineKey::TAA) {
+            shader_defs.push("TAA".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
@@ -1065,7 +1077,9 @@ pub fn queue_mesh_view_bind_groups(
             entries.extend_from_slice(&tonemapping_luts);
 
             // When using WebGL, we can't have a depth texture with multisampling
-            if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && msaa.samples() == 1) {
+            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
+                || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
+            {
                 entries.extend_from_slice(&prepass::get_bindings(
                     prepass_textures,
                     &mut fallback_images,
@@ -1177,8 +1191,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                     pass.set_index_buffer(buffer.slice(..), 0, *index_format);
                     pass.draw_indexed(0..*count, 0, 0..1);
                 }
-                GpuBufferInfo::NonIndexed { vertex_count } => {
-                    pass.draw(0..*vertex_count, 0..1);
+                GpuBufferInfo::NonIndexed => {
+                    pass.draw(0..gpu_mesh.vertex_count, 0..1);
                 }
             }
             RenderCommandResult::Success

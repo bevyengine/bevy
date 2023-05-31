@@ -722,7 +722,7 @@ mod tests {
         );
 
         fn init_component<T: Component>(sets: &mut SparseSets, id: usize) {
-            let descriptor = ComponentDescriptor::new::<TestComponent1>();
+            let descriptor = ComponentDescriptor::new::<T>();
             let id = ComponentId::new(id);
             let info = ComponentInfo::new(id, descriptor);
             sets.get_or_insert(&info);

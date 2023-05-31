@@ -21,13 +21,14 @@ pub mod widget;
 
 #[cfg(feature = "bevy_text")]
 use bevy_render::camera::CameraUpdateSystem;
-use bevy_render::extract_component::ExtractComponentPlugin;
+use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
 pub use ui_node::*;
+use widget::UiImageSize;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -87,7 +88,7 @@ impl Plugin for UiPlugin {
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
-            .register_type::<CalculatedSize>()
+            .register_type::<ContentSize>()
             .register_type::<Direction>()
             .register_type::<Display>()
             .register_type::<FlexDirection>()
@@ -108,11 +109,11 @@ impl Plugin for UiPlugin {
             .register_type::<Overflow>()
             .register_type::<OverflowAxis>()
             .register_type::<PositionType>()
-            .register_type::<Size>()
             .register_type::<UiRect>()
             .register_type::<Style>()
             .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
+            .register_type::<UiImageSize>()
             .register_type::<Val>()
             .register_type::<BorderColor>()
             .register_type::<widget::Button>()
@@ -125,22 +126,25 @@ impl Plugin for UiPlugin {
         #[cfg(feature = "bevy_text")]
         app.add_systems(
             PostUpdate,
-            widget::measure_text_system
-                .before(UiSystem::Layout)
-                // Potential conflict: `Assets<Image>`
-                // In practice, they run independently since `bevy_render::camera_update_system`
-                // will only ever observe its own render target, and `widget::measure_text_system`
-                // will never modify a pre-existing `Image` asset.
-                .ambiguous_with(CameraUpdateSystem)
-                // Potential conflict: `Assets<Image>`
-                // Since both systems will only ever insert new [`Image`] assets,
-                // they will never observe each other's effects.
-                .ambiguous_with(bevy_text::update_text2d_layout),
+            (
+                widget::measure_text_system
+                    .before(UiSystem::Layout)
+                    // Potential conflict: `Assets<Image>`
+                    // In practice, they run independently since `bevy_render::camera_update_system`
+                    // will only ever observe its own render target, and `widget::measure_text_system`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(CameraUpdateSystem)
+                    // Potential conflict: `Assets<Image>`
+                    // Since both systems will only ever insert new [`Image`] assets,
+                    // they will never observe each other's effects.
+                    .ambiguous_with(bevy_text::update_text2d_layout),
+                widget::text_system.after(UiSystem::Layout),
+            ),
         );
         #[cfg(feature = "bevy_text")]
         app.add_plugin(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
-            let system = widget::update_image_calculated_size_system.before(UiSystem::Layout);
+            let system = widget::update_image_content_size_system.before(UiSystem::Layout);
             // Potential conflicts: `Assets<Image>`
             // They run independently since `widget::image_node_system` will only ever observe
             // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -160,10 +164,18 @@ impl Plugin for UiPlugin {
                     .before(TransformSystem::TransformPropagate),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
-                widget::text_system.after(UiSystem::Layout),
             ),
         );
 
         crate::render::build_ui_render(app);
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
+        render_app.init_resource::<UiPipeline>();
     }
 }

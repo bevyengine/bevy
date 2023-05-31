@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [features]
 subpixel_glyph_atlas = []
+default_font = []
 
 [dependencies]
 # bevy

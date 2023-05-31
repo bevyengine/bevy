@@ -5,6 +5,7 @@ use std::ops::Not;
 use crate::component::{self, ComponentId};
 use crate::query::Access;
 use crate::system::{CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System};
+use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::world::World;
 
 pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
@@ -143,6 +144,7 @@ pub mod common_conditions {
         change_detection::DetectChanges,
         event::{Event, EventReader},
         prelude::{Component, Query, With},
+        removal_detection::RemovedComponents,
         schedule::{State, States},
         system::{IntoSystem, Res, Resource, System},
     };
@@ -893,6 +895,17 @@ pub mod common_conditions {
         move |query: Query<(), With<T>>| !query.is_empty()
     }
 
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if there are any entity with a component of the given type removed.
+    pub fn any_component_removed<T: Component>() -> impl FnMut(RemovedComponents<T>) -> bool {
+        // `RemovedComponents` based on events and therefore events need to be consumed,
+        // so that there are no false positives on subsequent calls of the run condition.
+        // Simply checking `is_empty` would not be enough.
+        // PERF: note that `count` is efficient (not actually looping/iterating),
+        // due to Bevy having a specialized implementation for events.
+        move |mut removals: RemovedComponents<T>| !removals.iter().count() != 0
+    }
+
     /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
     ///
     /// # Example
@@ -978,7 +991,7 @@ where
         self.condition.is_exclusive()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         // SAFETY: The inner condition system asserts its own safety.
         !self.condition.run_unsafe(input, world)
     }
@@ -995,7 +1008,7 @@ where
         self.condition.initialize(world);
     }
 
-    fn update_archetype_component_access(&mut self, world: &World) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         self.condition.update_archetype_component_access(world);
     }
 
