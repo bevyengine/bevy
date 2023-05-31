@@ -7,7 +7,7 @@ use crate::query::Access;
 use crate::system::{CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System};
 use crate::world::World;
 
-pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
+pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 
 /// A system that determines if one or more scheduled systems should run.
 ///
