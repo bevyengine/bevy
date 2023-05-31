@@ -12,6 +12,7 @@ pub trait Adapt<S: System>: Send + Sync + 'static {
 }
 
 #[derive(Clone)]
+/// A system that takes the output of `S` and transforms it by applying `Func` to it.
 pub struct AdapterSystem<Func, S> {
     func: Func,
     system: S,
