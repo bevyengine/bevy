@@ -43,3 +43,7 @@ path = "examples/resources.rs"
 [[example]]
 name = "change_detection"
 path = "examples/change_detection.rs"
+
+[[example]]
+name = "handling_errors_in_systems"
+path = "examples/handling_errors_in_systems.rs"
