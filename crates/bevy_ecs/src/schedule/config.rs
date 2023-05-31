@@ -57,7 +57,7 @@ where
         #[track_caller]
         #[inline(never)]
         fn panic_message(name: &str, err: impl Debug) -> ! {
-            panic!("System '{name}' returned an error: {err:?}");
+            panic!("System '{name}' returned an error. To avoid panicking when this occurs, consider defining an error handling system, and feeding this system's return value into it via `.pipe`. A number of helpful pre-built logging handlers such as `warn` are provided. See the module `bevy_ecs::prelude::system_adapter` for more.\n{err:?}");
         }
 
         impl<S, E> System for Unwrap<S>
