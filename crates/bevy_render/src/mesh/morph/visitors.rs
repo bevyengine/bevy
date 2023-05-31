@@ -1,18 +1,5 @@
 use bevy_core::{Pod, Zeroable};
 use bevy_math::Vec3;
-use wgpu::VertexFormat;
-
-use crate::mesh::{Mesh, MeshVertexAttribute};
-
-/// The set of attributes conviniently accessible in the `gltf` crate.
-///
-/// Also the only ones useable with the current morph targets implementation.
-/// See `morph.wgsl`.
-pub const HARDCODED_ATTRIBUTES: &[MeshVertexAttribute] = &[
-    Mesh::ATTRIBUTE_POSITION,
-    Mesh::ATTRIBUTE_NORMAL,
-    MeshVertexAttribute::new("Vertex_Tangent_Morph_Attribute", 7, VertexFormat::Float32x3),
-];
 
 /// Attributes **differences** used for morph targets.
 ///
@@ -40,6 +27,11 @@ impl From<[Vec3; 3]> for MorphAttributes {
     }
 }
 impl MorphAttributes {
+    /// How many components `MorphAttributes` has.
+    ///
+    /// Each `Vec3` has 3 components, we have 3 `Vec3`, for a total of 9.
+    pub const COMPONENT_COUNT: usize = 9;
+
     pub fn new(position: Vec3, normal: Vec3, tangent: Vec3) -> Self {
         MorphAttributes {
             position,

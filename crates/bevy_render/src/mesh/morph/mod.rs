@@ -5,7 +5,6 @@ use bevy_hierarchy::Children;
 use thiserror::Error;
 
 use crate::{
-    mesh::MeshVertexAttribute,
     render_asset::RenderAssets,
     render_resource::{Extent3d, TextureDimension, TextureFormat, TextureView},
     texture::Image,
@@ -22,8 +21,6 @@ use std::{iter, mem};
 
 pub use visitors::{MorphAttributes, VisitAttributes, VisitMorphTargets};
 
-use self::visitors::HARDCODED_ATTRIBUTES;
-
 use super::Mesh;
 
 const MAX_TEXTURE_WIDTH: u32 = 2048;
@@ -36,8 +33,6 @@ pub const MAX_MORPH_WEIGHTS: usize = 64;
 
 #[derive(Error, Clone, Debug)]
 pub enum MorphBuildError {
-    #[error("components of morph target attributes must all be f32, one of them isn't: {0:?}")]
-    InvalidAttribute(MeshVertexAttribute),
     #[error(
         "Too many vertex×components in morph target, max is {MAX_COMPONENTS}, \
         got {vertex_count}×{component_count} = {}",
@@ -110,17 +105,7 @@ pub(crate) struct MorphTargetImage {
 }
 impl MorphTargetImage {
     pub(crate) fn new(targets: impl VisitMorphTargets, vertex_count: u32) -> Result<Self> {
-        let attributes = HARDCODED_ATTRIBUTES;
-        let total_components_size: u64 = attributes.iter().map(|a| a.format.size()).sum();
-        if total_components_size % 4 != 0 {
-            // Unwrap: we have the guarentee that at least one format is not %4
-            let first_invalid = attributes
-                .iter()
-                .find(|a| a.format.size() % 4 != 0)
-                .unwrap();
-            return Err(MorphBuildError::InvalidAttribute(first_invalid.clone()));
-        }
-        let total_components = total_components_size as usize / mem::size_of::<f32>();
+        let total_components = MorphAttributes::COMPONENT_COUNT;
 
         let target_count = targets.target_count();
         if target_count > MAX_MORPH_WEIGHTS {
