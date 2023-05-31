@@ -102,7 +102,7 @@ pub struct LogPlugin {
 impl Default for LogPlugin {
     fn default() -> Self {
         Self {
-            filter: "wgpu=error".to_string(),
+            filter: "wgpu=error,naga=warn".to_string(),
             level: Level::INFO,
         }
     }

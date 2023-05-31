@@ -1,6 +1,6 @@
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use super::{Mut, World};
+use super::{Mut, World, WorldId};
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, Archetypes},
     bundle::Bundles,
@@ -190,6 +190,14 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { &*self.0 }
     }
 
+    /// Retrieves this world's unique [ID](WorldId).
+    #[inline]
+    pub fn id(self) -> WorldId {
+        // SAFETY:
+        // - we only access world metadata
+        unsafe { self.world_metadata() }.id()
+    }
+
     /// Retrieves this world's [Entities] collection
     #[inline]
     pub fn entities(self) -> &'w Entities {
@@ -237,13 +245,23 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { self.world_metadata() }.read_change_tick()
     }
 
+    /// Returns the [`Tick`] indicating the last time that [`World::clear_trackers`] was called.
+    ///
+    /// If this `UnsafeWorldCell` was created from inside of an exclusive system (a [`System`] that
+    /// takes `&mut World` as its first parameter), this will instead return the `Tick` indicating
+    /// the last time the system was run.
+    ///
+    /// See [`World::last_change_tick()`].
+    ///
+    /// [`System`]: crate::system::System
     #[inline]
     pub fn last_change_tick(self) -> Tick {
         // SAFETY:
         // - we only access world metadata
-        unsafe { self.world_metadata() }.last_change_tick
+        unsafe { self.world_metadata() }.last_change_tick()
     }
 
+    /// Increments the world's current change tick and returns the old value.
     #[inline]
     pub fn increment_change_tick(self) -> Tick {
         // SAFETY:

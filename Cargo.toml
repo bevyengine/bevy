@@ -16,6 +16,7 @@ rust-version = "1.67.0"
 exclude = [
   "benches",
   "crates/bevy_ecs_compile_fail_tests",
+  "crates/bevy_macros_compile_fail_tests",
   "crates/bevy_reflect_compile_fail_tests",
 ]
 members = [
@@ -151,6 +152,9 @@ dds = ["bevy_internal/dds"]
 # KTX2 compressed texture support
 ktx2 = ["bevy_internal/ktx2"]
 
+# PNM image format support, includes pam, pbm, pgm and ppm
+pnm = ["bevy_internal/pnm"]
+
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
@@ -274,7 +278,7 @@ path = "examples/2d/bloom_2d.rs"
 name = "2D Bloom"
 description = "Illustrates bloom post-processing in 2d"
 category = "2D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "move_sprite"
@@ -404,7 +408,7 @@ path = "examples/2d/texture_atlas.rs"
 name = "Texture Atlas"
 description = "Generates a texture atlas (sprite sheet) from individual sprites"
 category = "2D Rendering"
-wasm = true
+wasm = false
 
 [[example]]
 name = "transparency_2d"
@@ -535,7 +539,7 @@ path = "examples/3d/bloom_3d.rs"
 name = "3D Bloom"
 description = "Illustrates bloom configuration using HDR and emissive materials"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "load_gltf"
@@ -716,7 +720,7 @@ path = "examples/3d/wireframe.rs"
 name = "Wireframe"
 description = "Showcases wireframe rendering"
 category = "3D Rendering"
-wasm = true
+wasm = false
 
 [[example]]
 name = "no_prepass"
@@ -906,7 +910,7 @@ path = "examples/asset/asset_loading.rs"
 name = "Asset Loading"
 description = "Demonstrates various methods to load assets"
 category = "Assets"
-wasm = true
+wasm = false
 
 [[example]]
 name = "custom_asset"
