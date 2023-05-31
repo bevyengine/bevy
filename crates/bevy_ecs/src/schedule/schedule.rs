@@ -287,9 +287,9 @@ impl Schedule {
         }
     }
 
-    /// Directly applies any accumulated system buffers (like [`Commands`](crate::prelude::Commands)) to the `world`.
+    /// Directly applies any accumulated [`Deferred`](crate::system::Deferred) system parameters (like [`Commands`](crate::prelude::Commands)) to the `world`.
     ///
-    /// Like always, system buffers are applied in the "topological sort order" of the schedule graph.
+    /// Like always, deferred system parameters are applied in the "topological sort order" of the schedule graph.
     /// As a result, buffers from one system are only guaranteed to be applied before those of other systems
     /// if there is an explicit system ordering between the two systems.
     ///
