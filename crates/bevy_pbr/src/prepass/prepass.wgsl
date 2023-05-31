@@ -106,6 +106,10 @@ struct FragmentOutput {
 #ifdef MOTION_VECTOR_PREPASS
     @location(1) motion_vector: vec2<f32>,
 #endif // MOTION_VECTOR_PREPASS
+
+#ifdef DEFERRED_PREPASS
+    @location(2) deferred: vec4<u32>,
+#endif // DEFERRED_PREPASS
 }
 
 @fragment
@@ -129,6 +133,10 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     // down where clip space y goes up, so y needs to be flipped.
     out.motion_vector = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
 #endif // MOTION_VECTOR_PREPASS
+
+#ifdef DEFERRED_PREPASS
+    out.deferred = vec4(0u);
+#endif
 
     return out;
 }

@@ -21,10 +21,12 @@ struct FragmentInput {
 
 @fragment
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+    
     let is_orthographic = view.projection[3].w == 1.0;
     let V = calculate_view(in.world_position, is_orthographic);
 #ifdef VERTEX_UVS
     var uv = in.uv;
+    let deferred_data = textureLoad(deferred_prepass_texture, vec2<i32>(in.frag_coord.xy), 0);
 #ifdef VERTEX_TANGENTS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
         let N = in.world_normal;
@@ -50,10 +52,11 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     output_color = output_color * in.color;
 #endif
 #ifdef VERTEX_UVS
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
-        output_color = output_color * textureSample(base_color_texture, base_color_sampler, uv);
-    }
-#endif
+    output_color = output_color * unpack4x8unorm(deferred_data.r);
+    //if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
+    //    output_color = output_color * textureSample(base_color_texture, base_color_sampler, uv);
+    //}
+#endif // VERTEX_UVS
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {

@@ -4,6 +4,7 @@ pub mod wireframe;
 
 mod alpha;
 mod bundle;
+pub mod deferred_lighting;
 mod environment_map;
 mod fog;
 mod light;

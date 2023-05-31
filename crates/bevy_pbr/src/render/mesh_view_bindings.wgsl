@@ -72,4 +72,6 @@ var depth_prepass_texture: texture_depth_2d;
 var normal_prepass_texture: texture_2d<f32>;
 @group(0) @binding(18)
 var motion_vector_prepass_texture: texture_2d<f32>;
+@group(0) @binding(19)
+var deferred_prepass_texture: texture_2d<u32>;
 #endif

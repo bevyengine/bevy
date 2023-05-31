@@ -8,7 +8,7 @@ use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     experimental::taa::TemporalAntiAliasSettings,
-    prepass::NormalPrepass,
+    prepass::{DeferredPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -388,6 +388,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
         Option<&NormalPrepass>,
+        Option<&DeferredPrepass>,
         Option<&TemporalAntiAliasSettings>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
@@ -403,6 +404,7 @@ pub fn queue_material_meshes<M: Material>(
         dither,
         environment_map,
         normal_prepass,
+        deferred_prepass,
         taa_settings,
         mut opaque_phase,
         mut alpha_mask_phase,
@@ -418,6 +420,10 @@ pub fn queue_material_meshes<M: Material>(
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
+        }
+
+        if deferred_prepass.is_some() {
+            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
         if taa_settings.is_some() {

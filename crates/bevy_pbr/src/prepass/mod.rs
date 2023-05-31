@@ -3,9 +3,9 @@ use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
     prepass::{
-        AlphaMask3dPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, Opaque3dPrepass,
-        ViewPrepassTextures, DEPTH_PREPASS_FORMAT, MOTION_VECTOR_PREPASS_FORMAT,
-        NORMAL_PREPASS_FORMAT,
+        AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
+        Opaque3dPrepass, ViewPrepassTextures, DEFERRED_PREPASS_FORMAT, DEPTH_PREPASS_FORMAT,
+        MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
 };
 use bevy_ecs::{
@@ -410,6 +410,10 @@ where
             }
         }
 
+        if key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
+            shader_defs.push("DEFERRED_PREPASS".into());
+        }
+
         if key
             .mesh_key
             .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
@@ -454,6 +458,15 @@ where
                 .then_some(ColorTargetState {
                     format: MOTION_VECTOR_PREPASS_FORMAT,
                     blend: Some(BlendState::REPLACE),
+                    write_mask: ColorWrites::ALL,
+                }),
+        );
+        targets.push(
+            key.mesh_key
+                .contains(MeshPipelineKey::DEFERRED_PREPASS)
+                .then_some(ColorTargetState {
+                    format: DEFERRED_PREPASS_FORMAT,
+                    blend: None,
                     write_mask: ColorWrites::ALL,
                 }),
         );
@@ -545,9 +558,9 @@ where
 }
 
 pub fn get_bind_group_layout_entries(
-    bindings: [u32; 3],
+    bindings: [u32; 4],
     multisampled: bool,
-) -> [BindGroupLayoutEntry; 3] {
+) -> [BindGroupLayoutEntry; 4] {
     [
         // Depth texture
         BindGroupLayoutEntry {
@@ -582,6 +595,17 @@ pub fn get_bind_group_layout_entries(
             },
             count: None,
         },
+        // Deferred texture
+        BindGroupLayoutEntry {
+            binding: bindings[3],
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                multisampled: false,
+                sample_type: TextureSampleType::Uint,
+                view_dimension: TextureViewDimension::D2,
+            },
+            count: None,
+        },
     ]
 }
 
@@ -590,8 +614,8 @@ pub fn get_bindings<'a>(
     fallback_images: &'a mut FallbackImagesMsaa,
     fallback_depths: &'a mut FallbackImagesDepth,
     msaa: &'a Msaa,
-    bindings: [u32; 3],
-) -> [BindGroupEntry<'a>; 3] {
+    bindings: [u32; 4],
+) -> [BindGroupEntry<'a>; 4] {
     let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
         Some(texture) => &texture.default_view,
         None => {
@@ -615,6 +639,11 @@ pub fn get_bindings<'a>(
         None => normal_motion_vectors_fallback,
     };
 
+    let deferred_view = match prepass_textures.and_then(|x| x.deferred.as_ref()) {
+        Some(texture) => &texture.default_view,
+        None => normal_motion_vectors_fallback,
+    };
+
     [
         BindGroupEntry {
             binding: bindings[0],
@@ -627,6 +656,10 @@ pub fn get_bindings<'a>(
         BindGroupEntry {
             binding: bindings[2],
             resource: BindingResource::TextureView(motion_vectors_view),
+        },
+        BindGroupEntry {
+            binding: bindings[3],
+            resource: BindingResource::TextureView(deferred_view),
         },
     ]
 }
@@ -642,6 +675,7 @@ pub fn extract_camera_prepass_phase(
                 Option<&DepthPrepass>,
                 Option<&NormalPrepass>,
                 Option<&MotionVectorPrepass>,
+                Option<&DeferredPrepass>,
                 Option<&PreviousViewProjection>,
             ),
             With<Camera3d>,
@@ -654,6 +688,7 @@ pub fn extract_camera_prepass_phase(
         depth_prepass,
         normal_prepass,
         motion_vector_prepass,
+        deferred_prepass,
         maybe_previous_view_proj,
     ) in cameras_3d.iter()
     {
@@ -663,6 +698,7 @@ pub fn extract_camera_prepass_phase(
             if depth_prepass.is_some()
                 || normal_prepass.is_some()
                 || motion_vector_prepass.is_some()
+                || deferred_prepass.is_some()
             {
                 entity.insert((
                     RenderPhase::<Opaque3dPrepass>::default(),
@@ -678,6 +714,9 @@ pub fn extract_camera_prepass_phase(
             }
             if motion_vector_prepass.is_some() {
                 entity.insert(MotionVectorPrepass);
+            }
+            if deferred_prepass.is_some() {
+                entity.insert(DeferredPrepass);
             }
 
             if let Some(previous_view) = maybe_previous_view_proj {
@@ -741,6 +780,7 @@ pub fn prepare_prepass_textures(
             Option<&DepthPrepass>,
             Option<&NormalPrepass>,
             Option<&MotionVectorPrepass>,
+            Option<&DeferredPrepass>,
         ),
         (
             With<RenderPhase<Opaque3dPrepass>>,
@@ -750,8 +790,11 @@ pub fn prepare_prepass_textures(
 ) {
     let mut depth_textures = HashMap::default();
     let mut normal_textures = HashMap::default();
+    let mut deferred_textures = HashMap::default();
     let mut motion_vectors_textures = HashMap::default();
-    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass) in &views_3d {
+    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
+        &views_3d
+    {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -827,10 +870,33 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
+        let cached_deferred_texture = deferred_prepass.is_some().then(|| {
+            deferred_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("prepass_deferred_texture"),
+                            size,
+                            mip_level_count: 1,
+                            sample_count: 1,
+                            dimension: TextureDimension::D2,
+                            format: DEFERRED_PREPASS_FORMAT,
+                            usage: TextureUsages::RENDER_ATTACHMENT
+                                | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
+                        },
+                    )
+                })
+                .clone()
+        });
+
         commands.entity(entity).insert(ViewPrepassTextures {
             depth: cached_depth_texture,
             normal: cached_normals_texture,
             motion_vectors: cached_motion_vectors_texture,
+            deferred: cached_deferred_texture,
             size,
         });
     }
@@ -913,6 +979,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         Option<&DepthPrepass>,
         Option<&NormalPrepass>,
         Option<&MotionVectorPrepass>,
+        Option<&DeferredPrepass>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -933,6 +1000,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         depth_prepass,
         normal_prepass,
         motion_vector_prepass,
+        deferred_prepass,
     ) in &mut views
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
@@ -944,6 +1012,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
         }
         if motion_vector_prepass.is_some() {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+        if deferred_prepass.is_some() {
+            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
         let rangefinder = view.rangefinder3d();

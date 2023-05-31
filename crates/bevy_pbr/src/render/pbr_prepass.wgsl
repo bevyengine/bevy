@@ -22,6 +22,7 @@ struct FragmentInput {
     @location(3) world_position: vec4<f32>,
     @location(4) previous_world_position: vec4<f32>,
 #endif // MOTION_VECTOR_PREPASS
+
 };
 
 // Cutoff used for the premultiplied alpha modes BLEND and ADD.
@@ -66,6 +67,10 @@ struct FragmentOutput {
 #ifdef MOTION_VECTOR_PREPASS
     @location(1) motion_vector: vec2<f32>,
 #endif // MOTION_VECTOR_PREPASS
+
+#ifdef DEFERRED_PREPASS
+    @location(2) deferred: vec4<u32>,
+#endif // DEFERRED_PREPASS
 }
 
 @fragment
@@ -115,6 +120,53 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     // down where clip space y goes up, so y needs to be flipped.
     out.motion_vector = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
 #endif // MOTION_VECTOR_PREPASS
+
+#ifdef DEFERRED_PREPASS
+    let uv = in.uv;
+    var output_color = material.base_color;
+    var reflectance = 0.5;
+    var emissive = vec3(0.0);
+    var metallic = 0.0;
+    var perceptual_roughness = 0.5;
+    var occlusion = 1.0;
+
+#ifdef VERTEX_UVS
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
+        output_color = output_color * textureSample(base_color_texture, base_color_sampler, uv);
+    }
+#endif
+    // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
+        reflectance = material.reflectance;
+        emissive = material.emissive.rgb;
+#ifdef VERTEX_UVS
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
+            emissive = emissive.rgb * textureSample(emissive_texture, emissive_sampler, uv).rgb;
+        }
+#endif
+    metallic = material.metallic;
+    perceptual_roughness = material.perceptual_roughness;
+#ifdef VERTEX_UVS
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
+            let metallic_roughness = textureSample(metallic_roughness_texture, metallic_roughness_sampler, uv);
+            // Sampling from GLTF standard channels for now
+            metallic = metallic * metallic_roughness.b;
+            perceptual_roughness = perceptual_roughness * metallic_roughness.g;
+        }
+#endif
+#ifdef VERTEX_UVS
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
+            occlusion = textureSample(occlusion_texture, occlusion_sampler, uv).r;
+        }
+#endif
+    }
+    out.deferred = vec4(
+        pack4x8unorm(output_color),
+        pack4x8unorm(vec4(emissive, 0.0)),
+        pack4x8unorm(vec4(metallic, perceptual_roughness, occlusion, reflectance)),
+        pack4x8unorm(vec4(0.0)),
+    );
+#endif // DEFERRED_PREPASS
 
     return out;
 }

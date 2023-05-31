@@ -75,6 +75,19 @@ impl ViewNode for PrepassNode {
                 },
             },
         ));
+        color_attachments.push(
+            view_prepass_textures
+                .deferred
+                .as_ref()
+                .map(|deferred_texture| RenderPassColorAttachment {
+                    view: &deferred_texture.default_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(Color::rgba_linear(0.0, 0.0, 0.0, 0.0).into()),
+                        store: true,
+                    },
+                }),
+        );
         if color_attachments.iter().all(Option::is_none) {
             // all attachments are none: clear the attachment list so that no fragment shader is required
             color_attachments.clear();
