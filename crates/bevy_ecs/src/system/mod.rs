@@ -208,7 +208,9 @@ where
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
 pub trait IntoSystem<In, Out, Marker>: Sized {
+    /// The type of [`System`] that this instance converts into.
     type System: System<In = In, Out = Out>;
+
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
 
