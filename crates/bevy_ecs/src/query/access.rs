@@ -302,6 +302,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         self.filter_sets.append(&mut other.filter_sets.clone());
     }
 
+    /// Adds all of the accesses from `other` to `self`.
     pub fn extend_access(&mut self, other: &FilteredAccess<T>) {
         self.access.extend(&other.access);
     }
@@ -502,6 +503,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         self.add(filter);
     }
 
+    /// Adds all of the accesses from the passed set to `self`.
     pub fn extend(&mut self, filtered_access_set: FilteredAccessSet<T>) {
         self.combined_access
             .extend(&filtered_access_set.combined_access);
@@ -509,6 +511,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
             .extend(filtered_access_set.filtered_accesses);
     }
 
+    /// Removes all accesses stored in this set.
     pub fn clear(&mut self) {
         self.combined_access.clear();
         self.filtered_accesses.clear();
