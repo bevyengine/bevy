@@ -162,6 +162,7 @@ impl<Param: SystemParam> SystemState<Param> {
         }
     }
 
+    /// Gets the metadata for this instance.
     #[inline]
     pub fn meta(&self) -> &SystemMeta {
         &self.meta
@@ -196,6 +197,8 @@ impl<Param: SystemParam> SystemState<Param> {
         Param::apply(&mut self.param_state, &self.meta, world);
     }
 
+    /// Returns `true` if `world` is the same one that was used to call [`SystemState::new`].
+    /// Otherwise, this returns false.
     #[inline]
     pub fn matches_world(&self, world: &World) -> bool {
         self.world_id == world.id()
