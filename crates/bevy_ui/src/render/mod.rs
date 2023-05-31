@@ -12,7 +12,7 @@ pub use render_pass::*;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
 };
-use crate::{CalculatedSize, Style, UiScale, Val};
+use crate::{ContentSize, Style, UiScale, Val};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -194,7 +194,7 @@ pub fn extract_uinode_borders(
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
             ),
-            Without<CalculatedSize>,
+            Without<ContentSize>,
         >,
     >,
     parent_node_query: Extract<Query<&Node, With<Parent>>>,

@@ -87,7 +87,8 @@ fn setup(mut commands: Commands) {
         let inner_spot = commands
             .spawn(NodeBundle {
                 style: Style {
-                    size: Size::all(Val::Px(10.)),
+                    width: Val::Px(10.),
+                    height: Val::Px(10.),
                     ..Default::default()
                 },
                 background_color: Color::YELLOW.into(),
@@ -97,7 +98,8 @@ fn setup(mut commands: Commands) {
         let bordered_node = commands
             .spawn(NodeBundle {
                 style: Style {
-                    size: Size::all(Val::Px(50.)),
+                    width: Val::Px(50.),
+                    height: Val::Px(50.),
                     border: borders[i % borders.len()],
                     margin: UiRect::all(Val::Px(2.)),
                     align_items: AlignItems::Center,
