@@ -44,6 +44,8 @@ use std::{
 pub struct ArchetypeRow(u32);
 
 impl ArchetypeRow {
+    /// Index indicating an invalid archetype row.
+    /// This is meant to be used as a placeholder.
     pub const INVALID: ArchetypeRow = ArchetypeRow(u32::MAX);
 
     /// Creates a `ArchetypeRow`.
@@ -349,6 +351,7 @@ impl Archetype {
         self.table_id
     }
 
+    /// Fetches the entities contained in this archetype.
     #[inline]
     pub fn entities(&self) -> &[ArchetypeEntity] {
         &self.entities
@@ -614,6 +617,7 @@ impl Archetypes {
         archetypes
     }
 
+    /// Returnss a value indicating the oldest archetype that currently exists.
     #[inline]
     pub fn generation(&self) -> ArchetypeGeneration {
         ArchetypeGeneration(self.archetypes.len())
