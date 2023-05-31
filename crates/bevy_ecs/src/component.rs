@@ -437,7 +437,7 @@ pub struct Components {
 impl Components {
     /// Initializes a component of type `T` with this instance.
     /// If a component of this type has already been initialized, this will return
-    /// the ID of the ID of the pre-existing component.
+    /// the ID of the pre-existing component.
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
@@ -587,7 +587,7 @@ impl Components {
 
     /// Initializes a [`Resource`] of type `T` with this instance.
     /// If a resource of this type has already been initialized, this will return
-    /// the ID of the ID of the pre-existing resource.
+    /// the ID of the pre-existing resource.
     #[inline]
     pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
@@ -600,7 +600,7 @@ impl Components {
 
     /// Initializes a [non-send resource](crate::system::NonSend) of type `T` with this instance.
     /// If a resource of this type has already been initialized, this will return
-    /// the ID of the ID of the pre-existing resource.
+    /// the ID of the pre-existing resource.
     #[inline]
     pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
