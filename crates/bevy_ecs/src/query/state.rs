@@ -346,8 +346,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`].
     /// Alternatively, call [`QueryState::get`] instead, which calls `update_archetypes` for you.
     ///
-    /// This can only be called for read-only queries, see [`Self::get_mut`]
-    /// or [`Self::get_unchecked_manual`] for write-queries.
+    /// This can only be called for read-only queries, see [`Self::get_mut`] for mutable queries.
     #[inline]
     pub fn get_manual<'w>(
         &self,
