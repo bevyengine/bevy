@@ -841,8 +841,10 @@ where
     }
 }
 
+/// A [`Command`] that spawns a new entity and adds the components in a [`Bundle`] to it.
 #[derive(Debug)]
 pub struct Spawn<T> {
+    /// The [`Bundle`] of components that will be added to the newly-spawned entity.
     pub bundle: T,
 }
 
@@ -899,6 +901,7 @@ where
     }
 }
 
+/// A [`Command`] that despawns a specific entity.
 #[derive(Debug)]
 pub struct Despawn {
     pub entity: Entity,
@@ -910,8 +913,11 @@ impl Command for Despawn {
     }
 }
 
+/// A [`Command`] that adds the components in a [`Bundle`] to an entity.
 pub struct Insert<T> {
+    /// The entity to which the components will be added.
     pub entity: Entity,
+    /// The [`Bundle`] containing the components that will be added to the entity.
     pub bundle: T,
 }
 
@@ -928,6 +934,9 @@ where
     }
 }
 
+/// A [`Command`] that removes components from an entity.
+/// For a [`Bundle`] type `T`, this will remove any components in the bundle.
+/// Any components in the bundle that aren't found on the entity will be ignored.
 #[derive(Debug)]
 pub struct Remove<T> {
     pub entity: Entity,
@@ -946,7 +955,7 @@ where
 }
 
 impl<T> Remove<T> {
-    /// Creates a [`Command`] which will remove the specified [`Entity`] when flushed
+    /// Creates a [`Command`] which will remove the specified [`Entity`] when applied.
     pub const fn new(entity: Entity) -> Self {
         Self {
             entity,
@@ -955,6 +964,8 @@ impl<T> Remove<T> {
     }
 }
 
+/// A [`Command`] that inserts a [`Resource`] into the world using a value
+/// created with the [`FromWorld`] trait.
 pub struct InitResource<R: Resource + FromWorld> {
     _marker: PhantomData<R>,
 }
@@ -974,6 +985,7 @@ impl<R: Resource + FromWorld> InitResource<R> {
     }
 }
 
+/// A [`Command`] that inserts a [`Resource`] into the world.
 pub struct InsertResource<R: Resource> {
     pub resource: R,
 }
@@ -984,6 +996,7 @@ impl<R: Resource> Command for InsertResource<R> {
     }
 }
 
+/// A [`Command`] that removes the [resource](Resource) `R` from the world.
 pub struct RemoveResource<R: Resource> {
     _marker: PhantomData<R>,
 }
