@@ -483,29 +483,28 @@ impl<P: Point> CubicCurve<P> {
         subdivisions: usize,
         mut sample_function: impl FnMut(&Self, f32) -> P + 'a,
     ) -> impl Iterator<Item = P> + 'a {
-        self.iter_samples_t(subdivisions)
+        self.iter_uniformly(subdivisions)
             .map(move |t| sample_function(self, t))
     }
 
-    /// Iterates over `subdivisions + 1` `t`s evenly spaced from the start of
-    /// the first curve segment to the end of the last segment.
+    /// An iterator that returns values of `t` uniformly spaced over `0..=subdivisions`.
     #[inline]
-    fn iter_samples_t(&self, subdivisions: usize) -> impl ExactSizeIterator<Item = f32> {
-        let segments = self.segment_count() as f32;
+    fn iter_uniformly(&self, subdivisions: usize) -> impl ExactSizeIterator<Item = f32> {
+        let segments = self.segments.len() as f32;
         let step = segments / subdivisions as f32;
         (0..subdivisions.saturating_add(1)).map(move |i| i as f32 * step)
     }
 
-    /// How many segments does this `CubicCurve` contain.
+    /// The list of segments contained in this `CubicCurve`.
     ///
     /// This spline's global `t` value is equal to how many segments it has.
     ///
-    /// All method accepting `t` on `CubicSpline` depends on the global `t`.
+    /// All method accepting `t` on `CubicCurve` depends on the global `t`.
     /// When sampling over the entire curve, you should either use one of the
-    /// `iter_*` methods or account for the segment count using this method.
+    /// `iter_*` methods or account for the segment count using `curve.segments().len()`.
     #[inline]
-    pub fn segment_count(&self) -> usize {
-        self.segments.len()
+    pub fn segments(&self) -> &[CubicSegment<P>] {
+        &self.segments
     }
 
     /// Iterate over the curve split into `subdivisions`, sampling the position at each step.
