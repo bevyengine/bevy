@@ -388,6 +388,9 @@ pub struct ScheduleGraph {
     read_system_sets: SparseSet<ComponentId, Vec<NodeId>>,
     write_system_sets: SparseSet<ComponentId, Vec<NodeId>>,
     uninit: Vec<PendingInit>,
+    /// Access sets that have to be checked against the systems that have already been
+    /// moved into the [`SystemSchedule`].
+    new_access_sets: Vec<AccessSet>,
     hierarchy: Dag,
     dependency: Dag,
     dependency_flattened: Dag,
@@ -408,6 +411,13 @@ enum PendingInit {
     AccessSet(usize),
 }
 
+struct AccessSet {
+    node: NodeId,
+    component: ComponentId,
+    reads: bool,
+    writes: bool,
+}
+
 impl ScheduleGraph {
     pub fn new() -> Self {
         Self {
@@ -419,6 +429,7 @@ impl ScheduleGraph {
             read_system_sets: SparseSet::new(),
             write_system_sets: SparseSet::new(),
             uninit: Vec::new(),
+            new_access_sets: Vec::new(),
             hierarchy: Dag::new(),
             dependency: Dag::new(),
             dependency_flattened: Dag::new(),
@@ -910,16 +921,28 @@ impl ScheduleGraph {
                         self.read_system_sets
                             .get_or_insert_with(component, Vec::new)
                             .push(id);
+
+                        // If true, that means there are old systems that need to be initialized.
+                        let mut init_old = false;
+
                         // Add any previously-added systems with read access to the set.
                         for (i, system) in self.systems.iter().enumerate() {
-                            // FIXME: This causes the `access_set_late_init` test to fail,
-                            // since any systems already in a schedule will be skipped here.
                             let Some(system) = &system.inner else {
+                                init_old = true;
                                 continue;
                             };
                             if system.component_access().has_granular_read_only(component) {
                                 self.hierarchy.graph.add_edge(id, NodeId::System(i), ());
                             }
+                        }
+
+                        if init_old {
+                            self.new_access_sets.push(AccessSet {
+                                node: id,
+                                component,
+                                reads: true,
+                                writes: false,
+                            });
                         }
                     }
                     if let Some(component) = set.writes_component() {
@@ -929,14 +952,28 @@ impl ScheduleGraph {
                         self.write_system_sets
                             .get_or_insert_with(component, Vec::new)
                             .push(id);
+
+                        // If true, that means there are old systems that need to be initialized.
+                        let mut init_old = false;
+
                         // Add any previously-added systems with write access to the set.
                         for (i, system) in self.systems.iter().enumerate() {
                             let Some(system) = &system.inner else {
+                                init_old = true;
                                 continue;
                             };
                             if system.component_access().has_write(component) {
                                 self.hierarchy.graph.add_edge(id, NodeId::System(i), ());
                             }
+                        }
+
+                        if init_old {
+                            self.new_access_sets.push(AccessSet {
+                                node: id,
+                                component,
+                                reads: false,
+                                writes: true,
+                            });
                         }
                     }
                 }
@@ -1276,6 +1313,21 @@ impl ScheduleGraph {
     ) -> Result<(), ScheduleBuildError> {
         if !self.uninit.is_empty() {
             return Err(ScheduleBuildError::Uninitialized);
+        }
+
+        // If any new access sets have been added, iterate over any systems in the old schedule
+        // to check if they should be added to the new sets.
+        for access_set in self.new_access_sets.drain(..) {
+            for (i, system) in &mut schedule.systems.iter_mut().enumerate() {
+                let system_access = system.component_access();
+                if access_set.reads && system_access.has_granular_read_only(access_set.component)
+                    || access_set.writes && system_access.has_write(access_set.component)
+                {
+                    self.hierarchy
+                        .graph
+                        .add_edge(access_set.node, NodeId::System(i), ());
+                }
+            }
         }
 
         // move systems out of old schedule
