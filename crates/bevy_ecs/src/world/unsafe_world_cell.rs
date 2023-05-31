@@ -14,7 +14,8 @@ use crate::{
     system::Resource,
 };
 use bevy_ptr::Ptr;
-use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData};
+use bevy_utils::syncunsafecell::SyncUnsafeCell;
+use std::any::TypeId;
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -71,24 +72,21 @@ use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData};
 /// }
 /// ```
 #[derive(Copy, Clone)]
-pub struct UnsafeWorldCell<'w>(*mut World, PhantomData<(&'w World, &'w UnsafeCell<World>)>);
-
-// SAFETY: `&World` and `&mut World` are both `Send`
-unsafe impl Send for UnsafeWorldCell<'_> {}
-// SAFETY: `&World` and `&mut World` are both `Sync`
-unsafe impl Sync for UnsafeWorldCell<'_> {}
+pub struct UnsafeWorldCell<'w>(&'w SyncUnsafeCell<World>);
 
 impl<'w> UnsafeWorldCell<'w> {
-    /// Creates a [`UnsafeWorldCell`] that can be used to access everything immutably
+    /// Creates an [`UnsafeWorldCell`] that can be used to access everything immutably.
     #[inline]
     pub(crate) fn new_readonly(world: &'w World) -> Self {
-        UnsafeWorldCell(world as *const World as *mut World, PhantomData)
+        // SAFETY: `SyncUnsafeCell<World>` has the same representation as `World`,
+        // so we can safely cast the latter to the former.
+        Self(unsafe { &*(world as *const _ as *const _) })
     }
 
-    /// Creates [`UnsafeWorldCell`] that can be used to access everything mutably
+    /// Creates an [`UnsafeWorldCell`] that can be used to access everything mutably.
     #[inline]
     pub(crate) fn new_mutable(world: &'w mut World) -> Self {
-        Self(world as *mut World, PhantomData)
+        Self(SyncUnsafeCell::from_mut(world))
     }
 
     /// Gets a mutable reference to the [`World`] this [`UnsafeWorldCell`] belongs to.
@@ -138,7 +136,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub unsafe fn world_mut(self) -> &'w mut World {
         // SAFETY:
         // - caller ensures the created `&mut World` is the only borrow of world
-        unsafe { &mut *self.0 }
+        unsafe { &mut *self.0.get() }
     }
 
     /// Gets a reference to the [`&World`](crate::world::World) this [`UnsafeWorldCell`] belongs to.
@@ -154,7 +152,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures there is no `&mut World` this makes it okay to make a `&World`
         // - caller ensures there is no mutable borrows of world data, this means the caller cannot
         //   misuse the returned `&World`
-        unsafe { &*self.0 }
+        unsafe { &*self.0.get() }
     }
 
     /// Gets a reference to the [`World`] this [`UnsafeWorldCell`] belong to.
@@ -187,7 +185,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - caller ensures that the returned `&World` is not used in a way that would conflict
         //   with any existing mutable borrows of world data
-        unsafe { &*self.0 }
+        unsafe { &*self.0.get() }
     }
 
     /// Retrieves this world's unique [ID](WorldId).
