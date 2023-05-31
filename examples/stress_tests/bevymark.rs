@@ -37,7 +37,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(LogDiagnosticsPlugin::default())
         .insert_resource(BevyCounter {
             count: 0,
