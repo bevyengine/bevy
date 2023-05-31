@@ -1,3 +1,5 @@
+//! Demonstrates different strategies that might be used to handle systems that could fail.
+
 use std::error::Error;
 
 use bevy_ecs::prelude::*;
