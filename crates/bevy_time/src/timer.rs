@@ -21,7 +21,7 @@ pub struct Timer {
 }
 
 /// Ensures that `duration` is never zero when being used in Timer. This simplifies edge cases
-/// and removes the need for repeated runtime checks for zero duration in `tick()`
+/// and removes the need for repeated runtime checks for zero duration in [Timer::tick](Timer::tick)
 #[derive(Clone, Debug, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[reflect(Default)]
@@ -38,6 +38,11 @@ impl Default for NonZeroDuration {
 }
 
 impl NonZeroDuration {
+    /// Creates a duration that is guaranteed to never be zero
+    ///
+    /// # Panics
+    ///
+    /// Panics if construction is attempted with a duration that is zero
     pub fn new(duration: Duration) -> Self {
         // Runtime Check
         if duration.is_zero() {
