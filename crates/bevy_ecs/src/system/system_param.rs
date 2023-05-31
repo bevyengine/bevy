@@ -1306,6 +1306,7 @@ pub struct SystemName<'s> {
 }
 
 impl<'s> SystemName<'s> {
+    /// Gets the name of the system.
     pub fn name(&self) -> &str {
         self.name
     }
