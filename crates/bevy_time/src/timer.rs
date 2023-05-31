@@ -600,7 +600,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn fail_me() {
+    fn zero_duration_nonzero_duration_panics() {
         let _zero_duration: NonZeroDuration = NonZeroDuration::new(Duration::new(0, 0));
     }
 
