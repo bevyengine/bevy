@@ -158,6 +158,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// Panics if `world` does not match the one used to call `QueryState::new` for this instance.
+    ///
+    /// Many unsafe query methods require the world to match for soundness. This function is the easiest
+    /// way of ensuring that it matches.
     #[inline]
     pub fn validate_world(&self, world: &World) {
         assert!(
@@ -337,6 +341,13 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// Gets the query result for the given [`World`] and [`Entity`].
+    /// This will only work for archetypes that this [`QueryState`] has in its cache.
+    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`].
+    /// Alternatively, call [`QueryState::get`] instead, which calls `update_archetypes` for you.
+    ///
+    /// This can only be called for read-only queries, see [`Self::get_mut`]
+    /// or [`Self::get_unchecked_manual`] for write-queries.
     #[inline]
     pub fn get_manual<'w>(
         &self,
