@@ -9,7 +9,7 @@ use crate::{
 };
 
 /// A variant of [`SingleThreadedExecutor`](crate::schedule::SingleThreadedExecutor) that calls
-/// [`apply_buffers`](crate::system::System::apply_buffers) immediately after running each system.
+/// [`apply_deferred`](crate::system::System::apply_deferred) immediately after running each system.
 #[derive(Default)]
 pub struct SimpleExecutor {
     /// Systems sets whose conditions have been evaluated.
@@ -89,7 +89,7 @@ impl SystemExecutor for SimpleExecutor {
                 std::panic::resume_unwind(payload);
             }
 
-            system.apply_buffers(world);
+            system.apply_deferred(world);
         }
 
         self.evaluated_sets.clear();

@@ -53,7 +53,7 @@ pub trait Command: Send + 'static {
 /// when the [`apply_deferred`] system runs.
 ///
 /// The command queue of an individual system can also be manually applied
-/// by calling [`System::apply_buffers`].
+/// by calling [`System::apply_deferred`].
 /// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_deferred`].
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
@@ -100,7 +100,7 @@ pub trait Command: Send + 'static {
 /// # }
 /// ```
 ///
-/// [`System::apply_buffers`]: crate::system::System::apply_buffers
+/// [`System::apply_deferred`]: crate::system::System::apply_deferred
 /// [`apply_deferred`]: crate::schedule::apply_deferred
 /// [`Schedule::apply_deferred`]: crate::schedule::Schedule::apply_deferred
 #[derive(SystemParam)]

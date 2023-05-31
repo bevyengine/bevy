@@ -297,7 +297,7 @@ impl Schedule {
     /// before applying their buffers in a different world.
     pub fn apply_deferred(&mut self, world: &mut World) {
         for system in &mut self.executable.systems {
-            system.apply_buffers(world);
+            system.apply_deferred(world);
         }
     }
 }

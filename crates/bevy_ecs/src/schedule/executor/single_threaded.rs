@@ -128,7 +128,7 @@ impl SingleThreadedExecutor {
     fn apply_deferred(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         for system_index in self.unapplied_systems.ones() {
             let system = &mut schedule.systems[system_index];
-            system.apply_buffers(world);
+            system.apply_deferred(world);
         }
 
         self.unapplied_systems.clear();

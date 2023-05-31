@@ -35,7 +35,7 @@ pub enum ExecutorKind {
     /// other things, or just trying minimize overhead.
     #[cfg_attr(target_arch = "wasm32", default)]
     SingleThreaded,
-    /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_buffers`](crate::system::System::apply_buffers)
+    /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
     /// immediately after running each system.
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
@@ -77,7 +77,7 @@ impl SystemSchedule {
     }
 }
 
-/// Instructs the executor to call [`apply_buffers`](crate::system::System::apply_buffers)
+/// Instructs the executor to call [`apply_deferred`](crate::system::System::apply_deferred)
 /// on the systems that have run but not applied their buffers.
 ///
 /// **Notes**

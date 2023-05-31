@@ -187,9 +187,9 @@ where
         )
     }
 
-    fn apply_buffers(&mut self, world: &mut World) {
-        self.a.apply_buffers(world);
-        self.b.apply_buffers(world);
+    fn apply_deferred(&mut self, world: &mut World) {
+        self.a.apply_deferred(world);
+        self.b.apply_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut World) {

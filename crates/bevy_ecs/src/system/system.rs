@@ -61,7 +61,7 @@ pub trait System: Send + Sync + 'static {
         // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world) }
     }
-    fn apply_buffers(&mut self, world: &mut World);
+    fn apply_deferred(&mut self, world: &mut World);
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
     /// Update the system's archetype component [`Access`].

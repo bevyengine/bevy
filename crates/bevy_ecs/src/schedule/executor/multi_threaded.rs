@@ -688,7 +688,7 @@ fn apply_deferred(
         // SAFETY: none of these systems are running, no other references exist
         let system = unsafe { &mut *systems[system_index].get() };
         let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-            system.apply_buffers(world);
+            system.apply_deferred(world);
         }));
         if let Err(payload) = res {
             eprintln!(
