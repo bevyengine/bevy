@@ -381,6 +381,14 @@ pub struct MapIter<'a> {
     pub(crate) index: usize,
 }
 
+impl<'a> MapIter<'a> {
+    /// Creates a new [`MapIter`].
+    #[inline]
+    pub const fn new(map: &'a dyn Map) -> MapIter {
+        MapIter { map, index: 0 }
+    }
+}
+
 impl<'a> Iterator for MapIter<'a> {
     type Item = (&'a dyn Reflect, &'a dyn Reflect);
 
