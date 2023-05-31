@@ -3,7 +3,7 @@ mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
-use bevy_render::{ExtractSchedule, Render, view};
+use bevy_render::{ExtractSchedule, Render};
 #[cfg(feature = "bevy_text")]
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
@@ -12,7 +12,7 @@ pub use render_pass::*;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
 };
-use crate::{ContentSize, Style, UiScale, Val};
+use crate::{ContentSize, Style, Val};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
