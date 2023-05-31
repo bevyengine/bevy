@@ -29,6 +29,10 @@ struct Args {
     #[arg(value_enum, short, long, default_value_t = Api::Webgl2)]
     /// Browser API to use for rendering
     api: Api,
+
+    #[arg(short, long)]
+    /// Optimize the wasm file for size with wasm-opt
+    optimize_size: bool,
 }
 
 fn main() {
@@ -89,7 +93,7 @@ fn main() {
         }
         let mut cmd = cmd!(
             sh,
-            "cargo build {parameters...} --release --target wasm32-unknown-unknown --example {example}"
+            "cargo build {parameters...} --profile release --target wasm32-unknown-unknown --example {example}"
         );
         if matches!(cli.api, Api::Webgpu) {
             cmd = cmd.env("RUSTFLAGS", "--cfg=web_sys_unstable_apis");
@@ -102,6 +106,11 @@ fn main() {
         )
         .run()
         .expect("Error creating wasm binding");
+
+        if cli.optimize_size {
+            cmd!(sh, "wasm-opt -Oz --output examples/wasm/target/wasm_example_bg.wasm.optimized examples/wasm/target/wasm_example_bg.wasm")
+                .run().expect("Failed to optimize for size. Do you have wasm-opt corretly set up?");
+        }
 
         if cli.test {
             let _dir = sh.push_dir(".github/start-wasm-example");
