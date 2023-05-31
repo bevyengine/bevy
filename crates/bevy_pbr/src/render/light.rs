@@ -829,7 +829,7 @@ pub fn prepare_lights(
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
             position_radius: light.transform.translation().extend(light.radius),
-            flags: flags.bits,
+            flags: flags.bits(),
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
             spot_light_tan_angle,
@@ -876,7 +876,7 @@ pub fn prepare_lights(
             color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * intensity,
             // direction is negated to be ready for N.L
             dir_to_light: light.transform.back(),
-            flags: flags.bits,
+            flags: flags.bits(),
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
             num_cascades: num_cascades as u32,
