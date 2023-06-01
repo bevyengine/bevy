@@ -4,7 +4,7 @@
 use crate::{Asset, AssetEvent, AssetServer, Handle};
 use bevy_ecs::{
     archetype::ArchetypeComponentId, component::ComponentId, event::ManualEventReader, prelude::*,
-    query::Access,
+    query::Access, world::unsafe_world_cell::UnsafeWorldCell,
 };
 use std::any::TypeId;
 
@@ -103,13 +103,13 @@ impl<A: Asset + FromWorld + Clone, S: IntoSystem<A, (), Marker> + 'static, Marke
         false
     }
 
-    unsafe fn run_unsafe(&mut self, _input: Self::In, world: &World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, _input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         if self.loaded {
             return;
         }
         for event in self
             .event_reader
-            .iter(world.resource::<Events<AssetEvent<A>>>())
+            .iter(world.get_resource::<Events<AssetEvent<A>>>().unwrap())
         {
             if event.is_loaded_with_dependencies(self.handle.as_ref().unwrap()) {
                 self.loaded = true;
@@ -142,7 +142,7 @@ impl<A: Asset + FromWorld + Clone, S: IntoSystem<A, (), Marker> + 'static, Marke
         self.system.initialize(world);
     }
 
-    fn update_archetype_component_access(&mut self, world: &World) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         self.system.update_archetype_component_access(world);
         self.archetype_component_access
             .extend(self.system.archetype_component_access());

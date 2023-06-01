@@ -38,9 +38,6 @@ pub fn remove_dropped_font_atlas_sets(
 
 pub struct FontAtlasSet {
     font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
-    // TODO unused, remove
-    #[allow(dead_code)]
-    queue: Vec<FontSizeKey>,
 }
 
 #[derive(Debug, Clone)]
@@ -53,7 +50,6 @@ impl Default for FontAtlasSet {
     fn default() -> Self {
         FontAtlasSet {
             font_atlases: HashMap::with_capacity_and_hasher(1, Default::default()),
-            queue: Vec::new(),
         }
     }
 }

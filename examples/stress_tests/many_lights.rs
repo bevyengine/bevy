@@ -24,7 +24,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_light_count))

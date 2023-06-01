@@ -9,11 +9,6 @@ const LOOP_LENGTH: f32 = 4.0;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // TODO: Remove once #8144 is fixed
-        .insert_resource(GizmoConfig {
-            enabled: false,
-            ..default()
-        })
         .insert_resource(AnimationState {
             playing: false,
             paused_at: 0.0,

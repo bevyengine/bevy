@@ -25,7 +25,7 @@ use futures_lite::{AsyncReadExt, AsyncWriteExt, FutureExt, StreamExt};
 use parking_lot::RwLock;
 use std::{
     collections::VecDeque,
-    hash::{Hash, Hasher},
+    hash::{BuildHasher, Hash, Hasher},
     path::{Path, PathBuf},
     sync::Arc,
     time::Instant,
@@ -632,10 +632,9 @@ impl AssetProcessor {
     }
     /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
     fn get_hasher() -> bevy_utils::AHasher {
-        bevy_utils::AHasher::new_with_keys(
-            315266772046776459041028670939089038334,
-            325180381366804243855319169815293592503,
-        )
+        // TODO: we probably want to swap out AHash here as these are not guaranteed to be stable across versions or architectures
+        // https://github.com/tkaitchuck/aHash/issues/132
+        bevy_utils::RandomState::with_seed(3152667720467764590).build_hasher()
     }
 }
 

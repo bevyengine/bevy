@@ -1,12 +1,11 @@
 use bevy_reflect::{
     FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
 };
-use bevy_utils::AHasher;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     fmt::{Debug, Display},
-    hash::{Hash, Hasher},
+    hash::Hash,
     path::{Path, PathBuf},
 };
 
@@ -51,12 +50,6 @@ impl<'a> AssetPath<'a> {
             path: Cow::Owned(path),
             label: label.map(Cow::Owned),
         }
-    }
-
-    /// Constructs an identifier from this asset path.
-    #[inline]
-    pub fn get_id(&self) -> AssetPathId {
-        AssetPathId::from(self)
     }
 
     /// Gets the sub-asset label.
@@ -120,94 +113,6 @@ impl<'a> AssetPath<'a> {
                 None
             }
         })
-    }
-}
-
-/// An unique identifier to an asset path.
-#[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
-)]
-#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
-pub struct AssetPathId(SourcePathId, LabelId);
-
-/// An unique identifier to the source path of an asset.
-#[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
-)]
-#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
-pub struct SourcePathId(u64);
-
-/// An unique identifier to a sub-asset label.
-#[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
-)]
-#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
-pub struct LabelId(u64);
-
-impl<'a> From<&'a Path> for SourcePathId {
-    fn from(value: &'a Path) -> Self {
-        let mut hasher = get_hasher();
-        value.hash(&mut hasher);
-        SourcePathId(hasher.finish())
-    }
-}
-
-impl From<AssetPathId> for SourcePathId {
-    fn from(id: AssetPathId) -> Self {
-        id.source_path_id()
-    }
-}
-
-impl<'a> From<AssetPath<'a>> for SourcePathId {
-    fn from(path: AssetPath) -> Self {
-        AssetPathId::from(path).source_path_id()
-    }
-}
-
-impl<'a> From<Option<&'a str>> for LabelId {
-    fn from(value: Option<&'a str>) -> Self {
-        let mut hasher = get_hasher();
-        value.hash(&mut hasher);
-        LabelId(hasher.finish())
-    }
-}
-
-impl AssetPathId {
-    /// Gets the id of the source path.
-    pub fn source_path_id(&self) -> SourcePathId {
-        self.0
-    }
-
-    /// Gets the id of the sub-asset label.
-    pub fn label_id(&self) -> LabelId {
-        self.1
-    }
-}
-
-/// this hasher provides consistent results across runs
-pub(crate) fn get_hasher() -> AHasher {
-    AHasher::new_with_keys(42, 23)
-}
-
-impl<'a, T> From<T> for AssetPathId
-where
-    T: Into<AssetPath<'a>>,
-{
-    fn from(value: T) -> Self {
-        let asset_path: AssetPath = value.into();
-        AssetPathId(
-            SourcePathId::from(asset_path.path()),
-            LabelId::from(asset_path.label()),
-        )
-    }
-}
-
-impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPathId {
-    fn from(asset_path: &'a AssetPath<'b>) -> Self {
-        AssetPathId(
-            SourcePathId::from(asset_path.path()),
-            LabelId::from(asset_path.label()),
-        )
     }
 }
 

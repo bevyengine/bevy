@@ -245,10 +245,7 @@ impl Map for DynamicMap {
     }
 
     fn iter(&self) -> MapIter {
-        MapIter {
-            map: self,
-            index: 0,
-        }
+        MapIter::new(self)
     }
 
     fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)> {
@@ -377,8 +374,16 @@ impl Debug for DynamicMap {
 
 /// An iterator over the key-value pairs of a [`Map`].
 pub struct MapIter<'a> {
-    pub(crate) map: &'a dyn Map,
-    pub(crate) index: usize,
+    map: &'a dyn Map,
+    index: usize,
+}
+
+impl<'a> MapIter<'a> {
+    /// Creates a new [`MapIter`].
+    #[inline]
+    pub const fn new(map: &'a dyn Map) -> MapIter {
+        MapIter { map, index: 0 }
+    }
 }
 
 impl<'a> Iterator for MapIter<'a> {
