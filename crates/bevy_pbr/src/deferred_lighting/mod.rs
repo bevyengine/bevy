@@ -205,6 +205,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             }
         }
 
+        if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
+            shader_defs.push("ENVIRONMENT_MAP".into());
+        }
+
         shader_defs.push(ShaderDefVal::UInt(
             "MAX_DIRECTIONAL_LIGHTS".to_string(),
             MAX_DIRECTIONAL_LIGHTS as u32,
@@ -268,11 +272,13 @@ pub fn prepare_deferred_lighting_pipelines(
             &ExtractedView,
             Option<&Tonemapping>,
             Option<&DebandDither>,
+            Option<&EnvironmentMapLight>,
         ),
         With<DeferredPrepass>,
     >,
+    images: Res<RenderAssets<Image>>,
 ) {
-    for (entity, view, tonemapping, dither) in &views {
+    for (entity, view, tonemapping, dither, environment_map) in &views {
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
 
         if !view.hdr {
@@ -296,6 +302,14 @@ pub fn prepare_deferred_lighting_pipelines(
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
+        }
+
+        let environment_map_loaded = match environment_map {
+            Some(environment_map) => environment_map.is_loaded(&images),
+            None => false,
+        };
+        if environment_map_loaded {
+            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
 
         let pipeline_id =

@@ -85,17 +85,18 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let depth = prepass_depth(in.position, 0u);
     let frag_coord = vec4(in.position.xy, depth, 0.0);
 
-    let world_position = position_ndc_to_world(frag_coord_to_ndc(frag_coord));
+    let world_position = vec4(position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);
     
     let is_orthographic = view.projection[3].w == 1.0;
     
-    let V = calculate_view(vec4(world_position, 0.0), is_orthographic);
+    let V = calculate_view(world_position, is_orthographic);
 
     let deferred_data = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
 
     let base_color = unpack4x8unorm(deferred_data.r);
     let emissive = unpack4x8unorm(deferred_data.g);
     let misc = unpack4x8unorm(deferred_data.b);
+    let flags = deferred_data.a;
     let metallic = misc.r;
     let perceptual_roughness = misc.g;
     let occlusion = misc.b;
@@ -103,6 +104,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
 
     var pbr_input = pbr_input_new();
+    pbr_input.flags = flags;
 
     pbr_input.material.base_color = base_color;
     pbr_input.material.emissive = emissive;
@@ -117,11 +119,10 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     pbr_input.frag_coord = frag_coord;
     pbr_input.world_normal = prepass_normal(frag_coord, 0u);
-    pbr_input.world_position = vec4(world_position, 0.0);
+    pbr_input.world_position = world_position;
     pbr_input.N = pbr_input.world_normal;
     pbr_input.V = V;
     pbr_input.is_orthographic = is_orthographic;
-
     
     var output_color = pbr(pbr_input);
 
@@ -141,7 +142,6 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     output_color = premultiply_alpha(material.flags, output_color);
 #endif
 
-
-    return output_color;//textureSample(screen_texture, texture_sampler, in.uv);
+    return output_color;
 }
 

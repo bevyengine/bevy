@@ -164,7 +164,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
         pack4x8unorm(output_color),
         pack4x8unorm(vec4(emissive, 0.0)),
         pack4x8unorm(vec4(metallic, perceptual_roughness, occlusion, reflectance)),
-        pack4x8unorm(vec4(0.0)),
+        material.flags,
     );
 #endif // DEFERRED_PREPASS
 
