@@ -726,7 +726,7 @@ path = "examples/3d/wireframe.rs"
 name = "Wireframe"
 description = "Showcases wireframe rendering"
 category = "3D Rendering"
-wasm = true
+wasm = false
 
 [[example]]
 name = "no_prepass"

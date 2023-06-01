@@ -21,7 +21,7 @@ use crate::{
         is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
     system::BoxedSystem,
-    world::World,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
 use crate as bevy_ecs;
@@ -184,7 +184,6 @@ impl SystemExecutor for MultiThreadedExecutor {
             .map(|e| e.0.clone());
         let thread_executor = thread_executor.as_deref();
 
-        let world = SyncUnsafeCell::from_mut(world);
         let SyncUnsafeSchedule {
             systems,
             mut conditions,
@@ -197,10 +196,13 @@ impl SystemExecutor for MultiThreadedExecutor {
                 // the executor itself is a `Send` future so that it can run
                 // alongside systems that claim the local thread
                 let executor = async {
+                    let world_cell = world.as_unsafe_world_cell();
                     while self.num_completed_systems < self.num_systems {
-                        // SAFETY: self.ready_systems does not contain running systems
+                        // SAFETY:
+                        // - self.ready_systems does not contain running systems.
+                        // - `world_cell` has mutable access to the entire world.
                         unsafe {
-                            self.spawn_system_tasks(scope, systems, &mut conditions, world);
+                            self.spawn_system_tasks(scope, systems, &mut conditions, world_cell);
                         }
 
                         if self.num_running_systems > 0 {
@@ -231,7 +233,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         if self.apply_final_buffers {
             // Do one final apply buffers after all systems have completed
             // Commands should be applied while on the scope's thread, not the executor's thread
-            let res = apply_system_buffers(&self.unapplied_systems, systems, world.get_mut());
+            let res = apply_system_buffers(&self.unapplied_systems, systems, world);
             if let Err(payload) = res {
                 let mut panic_payload = self.panic_payload.lock().unwrap();
                 *panic_payload = Some(payload);
@@ -283,14 +285,16 @@ impl MultiThreadedExecutor {
     }
 
     /// # Safety
-    /// Caller must ensure that `self.ready_systems` does not contain any systems that
-    /// have been mutably borrowed (such as the systems currently running).
+    /// - Caller must ensure that `self.ready_systems` does not contain any systems that
+    ///   have been mutably borrowed (such as the systems currently running).
+    /// - `world_cell` must have permission to access all world data (not counting
+    ///   any world data that is claimed by systems currently running on this executor).
     unsafe fn spawn_system_tasks<'scope>(
         &mut self,
         scope: &Scope<'_, 'scope, ()>,
         systems: &'scope [SyncUnsafeCell<BoxedSystem>],
         conditions: &mut Conditions,
-        cell: &'scope SyncUnsafeCell<World>,
+        world_cell: UnsafeWorldCell<'scope>,
     ) {
         if self.exclusive_running {
             return;
@@ -307,10 +311,7 @@ impl MultiThreadedExecutor {
             // Therefore, no other reference to this system exists and there is no aliasing.
             let system = unsafe { &mut *systems[system_index].get() };
 
-            // SAFETY: No exclusive system is running.
-            // Therefore, there is no existing mutable reference to the world.
-            let world = unsafe { &*cell.get() };
-            if !self.can_run(system_index, system, conditions, world) {
+            if !self.can_run(system_index, system, conditions, world_cell) {
                 // NOTE: exclusive systems with ambiguities are susceptible to
                 // being significantly displaced here (compared to single-threaded order)
                 // if systems after them in topological order can run
@@ -320,9 +321,10 @@ impl MultiThreadedExecutor {
 
             self.ready_systems.set(system_index, false);
 
-            // SAFETY: Since `self.can_run` returned true earlier, it must have called
-            // `update_archetype_component_access` for each run condition.
-            if !self.should_run(system_index, system, conditions, world) {
+            // SAFETY: `can_run` returned true, which means that:
+            // - It must have called `update_archetype_component_access` for each run condition.
+            // - There can be no systems running whose accesses would conflict with any conditions.
+            if !self.should_run(system_index, system, conditions, world_cell) {
                 self.skip_system_and_signal_dependents(system_index);
                 continue;
             }
@@ -331,10 +333,12 @@ impl MultiThreadedExecutor {
             self.num_running_systems += 1;
 
             if self.system_task_metadata[system_index].is_exclusive {
-                // SAFETY: `can_run` confirmed that no systems are running.
-                // Therefore, there is no existing reference to the world.
+                // SAFETY: `can_run` returned true for this system, which means
+                // that no other systems currently have access to the world.
+                let world = unsafe { world_cell.world_mut() };
+                // SAFETY: `can_run` returned true for this system,
+                // which means no systems are currently borrowed.
                 unsafe {
-                    let world = &mut *cell.get();
                     self.spawn_exclusive_system_task(scope, system_index, systems, world);
                 }
                 break;
@@ -342,9 +346,10 @@ impl MultiThreadedExecutor {
 
             // SAFETY:
             // - No other reference to this system exists.
-            // - `self.can_run` has been called, which calls `update_archetype_component_access` with this system.
+            // - `can_run` has been called, which calls `update_archetype_component_access` with this system.
+            // - `can_run` returned true, so no systems with conflicting world access are running.
             unsafe {
-                self.spawn_system_task(scope, system_index, systems, world);
+                self.spawn_system_task(scope, system_index, systems, world_cell);
             }
         }
 
@@ -357,7 +362,7 @@ impl MultiThreadedExecutor {
         system_index: usize,
         system: &mut BoxedSystem,
         conditions: &mut Conditions,
-        world: &World,
+        world: UnsafeWorldCell,
     ) -> bool {
         let system_meta = &self.system_task_metadata[system_index];
         if system_meta.is_exclusive && self.num_running_systems > 0 {
@@ -413,15 +418,17 @@ impl MultiThreadedExecutor {
     }
 
     /// # Safety
-    ///
-    /// `update_archetype_component` must have been called with `world`
-    /// for each run condition in `conditions`.
+    /// * `world` must have permission to read any world data required by
+    ///   the system's conditions: this includes conditions for the system
+    ///   itself, and conditions for any of the system's sets.
+    /// * `update_archetype_component` must have been called with `world`
+    ///   for each run condition in `conditions`.
     unsafe fn should_run(
         &mut self,
         system_index: usize,
         _system: &BoxedSystem,
         conditions: &mut Conditions,
-        world: &World,
+        world: UnsafeWorldCell,
     ) -> bool {
         let mut should_run = !self.skipped_systems.contains(system_index);
         for set_idx in conditions.sets_with_conditions_of_systems[system_index].ones() {
@@ -430,7 +437,10 @@ impl MultiThreadedExecutor {
             }
 
             // Evaluate the system set's conditions.
-            // SAFETY: `update_archetype_component_access` has been called for each run condition.
+            // SAFETY:
+            // - The caller ensures that `world` has permission to read any data
+            //   required by the conditions.
+            // - `update_archetype_component_access` has been called for each run condition.
             let set_conditions_met =
                 evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world);
 
@@ -444,7 +454,10 @@ impl MultiThreadedExecutor {
         }
 
         // Evaluate the system's conditions.
-        // SAFETY: `update_archetype_component_access` has been called for each run condition.
+        // SAFETY:
+        // - The caller ensures that `world` has permission to read any data
+        //   required by the conditions.
+        // - `update_archetype_component_access` has been called for each run condition.
         let system_conditions_met =
             evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world);
 
@@ -459,6 +472,8 @@ impl MultiThreadedExecutor {
 
     /// # Safety
     /// - Caller must not alias systems that are running.
+    /// - `world` must have permission to access the world data
+    ///   used by the specified system.
     /// - `update_archetype_component_access` must have been called with `world`
     ///   on the system assocaited with `system_index`.
     unsafe fn spawn_system_task<'scope>(
@@ -466,7 +481,7 @@ impl MultiThreadedExecutor {
         scope: &Scope<'_, 'scope, ()>,
         system_index: usize,
         systems: &'scope [SyncUnsafeCell<BoxedSystem>],
-        world: &'scope World,
+        world: UnsafeWorldCell<'scope>,
     ) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *systems[system_index].get() };
@@ -483,7 +498,8 @@ impl MultiThreadedExecutor {
             let system_guard = system_span.enter();
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                 // SAFETY:
-                // - Access: TODO.
+                // - The caller ensures that we have permission to
+                // access the world data used by the system.
                 // - `update_archetype_component_access` has been called.
                 unsafe { system.run_unsafe((), world) };
             }));
@@ -688,10 +704,14 @@ fn apply_system_buffers(
 }
 
 /// # Safety
-///
-/// `update_archetype_component_access` must have been called
-/// with `world` for each condition in `conditions`.
-unsafe fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World) -> bool {
+/// - `world` must have permission to read any world data
+///   required by `conditions`.
+/// - `update_archetype_component_access` must have been called
+///   with `world` for each condition in `conditions`.
+unsafe fn evaluate_and_fold_conditions(
+    conditions: &mut [BoxedCondition],
+    world: UnsafeWorldCell,
+) -> bool {
     // not short-circuiting is intentional
     #[allow(clippy::unnecessary_fold)]
     conditions
@@ -699,7 +719,8 @@ unsafe fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world:
         .map(|condition| {
             #[cfg(feature = "trace")]
             let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-            // SAFETY: caller ensures system access is compatible
+            // SAFETY: The caller ensures that `world` has permission to
+            // access any data required by the condition.
             unsafe { condition.run_unsafe((), world) }
         })
         .fold(true, |acc, res| acc && res)

@@ -377,7 +377,7 @@ pub fn prepare_windows(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: surface_configuration.format,
+                format: surface_configuration.format.add_srgb_suffix(),
                 usage: TextureUsages::RENDER_ATTACHMENT
                     | TextureUsages::COPY_SRC
                     | TextureUsages::TEXTURE_BINDING,

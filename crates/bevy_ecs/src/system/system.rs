@@ -2,6 +2,7 @@ use bevy_utils::tracing::warn;
 use core::fmt::Debug;
 
 use crate::component::Tick;
+use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
 
 use std::any::TypeId;
@@ -39,26 +40,24 @@ pub trait System: Send + Sync + 'static {
     fn is_exclusive(&self) -> bool;
 
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
-    /// takes a shared reference to [`World`] and may therefore break Rust's aliasing rules, making
-    /// it unsafe to call.
+    /// can be called in parallel with other systems and may break Rust's aliasing rules
+    /// if used incorrectly, making it unsafe to call.
     ///
     /// # Safety
     ///
-    /// This might access world and resources in an unsafe manner. This should only be called in one
-    /// of the following contexts:
-    ///     1. This system is the only system running on the given world across all threads.
-    ///     2. This system only runs in parallel with other systems that do not conflict with the
-    ///        [`System::archetype_component_access()`].
-    ///
-    /// Additionally, the method [`Self::update_archetype_component_access`] must be called at some
-    /// point before this one, with the same exact [`World`]. If `update_archetype_component_access`
-    /// panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out;
+    /// - The caller must ensure that `world` has permission to access any world data
+    ///   registered in [`Self::archetype_component_access`]. There must be no conflicting
+    ///   simultaneous accesses while the system is running.
+    /// - The method [`Self::update_archetype_component_access`] must be called at some
+    ///   point before this one, with the same exact [`World`]. If `update_archetype_component_access`
+    ///   panics (or otherwise does not return for any reason), this method must not be called.
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out;
     /// Runs the system with the given input in the world.
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        let world = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world);
         // SAFETY:
-        // - World and resources are exclusively borrowed, which ensures no data access conflicts.
+        // - We have exclusive access to the entire world.
         // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world) }
     }
@@ -66,7 +65,11 @@ pub trait System: Send + Sync + 'static {
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
     /// Update the system's archetype component [`Access`].
-    fn update_archetype_component_access(&mut self, world: &World);
+    ///
+    /// ## Note for implementors
+    /// `world` may only be used to access metadata. This can be done in safe code
+    /// via functions such as [`UnsafeWorldCell::archetypes`].
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell);
     fn check_change_tick(&mut self, change_tick: Tick);
     /// Returns the system's default [system sets](crate::schedule::SystemSet).
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {

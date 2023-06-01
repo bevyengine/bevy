@@ -1,6 +1,6 @@
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use super::{Mut, World};
+use super::{Mut, World, WorldId};
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, Archetypes},
     bundle::Bundles,
@@ -188,6 +188,14 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures that the returned `&World` is not used in a way that would conflict
         //   with any existing mutable borrows of world data
         unsafe { &*self.0 }
+    }
+
+    /// Retrieves this world's unique [ID](WorldId).
+    #[inline]
+    pub fn id(self) -> WorldId {
+        // SAFETY:
+        // - we only access world metadata
+        unsafe { self.world_metadata() }.id()
     }
 
     /// Retrieves this world's [Entities] collection

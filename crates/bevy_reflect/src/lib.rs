@@ -752,6 +752,39 @@ mod tests {
     }
 
     #[test]
+    fn from_reflect_should_use_default_variant_field_attributes() {
+        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        enum MyEnum {
+            Foo(#[reflect(default)] String),
+            Bar {
+                #[reflect(default = "get_baz_default")]
+                #[reflect(ignore)]
+                baz: usize,
+            },
+        }
+
+        fn get_baz_default() -> usize {
+            123
+        }
+
+        let expected = MyEnum::Foo(String::default());
+
+        let dyn_enum = DynamicEnum::new("Foo", DynamicTuple::default());
+        let my_enum = <MyEnum as FromReflect>::from_reflect(&dyn_enum);
+
+        assert_eq!(Some(expected), my_enum);
+
+        let expected = MyEnum::Bar {
+            baz: get_baz_default(),
+        };
+
+        let dyn_enum = DynamicEnum::new("Bar", DynamicStruct::default());
+        let my_enum = <MyEnum as FromReflect>::from_reflect(&dyn_enum);
+
+        assert_eq!(Some(expected), my_enum);
+    }
+
+    #[test]
     fn from_reflect_should_use_default_container_attribute() {
         #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
         #[reflect(Default)]
