@@ -48,7 +48,7 @@ use std::any::TypeId;
 //     }
 // }
 
-pub fn on_loaded<'a, A: Asset + FromWorld + Clone, Marker, S: IntoSystem<A, (), Marker>>(
+pub fn on_loaded<A: Asset + FromWorld + Clone, Marker, S: IntoSystem<A, (), Marker>>(
     system: S,
 ) -> OnLoadedSystem<A, S, Marker> {
     OnLoadedSystem {
@@ -145,7 +145,7 @@ impl<A: Asset + FromWorld + Clone, S: IntoSystem<A, (), Marker> + 'static, Marke
     fn update_archetype_component_access(&mut self, world: &World) {
         self.system.update_archetype_component_access(world);
         self.archetype_component_access
-            .extend(self.system.archetype_component_access())
+            .extend(self.system.archetype_component_access());
     }
 
     fn check_change_tick(&mut self, change_tick: bevy_ecs::component::Tick) {
@@ -157,6 +157,6 @@ impl<A: Asset + FromWorld + Clone, S: IntoSystem<A, (), Marker> + 'static, Marke
     }
 
     fn set_last_run(&mut self, last_run: bevy_ecs::component::Tick) {
-        self.system.set_last_run(last_run)
+        self.system.set_last_run(last_run);
     }
 }

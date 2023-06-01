@@ -9,7 +9,7 @@ use std::{
     sync::Arc,
 };
 
-/// Provides [Handle] and [UntypedHandle] _for a specific asset type_
+/// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_
 /// This should _only_ be used for one specific asset type
 #[derive(Clone)]
 pub struct AssetHandleProvider {
@@ -284,7 +284,7 @@ impl UntypedHandle {
         }
     }
 
-    /// Converts to a typed Handle. This will panic if the internal TypeId does not match the given asset type `A`
+    /// Converts to a typed Handle. This will panic if the internal [`TypeId`] does not match the given asset type `A`
     #[inline]
     pub fn typed<A: Asset>(self) -> Handle<A> {
         assert_eq!(

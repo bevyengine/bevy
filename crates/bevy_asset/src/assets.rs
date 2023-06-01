@@ -112,6 +112,10 @@ impl<A: Asset> DenseAssetStorage<A> {
         self.len as usize
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// Insert the value at the given index. Returns true if a value already exists (and was replaced)
     pub fn insert(&mut self, index: AssetIndex, asset: A) -> bool {
         self.flush();
@@ -316,11 +320,14 @@ impl<A: Asset> Assets<A> {
     /// Removes the value without emitting events
     pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
-        let result = match id {
+        match id {
             AssetId::Index { index, .. } => self.dense_storage.remove(index),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
-        };
-        result
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.dense_storage.is_empty() && self.hash_map.is_empty()
     }
 
     pub fn len(&self) -> usize {
@@ -363,8 +370,7 @@ impl<A: Asset> Assets<A> {
                             index: i as u32,
                         },
                         marker: PhantomData,
-                    }
-                    .into();
+                    };
                     (id, v)
                 }),
             })
@@ -429,7 +435,7 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
     type Item = (AssetId<A>, &'a mut A);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((i, entry)) = self.dense_storage.next() {
+        for (i, entry) in &mut self.dense_storage {
             match entry {
                 Entry::None => {
                     continue;
@@ -441,13 +447,10 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
                             index: i as u32,
                         },
                         marker: PhantomData,
-                    }
-                    .into();
+                    };
                     self.queued_events.push(AssetEvent::Modified { id });
                     if let Some(value) = value {
                         return Some((id, value));
-                    } else {
-                        continue;
                     }
                 }
             }
@@ -455,7 +458,7 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
         if let Some((key, value)) = self.hash_map.next() {
             let id = AssetId::Uuid { uuid: *key };
             self.queued_events.push(AssetEvent::Modified { id });
-            return Some((id, value));
+            Some((id, value))
         } else {
             None
         }

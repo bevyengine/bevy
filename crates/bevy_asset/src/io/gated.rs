@@ -31,7 +31,7 @@ impl GateOpener {
         let mut gates = self.gates.write();
         let gates = gates
             .entry(path.as_ref().to_path_buf())
-            .or_insert_with(|| crossbeam_channel::unbounded());
+            .or_insert_with(crossbeam_channel::unbounded);
         gates.0.send(()).unwrap();
     }
 }
@@ -58,11 +58,11 @@ impl<R: AssetReader> AssetReader for GatedReader<R> {
             let mut gates = self.gates.write();
             let gates = gates
                 .entry(path.to_path_buf())
-                .or_insert_with(|| crossbeam_channel::unbounded());
+                .or_insert_with(crossbeam_channel::unbounded);
             gates.1.clone()
         };
         Box::pin(async move {
-            let _ = receiver.recv().unwrap();
+            receiver.recv().unwrap();
             let result = self.reader.read(path).await?;
             Ok(result)
         })

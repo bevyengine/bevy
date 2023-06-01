@@ -72,10 +72,10 @@ impl<A: Asset> Clone for AssetId<A> {
     fn clone(&self) -> Self {
         match self {
             Self::Index { index, .. } => Self::Index {
-                index: index.clone(),
+                index: *index,
                 marker: PhantomData,
             },
-            Self::Uuid { uuid } => Self::Uuid { uuid: uuid.clone() },
+            Self::Uuid { uuid } => Self::Uuid { uuid: *uuid },
         }
     }
 }
@@ -132,7 +132,7 @@ impl<A: Asset> Debug for AssetId<A> {
 impl<A: Asset> Hash for AssetId<A> {
     #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.internal().hash(state)
+        self.internal().hash(state);
     }
 }
 
@@ -278,8 +278,9 @@ impl UntypedAssetId {
     #[inline]
     pub fn type_id(&self) -> TypeId {
         match self {
-            UntypedAssetId::Index { type_id, .. } => *type_id,
-            UntypedAssetId::Uuid { type_id, .. } => *type_id,
+            UntypedAssetId::Index { type_id, .. } | UntypedAssetId::Uuid { type_id, .. } => {
+                *type_id
+            }
         }
     }
 }
@@ -328,10 +329,10 @@ impl<A: Asset> From<&Handle<A>> for UntypedAssetId {
 
 /// An asset id without static or dynamic types associated with it.
 /// This exist to support efficient type erased id drop tracking. We
-/// could use [`UntypedAssetId`] for this, but the TypeId is unnecessary.
+/// could use [`UntypedAssetId`] for this, but the [`TypeId`] is unnecessary.
 ///
 /// Do not _ever_ use this across asset types for comparison.
-/// InternalAssetId contains no type information and will happily collide
+/// [`InternalAssetId`] contains no type information and will happily collide
 /// with indices across types.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub(crate) enum InternalAssetId {

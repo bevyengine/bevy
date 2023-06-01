@@ -99,11 +99,11 @@ impl AssetPlugin {
         match &mut self {
             AssetPlugin::Unprocessed {
                 watch_for_changes, ..
-            } => *watch_for_changes = true,
-            AssetPlugin::Processed {
+            }
+            | AssetPlugin::Processed {
                 watch_for_changes, ..
-            } => *watch_for_changes = true,
-            AssetPlugin::ProcessedDev {
+            }
+            | AssetPlugin::ProcessedDev {
                 watch_for_changes, ..
             } => *watch_for_changes = true,
         };
@@ -142,7 +142,7 @@ impl Plugin for AssetPlugin {
                     watch_for_changes,
                 } => {
                     let mut asset_providers = app.world.resource_mut::<AssetProviders>();
-                    let processor = AssetProcessor::new(&mut *asset_providers, source, destination);
+                    let processor = AssetProcessor::new(&mut asset_providers, source, destination);
                     let destination_reader = asset_providers.get_destination_reader(source);
                     // the main asset server gates loads based on asset state
                     let gated_reader =
@@ -172,28 +172,28 @@ pub trait AssetDependencyVisitor {
 
 impl<A: Asset> AssetDependencyVisitor for Handle<A> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedHandle)) {
-        visit(self.clone().untyped())
+        visit(self.clone().untyped());
     }
 }
 
 impl<A: Asset> AssetDependencyVisitor for Option<Handle<A>> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedHandle)) {
         if let Some(handle) = self {
-            visit(handle.clone().untyped())
+            visit(handle.clone().untyped());
         }
     }
 }
 
 impl AssetDependencyVisitor for UntypedHandle {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedHandle)) {
-        visit(self.clone())
+        visit(self.clone());
     }
 }
 
 impl AssetDependencyVisitor for Option<UntypedHandle> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedHandle)) {
         if let Some(handle) = self {
-            visit(handle.clone())
+            visit(handle.clone());
         }
     }
 }
@@ -201,7 +201,7 @@ impl AssetDependencyVisitor for Option<UntypedHandle> {
 impl<A: Asset> AssetDependencyVisitor for Vec<Handle<A>> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedHandle)) {
         for dependency in self.iter() {
-            visit(dependency.clone().untyped())
+            visit(dependency.clone().untyped());
         }
     }
 }
@@ -209,7 +209,7 @@ impl<A: Asset> AssetDependencyVisitor for Vec<Handle<A>> {
 impl AssetDependencyVisitor for Vec<UntypedHandle> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedHandle)) {
         for dependency in self.iter() {
-            visit(dependency.clone())
+            visit(dependency.clone());
         }
     }
 }
@@ -419,7 +419,7 @@ mod tests {
 
     const LARGE_ITERATION_COUNT: usize = 5;
 
-    fn get<'a, A: Asset>(world: &'a World, id: AssetId<A>) -> Option<&'a A> {
+    fn get<A: Asset>(world: &World, id: AssetId<A>) -> Option<&A> {
         world.resource::<Assets<A>>().get(id)
     }
 
@@ -920,7 +920,7 @@ mod tests {
         let dep_handle = app.world.resource::<AssetServer>().load(dep_path);
         let a = CoolText {
             text: "a".to_string(),
-            embedded: empty.clone(),
+            embedded: empty,
             // this dependency is behind a manual load gate, which should prevent 'a' from emitting a LoadedWithDependencies event
             dependencies: vec![dep_handle.clone()],
             sub_texts: Vec::new(),
@@ -1003,7 +1003,7 @@ mod tests {
             let asset_server = world.resource::<AssetServer>();
             let loaded_folders = world.resource::<Assets<LoadedFolder>>();
             let cool_texts = world.resource::<Assets<CoolText>>();
-            for event in reader.iter(&events) {
+            for event in reader.iter(events) {
                 if let AssetEvent::LoadedWithDependencies { id } = event {
                     if *id == handle.id() {
                         let loaded_folder = loaded_folders.get(&handle).unwrap();
@@ -1014,7 +1014,7 @@ mod tests {
 
                         let mut found_a = false;
                         let mut found_c = false;
-                        for asset_handle in loaded_folder.handles.iter() {
+                        for asset_handle in &loaded_folder.handles {
                             if asset_handle.id() == a_handle.id().untyped() {
                                 found_a = true;
                             } else if asset_handle.id() == c_handle.id().untyped() {

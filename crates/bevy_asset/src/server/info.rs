@@ -146,8 +146,7 @@ impl AssetInfos {
             Entry::Vacant(entry) => {
                 let should_load = match loading_mode {
                     HandleLoadingMode::NotLoading => false,
-                    HandleLoadingMode::Request => true,
-                    HandleLoadingMode::Force => true,
+                    HandleLoadingMode::Request | HandleLoadingMode::Force => true,
                 };
                 let handle = Self::create_handle_internal(
                     &mut self.infos,
@@ -424,7 +423,7 @@ impl AssetInfos {
         }
     }
 
-    /// Consumes all current handle drop events. This will update information in AssetInfos, but it
+    /// Consumes all current handle drop events. This will update information in [`AssetInfos`], but it
     /// will not affect [`Assets`] storages. For normal use cases, prefer `Assets::track_assets()`
     /// This should only be called if `Assets` storage isn't being used (such as in [`AssetProcessor`](crate::processor::AssetProcessor))
     pub(crate) fn consume_handle_drop_events(&mut self) {

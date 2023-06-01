@@ -97,7 +97,7 @@ impl ReflectAsset {
     }
     /// Equivalent of [`Assets::insert`]
     pub fn insert(&self, world: &mut World, handle: UntypedHandle, value: &dyn Reflect) {
-        (self.insert)(world, handle, value)
+        (self.insert)(world, handle, value);
     }
 
     /// Equivalent of [`Assets::remove`]
@@ -149,7 +149,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 let mut assets = world.resource_mut::<Assets<A>>();
                 let value: A = FromReflect::from_reflect(value)
                     .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::set`");
-                assets.insert(handle.typed_debug_checked(), value)
+                assets.insert(handle.typed_debug_checked(), value);
             },
             len: |world| {
                 let assets = world.resource::<Assets<A>>();

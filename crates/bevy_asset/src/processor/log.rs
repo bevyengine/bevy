@@ -72,7 +72,7 @@ impl ProcessorTransactionLog {
             Err(err) => {
                 // if the log file is not found, we assume we are starting in a fresh (or good) state
                 if err.kind() != futures_io::ErrorKind::NotFound {
-                    error!("Failed to remove previous log file {}", err)
+                    error!("Failed to remove previous log file {}", err);
                 }
             }
         }
@@ -90,19 +90,16 @@ impl ProcessorTransactionLog {
                 if err.kind() == futures_io::ErrorKind::NotFound {
                     // if the log file doesn't exist, this is equivalent to an empty file
                     return Ok(log_lines);
-                } else {
-                    return Err(err.into());
                 }
+                return Err(err.into());
             }
         };
         let mut string = String::new();
         file.read_to_string(&mut string).await?;
         for line in string.lines() {
-            if line.starts_with(ENTRY_BEGIN) {
-                let path_str = &line[ENTRY_BEGIN.len()..];
+            if let Some(path_str) = line.strip_prefix(ENTRY_BEGIN) {
                 log_lines.push(LogEntry::BeginPath(PathBuf::from(path_str)));
-            } else if line.starts_with(ENTRY_END) {
-                let path_str = &line[ENTRY_END.len()..];
+            } else if let Some(path_str) = line.strip_prefix(ENTRY_END) {
                 log_lines.push(LogEntry::EndPath(PathBuf::from(path_str)));
             } else if line.is_empty() {
                 continue;
@@ -136,7 +133,7 @@ impl ProcessorTransactionLog {
             }
         }
         for transaction in transactions {
-            errors.push(LogEntryError::UnfinishedTransaction(transaction))
+            errors.push(LogEntryError::UnfinishedTransaction(transaction));
         }
         if !errors.is_empty() {
             return Err(ValidateLogError::EntryErrors(errors));

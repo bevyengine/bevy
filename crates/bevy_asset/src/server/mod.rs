@@ -271,7 +271,7 @@ impl AssetServer {
                     self.send_asset_event(InternalAssetEvent::Loaded {
                         id: labeled_asset.handle.id(),
                         loaded_asset: labeled_asset.asset,
-                    })
+                    });
                 }
                 self.send_asset_event(InternalAssetEvent::Loaded {
                     id: base_asset_id,
@@ -333,7 +333,7 @@ impl AssetServer {
     }
 
     /// Loads all assets from the specified folder recursively. The [`LoadedFolder`] asset (when it loads) will
-    /// contain handles to all assets in the folder. You can wait for all assets to load by checking the LoadedFolder's
+    /// contain handles to all assets in the folder. You can wait for all assets to load by checking the [`LoadedFolder`]'s
     /// [`AssetRecursiveDependencyLoadState`].
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
     pub fn load_folder(&self, path: impl AsRef<Path>) -> Handle<LoadedFolder> {
@@ -457,7 +457,7 @@ impl AssetServer {
         Some(info.path.as_ref()?.to_owned())
     }
 
-    /// Retrieve a handle for the given path. This will create a handle (and AssetInfo) if it does not exist
+    /// Retrieve a handle for the given path. This will create a handle (and [`AssetInfo`]) if it does not exist
     pub(crate) fn get_or_create_path_handle(
         &self,
         path: AssetPath<'static>,
@@ -520,7 +520,7 @@ impl AssetServer {
                 let meta = loader.default_meta();
                 Ok((meta, loader, reader))
             }
-            Err(err) => return Err(err.into()),
+            Err(err) => Err(err.into()),
         }
     }
 
@@ -588,7 +588,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
         for path in paths_to_reload {
             server.reload(path);
         }
-    })
+    });
 }
 
 #[derive(Default)]
@@ -598,6 +598,7 @@ pub(crate) struct AssetLoaders {
     type_name_to_index: HashMap<&'static str, usize>,
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum InternalAssetEvent {
     Loaded {
         id: UntypedAssetId,

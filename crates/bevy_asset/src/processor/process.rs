@@ -183,7 +183,7 @@ impl<'a> ProcessContext<'a> {
         let loader = server.get_asset_loader_with_type_name(loader_name)?;
         let loaded_asset = server
             .load_with_meta_loader_and_reader(
-                &self.path,
+                self.path,
                 Box::new(meta),
                 &*loader,
                 &mut self.asset_bytes,
@@ -198,7 +198,7 @@ impl<'a> ProcessContext<'a> {
                     full_hash: *full_hash,
 
                     path: path.to_owned(),
-                })
+                });
         }
         Ok(loaded_asset)
     }

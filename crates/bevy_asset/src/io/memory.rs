@@ -68,10 +68,7 @@ impl Dir {
             dir = {
                 let dirs = &mut dir.0.write().dirs;
                 dirs.entry(name)
-                    .or_insert_with(|| {
-                        let new_dir = Dir::new(full_path.clone());
-                        new_dir
-                    })
+                    .or_insert_with(|| Dir::new(full_path.clone()))
                     .clone()
             };
         }
@@ -86,7 +83,7 @@ impl Dir {
             let next_dir = dir.0.read().dirs.get(component)?.clone();
             dir = next_dir;
         }
-        Some(dir.clone())
+        Some(dir)
     }
 
     pub fn get_asset(&self, path: &Path) -> Option<Data> {
@@ -189,7 +186,7 @@ impl AssetReader for MemoryAssetReader {
                 .get_asset(path)
                 .map(|data| {
                     let reader: Box<Reader> = Box::new(DataReader {
-                        data: data.clone(),
+                        data,
                         bytes_read: 0,
                     });
                     reader
@@ -207,7 +204,7 @@ impl AssetReader for MemoryAssetReader {
                 .get_metadata(path)
                 .map(|data| {
                     let reader: Box<Reader> = Box::new(DataReader {
-                        data: data.clone(),
+                        data,
                         bytes_read: 0,
                     });
                     reader

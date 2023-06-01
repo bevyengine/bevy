@@ -210,9 +210,9 @@ impl AssetProcessor {
         self.set_state(ProcessorState::Finished).await;
     }
 
-    fn process_assets_internal<'scope, 'env>(
+    fn process_assets_internal<'scope>(
         &'scope self,
-        scope: &'scope Scope<'scope, 'env, ()>,
+        scope: &'scope Scope<'scope, '_, ()>,
         path: PathBuf,
     ) -> bevy_utils::BoxedFuture<'scope, Result<(), AssetReaderError>> {
         async move {
@@ -288,7 +288,7 @@ impl AssetProcessor {
                 if reader.is_directory(&path).await? {
                     let mut path_stream = reader.read_directory(&path).await?;
                     while let Some(child_path) = path_stream.next().await {
-                        get_asset_paths(reader, child_path, paths).await?
+                        get_asset_paths(reader, child_path, paths).await?;
                     }
                 } else {
                     paths.push(path);
@@ -314,11 +314,11 @@ impl AssetProcessor {
         .await
         .map_err(InitializeError::FailedToReadSourcePaths)?;
 
-        for path in source_paths.iter() {
+        for path in &source_paths {
             asset_infos.get_or_insert(AssetPath::new(path.to_owned(), None));
         }
 
-        for path in destination_paths.iter() {
+        for path in &destination_paths {
             let asset_path = AssetPath::new(path.to_owned(), None);
             let mut dependencies = Vec::new();
             if let Some(info) = asset_infos.get_mut(&asset_path) {
@@ -390,7 +390,7 @@ impl AssetProcessor {
         let server = &self.server;
         let (mut source_meta, meta_bytes, processor) = match self
             .source_reader()
-            .read_meta_bytes(&path)
+            .read_meta_bytes(path)
             .await
         {
             Ok(meta_bytes) => {
@@ -437,7 +437,7 @@ impl AssetProcessor {
                 };
                 let meta_bytes = meta.serialize();
                 // write meta to source location if it doesn't already exist
-                let mut meta_writer = self.source_writer().write_meta(&path).await?;
+                let mut meta_writer = self.source_writer().write_meta(path).await?;
                 // TODO: handle error
                 meta_writer.write_all(&meta_bytes).await.unwrap();
                 meta_writer.flush().await.unwrap();
@@ -448,7 +448,7 @@ impl AssetProcessor {
 
         // TODO:  check timestamp first for early-out
         // TODO: error handling
-        let mut reader = self.source_reader().read(&path).await.unwrap();
+        let mut reader = self.source_reader().read(path).await.unwrap();
         let mut asset_bytes = Vec::new();
         reader.read_to_end(&mut asset_bytes).await.unwrap();
         // PERF: in theory these hashes could be streamed if we want to avoid allocating the whole asset.
@@ -493,14 +493,14 @@ impl AssetProcessor {
             info.file_transaction_lock.write_arc()
         };
 
-        let mut writer = self.destination_writer().write(&path).await?;
-        let mut meta_writer = self.destination_writer().write_meta(&path).await?;
+        let mut writer = self.destination_writer().write(path).await?;
+        let mut meta_writer = self.destination_writer().write_meta(path).await?;
         // NOTE: if processing the asset fails this will produce an "unfinished" log entry, forcing a rebuild on next run.
         // Directly writing to the asset destination in the processor necessitates this behavior
         // TODO: this class of failure can be recovered via re-processing + smarter log validation that allows for duplicate transactions in the event of failures
         {
             let mut logger = self.data.log.write().await;
-            logger.as_mut().unwrap().begin_path(&path).await.unwrap();
+            logger.as_mut().unwrap().begin_path(path).await.unwrap();
         }
 
         if let Some(processor) = processor {
@@ -539,7 +539,7 @@ impl AssetProcessor {
 
         {
             let mut logger = self.data.log.write().await;
-            logger.as_mut().unwrap().end_path(&path).await.unwrap();
+            logger.as_mut().unwrap().end_path(path).await.unwrap();
         }
 
         Ok(ProcessResult::Processed(new_processed_info))
@@ -600,7 +600,7 @@ impl AssetProcessor {
                 error!("Processed asset transaction log state was invalid and unrecoverable for some reason (see previous logs). Removing processed assets and starting fresh.");
                 if let Err(err) = self
                     .destination_writer()
-                    .remove_assets_in_directory(&Path::new(""))
+                    .remove_assets_in_directory(Path::new(""))
                     .await
                 {
                     panic!("Processed assets were in a bad state. To correct this, the asset processor attempted to remove all processed assets and start from scratch. This failed. There is no way to continue. Try restarting, or deleting imported asset state manually. {err}");
@@ -705,7 +705,7 @@ impl AssetProcessorData {
         };
 
         if let Some(mut receiver) = receiver {
-            receiver.recv().await.unwrap()
+            receiver.recv().await.unwrap();
         }
     }
 
@@ -722,7 +722,7 @@ impl AssetProcessorData {
         };
 
         if let Some(mut receiver) = receiver {
-            receiver.recv().await.unwrap()
+            receiver.recv().await.unwrap();
         }
     }
 }
@@ -905,7 +905,7 @@ impl ProcessorAssetInfos {
         let info = self.infos.remove(asset_path);
         if let Some(info) = info {
             if let Some(processed_info) = info.processed_info {
-                self.clear_dependencies(&asset_path, processed_info);
+                self.clear_dependencies(asset_path, processed_info);
             }
             // Tell all listeners this asset does not exist
             info.status_sender
@@ -919,10 +919,10 @@ impl ProcessorAssetInfos {
         for old_load_dep in removed_info.process_dependencies {
             if let Some(info) = self.infos.get_mut(&old_load_dep.path) {
                 info.dependants.remove(asset_path);
-            } else {
-                if let Some(dependants) = self.non_existent_dependants.get_mut(&old_load_dep.path) {
-                    dependants.remove(&asset_path);
-                }
+            } else if let Some(dependants) =
+                self.non_existent_dependants.get_mut(&old_load_dep.path)
+            {
+                dependants.remove(asset_path);
             }
         }
     }

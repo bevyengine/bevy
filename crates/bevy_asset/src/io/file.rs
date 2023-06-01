@@ -94,7 +94,7 @@ impl AssetReader for FileAssetReader {
                     Ok(reader)
                 }
                 Err(e) => {
-                    return if e.kind() == std::io::ErrorKind::NotFound {
+                    if e.kind() == std::io::ErrorKind::NotFound {
                         Err(AssetReaderError::NotFound(full_path))
                     } else {
                         Err(e.into())
@@ -117,7 +117,7 @@ impl AssetReader for FileAssetReader {
                     Ok(reader)
                 }
                 Err(e) => {
-                    return if e.kind() == std::io::ErrorKind::NotFound {
+                    if e.kind() == std::io::ErrorKind::NotFound {
                         Err(AssetReaderError::NotFound(full_path))
                     } else {
                         Err(e.into())
@@ -153,7 +153,7 @@ impl AssetReader for FileAssetReader {
                     Ok(read_dir)
                 }
                 Err(e) => {
-                    return if e.kind() == std::io::ErrorKind::NotFound {
+                    if e.kind() == std::io::ErrorKind::NotFound {
                         Err(AssetReaderError::NotFound(full_path))
                     } else {
                         Err(e.into())
@@ -341,7 +341,7 @@ fn get_asset_path(root: &Path, absolute_path: &Path) -> (PathBuf, bool) {
         .map(|e| e == "meta")
         .unwrap_or(false);
     let asset_path = if is_meta {
-        relative_path.with_extension("").to_owned()
+        relative_path.with_extension("")
     } else {
         relative_path.to_owned()
     };

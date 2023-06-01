@@ -74,10 +74,10 @@ impl<A: Asset> Debug for AssetEvent<A> {
 impl<A: Asset> PartialEq for AssetEvent<A> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Added { id: l_id }, Self::Added { id: r_id }) => l_id == r_id,
-            (Self::Modified { id: l_id }, Self::Modified { id: r_id }) => l_id == r_id,
-            (Self::Removed { id: l_id }, Self::Removed { id: r_id }) => l_id == r_id,
-            (
+            (Self::Added { id: l_id }, Self::Added { id: r_id })
+            | (Self::Modified { id: l_id }, Self::Modified { id: r_id })
+            | (Self::Removed { id: l_id }, Self::Removed { id: r_id })
+            | (
                 Self::LoadedWithDependencies { id: l_id },
                 Self::LoadedWithDependencies { id: r_id },
             ) => l_id == r_id,

@@ -90,8 +90,7 @@ where
                 .expect("Loader settings should exist")
                 .downcast_ref::<L::Settings>()
                 .expect("AssetLoader settings should match the loader type");
-            let asset =
-                <L as AssetLoader>::load(&self, reader, settings, &mut load_context).await?;
+            let asset = <L as AssetLoader>::load(self, reader, settings, &mut load_context).await?;
             Ok(load_context.finish(asset, Some(meta)).into())
         })
     }
@@ -110,7 +109,7 @@ where
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str] {
-        <L as AssetLoader>::extensions(&self)
+        <L as AssetLoader>::extensions(self)
     }
 
     fn type_name(&self) -> &'static str {
@@ -200,7 +199,7 @@ impl ErasedLoadedAsset {
     }
 
     pub fn asset_type_id(&self) -> TypeId {
-        (&*self.value).type_id()
+        (*self.value).type_id()
     }
 
     pub fn path(&self) -> Option<&AssetPath<'static>> {
@@ -270,7 +269,7 @@ impl<'a> LoadContext<'a> {
         label: String,
         load: impl FnOnce(&mut LoadContext) -> A,
     ) -> Handle<A> {
-        let mut context = self.begin_labeled_asset(label.clone());
+        let mut context = self.begin_labeled_asset(label);
         let asset = load(&mut context);
         let loaded_asset = context.finish(asset, None);
         self.add_loaded_labeled_asset(loaded_asset)
@@ -342,7 +341,7 @@ impl<'a> LoadContext<'a> {
             // See `ProcessorGatdReader` for more info
             let meta_bytes = self.asset_server.reader().read_meta_bytes(path).await?;
             let minimal: AssetMetaProcessedInfoMinimal = ron::de::from_bytes(&meta_bytes)
-                .map_err(|e| DeserializeMetaError::DeserializeMinimal(e))?;
+                .map_err(DeserializeMetaError::DeserializeMinimal)?;
             let processed_info = minimal
                 .processed_info
                 .ok_or(ReadAssetBytesError::MissingAssetHash)?;
@@ -375,7 +374,7 @@ impl<'a> LoadContext<'a> {
         handle
     }
 
-    pub fn get_label_handle<'c, A: Asset>(&mut self, label: &str) -> Handle<A> {
+    pub fn get_label_handle<A: Asset>(&mut self, label: &str) -> Handle<A> {
         let path = self.asset_path.with_label(label);
         let handle = self
             .asset_server
