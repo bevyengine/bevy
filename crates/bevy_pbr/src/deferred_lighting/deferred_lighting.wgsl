@@ -3,6 +3,7 @@
 #import bevy_pbr::mesh_types
 #import bevy_pbr::mesh_view_bindings
 
+#import bevy_pbr::rgb9e5
 #import bevy_pbr::pbr_types
 #import bevy_pbr::utils
 #import bevy_pbr::clustered_forward
@@ -94,7 +95,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let deferred_data = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
 
     let base_color = unpack4x8unorm(deferred_data.r);
-    let emissive = unpack4x8unorm(deferred_data.g);
+    let emissive = vec4(rgb9e5_to_float3(deferred_data.g), 1.0);
     let misc = unpack4x8unorm(deferred_data.b);
     let flags = deferred_data.a;
     let metallic = misc.r;

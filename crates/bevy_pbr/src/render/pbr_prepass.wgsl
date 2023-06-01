@@ -1,5 +1,6 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::pbr_bindings
+#import bevy_pbr::rgb9e5
 #ifdef NORMAL_PREPASS
 #import bevy_pbr::pbr_functions
 #endif // NORMAL_PREPASS
@@ -162,7 +163,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     }
     out.deferred = vec4(
         pack4x8unorm(output_color),
-        pack4x8unorm(vec4(emissive, 0.0)),
+        float3_to_rgb9e5(emissive),
         pack4x8unorm(vec4(metallic, perceptual_roughness, occlusion, reflectance)),
         material.flags,
     );
