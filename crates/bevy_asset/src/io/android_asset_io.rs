@@ -1,4 +1,4 @@
-use crate::{AssetIo, AssetIoError, Metadata};
+use crate::{AssetIo, AssetIoError, ChangeWatcher, Metadata};
 use anyhow::Result;
 use bevy_utils::BoxedFuture;
 use std::{
@@ -59,7 +59,7 @@ impl AssetIo for AndroidAssetIo {
         Ok(())
     }
 
-    fn watch_for_changes(&self) -> Result<(), AssetIoError> {
+    fn watch_for_changes(&self, _configuration: &ChangeWatcher) -> Result<(), AssetIoError> {
         bevy_log::warn!("Watching for changes is not supported on Android");
         Ok(())
     }

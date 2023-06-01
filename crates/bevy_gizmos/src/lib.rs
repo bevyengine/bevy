@@ -95,6 +95,19 @@ impl Plugin for GizmoPlugin {
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
+        render_app
+            .add_systems(ExtractSchedule, extract_gizmo_data)
+            .add_systems(Render, queue_line_gizmo_bind_group.in_set(RenderSet::Queue));
+
+        #[cfg(feature = "bevy_sprite")]
+        app.add_plugin(pipeline_2d::LineGizmo2dPlugin);
+        #[cfg(feature = "bevy_pbr")]
+        app.add_plugin(pipeline_3d::LineGizmo3dPlugin);
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
+
         let render_device = render_app.world.resource::<RenderDevice>();
         let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -111,15 +124,6 @@ impl Plugin for GizmoPlugin {
         });
 
         render_app.insert_resource(LineGizmoUniformBindgroupLayout { layout });
-
-        render_app
-            .add_systems(ExtractSchedule, extract_gizmo_data)
-            .add_systems(Render, queue_line_gizmo_bind_group.in_set(RenderSet::Queue));
-
-        #[cfg(feature = "bevy_sprite")]
-        app.add_plugin(pipeline_2d::LineGizmo2dPlugin);
-        #[cfg(feature = "bevy_pbr")]
-        app.add_plugin(pipeline_3d::LineGizmo3dPlugin);
     }
 }
 

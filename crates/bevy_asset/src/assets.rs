@@ -133,12 +133,12 @@ impl<T: Asset> Assets<T> {
     /// This is the main method for accessing asset data from an [Assets] collection. If you need
     /// mutable access to the asset, use [`get_mut`](Assets::get_mut).
     pub fn get(&self, handle: &Handle<T>) -> Option<&T> {
-        self.assets.get(&handle.into())
+        self.assets.get::<HandleId>(&handle.into())
     }
 
     /// Checks if an asset exists for the given handle
     pub fn contains(&self, handle: &Handle<T>) -> bool {
-        self.assets.contains_key(&handle.into())
+        self.assets.contains_key::<HandleId>(&handle.into())
     }
 
     /// Get mutable access to the asset for the given handle.

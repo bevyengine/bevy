@@ -214,7 +214,7 @@ pub fn derive_label(
 ) -> TokenStream {
     // return true if the variant specified is an `ignore_fields` attribute
     fn is_ignore(attr: &syn::Attribute, attr_name: &str) -> bool {
-        if attr.path.get_ident().as_ref().unwrap() != &attr_name {
+        if attr.path().get_ident().as_ref().unwrap() != &attr_name {
             return false;
         }
 

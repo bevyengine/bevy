@@ -120,9 +120,7 @@ impl Scene {
 
         for registration in type_registry.iter() {
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                map_entities_reflect
-                    .map_entities(world, &instance_info.entity_map)
-                    .unwrap();
+                map_entities_reflect.map_all_entities(world, &mut instance_info.entity_map);
             }
         }
 

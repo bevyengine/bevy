@@ -53,23 +53,23 @@ fn tonemap_curve3(v: vec3<f32>) -> vec3<f32> {
 }
 
 fn somewhat_boring_display_transform(col: vec3<f32>) -> vec3<f32> {
-    var col = col;
-    let ycbcr = rgb_to_ycbcr(col);
+    var boring_color = col;
+    let ycbcr = rgb_to_ycbcr(boring_color);
 
     let bt = tonemap_curve(length(ycbcr.yz) * 2.4);
     var desat = max((bt - 0.7) * 0.8, 0.0);
     desat *= desat;
 
-    let desat_col = mix(col.rgb, ycbcr.xxx, desat);
+    let desat_col = mix(boring_color.rgb, ycbcr.xxx, desat);
 
     let tm_luma = tonemap_curve(ycbcr.x);
-    let tm0 = col.rgb * max(0.0, tm_luma / max(1e-5, tonemapping_luminance(col.rgb)));
+    let tm0 = boring_color.rgb * max(0.0, tm_luma / max(1e-5, tonemapping_luminance(boring_color.rgb)));
     let final_mult = 0.97;
     let tm1 = tonemap_curve3(desat_col);
 
-    col = mix(tm0, tm1, bt * bt);
+    boring_color = mix(tm0, tm1, bt * bt);
 
-    return col * final_mult;
+    return boring_color * final_mult;
 }
 
 // ------------------------------------------
@@ -110,7 +110,7 @@ fn RRTAndODTFit(v: vec3<f32>) -> vec3<f32> {
 }
 
 fn ACESFitted(color: vec3<f32>) -> vec3<f32> {    
-    var color = color;
+    var fitted_color = color;
 
     // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
     let rgb_to_rrt = mat3x3<f32>(
@@ -126,17 +126,17 @@ fn ACESFitted(color: vec3<f32>) -> vec3<f32> {
         vec3(-0.00327, -0.07276, 1.07602)
     );
 
-    color *= rgb_to_rrt;
+    fitted_color *= rgb_to_rrt;
 
     // Apply RRT and ODT
-    color = RRTAndODTFit(color);
+    fitted_color = RRTAndODTFit(fitted_color);
 
-    color *= odt_to_rgb;
+    fitted_color *= odt_to_rgb;
 
     // Clamp to [0, 1]
-    color = saturate(color);
+    fitted_color = saturate(fitted_color);
 
-    return color;
+    return fitted_color;
 }
 
 // -------------------------------
@@ -171,30 +171,30 @@ fn convertOpenDomainToNormalizedLog2(color: vec3<f32>, minimum_ev: f32, maximum_
     let in_midgray = 0.18;
 
     // remove negative before log transform
-    var color = max(vec3(0.0), color);
+    var normalized_color = max(vec3(0.0), color);
     // avoid infinite issue with log -- ref[1]
-    color = select(color, 0.00001525878 + color, color  < 0.00003051757);
-    color = clamp(
-        log2(color / in_midgray),
+    normalized_color = select(normalized_color, 0.00001525878 + normalized_color, normalized_color  < vec3<f32>(0.00003051757));
+    normalized_color = clamp(
+        log2(normalized_color / in_midgray),
         vec3(minimum_ev),
         vec3(maximum_ev)
     );
     let total_exposure = maximum_ev - minimum_ev;
 
-    return (color - minimum_ev) / total_exposure;
+    return (normalized_color - minimum_ev) / total_exposure;
 }
 
 // Inverse of above
 fn convertNormalizedLog2ToOpenDomain(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32> {
-    var color = color;
+    var open_color = color;
     let in_midgray = 0.18;
     let total_exposure = maximum_ev - minimum_ev;
 
-    color = (color * total_exposure) + minimum_ev;
-    color = pow(vec3(2.0), color);
-    color = color * in_midgray;
+    open_color = (open_color * total_exposure) + minimum_ev;
+    open_color = pow(vec3(2.0), open_color);
+    open_color = open_color * in_midgray;
 
-    return color;
+    return open_color;
 }
 
 
@@ -204,16 +204,16 @@ fn convertNormalizedLog2ToOpenDomain(color: vec3<f32>, minimum_ev: f32, maximum_
 
 // Prepare the data for display encoding. Converted to log domain.
 fn applyAgXLog(Image: vec3<f32>) -> vec3<f32> {
-    var Image = max(vec3(0.0), Image); // clamp negatives
-    let r = dot(Image, vec3(0.84247906, 0.0784336, 0.07922375));
-    let g = dot(Image, vec3(0.04232824, 0.87846864, 0.07916613));
-    let b = dot(Image, vec3(0.04237565, 0.0784336, 0.87914297));
-    Image = vec3(r, g, b);
+    var prepared_image = max(vec3(0.0), Image); // clamp negatives
+    let r = dot(prepared_image, vec3(0.84247906, 0.0784336, 0.07922375));
+    let g = dot(prepared_image, vec3(0.04232824, 0.87846864, 0.07916613));
+    let b = dot(prepared_image, vec3(0.04237565, 0.0784336, 0.87914297));
+    prepared_image = vec3(r, g, b);
 
-    Image = convertOpenDomainToNormalizedLog2(Image, -10.0, 6.5);
+    prepared_image = convertOpenDomainToNormalizedLog2(prepared_image, -10.0, 6.5);
     
-    Image = clamp(Image, vec3(0.0), vec3(1.0));
-    return Image;
+    prepared_image = clamp(prepared_image, vec3(0.0), vec3(1.0));
+    return prepared_image;
 }
 
 fn applyLUT3D(Image: vec3<f32>, block_size: f32) -> vec3<f32> {

@@ -752,6 +752,39 @@ mod tests {
     }
 
     #[test]
+    fn from_reflect_should_use_default_variant_field_attributes() {
+        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        enum MyEnum {
+            Foo(#[reflect(default)] String),
+            Bar {
+                #[reflect(default = "get_baz_default")]
+                #[reflect(ignore)]
+                baz: usize,
+            },
+        }
+
+        fn get_baz_default() -> usize {
+            123
+        }
+
+        let expected = MyEnum::Foo(String::default());
+
+        let dyn_enum = DynamicEnum::new("Foo", DynamicTuple::default());
+        let my_enum = <MyEnum as FromReflect>::from_reflect(&dyn_enum);
+
+        assert_eq!(Some(expected), my_enum);
+
+        let expected = MyEnum::Bar {
+            baz: get_baz_default(),
+        };
+
+        let dyn_enum = DynamicEnum::new("Bar", DynamicStruct::default());
+        let my_enum = <MyEnum as FromReflect>::from_reflect(&dyn_enum);
+
+        assert_eq!(Some(expected), my_enum);
+    }
+
+    #[test]
     fn from_reflect_should_use_default_container_attribute() {
         #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
         #[reflect(Default)]
@@ -1634,6 +1667,24 @@ bevy_reflect::tests::should_reflect_debug::Test {
         assert!(foo.reflect_hash().is_some());
         assert_eq!(Some(true), foo.reflect_partial_eq(foo));
         assert_eq!("Foo".to_string(), format!("{foo:?}"));
+    }
+
+    #[test]
+    fn custom_debug_function() {
+        #[derive(Reflect)]
+        #[reflect(Debug(custom_debug))]
+        struct Foo {
+            a: u32,
+        }
+
+        fn custom_debug(_x: &Foo, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "123")
+        }
+
+        let foo = Foo { a: 1 };
+        let foo: &dyn Reflect = &foo;
+
+        assert_eq!("123", format!("{:?}", foo));
     }
 
     #[cfg(feature = "glam")]
