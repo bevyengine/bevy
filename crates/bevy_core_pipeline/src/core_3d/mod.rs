@@ -10,6 +10,7 @@ pub mod graph {
     pub mod node {
         pub const MSAA_WRITEBACK: &str = "msaa_writeback";
         pub const PREPASS: &str = "prepass";
+        pub const DEFERRED: &str = "deferred";
         pub const START_MAIN_PASS: &str = "start_main_pass";
         pub const MAIN_OPAQUE_PASS: &str = "main_opaque_pass";
         pub const MAIN_TRANSPARENT_PASS: &str = "main_transparent_pass";
@@ -53,6 +54,7 @@ use bevy_render::{
 use bevy_utils::{FloatOrd, HashMap};
 
 use crate::{
+    deferred::node::DeferredNode,
     prepass::{node::PrepassNode, DepthPrepass},
     skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
@@ -94,6 +96,7 @@ impl Plugin for Core3dPlugin {
         render_app
             .add_render_sub_graph(CORE_3D)
             .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(CORE_3D, PREPASS)
+            .add_render_graph_node::<ViewNodeRunner<DeferredNode>>(CORE_3D, DEFERRED)
             .add_render_graph_node::<EmptyNode>(CORE_3D, START_MAIN_PASS)
             .add_render_graph_node::<ViewNodeRunner<MainOpaquePass3dNode>>(
                 CORE_3D,
@@ -111,6 +114,7 @@ impl Plugin for Core3dPlugin {
                 CORE_3D,
                 &[
                     PREPASS,
+                    DEFERRED,
                     START_MAIN_PASS,
                     MAIN_OPAQUE_PASS,
                     MAIN_TRANSPARENT_PASS,

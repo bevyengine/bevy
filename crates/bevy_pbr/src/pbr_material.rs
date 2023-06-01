@@ -1,6 +1,6 @@
 use crate::{
-    AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, ParallaxMappingMethod,
-    PBR_PREPASS_SHADER_HANDLE, PBR_SHADER_HANDLE,
+    AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, OpaqueRendererMethod,
+    ParallaxMappingMethod, PBR_PREPASS_SHADER_HANDLE, PBR_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_math::Vec4;
@@ -309,6 +309,9 @@ pub struct StandardMaterial {
     ///
     /// Default is `16.0`.
     pub max_parallax_layer_count: f32,
+
+    /// Render method used for opaque materials
+    pub opaque_render_method: Option<OpaqueRendererMethod>,
 }
 
 impl Default for StandardMaterial {
@@ -342,6 +345,7 @@ impl Default for StandardMaterial {
             parallax_depth_scale: 0.1,
             max_parallax_layer_count: 16.0,
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
+            opaque_render_method: None,
         }
     }
 }
@@ -576,5 +580,10 @@ impl Material for StandardMaterial {
     #[inline]
     fn depth_bias(&self) -> f32 {
         self.depth_bias
+    }
+
+    #[inline]
+    fn deferred(&self) -> Option<OpaqueRendererMethod> {
+        self.opaque_render_method
     }
 }

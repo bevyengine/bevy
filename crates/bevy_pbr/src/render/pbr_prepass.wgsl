@@ -165,7 +165,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
         pack4x8unorm(output_color),
         float3_to_rgb9e5(emissive),
         pack4x8unorm(vec4(metallic, perceptual_roughness, occlusion, reflectance)),
-        material.flags,
+        mesh.flags, //material.flags, // TODO Griffin fit both
     );
 #endif // DEFERRED_PREPASS
 

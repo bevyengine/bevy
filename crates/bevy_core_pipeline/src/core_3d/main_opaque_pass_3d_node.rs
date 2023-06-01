@@ -61,9 +61,17 @@ impl ViewNode for MainOpaquePass3dNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        if deferred_prepass.is_some() {
-            return Ok(()); // TODO allow forward materials
-        }
+        let load = if deferred_prepass.is_none() {
+            match camera_3d.clear_color {
+                ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
+                ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                ClearColorConfig::None => LoadOp::Load,
+            }
+        } else {
+            // If the deferred pass has run, don't clear again in this pass.
+            LoadOp::Load
+        };
+
         // Run the opaque pass, sorted front-to-back
         // NOTE: Scoped to drop the mutable borrow of render_context
         #[cfg(feature = "trace")]
@@ -74,16 +82,9 @@ impl ViewNode for MainOpaquePass3dNode {
             label: Some("main_opaque_pass_3d"),
             // NOTE: The opaque pass loads the color
             // buffer as well as writing to it.
-            color_attachments: &[Some(target.get_color_attachment(Operations {
-                load: match camera_3d.clear_color {
-                    ClearColorConfig::Default => {
-                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                    }
-                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                    ClearColorConfig::None => LoadOp::Load,
-                },
-                store: true,
-            }))],
+            color_attachments: &[Some(
+                target.get_color_attachment(Operations { load, store: true }),
+            )],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &depth.view,
                 // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it

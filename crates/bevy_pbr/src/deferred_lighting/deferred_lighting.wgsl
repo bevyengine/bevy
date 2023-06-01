@@ -84,6 +84,13 @@ fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let depth = prepass_depth(in.position, 0u);
+
+    // TODO Griffin also discard based on flags if this frag shouldn't be lit by this pass
+    if depth == 0.0 {
+        // if depth is inf then discard, leaves clear color
+        discard;
+    }
+
     let frag_coord = vec4(in.position.xy, depth, 0.0);
 
     let world_position = vec4(position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);
@@ -112,7 +119,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     pbr_input.material.perceptual_roughness = perceptual_roughness;
     pbr_input.material.metallic = metallic;
     pbr_input.material.reflectance = reflectance;
-    //pbr_input.material.flags = 
+    //pbr_input.material.flags = // TODO Griffin include material flags
     pbr_input.material.alpha_cutoff = 0.5;
     pbr_input.material.parallax_depth_scale = 0.1; //default
     pbr_input.material.max_parallax_layer_count = 16.0; //default

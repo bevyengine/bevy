@@ -19,9 +19,10 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
     render_asset::{PrepareAssetSet, RenderAssets},
@@ -126,6 +127,14 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
         AlphaMode::Opaque
     }
 
+    /// Returns if this material should be rendered by the deferred renderer when
+    /// AlphaMode::Opaque or AlphaMode::Mask
+    /// If None, it will default to the DefaultOpaqueRendererMethod
+    #[inline]
+    fn deferred(&self) -> Option<OpaqueRendererMethod> {
+        None
+    }
+
     #[inline]
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
     /// for meshes with similar depth, to avoid z-fighting.
@@ -187,7 +196,10 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.add_asset::<M>()
+        app.register_type::<DefaultOpaqueRendererMethod>()
+            .init_resource::<DefaultOpaqueRendererMethod>()
+            .add_plugin(ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default())
+            .add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -381,6 +393,7 @@ pub fn queue_material_meshes<M: Material>(
     render_materials: Res<RenderMaterials<M>>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
     images: Res<RenderAssets<Image>>,
+    default_opaque_render_method: Res<DefaultOpaqueRendererMethod>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -470,6 +483,15 @@ pub fn queue_material_meshes<M: Material>(
                     render_meshes.get(mesh_handle),
                     render_materials.get(material_handle),
                 ) {
+                    let method = match &material.properties.deferred {
+                        Some(method) => method,
+                        None => &default_opaque_render_method.0,
+                    };
+                    let forward = match method {
+                        OpaqueRendererMethod::Forward => true,
+                        OpaqueRendererMethod::Deferred => false,
+                    };
+
                     let mut mesh_key =
                         MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                             | view_key;
@@ -489,6 +511,10 @@ pub fn queue_material_meshes<M: Material>(
                             mesh_key |= MeshPipelineKey::MAY_DISCARD;
                         }
                         _ => (),
+                    }
+
+                    if deferred_prepass.is_some() && !forward {
+                        mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
                     }
 
                     let pipeline_id = pipelines.specialize(
@@ -512,20 +538,24 @@ pub fn queue_material_meshes<M: Material>(
                         + material.properties.depth_bias;
                     match material.properties.alpha_mode {
                         AlphaMode::Opaque => {
-                            opaque_phase.add(Opaque3d {
-                                entity: *visible_entity,
-                                draw_function: draw_opaque_pbr,
-                                pipeline: pipeline_id,
-                                distance,
-                            });
+                            if forward {
+                                opaque_phase.add(Opaque3d {
+                                    entity: *visible_entity,
+                                    draw_function: draw_opaque_pbr,
+                                    pipeline: pipeline_id,
+                                    distance,
+                                });
+                            }
                         }
                         AlphaMode::Mask(_) => {
-                            alpha_mask_phase.add(AlphaMask3d {
-                                entity: *visible_entity,
-                                draw_function: draw_alpha_mask_pbr,
-                                pipeline: pipeline_id,
-                                distance,
-                            });
+                            if forward {
+                                alpha_mask_phase.add(AlphaMask3d {
+                                    entity: *visible_entity,
+                                    draw_function: draw_alpha_mask_pbr,
+                                    pipeline: pipeline_id,
+                                    distance,
+                                });
+                            }
                         }
                         AlphaMode::Blend
                         | AlphaMode::Premultiplied
@@ -545,8 +575,24 @@ pub fn queue_material_meshes<M: Material>(
     }
 }
 
+/// Default render method used for opaque materials
+#[derive(Default, Resource, Clone, Debug, ExtractResource, Reflect)]
+pub struct DefaultOpaqueRendererMethod(pub OpaqueRendererMethod);
+
+/// Render method used for opaque materials
+#[derive(Default, Clone, Copy, Debug, Reflect, FromReflect)]
+pub enum OpaqueRendererMethod {
+    #[default]
+    Forward,
+    Deferred,
+}
+
 /// Common [`Material`] properties, calculated for a specific material instance.
 pub struct MaterialProperties {
+    /// Is this material should be rendered by the deferred renderer when
+    /// AlphaMode::Opaque or AlphaMode::Mask
+    /// If None, it will default to the DefaultOpaqueRendererMethod
+    pub deferred: Option<OpaqueRendererMethod>,
     /// The [`AlphaMode`] of this material.
     pub alpha_mode: AlphaMode,
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
@@ -706,6 +752,7 @@ fn prepare_material<M: Material>(
         properties: MaterialProperties {
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),
+            deferred: material.deferred(),
         },
     })
 }

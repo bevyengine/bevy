@@ -1,11 +1,12 @@
 use bevy_app::{Plugin, PreUpdate, Update};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
+    deferred::{AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_PREPASS_FORMAT},
     prelude::Camera3d,
     prepass::{
         AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
-        Opaque3dPrepass, ViewPrepassTextures, DEFERRED_PREPASS_FORMAT, DEPTH_PREPASS_FORMAT,
-        MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
+        Opaque3dPrepass, ViewPrepassTextures, DEPTH_PREPASS_FORMAT, MOTION_VECTOR_PREPASS_FORMAT,
+        NORMAL_PREPASS_FORMAT,
     },
 };
 use bevy_ecs::{
@@ -47,9 +48,10 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap};
 
 use crate::{
-    prepare_lights, AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey,
-    MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials, SetMaterialBindGroup,
-    SetMeshBindGroup, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    prepare_lights, AlphaMode, DefaultOpaqueRendererMethod, DrawMesh, Material, MaterialPipeline,
+    MaterialPipelineKey, MeshPipeline, MeshPipelineKey, MeshUniform, OpaqueRendererMethod,
+    RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup, MAX_CASCADES_PER_LIGHT,
+    MAX_DIRECTIONAL_LIGHTS,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -156,6 +158,8 @@ where
             render_app
                 .init_resource::<DrawFunctions<Opaque3dPrepass>>()
                 .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
+                .init_resource::<DrawFunctions<Opaque3dDeferred>>()
+                .init_resource::<DrawFunctions<AlphaMask3dDeferred>>()
                 .add_systems(ExtractSchedule, extract_camera_prepass_phase)
                 .add_systems(
                     Render,
@@ -172,6 +176,8 @@ where
                             .after(prepare_lights),
                         sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
                         sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
+                        sort_phase_system::<Opaque3dDeferred>.in_set(RenderSet::PhaseSort),
+                        sort_phase_system::<AlphaMask3dDeferred>.in_set(RenderSet::PhaseSort),
                     ),
                 );
         }
@@ -179,6 +185,8 @@ where
         render_app
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>()
+            .add_render_command::<Opaque3dDeferred, DrawPrepass<M>>()
+            .add_render_command::<AlphaMask3dDeferred, DrawPrepass<M>>()
             .add_systems(
                 Render,
                 queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
@@ -462,15 +470,19 @@ where
                     write_mask: ColorWrites::ALL,
                 }),
         );
-        targets.push(
-            key.mesh_key
-                .contains(MeshPipelineKey::DEFERRED_PREPASS)
-                .then_some(ColorTargetState {
-                    format: DEFERRED_PREPASS_FORMAT,
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }),
-        );
+
+        if key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
+            targets.push(
+                key.mesh_key
+                    .contains(MeshPipelineKey::DEFERRED_PREPASS)
+                    .then_some(ColorTargetState {
+                        format: DEFERRED_PREPASS_FORMAT,
+                        blend: None,
+                        write_mask: ColorWrites::ALL,
+                    }),
+            );
+        }
+
         if targets.iter().all(Option::is_none) {
             // if no targets are required then clear the list, so that no fragment shader is required
             // (though one may still be used for discarding depth buffer writes)
@@ -642,7 +654,7 @@ pub fn get_bindings<'a>(
     };
 
     let deferred_fallback = &fallback_format_images
-        .image_for_samplecount(msaa.samples(), TextureFormat::Rgba32Uint)
+        .image_for_samplecount(1, TextureFormat::Rgba32Uint)
         .texture_view;
 
     let deferred_view = match prepass_textures.and_then(|x| x.deferred.as_ref()) {
@@ -704,11 +716,17 @@ pub fn extract_camera_prepass_phase(
             if depth_prepass.is_some()
                 || normal_prepass.is_some()
                 || motion_vector_prepass.is_some()
-                || deferred_prepass.is_some()
             {
                 entity.insert((
                     RenderPhase::<Opaque3dPrepass>::default(),
                     RenderPhase::<AlphaMask3dPrepass>::default(),
+                ));
+            }
+
+            if deferred_prepass.is_some() {
+                entity.insert((
+                    RenderPhase::<Opaque3dDeferred>::default(),
+                    RenderPhase::<AlphaMask3dDeferred>::default(),
                 ));
             }
 
@@ -970,18 +988,23 @@ pub fn queue_prepass_view_bind_group<M: Material>(
 pub fn queue_prepass_material_meshes<M: Material>(
     opaque_draw_functions: Res<DrawFunctions<Opaque3dPrepass>>,
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3dPrepass>>,
+    opaque_draw_deferred_functions: Res<DrawFunctions<Opaque3dDeferred>>,
+    alpha_mask_draw_deferred_functions: Res<DrawFunctions<AlphaMask3dDeferred>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
+    default_opaque_render_method: Res<DefaultOpaqueRendererMethod>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
         &mut RenderPhase<Opaque3dPrepass>,
         &mut RenderPhase<AlphaMask3dPrepass>,
+        Option<&mut RenderPhase<Opaque3dDeferred>>,
+        Option<&mut RenderPhase<AlphaMask3dDeferred>>,
         Option<&DepthPrepass>,
         Option<&NormalPrepass>,
         Option<&MotionVectorPrepass>,
@@ -998,11 +1021,21 @@ pub fn queue_prepass_material_meshes<M: Material>(
         .read()
         .get_id::<DrawPrepass<M>>()
         .unwrap();
+    let opaque_draw_deferred = opaque_draw_deferred_functions
+        .read()
+        .get_id::<DrawPrepass<M>>()
+        .unwrap();
+    let alpha_mask_draw_deferred = alpha_mask_draw_deferred_functions
+        .read()
+        .get_id::<DrawPrepass<M>>()
+        .unwrap();
     for (
         view,
         visible_entities,
         mut opaque_phase,
         mut alpha_mask_phase,
+        mut opaque_phase_deferred,
+        mut alpha_mask_phase_deferred,
         depth_prepass,
         normal_prepass,
         motion_vector_prepass,
@@ -1019,9 +1052,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
         if motion_vector_prepass.is_some() {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
-        if deferred_prepass.is_some() {
-            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
-        }
+
+        let mut opaque_phase_deferred = opaque_phase_deferred.as_mut();
+        let mut alpha_mask_phase_deferred = alpha_mask_phase_deferred.as_mut();
 
         let rangefinder = view.rangefinder3d();
 
@@ -1039,6 +1072,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
 
             let mut mesh_key =
                 MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
+
+            let method = match &material.properties.deferred {
+                Some(method) => method,
+                None => &default_opaque_render_method.0,
+            };
+
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
                 AlphaMode::Opaque => {}
@@ -1047,6 +1086,17 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
                 | AlphaMode::Multiply => continue,
+            }
+
+            let forward = match method {
+                OpaqueRendererMethod::Forward => true,
+                OpaqueRendererMethod::Deferred => false,
+            };
+
+            let deferred = deferred_prepass.is_some() && !forward;
+
+            if deferred {
+                mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
             }
 
             let pipeline_id = pipelines.specialize(
@@ -1070,20 +1120,44 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 rangefinder.distance(&mesh_uniform.transform) + material.properties.depth_bias;
             match alpha_mode {
                 AlphaMode::Opaque => {
-                    opaque_phase.add(Opaque3dPrepass {
-                        entity: *visible_entity,
-                        draw_function: opaque_draw_prepass,
-                        pipeline_id,
-                        distance,
-                    });
+                    if deferred {
+                        opaque_phase_deferred
+                            .as_mut()
+                            .unwrap()
+                            .add(Opaque3dDeferred {
+                                entity: *visible_entity,
+                                draw_function: opaque_draw_deferred,
+                                pipeline_id,
+                                distance,
+                            });
+                    } else {
+                        opaque_phase.add(Opaque3dPrepass {
+                            entity: *visible_entity,
+                            draw_function: opaque_draw_prepass,
+                            pipeline_id,
+                            distance,
+                        });
+                    }
                 }
                 AlphaMode::Mask(_) => {
-                    alpha_mask_phase.add(AlphaMask3dPrepass {
-                        entity: *visible_entity,
-                        draw_function: alpha_mask_draw_prepass,
-                        pipeline_id,
-                        distance,
-                    });
+                    if deferred {
+                        alpha_mask_phase_deferred
+                            .as_mut()
+                            .unwrap()
+                            .add(AlphaMask3dDeferred {
+                                entity: *visible_entity,
+                                draw_function: alpha_mask_draw_deferred,
+                                pipeline_id,
+                                distance,
+                            });
+                    } else {
+                        alpha_mask_phase.add(AlphaMask3dPrepass {
+                            entity: *visible_entity,
+                            draw_function: alpha_mask_draw_prepass,
+                            pipeline_id,
+                            distance,
+                        });
+                    }
                 }
                 AlphaMode::Blend
                 | AlphaMode::Premultiplied

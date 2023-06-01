@@ -675,10 +675,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
-        if key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
-            shader_defs.push("LOAD_PREPASS_DEFERRED".into());
-        }
-
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));

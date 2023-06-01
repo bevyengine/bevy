@@ -6,6 +6,7 @@ pub mod clear_color;
 pub mod contrast_adaptive_sharpening;
 pub mod core_2d;
 pub mod core_3d;
+pub mod deferred;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod msaa_writeback;

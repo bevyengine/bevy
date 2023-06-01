@@ -16,7 +16,7 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-use super::{AlphaMask3dPrepass, Opaque3dPrepass, ViewPrepassTextures};
+use super::{AlphaMask3dPrepass, DeferredPrepass, Opaque3dPrepass, ViewPrepassTextures};
 
 /// Render node used by the prepass.
 ///
@@ -31,6 +31,7 @@ impl ViewNode for PrepassNode {
         &'static RenderPhase<AlphaMask3dPrepass>,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
+        Option<&'static DeferredPrepass>,
     );
 
     fn run(
@@ -43,6 +44,7 @@ impl ViewNode for PrepassNode {
             alpha_mask_prepass_phase,
             view_depth_texture,
             view_prepass_textures,
+            deferred_prepass,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
@@ -75,19 +77,6 @@ impl ViewNode for PrepassNode {
                 },
             },
         ));
-        color_attachments.push(
-            view_prepass_textures
-                .deferred
-                .as_ref()
-                .map(|deferred_texture| RenderPassColorAttachment {
-                    view: &deferred_texture.default_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Color::rgba_linear(0.0, 0.0, 0.0, 0.0).into()),
-                        store: true,
-                    },
-                }),
-        );
         if color_attachments.iter().all(Option::is_none) {
             // all attachments are none: clear the attachment list so that no fragment shader is required
             color_attachments.clear();
@@ -127,16 +116,17 @@ impl ViewNode for PrepassNode {
                 alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);
             }
         }
-
-        if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
-            // Copy depth buffer to texture
-            render_context.command_encoder().copy_texture_to_texture(
-                view_depth_texture.texture.as_image_copy(),
-                prepass_depth_texture.texture.as_image_copy(),
-                view_prepass_textures.size,
-            );
+        if deferred_prepass.is_none() {
+            // copy if deferred isn't going to
+            if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
+                // Copy depth buffer to texture
+                render_context.command_encoder().copy_texture_to_texture(
+                    view_depth_texture.texture.as_image_copy(),
+                    prepass_depth_texture.texture.as_image_copy(),
+                    view_prepass_textures.size,
+                );
+            }
         }
-
         Ok(())
     }
 }
