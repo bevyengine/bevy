@@ -31,9 +31,14 @@ impl Plugin for LineGizmo2dPlugin {
 
         render_app
             .add_render_command::<Transparent2d, DrawLineGizmo2d>()
-            .init_resource::<LineGizmoPipeline>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
             .add_systems(Render, queue_line_gizmos_2d.in_set(RenderSet::Queue));
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+
+        render_app.init_resource::<LineGizmoPipeline>();
     }
 }
 
