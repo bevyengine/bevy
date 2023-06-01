@@ -123,6 +123,7 @@ impl Plugin for ImagePlugin {
                 .init_resource::<FallbackImageZero>()
                 .init_resource::<FallbackImageCubemap>()
                 .init_resource::<FallbackImageMsaaCache>()
+                .init_resource::<FallbackImageFormatMsaaCache>()
                 .init_resource::<FallbackImageDepthCache>();
         }
     }

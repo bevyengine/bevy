@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         NormalPrepass,
         DepthPrepass,
         MotionVectorPrepass,
-        DeferredPrepass,
+        //DeferredPrepass,
         Fxaa::default(),
     ));
 

@@ -17,7 +17,10 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{BindGroupDescriptor, Operations, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
-    texture::{FallbackImageCubemap, FallbackImagesDepth, FallbackImagesMsaa, Image},
+    texture::{
+        FallbackImageCubemap, FallbackImageFormatMsaa, FallbackImagesDepth, FallbackImagesMsaa,
+        Image,
+    },
     view::{Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Render, RenderSet,
 };
@@ -479,13 +482,17 @@ pub fn queue_deferred_lighting_bind_groups(
         With<DeferredPrepass>,
     >,
     images: Res<RenderAssets<Image>>,
-    mut fallback_images: FallbackImagesMsaa,
-    mut fallback_depths: FallbackImagesDepth,
+    fallback_images: (
+        FallbackImagesMsaa,
+        FallbackImagesDepth,
+        FallbackImageFormatMsaa,
+    ),
     fallback_cubemap: Res<FallbackImageCubemap>,
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
 ) {
+    let (mut fallback_images, mut fallback_depths, mut fallback_format_images) = fallback_images;
     if let (
         Some(view_binding),
         Some(light_binding),
@@ -585,6 +592,7 @@ pub fn queue_deferred_lighting_bind_groups(
                     prepass_textures,
                     &mut fallback_images,
                     &mut fallback_depths,
+                    &mut fallback_format_images,
                     &msaa,
                     [16, 17, 18, 19],
                 ));

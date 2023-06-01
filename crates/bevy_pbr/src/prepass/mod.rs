@@ -35,10 +35,11 @@ use bevy_render::{
         PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef,
         ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
         SpecializedMeshPipelines, StencilFaceState, StencilState, TextureDescriptor,
-        TextureDimension, TextureSampleType, TextureUsages, TextureViewDimension, VertexState,
+        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
+        VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
-    texture::{FallbackImagesDepth, FallbackImagesMsaa, TextureCache},
+    texture::{FallbackImageFormatMsaa, FallbackImagesDepth, FallbackImagesMsaa, TextureCache},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -613,6 +614,7 @@ pub fn get_bindings<'a>(
     prepass_textures: Option<&'a ViewPrepassTextures>,
     fallback_images: &'a mut FallbackImagesMsaa,
     fallback_depths: &'a mut FallbackImagesDepth,
+    fallback_format_images: &'a mut FallbackImageFormatMsaa,
     msaa: &'a Msaa,
     bindings: [u32; 4],
 ) -> [BindGroupEntry<'a>; 4] {
@@ -631,17 +633,21 @@ pub fn get_bindings<'a>(
 
     let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
         Some(texture) => &texture.default_view,
-        None => normal_motion_vectors_fallback,
+        None => &normal_motion_vectors_fallback,
     };
 
     let motion_vectors_view = match prepass_textures.and_then(|x| x.motion_vectors.as_ref()) {
         Some(texture) => &texture.default_view,
-        None => normal_motion_vectors_fallback,
+        None => &normal_motion_vectors_fallback,
     };
+
+    let deferred_fallback = &fallback_format_images
+        .image_for_samplecount(msaa.samples(), TextureFormat::Rgba32Uint)
+        .texture_view;
 
     let deferred_view = match prepass_textures.and_then(|x| x.deferred.as_ref()) {
         Some(texture) => &texture.default_view,
-        None => normal_motion_vectors_fallback,
+        None => &deferred_fallback,
     };
 
     [

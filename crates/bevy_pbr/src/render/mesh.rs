@@ -33,8 +33,9 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
-        FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImageFormatMsaa,
+        FallbackImagesDepth, FallbackImagesMsaa, GpuImage, Image, ImageSampler,
+        TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -983,13 +984,17 @@ pub fn queue_mesh_view_bind_groups(
         &Tonemapping,
     )>,
     images: Res<RenderAssets<Image>>,
-    mut fallback_images: FallbackImagesMsaa,
-    mut fallback_depths: FallbackImagesDepth,
+    fallback_images: (
+        FallbackImagesMsaa,
+        FallbackImagesDepth,
+        FallbackImageFormatMsaa,
+    ),
     fallback_cubemap: Res<FallbackImageCubemap>,
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
 ) {
+    let (mut fallback_images, mut fallback_depths, mut fallback_format_images) = fallback_images;
     if let (
         Some(view_binding),
         Some(light_binding),
@@ -1089,6 +1094,7 @@ pub fn queue_mesh_view_bind_groups(
                     prepass_textures,
                     &mut fallback_images,
                     &mut fallback_depths,
+                    &mut fallback_format_images,
                     &msaa,
                     [16, 17, 18, 19],
                 ));
