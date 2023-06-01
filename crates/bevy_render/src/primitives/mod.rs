@@ -81,17 +81,17 @@ impl Sphere {
     }
 }
 
-/// A plane defined by a unit normal and distance from the origin along the normal
-/// Any point `p` is in the plane if `n.p + d = 0`
-/// For planes defining half-spaces such as for frusta, if `n.p + d > 0` then `p` is on
+/// A half-space defined by a unit normal and distance from the origin along the normal
+/// Any point `p` is in the half-space if `n.p + d = 0`
+/// When defining half-spaces such as for frusta, if `n.p + d > 0` then `p` is on
 /// the positive side (inside) of the plane.
 #[derive(Clone, Copy, Debug, Default)]
-pub struct Plane {
+pub struct HalfSpace {
     normal_d: Vec4,
 }
 
-impl Plane {
-    /// Constructs a `Plane` from a 4D vector whose first 3 components
+impl HalfSpace {
+    /// Constructs a `HalfSpace` from a 4D vector whose first 3 components
     /// are the normal and whose last component is the distance along the normal
     /// from the origin.
     /// This constructor ensures that the normal is normalized and the distance is
@@ -103,21 +103,21 @@ impl Plane {
         }
     }
 
-    /// `Plane` unit normal
+    /// `HalfSpace` unit normal
     #[inline]
     pub fn normal(&self) -> Vec3A {
         Vec3A::from(self.normal_d)
     }
 
     /// Signed distance from the origin along the unit normal such that n.p + d = 0 for point p in
-    /// the `Plane`
+    /// the `HalfSpace`
     #[inline]
     pub fn d(&self) -> f32 {
         self.normal_d.w
     }
 
-    /// `Plane` unit normal and signed distance from the origin such that n.p + d = 0 for point p
-    /// in the `Plane`
+    /// `HalfSpace` unit normal and signed distance from the origin such that n.p + d = 0 for point p
+    /// in the `HalfSpace`
     #[inline]
     pub fn normal_d(&self) -> Vec4 {
         self.normal_d
@@ -131,7 +131,7 @@ impl Plane {
 #[reflect(Component)]
 pub struct Frustum {
     #[reflect(ignore)]
-    pub planes: [Plane; 6],
+    pub planes: [HalfSpace; 6],
 }
 
 impl Frustum {
@@ -139,7 +139,7 @@ impl Frustum {
     #[inline]
     pub fn from_view_projection(view_projection: &Mat4) -> Self {
         let mut frustum = Frustum::from_view_projection_no_far(view_projection);
-        frustum.planes[5] = Plane::new(view_projection.row(2));
+        frustum.planes[5] = HalfSpace::new(view_projection.row(2));
         frustum
     }
 
@@ -154,7 +154,7 @@ impl Frustum {
     ) -> Self {
         let mut frustum = Frustum::from_view_projection_no_far(view_projection);
         let far_center = *view_translation - far * *view_backward;
-        frustum.planes[5] = Plane::new(view_backward.extend(-view_backward.dot(far_center)));
+        frustum.planes[5] = HalfSpace::new(view_backward.extend(-view_backward.dot(far_center)));
         frustum
     }
 
@@ -163,10 +163,10 @@ impl Frustum {
     // Rendering by Lengyel.
     fn from_view_projection_no_far(view_projection: &Mat4) -> Self {
         let row3 = view_projection.row(3);
-        let mut planes = [Plane::default(); 6];
+        let mut planes = [HalfSpace::default(); 6];
         for (i, plane) in planes.iter_mut().enumerate().take(5) {
             let row = view_projection.row(i / 2);
-            *plane = Plane::new(if (i & 1) == 0 && i != 4 {
+            *plane = HalfSpace::new(if (i & 1) == 0 && i != 4 {
                 row3 + row
             } else {
                 row3 - row
@@ -250,12 +250,12 @@ mod tests {
     fn big_frustum() -> Frustum {
         Frustum {
             planes: [
-                Plane::new(Vec4::new(-0.9701, -0.2425, -0.0000, 7.7611)),
-                Plane::new(Vec4::new(-0.0000, 1.0000, -0.0000, 4.0000)),
-                Plane::new(Vec4::new(-0.0000, -0.2425, -0.9701, 2.9104)),
-                Plane::new(Vec4::new(-0.0000, -1.0000, -0.0000, 4.0000)),
-                Plane::new(Vec4::new(-0.0000, -0.2425, 0.9701, 2.9104)),
-                Plane::new(Vec4::new(0.9701, -0.2425, -0.0000, -1.9403)),
+                HalfSpace::new(Vec4::new(-0.9701, -0.2425, -0.0000, 7.7611)),
+                HalfSpace::new(Vec4::new(-0.0000, 1.0000, -0.0000, 4.0000)),
+                HalfSpace::new(Vec4::new(-0.0000, -0.2425, -0.9701, 2.9104)),
+                HalfSpace::new(Vec4::new(-0.0000, -1.0000, -0.0000, 4.0000)),
+                HalfSpace::new(Vec4::new(-0.0000, -0.2425, 0.9701, 2.9104)),
+                HalfSpace::new(Vec4::new(0.9701, -0.2425, -0.0000, -1.9403)),
             ],
         }
     }
@@ -286,12 +286,12 @@ mod tests {
     fn frustum() -> Frustum {
         Frustum {
             planes: [
-                Plane::new(Vec4::new(-0.9701, -0.2425, -0.0000, 0.7276)),
-                Plane::new(Vec4::new(-0.0000, 1.0000, -0.0000, 1.0000)),
-                Plane::new(Vec4::new(-0.0000, -0.2425, -0.9701, 0.7276)),
-                Plane::new(Vec4::new(-0.0000, -1.0000, -0.0000, 1.0000)),
-                Plane::new(Vec4::new(-0.0000, -0.2425, 0.9701, 0.7276)),
-                Plane::new(Vec4::new(0.9701, -0.2425, -0.0000, 0.7276)),
+                HalfSpace::new(Vec4::new(-0.9701, -0.2425, -0.0000, 0.7276)),
+                HalfSpace::new(Vec4::new(-0.0000, 1.0000, -0.0000, 1.0000)),
+                HalfSpace::new(Vec4::new(-0.0000, -0.2425, -0.9701, 0.7276)),
+                HalfSpace::new(Vec4::new(-0.0000, -1.0000, -0.0000, 1.0000)),
+                HalfSpace::new(Vec4::new(-0.0000, -0.2425, 0.9701, 0.7276)),
+                HalfSpace::new(Vec4::new(0.9701, -0.2425, -0.0000, 0.7276)),
             ],
         }
     }
@@ -366,12 +366,12 @@ mod tests {
     fn long_frustum() -> Frustum {
         Frustum {
             planes: [
-                Plane::new(Vec4::new(-0.9998, -0.0222, -0.0000, -1.9543)),
-                Plane::new(Vec4::new(-0.0000, 1.0000, -0.0000, 45.1249)),
-                Plane::new(Vec4::new(-0.0000, -0.0168, -0.9999, 2.2718)),
-                Plane::new(Vec4::new(-0.0000, -1.0000, -0.0000, 45.1249)),
-                Plane::new(Vec4::new(-0.0000, -0.0168, 0.9999, 2.2718)),
-                Plane::new(Vec4::new(0.9998, -0.0222, -0.0000, 7.9528)),
+                HalfSpace::new(Vec4::new(-0.9998, -0.0222, -0.0000, -1.9543)),
+                HalfSpace::new(Vec4::new(-0.0000, 1.0000, -0.0000, 45.1249)),
+                HalfSpace::new(Vec4::new(-0.0000, -0.0168, -0.9999, 2.2718)),
+                HalfSpace::new(Vec4::new(-0.0000, -1.0000, -0.0000, 45.1249)),
+                HalfSpace::new(Vec4::new(-0.0000, -0.0168, 0.9999, 2.2718)),
+                HalfSpace::new(Vec4::new(0.9998, -0.0222, -0.0000, 7.9528)),
             ],
         }
     }
