@@ -20,7 +20,9 @@ pub struct Timer {
     times_finished_this_tick: u32,
 }
 
-/// Ensures that `duration` is never zero when being used in Timer. This simplifies edge cases
+/// A new-typed [`Duration`] measure of elaspsed time that is never [`Duration::ZERO`].
+///
+/// Interally, this snsures that `duration` is never zero when being used in [`Timer`]. This simplifies edge cases
 /// and removes the need for repeated runtime checks for zero duration in [Timer::tick](Timer::tick)
 #[derive(Clone, Debug, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
