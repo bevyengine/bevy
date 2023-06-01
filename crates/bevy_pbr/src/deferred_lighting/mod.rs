@@ -5,14 +5,11 @@ use bevy_core_pipeline::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::{Camera3d, ClearColor},
     prepass::{DeferredPrepass, ViewPrepassTextures},
-    tonemapping::{
-        get_lut_bind_group_layout_entries, get_lut_bindings, DebandDither, Tonemapping,
-        TonemappingLuts,
-    },
+    tonemapping::{get_lut_bindings, DebandDither, Tonemapping, TonemappingLuts},
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
-    globals::{GlobalsBuffer, GlobalsUniform},
+    globals::GlobalsBuffer,
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{BindGroupDescriptor, Operations, PipelineCache, RenderPassDescriptor},
@@ -21,7 +18,7 @@ use bevy_render::{
         FallbackImageCubemap, FallbackImageFormatMsaa, FallbackImagesDepth, FallbackImagesMsaa,
         Image,
     },
-    view::{Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{Msaa, ViewTarget, ViewUniformOffset, ViewUniforms},
     Render, RenderSet,
 };
 
@@ -34,8 +31,8 @@ use bevy_render::{
 };
 
 use crate::{
-    environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
-    GpuPointLights, LightMeta, MeshPipeline, MeshPipelineKey, MeshViewBindGroup, ShadowSamplers,
+    environment_map, mesh_view_layout_entries, prepass, EnvironmentMapLight, FogMeta,
+    GlobalLightMeta, LightMeta, MeshPipeline, MeshPipelineKey, MeshViewBindGroup, ShadowSamplers,
     ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
@@ -254,7 +251,7 @@ impl FromWorld for DeferredLightingLayout {
         let bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("deferred_lighting_bind_group_layout"),
-                entries: &layout_entries(clustered_forward_buffer_binding_type, false),
+                entries: &mesh_view_layout_entries(clustered_forward_buffer_binding_type, false),
             });
 
         Self { bind_group_layout }
@@ -319,159 +316,6 @@ pub fn prepare_deferred_lighting_pipelines(
             .entity(entity)
             .insert(DeferredLightingPipeline { pipeline_id });
     }
-}
-
-/// Returns the appropriate bind group layout vec based on the parameters
-fn layout_entries(
-    clustered_forward_buffer_binding_type: BufferBindingType,
-    multisampled: bool,
-) -> Vec<BindGroupLayoutEntry> {
-    let mut entries = vec![
-        // View
-        BindGroupLayoutEntry {
-            binding: 0,
-            visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: true,
-                min_binding_size: Some(ViewUniform::min_size()),
-            },
-            count: None,
-        },
-        // Lights
-        BindGroupLayoutEntry {
-            binding: 1,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: true,
-                min_binding_size: Some(GpuLights::min_size()),
-            },
-            count: None,
-        },
-        // Point Shadow Texture Cube Array
-        BindGroupLayoutEntry {
-            binding: 2,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Texture {
-                multisampled: false,
-                sample_type: TextureSampleType::Depth,
-                #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
-                view_dimension: TextureViewDimension::CubeArray,
-                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-                view_dimension: TextureViewDimension::Cube,
-            },
-            count: None,
-        },
-        // Point Shadow Texture Array Sampler
-        BindGroupLayoutEntry {
-            binding: 3,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Sampler(SamplerBindingType::Comparison),
-            count: None,
-        },
-        // Directional Shadow Texture Array
-        BindGroupLayoutEntry {
-            binding: 4,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Texture {
-                multisampled: false,
-                sample_type: TextureSampleType::Depth,
-                #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
-                view_dimension: TextureViewDimension::D2Array,
-                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-                view_dimension: TextureViewDimension::D2,
-            },
-            count: None,
-        },
-        // Directional Shadow Texture Array Sampler
-        BindGroupLayoutEntry {
-            binding: 5,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Sampler(SamplerBindingType::Comparison),
-            count: None,
-        },
-        // PointLights
-        BindGroupLayoutEntry {
-            binding: 6,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: clustered_forward_buffer_binding_type,
-                has_dynamic_offset: false,
-                min_binding_size: Some(GpuPointLights::min_size(
-                    clustered_forward_buffer_binding_type,
-                )),
-            },
-            count: None,
-        },
-        // ClusteredLightIndexLists
-        BindGroupLayoutEntry {
-            binding: 7,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: clustered_forward_buffer_binding_type,
-                has_dynamic_offset: false,
-                min_binding_size: Some(ViewClusterBindings::min_size_cluster_light_index_lists(
-                    clustered_forward_buffer_binding_type,
-                )),
-            },
-            count: None,
-        },
-        // ClusterOffsetsAndCounts
-        BindGroupLayoutEntry {
-            binding: 8,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: clustered_forward_buffer_binding_type,
-                has_dynamic_offset: false,
-                min_binding_size: Some(ViewClusterBindings::min_size_cluster_offsets_and_counts(
-                    clustered_forward_buffer_binding_type,
-                )),
-            },
-            count: None,
-        },
-        // Globals
-        BindGroupLayoutEntry {
-            binding: 9,
-            visibility: ShaderStages::VERTEX_FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: Some(GlobalsUniform::min_size()),
-            },
-            count: None,
-        },
-        // Fog
-        BindGroupLayoutEntry {
-            binding: 10,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: true,
-                min_binding_size: Some(GpuFog::min_size()),
-            },
-            count: None,
-        },
-    ];
-
-    // EnvironmentMapLight
-    let environment_map_entries = environment_map::get_bind_group_layout_entries([11, 12, 13]);
-    entries.extend_from_slice(&environment_map_entries);
-
-    // Tonemapping
-    let tonemapping_lut_entries = get_lut_bind_group_layout_entries([14, 15]);
-    entries.extend_from_slice(&tonemapping_lut_entries);
-
-    if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
-        || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
-    {
-        entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
-            [16, 17, 18, 19],
-            multisampled,
-        ));
-    }
-
-    entries
 }
 
 #[allow(clippy::too_many_arguments)]
