@@ -99,6 +99,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
     let read_only_struct_name = if fetch_struct_attributes.is_mutable {
         Ident::new(&format!("{struct_name}ReadOnly"), Span::call_site())
     } else {
+        #[allow(clippy::redundant_clone)]
         struct_name.clone()
     };
 
@@ -106,6 +107,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
     let read_only_item_struct_name = if fetch_struct_attributes.is_mutable {
         Ident::new(&format!("{struct_name}ReadOnlyItem"), Span::call_site())
     } else {
+        #[allow(clippy::redundant_clone)]
         item_struct_name.clone()
     };
 
@@ -115,6 +117,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
         let new_ident = Ident::new(&format!("{struct_name}ReadOnlyFetch"), Span::call_site());
         ensure_no_collision(new_ident, tokens.clone())
     } else {
+        #[allow(clippy::redundant_clone)]
         fetch_struct_name.clone()
     };
 
