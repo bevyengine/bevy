@@ -38,7 +38,7 @@ use bevy_render::{
 };
 use bevy_utils::FloatOrd;
 
-pub const DEPTH_PREPASS_FORMAT: TextureFormat = TextureFormat::Depth32Float;
+pub const DEPTH_PREPASS_FORMAT: TextureFormat = TextureFormat::Depth32FloatStencil8;
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
 

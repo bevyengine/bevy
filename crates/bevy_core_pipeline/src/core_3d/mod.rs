@@ -305,9 +305,9 @@ pub fn prepare_core_3d_depth_textures(
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
                     // PERF: vulkan docs recommend using 24 bit depth for better performance
-                    format: TextureFormat::Depth32Float,
+                    format: TextureFormat::Depth32FloatStencil8,
                     usage,
-                    view_formats: &[],
+                    view_formats: &[TextureFormat::Depth32FloatStencil8],
                 };
 
                 texture_cache.get(&render_device, descriptor)

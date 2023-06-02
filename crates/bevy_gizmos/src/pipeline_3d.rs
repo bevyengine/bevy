@@ -101,7 +101,7 @@ impl SpecializedMeshPipeline for GizmoPipeline {
                 ..Default::default()
             },
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
+                format: TextureFormat::Depth32FloatStencil8,
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::Greater,
                 stencil: Default::default(),

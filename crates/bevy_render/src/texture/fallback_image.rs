@@ -209,7 +209,7 @@ impl<'w> FallbackImagesDepth<'w> {
                 &self.render_device,
                 &self.render_queue,
                 &self.default_sampler,
-                TextureFormat::Depth32Float,
+                TextureFormat::Depth32FloatStencil8,
                 TextureViewDimension::D2,
                 sample_count,
                 255,

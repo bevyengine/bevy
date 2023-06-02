@@ -35,9 +35,9 @@ use bevy_render::{
         DynamicUniformBuffer, Extent3d, FragmentState, FrontFace, MultisampleState, PipelineCache,
         PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef,
         ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
-        VertexState,
+        SpecializedMeshPipelines, StencilFaceState, StencilOperation, StencilState, TextureAspect,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImageFormatMsaa, FallbackImagesDepth, FallbackImagesMsaa, TextureCache},
@@ -45,12 +45,12 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{tracing::error, HashMap};
+use bevy_utils::{default, tracing::error, HashMap};
 
 use crate::{
-    prepare_lights, AlphaMode, DefaultOpaqueRendererMethod, DrawMesh, Material, MaterialPipeline,
-    MaterialPipelineKey, MeshPipeline, MeshPipelineKey, MeshUniform, OpaqueRendererMethod,
-    RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup, MAX_CASCADES_PER_LIGHT,
+    prepare_lights, AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey,
+    MeshPipeline, MeshPipelineKey, MeshUniform, OpaqueRendererMethod, RenderMaterials,
+    SetDeferredStencilReference, SetMaterialBindGroup, SetMeshBindGroup, MAX_CASCADES_PER_LIGHT,
     MAX_DIRECTIONAL_LIGHTS,
 };
 
@@ -185,8 +185,8 @@ where
         render_app
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>()
-            .add_render_command::<Opaque3dDeferred, DrawPrepass<M>>()
-            .add_render_command::<AlphaMask3dDeferred, DrawPrepass<M>>()
+            .add_render_command::<Opaque3dDeferred, DrawDeferred<M>>()
+            .add_render_command::<AlphaMask3dDeferred, DrawDeferred<M>>()
             .add_systems(
                 Render,
                 queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
@@ -541,10 +541,20 @@ where
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
-                    front: StencilFaceState::IGNORE,
-                    back: StencilFaceState::IGNORE,
+                    front: StencilFaceState {
+                        compare: CompareFunction::Always,
+                        fail_op: StencilOperation::Keep,
+                        depth_fail_op: StencilOperation::Keep,
+                        pass_op: StencilOperation::Replace,
+                    },
+                    back: StencilFaceState {
+                        compare: CompareFunction::Always,
+                        fail_op: StencilOperation::Keep,
+                        depth_fail_op: StencilOperation::Keep,
+                        pass_op: StencilOperation::Replace,
+                    },
                     read_mask: 0,
-                    write_mask: 0,
+                    write_mask: u32::MAX,
                 },
                 bias: DepthBiasState {
                     constant: 0,
@@ -622,21 +632,49 @@ pub fn get_bind_group_layout_entries(
     ]
 }
 
-pub fn get_bindings<'a>(
-    prepass_textures: Option<&'a ViewPrepassTextures>,
-    fallback_images: &'a mut FallbackImagesMsaa,
-    fallback_depths: &'a mut FallbackImagesDepth,
-    fallback_format_images: &'a mut FallbackImageFormatMsaa,
-    msaa: &'a Msaa,
-    bindings: [u32; 4],
-) -> [BindGroupEntry<'a>; 4] {
+// Needed so the texture views can live long enough.
+pub struct DepthBindingsSet([TextureView; 4]);
+
+impl DepthBindingsSet {
+    pub fn get_entries(&self, bindings: [u32; 4]) -> [BindGroupEntry; 4] {
+        [
+            BindGroupEntry {
+                binding: bindings[0],
+                resource: BindingResource::TextureView(&self.0[0]),
+            },
+            BindGroupEntry {
+                binding: bindings[1],
+                resource: BindingResource::TextureView(&self.0[1]),
+            },
+            BindGroupEntry {
+                binding: bindings[2],
+                resource: BindingResource::TextureView(&self.0[2]),
+            },
+            BindGroupEntry {
+                binding: bindings[3],
+                resource: BindingResource::TextureView(&self.0[3]),
+            },
+        ]
+    }
+}
+pub fn get_bindings(
+    prepass_textures: Option<&ViewPrepassTextures>,
+    fallback_images: &mut FallbackImagesMsaa,
+    fallback_depths: &mut FallbackImagesDepth,
+    fallback_format_images: &mut FallbackImageFormatMsaa,
+    msaa: &Msaa,
+) -> DepthBindingsSet {
+    let depth_desc = TextureViewDescriptor {
+        label: Some("prepass_depth"),
+        aspect: TextureAspect::DepthOnly,
+        ..default()
+    };
     let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
-        Some(texture) => &texture.default_view,
-        None => {
-            &fallback_depths
-                .image_for_samplecount(msaa.samples())
-                .texture_view
-        }
+        Some(texture) => texture.texture.create_view(&depth_desc),
+        None => fallback_depths
+            .image_for_samplecount(msaa.samples())
+            .texture
+            .create_view(&depth_desc),
     };
 
     let normal_motion_vectors_fallback = &fallback_images
@@ -645,13 +683,15 @@ pub fn get_bindings<'a>(
 
     let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
         Some(texture) => &texture.default_view,
-        None => &normal_motion_vectors_fallback,
-    };
+        None => normal_motion_vectors_fallback,
+    }
+    .clone();
 
     let motion_vectors_view = match prepass_textures.and_then(|x| x.motion_vectors.as_ref()) {
         Some(texture) => &texture.default_view,
-        None => &normal_motion_vectors_fallback,
-    };
+        None => normal_motion_vectors_fallback,
+    }
+    .clone();
 
     let deferred_fallback = &fallback_format_images
         .image_for_samplecount(1, TextureFormat::Rgba32Uint)
@@ -659,27 +699,11 @@ pub fn get_bindings<'a>(
 
     let deferred_view = match prepass_textures.and_then(|x| x.deferred.as_ref()) {
         Some(texture) => &texture.default_view,
-        None => &deferred_fallback,
-    };
+        None => deferred_fallback,
+    }
+    .clone();
 
-    [
-        BindGroupEntry {
-            binding: bindings[0],
-            resource: BindingResource::TextureView(depth_view),
-        },
-        BindGroupEntry {
-            binding: bindings[1],
-            resource: BindingResource::TextureView(normal_view),
-        },
-        BindGroupEntry {
-            binding: bindings[2],
-            resource: BindingResource::TextureView(motion_vectors_view),
-        },
-        BindGroupEntry {
-            binding: bindings[3],
-            resource: BindingResource::TextureView(deferred_view),
-        },
-    ]
+    DepthBindingsSet([depth_view, normal_view, motion_vectors_view, deferred_view])
 }
 
 // Extract the render phases for the prepass
@@ -996,7 +1020,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    default_opaque_render_method: Res<DefaultOpaqueRendererMethod>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
     mut views: Query<(
         &ExtractedView,
@@ -1023,11 +1046,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
         .unwrap();
     let opaque_draw_deferred = opaque_draw_deferred_functions
         .read()
-        .get_id::<DrawPrepass<M>>()
+        .get_id::<DrawDeferred<M>>()
         .unwrap();
     let alpha_mask_draw_deferred = alpha_mask_draw_deferred_functions
         .read()
-        .get_id::<DrawPrepass<M>>()
+        .get_id::<DrawDeferred<M>>()
         .unwrap();
     for (
         view,
@@ -1073,11 +1096,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
             let mut mesh_key =
                 MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
 
-            let method = match &material.properties.deferred {
-                Some(method) => method,
-                None => &default_opaque_render_method.0,
-            };
-
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
                 AlphaMode::Opaque => {}
@@ -1088,7 +1106,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 | AlphaMode::Multiply => continue,
             }
 
-            let forward = match method {
+            let forward = match material.properties.deferred {
                 OpaqueRendererMethod::Forward => true,
                 OpaqueRendererMethod::Deferred => false,
             };
@@ -1218,6 +1236,15 @@ pub type DrawPrepass<M> = (
     SetPrepassViewBindGroup<0>,
     SetMaterialBindGroup<M, 1>,
     SetMeshBindGroup<2>,
+    DrawMesh,
+);
+
+pub type DrawDeferred<M> = (
+    SetItemPipeline,
+    SetPrepassViewBindGroup<0>,
+    SetMaterialBindGroup<M, 1>,
+    SetMeshBindGroup<2>,
+    SetDeferredStencilReference<M>,
     DrawMesh,
 );
 

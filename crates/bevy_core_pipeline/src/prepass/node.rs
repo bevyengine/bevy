@@ -93,7 +93,10 @@ impl ViewNode for PrepassNode {
                         load: LoadOp::Clear(0.0),
                         store: true,
                     }),
-                    stencil_ops: None,
+                    stencil_ops: Some(Operations {
+                        load: LoadOp::Clear(0),
+                        store: true,
+                    }),
                 }),
             });
 

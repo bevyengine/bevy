@@ -221,7 +221,7 @@ pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 pub const MAX_CASCADES_PER_LIGHT: usize = 4;
 #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 1;
-pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
+pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32FloatStencil8;
 
 #[derive(Resource, Clone)]
 pub struct ShadowSamplers {
@@ -1166,7 +1166,7 @@ pub fn prepare_lights(
                     dimension: Some(TextureViewDimension::CubeArray),
                     #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                     dimension: Some(TextureViewDimension::Cube),
-                    aspect: TextureAspect::All,
+                    aspect: TextureAspect::DepthOnly,
                     base_mip_level: 0,
                     mip_level_count: None,
                     base_array_layer: 0,
@@ -1181,7 +1181,7 @@ pub fn prepare_lights(
                 dimension: Some(TextureViewDimension::D2Array),
                 #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                 dimension: Some(TextureViewDimension::D2),
-                aspect: TextureAspect::All,
+                aspect: TextureAspect::DepthOnly,
                 base_mip_level: 0,
                 mip_level_count: None,
                 base_array_layer: 0,
@@ -1736,7 +1736,10 @@ impl Node for ShadowPassNode {
                                 load: LoadOp::Clear(0.0),
                                 store: true,
                             }),
-                            stencil_ops: None,
+                            stencil_ops: Some(Operations {
+                                load: LoadOp::Clear(0),
+                                store: true,
+                            }),
                         }),
                     });
 

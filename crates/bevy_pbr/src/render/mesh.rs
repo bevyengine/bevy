@@ -841,7 +841,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 strip_index_format: None,
             },
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
+                format: TextureFormat::Depth32FloatStencil8,
                 depth_write_enabled,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
@@ -1077,18 +1077,18 @@ pub fn queue_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
             entries.extend_from_slice(&tonemapping_luts);
 
+            let prepass_bindings = prepass::get_bindings(
+                prepass_textures,
+                &mut fallback_images,
+                &mut fallback_depths,
+                &mut fallback_format_images,
+                &msaa,
+            );
             // When using WebGL, we can't have a depth texture with multisampling
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
             {
-                entries.extend_from_slice(&prepass::get_bindings(
-                    prepass_textures,
-                    &mut fallback_images,
-                    &mut fallback_depths,
-                    &mut fallback_format_images,
-                    &msaa,
-                    [16, 17, 18, 19],
-                ));
+                entries.extend_from_slice(&prepass_bindings.get_entries([16, 17, 18, 19]));
             }
 
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {

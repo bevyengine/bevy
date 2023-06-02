@@ -18,7 +18,7 @@ use bevy_render::{
         FallbackImageCubemap, FallbackImageFormatMsaa, FallbackImagesDepth, FallbackImagesMsaa,
         Image,
     },
-    view::{Msaa, ViewTarget, ViewUniformOffset, ViewUniforms},
+    view::{Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset, ViewUniforms},
     Render, RenderSet,
 };
 
@@ -101,6 +101,7 @@ impl ViewNode for DeferredLightingNode {
         &'static ViewFogUniformOffset,
         &'static MeshViewBindGroup,
         &'static ViewTarget,
+        &'static ViewDepthTexture,
         &'static Camera3d,
         &'static DeferredLightingPipeline,
     );
@@ -115,6 +116,7 @@ impl ViewNode for DeferredLightingNode {
             view_fog_offset,
             mesh_view_bind_group,
             target,
+            view_depth_texture,
             camera_3d,
             deferred_lighting_pipeline,
         ): QueryItem<Self::ViewQuery>,
@@ -138,7 +140,15 @@ impl ViewNode for DeferredLightingNode {
                 },
                 store: true,
             }))],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                view: &view_depth_texture.view,
+                depth_ops: None,
+                stencil_ops: Some(Operations {
+                    load: LoadOp::Load,
+                    store: false,
+                }),
+            }),
+            //depth_stencil_attachment: None,
         });
 
         render_pass.set_render_pipeline(pipeline);
@@ -151,6 +161,7 @@ impl ViewNode for DeferredLightingNode {
                 view_fog_offset.offset,
             ],
         );
+        render_pass.set_stencil_reference(1);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -234,7 +245,33 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 })],
             }),
             primitive: PrimitiveState::default(),
-            depth_stencil: None,
+            depth_stencil: Some(DepthStencilState {
+                format: TextureFormat::Depth32FloatStencil8,
+                depth_write_enabled: false,
+                depth_compare: CompareFunction::Always,
+                stencil: StencilState {
+                    front: StencilFaceState {
+                        compare: CompareFunction::Equal,
+                        fail_op: StencilOperation::Keep,
+                        depth_fail_op: StencilOperation::Keep,
+                        pass_op: StencilOperation::Keep,
+                    },
+                    back: StencilFaceState {
+                        compare: CompareFunction::Equal,
+                        fail_op: StencilOperation::Keep,
+                        depth_fail_op: StencilOperation::Keep,
+                        pass_op: StencilOperation::Keep,
+                    },
+                    read_mask: u32::MAX,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            }),
+            //depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: vec![],
         }
@@ -442,23 +479,23 @@ pub fn queue_deferred_lighting_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
             entries.extend_from_slice(&tonemapping_luts);
 
+            let prepass_bindings = prepass::get_bindings(
+                prepass_textures,
+                &mut fallback_images,
+                &mut fallback_depths,
+                &mut fallback_format_images,
+                &msaa,
+            );
             // When using WebGL, we can't have a depth texture with multisampling
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
             {
-                entries.extend_from_slice(&prepass::get_bindings(
-                    prepass_textures,
-                    &mut fallback_images,
-                    &mut fallback_depths,
-                    &mut fallback_format_images,
-                    &msaa,
-                    [16, 17, 18, 19],
-                ));
+                entries.extend_from_slice(&prepass_bindings.get_entries([16, 17, 18, 19]));
             }
 
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &entries,
-                label: Some("mesh_view_bind_group"),
+                label: Some("deferred_mesh_view_bind_group"),
                 layout,
             });
 

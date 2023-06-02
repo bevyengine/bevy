@@ -85,12 +85,6 @@ fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let depth = prepass_depth(in.position, 0u);
 
-    // TODO Griffin also discard based on flags if this frag shouldn't be lit by this pass
-    if depth == 0.0 {
-        // if depth is inf then discard, leaves clear color
-        discard;
-    }
-
     let frag_coord = vec4(in.position.xy, depth, 0.0);
 
     let world_position = vec4(position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);

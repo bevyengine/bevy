@@ -312,6 +312,11 @@ pub struct StandardMaterial {
 
     /// Render method used for opaque materials
     pub opaque_render_method: Option<OpaqueRendererMethod>,
+
+    /// Used for selecting the deferred lighting pass for deferred materials
+    /// Default is 1 for default PBR deferred lighting pass
+    /// Ignored in the case of forward materials
+    pub deferred_material_stencil_reference: u32,
 }
 
 impl Default for StandardMaterial {
@@ -346,6 +351,7 @@ impl Default for StandardMaterial {
             max_parallax_layer_count: 16.0,
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
             opaque_render_method: None,
+            deferred_material_stencil_reference: 1,
         }
     }
 }
@@ -585,5 +591,10 @@ impl Material for StandardMaterial {
     #[inline]
     fn deferred(&self) -> Option<OpaqueRendererMethod> {
         self.opaque_render_method
+    }
+
+    #[inline]
+    fn deferred_material_stencil_reference(&self) -> u32 {
+        self.deferred_material_stencil_reference
     }
 }

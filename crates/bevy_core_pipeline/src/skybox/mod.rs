@@ -141,7 +141,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             },
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
+                format: TextureFormat::Depth32FloatStencil8,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {

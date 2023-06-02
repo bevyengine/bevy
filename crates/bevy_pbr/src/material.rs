@@ -135,6 +135,14 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
         None
     }
 
+    /// Returns the stencil reference, used for specifying
+    /// which deferred lighting pass should be used if any
+    /// Use 0 for forward only materials
+    #[inline]
+    fn deferred_material_stencil_reference(&self) -> u32 {
+        0
+    }
+
     #[inline]
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
     /// for meshes with similar depth, to avoid z-fighting.
@@ -380,6 +388,27 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
     }
 }
 
+/// Sets the deferred stencil reference for a given [`Material`]
+pub struct SetDeferredStencilReference<M: Material>(PhantomData<M>);
+impl<P: PhaseItem, M: Material> RenderCommand<P> for SetDeferredStencilReference<M> {
+    type Param = SRes<RenderMaterials<M>>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<Handle<M>>;
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        _view: (),
+        material_handle: &'_ Handle<M>,
+        materials: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let material = materials.into_inner().get(material_handle).unwrap();
+        pass.set_stencil_reference(material.stencil_reference);
+        RenderCommandResult::Success
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material_meshes<M: Material>(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
@@ -393,7 +422,6 @@ pub fn queue_material_meshes<M: Material>(
     render_materials: Res<RenderMaterials<M>>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
     images: Res<RenderAssets<Image>>,
-    default_opaque_render_method: Res<DefaultOpaqueRendererMethod>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -483,11 +511,7 @@ pub fn queue_material_meshes<M: Material>(
                     render_meshes.get(mesh_handle),
                     render_materials.get(material_handle),
                 ) {
-                    let method = match &material.properties.deferred {
-                        Some(method) => method,
-                        None => &default_opaque_render_method.0,
-                    };
-                    let forward = match method {
+                    let forward = match material.properties.deferred {
                         OpaqueRendererMethod::Forward => true,
                         OpaqueRendererMethod::Deferred => false,
                     };
@@ -591,8 +615,7 @@ pub enum OpaqueRendererMethod {
 pub struct MaterialProperties {
     /// Is this material should be rendered by the deferred renderer when
     /// AlphaMode::Opaque or AlphaMode::Mask
-    /// If None, it will default to the DefaultOpaqueRendererMethod
-    pub deferred: Option<OpaqueRendererMethod>,
+    pub deferred: OpaqueRendererMethod,
     /// The [`AlphaMode`] of this material.
     pub alpha_mode: AlphaMode,
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
@@ -607,6 +630,7 @@ pub struct PreparedMaterial<T: Material> {
     pub bind_group: BindGroup,
     pub key: T::Data,
     pub properties: MaterialProperties,
+    pub stencil_reference: u32,
 }
 
 #[derive(Resource)]
@@ -691,6 +715,7 @@ pub fn prepare_materials<M: Material>(
     images: Res<RenderAssets<Image>>,
     fallback_image: Res<FallbackImage>,
     pipeline: Res<MaterialPipeline<M>>,
+    default_opaque_render_method: Res<DefaultOpaqueRendererMethod>,
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (handle, material) in queued_assets.into_iter() {
@@ -700,6 +725,7 @@ pub fn prepare_materials<M: Material>(
             &images,
             &fallback_image,
             &pipeline,
+            default_opaque_render_method.0,
         ) {
             Ok(prepared_asset) => {
                 render_materials.insert(handle, prepared_asset);
@@ -721,6 +747,7 @@ pub fn prepare_materials<M: Material>(
             &images,
             &fallback_image,
             &pipeline,
+            default_opaque_render_method.0,
         ) {
             Ok(prepared_asset) => {
                 render_materials.insert(handle, prepared_asset);
@@ -738,6 +765,7 @@ fn prepare_material<M: Material>(
     images: &RenderAssets<Image>,
     fallback_image: &FallbackImage,
     pipeline: &MaterialPipeline<M>,
+    default_opaque_render_method: OpaqueRendererMethod,
 ) -> Result<PreparedMaterial<M>, AsBindGroupError> {
     let prepared = material.as_bind_group(
         &pipeline.material_layout,
@@ -745,6 +773,10 @@ fn prepare_material<M: Material>(
         images,
         fallback_image,
     )?;
+    let method = match material.deferred() {
+        Some(method) => method,
+        None => default_opaque_render_method,
+    };
     Ok(PreparedMaterial {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,
@@ -752,7 +784,11 @@ fn prepare_material<M: Material>(
         properties: MaterialProperties {
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),
-            deferred: material.deferred(),
+            deferred: method,
+        },
+        stencil_reference: match method {
+            OpaqueRendererMethod::Forward => 0,
+            OpaqueRendererMethod::Deferred => material.deferred_material_stencil_reference(),
         },
     })
 }

@@ -130,7 +130,14 @@ impl ViewNode for DeferredNode {
                         .into(),
                         store: true,
                     }),
-                    stencil_ops: None,
+                    stencil_ops: Some(Operations {
+                        load: if depth_prepass.is_some() {
+                            LoadOp::Load // load if the depth_prepass has run
+                        } else {
+                            LoadOp::Clear(0)
+                        },
+                        store: true,
+                    }),
                 }),
             });
 
