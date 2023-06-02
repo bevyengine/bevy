@@ -9,6 +9,7 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     globals::GlobalsBuffer,
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -24,7 +25,7 @@ use bevy_render::{
 
 use bevy_app::prelude::*;
 
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     render_graph::RenderGraphApp, render_resource::*, renderer::RenderDevice, texture::BevyDefault,
     view::ExtractedView, RenderApp,
@@ -42,8 +43,23 @@ pub struct DeferredLightingPlugin;
 pub const DEFERRED_LIGHTING_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2708011359337029741);
 
+pub const DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE: u32 = 1;
+
+#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
+pub struct PBRDeferredLightingStencilReference(pub u32);
+
+impl Default for PBRDeferredLightingStencilReference {
+    fn default() -> Self {
+        Self(DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE)
+    }
+}
+
 impl Plugin for DeferredLightingPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<PBRDeferredLightingStencilReference>()
+            .register_type::<PBRDeferredLightingStencilReference>()
+            .add_plugin(ExtractResourcePlugin::<PBRDeferredLightingStencilReference>::default());
+
         load_internal_asset!(
             app,
             DEFERRED_LIGHTING_SHADER_HANDLE,
@@ -123,6 +139,7 @@ impl ViewNode for DeferredLightingNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
+        let stencil_reference = world.resource::<PBRDeferredLightingStencilReference>();
 
         let Some(pipeline) = pipeline_cache.get_render_pipeline(deferred_lighting_pipeline.pipeline_id) else {
                     return Ok(());
@@ -161,7 +178,7 @@ impl ViewNode for DeferredLightingNode {
                 view_fog_offset.offset,
             ],
         );
-        render_pass.set_stencil_reference(1);
+        render_pass.set_stencil_reference(stencil_reference.0);
         render_pass.draw(0..3, 0..1);
 
         Ok(())

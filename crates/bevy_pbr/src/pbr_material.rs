@@ -1,6 +1,7 @@
 use crate::{
-    AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, OpaqueRendererMethod,
-    ParallaxMappingMethod, PBR_PREPASS_SHADER_HANDLE, PBR_SHADER_HANDLE,
+    deferred_lighting::DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE, AlphaMode, Material,
+    MaterialPipeline, MaterialPipelineKey, OpaqueRendererMethod, ParallaxMappingMethod,
+    PBR_PREPASS_SHADER_HANDLE, PBR_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_math::Vec4;
@@ -351,7 +352,7 @@ impl Default for StandardMaterial {
             max_parallax_layer_count: 16.0,
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
             opaque_render_method: None,
-            deferred_material_stencil_reference: 1,
+            deferred_material_stencil_reference: DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE,
         }
     }
 }
