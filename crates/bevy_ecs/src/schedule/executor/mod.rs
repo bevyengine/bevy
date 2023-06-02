@@ -83,6 +83,7 @@ impl SystemSchedule {
 /// **Notes**
 /// - This function (currently) does nothing if it's called manually or wrapped inside a [`PipeSystem`](crate::system::PipeSystem).
 /// - Modifying a [`Schedule`](super::Schedule) may change the order buffers are applied.
+#[doc(alias = "apply_system_buffers")]
 #[allow(unused_variables)]
 pub fn apply_deferred(world: &mut World) {}
 
