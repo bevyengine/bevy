@@ -58,7 +58,7 @@ use crate::accessibility::{AccessKitAdapters, AccessibilityPlugin, WinitActionHa
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
 #[cfg(target_os = "android")]
-pub static ANDROID_APP: once_cell::sync::OnceCell<AndroidApp> = once_cell::sync::OnceCell::new();
+pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::new();
 
 /// A [`Plugin`] that utilizes [`winit`] for window creation and event loop management.
 #[derive(Default)]
