@@ -41,7 +41,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [ECS: Add a missing impl of `ReadOnlySystemParam` for `Option<NonSend<>>`][7245]
 - [ECS: add a spawn_on_external method to allow spawning on the scope’s thread or an external thread][7415]
 - [ECS: Add const `Entity::PLACEHOLDER`][6761]
-- [ECS: Add example to show how to use `apply_deferred`][7793]
+- [ECS: Add example to show how to use `apply_system_buffers`][7793]
 - [ECS: Add logging variants of system piping][6751]
 - [ECS: Add safe constructors for untyped pointers `Ptr` and `PtrMut`][6539]
 - [ECS: Add unit test with system that panics][7491]
