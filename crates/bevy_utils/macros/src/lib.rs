@@ -38,45 +38,69 @@ impl Parse for AllTuples {
 /// Helper macro to generate tuple pyramids. Useful to generate scaffolding to work around Rust
 /// lacking variadics. Invoking `all_tuples!(impl_foo, start, end, P, Q, ..)`
 /// invokes `impl_foo` providing ident tuples through arity `start..=end`.
+/// # Examples
+/// A single parameter.
+/// ```
+/// use std::marker::PhantomData;
+/// use bevy_utils_proc_macros::all_tuples;
+///
+/// struct Foo<T> {
+///     // ..
+///     _phantom: PhantomData<T>
+/// }
+///
+/// trait WrappedInFoo {
+///     type Tup;
+/// }
+///
+/// macro_rules! impl_wrapped_in_foo {
+///     ($($T:ident),*) => {
+///         impl<$($T),*> WrappedInFoo for ($($T,)*) {
+///             type Tup = ($(Foo<$T>,)*);
+///         }
+///     };
+/// }
+///
+/// all_tuples!(impl_wrapped_in_foo, 0, 15, T);
+/// // impl_wrapp_in_foo!();
+/// // impl_wrapp_in_foo!(P0);
+/// // impl_wrapp_in_foo!(P0, P1);
+/// // ..
+/// // impl_wrapp_in_foo!(P0 .. P15);
+/// ```
+/// Multiple parameters.
 /// ```
 /// use bevy_utils_proc_macros::all_tuples;
 ///
-/// trait Foo {
-///     // ..
+/// trait Append {
+///     type Out<Item>;
+///     fn append<Item>(tup: Self, item: Item) -> Self::Out<Item>;
 /// }
 ///
-/// macro_rules! impl_foo {
-///     ($($P:ident),*) => {
-///         // ..
+/// impl Append for () {
+///     type Out<Item> = (Item,);
+///     fn append<Item>(_: Self, item: Item) -> Self::Out<Item> {
+///         (item,)
 ///     }
 /// }
 ///
-/// all_tuples!(impl_foo, 0, 16, P);
-/// // impl_foo!();
-/// // impl_foo!(P0);
-/// // impl_foo!(P0, P1);
-/// // ..
-/// // impl_foo!(P0 .. P15);
-/// ```
-/// ```
-/// use bevy_utils_proc_macros::all_tuples;
-///
-/// trait Foo {
-///     // ..
-/// }
-///
-/// macro_rules! impl_foo {
-///     ($(($P:ident, $Q:ident)),*) => {
-///         // ..
+/// macro_rules! impl_append {
+///     ($(($P:ident, $p:ident)),*) => {
+///         impl<$($P),*> Append for ($($P,)*) {
+///             type Out<Item> = ($($P),*, Item);
+///             fn append<Item>(($($p,)*): Self, item: Item) -> Self::Out<Item> {
+///                 ($($p),*, item)
+///             }
+///         }
 ///     }
 /// }
 ///
-/// all_tuples!(impl_foo, 2, 16, P, Q);
-/// // impl_foo!((P0, Q0), (P1, Q1));
-/// // impl_foo!((P0, Q0), (P1, Q1), (P2, Q2));
-/// // impl_foo!((P0, Q0), (P1, Q1), (P2, Q2), (P3, Q3));
+/// all_tuples!(impl_append, 1, 15, P, p);
+/// // impl_append!((P0, p0), (P1, p1));
+/// // impl_append!((P0, p0), (P1, p1), (P2, p2));
+/// // impl_append!((P0, p0), (P1, p1), (P2, p2), (P3, p3));
 /// // ..
-/// // impl_foo!((P0, Q0) .. (P15, Q15));
+/// // impl_append!((P0, p0) .. (P15, p15));
 /// ````
 #[proc_macro]
 pub fn all_tuples(input: TokenStream) -> TokenStream {
