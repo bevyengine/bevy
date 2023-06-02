@@ -35,12 +35,31 @@ impl Parse for AllTuples {
     }
 }
 
+/// Helper macro to generate tuple pyramids. Useful to generate scaffolding to work around Rust
+/// lacking variadics. Invoking `all_tuples!(impl_foo, start, end, P, Q, ..)`
+/// invokes `impl_foo` providing ident tuples through arity `start..=end`.
+/// ```
+/// all_tuples!(impl_foo, 0, 16, P)
+/// // impl_foo!();
+/// // impl_foo!(P0);
+/// // impl_foo!(P0, P1);
+/// // ..
+/// // impl_foo!(P0 .. P15);
+/// ```
+/// ```
+/// all_tuples!(impl_foo, 2, 16, P, Q)
+/// // impl_foo!((P0, Q0), (P1, Q1));
+/// // impl_foo!((P0, Q0), (P1, Q1), (P2, Q2));
+/// // impl_foo!((P0, Q0), (P1, Q1), (P2, Q2), (P3, Q3));
+/// // ..
+/// // impl_foo!((P0, Q0) .. (P15, Q15));
+/// ````
 #[proc_macro]
 pub fn all_tuples(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as AllTuples);
-    let len = input.end - input.start;
+    let len = 1 + input.end - input.start;
     let mut ident_tuples = Vec::with_capacity(len);
-    for i in input.start..=input.end {
+    for i in 0..=len {
         let idents = input
             .idents
             .iter()
