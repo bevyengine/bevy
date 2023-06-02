@@ -39,7 +39,19 @@ impl Parse for AllTuples {
 /// lacking variadics. Invoking `all_tuples!(impl_foo, start, end, P, Q, ..)`
 /// invokes `impl_foo` providing ident tuples through arity `start..=end`.
 /// ```
-/// all_tuples!(impl_foo, 0, 16, P)
+/// use bevy_utils_proc_macros::all_tuples;
+///
+/// trait Foo {
+///     // ..
+/// }
+///
+/// macro_rules! impl_foo {
+///     ($($P:ident),*) => {
+///         // ..
+///     }
+/// }
+///
+/// all_tuples!(impl_foo, 0, 16, P);
 /// // impl_foo!();
 /// // impl_foo!(P0);
 /// // impl_foo!(P0, P1);
@@ -47,7 +59,19 @@ impl Parse for AllTuples {
 /// // impl_foo!(P0 .. P15);
 /// ```
 /// ```
-/// all_tuples!(impl_foo, 2, 16, P, Q)
+/// use bevy_utils_proc_macros::all_tuples;
+///
+/// trait Foo {
+///     // ..
+/// }
+///
+/// macro_rules! impl_foo {
+///     ($(($P:ident, $Q:ident)),*) => {
+///         // ..
+///     }
+/// }
+///
+/// all_tuples!(impl_foo, 2, 16, P, Q);
 /// // impl_foo!((P0, Q0), (P1, Q1));
 /// // impl_foo!((P0, Q0), (P1, Q1), (P2, Q2));
 /// // impl_foo!((P0, Q0), (P1, Q1), (P2, Q2), (P3, Q3));
