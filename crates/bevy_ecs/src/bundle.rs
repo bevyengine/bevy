@@ -803,6 +803,7 @@ pub struct Bundles {
 
 impl Bundles {
     /// Gets the metadata associated with a specific type of bundle.
+    /// Returns `None` if the bundle is not registered with the world.
     #[inline]
     pub fn get(&self, bundle_id: BundleId) -> Option<&BundleInfo> {
         self.bundle_infos.get(bundle_id.index())
