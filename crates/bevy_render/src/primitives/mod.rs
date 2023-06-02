@@ -82,9 +82,8 @@ impl Sphere {
 }
 
 /// A half-space defined by a unit normal and distance from the origin along the normal
-/// Any point `p` is in the half-space if `n.p + d = 0`
-/// When defining half-spaces such as for frusta, if `n.p + d > 0` then `p` is on
-/// the positive side (inside) of the plane.
+/// Any point `p` is considered to be within the half-space,
+/// or on the positive side (inside) of the plane, if the equation n.p + d > 0 is satisfied.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HalfSpace {
     normal_d: Vec4,
