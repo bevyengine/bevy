@@ -96,9 +96,9 @@ impl Parse for AllTuples {
 /// }
 ///
 /// all_tuples!(impl_append, 1, 15, P, p);
+/// // impl_append!((P0, p0));
 /// // impl_append!((P0, p0), (P1, p1));
 /// // impl_append!((P0, p0), (P1, p1), (P2, p2));
-/// // impl_append!((P0, p0), (P1, p1), (P2, p2), (P3, p3));
 /// // ..
 /// // impl_append!((P0, p0) .. (P15, p15));
 /// ````
