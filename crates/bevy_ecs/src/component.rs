@@ -200,7 +200,7 @@ pub enum StorageType {
     SparseSet,
 }
 
-/// Stores metadata for a component stored in a given [`World`].
+/// Stores metadata for a type of component or resource stored in a specific [`World`].
 #[derive(Debug)]
 pub struct ComponentInfo {
     id: ComponentId,

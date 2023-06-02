@@ -1,4 +1,4 @@
-//! Contains APIs for retrieving data from the world.
+//! Contains APIs for retrieving component data from the world.
 
 mod access;
 mod fetch;

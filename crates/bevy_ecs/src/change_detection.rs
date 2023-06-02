@@ -401,7 +401,7 @@ pub struct Res<'w, T: ?Sized + Resource> {
 }
 
 impl<'w, T: Resource> Res<'w, T> {
-    /// Copies the reference to the resource.
+    /// Copies a reference to a resource.
     ///
     /// Note that unless you actually need an instance of `Res<T>`, you should
     /// prefer to just convert it to `&T` which can be freely copied.

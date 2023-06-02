@@ -253,6 +253,8 @@ pub struct BundleId(usize);
 
 impl BundleId {
     /// Returns the index of the associated [`Bundle`] type.
+    ///
+    /// Note that this is unique per-world, and should not be reused across them.
     #[inline]
     pub fn index(self) -> usize {
         self.0

@@ -717,7 +717,7 @@ impl Entities {
         }
     }
 
-    /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return None
+    /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
     /// unless they are later populated with a valid archetype.
     pub fn flush_as_invalid(&mut self) {
         // SAFETY: as per `flush` safety docs, the archetype id can be set to [`ArchetypeId::INVALID`] if
