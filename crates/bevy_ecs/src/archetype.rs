@@ -724,7 +724,7 @@ impl Archetypes {
     }
 
     /// Returns the number of components that are stored in archetypes.
-    /// Note that if some component `T` is stored in two archetypes, it will be counted twice.
+    /// Note that if some component `T` is stored in more than one archetype, it will be counted once for each archetype it's present in.
     #[inline]
     pub fn archetype_components_len(&self) -> usize {
         self.archetype_component_count

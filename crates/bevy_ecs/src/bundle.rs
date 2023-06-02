@@ -247,7 +247,7 @@ macro_rules! tuple_impl {
 
 all_tuples!(tuple_impl, 0, 15, B);
 
-/// For a specific world, this stores a unique value identifiying a type of [`Bundle`].
+/// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct BundleId(usize);
 
@@ -273,7 +273,7 @@ impl SparseSetIndex for BundleId {
     }
 }
 
-/// Stores metadata associated with a specific type of [`Bundle`] for a given world.
+/// Stores metadata associated with a specific type of [`Bundle`] for a given [`World`].
 pub struct BundleInfo {
     id: BundleId,
     // SAFETY: Every ID in this list must be valid within the World that owns the BundleInfo,

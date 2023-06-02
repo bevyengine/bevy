@@ -7,7 +7,7 @@ use crate::{
 use bevy_utils::all_tuples;
 use bevy_utils::synccell::SyncCell;
 
-/// A parameter that can be used in an exlusive system (a system with an `&mut World` parameter).
+/// A parameter that can be used in an exclusive system (a system with an `&mut World` parameter).
 /// Any parameters implementing this trait must come after the `&mut World` parameter.
 pub trait ExclusiveSystemParam: Sized {
     /// Used to store data which persists across invocations of a system.
