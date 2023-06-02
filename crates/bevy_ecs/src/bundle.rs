@@ -789,7 +789,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     }
 }
 
-/// Stores metadata associated with each type of [`Bundle`] for a given world.
+/// Metadata for bundles. Stores a [`BundleInfo`] for each type of [`Bundle`] in a given world.
 #[derive(Default)]
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
