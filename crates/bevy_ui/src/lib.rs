@@ -21,7 +21,7 @@ pub mod widget;
 
 #[cfg(feature = "bevy_text")]
 use bevy_render::camera::CameraUpdateSystem;
-use bevy_render::extract_component::ExtractComponentPlugin;
+use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
@@ -109,7 +109,6 @@ impl Plugin for UiPlugin {
             .register_type::<Overflow>()
             .register_type::<OverflowAxis>()
             .register_type::<PositionType>()
-            .register_type::<Size>()
             .register_type::<UiRect>()
             .register_type::<Style>()
             .register_type::<BackgroundColor>()
@@ -168,5 +167,14 @@ impl Plugin for UiPlugin {
         );
 
         crate::render::build_ui_render(app);
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
+        render_app.init_resource::<UiPipeline>();
     }
 }

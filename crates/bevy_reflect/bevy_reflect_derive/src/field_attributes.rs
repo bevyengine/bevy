@@ -7,7 +7,7 @@
 use crate::REFLECT_ATTRIBUTE_NAME;
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::{Attribute, Lit, Meta, NestedMeta};
+use syn::{Attribute, Expr, ExprLit, Lit, Meta};
 
 pub(crate) static IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
 pub(crate) static IGNORE_ALL_ATTR: &str = "ignore";
@@ -76,10 +76,9 @@ pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr,
 
     let attrs = attrs
         .iter()
-        .filter(|a| a.path.is_ident(REFLECT_ATTRIBUTE_NAME));
+        .filter(|a| a.path().is_ident(REFLECT_ATTRIBUTE_NAME));
     for attr in attrs {
-        let meta = attr.parse_meta()?;
-        if let Err(err) = parse_meta(&mut args, &meta) {
+        if let Err(err) = parse_meta(&mut args, &attr.meta) {
             if let Some(ref mut error) = errors {
                 error.combine(err);
             } else {
@@ -117,18 +116,15 @@ fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error
             format!("unknown attribute parameter: {}", path.to_token_stream()),
         )),
         Meta::NameValue(pair) if pair.path.is_ident(DEFAULT_ATTR) => {
-            let lit = &pair.lit;
-            match lit {
-                Lit::Str(lit_str) => {
-                    args.default = DefaultBehavior::Func(lit_str.parse()?);
-                    Ok(())
-                }
-                err => {
-                    Err(syn::Error::new(
-                        err.span(),
-                        format!("expected a string literal containing the name of a function, but found: {}", err.to_token_stream()),
-                    ))
-                }
+            if let Expr::Lit(ExprLit {lit: Lit::Str(lit_str), ..}) = &pair.value {
+                args.default = DefaultBehavior::Func(lit_str.parse()?);
+                Ok(())
+            }
+            else {
+                Err(syn::Error::new(
+                    pair.span(),
+                    format!("expected a string literal containing the name of a function, but found: {}", pair.to_token_stream()),
+                ))?
             }
         }
         Meta::NameValue(pair) => {
@@ -142,10 +138,8 @@ fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error
             Err(syn::Error::new(list.path.span(), "unexpected property"))
         }
         Meta::List(list) => {
-            for nested in &list.nested {
-                if let NestedMeta::Meta(meta) = nested {
-                    parse_meta(args, meta)?;
-                }
+            if let Ok(meta) = list.parse_args() {
+                parse_meta(args, &meta)?;
             }
             Ok(())
         }

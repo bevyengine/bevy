@@ -200,6 +200,12 @@ impl Default for App {
     }
 }
 
+// Dummy plugin used to temporary hold the place in the plugin registry
+struct PlaceholderPlugin;
+impl Plugin for PlaceholderPlugin {
+    fn build(&self, _app: &mut App) {}
+}
+
 impl App {
     /// Creates a new [`App`] with some default structure to enable core engine features.
     /// This is the preferred constructor for most use cases.
@@ -288,19 +294,40 @@ impl App {
             panic!("App::run() was called from within Plugin::build(), which is not allowed.");
         }
 
-        Self::setup(&mut app);
-
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
     }
 
-    /// Run [`Plugin::setup`] for each plugin. This is usually called by [`App::run`], but can
-    /// be useful for situations where you want to use [`App::update`].
-    pub fn setup(&mut self) {
+    /// Check that [`Plugin::ready`] of all plugins returns true. This is usually called by the
+    /// event loop, but can be useful for situations where you want to use [`App::update`]
+    pub fn ready(&self) -> bool {
+        for plugin in &self.plugin_registry {
+            if !plugin.ready(self) {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Run [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
+    /// plugins are [`App::ready`], but can be useful for situations where you want to use
+    /// [`App::update`].
+    pub fn finish(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
         let plugin_registry = std::mem::take(&mut self.plugin_registry);
         for plugin in &plugin_registry {
-            plugin.setup(self);
+            plugin.finish(self);
+        }
+        self.plugin_registry = plugin_registry;
+    }
+
+    /// Run [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
+    /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
+    pub fn cleanup(&mut self) {
+        // temporarily remove the plugin registry to run each plugin's setup function on app.
+        let plugin_registry = std::mem::take(&mut self.plugin_registry);
+        for plugin in &plugin_registry {
+            plugin.cleanup(self);
         }
         self.plugin_registry = plugin_registry;
     }
@@ -685,13 +712,18 @@ impl App {
                 plugin_name: plugin.name().to_string(),
             })?;
         }
+
+        // Reserve that position in the plugin registry. if a plugin adds plugins, they will be correctly ordered
+        let plugin_position_in_registry = self.plugin_registry.len();
+        self.plugin_registry.push(Box::new(PlaceholderPlugin));
+
         self.building_plugin_depth += 1;
         let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
         self.building_plugin_depth -= 1;
         if let Err(payload) = result {
             resume_unwind(payload);
         }
-        self.plugin_registry.push(plugin);
+        self.plugin_registry[plugin_position_in_registry] = plugin;
         Ok(self)
     }
 
