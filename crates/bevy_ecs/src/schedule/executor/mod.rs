@@ -77,7 +77,7 @@ impl SystemSchedule {
     }
 }
 
-/// Instructs the executor to call [`apply_deferred`](crate::system::System::apply_deferred)
+/// Instructs the executor to call [`System::apply_deferred`](crate::system::System::apply_deferred)
 /// on the systems that have run but not applied their [`Deferred`](crate::system::Deferred) system parameters (like [`Commands`](crate::prelude::Commands)) or other system buffers.
 ///
 /// **Notes**

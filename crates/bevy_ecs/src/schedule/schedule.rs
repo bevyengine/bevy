@@ -219,8 +219,8 @@ impl Schedule {
         self
     }
 
-    /// Set whether the schedule applies deferred system buffers on final time or not. This is a catchall
-    /// incase a system uses commands but was not explicitly ordered after a
+    /// Set whether the schedule applies deferred system buffers on final time or not. This is a catch-all
+    /// in case a system uses commands but was not explicitly ordered before an instance of
     /// [`apply_deferred`](crate::prelude::apply_deferred). By default this
     /// setting is true, but may be disabled if needed.
     pub fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) -> &mut Self {
