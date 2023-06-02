@@ -374,15 +374,18 @@ macro_rules! impl_reflect_for_hashmap {
                     .map(|(key, value)| (key as &dyn Reflect, value as &dyn Reflect))
             }
 
+            fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)> {
+                self.iter_mut()
+                    .nth(index)
+                    .map(|(key, value)| (key as &dyn Reflect, value as &mut dyn Reflect))
+            }
+
             fn len(&self) -> usize {
                 Self::len(self)
             }
 
             fn iter(&self) -> MapIter {
-                MapIter {
-                    map: self,
-                    index: 0,
-                }
+                MapIter::new(self)
             }
 
             fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
