@@ -48,7 +48,6 @@ fn fallback_image_new(
     value: u8,
 ) -> GpuImage {
     // TODO make this configurable per channel
-    let data = vec![value; format.pixel_size()];
 
     let extents = Extent3d {
         width: 1,
@@ -59,7 +58,16 @@ fn fallback_image_new(
         },
     };
 
-    let mut image = Image::new_fill(extents, TextureDimension::D2, &data, format);
+    let mut image = if format.is_depth_stencil_format() {
+        let mut image = Image::default();
+        image.texture_descriptor.dimension = TextureDimension::D2;
+        image.texture_descriptor.size = extents;
+        image.texture_descriptor.format = format;
+        image
+    } else {
+        let data = vec![value; format.pixel_size()];
+        Image::new_fill(extents, TextureDimension::D2, &data, format)
+    };
     image.texture_descriptor.sample_count = samples;
     image.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
 
