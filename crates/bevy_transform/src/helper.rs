@@ -10,6 +10,11 @@ use bevy_hierarchy::{HierarchyQueryExt, Parent};
 use crate::components::{GlobalTransform, Transform};
 
 /// System parameter for computing up-to-date [`GlobalTransform`]s.
+///
+/// Computing an entity's [`GlobalTransform`] can be expensive so it is recommended
+/// you use the [`GlobalTransform`] component stored on the entity, unless you need
+/// a [`GlobalTransform`] that reflects the changes made to any [`Transform`]s since
+/// the last time the transform propagation systems ran.
 #[derive(SystemParam)]
 pub struct TransformHelper<'w, 's> {
     parent_query: Query<'w, 's, &'static Parent>,
