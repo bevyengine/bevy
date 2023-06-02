@@ -151,25 +151,6 @@ impl FromWorld for FallbackImageCubemap {
     }
 }
 
-// TODO these could be combined in one FallbackImage cache.
-
-/// A Cache of fallback textures that uses the sample count as a key
-///
-/// # WARNING
-/// Images using MSAA with sample count > 1 are not initialized with data, therefore,
-/// you shouldn't sample them before writing data to them first.
-#[derive(Resource, Deref, DerefMut, Default)]
-pub struct FallbackImageMsaaCache(HashMap<u32, GpuImage>);
-
-/// A Cache of fallback depth textures that uses the sample count as a key
-///
-/// # WARNING
-/// Depth images are never initialized with data, therefore,
-/// you shouldn't sample them before writing data to them first.
-#[derive(Resource, Deref, DerefMut, Default)]
-pub struct FallbackImageDepthCache(HashMap<u32, GpuImage>);
-
-// TODO, tried combining caches but ran into lifetime issues when multiple fallback images are needed at once
 /// A Cache of fallback textures that uses the sample count and TextureFormat as a key
 ///
 /// # WARNING
@@ -179,62 +160,14 @@ pub struct FallbackImageDepthCache(HashMap<u32, GpuImage>);
 pub struct FallbackImageFormatMsaaCache(HashMap<(u32, TextureFormat), GpuImage>);
 
 #[derive(SystemParam)]
-pub struct FallbackImagesMsaa<'w> {
-    cache: ResMut<'w, FallbackImageMsaaCache>,
-    render_device: Res<'w, RenderDevice>,
-    render_queue: Res<'w, RenderQueue>,
-    default_sampler: Res<'w, DefaultImageSampler>,
-}
-
-impl<'w> FallbackImagesMsaa<'w> {
-    pub fn image_for_samplecount(&mut self, sample_count: u32) -> &GpuImage {
-        self.cache.entry(sample_count).or_insert_with(|| {
-            fallback_image_new(
-                &self.render_device,
-                &self.render_queue,
-                &self.default_sampler,
-                TextureFormat::bevy_default(),
-                TextureViewDimension::D2,
-                sample_count,
-                255,
-            )
-        })
-    }
-}
-
-#[derive(SystemParam)]
-pub struct FallbackImagesDepth<'w> {
-    cache: ResMut<'w, FallbackImageDepthCache>,
-    render_device: Res<'w, RenderDevice>,
-    render_queue: Res<'w, RenderQueue>,
-    default_sampler: Res<'w, DefaultImageSampler>,
-}
-
-impl<'w> FallbackImagesDepth<'w> {
-    pub fn image_for_samplecount(&mut self, sample_count: u32) -> &GpuImage {
-        self.cache.entry(sample_count).or_insert_with(|| {
-            fallback_image_new(
-                &self.render_device,
-                &self.render_queue,
-                &self.default_sampler,
-                TextureFormat::Depth32FloatStencil8,
-                TextureViewDimension::D2,
-                sample_count,
-                255,
-            )
-        })
-    }
-}
-
-#[derive(SystemParam)]
-pub struct FallbackImageFormatMsaa<'w> {
+pub struct FallbackImageMsaa<'w> {
     cache: ResMut<'w, FallbackImageFormatMsaaCache>,
     render_device: Res<'w, RenderDevice>,
     render_queue: Res<'w, RenderQueue>,
     default_sampler: Res<'w, DefaultImageSampler>,
 }
 
-impl<'w> FallbackImageFormatMsaa<'w> {
+impl<'w> FallbackImageMsaa<'w> {
     pub fn image_for_samplecount(&mut self, sample_count: u32, format: TextureFormat) -> &GpuImage {
         self.cache.entry((sample_count, format)).or_insert_with(|| {
             fallback_image_new(

@@ -1,6 +1,7 @@
 use bevy_app::{Plugin, PreUpdate, Update};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
+    core_3d::CORE_3D_DEPTH_FORMAT,
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_PREPASS_FORMAT},
     prelude::Camera3d,
     prepass::{
@@ -40,7 +41,7 @@ use bevy_render::{
         TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
-    texture::{FallbackImageFormatMsaa, FallbackImagesDepth, FallbackImagesMsaa, TextureCache},
+    texture::{BevyDefault, FallbackImageMsaa, TextureCache},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -659,9 +660,7 @@ impl DepthBindingsSet {
 }
 pub fn get_bindings(
     prepass_textures: Option<&ViewPrepassTextures>,
-    fallback_images: &mut FallbackImagesMsaa,
-    fallback_depths: &mut FallbackImagesDepth,
-    fallback_format_images: &mut FallbackImageFormatMsaa,
+    fallback_images: &mut FallbackImageMsaa,
     msaa: &Msaa,
 ) -> DepthBindingsSet {
     let depth_desc = TextureViewDescriptor {
@@ -671,14 +670,14 @@ pub fn get_bindings(
     };
     let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
         Some(texture) => texture.texture.create_view(&depth_desc),
-        None => fallback_depths
-            .image_for_samplecount(msaa.samples())
+        None => fallback_images
+            .image_for_samplecount(msaa.samples(), CORE_3D_DEPTH_FORMAT)
             .texture
             .create_view(&depth_desc),
     };
 
     let normal_motion_vectors_fallback = &fallback_images
-        .image_for_samplecount(msaa.samples())
+        .image_for_samplecount(msaa.samples(), TextureFormat::bevy_default())
         .texture_view;
 
     let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
@@ -693,7 +692,7 @@ pub fn get_bindings(
     }
     .clone();
 
-    let deferred_fallback = &fallback_format_images
+    let deferred_fallback = &fallback_images
         .image_for_samplecount(1, TextureFormat::Rgba32Uint)
         .texture_view;
 

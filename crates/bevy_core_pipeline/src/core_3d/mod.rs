@@ -25,6 +25,8 @@ pub mod graph {
 }
 pub const CORE_3D: &str = graph::NAME;
 
+pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32FloatStencil8;
+
 use std::cmp::Reverse;
 
 pub use camera_3d::*;
@@ -305,9 +307,9 @@ pub fn prepare_core_3d_depth_textures(
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
                     // PERF: vulkan docs recommend using 24 bit depth for better performance
-                    format: TextureFormat::Depth32FloatStencil8,
+                    format: CORE_3D_DEPTH_FORMAT,
                     usage,
-                    view_formats: &[TextureFormat::Depth32FloatStencil8],
+                    view_formats: &[CORE_3D_DEPTH_FORMAT],
                 };
 
                 texture_cache.get(&render_device, descriptor)

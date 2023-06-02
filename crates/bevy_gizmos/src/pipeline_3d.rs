@@ -1,5 +1,5 @@
 use bevy_asset::Handle;
-use bevy_core_pipeline::core_3d::Opaque3d;
+use bevy_core_pipeline::core_3d::{Opaque3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::{
     entity::Entity,
     query::With,
@@ -101,7 +101,7 @@ impl SpecializedMeshPipeline for GizmoPipeline {
                 ..Default::default()
             },
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32FloatStencil8,
+                format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::Greater,
                 stencil: Default::default(),

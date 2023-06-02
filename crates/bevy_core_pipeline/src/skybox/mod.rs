@@ -25,6 +25,8 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 
+use crate::core_3d::CORE_3D_DEPTH_FORMAT;
+
 const SKYBOX_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 55594763423201);
 
@@ -141,7 +143,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             },
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32FloatStencil8,
+                format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {

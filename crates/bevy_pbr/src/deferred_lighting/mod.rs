@@ -1,7 +1,7 @@
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core_pipeline::{
     clear_color::ClearColorConfig,
-    core_3d,
+    core_3d::{self, CORE_3D_DEPTH_FORMAT},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::{Camera3d, ClearColor},
     prepass::{DeferredPrepass, ViewPrepassTextures},
@@ -15,10 +15,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{BindGroupDescriptor, Operations, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
-    texture::{
-        FallbackImageCubemap, FallbackImageFormatMsaa, FallbackImagesDepth, FallbackImagesMsaa,
-        Image,
-    },
+    texture::{FallbackImageCubemap, FallbackImageMsaa, Image},
     view::{Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset, ViewUniforms},
     Render, RenderSet,
 };
@@ -263,7 +260,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             }),
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32FloatStencil8,
+                format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::Always,
                 stencil: StencilState {
@@ -394,17 +391,12 @@ pub fn queue_deferred_lighting_bind_groups(
         With<DeferredPrepass>,
     >,
     images: Res<RenderAssets<Image>>,
-    fallback_images: (
-        FallbackImagesMsaa,
-        FallbackImagesDepth,
-        FallbackImageFormatMsaa,
-    ),
+    mut fallback_images: FallbackImageMsaa,
     fallback_cubemap: Res<FallbackImageCubemap>,
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
 ) {
-    let (mut fallback_images, mut fallback_depths, mut fallback_format_images) = fallback_images;
     if let (
         Some(view_binding),
         Some(light_binding),
@@ -496,13 +488,8 @@ pub fn queue_deferred_lighting_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
             entries.extend_from_slice(&tonemapping_luts);
 
-            let prepass_bindings = prepass::get_bindings(
-                prepass_textures,
-                &mut fallback_images,
-                &mut fallback_depths,
-                &mut fallback_format_images,
-                &msaa,
-            );
+            let prepass_bindings =
+                prepass::get_bindings(prepass_textures, &mut fallback_images, &msaa);
             // When using WebGL, we can't have a depth texture with multisampling
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
