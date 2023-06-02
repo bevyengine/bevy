@@ -66,7 +66,7 @@ impl Parse for AllTuples {
 /// // impl_wrapp_in_foo!(P0);
 /// // impl_wrapp_in_foo!(P0, P1);
 /// // ..
-/// // impl_wrapp_in_foo!(P0 .. P15);
+/// // impl_wrapp_in_foo!(P0 .. P14);
 /// ```
 /// Multiple parameters.
 /// ```
@@ -100,7 +100,7 @@ impl Parse for AllTuples {
 /// // impl_append!((P0, p0), (P1, p1));
 /// // impl_append!((P0, p0), (P1, p1), (P2, p2));
 /// // ..
-/// // impl_append!((P0, p0) .. (P15, p15));
+/// // impl_append!((P0, p0) .. (P14, p14));
 /// ````
 #[proc_macro]
 pub fn all_tuples(input: TokenStream) -> TokenStream {
