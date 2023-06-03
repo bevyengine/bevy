@@ -36,7 +36,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(50.0), Val::Percent(50.0)),
+                width: Val::Percent(50.0),
+                height: Val::Percent(50.0),
                 position_type: PositionType::Absolute,
                 left: Val::Percent(25.),
                 top: Val::Percent(25.),
@@ -51,7 +52,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Px(40.), Val::Px(40.)),
+                        width: Val::Px(40.0),
+                        height: Val::Px(40.0),
                         ..default()
                     },
                     background_color: Color::RED.into(),
@@ -62,7 +64,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                 });
             parent.spawn(NodeBundle {
                 style: Style {
-                    size: Size::new(Val::Percent(15.), Val::Percent(15.)),
+                    width: Val::Percent(15.0),
+                    height: Val::Percent(15.0),
                     ..default()
                 },
                 background_color: Color::BLUE.into(),
@@ -70,7 +73,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             });
             parent.spawn(ImageBundle {
                 style: Style {
-                    size: Size::new(Val::Px(30.0), Val::Px(30.0)),
+                    width: Val::Px(30.0),
+                    height: Val::Px(30.0),
                     ..default()
                 },
                 image: asset_server.load("branding/icon.png").into(),

@@ -523,7 +523,7 @@ mod tests {
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
-        schedule::{apply_system_buffers, IntoSystemConfigs, Schedule},
+        schedule::{apply_deferred, IntoSystemConfigs, Schedule},
         system::{
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
             QueryComponentError, Res, ResMut, Resource, System, SystemState,
@@ -749,7 +749,7 @@ mod tests {
 
         let mut schedule = Schedule::default();
 
-        schedule.add_systems((incr_e_on_flip, apply_system_buffers, World::clear_trackers).chain());
+        schedule.add_systems((incr_e_on_flip, apply_deferred, World::clear_trackers).chain());
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);
@@ -1642,7 +1642,7 @@ mod tests {
 
         // set up system and verify its access is empty
         system.initialize(&mut world);
-        system.update_archetype_component_access(&world);
+        system.update_archetype_component_access(world.as_unsafe_world_cell());
         assert_eq!(
             system
                 .archetype_component_access()
@@ -1672,7 +1672,7 @@ mod tests {
         world.spawn((B, C));
 
         // update system and verify its accesses are correct
-        system.update_archetype_component_access(&world);
+        system.update_archetype_component_access(world.as_unsafe_world_cell());
         assert_eq!(
             system
                 .archetype_component_access()
@@ -1690,7 +1690,7 @@ mod tests {
                 .unwrap(),
         );
         world.spawn((A, B, D));
-        system.update_archetype_component_access(&world);
+        system.update_archetype_component_access(world.as_unsafe_world_cell());
         assert_eq!(
             system
                 .archetype_component_access()

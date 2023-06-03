@@ -162,6 +162,7 @@ impl ShaderDefVal {
 }
 
 impl ShaderCache {
+    #[allow(clippy::result_large_err)]
     fn get(
         &mut self,
         render_device: &RenderDevice,

@@ -234,16 +234,11 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                 shader: SCREENSHOT_SHADER_HANDLE.typed(),
             },
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
                 cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-                unclipped_depth: false,
+                ..Default::default()
             },
             depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
+            multisample: Default::default(),
             fragment: Some(FragmentState {
                 shader: SCREENSHOT_SHADER_HANDLE.typed(),
                 entry_point: Cow::Borrowed("fs_main"),

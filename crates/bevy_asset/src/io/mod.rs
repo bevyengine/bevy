@@ -25,6 +25,8 @@ use std::{
 };
 use thiserror::Error;
 
+use crate::ChangeWatcher;
+
 /// Errors that occur while loading assets.
 #[derive(Error, Debug)]
 pub enum AssetIoError {
@@ -81,7 +83,7 @@ pub trait AssetIo: Downcast + Send + Sync + 'static {
     ) -> Result<(), AssetIoError>;
 
     /// Enables change tracking in this asset I/O.
-    fn watch_for_changes(&self) -> Result<(), AssetIoError>;
+    fn watch_for_changes(&self, configuration: &ChangeWatcher) -> Result<(), AssetIoError>;
 
     /// Returns `true` if the path is a directory.
     fn is_dir(&self, path: &Path) -> bool {

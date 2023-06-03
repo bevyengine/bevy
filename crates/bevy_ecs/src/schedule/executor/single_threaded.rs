@@ -4,9 +4,7 @@ use fixedbitset::FixedBitSet;
 use std::panic::AssertUnwindSafe;
 
 use crate::{
-    schedule::{
-        is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
-    },
+    schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
 
@@ -22,8 +20,8 @@ pub struct SingleThreadedExecutor {
     completed_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
     unapplied_systems: FixedBitSet,
-    /// Setting when true applies system buffers after all systems have run
-    apply_final_buffers: bool,
+    /// Setting when true applies deferred system buffers after all systems have run
+    apply_final_deferred: bool,
 }
 
 impl SystemExecutor for SingleThreadedExecutor {
@@ -31,8 +29,8 @@ impl SystemExecutor for SingleThreadedExecutor {
         ExecutorKind::SingleThreaded
     }
 
-    fn set_apply_final_buffers(&mut self, apply_final_buffers: bool) {
-        self.apply_final_buffers = apply_final_buffers;
+    fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) {
+        self.apply_final_deferred = apply_final_deferred;
     }
 
     fn init(&mut self, schedule: &SystemSchedule) {
@@ -87,10 +85,10 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
 
             let system = &mut schedule.systems[system_index];
-            if is_apply_system_buffers(system) {
+            if is_apply_deferred(system) {
                 #[cfg(feature = "trace")]
                 let system_span = info_span!("system", name = &*name).entered();
-                self.apply_system_buffers(schedule, world);
+                self.apply_deferred(schedule, world);
                 #[cfg(feature = "trace")]
                 system_span.exit();
             } else {
@@ -109,8 +107,8 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
         }
 
-        if self.apply_final_buffers {
-            self.apply_system_buffers(schedule, world);
+        if self.apply_final_deferred {
+            self.apply_deferred(schedule, world);
         }
         self.evaluated_sets.clear();
         self.completed_systems.clear();
@@ -123,14 +121,14 @@ impl SingleThreadedExecutor {
             evaluated_sets: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
-            apply_final_buffers: true,
+            apply_final_deferred: true,
         }
     }
 
-    fn apply_system_buffers(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+    fn apply_deferred(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         for system_index in self.unapplied_systems.ones() {
             let system = &mut schedule.systems[system_index];
-            system.apply_buffers(world);
+            system.apply_deferred(world);
         }
 
         self.unapplied_systems.clear();

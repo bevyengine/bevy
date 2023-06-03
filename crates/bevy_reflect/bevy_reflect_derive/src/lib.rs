@@ -87,7 +87,8 @@ pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 ///   to improve performance and/or robustness.
 ///   An example of where this is used is in the [`FromReflect`] derive macro,
 ///   where adding this attribute will cause the `FromReflect` implementation to create
-///   a base value using its [`Default`] implementation avoiding issues with ignored fields.
+///   a base value using its [`Default`] implementation avoiding issues with ignored fields
+///   (for structs and tuple structs only).
 ///
 /// ## `#[reflect_value]`
 ///
