@@ -32,7 +32,7 @@ pub(crate) struct ResultSifter<T> {
     errors: Option<syn::Error>,
 }
 
-/// Returns a `Member` made of `ident` or `index` if `ident` is None.
+/// Returns a [`Member`] made of `ident` or `index` if `ident` is None.
 ///
 /// Rust struct syntax allows for `Struct { foo: "string" }` with explicitly
 /// named fields. It allows the `Struct { 0: "string" }` syntax when the struct
@@ -177,7 +177,7 @@ impl<T> ResultSifter<T> {
     }
 }
 
-/// Converts an iterator over ignore behaviour of members to a bitset of ignored members.
+/// Converts an iterator over ignore behavior of members to a bitset of ignored members.
 ///
 /// Takes into account the fact that always ignored (non-reflected) members are skipped.
 ///

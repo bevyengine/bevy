@@ -25,7 +25,7 @@
 //! We will now make a simple "game" to illustrate what Bevy's ECS looks like in practice.
 
 use bevy::{
-    app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
+    app::{AppExit, ScheduleRunnerPlugin},
     prelude::*,
     utils::Duration,
 };
@@ -253,13 +253,10 @@ fn main() {
     App::new()
         // Resources that implement the Default or FromWorld trait can be added like this:
         .init_resource::<GameState>()
-        // Some systems are configured by adding their settings as a resource.
-        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
         // Plugins are just a grouped set of app builder calls (just like we're doing here).
         // We could easily turn our game into a plugin, but you can check out the plugin example for
-        // that :) The plugin below runs our app's "system schedule" once every 5 seconds
-        // (configured above).
-        .add_plugin(ScheduleRunnerPlugin::default())
+        // that :) The plugin below runs our app's "system schedule" once every 5 seconds.
+        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs(5)))
         // `Startup` systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
         .add_systems(Startup, startup_system)

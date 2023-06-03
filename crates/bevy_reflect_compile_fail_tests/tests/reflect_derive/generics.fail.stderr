@@ -2,7 +2,7 @@ error[E0599]: no method named `get_field` found for struct `Box<(dyn Reflect + '
   --> tests/reflect_derive/generics.fail.rs:14:9
    |
 14 |     foo.get_field::<NoReflect>("a").unwrap();
-   |         ^^^^^^^^^ method not found in `Box<(dyn Reflect + 'static)>`
+   |         ^^^^^^^^^ method not found in `Box<dyn Reflect>`
 
 error[E0277]: the trait bound `NoReflect: Reflect` is not satisfied
   --> tests/reflect_derive/generics.fail.rs:12:37

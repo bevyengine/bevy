@@ -10,6 +10,6 @@ keywords = ["bevy"]
 
 [dependencies]
 toml_edit = "0.19"
-syn = "1.0"
+syn = "2.0"
 quote = "1.0"
 rustc-hash = "1.0"

@@ -15,7 +15,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
@@ -44,22 +43,28 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
-    // text
-    commands.spawn(TextBundle::from_section(
-        "Press 't' to toggle drawing gizmos on top of everything else in the scene",
-        TextStyle {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            font_size: 24.,
-            color: Color::WHITE,
-        },
-    ));
+
+    // example instructions
+    commands.spawn(
+        TextBundle::from_section(
+            "Press 't' to toggle drawing gizmos on top of everything else in the scene",
+            TextStyle {
+                font_size: 20.,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        }),
+    );
 }
 
 fn system(mut gizmos: Gizmos, time: Res<Time>) {
     gizmos.cuboid(
-        Vec3::Y * -0.5,
-        Quat::IDENTITY,
-        Vec3::new(5., 1., 2.),
+        Transform::from_translation(Vec3::Y * -0.5).with_scale(Vec3::new(5., 1., 2.)),
         Color::BLACK,
     );
     gizmos.rect(

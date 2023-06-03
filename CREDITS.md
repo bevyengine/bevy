@@ -25,3 +25,4 @@
   * Low poly fox [by PixelMannen](https://opengameart.org/content/fox-and-shiba) (CC0 1.0 Universal)
   * Rigging and animation [by @tomkranis on Sketchfab](https://sketchfab.com/models/371dea88d7e04a76af5763f2a36866bc) ([CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/))
 * FiraMono by The Mozilla Foundation and Telefonica S.A (SIL Open Font License, Version 1.1: assets/fonts/FiraMono-LICENSE)
+* Barycentric from [mk_bary_gltf](https://github.com/komadori/mk_bary_gltf) (MIT OR Apache-2.0)

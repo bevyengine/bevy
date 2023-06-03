@@ -13,8 +13,8 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, ConstParam,
-    DeriveInput, GenericParam, Ident, Index, Meta, MetaList, NestedMeta, Token, TypeParam,
+    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
+    ConstParam, DeriveInput, GenericParam, Ident, Index, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -37,28 +37,23 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let mut field_kind = Vec::with_capacity(named_fields.len());
 
-    'field_loop: for field in named_fields.iter() {
-        for attr in &field.attrs {
-            if attr.path.is_ident(BUNDLE_ATTRIBUTE_NAME) {
-                if let Ok(Meta::List(MetaList { nested, .. })) = attr.parse_meta() {
-                    if let Some(&NestedMeta::Meta(Meta::Path(ref path))) = nested.first() {
-                        if path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
-                            field_kind.push(BundleFieldKind::Ignore);
-                            continue 'field_loop;
-                        }
-
-                        return syn::Error::new(
-                            path.span(),
-                            format!(
-                                "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_IGNORE_NAME}`"
-                            ),
-                        )
-                        .into_compile_error()
-                        .into();
-                    }
-
-                    return syn::Error::new(attr.span(), format!("Invalid bundle attribute. Use `#[{BUNDLE_ATTRIBUTE_NAME}({BUNDLE_ATTRIBUTE_IGNORE_NAME})]`")).into_compile_error().into();
+    for field in named_fields.iter() {
+        for attr in field
+            .attrs
+            .iter()
+            .filter(|a| a.path().is_ident(BUNDLE_ATTRIBUTE_NAME))
+        {
+            if let Err(error) = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
+                    field_kind.push(BundleFieldKind::Ignore);
+                    Ok(())
+                } else {
+                    Err(meta.error(format!(
+                        "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_IGNORE_NAME}`"
+                    )))
                 }
+            }) {
+                return error.into_compile_error().into();
             }
         }
 
@@ -308,7 +303,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     let shadowed_lifetimes: Vec<_> = generics.lifetimes().map(|_| quote!('_)).collect();
 
-    let mut punctuated_generics = Punctuated::<_, Token![,]>::new();
+    let mut punctuated_generics = Punctuated::<_, Comma>::new();
     punctuated_generics.extend(lifetimeless_generics.iter().map(|g| match g {
         GenericParam::Type(g) => GenericParam::Type(TypeParam {
             default: None,
@@ -321,14 +316,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => unreachable!(),
     }));
 
-    let mut punctuated_generic_idents = Punctuated::<_, Token![,]>::new();
+    let mut punctuated_generic_idents = Punctuated::<_, Comma>::new();
     punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
         GenericParam::Type(g) => &g.ident,
         GenericParam::Const(g) => &g.ident,
         _ => unreachable!(),
     }));
 
-    let punctuated_generics_no_bounds: Punctuated<_, Token![,]> = lifetimeless_generics
+    let punctuated_generics_no_bounds: Punctuated<_, Comma> = lifetimeless_generics
         .iter()
         .map(|&g| match g.clone() {
             GenericParam::Type(mut g) => {

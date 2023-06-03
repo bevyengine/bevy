@@ -34,7 +34,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     let base_color = Color::rgba(0.9, 0.2, 0.3, 1.0);
     let icosphere_mesh = meshes.add(
@@ -186,15 +185,15 @@ fn setup(
 
     // Controls Text
     let text_style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 18.0,
         color: Color::BLACK,
+        ..default()
     };
 
     let label_text_style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 25.0,
         color: Color::ORANGE,
+        ..default()
     };
 
     commands.spawn(
@@ -303,7 +302,7 @@ fn example_control_system(
     let randomize_colors = input.just_pressed(KeyCode::C);
 
     for (material_handle, controls) in &controllable {
-        let mut material = materials.get_mut(material_handle).unwrap();
+        let material = materials.get_mut(material_handle).unwrap();
         material.base_color.set_a(state.alpha);
 
         if controls.color && randomize_colors {

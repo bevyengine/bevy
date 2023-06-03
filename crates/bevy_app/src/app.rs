@@ -160,11 +160,9 @@ impl SubApp {
         }
     }
 
-    /// Runs the `SubApp`'s default schedule.
+    /// Runs the [`SubApp`]'s default schedule.
     pub fn run(&mut self) {
-        self.app
-            .world
-            .run_schedule_ref(&*self.app.main_schedule_label);
+        self.app.world.run_schedule(&*self.app.main_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -200,6 +198,12 @@ impl Default for App {
 
         app
     }
+}
+
+// Dummy plugin used to temporary hold the place in the plugin registry
+struct PlaceholderPlugin;
+impl Plugin for PlaceholderPlugin {
+    fn build(&self, _app: &mut App) {}
 }
 
 impl App {
@@ -238,10 +242,12 @@ impl App {
     ///
     /// The active schedule of the app must be set before this method is called.
     pub fn update(&mut self) {
+        #[cfg(feature = "trace")]
+        let _bevy_update_span = info_span!("update").entered();
         {
             #[cfg(feature = "trace")]
-            let _bevy_frame_update_span = info_span!("main app").entered();
-            self.world.run_schedule_ref(&*self.main_schedule_label);
+            let _bevy_main_update_span = info_span!("main app").entered();
+            self.world.run_schedule(&*self.main_schedule_label);
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]
@@ -268,7 +274,7 @@ impl App {
     ///
     /// Windowed apps are typically driven by an *event loop* or *message loop* and
     /// some window-manager APIs expect programs to terminate when their primary
-    /// window is closed and that event loop terminates – behaviour of processes that
+    /// window is closed and that event loop terminates – behavior of processes that
     /// do not is often platform dependent or undocumented.
     ///
     /// By default, *Bevy* uses the `winit` crate for window creation. See
@@ -288,19 +294,40 @@ impl App {
             panic!("App::run() was called from within Plugin::build(), which is not allowed.");
         }
 
-        Self::setup(&mut app);
-
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
     }
 
-    /// Run [`Plugin::setup`] for each plugin. This is usually called by [`App::run`], but can
-    /// be useful for situations where you want to use [`App::update`].
-    pub fn setup(&mut self) {
+    /// Check that [`Plugin::ready`] of all plugins returns true. This is usually called by the
+    /// event loop, but can be useful for situations where you want to use [`App::update`]
+    pub fn ready(&self) -> bool {
+        for plugin in &self.plugin_registry {
+            if !plugin.ready(self) {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Run [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
+    /// plugins are [`App::ready`], but can be useful for situations where you want to use
+    /// [`App::update`].
+    pub fn finish(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
         let plugin_registry = std::mem::take(&mut self.plugin_registry);
         for plugin in &plugin_registry {
-            plugin.setup(self);
+            plugin.finish(self);
+        }
+        self.plugin_registry = plugin_registry;
+    }
+
+    /// Run [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
+    /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
+    pub fn cleanup(&mut self) {
+        // temporarily remove the plugin registry to run each plugin's setup function on app.
+        let plugin_registry = std::mem::take(&mut self.plugin_registry);
+        for plugin in &plugin_registry {
+            plugin.cleanup(self);
         }
         self.plugin_registry = plugin_registry;
     }
@@ -674,7 +701,7 @@ impl App {
         }
     }
 
-    /// Boxed variant of `add_plugin`, can be used from a [`PluginGroup`]
+    /// Boxed variant of [`add_plugin`](App::add_plugin) that can be used from a [`PluginGroup`]
     pub(crate) fn add_boxed_plugin(
         &mut self,
         plugin: Box<dyn Plugin>,
@@ -685,13 +712,18 @@ impl App {
                 plugin_name: plugin.name().to_string(),
             })?;
         }
+
+        // Reserve that position in the plugin registry. if a plugin adds plugins, they will be correctly ordered
+        let plugin_position_in_registry = self.plugin_registry.len();
+        self.plugin_registry.push(Box::new(PlaceholderPlugin));
+
         self.building_plugin_depth += 1;
         let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
         self.building_plugin_depth -= 1;
         if let Err(payload) = result {
             resume_unwind(payload);
         }
-        self.plugin_registry.push(plugin);
+        self.plugin_registry[plugin_position_in_registry] = plugin;
         Ok(self)
     }
 
