@@ -146,7 +146,7 @@ fn toggle_light(
     mut directional_lights: Query<&mut DirectionalLight>,
     mut example_text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::L) {
+    if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 example_text.single_mut().sections[4].value = "PointLight".to_string();
@@ -174,20 +174,20 @@ fn adjust_point_light_biases(
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
     for mut light in &mut query {
-        if input.just_pressed(KeyCode::Key1) {
+        if input.just_pressed(KeyCode::Digit1) {
             light.shadow_depth_bias -= depth_bias_step_size;
             example_text.single_mut().sections[7].value = format!("{:.2}", light.shadow_depth_bias);
         }
-        if input.just_pressed(KeyCode::Key2) {
+        if input.just_pressed(KeyCode::Digit2) {
             light.shadow_depth_bias += depth_bias_step_size;
             example_text.single_mut().sections[7].value = format!("{:.2}", light.shadow_depth_bias);
         }
-        if input.just_pressed(KeyCode::Key3) {
+        if input.just_pressed(KeyCode::Digit3) {
             light.shadow_normal_bias -= normal_bias_step_size;
             example_text.single_mut().sections[10].value =
                 format!("{:.1}", light.shadow_normal_bias);
         }
-        if input.just_pressed(KeyCode::Key4) {
+        if input.just_pressed(KeyCode::Digit4) {
             light.shadow_normal_bias += normal_bias_step_size;
             example_text.single_mut().sections[10].value =
                 format!("{:.1}", light.shadow_normal_bias);
@@ -203,22 +203,22 @@ fn adjust_directional_light_biases(
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
     for mut light in &mut query {
-        if input.just_pressed(KeyCode::Key5) {
+        if input.just_pressed(KeyCode::Digit5) {
             light.shadow_depth_bias -= depth_bias_step_size;
             example_text.single_mut().sections[13].value =
                 format!("{:.2}", light.shadow_depth_bias);
         }
-        if input.just_pressed(KeyCode::Key6) {
+        if input.just_pressed(KeyCode::Digit6) {
             light.shadow_depth_bias += depth_bias_step_size;
             example_text.single_mut().sections[13].value =
                 format!("{:.2}", light.shadow_depth_bias);
         }
-        if input.just_pressed(KeyCode::Key7) {
+        if input.just_pressed(KeyCode::Digit7) {
             light.shadow_normal_bias -= normal_bias_step_size;
             example_text.single_mut().sections[16].value =
                 format!("{:.1}", light.shadow_normal_bias);
         }
-        if input.just_pressed(KeyCode::Key8) {
+        if input.just_pressed(KeyCode::Digit8) {
             light.shadow_normal_bias += normal_bias_step_size;
             example_text.single_mut().sections[16].value =
                 format!("{:.1}", light.shadow_normal_bias);
@@ -250,13 +250,13 @@ impl Default for CameraController {
         Self {
             enabled: true,
             sensitivity: 0.5,
-            key_forward: KeyCode::W,
-            key_back: KeyCode::S,
-            key_left: KeyCode::A,
-            key_right: KeyCode::D,
-            key_up: KeyCode::E,
-            key_down: KeyCode::Q,
-            key_run: KeyCode::LShift,
+            key_forward: KeyCode::KeyW,
+            key_back: KeyCode::KeyS,
+            key_left: KeyCode::KeyA,
+            key_right: KeyCode::KeyD,
+            key_up: KeyCode::KeyE,
+            key_down: KeyCode::KeyQ,
+            key_run: KeyCode::ShiftLeft,
             walk_speed: 10.0,
             run_speed: 30.0,
             friction: 0.5,

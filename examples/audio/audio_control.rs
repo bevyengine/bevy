@@ -52,9 +52,9 @@ fn volume(
     music_controller: Res<MusicController>,
 ) {
     if let Some(sink) = audio_sinks.get(&music_controller.0) {
-        if keyboard_input.just_pressed(KeyCode::Plus) {
+        if keyboard_input.just_pressed(KeyCode::NumpadAdd) {
             sink.set_volume(sink.volume() + 0.1);
-        } else if keyboard_input.just_pressed(KeyCode::Minus) {
+        } else if keyboard_input.just_pressed(KeyCode::NumpadSubtract) {
             sink.set_volume(sink.volume() - 0.1);
         }
     }

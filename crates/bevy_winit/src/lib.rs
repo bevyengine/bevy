@@ -445,10 +445,10 @@ pub fn winit_runner(mut app: App) {
                                 window: window_entity,
                             });
                     }
-                    WindowEvent::KeyboardInput { ref input, .. } => {
+                    WindowEvent::KeyboardInput { ref event, .. } => {
                         input_events
                             .keyboard_input
-                            .send(converters::convert_keyboard_input(input));
+                            .send(converters::convert_keyboard_input(event));
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let physical_position = DVec2::new(position.x, position.y);
@@ -502,12 +502,6 @@ pub fn winit_runner(mut app: App) {
                         input_events
                             .touch_input
                             .send(converters::convert_touch_input(touch, location));
-                    }
-                    WindowEvent::ReceivedCharacter(c) => {
-                        input_events.character_input.send(ReceivedCharacter {
-                            window: window_entity,
-                            char: c,
-                        });
                     }
                     WindowEvent::ScaleFactorChanged {
                         scale_factor,

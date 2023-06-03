@@ -107,7 +107,7 @@ fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>
 }
 
 fn update_config(mut gizmo_config: ResMut<GizmoConfig>, keyboard: Res<Input<KeyCode>>) {
-    if keyboard.just_pressed(KeyCode::T) {
+    if keyboard.just_pressed(KeyCode::KeyT) {
         gizmo_config.on_top = !gizmo_config.on_top;
     }
 }

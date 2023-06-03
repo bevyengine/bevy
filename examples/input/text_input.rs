@@ -180,7 +180,7 @@ fn listen_keyboard_input_events(
 ) {
     for event in events.iter() {
         match event.key_code {
-            Some(KeyCode::Return) => {
+            KeyCode::Enter => {
                 let (entity, text) = edit_text.single();
                 commands.entity(entity).insert(Bubble {
                     timer: Timer::from_seconds(5.0, TimerMode::Once),
@@ -191,7 +191,7 @@ fn listen_keyboard_input_events(
                     ..default()
                 });
             }
-            Some(KeyCode::Back) => {
+            KeyCode::Backspace => {
                 edit_text.single_mut().1.sections[0].value.pop();
             }
             _ => continue,

@@ -40,7 +40,7 @@ fn main() {
 /// This system toggles the vsync mode when pressing the button V.
 /// You'll see fps increase displayed in the console.
 fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    if input.just_pressed(KeyCode::V) {
+    if input.just_pressed(KeyCode::KeyV) {
         let mut window = windows.single_mut();
 
         window.present_mode = if matches!(window.present_mode, PresentMode::AutoVsync) {
@@ -60,7 +60,7 @@ fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
 /// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.window_level)
 /// for more details.
 fn switch_level(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    if input.just_pressed(KeyCode::T) {
+    if input.just_pressed(KeyCode::KeyT) {
         let mut window = windows.single_mut();
 
         window.window_level = match window.window_level {
@@ -103,7 +103,7 @@ fn cycle_cursor_icon(
 
     const ICONS: &[CursorIcon] = &[
         CursorIcon::Default,
-        CursorIcon::Hand,
+        CursorIcon::Pointer,
         CursorIcon::Wait,
         CursorIcon::Text,
         CursorIcon::Copy,
