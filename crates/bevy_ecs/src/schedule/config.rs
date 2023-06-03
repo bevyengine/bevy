@@ -63,7 +63,7 @@ pub enum SystemConfigs {
     Configs {
         /// Configuration for each element of the tuple.
         configs: Vec<SystemConfigs>,
-        /// Run conditions applied to the everything in the tuple.
+        /// Run conditions applied to everything in the tuple.
         collective_conditions: Vec<BoxedCondition>,
         /// If `true`, adds `before -> after` ordering constraints between the successive elements.
         chained: bool,
