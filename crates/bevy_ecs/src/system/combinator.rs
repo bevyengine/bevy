@@ -125,6 +125,84 @@ impl<Func, A, B> CombinatorSystem<Func, A, B> {
     }
 }
 
+impl<In, A, B> System for (A, B)
+where
+    In: Copy,
+    A: System<In = In>,
+    B: System<In = In>,
+{
+    type In = In;
+    type Out = (A::Out, B::Out);
+
+    fn name(&self) -> Cow<'static, str> {
+        Cow::Owned(format!("Join({}, {})", self.0.name().clone(), self.1.name().clone()))
+    }
+
+    fn type_id(&self) -> std::any::TypeId {
+        std::any::TypeId::of::<Self>()
+    }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        self.0.component_access() // needs to add component access of .1
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        self.0.archetype_component_access() // idem
+    }
+
+    fn is_send(&self) -> bool {
+        self.0.is_send() && self.1.is_send()
+    }
+
+    fn is_exclusive(&self) -> bool {
+        self.0.is_exclusive() || self.1.is_exclusive()
+    }
+
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
+        (self.0.run_unsafe(input, world), self.1.run_unsafe(input, world))    
+    }
+
+    fn run<'w>(&mut self, input: Self::In, world: &'w mut World) -> Self::Out {
+        let world: &'w UnsafeCell<World> = unsafe { std::mem::transmute(world) };
+        (self.0.run(input, unsafe { world.deref_mut() }), self.1.run(input, unsafe { world.deref_mut() }))
+    }
+
+    fn apply_buffers(&mut self, world: &mut World) {
+        self.0.apply_buffers(world);
+        self.1.apply_buffers(world);
+    }
+
+    fn initialize(&mut self, world: &mut World) {
+        self.0.initialize(world);
+        self.1.initialize(world);
+    }
+
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
+        self.0.update_archetype_component_access(world);
+        self.1.update_archetype_component_access(world);
+    }
+
+    fn check_change_tick(&mut self, change_tick: Tick) {
+        self.0.check_change_tick(change_tick);
+        self.1.check_change_tick(change_tick);
+    }
+
+    fn get_last_run(&self) -> Tick {
+        self.0.get_last_run()
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.0.set_last_run(last_run);
+        self.1.set_last_run(last_run);
+    }
+
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+        let mut default_sets = self.0.default_system_sets();
+        default_sets.append(&mut self.1.default_system_sets());
+        default_sets
+    }
+}
+
 impl<A, B, Func> System for CombinatorSystem<Func, A, B>
 where
     Func: Combine<A, B> + 'static,

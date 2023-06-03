@@ -24,8 +24,8 @@ fn main() {
                 warning_pipe_system.pipe(warn),
                 parse_error_message_system.pipe(error),
                 parse_message_system.pipe(ignore),
-                calc1.join(calc2).pipe(read),
                 calc1.join(calc2).join(calc3).pipe(readnew),
+                (IntoSystem::into_system(calc1), IntoSystem::into_system(calc2)).pipe(read)
             ),
         )
         .run();
