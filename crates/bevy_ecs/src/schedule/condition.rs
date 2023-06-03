@@ -1042,8 +1042,8 @@ where
         !self.condition.run(input, world)
     }
 
-    fn apply_buffers(&mut self, world: &mut World) {
-        self.condition.apply_buffers(world);
+    fn apply_deferred(&mut self, world: &mut World) {
+        self.condition.apply_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut World) {

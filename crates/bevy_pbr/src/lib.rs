@@ -202,7 +202,7 @@ impl Plugin for PbrPlugin {
                 PostUpdate,
                 (
                     add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    apply_system_buffers.in_set(SimulationLightSystems::AddClustersFlush),
+                    apply_deferred.in_set(SimulationLightSystems::AddClustersFlush),
                     assign_lights_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
@@ -283,7 +283,7 @@ impl Plugin for PbrPlugin {
                         .in_set(RenderLightSystems::PrepareLights),
                     // A sync is needed after prepare_lights, before prepare_view_uniforms,
                     // because prepare_lights creates new views for shadow mapping
-                    apply_system_buffers
+                    apply_deferred
                         .in_set(RenderSet::Prepare)
                         .after(RenderLightSystems::PrepareLights)
                         .before(ViewSet::PrepareUniforms),
