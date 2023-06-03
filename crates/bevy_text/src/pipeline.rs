@@ -283,7 +283,8 @@ impl TextPipeline {
                 // offset by half the size because the origin is center
                 let x = glyph_size.x / 2.0 + left + layout_glyph.x_int as f32;
                 let y = line_y + layout_glyph.y_int as f32 - top + glyph_size.y / 2.0;
-                // TODO: cosmic text may handle text alignment in future
+                // TODO: use cosmic text's implementation (per-BufferLine alignment) as it will be editor aware
+                // see https://github.com/pop-os/cosmic-text/issues/130 (currently bugged)
                 let x = x + match text_alignment {
                     TextAlignment::Left => 0.0,
                     TextAlignment::Center => (box_size.x - line_w) / 2.0,
@@ -460,7 +461,6 @@ fn add_span(
 fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
     // TODO: see https://github.com/pop-os/cosmic-text/issues/70 Let a Buffer figure out its height during set_size
     // TODO: see https://github.com/pop-os/cosmic-text/issues/42 Request: Allow buffer dimensions to be undefined
-    // TODO: debug tonemapping example
     let width = buffer
         .layout_runs()
         .map(|run| run.line_w)
