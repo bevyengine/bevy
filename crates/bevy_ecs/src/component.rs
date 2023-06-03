@@ -496,14 +496,16 @@ impl Components {
     }
 
     /// Gets the metadata associated with the given component.
-    /// Returns `None` if that component has not been registered with this instance.
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
         self.components.get(id.0)
     }
 
     /// Returns the name associated with the given component.
-    /// Returns `None` if that component has not been registered with this instance.
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_name(&self, id: ComponentId) -> Option<&str> {
         self.get_info(id).map(|descriptor| descriptor.name())
