@@ -141,7 +141,7 @@ pub struct SubApp {
     /// The [`SubApp`]'s instance of [`App`]
     pub app: App,
 
-    /// A function that allows access to both the [`SubApp`] [`World`] and the main [`App`]. This is
+    /// A function that allows access to both the main [`App`] [`World`] and the [`SubApp`]. This is
     /// useful for moving data between the sub app and the main app.
     extract: Box<dyn Fn(&mut World, &mut App) + Send>,
 }
