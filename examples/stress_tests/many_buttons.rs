@@ -26,12 +26,12 @@ fn main() {
 
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
         }),
         ..default()
     }))
-    .add_plugin(FrameTimeDiagnosticsPlugin::default())
+    .add_plugin(FrameTimeDiagnosticsPlugin)
     .add_plugin(LogDiagnosticsPlugin::default())
     .add_systems(Startup, setup)
     .add_systems(Update, button_system);
