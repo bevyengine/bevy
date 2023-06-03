@@ -617,7 +617,8 @@ impl Archetypes {
         archetypes
     }
 
-    /// Returns a value indicating the oldest archetype that currently exists.
+    /// Returns the current archetype generation. This is an ID indicating the current set of archetypes
+    /// that are registered with the world.
     #[inline]
     pub fn generation(&self) -> ArchetypeGeneration {
         ArchetypeGeneration(self.archetypes.len())
