@@ -118,9 +118,8 @@ fn setup(
                     TextBundle::from_section(
                         label,
                         TextStyle {
-                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                             font_size: 40.0,
-                            color: Color::WHITE,
+                            ..default()
                         },
                     )
                     .with_style(Style {
