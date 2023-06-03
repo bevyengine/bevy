@@ -18,7 +18,7 @@ fn main() {
         }),
         ..default()
     }))
-    .add_plugin(FrameTimeDiagnosticsPlugin::default())
+    .add_plugin(FrameTimeDiagnosticsPlugin)
     .insert_resource(Config {
         line_count: 50_000,
         fancy: false,

@@ -4,11 +4,12 @@ use crate::fq_std::{FQAny, FQDefault, FQSend, FQSync};
 use crate::utility::{members_to_serialization_denylist, WhereClauseOptions};
 use bit_set::BitSet;
 use quote::quote;
+use syn::token::Comma;
 
 use crate::{utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Token, Variant};
+use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Variant};
 
 pub(crate) enum ReflectDerive<'a> {
     Struct(ReflectStruct<'a>),
@@ -136,8 +137,8 @@ impl<'a> ReflectDerive<'a> {
         #[cfg(feature = "documentation")]
         let mut doc = crate::documentation::Documentation::default();
 
-        for attribute in input.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
-            match attribute {
+        for attribute in &input.attrs {
+            match &attribute.meta {
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
                     if !matches!(reflect_mode, None | Some(ReflectMode::Normal)) {
                         return Err(syn::Error::new(
@@ -147,8 +148,10 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-                    let new_traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
-                    traits = traits.merge(new_traits)?;
+                    let new_traits = ReflectTraits::from_metas(
+                        meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
+                    )?;
+                    traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
                     if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
@@ -159,8 +162,10 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let new_traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
-                    traits = traits.merge(new_traits)?;
+                    let new_traits = ReflectTraits::from_metas(
+                        meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
+                    )?;
+                    traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
                     if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
@@ -174,7 +179,11 @@ impl<'a> ReflectDerive<'a> {
                 }
                 #[cfg(feature = "documentation")]
                 Meta::NameValue(pair) if pair.path.is_ident("doc") => {
-                    if let syn::Lit::Str(lit) = pair.lit {
+                    if let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(lit),
+                        ..
+                    }) = &pair.value
+                    {
                         doc.push(lit.value());
                     }
                 }
@@ -247,7 +256,7 @@ impl<'a> ReflectDerive<'a> {
     }
 
     fn collect_enum_variants(
-        variants: &'a Punctuated<Variant, Token![,]>,
+        variants: &'a Punctuated<Variant, Comma>,
     ) -> Result<Vec<EnumVariant<'a>>, syn::Error> {
         let sifter: utility::ResultSifter<EnumVariant<'a>> = variants
             .iter()

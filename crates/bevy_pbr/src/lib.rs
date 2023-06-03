@@ -213,7 +213,7 @@ impl Plugin for PbrPlugin {
                 PostUpdate,
                 (
                     add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    apply_system_buffers.in_set(SimulationLightSystems::AddClustersFlush),
+                    apply_deferred.in_set(SimulationLightSystems::AddClustersFlush),
                     assign_lights_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
@@ -294,7 +294,7 @@ impl Plugin for PbrPlugin {
                         .in_set(RenderLightSystems::PrepareLights),
                     // A sync is needed after prepare_lights, before prepare_view_uniforms,
                     // because prepare_lights creates new views for shadow mapping
-                    apply_system_buffers
+                    apply_deferred
                         .in_set(RenderSet::Prepare)
                         .after(RenderLightSystems::PrepareLights)
                         .before(ViewSet::PrepareUniforms),
@@ -304,9 +304,7 @@ impl Plugin for PbrPlugin {
                     sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
                 ),
             )
-            .init_resource::<ShadowSamplers>()
-            .init_resource::<LightMeta>()
-            .init_resource::<GlobalLightMeta>();
+            .init_resource::<LightMeta>();
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
@@ -318,5 +316,17 @@ impl Plugin for PbrPlugin {
             draw_3d_graph::node::SHADOW_PASS,
             bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
         );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
+        // Extract the required data from the main world
+        render_app
+            .init_resource::<ShadowSamplers>()
+            .init_resource::<GlobalLightMeta>();
     }
 }

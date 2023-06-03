@@ -106,7 +106,6 @@ impl Plugin for MeshRenderPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<MeshPipeline>()
                 .init_resource::<SkinnedMeshUniform>()
                 .add_systems(ExtractSchedule, (extract_meshes, extract_skinned_meshes))
                 .add_systems(
@@ -117,6 +116,12 @@ impl Plugin for MeshRenderPlugin {
                         queue_mesh_view_bind_groups.in_set(RenderSet::Queue),
                     ),
                 );
+        }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<MeshPipeline>();
         }
     }
 }
@@ -176,7 +181,7 @@ pub fn extract_meshes(
             flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
         }
         let uniform = MeshUniform {
-            flags: flags.bits,
+            flags: flags.bits(),
             transform,
             previous_transform,
             inverse_transpose_model: transform.inverse().transpose(),
@@ -328,9 +333,9 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
-                        #[cfg(not(feature = "webgl"))]
+                        #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
                         view_dimension: TextureViewDimension::CubeArray,
-                        #[cfg(feature = "webgl")]
+                        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                         view_dimension: TextureViewDimension::Cube,
                     },
                     count: None,
@@ -349,9 +354,9 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Texture {
                         multisampled: false,
                         sample_type: TextureSampleType::Depth,
-                        #[cfg(not(feature = "webgl"))]
+                        #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
                         view_dimension: TextureViewDimension::D2Array,
-                        #[cfg(feature = "webgl")]
+                        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                         view_dimension: TextureViewDimension::D2,
                     },
                     count: None,
@@ -439,7 +444,9 @@ impl FromWorld for MeshPipeline {
             let tonemapping_lut_entries = get_lut_bind_group_layout_entries([14, 15]);
             entries.extend_from_slice(&tonemapping_lut_entries);
 
-            if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && !multisampled) {
+            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
+                || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
+            {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
                     [16, 17, 18],
                     multisampled,
@@ -564,33 +571,36 @@ impl MeshPipeline {
 }
 
 bitflags::bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
-        const NONE                               = 0;
-        const HDR                                = (1 << 0);
-        const TONEMAP_IN_SHADER                  = (1 << 1);
-        const DEBAND_DITHER                      = (1 << 2);
-        const DEPTH_PREPASS                      = (1 << 3);
-        const NORMAL_PREPASS                     = (1 << 4);
-        const MOTION_VECTOR_PREPASS              = (1 << 5);
-        const ALPHA_MASK                         = (1 << 6);
-        const ENVIRONMENT_MAP                    = (1 << 7);
-        const DEPTH_CLAMP_ORTHO                  = (1 << 8);
-        const BLEND_RESERVED_BITS                = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
-        const BLEND_OPAQUE                       = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
-        const BLEND_PREMULTIPLIED_ALPHA          = (1 << Self::BLEND_SHIFT_BITS);                   //
-        const BLEND_MULTIPLY                     = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
-        const BLEND_ALPHA                        = (3 << Self::BLEND_SHIFT_BITS);
-        const MSAA_RESERVED_BITS                 = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS   = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        const TONEMAP_METHOD_RESERVED_BITS       = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_NONE                = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_REINHARD            = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_REINHARD_LUMINANCE  = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_ACES_FITTED         = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_AGX                 = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const NONE                              = 0;
+        const HDR                               = (1 << 0);
+        const TONEMAP_IN_SHADER                 = (1 << 1);
+        const DEBAND_DITHER                     = (1 << 2);
+        const DEPTH_PREPASS                     = (1 << 3);
+        const NORMAL_PREPASS                    = (1 << 4);
+        const MOTION_VECTOR_PREPASS             = (1 << 5);
+        const MAY_DISCARD                       = (1 << 6); // Guards shader codepaths that may discard, allowing early depth tests in most cases
+                                                            // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
+        const ENVIRONMENT_MAP                   = (1 << 7);
+        const DEPTH_CLAMP_ORTHO                 = (1 << 8);
+        const TAA                               = (1 << 9);
+        const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
+        const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
+        const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
+        const BLEND_MULTIPLY                    = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
+        const BLEND_ALPHA                       = (3 << Self::BLEND_SHIFT_BITS);
+        const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE     = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC      = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -624,7 +634,7 @@ impl MeshPipelineKey {
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        Self::from_bits(msaa_bits).unwrap()
+        Self::from_bits_retain(msaa_bits)
     }
 
     pub fn from_hdr(hdr: bool) -> Self {
@@ -636,19 +646,19 @@ impl MeshPipelineKey {
     }
 
     pub fn msaa_samples(&self) -> u32 {
-        1 << ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
+        1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
     pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits(primitive_topology_bits).unwrap()
+        Self::from_bits_retain(primitive_topology_bits)
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
-        let primitive_topology_bits =
-            (self.bits >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS) & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
+        let primitive_topology_bits = (self.bits() >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
+            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
         match primitive_topology_bits {
             x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
             x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
@@ -799,15 +809,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
-        if key.contains(MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13) {
-            shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
-        }
-        if key.contains(MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14) {
-            shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
+        if key.contains(MeshPipelineKey::MAY_DISCARD) {
+            shader_defs.push("MAY_DISCARD".into());
         }
 
         if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
             shader_defs.push("ENVIRONMENT_MAP".into());
+        }
+
+        if key.contains(MeshPipelineKey::TAA) {
+            shader_defs.push("TAA".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
@@ -1080,7 +1091,9 @@ pub fn queue_mesh_view_bind_groups(
             entries.extend_from_slice(&tonemapping_luts);
 
             // When using WebGL, we can't have a depth texture with multisampling
-            if cfg!(not(feature = "webgl")) || (cfg!(feature = "webgl") && msaa.samples() == 1) {
+            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
+                || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
+            {
                 entries.extend_from_slice(&prepass::get_bindings(
                     prepass_textures,
                     &mut fallback_images,

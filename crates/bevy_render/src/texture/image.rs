@@ -555,7 +555,7 @@ impl RenderAsset for Image {
 }
 
 bitflags::bitflags! {
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
     #[repr(transparent)]
     pub struct CompressedImageFormats: u32 {
         const NONE     = 0;
