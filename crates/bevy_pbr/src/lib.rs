@@ -4,7 +4,7 @@ pub mod wireframe;
 
 mod alpha;
 mod bundle;
-pub mod deferred_lighting;
+pub mod deferred;
 mod environment_map;
 mod fog;
 mod light;
@@ -66,7 +66,7 @@ use bevy_render::{
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
 
-use crate::deferred_lighting::DeferredLightingPlugin;
+use crate::deferred::DeferredLightingPlugin;
 
 pub const PBR_TYPES_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1708015359337029744);
@@ -150,19 +150,19 @@ impl Plugin for PbrPlugin {
         load_internal_asset!(
             app,
             PBR_DEFERRED_TYPES_HANDLE,
-            "render/pbr_deferred_types.wgsl",
+            "deferred/pbr_deferred_types.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             PBR_DEFERRED_FUNCTIONS_HANDLE,
-            "render/pbr_deferred_functions.wgsl",
+            "deferred/pbr_deferred_functions.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             PBR_DEFERRED_HANDLE,
-            "render/pbr_deferred.wgsl",
+            "deferred/pbr_deferred.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(

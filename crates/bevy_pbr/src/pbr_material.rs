@@ -1,5 +1,5 @@
 use crate::{
-    deferred_lighting::DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE, AlphaMode, Material,
+    deferred::DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE, AlphaMode, Material,
     MaterialPipeline, MaterialPipelineKey, OpaqueRendererMethod, ParallaxMappingMethod,
     PBR_PREPASS_SHADER_HANDLE, PBR_SHADER_HANDLE,
 };
