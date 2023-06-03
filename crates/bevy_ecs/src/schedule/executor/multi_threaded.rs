@@ -256,7 +256,9 @@ impl SystemExecutor for MultiThreadedExecutor {
 }
 
 impl MultiThreadedExecutor {
-    /// Creates a new multi-threaded executor for use with a [`Schedule`](super::super::Schedule).
+    /// Creates a new multi-threaded executor for use with a [`Schedule`].
+    ///
+    /// [`Schedule`]: crate::schedule::Schedule
     pub fn new() -> Self {
         let (sender, receiver) = async_channel::unbounded();
         Self {
