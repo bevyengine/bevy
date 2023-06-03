@@ -4,6 +4,9 @@
 #ifdef NORMAL_PREPASS
 #import bevy_pbr::pbr_functions
 #endif // NORMAL_PREPASS
+#ifdef DEFERRED_PREPASS
+#import bevy_pbr::pbr_deferred_types
+#endif // DEFERRED_PREPASS
 
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,

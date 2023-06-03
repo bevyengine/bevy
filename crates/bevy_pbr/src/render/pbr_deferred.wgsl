@@ -110,7 +110,7 @@ fn standard_pbr_deferred(in: FragmentInput) -> StandardPbrDeferredOutput {
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
 
-        pbr_input.flags = mesh.flags;
+        let flags = deferred_flags_from_mesh_mat_flags(mesh.flags, pbr_input.material.flags);
 
         out.deferred = vec4(
             pack4x8unorm(pbr_input.material.base_color),
@@ -121,13 +121,12 @@ fn standard_pbr_deferred(in: FragmentInput) -> StandardPbrDeferredOutput {
                 pbr_input.occlusion, 
                 pbr_input.material.reflectance
             )),
-            mesh.flags
+            flags
         );
         out.normal = pbr_input.N;
-        // TODO Griffin from material.flags we only need FOG_ENABLED, maybe move this to mesh flags?
-        // const STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT: u32 = 256u;
     } else {
-        out.deferred = vec4(0u, float3_to_rgb9e5(output_color.rgb), 0u, 0u);
+        let flags = deferred_flags_from_mesh_mat_flags(mesh.flags, 0u);
+        out.deferred = vec4(0u, float3_to_rgb9e5(output_color.rgb), 0u, flags);
     }
 
     return out;

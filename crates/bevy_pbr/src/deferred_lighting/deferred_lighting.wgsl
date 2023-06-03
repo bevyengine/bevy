@@ -11,6 +11,7 @@
 #import bevy_pbr::shadows
 #import bevy_pbr::fog
 #import bevy_pbr::pbr_functions
+#import bevy_pbr::pbr_deferred_types
 #import bevy_pbr::pbr_deferred_functions
 #import bevy_pbr::pbr_ambient
 
@@ -26,6 +27,11 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, deferred_data);
     
     var output_color = pbr(pbr_input);
+
+    // fog
+    if (fog.mode != FOG_MODE_OFF && (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
+        output_color = apply_fog(fog, output_color, pbr_input.world_position.xyz, view.world_position.xyz);
+    }
 
 #ifdef TONEMAP_IN_SHADER
     output_color = tone_mapping(output_color);

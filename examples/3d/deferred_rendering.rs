@@ -17,6 +17,7 @@ use bevy_internal::{
 fn main() {
     App::new()
         .insert_resource(Msaa::Off)
+        .insert_resource(ClearColor(Color::rgb_linear(0.05, 0.05, 0.05)))
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 1.0 / 5.0f32,
@@ -45,6 +46,14 @@ fn setup(
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },
+        FogSettings {
+            color: Color::rgba(0.05, 0.05, 0.05, 1.0),
+            falloff: FogFalloff::Linear {
+                start: 1.0,
+                end: 8.0,
+            },
+            ..default()
+        },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -63,7 +72,7 @@ fn setup(
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
             num_cascades: 3,
-            maximum_distance: 5.0,
+            maximum_distance: 10.0,
             ..default()
         }
         .into(),
@@ -72,18 +81,25 @@ fn setup(
     });
 
     // FlightHelmet
+    let helmet_scene = asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0");
+
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+        scene: helmet_scene.clone(),
+        ..default()
+    });
+    commands.spawn(SceneBundle {
+        scene: helmet_scene,
+        transform: Transform::from_xyz(-3.0, 0.0, -3.0),
         ..default()
     });
 
-    let mut forward_mat: StandardMaterial = Color::rgb(0.3, 0.5, 0.3).into();
+    let mut forward_mat: StandardMaterial = Color::rgb(0.1, 0.2, 0.1).into();
     forward_mat.opaque_render_method = Some(OpaqueRendererMethod::Forward);
     let forward_mat_h = materials.add(forward_mat);
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
+        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
         material: forward_mat_h.clone(),
         ..default()
     });

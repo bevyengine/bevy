@@ -44,7 +44,9 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let perceptual_roughness = props.g;
     let occlusion = props.b; // is this usually included / worth including?
     let reflectance = props.a; // could be fewer bits
-    let mesh_flags = gbuffer.a; // could be fewer bits
+    let deferred_flags = mesh_mat_flags_from_deferred_flags(gbuffer.a); // could be fewer bits
+    let mesh_flags = deferred_flags.x;
+    let mat_flags = deferred_flags.y;
 
     let world_position = vec4(position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);
     let is_orthographic = view.projection[3].w == 1.0;
@@ -62,7 +64,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     pbr_input.material.perceptual_roughness = perceptual_roughness;
     pbr_input.material.metallic = metallic;
     pbr_input.material.reflectance = reflectance;
-    //pbr_input.material.flags = // TODO Griffin include FOG_ENABLED from material flags
+    pbr_input.material.flags = mat_flags;
 
     pbr_input.frag_coord = frag_coord;
     pbr_input.world_normal = prepass_normal(frag_coord, 0u);
