@@ -44,7 +44,10 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let perceptual_roughness = props.g;
     let occlusion = props.b; // is this usually included / worth including?
     let reflectance = props.a; // could be fewer bits
-    let deferred_flags = mesh_mat_flags_from_deferred_flags(gbuffer.a); // could be fewer bits
+    let oct_nor = unpack_24bit_nor(gbuffer.a);
+    let N = octa_decode(oct_nor);
+    let flags = unpack_flags(gbuffer.a);
+    let deferred_flags = mesh_mat_flags_from_deferred_flags(flags);
     let mesh_flags = deferred_flags.x;
     let mat_flags = deferred_flags.y;
 
@@ -69,9 +72,10 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     pbr_input.frag_coord = frag_coord;
     // TODO Griffin: shouldn't need the normalize here. 
     // Was getting stepping artifacts on the tonemapping example
-    pbr_input.world_normal = normalize(prepass_normal(frag_coord, 0u)); 
+    //pbr_input.world_normal = normalize(prepass_normal(frag_coord, 0u)); 
+    pbr_input.world_normal = N; 
     pbr_input.world_position = world_position;
-    pbr_input.N = pbr_input.world_normal;
+    pbr_input.N = N;
     pbr_input.V = V;
     pbr_input.is_orthographic = is_orthographic;
 

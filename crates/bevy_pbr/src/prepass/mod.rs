@@ -411,9 +411,15 @@ where
         }
 
         if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
-            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(2));
             shader_defs.push("NORMAL_PREPASS".into());
+        }
 
+        if key
+            .mesh_key
+            .intersects(MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::DEFERRED_PREPASS)
+        {
+            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(2));
+            shader_defs.push("NORMAL_PREPASS_OR_DEFERRED_PREPASS".into());
             if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
                 shader_defs.push("VERTEX_TANGENTS".into());
                 vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
@@ -431,10 +437,11 @@ where
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
-        if key
-            .mesh_key
-            .intersects(MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::MOTION_VECTOR_PREPASS)
-        {
+        if key.mesh_key.intersects(
+            MeshPipelineKey::NORMAL_PREPASS
+                | MeshPipelineKey::MOTION_VECTOR_PREPASS
+                | MeshPipelineKey::DEFERRED_PREPASS,
+        ) {
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
 

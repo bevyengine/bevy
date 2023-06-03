@@ -111,6 +111,7 @@ fn standard_pbr_deferred(in: FragmentInput) -> StandardPbrDeferredOutput {
         pbr_input.occlusion = occlusion;
 
         let flags = deferred_flags_from_mesh_mat_flags(mesh.flags, pbr_input.material.flags);
+        let oct_nor = octa_encode(normalize(pbr_input.N));
 
         out.deferred = vec4(
             pack4x8unorm(pbr_input.material.base_color),
@@ -121,12 +122,18 @@ fn standard_pbr_deferred(in: FragmentInput) -> StandardPbrDeferredOutput {
                 pbr_input.occlusion, 
                 pbr_input.material.reflectance
             )),
-            flags
+            pack_24bit_nor_and_flags(oct_nor, flags),
         );
         out.normal = pbr_input.N;
     } else {
         let flags = deferred_flags_from_mesh_mat_flags(mesh.flags, 0u);
-        out.deferred = vec4(0u, float3_to_rgb9e5(output_color.rgb), 0u, flags);
+        let oct_nor = octa_encode(normalize(pbr_input.N));
+        out.deferred = vec4(
+            0u, 
+            float3_to_rgb9e5(output_color.rgb), 
+            0u, 
+            pack_24bit_nor_and_flags(oct_nor, flags)
+        );
     }
 
     return out;

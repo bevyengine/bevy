@@ -10,12 +10,12 @@ struct Vertex {
     @location(1) uv: vec2<f32>,
 #endif // VERTEX_UVS
 
-#ifdef NORMAL_PREPASS
+#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
     @location(2) normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
     @location(3) tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
-#endif // NORMAL_PREPASS
+#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
 
 #ifdef SKINNED
     @location(4) joint_indices: vec4<u32>,
@@ -30,12 +30,12 @@ struct VertexOutput {
     @location(0) uv: vec2<f32>,
 #endif // VERTEX_UVS
 
-#ifdef NORMAL_PREPASS
+#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
     @location(1) world_normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
     @location(2) world_tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
-#endif // NORMAL_PREPASS
+#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
     @location(3) world_position: vec4<f32>,
@@ -62,7 +62,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.uv = vertex.uv;
 #endif // VERTEX_UVS
 
-#ifdef NORMAL_PREPASS
+#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
 #ifdef SKINNED
     out.world_normal = skin_normals(model, vertex.normal);
 #else // SKINNED
@@ -72,7 +72,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_tangent_local_to_world(model, vertex.tangent);
 #endif // VERTEX_TANGENTS
-#endif // NORMAL_PREPASS
+#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
     out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
@@ -88,9 +88,9 @@ struct FragmentInput {
     @location(0) uv: vec2<f32>,
 #endif // VERTEX_UVS
 
-#ifdef NORMAL_PREPASS
+#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
     @location(1) world_normal: vec3<f32>,
-#endif // NORMAL_PREPASS
+#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
     @location(3) world_position: vec4<f32>,

@@ -1,5 +1,6 @@
 #define_import_path bevy_pbr::pbr_deferred_types
 
+// Maximum of 8 bits available
 const DEFERRED_FLAGS_UNLIT_BIT: u32                 = 1u;
 const DEFERRED_FLAGS_FOG_ENABLED_BIT: u32           = 2u;
 const DEFERRED_MESH_FLAGS_SHADOW_RECEIVER_BIT: u32  = 4u;
@@ -19,4 +20,53 @@ fn mesh_mat_flags_from_deferred_flags(deferred_flags: u32) -> vec2<u32> {
     mat_flags |= u32((deferred_flags & DEFERRED_FLAGS_FOG_ENABLED_BIT) != 0u) * STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT;
     mat_flags |= u32((deferred_flags & DEFERRED_FLAGS_UNLIT_BIT) != 0u) * STANDARD_MATERIAL_FLAGS_UNLIT_BIT;
     return vec2(mesh_flags, mat_flags);
+}
+
+
+// For stroing normals as oct24
+// Flags are stored in the remaining 8 bits
+// https://jcgt.org/published/0003/02/01/paper.pdf
+// could possibly go down to oct20 if the space is needed 
+
+// https://github.com/EmbarkStudios/kajiya/blob/d3b6ac22c5306cc9d3ea5e2d62fd872bea58d8d6/assets/shaders/inc/pack_unpack.hlsl#LL66C1
+fn octa_wrap(v: vec2<f32>) -> vec2<f32> {
+    return (1.0 - abs(v.yx)) * (vec2<f32>(v.xy >= vec2(0.0)) * 2.0 - 1.0);
+}
+
+fn octa_encode(n: vec3<f32>) -> vec2<f32> {
+    var n = n / (abs(n.x) + abs(n.y) + abs(n.z));
+    if (n.z < 0.0) {
+        n = vec3(octa_wrap(n.xy), n.z);
+    }
+    return n.xy * 0.5 + 0.5;
+}
+
+fn octa_decode(f: vec2<f32>) -> vec3<f32> {
+    var f = f * 2.0 - 1.0;
+ 
+    // https://twitter.com/Stubbesaurus/status/937994790553227264
+    var n = vec3( f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
+    let t = clamp(-n.z, 0.0, 1.0);
+    //n.xy += select(n.xy >= 0.0, -t, t);
+    // n.xy -= (step(0.0, n.xy) * 2 - 1) * t;
+    let tmp = n.xy - (vec2<f32>(n.xy >= vec2(0.0)) * 2.0 - 1.0) * t;
+    return normalize(vec3(tmp, n.z));
+}
+
+const U12MAXF = 4095.0;
+
+fn pack_24bit_nor_and_flags(oct_nor: vec2<f32>, flags: u32) -> u32 {
+    let unorm1 = u32(saturate(oct_nor.x) * U12MAXF);
+    let unorm2 = u32(saturate(oct_nor.y) * U12MAXF);
+    return (unorm1 & 0xFFFu) | ((unorm2 & 0xFFFu) << 12u) | ((flags & 0xFFu) << 24u);
+}
+
+fn unpack_24bit_nor(packed: u32) -> vec2<f32> {
+    let unorm1 = packed & 0xFFFu;
+    let unorm2 = (packed >> 12u) & 0xFFFu;
+    return vec2(f32(unorm1) / U12MAXF, f32(unorm2) / U12MAXF);
+}
+
+fn unpack_flags(packed: u32) -> u32 {
+    return (packed >> 24u) & 0xFFu;
 }

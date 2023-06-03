@@ -1,9 +1,9 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::pbr_bindings
 #import bevy_pbr::rgb9e5
-#ifdef NORMAL_PREPASS
+#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
 #import bevy_pbr::pbr_functions
-#endif // NORMAL_PREPASS
+#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
 #ifdef DEFERRED_PREPASS
 #import bevy_pbr::pbr_deferred_types
 #endif // DEFERRED_PREPASS
@@ -15,12 +15,12 @@ struct FragmentInput {
     @location(0) uv: vec2<f32>,
 #endif // VERTEX_UVS
 
-#ifdef NORMAL_PREPASS
+#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
     @location(1) world_normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
     @location(2) world_tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
-#endif // NORMAL_PREPASS
+#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
     @location(3) world_position: vec4<f32>,
@@ -91,7 +91,9 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #ifdef DEFERRED_PREPASS
     let std_pbr = standard_pbr_deferred(in);
     out.deferred = std_pbr.deferred;
+#ifdef NORMAL_PREPASS
     out.normal = vec4(std_pbr.normal * 0.5 + 0.5, 0.0);
+#endif // NORMAL_PREPASS
 #else // DEFERRED_PREPASS
 #ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
