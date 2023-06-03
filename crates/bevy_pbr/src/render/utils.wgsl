@@ -1,4 +1,5 @@
 #define_import_path bevy_pbr::utils
+#import bevy_pbr::rgb9e5
 
 const PI: f32 = 3.141592653589793;
 const E: f32 = 2.718281828459045;

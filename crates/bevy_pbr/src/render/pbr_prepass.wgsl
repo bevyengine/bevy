@@ -26,6 +26,11 @@ struct FragmentInput {
 
 };
 
+#ifdef DEFERRED_PREPASS
+#import bevy_pbr::pbr_deferred
+#import bevy_pbr::parallax_mapping
+#endif //DEFERRED_PREPASS
+
 // Cutoff used for the premultiplied alpha modes BLEND and ADD.
 const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 
@@ -80,6 +85,11 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 
     var out: FragmentOutput;
 
+#ifdef DEFERRED_PREPASS
+    let std_pbr = standard_pbr_deferred(in);
+    out.deferred = std_pbr.deferred;
+    out.normal = vec4(std_pbr.normal * 0.5 + vec3(0.5), 0.0);
+#else // DEFERRED_PREPASS
 #ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if (material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
@@ -107,6 +117,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
         out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
     }
 #endif // NORMAL_PREPASS
+#endif // DEFERRED_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
     let clip_position_t = view.unjittered_view_proj * in.world_position;
@@ -121,53 +132,6 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     // down where clip space y goes up, so y needs to be flipped.
     out.motion_vector = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
 #endif // MOTION_VECTOR_PREPASS
-
-#ifdef DEFERRED_PREPASS
-    let uv = in.uv;
-    var output_color = material.base_color;
-    var reflectance = 0.5;
-    var emissive = vec3(0.0);
-    var metallic = 0.0;
-    var perceptual_roughness = 0.5;
-    var occlusion = 1.0;
-
-#ifdef VERTEX_UVS
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
-        output_color = output_color * textureSample(base_color_texture, base_color_sampler, uv);
-    }
-#endif
-    // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
-        reflectance = material.reflectance;
-        emissive = material.emissive.rgb;
-#ifdef VERTEX_UVS
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
-            emissive = emissive.rgb * textureSample(emissive_texture, emissive_sampler, uv).rgb;
-        }
-#endif
-    metallic = material.metallic;
-    perceptual_roughness = material.perceptual_roughness;
-#ifdef VERTEX_UVS
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
-            let metallic_roughness = textureSample(metallic_roughness_texture, metallic_roughness_sampler, uv);
-            // Sampling from GLTF standard channels for now
-            metallic = metallic * metallic_roughness.b;
-            perceptual_roughness = perceptual_roughness * metallic_roughness.g;
-        }
-#endif
-#ifdef VERTEX_UVS
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
-            occlusion = textureSample(occlusion_texture, occlusion_sampler, uv).r;
-        }
-#endif
-    }
-    out.deferred = vec4(
-        pack4x8unorm(output_color),
-        float3_to_rgb9e5(emissive),
-        pack4x8unorm(vec4(metallic, perceptual_roughness, occlusion, reflectance)),
-        mesh.flags, //material.flags, // TODO Griffin fit both
-    );
-#endif // DEFERRED_PREPASS
 
     return out;
 }

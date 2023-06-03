@@ -25,7 +25,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(DefaultOpaqueRendererMethod(OpaqueRendererMethod::Deferred))
         .add_systems(Startup, setup)
-        .add_systems(Update, animate_light_direction)
+        .add_systems(Update, (animate_light_direction, switch_mode))
         .run();
 }
 
@@ -67,6 +67,7 @@ fn setup(
             ..default()
         }
         .into(),
+        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 0.0, -FRAC_PI_4)),
         ..default()
     });
 
@@ -105,15 +106,64 @@ fn setup(
 }
 
 fn animate_light_direction(
+    input: Res<Input<KeyCode>>,
     time: Res<Time>,
     mut query: Query<&mut Transform, With<DirectionalLight>>,
+    mut rotate: Local<bool>,
 ) {
-    for mut transform in &mut query {
-        transform.rotation = Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            time.elapsed_seconds() * PI / 5.0,
-            -FRAC_PI_4,
-        );
+    if input.just_pressed(KeyCode::Space) {
+        *rotate = !*rotate;
+    }
+    if *rotate {
+        for mut transform in &mut query {
+            transform.rotation = Quat::from_euler(
+                EulerRot::ZYX,
+                0.0,
+                time.elapsed_seconds() * PI / 5.0,
+                -FRAC_PI_4,
+            );
+        }
+    }
+}
+
+fn switch_mode(
+    mut commands: Commands,
+    input: Res<Input<KeyCode>>,
+    mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    cameras: Query<Entity, With<Camera>>,
+) {
+    if input.just_pressed(KeyCode::D) {
+        default_opaque_renderer_method.0 = OpaqueRendererMethod::Deferred;
+        println!("DefaultOpaqueRendererMethod: Deferred");
+        for _ in materials.iter_mut() {}
+        for camera in &cameras {
+            commands.entity(camera).insert(NormalPrepass);
+            commands.entity(camera).insert(DepthPrepass);
+            commands.entity(camera).insert(MotionVectorPrepass);
+            commands.entity(camera).insert(DeferredPrepass);
+        }
+    }
+    if input.just_pressed(KeyCode::F) {
+        default_opaque_renderer_method.0 = OpaqueRendererMethod::Forward;
+        println!("DefaultOpaqueRendererMethod: Forward");
+        for _ in materials.iter_mut() {}
+        for camera in &cameras {
+            commands.entity(camera).remove::<NormalPrepass>();
+            commands.entity(camera).remove::<DepthPrepass>();
+            commands.entity(camera).remove::<MotionVectorPrepass>();
+            commands.entity(camera).remove::<DeferredPrepass>();
+        }
+    }
+    if input.just_pressed(KeyCode::P) {
+        default_opaque_renderer_method.0 = OpaqueRendererMethod::Forward;
+        println!("DefaultOpaqueRendererMethod: Forward + Prepass");
+        for _ in materials.iter_mut() {}
+        for camera in &cameras {
+            commands.entity(camera).insert(NormalPrepass);
+            commands.entity(camera).insert(DepthPrepass);
+            commands.entity(camera).insert(MotionVectorPrepass);
+            commands.entity(camera).insert(DeferredPrepass);
+        }
     }
 }
