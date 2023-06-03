@@ -67,7 +67,9 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     pbr_input.material.flags = mat_flags;
 
     pbr_input.frag_coord = frag_coord;
-    pbr_input.world_normal = prepass_normal(frag_coord, 0u);
+    // TODO Griffin: shouldn't need the normalize here. 
+    // Was getting stepping artifacts on the tonemapping example
+    pbr_input.world_normal = normalize(prepass_normal(frag_coord, 0u)); 
     pbr_input.world_position = world_position;
     pbr_input.N = pbr_input.world_normal;
     pbr_input.V = V;

@@ -17,6 +17,7 @@ use bevy_internal::{
 fn main() {
     App::new()
         .insert_resource(Msaa::Off)
+        .insert_resource(DefaultOpaqueRendererMethod(OpaqueRendererMethod::Deferred))
         .insert_resource(ClearColor(Color::rgb_linear(0.05, 0.05, 0.05)))
         .insert_resource(AmbientLight {
             color: Color::WHITE,
@@ -24,7 +25,6 @@ fn main() {
         })
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
-        .insert_resource(DefaultOpaqueRendererMethod(OpaqueRendererMethod::Deferred))
         .add_systems(Startup, setup)
         .add_systems(Update, (animate_light_direction, switch_mode))
         .run();

@@ -91,7 +91,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #ifdef DEFERRED_PREPASS
     let std_pbr = standard_pbr_deferred(in);
     out.deferred = std_pbr.deferred;
-    out.normal = vec4(std_pbr.normal * 0.5 + vec3(0.5), 0.0);
+    out.normal = vec4(std_pbr.normal * 0.5 + 0.5, 0.0);
 #else // DEFERRED_PREPASS
 #ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit

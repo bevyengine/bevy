@@ -22,7 +22,7 @@ use bevy_ecs::{
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
-    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
     render_asset::{PrepareAssetSet, RenderAssets},
@@ -204,10 +204,7 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.register_type::<DefaultOpaqueRendererMethod>()
-            .init_resource::<DefaultOpaqueRendererMethod>()
-            .add_plugin(ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default())
-            .add_asset::<M>()
+        app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
