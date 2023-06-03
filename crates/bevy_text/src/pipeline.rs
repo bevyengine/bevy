@@ -7,14 +7,14 @@ use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::{
-    tracing::{error, warn},
+    tracing::{error, info, warn},
     HashMap,
 };
 
 use cosmic_text::{Attrs, AttrsList, Buffer, BufferLine, Family, Metrics, Wrap};
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph,
+    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, FontRef, PositionedGlyph,
     TextAlignment, TextSection, TextSettings, YAxisOrientation,
 };
 
@@ -45,28 +45,7 @@ impl Default for FontSystem {
 }
 
 impl FontSystem {
-    /// Attempts to load system fonts.
-    ///
-    /// Supports Windows, Linux and macOS.
-    ///
-    /// System fonts loading is a surprisingly complicated task,
-    /// mostly unsolvable without interacting with system libraries.
-    /// And since `fontdb` tries to be small and portable, this method
-    /// will simply scan some predefined directories.
-    /// Which means that fonts that are not in those directories must
-    /// be added manually.
-    ///
-    /// This allows access to any installed system fonts
-    ///
-    /// # Timing
-    ///
-    /// This function takes some time to run. On the release build, it can take up to a second,
-    /// while debug builds can take up to ten times longer. For this reason, it should only be
-    /// called once, and the resulting [`FontSystem`] should be shared.
-    ///
-    /// This should ideally run in a background thread.
-    // TODO: This should run in a background thread.
-    pub fn load_system_fonts(&mut self) {
+    fn load_system_fonts(&mut self) {
         match self.0.try_lock() {
             Ok(mut font_system) => {
                 font_system.db_mut().load_system_fonts();
@@ -88,7 +67,10 @@ impl Default for SwashCache {
 
 #[derive(Default, Resource)]
 pub struct TextPipeline {
+    /// Identifies a font ID by its font asset handle
     map_handle_to_font_id: HashMap<HandleId, cosmic_text::fontdb::ID>,
+    /// Identifies a font atlas set handle by its font iD
+    map_font_id_to_handle: HashMap<cosmic_text::fontdb::ID, HandleId>,
     font_system: FontSystem,
     swash_cache: SwashCache,
 }
@@ -253,9 +235,31 @@ impl TextPipeline {
             .map(|(layout_glyph, line_w, line_y)| {
                 let section_index = layout_glyph.metadata;
 
-                let handle_font_atlas: Handle<FontAtlasSet> = sections[section_index].style.font.cast_weak();
-                let font_atlas_set = font_atlas_set_storage
-                    .get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
+                let font_atlas_set = match sections[section_index].style.font {
+                    FontRef::Asset(ref font_handle) => {
+                        let handle: Handle<FontAtlasSet> = font_handle.cast_weak();
+                        font_atlas_set_storage
+                            .get_or_insert_with(handle, FontAtlasSet::default)
+                    }
+                    FontRef::Query(ref query) => {
+                        // get the id from the database
+                        // TODO: error handling
+                        // TODO: font may not yet be available, but may be available in future
+                        let font_id = font_system.get_font_matches(cosmic_text::Attrs {
+                            color_opt: None,
+                            family: query.family.as_family(),
+                            stretch: query.stretch,
+                            style: query.style,
+                            weight: query.weight,
+                            metadata: 0,
+                        })[0];
+                        let handle_id = self.map_font_id_to_handle.entry(font_id).or_insert_with(|| {
+                            let handle = font_atlas_set_storage.add(FontAtlasSet::default());
+                            handle.id()
+                        });
+                        font_atlas_set_storage.get_mut(&Handle::weak(*handle_id)).unwrap()
+                    }
+                };
 
                 let atlas_info = font_atlas_set
                     .get_glyph_atlas_info(layout_glyph.cache_key)
@@ -365,6 +369,33 @@ impl TextPipeline {
             buffer: Mutex::new(buffer),
         })
     }
+
+    /// Attempts to load system fonts.
+    ///
+    /// Supports Windows, Linux and macOS.
+    ///
+    /// System fonts loading is a surprisingly complicated task,
+    /// mostly unsolvable without interacting with system libraries.
+    /// And since `fontdb` tries to be small and portable, this method
+    /// will simply scan some predefined directories.
+    /// Which means that fonts that are not in those directories must
+    /// be added manually.
+    ///
+    /// This allows access to any installed system fonts
+    ///
+    /// # Timing
+    ///
+    /// This function takes some time to run. On the release build, it can take up to a second,
+    /// while debug builds can take up to ten times longer. For this reason, it should only be
+    /// called once, and the resulting [`FontSystem`] should be shared.
+    ///
+    /// This should ideally run in a background thread.
+    // TODO: This should run in a background thread.
+    pub fn load_system_fonts(&mut self) {
+        info!("Loading system fonts");
+        self.font_system.load_system_fonts();
+        info!("Loaded system fonts");
+    }
 }
 
 /// Render information for a corresponding [`Text`](crate::Text) component.
@@ -421,40 +452,54 @@ fn add_span(
     line_text.push_str(line);
     let end = line_text.len();
 
-    let font_handle = &section.style.font;
-    let font_handle_id = font_handle.id();
-    let face_id = map_handle_to_font_id
-        .entry(font_handle_id)
-        .or_insert_with(|| {
-            let font = fonts.get(font_handle).unwrap();
-            let data = Arc::clone(&font.data);
-            font_system
-                .db_mut()
-                .load_font_source(cosmic_text::fontdb::Source::Binary(data));
-            // TODO: it is assumed this is the right font face
-            // see https://github.com/pop-os/cosmic-text/issues/125
-            // fontdb 0.14 returns the font ids from `load_font_source`
-            let face_id = font_system.db().faces().last().unwrap().id;
-            // TODO: below may be required if we need to offset by the baseline (TBC)
-            // see https://github.com/pop-os/cosmic-text/issues/123
-            // let font = font_system.get_font(face_id).unwrap();
-            // map_font_id_to_metrics
-            //     .entry(face_id)
-            //     .or_insert_with(|| font.as_swash().metrics(&[]));
-            face_id
-        });
-    let face = font_system.db().face(*face_id).unwrap();
+    let attrs = match section.style.font {
+        FontRef::Asset(ref font_handle) => {
+            let font_handle_id = font_handle.id();
+            let face_id = map_handle_to_font_id
+                .entry(font_handle_id)
+                .or_insert_with(|| {
+                    let font = fonts.get(font_handle).unwrap();
+                    let data = Arc::clone(&font.data);
+                    font_system
+                        .db_mut()
+                        .load_font_source(cosmic_text::fontdb::Source::Binary(data));
+                    // TODO: it is assumed this is the right font face
+                    // see https://github.com/pop-os/cosmic-text/issues/125
+                    // fontdb 0.14 returns the font ids from `load_font_source`
+                    let face_id = font_system.db().faces().last().unwrap().id;
+                    // TODO: below may be required if we need to offset by the baseline (TBC)
+                    // see https://github.com/pop-os/cosmic-text/issues/123
+                    // let font = font_system.get_font(face_id).unwrap();
+                    // map_font_id_to_metrics
+                    //     .entry(face_id)
+                    //     .or_insert_with(|| font.as_swash().metrics(&[]));
+                    face_id
+                });
+            let face = font_system.db().face(*face_id).unwrap();
 
-    // TODO: validate this is the correct string to extract
-    let family_name = &face.families[0].0;
-    let attrs = Attrs::new()
-        // TODO: validate that we can use metadata
-        .metadata(section_index)
-        .family(Family::Name(family_name))
-        .stretch(face.stretch)
-        .style(face.style)
-        .weight(face.weight)
-        .color(cosmic_text::Color(section.style.color.as_linear_rgba_u32()));
+            // TODO: validate this is the correct string to extract
+            let family_name = &face.families[0].0;
+            Attrs::new()
+                // TODO: validate that we can use metadata
+                .metadata(section_index)
+                .family(Family::Name(family_name))
+                .stretch(face.stretch)
+                .style(face.style)
+                .weight(face.weight)
+                .color(cosmic_text::Color(section.style.color.as_linear_rgba_u32()))
+        }
+        FontRef::Query(ref query) => {
+            Attrs::new()
+                // TODO: validate that we can use metadata
+                .metadata(section_index)
+                .family(query.family.as_family())
+                .stretch(query.stretch)
+                .style(query.style)
+                .weight(query.weight)
+                .color(cosmic_text::Color(section.style.color.as_linear_rgba_u32()))
+        }
+    };
+
     attrs_list.add_span(start..end, attrs);
 }
 

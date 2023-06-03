@@ -6,6 +6,7 @@ use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
 use crate::{Font, DEFAULT_FONT_HANDLE};
+pub use cosmic_text::{FamilyOwned, Stretch, Style, Weight};
 
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
@@ -149,7 +150,7 @@ pub enum TextAlignment {
 
 #[derive(Clone, Debug, Reflect, FromReflect)]
 pub struct TextStyle {
-    pub font: Handle<Font>,
+    pub font: FontRef,
     pub font_size: f32,
     pub color: Color,
 }
@@ -157,7 +158,7 @@ pub struct TextStyle {
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
-            font: DEFAULT_FONT_HANDLE.typed(),
+            font: FontRef::Asset(DEFAULT_FONT_HANDLE.typed()),
             font_size: 12.0,
             color: Color::WHITE,
         }
@@ -176,4 +177,33 @@ pub enum BreakLineOn {
     /// This is closer to the behavior one might expect from text in a terminal.
     /// However it may lead to words being broken up across linebreaks.
     AnyCharacter,
+}
+
+#[derive(Clone, Debug, Reflect, FromReflect)]
+pub enum FontRef {
+    /// A reference to a font loaded as a bevy asset.
+    Asset(Handle<Font>),
+    /// A reference to a font queried by font family and attributes.
+    /// This is useful for example for fonts that are not loaded as a bevy asset,
+    /// such as system fonts.
+    Query(#[reflect(ignore)] FontQuery),
+}
+
+#[derive(Clone, Debug)]
+pub struct FontQuery {
+    pub family: FamilyOwned,
+    pub stretch: Stretch,
+    pub style: Style,
+    pub weight: Weight,
+}
+
+impl Default for FontQuery {
+    fn default() -> Self {
+        Self {
+            family: FamilyOwned::SansSerif,
+            stretch: Default::default(),
+            style: Default::default(),
+            weight: Default::default(),
+        }
+    }
 }
