@@ -145,7 +145,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// # Panics
     ///
-    /// Panics if the `world.id()` does not equal the current [`QueryState`] internal id.
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
     pub fn update_archetypes(&mut self, world: &World) {
         self.validate_world(world);
         let archetypes = world.archetypes();
@@ -158,7 +158,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
-    /// Panics if `world` does not match the one used to call `QueryState::new` for this instance.
+    /// # Panics
+    ///
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
     ///
     /// Many unsafe query methods require the world to match for soundness. This function is the easiest
     /// way of ensuring that it matches.
