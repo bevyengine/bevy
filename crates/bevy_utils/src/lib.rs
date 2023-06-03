@@ -47,6 +47,7 @@ use std::{
 #[cfg(not(target_arch = "wasm32"))]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+#[allow(missing_docs)]
 #[cfg(target_arch = "wasm32")]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 

@@ -1,6 +1,6 @@
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use super::{Mut, World};
+use super::{Mut, World, WorldId};
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, Archetypes},
     bundle::Bundles,
@@ -190,6 +190,14 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { &*self.0 }
     }
 
+    /// Retrieves this world's unique [ID](WorldId).
+    #[inline]
+    pub fn id(self) -> WorldId {
+        // SAFETY:
+        // - we only access world metadata
+        unsafe { self.world_metadata() }.id()
+    }
+
     /// Retrieves this world's [Entities] collection
     #[inline]
     pub fn entities(self) -> &'w Entities {
@@ -253,6 +261,7 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { self.world_metadata() }.last_change_tick()
     }
 
+    /// Increments the world's current change tick and returns the old value.
     #[inline]
     pub fn increment_change_tick(self) -> Tick {
         // SAFETY:

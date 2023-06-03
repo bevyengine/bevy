@@ -7,6 +7,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
+    experimental::taa::TemporalAntiAliasSettings,
     prepass::NormalPrepass,
     tonemapping::{DebandDither, Tonemapping},
 };
@@ -388,6 +389,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&EnvironmentMapLight>,
         Option<&ScreenSpaceAmbientOcclusionSettings>,
         Option<&NormalPrepass>,
+        Option<&TemporalAntiAliasSettings>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
@@ -403,6 +405,7 @@ pub fn queue_material_meshes<M: Material>(
         environment_map,
         ssao,
         normal_prepass,
+        taa_settings,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transparent_phase,
@@ -417,6 +420,10 @@ pub fn queue_material_meshes<M: Material>(
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
+        }
+
+        if taa_settings.is_some() {
+            view_key |= MeshPipelineKey::TAA;
         }
 
         let environment_map_loaded = match environment_map {
@@ -477,6 +484,9 @@ pub fn queue_material_meshes<M: Material>(
                         }
                         AlphaMode::Multiply => {
                             mesh_key |= MeshPipelineKey::BLEND_MULTIPLY;
+                        }
+                        AlphaMode::Mask(_) => {
+                            mesh_key |= MeshPipelineKey::MAY_DISCARD;
                         }
                         _ => (),
                     }

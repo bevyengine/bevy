@@ -316,7 +316,7 @@ impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
 ///     // custom events to unknown 3rd party plugins (modding API).
 ///     //
 ///     // NOTE: the event won't actually be sent until commands get applied during
-///     // apply_system_buffers.
+///     // apply_deferred.
 ///     commands.add(|w: &mut World| {
 ///         w.send_event(MyEvent);
 ///     });
