@@ -457,7 +457,7 @@ impl Components {
     ///
     /// ## Note
     ///
-    /// If this method is called twice with identical desriptors, a distinct `ComponentId`
+    /// If this method is called multiple times with identical descriptors, a distinct `ComponentId`
     /// will be created for each one.
     pub fn init_component_with_descriptor(
         &mut self,
