@@ -470,7 +470,9 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
     let line_height = buffer.metrics().line_height.ceil();
     let height = buffer.layout_runs().count() as f32 * line_height;
 
-    Vec2::new(width, height).ceil()
+    // `width.ceil() + 0.001` gets around a rare text layout bug in the tonemapping example.
+    // See https://github.com/pop-os/cosmic-text/issues/134
+    Vec2::new(width.ceil() + 0.001, height).ceil()
 }
 
 /// An iterator over the paragraphs in the input text.
