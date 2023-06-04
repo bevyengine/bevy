@@ -58,8 +58,8 @@ const U16MAXF = 65535.0;
 const U20MAXF = 1048575.0;
 
 fn pack_24bit_nor_and_flags(oct_nor: vec2<f32>, flags: u32) -> u32 {
-    let unorm1 = u32(saturate(oct_nor.x) * U12MAXF);
-    let unorm2 = u32(saturate(oct_nor.y) * U12MAXF);
+    let unorm1 = u32(saturate(oct_nor.x) * U12MAXF + 0.5);
+    let unorm2 = u32(saturate(oct_nor.y) * U12MAXF + 0.5);
     return (unorm1 & 0xFFFu) | ((unorm2 & 0xFFFu) << 12u) | ((flags & 0xFFu) << 24u);
 }
 

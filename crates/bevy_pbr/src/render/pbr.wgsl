@@ -128,25 +128,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.occlusion = occlusion;
 
         pbr_input.flags = mesh.flags;
-
-        /*
-        // Test using the same encoding as deferred
-        let flags = deferred_flags_from_mesh_mat_flags(mesh.flags, pbr_input.material.flags);
-        let oct_nor = octa_encode(normalize(pbr_input.N));
-        let deferred_data = vec4(
-            pack_unorm4x8(vec4(pow(pbr_input.material.base_color.rgb, vec3(1.0 / 2.2)), 0.0)),
-            float3_to_rgb9e5(pbr_input.material.emissive.rgb),
-            pack_unorm4x8(vec4(
-                pbr_input.material.metallic, 
-                pbr_input.material.perceptual_roughness, 
-                pbr_input.occlusion, 
-                pbr_input.material.reflectance
-            )),
-            pack_24bit_nor_and_flags(oct_nor, flags),
-        );
-        let pbr_input = pbr_input_from_deferred_gbuffer(in.frag_coord, deferred_data);
-        */
-
         output_color = pbr(pbr_input);
     } else {
         output_color = alpha_discard(material, output_color);
