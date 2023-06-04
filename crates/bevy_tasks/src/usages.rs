@@ -19,7 +19,7 @@ static IO_TASK_POOL: OnceLock<IoTaskPool> = OnceLock::new();
 
 /// A newtype for a task pool for CPU-intensive work that must be completed to
 /// deliver the next frame.
-/// 
+///
 /// See [`TaskPool`] documentation for details on Bevy tasks.
 /// ['AsyncComputeTaskPool'] should be preferred if the work does not have to be
 /// completed before the next frame.
@@ -53,7 +53,7 @@ impl Deref for ComputeTaskPool {
 }
 
 /// A newtype for a task pool for CPU-intensive work that may span across multiple frames.
-/// 
+///
 /// See [`TaskPool`] documentation for details on Bevy tasks. Use [`ComputeTaskPool`] if
 /// the work must be complete before advancing to the next frame.
 #[derive(Debug)]
