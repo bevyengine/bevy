@@ -429,7 +429,7 @@ mod tests {
     use bevy_ecs::query::{With, Without};
     use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
     use bevy_ecs::world::FromWorld;
-    use bevy_reflect::{Reflect, ReflectFromReflect, ReflectSerialize};
+    use bevy_reflect::{Reflect, ReflectSerialize};
     use bincode::Options;
     use serde::de::DeserializeSeed;
     use serde::Serialize;
@@ -498,9 +498,7 @@ mod tests {
             registry.register::<String>();
             registry.register_type_data::<String, ReflectSerialize>();
             registry.register::<[usize; 3]>();
-            registry.register_type_data::<[usize; 3], ReflectFromReflect>();
             registry.register::<(f32, f32)>();
-            registry.register_type_data::<(f32, f32), ReflectFromReflect>();
             registry.register::<MyEntityRef>();
             registry.register::<Entity>();
             registry.register::<MyResource>();

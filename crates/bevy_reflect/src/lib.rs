@@ -974,7 +974,6 @@ mod tests {
         struct Foo {
             a: u32,
             #[reflect(ignore)]
-            #[reflect(default)]
             _b: u32,
             c: Vec<isize>,
             d: HashMap<usize, i8>,
@@ -1024,9 +1023,9 @@ mod tests {
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-        let output = value.take::<Foo>().unwrap();
+        let dynamic_struct = value.take::<DynamicStruct>().unwrap();
 
-        assert!(foo.reflect_partial_eq(&output).unwrap());
+        assert!(foo.reflect_partial_eq(&dynamic_struct).unwrap());
     }
 
     #[test]
