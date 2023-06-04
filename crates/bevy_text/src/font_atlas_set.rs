@@ -9,8 +9,6 @@ use bevy_utils::HashMap;
 
 type FontSizeKey = u32;
 
-// TODO: FontAtlasSet is an asset tied to a Handle<Font> cast weakly
-// This won't work for "font queries" (non-vendored fonts)
 #[derive(TypeUuid, TypePath)]
 #[uuid = "73ba778b-b6b5-4f45-982d-d21b6b86ace2"]
 pub struct FontAtlasSet {

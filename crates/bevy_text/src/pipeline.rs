@@ -70,7 +70,7 @@ pub struct TextPipeline {
     /// Identifies a font ID by its font asset handle
     map_handle_to_font_id: HashMap<HandleId, cosmic_text::fontdb::ID>,
     /// Identifies a font atlas set handle by its font iD
-    map_font_id_to_handle: HashMap<cosmic_text::fontdb::ID, HandleId>,
+    map_font_id_to_handle: HashMap<cosmic_text::fontdb::ID, Handle<FontAtlasSet>>,
     font_system: FontSystem,
     swash_cache: SwashCache,
 }
@@ -253,11 +253,11 @@ impl TextPipeline {
                             weight: query.weight,
                             metadata: 0,
                         })[0];
-                        let handle_id = self.map_font_id_to_handle.entry(font_id).or_insert_with(|| {
-                            let handle = font_atlas_set_storage.add(FontAtlasSet::default());
-                            handle.id()
-                        });
-                        font_atlas_set_storage.get_mut(&Handle::weak(*handle_id)).unwrap()
+                        let handle = self
+                            .map_font_id_to_handle
+                            .entry(font_id)
+                            .or_insert_with(|| font_atlas_set_storage.add(FontAtlasSet::default()));
+                        font_atlas_set_storage.get_mut(handle).unwrap()
                     }
                 };
 
@@ -524,6 +524,7 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
 /// It is equivalent to [`core::str::Lines`] but follows `unicode-bidi` behaviour.
 // TODO: upstream to cosmic_text, see https://github.com/pop-os/cosmic-text/pull/124
 // TODO: create separate iterator that keeps the ranges, or simply use memory address introspection (as_ptr())
+// TODO: this breaks for lines ending in newlines, e.g. "foo\n" should split into ["foo", ""] but we actually get ["foo"]
 pub struct BidiParagraphs<'text> {
     text: &'text str,
     info: std::vec::IntoIter<unicode_bidi::ParagraphInfo>,
