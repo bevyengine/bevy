@@ -4,7 +4,7 @@ pub use wgpu::PrimitiveTopology;
 
 use crate::{
     primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset},
+    render_asset::{ExtractAssetError, PrepareAssetError, RenderAsset},
     render_resource::{Buffer, VertexBufferLayout},
     renderer::RenderDevice,
 };
@@ -841,17 +841,21 @@ pub enum GpuBufferInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
-    type Param = SRes<RenderDevice>;
+    type ExtractParam = ();
+    type PrepareParam = SRes<RenderDevice>;
 
     /// Clones the mesh.
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
+    fn extract_asset(
+        &self,
+        _: &mut SystemParamItem<Self::ExtractParam>,
+    ) -> Result<Self::ExtractedAsset, ExtractAssetError<Self::ExtractedAsset>> {
+        Ok(self.clone())
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
-        render_device: &mut SystemParamItem<Self::Param>,
+        render_device: &mut SystemParamItem<Self::PrepareParam>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {

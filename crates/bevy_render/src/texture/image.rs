@@ -6,7 +6,7 @@ use super::dds::*;
 use super::ktx2::*;
 
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset},
+    render_asset::{ExtractAssetError, PrepareAssetError, RenderAsset},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
@@ -505,21 +505,25 @@ pub struct GpuImage {
 impl RenderAsset for Image {
     type ExtractedAsset = Image;
     type PreparedAsset = GpuImage;
-    type Param = (
+    type PrepareParam = (
         SRes<RenderDevice>,
         SRes<RenderQueue>,
         SRes<DefaultImageSampler>,
     );
+    type ExtractParam = ();
 
     /// Clones the Image.
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
+    fn extract_asset(
+        &self,
+        _: &mut SystemParamItem<Self::ExtractParam>,
+    ) -> Result<Self::ExtractedAsset, ExtractAssetError<Self::ExtractedAsset>> {
+        Ok(self.clone())
     }
 
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
         image: Self::ExtractedAsset,
-        (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
+        (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::PrepareParam>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let texture = render_device.create_texture_with_data(
             render_queue,

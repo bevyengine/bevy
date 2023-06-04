@@ -13,6 +13,10 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
     RetryNextUpdate(E),
 }
 
+pub enum ExtractAssetError<E: Send + Sync + 'static> {
+    RetryNextUpdate(E),
+}
+
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
 /// In the [`ExtractSchedule`](crate::ExtractSchedule) step the asset is transferred
@@ -27,16 +31,22 @@ pub trait RenderAsset: Asset {
     type ExtractedAsset: Send + Sync + 'static;
     /// The GPU-representation of the asset.
     type PreparedAsset: Send + Sync + 'static;
+    /// Specifies all ECS data required by [`RenderAsset::extract_asset`].
+    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) `SystemParams`.
+    type ExtractParam: SystemParam;
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
-    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
-    type Param: SystemParam;
-    /// Converts the asset into a [`RenderAsset::ExtractedAsset`].
-    fn extract_asset(&self) -> Self::ExtractedAsset;
+    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) `SystemParams`.
+    type PrepareParam: SystemParam;
+    /// Converts the asset into a [`RenderAsset::ExtractedAsset`]. Therefore ECS data may be accessed via the `param`.
+    fn extract_asset(
+        &self,
+        param: &mut SystemParamItem<Self::ExtractParam>,
+    ) -> Result<Self::ExtractedAsset, ExtractAssetError<Self::ExtractedAsset>>;
     /// Prepares the `extracted asset` for the GPU by transforming it into
     /// a [`RenderAsset::PreparedAsset`]. Therefore ECS data may be accessed via the `param`.
     fn prepare_asset(
         extracted_asset: Self::ExtractedAsset,
-        param: &mut SystemParamItem<Self::Param>,
+        param: &mut SystemParamItem<Self::PrepareParam>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>>;
 }
 
@@ -135,11 +145,14 @@ fn extract_render_asset<A: RenderAsset>(
     mut commands: Commands,
     mut events: Extract<EventReader<AssetEvent<A>>>,
     assets: Extract<Res<Assets<A>>>,
+    mut extract_next_frame: Local<Vec<Handle<A>>>,
+    param: StaticSystemParam<<A as RenderAsset>::ExtractParam>,
 ) {
+    let mut param = param.into_inner();
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.iter() {
-        match event {
+        match &event {
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                 changed_assets.insert(handle.clone_weak());
             }
@@ -150,10 +163,19 @@ fn extract_render_asset<A: RenderAsset>(
         }
     }
 
+    let previous_frame_failures = extract_next_frame.drain(..).collect::<Vec<_>>();
+    for handle in &previous_frame_failures {
+        changed_assets.insert(handle.clone_weak());
+    }
+
     let mut extracted_assets = Vec::new();
     for handle in changed_assets.drain() {
         if let Some(asset) = assets.get(&handle) {
-            extracted_assets.push((handle, asset.extract_asset()));
+            if let Ok(extracted_asset) = asset.extract_asset(&mut param) {
+                extracted_assets.push((handle, extracted_asset));
+            } else {
+                extract_next_frame.push(handle.clone_weak());
+            }
         }
     }
 
@@ -184,7 +206,7 @@ pub fn prepare_assets<R: RenderAsset>(
     mut extracted_assets: ResMut<ExtractedAssets<R>>,
     mut render_assets: ResMut<RenderAssets<R>>,
     mut prepare_next_frame: ResMut<PrepareNextFrameAssets<R>>,
-    param: StaticSystemParam<<R as RenderAsset>::Param>,
+    param: StaticSystemParam<<R as RenderAsset>::PrepareParam>,
 ) {
     let mut param = param.into_inner();
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
