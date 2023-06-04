@@ -13,8 +13,8 @@ use std::ops::{Deref, DerefMut};
 /// contained in [`MainWorld`]. This parameter only works for systems run
 /// during the [`ExtractSchedule`](crate::ExtractSchedule).
 ///
-/// This requires that the contained [`SystemParam`] does not mutate the world, as it
-/// uses a read-only reference to [`MainWorld`] internally.
+/// As a result, the contained [`SystemParam`] must not mutate the world, as it uses a
+/// read-only reference to [`MainWorld`] internally.
 ///
 /// ## Context
 ///

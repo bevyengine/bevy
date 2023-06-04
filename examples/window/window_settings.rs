@@ -4,6 +4,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
+    render::texture::WindowIconPlugin,
     window::{CursorGrabMode, PresentMode, WindowLevel},
 };
 
@@ -24,6 +25,7 @@ fn main() {
         }))
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin)
+        .add_plugin(WindowIconPlugin::new("branding/icon.png".into()))
         .add_systems(
             Update,
             (
