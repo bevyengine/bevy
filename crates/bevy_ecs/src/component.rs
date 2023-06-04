@@ -582,6 +582,7 @@ impl Components {
         ComponentId(*index)
     }
 
+    /// Iterate [`ComponentInfo`] for this [`World`]
     pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter()
     }
