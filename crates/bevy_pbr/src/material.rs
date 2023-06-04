@@ -1,6 +1,7 @@
 use crate::{
-    render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems, SetMeshBindGroup,
+    deferred::DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE, render, AlphaMode, DrawMesh,
+    DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey, MeshUniform,
+    PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems, SetMeshBindGroup,
     SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
@@ -140,7 +141,7 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
     /// Use 0 for forward only materials
     #[inline]
     fn deferred_material_stencil_reference(&self) -> u32 {
-        0
+        DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE
     }
 
     #[inline]
