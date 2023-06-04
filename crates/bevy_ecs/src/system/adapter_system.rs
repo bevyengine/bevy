@@ -1,4 +1,5 @@
 use super::{ReadOnlySystem, System};
+use crate::world::unsafe_world_cell::UnsafeWorldCell;
 
 pub trait Adapt<S: System>: Send + Sync + 'static {
     /// The [input](System::In) type for an [`AdapterSystem`].
@@ -60,7 +61,7 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &crate::prelude::World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
         self.func
             .adapt(input, |input| self.system.run_unsafe(input, world))
