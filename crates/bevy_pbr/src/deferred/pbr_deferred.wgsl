@@ -114,7 +114,7 @@ fn standard_pbr_deferred(in: FragmentInput) -> StandardPbrDeferredOutput {
         let oct_nor = octa_encode(normalize(pbr_input.N));
 
         out.deferred = vec4(
-            pack4x8unorm(pbr_input.material.base_color),
+            pack4x8unorm(vec4(pow(pbr_input.material.base_color.rgb, vec3(1.0 / 2.2)), 0.0)),
             float3_to_rgb9e5(pbr_input.material.emissive.rgb),
             pack4x8unorm(vec4(
                 pbr_input.material.metallic, 

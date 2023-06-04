@@ -119,6 +119,48 @@ fn setup(
         transform: Transform::from_xyz(0.2, 0.5, 0.2),
         ..default()
     });
+
+    // spheres
+    for i in 0..6 {
+        let j = i % 3;
+        let s_val = if i < 3 { 0.0 } else { 0.2 };
+        let material = if j == 0 {
+            materials.add(StandardMaterial {
+                base_color: Color::rgb(s_val, s_val, 1.0),
+                perceptual_roughness: 0.089,
+                metallic: 0.0,
+                ..default()
+            })
+        } else if j == 1 {
+            materials.add(StandardMaterial {
+                base_color: Color::rgb(s_val, 1.0, s_val),
+                perceptual_roughness: 0.089,
+                metallic: 0.0,
+                ..default()
+            })
+        } else {
+            materials.add(StandardMaterial {
+                base_color: Color::rgb(1.0, s_val, s_val),
+                perceptual_roughness: 0.089,
+                metallic: 0.0,
+                ..default()
+            })
+        };
+        commands.spawn(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::UVSphere {
+                radius: 0.125,
+                sectors: 128,
+                stacks: 128,
+            })),
+            material,
+            transform: Transform::from_xyz(
+                j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
+                0.125,
+                -j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } + 0.4,
+            ),
+            ..default()
+        });
+    }
 }
 
 fn animate_light_direction(
@@ -154,7 +196,7 @@ fn switch_mode(
         println!("DefaultOpaqueRendererMethod: Deferred");
         for _ in materials.iter_mut() {}
         for camera in &cameras {
-            commands.entity(camera).insert(NormalPrepass);
+            commands.entity(camera).remove::<NormalPrepass>();
             commands.entity(camera).insert(DepthPrepass);
             commands.entity(camera).insert(MotionVectorPrepass);
             commands.entity(camera).insert(DeferredPrepass);

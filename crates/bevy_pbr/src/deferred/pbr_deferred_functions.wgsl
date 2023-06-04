@@ -37,7 +37,7 @@ fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
 
 // Creates a PbrInput with default values
 fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
-    let base_color = unpack4x8unorm(gbuffer.r).rgb; //spare 8 bits
+    let base_color = pow(unpack4x8unorm(gbuffer.r).rgb, vec3(2.2)); //spare 8 bits
     let emissive = vec4(rgb9e5_to_float3(gbuffer.g), 1.0);
     let props = unpack4x8unorm(gbuffer.b);
     let metallic = props.r; // could be fewer bits
