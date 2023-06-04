@@ -22,7 +22,9 @@ pub struct PrimaryWindow;
 /// Reference to a window, whether it be a direct link to a specific entity or
 /// a more vague defaulting choice.
 #[repr(C)]
-#[derive(Default, Copy, Clone, Debug, Reflect, FromReflect)]
+#[derive(
+    Default, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect, FromReflect,
+)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
