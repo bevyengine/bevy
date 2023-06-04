@@ -14,7 +14,7 @@ use bevy_app::{PluginGroup, PluginGroupBuilder};
 /// * [`AssetPlugin`](crate::asset::AssetPlugin) - with feature `bevy_asset`
 /// * [`DebugAssetPlugin`](crate::asset::debug_asset_server::DebugAssetServerPlugin) - with feature `debug_asset_server`
 /// * [`ScenePlugin`](crate::scene::ScenePlugin) - with feature `bevy_scene`
-/// * [`WinitPlugin`](crate::winit::WinitPlugin) - with feature `bevy_winit`
+/// * [`WinitPlugin`](crate::winit::WinitPlugin) - with feature `bevy_winit` (this also sets the app's [runner](crate::app::App::runner))
 /// * [`RenderPlugin`](crate::render::RenderPlugin) - with feature `bevy_render`
 /// * [`ImagePlugin`](crate::render::texture::ImagePlugin) - with feature `bevy_render`
 /// * [`PipelinedRenderingPlugin`](crate::render::pipelined_rendering::PipelinedRenderingPlugin) - with feature `bevy_render` when not targeting `wasm32`
@@ -35,6 +35,7 @@ use bevy_app::{PluginGroup, PluginGroupBuilder};
 /// [`DefaultPlugins`] contains all the plugins typically required to build
 /// a *Bevy* application which includes a *window* and presentation components.
 /// For *headless* cases – without a *window* or presentation, see [`MinimalPlugins`].
+/// If [`WinitPlugin`](crate::winit::WinitPlugin) is disabled from this bundle, then the app's [runner](crate::app::App::runner) will not be set.
 pub struct DefaultPlugins;
 
 impl PluginGroup for DefaultPlugins {

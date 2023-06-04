@@ -10,7 +10,10 @@ use bevy_ecs::{
         ScheduleLabel,
     },
 };
-use bevy_utils::{tracing::debug, HashMap, HashSet};
+use bevy_utils::{
+    tracing::{debug, warn},
+    HashMap, HashSet,
+};
 use std::{
     fmt::Debug,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
@@ -956,6 +959,7 @@ impl App {
 }
 
 fn run_once(mut app: App) {
+    warn!("No app runner detected. defaulting to `run_once`. If this is intentional, consider using `App::update` directly instead.");
     app.update();
 }
 
