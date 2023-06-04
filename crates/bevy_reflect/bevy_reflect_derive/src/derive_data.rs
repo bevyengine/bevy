@@ -134,7 +134,10 @@ enum ReflectMode {
 }
 
 impl<'a> ReflectDerive<'a> {
-    pub fn from_input(input: &'a DeriveInput) -> Result<Self, syn::Error> {
+    pub fn from_input(
+        input: &'a DeriveInput,
+        is_from_reflect_derive: bool,
+    ) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         // Should indicate whether `#[reflect_value]` was used.
         let mut reflect_mode = None;
@@ -159,6 +162,7 @@ impl<'a> ReflectDerive<'a> {
                     reflect_mode = Some(ReflectMode::Normal);
                     let new_traits = ReflectTraits::from_metas(
                         meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
+                        is_from_reflect_derive,
                     )?;
                     traits.merge(new_traits)?;
                 }
@@ -173,6 +177,7 @@ impl<'a> ReflectDerive<'a> {
                     reflect_mode = Some(ReflectMode::Value);
                     let new_traits = ReflectTraits::from_metas(
                         meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
+                        is_from_reflect_derive,
                     )?;
                     traits.merge(new_traits)?;
                 }

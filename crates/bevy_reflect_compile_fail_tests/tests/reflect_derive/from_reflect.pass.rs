@@ -1,4 +1,4 @@
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 
 #[derive(Reflect)]
 #[reflect(from_reflect = false)]
@@ -11,6 +11,12 @@ struct Foo {
 #[reflect(from_reflect = true)]
 #[reflect(from_reflect = true)]
 struct Bar {
+    value: String,
+}
+
+#[derive(Reflect, FromReflect)]
+#[reflect(from_reflect = false)]
+struct Baz {
     value: String,
 }
 

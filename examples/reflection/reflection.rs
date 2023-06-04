@@ -33,7 +33,7 @@ fn main() {
 /// To do this, you can either define a `#[reflect(default = "...")]` attribute on the ignored field, or
 /// opt-out of `FromReflect`'s auto-derive using the `#[reflect(from_reflect = false)]` attribute.
 #[derive(Reflect)]
-#[from_reflect(auto_derive = false)]
+#[reflect(from_reflect = false)]
 pub struct Foo {
     a: usize,
     nested: Bar,

@@ -170,7 +170,10 @@ pub(crate) struct ReflectTraits {
 }
 
 impl ReflectTraits {
-    pub fn from_metas(metas: Punctuated<Meta, Comma>) -> Result<Self, syn::Error> {
+    pub fn from_metas(
+        metas: Punctuated<Meta, Comma>,
+        is_from_reflect_derive: bool,
+    ) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         for meta in &metas {
             match meta {
@@ -245,7 +248,14 @@ impl ReflectTraits {
                             syn::Expr::Lit(syn::ExprLit {
                                 lit: syn::Lit::Bool(lit),
                                 ..
-                            }) => Some(lit.clone()),
+                            }) => {
+                                // Overrride `lit` if this is a `FromReflect` derive.
+                                // This typically means a user is opting out of the default implementation
+                                // from the `Reflect` derive and using the `FromReflect` derive directly instead.
+                                is_from_reflect_derive
+                                    .then(|| LitBool::new(true, Span::call_site()))
+                                    .or_else(|| Some(lit.clone()))
+                            }
                             _ => {
                                 return Err(syn::Error::new(
                                     pair.value.span(),
@@ -366,7 +376,7 @@ impl ReflectTraits {
 
 impl Parse for ReflectTraits {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        ReflectTraits::from_metas(Punctuated::<Meta, Comma>::parse_terminated(input)?)
+        ReflectTraits::from_metas(Punctuated::<Meta, Comma>::parse_terminated(input)?, false)
     }
 }
 
