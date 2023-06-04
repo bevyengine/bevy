@@ -6,6 +6,7 @@ use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
 use crate::{Font, DEFAULT_FONT_HANDLE};
+// TODO: reexport cosmic_text and these types in the prelude
 pub use cosmic_text::{FamilyOwned, Stretch, Style, Weight};
 
 #[derive(Component, Debug, Clone, Reflect)]
@@ -186,7 +187,14 @@ pub enum FontRef {
     /// A reference to a font queried by font family and attributes.
     /// This is useful for example for fonts that are not loaded as a bevy asset,
     /// such as system fonts.
+    // TODO: Support Reflect?
     Query(#[reflect(ignore)] FontQuery),
+}
+
+impl From<Handle<Font>> for FontRef {
+    fn from(handle: Handle<Font>) -> Self {
+        Self::Asset(handle)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -197,13 +205,82 @@ pub struct FontQuery {
     pub weight: Weight,
 }
 
-impl Default for FontQuery {
-    fn default() -> Self {
+impl FontQuery {
+    pub fn sans_serif() -> Self {
         Self {
             family: FamilyOwned::SansSerif,
             stretch: Default::default(),
             style: Default::default(),
             weight: Default::default(),
         }
+    }
+
+    pub fn serif() -> Self {
+        Self {
+            family: FamilyOwned::Serif,
+            stretch: Default::default(),
+            style: Default::default(),
+            weight: Default::default(),
+        }
+    }
+
+    pub fn fantasy() -> Self {
+        Self {
+            family: FamilyOwned::Fantasy,
+            stretch: Default::default(),
+            style: Default::default(),
+            weight: Default::default(),
+        }
+    }
+
+    pub fn cursive() -> Self {
+        Self {
+            family: FamilyOwned::Cursive,
+            stretch: Default::default(),
+            style: Default::default(),
+            weight: Default::default(),
+        }
+    }
+
+    pub fn monospace() -> Self {
+        Self {
+            family: FamilyOwned::Monospace,
+            stretch: Default::default(),
+            style: Default::default(),
+            weight: Default::default(),
+        }
+    }
+
+    pub fn family<S: AsRef<str>>(name: S) -> Self {
+        Self {
+            family: FamilyOwned::Name(name.as_ref().to_string()),
+            stretch: Default::default(),
+            style: Default::default(),
+            weight: Default::default(),
+        }
+    }
+
+    pub fn stretch(self, stretch: Stretch) -> Self {
+        Self { stretch, ..self }
+    }
+
+    pub fn style(self, style: Style) -> Self {
+        Self { style, ..self }
+    }
+
+    pub fn weight(self, weight: Weight) -> Self {
+        Self { weight, ..self }
+    }
+}
+
+impl Default for FontQuery {
+    fn default() -> Self {
+        Self::sans_serif()
+    }
+}
+
+impl From<FontQuery> for FontRef {
+    fn from(query: FontQuery) -> Self {
+        Self::Query(query)
     }
 }
