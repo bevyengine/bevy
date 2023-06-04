@@ -134,9 +134,9 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         let flags = deferred_flags_from_mesh_mat_flags(mesh.flags, pbr_input.material.flags);
         let oct_nor = octa_encode(normalize(pbr_input.N));
         let deferred_data = vec4(
-            pack4x8unorm(vec4(pow(pbr_input.material.base_color.rgb, vec3(1.0 / 2.2)), 0.0)),
+            pack_unorm4x8(vec4(pow(pbr_input.material.base_color.rgb, vec3(1.0 / 2.2)), 0.0)),
             float3_to_rgb9e5(pbr_input.material.emissive.rgb),
-            pack4x8unorm(vec4(
+            pack_unorm4x8(vec4(
                 pbr_input.material.metallic, 
                 pbr_input.material.perceptual_roughness, 
                 pbr_input.occlusion, 

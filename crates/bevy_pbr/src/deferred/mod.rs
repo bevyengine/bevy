@@ -162,7 +162,6 @@ impl ViewNode for DeferredLightingNode {
                     store: false,
                 }),
             }),
-            //depth_stencil_attachment: None,
         });
 
         render_pass.set_render_pipeline(pipeline);
@@ -285,7 +284,6 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                     clamp: 0.0,
                 },
             }),
-            //depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: vec![],
         }

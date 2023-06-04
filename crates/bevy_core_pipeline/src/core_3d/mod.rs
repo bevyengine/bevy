@@ -25,7 +25,10 @@ pub mod graph {
 }
 pub const CORE_3D: &str = graph::NAME;
 
+#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
 pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32FloatStencil8;
+#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth24PlusStencil8;
 
 use std::cmp::Reverse;
 

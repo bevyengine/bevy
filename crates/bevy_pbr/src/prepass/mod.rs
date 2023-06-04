@@ -31,11 +31,11 @@ use bevy_render::{
     },
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
-        ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
-        DynamicUniformBuffer, Extent3d, FragmentState, FrontFace, MultisampleState, PipelineCache,
-        PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef,
-        ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+        BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType, ColorTargetState,
+        ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, DynamicUniformBuffer,
+        Extent3d, FragmentState, FrontFace, MultisampleState, PipelineCache, PolygonMode,
+        PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef, ShaderStages,
+        ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
         SpecializedMeshPipelines, StencilFaceState, StencilOperation, StencilState, TextureAspect,
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
         TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
@@ -465,7 +465,7 @@ where
                 .contains(MeshPipelineKey::NORMAL_PREPASS)
                 .then_some(ColorTargetState {
                     format: NORMAL_PREPASS_FORMAT,
-                    blend: Some(BlendState::REPLACE),
+                    blend: None,
                     write_mask: ColorWrites::ALL,
                 }),
         );
@@ -474,7 +474,7 @@ where
                 .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
                 .then_some(ColorTargetState {
                     format: MOTION_VECTOR_PREPASS_FORMAT,
-                    blend: Some(BlendState::REPLACE),
+                    blend: None,
                     write_mask: ColorWrites::ALL,
                 }),
         );

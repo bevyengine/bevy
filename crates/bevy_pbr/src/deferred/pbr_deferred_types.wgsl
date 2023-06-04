@@ -54,6 +54,7 @@ fn octa_decode(f: vec2<f32>) -> vec3<f32> {
 }
 
 const U12MAXF = 4095.0;
+const U16MAXF = 65535.0;
 
 fn pack_24bit_nor_and_flags(oct_nor: vec2<f32>, flags: u32) -> u32 {
     let unorm1 = u32(saturate(oct_nor.x) * U12MAXF);
@@ -69,4 +70,31 @@ fn unpack_24bit_nor(packed: u32) -> vec2<f32> {
 
 fn unpack_flags(packed: u32) -> u32 {
     return (packed >> 24u) & 0xFFu;
+}
+
+// The builtin one didn't work in webgl
+// "'unpackUnorm4x8' : no matching overloaded function found"
+fn unpack_unorm4x8(v: u32) -> vec4<f32> {
+    return vec4(
+        f32(v & 0xffu),
+        f32((v >> 8u) & 0xffu),
+        f32((v >> 16u) & 0xffu),
+        f32((v >> 24u) & 0xffu)
+    ) / 255.0;
+}
+
+// 'packUnorm4x8' : no matching overloaded function found
+fn pack_unorm4x8(v: vec4<f32>) -> u32 {
+    let v = vec4<u32>(saturate(v) * 255.0 + 0.5);
+    return (v.w << 24u) | (v.z << 16u) | (v.y << 8u) | v.x;
+}
+
+fn pack_unorm1x16_onto_end(val: u32, fl: f32) -> u32 {
+    let unorm1 = u32(saturate(fl) * U16MAXF);
+    return (val & 0xFFFFu) | ((unorm1 & 0xFFFFu) << 16u);
+}
+
+fn unpack_unorm1x16_from_end(packed: u32) -> f32 {
+    let unorm1 = (packed >> 16u) & 0xFFFFu;
+    return f32(unorm1) / U16MAXF;
 }

@@ -37,13 +37,15 @@ fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
 
 // Creates a PbrInput with default values
 fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
-    let base_color = pow(unpack4x8unorm(gbuffer.r).rgb, vec3(2.2)); //spare 8 bits
-    let emissive = vec4(rgb9e5_to_float3(gbuffer.g), 1.0);
-    let props = unpack4x8unorm(gbuffer.b);
-    let metallic = props.r; // could be fewer bits
-    let perceptual_roughness = props.g;
-    let occlusion = props.b; // is this usually included / worth including?
-    let reflectance = props.a; // could be fewer bits
+    let base_rough = unpack_unorm4x8(gbuffer.r);
+    let base_color = pow(base_rough.rgb, vec3(2.2));
+    let perceptual_roughness = base_rough.a;
+    let emissive = vec4(rgb9e5_to_float3(gbuffer.g), 1.0); //spare 8 bits
+    let met_ref = unpack_unorm4x8(gbuffer.b);
+    let metallic = met_ref.r; // could be fewer bits
+    let reflectance = met_ref.g; // could be fewer bits
+    //let occlusion = met_ref.g; // is this usually included / worth including?
+    let occlusion = 1.0;
     let oct_nor = unpack_24bit_nor(gbuffer.a);
     let N = octa_decode(oct_nor);
     let flags = unpack_flags(gbuffer.a);
