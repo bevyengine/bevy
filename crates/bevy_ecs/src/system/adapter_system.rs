@@ -73,8 +73,8 @@ where
     }
 
     #[inline]
-    fn apply_buffers(&mut self, world: &mut crate::prelude::World) {
-        self.system.apply_buffers(world);
+    fn apply_deferred(&mut self, world: &mut crate::prelude::World) {
+        self.system.apply_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut crate::prelude::World) {
@@ -82,7 +82,7 @@ where
     }
 
     #[inline]
-    fn update_archetype_component_access(&mut self, world: &crate::prelude::World) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         self.system.update_archetype_component_access(world);
     }
 
