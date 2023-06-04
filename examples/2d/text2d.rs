@@ -34,7 +34,7 @@ struct AnimateScale;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_style = TextStyle {
-        font: font.clone(),
+        font: font.clone().into(),
         font_size: 60.0,
         color: Color::WHITE,
     };
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
     // Demonstrate text wrapping
     let slightly_smaller_text_style = TextStyle {
-        font,
+        font: font.into(),
         font_size: 42.0,
         color: Color::WHITE,
     };

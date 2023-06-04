@@ -33,7 +33,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextSection {
                 value: "IME Enabled: ".to_string(),
                 style: TextStyle {
-                    font: font.clone_weak(),
+                    font: font.clone_weak().into(),
                     font_size: 20.0,
                     color: Color::WHITE,
                 },
@@ -41,7 +41,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextSection {
                 value: "false\n".to_string(),
                 style: TextStyle {
-                    font: font.clone_weak(),
+                    font: font.clone_weak().into(),
                     font_size: 30.0,
                     color: Color::WHITE,
                 },
@@ -49,7 +49,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextSection {
                 value: "IME Active: ".to_string(),
                 style: TextStyle {
-                    font: font.clone_weak(),
+                    font: font.clone_weak().into(),
                     font_size: 20.0,
                     color: Color::WHITE,
                 },
@@ -57,7 +57,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextSection {
                 value: "false\n".to_string(),
                 style: TextStyle {
-                    font: font.clone_weak(),
+                    font: font.clone_weak().into(),
                     font_size: 30.0,
                     color: Color::WHITE,
                 },
@@ -65,7 +65,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextSection {
                 value: "click to toggle IME, press return to start a new line\n\n".to_string(),
                 style: TextStyle {
-                    font: font.clone_weak(),
+                    font: font.clone_weak().into(),
                     font_size: 18.0,
                     color: Color::WHITE,
                 },
@@ -73,7 +73,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextSection {
                 value: "".to_string(),
                 style: TextStyle {
-                    font,
+                    font: font.into(),
                     font_size: 25.0,
                     color: Color::WHITE,
                 },
@@ -91,7 +91,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         text: Text::from_section(
             "".to_string(),
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                 font_size: 100.0,
                 color: Color::WHITE,
             },

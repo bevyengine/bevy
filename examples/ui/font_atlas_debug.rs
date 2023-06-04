@@ -92,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
             parent.spawn(TextBundle::from_section(
                 "a",
                 TextStyle {
-                    font: font_handle,
+                    font: font_handle.into(),
                     font_size: 60.0,
                     color: Color::YELLOW,
                 },

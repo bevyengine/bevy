@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
         font_size: 16.,
         color: Color::BLACK,
     };

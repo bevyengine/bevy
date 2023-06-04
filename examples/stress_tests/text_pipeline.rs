@@ -35,7 +35,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSection {
                     value: "text".repeat(i),
                     style: TextStyle {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                         font_size: (4 + i % 10) as f32,
                         color: Color::BLUE,
                     },
@@ -43,7 +43,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSection {
                     value: "pipeline".repeat(i),
                     style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                         font_size: (4 + i % 11) as f32,
                         color: Color::YELLOW,
                     },

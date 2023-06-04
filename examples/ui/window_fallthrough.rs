@@ -32,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // Accepts a `String` or any type that converts into a `String`, such as `&str`
             "Hit 'P' then scroll/click around!",
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 100.0, // Nice and big so you can see it!
                 color: Color::WHITE,
             },
