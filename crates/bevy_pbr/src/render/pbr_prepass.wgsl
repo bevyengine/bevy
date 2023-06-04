@@ -9,26 +9,7 @@
 #import bevy_pbr::pbr_deferred_functions
 #endif // DEFERRED_PREPASS
 
-struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
-    @builtin(position) frag_coord: vec4<f32>,
-#ifdef VERTEX_UVS
-    @location(0) uv: vec2<f32>,
-#endif // VERTEX_UVS
-
-#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
-    @location(1) world_normal: vec3<f32>,
-#ifdef VERTEX_TANGENTS
-    @location(2) world_tangent: vec4<f32>,
-#endif // VERTEX_TANGENTS
-#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
-
-#ifdef MOTION_VECTOR_PREPASS
-    @location(3) world_position: vec4<f32>,
-    @location(4) previous_world_position: vec4<f32>,
-#endif // MOTION_VECTOR_PREPASS
-
-};
+#import bevy_pbr::prepass_io
 
 #ifdef DEFERRED_PREPASS
 #import bevy_pbr::pbr_deferred
@@ -69,20 +50,6 @@ fn prepass_alpha_discard(in: FragmentInput) {
 }
 
 #ifdef PREPASS_FRAGMENT
-struct FragmentOutput {
-#ifdef NORMAL_PREPASS
-    @location(0) normal: vec4<f32>,
-#endif // NORMAL_PREPASS
-
-#ifdef MOTION_VECTOR_PREPASS
-    @location(1) motion_vector: vec2<f32>,
-#endif // MOTION_VECTOR_PREPASS
-
-#ifdef DEFERRED_PREPASS
-    @location(2) deferred: vec4<u32>,
-#endif // DEFERRED_PREPASS
-}
-
 @fragment
 fn fragment(in: FragmentInput) -> FragmentOutput {
     prepass_alpha_discard(in);

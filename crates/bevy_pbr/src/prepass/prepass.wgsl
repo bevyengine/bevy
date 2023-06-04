@@ -1,47 +1,6 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::mesh_functions
-
-// Most of these attributes are not used in the default prepass fragment shader, but they are still needed so we can
-// pass them to custom prepass shaders like pbr_prepass.wgsl.
-struct Vertex {
-    @location(0) position: vec3<f32>,
-
-#ifdef VERTEX_UVS
-    @location(1) uv: vec2<f32>,
-#endif // VERTEX_UVS
-
-#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
-    @location(2) normal: vec3<f32>,
-#ifdef VERTEX_TANGENTS
-    @location(3) tangent: vec4<f32>,
-#endif // VERTEX_TANGENTS
-#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
-
-#ifdef SKINNED
-    @location(4) joint_indices: vec4<u32>,
-    @location(5) joint_weights: vec4<f32>,
-#endif // SKINNED
-}
-
-struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-
-#ifdef VERTEX_UVS
-    @location(0) uv: vec2<f32>,
-#endif // VERTEX_UVS
-
-#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
-    @location(1) world_normal: vec3<f32>,
-#ifdef VERTEX_TANGENTS
-    @location(2) world_tangent: vec4<f32>,
-#endif // VERTEX_TANGENTS
-#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
-
-#ifdef MOTION_VECTOR_PREPASS
-    @location(3) world_position: vec4<f32>,
-    @location(4) previous_world_position: vec4<f32>,
-#endif // MOTION_VECTOR_PREPASS
-}
+#import bevy_pbr::prepass_io
 
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
@@ -74,8 +33,8 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
 
-#ifdef MOTION_VECTOR_PREPASS
     out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
+#ifdef MOTION_VECTOR_PREPASS
     out.previous_world_position = mesh_position_local_to_world(mesh.previous_model, vec4<f32>(vertex.position, 1.0));
 #endif // MOTION_VECTOR_PREPASS
 
@@ -83,35 +42,6 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 }
 
 #ifdef PREPASS_FRAGMENT
-struct FragmentInput {
-#ifdef VERTEX_UVS
-    @location(0) uv: vec2<f32>,
-#endif // VERTEX_UVS
-
-#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
-    @location(1) world_normal: vec3<f32>,
-#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
-
-#ifdef MOTION_VECTOR_PREPASS
-    @location(3) world_position: vec4<f32>,
-    @location(4) previous_world_position: vec4<f32>,
-#endif // MOTION_VECTOR_PREPASS
-}
-
-struct FragmentOutput {
-#ifdef NORMAL_PREPASS
-    @location(0) normal: vec4<f32>,
-#endif // NORMAL_PREPASS
-
-#ifdef MOTION_VECTOR_PREPASS
-    @location(1) motion_vector: vec2<f32>,
-#endif // MOTION_VECTOR_PREPASS
-
-#ifdef DEFERRED_PREPASS
-    @location(2) deferred: vec4<u32>,
-#endif // DEFERRED_PREPASS
-}
-
 @fragment
 fn fragment(in: FragmentInput) -> FragmentOutput {
     var out: FragmentOutput;
