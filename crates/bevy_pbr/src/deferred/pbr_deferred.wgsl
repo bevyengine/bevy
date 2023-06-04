@@ -109,27 +109,13 @@ fn standard_pbr_deferred(in: FragmentInput) -> StandardPbrDeferredOutput {
         );
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
+        pbr_input.flags = mesh.flags;
 
-        var met_ref = pack_unorm4x8(vec4(
-                pbr_input.material.metallic, 
-                pbr_input.material.reflectance,
-                //pbr_input.occlusion,
-                0.0,
-                0.0));
-
-        let flags = deferred_flags_from_mesh_mat_flags(mesh.flags, pbr_input.material.flags);
-        let oct_nor = octa_encode(normalize(pbr_input.N));
-        let base_color_srgb = pow(pbr_input.material.base_color.rgb, vec3(1.0 / 2.2));
-        out.deferred = vec4(
-            pack_unorm4x8(vec4(base_color_srgb, pbr_input.material.perceptual_roughness)),
-            float3_to_rgb9e5(pbr_input.material.emissive.rgb),
-            pack_unorm1x16_onto_end(met_ref, in.frag_coord.z), // last 16 bytes are depth
-            pack_24bit_nor_and_flags(oct_nor, flags),
-        );
+        out.deferred = deferred_gbuffer_from_pbr_input(pbr_input, in.frag_coord.z);
         out.normal = pbr_input.N;
     } else {
         let flags = deferred_flags_from_mesh_mat_flags(mesh.flags, 0u);
-        let oct_nor = octa_encode(normalize(pbr_input.N));
+        let oct_nor = octa_encode(normalize(in.world_normal));
         out.deferred = vec4(
             0u, 
             float3_to_rgb9e5(output_color.rgb), 

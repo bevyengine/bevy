@@ -138,6 +138,7 @@ struct PbrInput {
     // view world position
     V: vec3<f32>,
     is_orthographic: bool,
+    // mesh flags
     flags: u32,
 };
 

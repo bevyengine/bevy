@@ -35,17 +35,50 @@ fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
 // ---------------------------
 // ---------------------------
 
-// Creates a PbrInput with default values
+
+// Creates the deferred gbuffer from a PbrInput
+fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
+#ifdef WEBGL // More crunched for webgl so we can fit also depth
+    var props = pack_unorm3x4_plus_unorm_20(vec4(
+        in.material.reflectance,
+        in.material.metallic,
+        in.occlusion, 
+        depth));
+#else
+    var props = pack_unorm4x8(vec4(
+        in.material.reflectance, // could be fewer bits
+        in.material.metallic, // could be fewer bits
+        in.occlusion, // is this usually included / worth including?
+        0.0)); // spare
+#endif //WEBGL
+    let flags = deferred_flags_from_mesh_mat_flags(in.flags, in.material.flags);
+    let oct_nor = octa_encode(normalize(in.N));
+    let base_color_srgb = pow(in.material.base_color.rgb, vec3(1.0 / 2.2));
+    let deferred = vec4(
+        pack_unorm4x8(vec4(base_color_srgb, in.material.perceptual_roughness)),
+        float3_to_rgb9e5(in.material.emissive.rgb),
+        props,
+        pack_24bit_nor_and_flags(oct_nor, flags),
+    );
+    return deferred;
+}
+
+// Creates a PbrInput from the deferred gbuffer
 fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
     let base_rough = unpack_unorm4x8(gbuffer.r);
     let base_color = pow(base_rough.rgb, vec3(2.2));
     let perceptual_roughness = base_rough.a;
-    let emissive = vec4(rgb9e5_to_float3(gbuffer.g), 1.0); //spare 8 bits
-    let met_ref = unpack_unorm4x8(gbuffer.b);
-    let metallic = met_ref.r; // could be fewer bits
-    let reflectance = met_ref.g; // could be fewer bits
-    //let occlusion = met_ref.g; // is this usually included / worth including?
-    let occlusion = 1.0;
+    let emissive = vec4(rgb9e5_to_float3(gbuffer.g), 1.0);
+#ifdef WEBGL // More crunched for webgl so we can fit also depth
+    let props = unpack_unorm3x4_plus_unorm_20(gbuffer.b);
+    // bias to 0.5 since that's the value for almost all materials
+    let reflectance = saturate(props.r - 0.03333333333); 
+#else
+    let props = unpack_unorm4x8(gbuffer.b);
+    let reflectance = props.r;
+#endif //WEBGL
+    let metallic = props.g;
+    let occlusion = props.b;
     let oct_nor = unpack_24bit_nor(gbuffer.a);
     let N = octa_decode(oct_nor);
     let flags = unpack_flags(gbuffer.a);
@@ -72,9 +105,6 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     pbr_input.material.flags = mat_flags;
 
     pbr_input.frag_coord = frag_coord;
-    // TODO Griffin: shouldn't need the normalize here. 
-    // Was getting stepping artifacts on the tonemapping example
-    //pbr_input.world_normal = normalize(prepass_normal(frag_coord, 0u)); 
     pbr_input.world_normal = N; 
     pbr_input.world_position = world_position;
     pbr_input.N = N;
@@ -83,3 +113,5 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
 
     return pbr_input;
 }
+
+

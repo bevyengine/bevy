@@ -370,6 +370,9 @@ where
         // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layouts.insert(1, self.material_layout.clone());
 
+        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        shader_defs.push("WEBGL".into());
+
         if key.mesh_key.contains(MeshPipelineKey::DEPTH_PREPASS) {
             shader_defs.push("DEPTH_PREPASS".into());
         }

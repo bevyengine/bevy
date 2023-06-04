@@ -55,6 +55,7 @@ fn octa_decode(f: vec2<f32>) -> vec3<f32> {
 
 const U12MAXF = 4095.0;
 const U16MAXF = 65535.0;
+const U20MAXF = 1048575.0;
 
 fn pack_24bit_nor_and_flags(oct_nor: vec2<f32>, flags: u32) -> u32 {
     let unorm1 = u32(saturate(oct_nor.x) * U12MAXF);
@@ -89,12 +90,19 @@ fn pack_unorm4x8(v: vec4<f32>) -> u32 {
     return (v.w << 24u) | (v.z << 16u) | (v.y << 8u) | v.x;
 }
 
-fn pack_unorm1x16_onto_end(val: u32, fl: f32) -> u32 {
-    let unorm1 = u32(saturate(fl) * U16MAXF);
-    return (val & 0xFFFFu) | ((unorm1 & 0xFFFFu) << 16u);
+// pack 3x 4bit unorm + 1x 20bit
+fn pack_unorm3x4_plus_unorm_20(v: vec4<f32>) -> u32 {
+    let sm = vec3<u32>(saturate(v.xyz) * 15.0 + 0.5);
+    let bg = u32(saturate(v.w) * U20MAXF + 0.5);
+    return (bg << 12u) | (sm.z << 8u) | (sm.y << 4u) | sm.x;
 }
 
-fn unpack_unorm1x16_from_end(packed: u32) -> f32 {
-    let unorm1 = (packed >> 16u) & 0xFFFFu;
-    return f32(unorm1) / U16MAXF;
+// unpack 3x 4bit unorm + 1x 20bit
+fn unpack_unorm3x4_plus_unorm_20(v: u32) -> vec4<f32> {
+    return vec4(
+        f32(v & 0xfu) / 15.0,
+        f32((v >> 4u) & 0xFu) / 15.0,
+        f32((v >> 8u) & 0xFu) / 15.0,
+        f32((v >> 12u) & 0xFFFFFFu) / U20MAXF,
+    );
 }

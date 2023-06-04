@@ -21,10 +21,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var frag_coord = vec4(in.position.xy, 0.0, 0.0);
 
     let deferred_data = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
-    // needed if using webgl:
-    frag_coord.z = unpack_unorm1x16_from_end(deferred_data.b);
-    // works otherwise:
-    // frag_coord.z = prepass_depth(in.position, 0u);
+
+#ifdef WEBGL
+    frag_coord.z = unpack_unorm3x4_plus_unorm_20(deferred_data.b).w;
+#else
+    frag_coord.z = prepass_depth(in.position, 0u);
+#endif
 
     var pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, deferred_data);
     

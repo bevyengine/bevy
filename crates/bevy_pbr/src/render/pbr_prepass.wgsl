@@ -6,6 +6,7 @@
 #endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
 #ifdef DEFERRED_PREPASS
 #import bevy_pbr::pbr_deferred_types
+#import bevy_pbr::pbr_deferred_functions
 #endif // DEFERRED_PREPASS
 
 struct FragmentInput {
