@@ -1,29 +1,98 @@
 //! This example demonstrates using system fonts.
 
-use bevy::{prelude::*, text::TextPipeline};
+use bevy::{
+    prelude::*,
+    text::{FontQuery, TextPipeline},
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(PostStartup, setup2)
-        .run()
+        .run();
 }
 
 fn setup(mut commands: Commands, mut text_pipeline: ResMut<TextPipeline>) {
-    bevy::log::info!("setup");
     text_pipeline.load_system_fonts();
     commands.spawn(Camera2dBundle::default());
-}
 
-fn setup2(mut commands: Commands) {
-    bevy::log::info!("setup2");
-    commands.spawn(TextBundle::from_sections([TextSection {
-        value: "Test".into(),
+    let text_style = TextStyle {
+        font_size: 50.0,
+        color: Color::WHITE,
+        ..default()
+    };
+    let mut sections = vec![];
+
+    // the default font is sans-serif
+    sections.push(TextSection {
+        value: "Default font".into(),
         style: TextStyle {
-            font: bevy::text::FontRef::Query(bevy::text::FontQuery::default()),
-            font_size: 50.0,
-            color: Color::WHITE,
+            font: FontQuery::default().into(),
+            ..text_style
         },
-    }]));
+    });
+
+    // sans-serif
+    sections.push(TextSection {
+        value: "\nsans-serif".into(),
+        style: TextStyle {
+            font: FontQuery::sans_serif().into(),
+            ..text_style
+        },
+    });
+
+    // serif
+    sections.push(TextSection {
+        value: "\nserif".into(),
+        style: TextStyle {
+            font: FontQuery::serif().into(),
+            ..text_style
+        },
+    });
+
+    // fantasy
+    sections.push(TextSection {
+        value: "\nfantasy".into(),
+        style: TextStyle {
+            font: FontQuery::fantasy().into(),
+            ..text_style
+        },
+    });
+
+    // cursive
+    sections.push(TextSection {
+        value: "\ncursive".into(),
+        style: TextStyle {
+            font: FontQuery::cursive().into(),
+            ..text_style
+        },
+    });
+
+    // monospace
+    sections.push(TextSection {
+        value: "\nmonospace".into(),
+        style: TextStyle {
+            font: FontQuery::monospace().into(),
+            ..text_style
+        },
+    });
+
+    // you can also refer to families by name
+    for family in [
+        "Arial",
+        "Comic Sans MS",
+        "Impact",
+        "Courier New",
+        "Times New Roman",
+        "A fallback font for fonts that can't be found",
+    ] {
+        sections.push(TextSection {
+            value: "\n".to_string() + family,
+            style: TextStyle {
+                font: FontQuery::family(family).into(),
+                ..text_style
+            },
+        })
+    }
+    commands.spawn(TextBundle::from_sections(sections));
 }
