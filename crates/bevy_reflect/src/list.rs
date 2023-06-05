@@ -6,8 +6,7 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::utility::reflect_hasher;
 use crate::{
-    self as bevy_reflect, DynamicTypePath, FromReflect, Reflect, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo,
+    self as bevy_reflect, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -274,11 +273,6 @@ impl Reflect for DynamicList {
     #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
-    }
-
-    #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
     }
 
     #[inline]

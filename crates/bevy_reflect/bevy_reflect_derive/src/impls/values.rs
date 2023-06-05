@@ -57,11 +57,6 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
             }
 
             #[inline]
-            fn get_type_path(&self) -> &dyn #bevy_reflect_path::DynamicTypePath {
-                self
-            }
-
-            #[inline]
             fn into_any(self: #FQBox<Self>) -> #FQBox<dyn #FQAny> {
                 self
             }

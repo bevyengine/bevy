@@ -1,9 +1,9 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, utility::GenericTypePathCell, DynamicTypePath, FromReflect,
-    GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypeRegistration, Typed, UnnamedField,
+    self as bevy_reflect, utility::GenericTypePathCell, FromReflect, GetTypeRegistration, Reflect,
+    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
+    UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
@@ -322,11 +322,6 @@ impl Reflect for DynamicTuple {
     }
 
     #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
-    }
-
-    #[inline]
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -536,11 +531,6 @@ macro_rules! impl_reflect_tuple {
 
             fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                 Some(<Self as Typed>::type_info())
-            }
-
-            #[inline]
-            fn get_type_path(&self) -> &dyn DynamicTypePath {
-                self
             }
 
             fn into_any(self: Box<Self>) -> Box<dyn Any> {

@@ -123,10 +123,6 @@ pub trait TypePath: 'static {
 }
 
 /// Dynamic dispatch for [`TypePath`].
-///
-/// Retrieved using [`Reflect::get_type_path`].
-///
-/// [`Reflect::get_type_path`]: crate::Reflect::get_type_path
 pub trait DynamicTypePath {
     /// See [`TypePath::type_path`].
     fn reflect_type_path(&self) -> &str;
