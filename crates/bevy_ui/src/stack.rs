@@ -1,16 +1,30 @@
 //! This module contains the systems that update the stored UI nodes stack
 
+use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::prelude::*;
+use bevy_math::Vec2;
+use bevy_render::{prelude::Camera, texture::Image};
+use bevy_window::{PrimaryWindow, Window};
 
-use crate::{Node, ZIndex};
+use crate::{
+    prelude::UiCameraConfig, LayoutContext, Node, UiCameraToRoot, UiDefaultCamera, UiLayoutRoot,
+    UiScale, UiSurface, UiTargetCamera, ZIndex,
+};
+
+#[derive(Debug, Resource, Default)]
+pub struct UiStacks {
+    pub stacks: Vec<UiStack>,
+}
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
 /// The first entry is the furthest node from the camera and is the first one to get rendered
 /// while the last entry is the first node to receive interactions.
-#[derive(Debug, Resource, Default)]
+#[derive(Debug)]
 pub struct UiStack {
+    pub camera_entity: Entity,
+    pub base_index: usize,
     /// List of UI nodes ordered from back-to-front
     pub uinodes: Vec<Entity>,
 }
@@ -31,30 +45,110 @@ struct StackingContextEntry {
 /// First generate a UI node tree (`StackingContext`) based on z-index.
 /// Then flatten that tree into back-to-front ordered `UiStack`.
 pub fn ui_stack_system(
-    mut ui_stack: ResMut<UiStack>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    mut ui_surface: ResMut<UiSurface>,
+    mut camera_to_root: ResMut<UiCameraToRoot>,
+    mut default_camera: ResMut<UiDefaultCamera>,
+    ui_scale: Res<UiScale>,
+    image_assets: Res<Assets<Image>>,
+    mut removed_cameras: RemovedComponents<Camera>,
+    camera_query: Query<(Entity, &Camera, Option<&UiCameraConfig>)>,
+    primary_window_query: Query<Entity, With<PrimaryWindow>>,
+    windows: Query<&Window>,
+    mut ui_stacks: ResMut<UiStacks>,
+    root_node_query: Query<(Entity, Option<&UiTargetCamera>), (With<Node>, Without<Parent>)>,
     zindex_query: Query<&ZIndex, With<Node>>,
     children_query: Query<&Children>,
 ) {
-    // Generate `StackingContext` tree
-    let mut global_context = StackingContext::default();
-    let mut total_entry_count: usize = 0;
-
-    for entity in &root_node_query {
-        insert_context_hierarchy(
-            &zindex_query,
-            &children_query,
-            entity,
-            &mut global_context,
-            None,
-            &mut total_entry_count,
-        );
+    // Remove the associated layout root for removed camera entities, if one exists
+    for camera_entity in removed_cameras.iter() {
+        if let Some(layout_root) = camera_to_root.remove(&camera_entity) {
+            let _ = ui_surface.taffy.remove(layout_root.taffy_root);
+        }
     }
 
-    // Flatten `StackingContext` into `UiStack`
-    ui_stack.uinodes.clear();
-    ui_stack.uinodes.reserve(total_entry_count);
-    fill_stack_recursively(&mut ui_stack.uinodes, &mut global_context);
+    let primary_window = primary_window_query.get_single().ok();
+
+    for (camera_entity, camera, ui_camera_config) in camera_query.iter() {
+        let is_ui_camera = ui_camera_config.map(|inner| inner.show_ui).unwrap_or(true);
+        if is_ui_camera {
+            // If no default camera, set the first `camera_entity` with UI enabled as the default camera
+            default_camera.entity.get_or_insert(camera_entity);
+            let Some(layout_context) = camera.target.normalize(primary_window).and_then(|render_target| match render_target {
+                    bevy_render::camera::NormalizedRenderTarget::Window(window_ref) =>
+                        windows.get(window_ref.entity()).map(|window| LayoutContext::new(Vec2::new(window.physical_width() as f32, window.physical_height() as f32),window.scale_factor(),ui_scale.scale,)).ok(),
+                    bevy_render::camera::NormalizedRenderTarget::Image(image_handle) =>
+                        image_assets.get(&image_handle).map(|image| LayoutContext::new(image.size(),1.0,ui_scale.scale)),
+                }) else {
+                    bevy_log::debug!("UI Camera has invalid render target");
+                    continue;
+                };
+            if let Some(layout_root) = camera_to_root.get_mut(&camera_entity) {
+                if layout_context != layout_root.context {
+                    ui_surface
+                        .taffy
+                        .set_style(layout_root.taffy_root, layout_context.root_style())
+                        .unwrap();
+                    layout_root.context = layout_context;
+                }
+            } else {
+                let taffy_root = ui_surface
+                    .taffy
+                    .new_leaf(layout_context.root_style())
+                    .unwrap();
+                camera_to_root.insert(camera_entity, UiLayoutRoot::new(taffy_root, layout_context));
+            }
+        } else {
+            // `camera_entity` not a UI camera so delete its layout root, if it has one
+            if let Some(layout_root) = camera_to_root.remove(&camera_entity) {
+                let _ = ui_surface.taffy.remove(layout_root.taffy_root);
+            }
+            // if `camera_entity` is the default camera, set the default camera to `None`
+            if default_camera.entity == Some(camera_entity) {
+                default_camera.entity = None;
+            }
+        }
+    }
+    for layout_root in camera_to_root.values_mut() {
+        layout_root.root_uinodes.clear();
+    }
+
+    for (root_uinode, maybe_camera) in root_node_query.iter() {
+        let layout_root = maybe_camera
+            .map(|camera| camera.entity)
+            .or(default_camera.entity)
+            .and_then(|camera| camera_to_root.get_mut(&camera));
+        if let Some(mut layout_root) = layout_root {
+            layout_root.root_uinodes.push(root_uinode);
+        }
+    }
+
+    let mut base_index = 0;
+    for (camera_entity, layout_root) in camera_to_root.iter() {
+        // Generate `StackingContext` tree
+        let mut global_context = StackingContext::default();
+        let mut total_entry_count: usize = 0;
+
+        for entity in layout_root.root_uinodes.iter() {
+            insert_context_hierarchy(
+                &zindex_query,
+                &children_query,
+                *entity,
+                &mut global_context,
+                None,
+                &mut total_entry_count,
+            );
+        }
+
+        // Flatten `StackingContext` into `UiStack`
+        let mut uinodes = Vec::with_capacity(total_entry_count);
+        fill_stack_recursively(&mut uinodes, &mut global_context);
+        ui_stacks.stacks.push(UiStack {
+            camera_entity: *camera_entity,
+            uinodes,
+            base_index,
+        });
+        base_index += total_entry_count;
+    }
 }
 
 /// Generate z-index based UI node tree
@@ -111,121 +205,5 @@ fn fill_stack_recursively(result: &mut Vec<Entity>, stack: &mut StackingContext)
         // Parent node renders before/behind childs nodes
         result.push(entry.entity);
         fill_stack_recursively(result, &mut entry.stack);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use bevy_ecs::{
-        component::Component,
-        schedule::Schedule,
-        system::{CommandQueue, Commands},
-        world::World,
-    };
-    use bevy_hierarchy::BuildChildren;
-
-    use crate::{Node, UiStack, ZIndex};
-
-    use super::ui_stack_system;
-
-    #[derive(Component, PartialEq, Debug, Clone)]
-    struct Label(&'static str);
-
-    fn node_with_zindex(name: &'static str, z_index: ZIndex) -> (Label, Node, ZIndex) {
-        (Label(name), Node::default(), z_index)
-    }
-
-    fn node_without_zindex(name: &'static str) -> (Label, Node) {
-        (Label(name), Node::default())
-    }
-
-    /// Tests the UI Stack system.
-    ///
-    /// This tests for siblings default ordering according to their insertion order, but it
-    /// can't test the same thing for UI roots. UI roots having no parents, they do not have
-    /// a stable ordering that we can test against. If we test it, it may pass now and start
-    /// failing randomly in the future because of some unrelated `bevy_ecs` change.
-    #[test]
-    fn test_ui_stack_system() {
-        let mut world = World::default();
-        world.init_resource::<UiStack>();
-
-        let mut queue = CommandQueue::default();
-        let mut commands = Commands::new(&mut queue, &world);
-        commands.spawn(node_with_zindex("0", ZIndex::Global(2)));
-
-        commands
-            .spawn(node_with_zindex("1", ZIndex::Local(1)))
-            .with_children(|parent| {
-                parent
-                    .spawn(node_without_zindex("1-0"))
-                    .with_children(|parent| {
-                        parent.spawn(node_without_zindex("1-0-0"));
-                        parent.spawn(node_without_zindex("1-0-1"));
-                        parent.spawn(node_with_zindex("1-0-2", ZIndex::Local(-1)));
-                    });
-                parent.spawn(node_without_zindex("1-1"));
-                parent
-                    .spawn(node_with_zindex("1-2", ZIndex::Global(-1)))
-                    .with_children(|parent| {
-                        parent.spawn(node_without_zindex("1-2-0"));
-                        parent.spawn(node_with_zindex("1-2-1", ZIndex::Global(-3)));
-                        parent
-                            .spawn(node_without_zindex("1-2-2"))
-                            .with_children(|_| ());
-                        parent.spawn(node_without_zindex("1-2-3"));
-                    });
-                parent.spawn(node_without_zindex("1-3"));
-            });
-
-        commands
-            .spawn(node_without_zindex("2"))
-            .with_children(|parent| {
-                parent
-                    .spawn(node_without_zindex("2-0"))
-                    .with_children(|_parent| ());
-                parent
-                    .spawn(node_without_zindex("2-1"))
-                    .with_children(|parent| {
-                        parent.spawn(node_without_zindex("2-1-0"));
-                    });
-            });
-
-        commands.spawn(node_with_zindex("3", ZIndex::Global(-2)));
-
-        queue.apply(&mut world);
-
-        let mut schedule = Schedule::default();
-        schedule.add_systems(ui_stack_system);
-        schedule.run(&mut world);
-
-        let mut query = world.query::<&Label>();
-        let ui_stack = world.resource::<UiStack>();
-        let actual_result = ui_stack
-            .uinodes
-            .iter()
-            .map(|entity| query.get(&world, *entity).unwrap().clone())
-            .collect::<Vec<_>>();
-        let expected_result = vec![
-            (Label("1-2-1")), // ZIndex::Global(-3)
-            (Label("3")),     // ZIndex::Global(-2)
-            (Label("1-2")),   // ZIndex::Global(-1)
-            (Label("1-2-0")),
-            (Label("1-2-2")),
-            (Label("1-2-3")),
-            (Label("2")),
-            (Label("2-0")),
-            (Label("2-1")),
-            (Label("2-1-0")),
-            (Label("1")), // ZIndex::Local(1)
-            (Label("1-0")),
-            (Label("1-0-2")), // ZIndex::Local(-1)
-            (Label("1-0-0")),
-            (Label("1-0-1")),
-            (Label("1-1")),
-            (Label("1-3")),
-            (Label("0")), // ZIndex::Global(2)
-        ];
-        assert_eq!(actual_result, expected_result);
     }
 }

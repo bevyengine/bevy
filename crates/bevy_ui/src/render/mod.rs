@@ -8,7 +8,8 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
+use crate::stack::UiStacks;
+use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -154,6 +155,7 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub camera: Entity,
 }
 
 #[derive(Resource, Default)]
@@ -164,7 +166,7 @@ pub struct ExtractedUiNodes {
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
-    ui_stack: Extract<Res<UiStack>>,
+    ui_stacks: Extract<Res<UiStacks>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -177,39 +179,42 @@ pub fn extract_uinodes(
     >,
 ) {
     extracted_uinodes.uinodes.clear();
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
-            uinode_query.get(*entity)
-        {
-            // Skip invisible and completely transparent nodes
-            if !visibility.is_visible() || color.0.a() == 0.0 {
-                continue;
-            }
-
-            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-                // Skip loading images
-                if !images.contains(&image.texture) {
+    for ui_stack in ui_stacks.stacks.iter() {
+        for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+            if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
+                uinode_query.get(*entity)
+            {
+                // Skip invisible and completely transparent nodes
+                if !visibility.is_visible() || color.0.a() == 0.0 {
                     continue;
                 }
-                (image.texture.clone_weak(), image.flip_x, image.flip_y)
-            } else {
-                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
-            };
 
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                stack_index,
-                transform: transform.compute_matrix(),
-                color: color.0,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
-                },
-                image,
-                atlas_size: None,
-                clip: clip.map(|clip| clip.clip),
-                flip_x,
-                flip_y,
-            });
+                let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+                    // Skip loading images
+                    if !images.contains(&image.texture) {
+                        continue;
+                    }
+                    (image.texture.clone_weak(), image.flip_x, image.flip_y)
+                } else {
+                    (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+                };
+
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    stack_index,
+                    transform: transform.compute_matrix(),
+                    color: color.0,
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.calculated_size,
+                    },
+                    image,
+                    atlas_size: None,
+                    clip: clip.map(|clip| clip.clip),
+                    flip_x,
+                    flip_y,
+                    camera: ui_stack.camera_entity,
+                });
+            }
         }
     }
 }
@@ -277,7 +282,7 @@ pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
-    ui_stack: Extract<Res<UiStack>>,
+    ui_stacks: Extract<Res<UiStacks>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -290,6 +295,7 @@ pub fn extract_text_uinodes(
     >,
 ) {
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
+
     let scale_factor = windows
         .get_single()
         .map(|window| window.resolution.scale_factor() as f32)
@@ -297,47 +303,50 @@ pub fn extract_text_uinodes(
 
     let inverse_scale_factor = scale_factor.recip();
 
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
-            uinode_query.get(*entity)
-        {
-            // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-            if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {
-                continue;
-            }
-            let transform = global_transform.compute_matrix()
-                * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
-
-            let mut color = Color::WHITE;
-            let mut current_section = usize::MAX;
-            for PositionedGlyph {
-                position,
-                atlas_info,
-                section_index,
-                ..
-            } in &text_layout_info.glyphs
+    for ui_stack in ui_stacks.stacks.iter() {
+        for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+            if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
+                uinode_query.get(*entity)
             {
-                if *section_index != current_section {
-                    color = text.sections[*section_index].style.color.as_rgba_linear();
-                    current_section = *section_index;
+                // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+                if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {
+                    continue;
                 }
-                let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                let transform = global_transform.compute_matrix()
+                    * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
 
-                let mut rect = atlas.textures[atlas_info.glyph_index];
-                rect.min *= inverse_scale_factor;
-                rect.max *= inverse_scale_factor;
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    stack_index,
-                    transform: transform
-                        * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
-                    color,
-                    rect,
-                    image: atlas.texture.clone_weak(),
-                    atlas_size: Some(atlas.size * inverse_scale_factor),
-                    clip: clip.map(|clip| clip.clip),
-                    flip_x: false,
-                    flip_y: false,
-                });
+                let mut color = Color::WHITE;
+                let mut current_section = usize::MAX;
+                for PositionedGlyph {
+                    position,
+                    atlas_info,
+                    section_index,
+                    ..
+                } in &text_layout_info.glyphs
+                {
+                    if *section_index != current_section {
+                        color = text.sections[*section_index].style.color.as_rgba_linear();
+                        current_section = *section_index;
+                    }
+                    let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+
+                    let mut rect = atlas.textures[atlas_info.glyph_index];
+                    rect.min *= inverse_scale_factor;
+                    rect.max *= inverse_scale_factor;
+                    extracted_uinodes.uinodes.push(ExtractedUiNode {
+                        stack_index: stack_index + ui_stack.base_index,
+                        transform: transform
+                            * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
+                        color,
+                        rect,
+                        image: atlas.texture.clone_weak(),
+                        atlas_size: Some(atlas.size * inverse_scale_factor),
+                        clip: clip.map(|clip| clip.clip),
+                        flip_x: false,
+                        flip_y: false,
+                        camera: ui_stack.camera_entity,
+                    });
+                }
             }
         }
     }
@@ -380,6 +389,7 @@ pub struct UiBatch {
     pub range: Range<u32>,
     pub image: Handle<Image>,
     pub z: f32,
+    pub camera: Entity,
 }
 
 pub fn prepare_uinodes(
@@ -400,17 +410,25 @@ pub fn prepare_uinodes(
     let mut end = 0;
     let mut current_batch_handle = Default::default();
     let mut last_z = 0.0;
+    let Some(mut current_batch_camera) = extracted_uinodes.uinodes.iter().next()
+        .map(|extracted_uinode| extracted_uinode.camera) else {
+        return;
+    };
     for extracted_uinode in &extracted_uinodes.uinodes {
-        if current_batch_handle != extracted_uinode.image {
+        if current_batch_handle != extracted_uinode.image
+            || current_batch_camera != extracted_uinode.camera
+        {
             if start != end {
                 commands.spawn(UiBatch {
                     range: start..end,
                     image: current_batch_handle,
                     z: last_z,
+                    camera: current_batch_camera,
                 });
                 start = end;
             }
             current_batch_handle = extracted_uinode.image.clone_weak();
+            current_batch_camera = extracted_uinode.camera;
         }
 
         let mut uinode_rect = extracted_uinode.rect;
@@ -527,6 +545,7 @@ pub fn prepare_uinodes(
             range: start..end,
             image: current_batch_handle,
             z: last_z,
+            camera: current_batch_camera,
         });
     }
 
@@ -550,7 +569,7 @@ pub fn queue_uinodes(
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    mut views: Query<(Entity, &ExtractedView, &mut RenderPhase<TransparentUi>)>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -573,39 +592,43 @@ pub fn queue_uinodes(
             layout: &ui_pipeline.view_layout,
         }));
         let draw_ui_function = draw_functions.read().id::<DrawUi>();
-        for (view, mut transparent_phase) in &mut views {
+        for (view_entity, view, mut transparent_phase) in &mut views {
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &ui_pipeline,
                 UiPipelineKey { hdr: view.hdr },
             );
             for (entity, batch) in &ui_batches {
-                image_bind_groups
-                    .values
-                    .entry(batch.image.clone_weak())
-                    .or_insert_with(|| {
-                        let gpu_image = gpu_images.get(&batch.image).unwrap();
-                        render_device.create_bind_group(&BindGroupDescriptor {
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(&gpu_image.texture_view),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&gpu_image.sampler),
-                                },
-                            ],
-                            label: Some("ui_material_bind_group"),
-                            layout: &ui_pipeline.image_layout,
-                        })
+                if view_entity == batch.camera {
+                    image_bind_groups
+                        .values
+                        .entry(batch.image.clone_weak())
+                        .or_insert_with(|| {
+                            let gpu_image = gpu_images.get(&batch.image).unwrap();
+                            render_device.create_bind_group(&BindGroupDescriptor {
+                                entries: &[
+                                    BindGroupEntry {
+                                        binding: 0,
+                                        resource: BindingResource::TextureView(
+                                            &gpu_image.texture_view,
+                                        ),
+                                    },
+                                    BindGroupEntry {
+                                        binding: 1,
+                                        resource: BindingResource::Sampler(&gpu_image.sampler),
+                                    },
+                                ],
+                                label: Some("ui_material_bind_group"),
+                                layout: &ui_pipeline.image_layout,
+                            })
+                        });
+                    transparent_phase.add(TransparentUi {
+                        draw_function: draw_ui_function,
+                        pipeline,
+                        entity,
+                        sort_key: FloatOrd(batch.z),
                     });
-                transparent_phase.add(TransparentUi {
-                    draw_function: draw_ui_function,
-                    pipeline,
-                    entity,
-                    sort_key: FloatOrd(batch.z),
-                });
+                }
             }
         }
     }

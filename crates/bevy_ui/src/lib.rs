@@ -45,7 +45,7 @@ use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
-pub use stack::UiStack;
+pub use stack::UiStacks;
 use update::update_clipping_system;
 
 /// The basic plugin for Bevy UI
@@ -84,7 +84,7 @@ impl Plugin for UiPlugin {
         app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<UiSurface>()
             .init_resource::<UiScale>()
-            .init_resource::<UiStack>()
+            .init_resource::<UiStacks>()
             .init_resource::<UiDefaultCamera>()
             .init_resource::<UiCameraToRoot>()
             .register_type::<AlignContent>()
@@ -160,10 +160,12 @@ impl Plugin for UiPlugin {
         .add_systems(
             PostUpdate,
             (
+                ui_stack_system
+                    .in_set(UiSystem::Stack)
+                    .before(UiSystem::Layout),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
-                ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             ),
         );
