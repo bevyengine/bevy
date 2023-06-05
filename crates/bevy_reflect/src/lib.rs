@@ -1427,6 +1427,26 @@ mod tests {
     }
 
     #[test]
+    fn should_permit_higher_ranked_lifetimes() {
+        #[derive(Reflect)]
+        struct TestStruct {
+            #[reflect(ignore)]
+            _hrl: for<'a> fn(&'a str) -> &'a str,
+        }
+
+        impl Default for TestStruct {
+            fn default() -> Self {
+                TestStruct {
+                    _hrl: |input| input,
+                }
+            }
+        }
+
+        fn get_type_registration<T: GetTypeRegistration>() {}
+        get_type_registration::<TestStruct>();
+    }
+
+    #[test]
     fn should_permit_valid_represented_type_for_dynamic() {
         let type_info = <[i32; 2] as Typed>::type_info();
         let mut dynamic_array = [123; 2].clone_dynamic();

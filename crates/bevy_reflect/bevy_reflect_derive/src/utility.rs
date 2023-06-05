@@ -155,11 +155,16 @@ pub(crate) fn extend_where_clause(
     } else {
         quote!()
     };
+
+    // The nested parentheses here are required to properly scope HRTBs coming
+    // from field types to the type itself, as the compiler will scope them to
+    // the whole bound by default, resulting in a failure to prove trait
+    // adherence.
     generic_where_clause.extend(quote! {
-        #(#active_types: #active_trait_bounds,)*
-        #(#ignored_types: #ignored_trait_bounds,)*
+        #((#active_types): #active_trait_bounds,)*
+        #((#ignored_types): #ignored_trait_bounds,)*
         // Leave parameter bounds to the end for more sane error messages.
-        #(#parameter_types: #parameter_trait_bounds,)*
+        #((#parameter_types): #parameter_trait_bounds,)*
     });
     generic_where_clause
 }
