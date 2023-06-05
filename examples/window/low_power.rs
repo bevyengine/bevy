@@ -33,13 +33,16 @@ fn main() {
             }),
             ..default()
         }))
-        .add_systems((
-            test_setup::setup.on_startup(),
-            test_setup::cycle_modes,
-            test_setup::rotate_cube,
-            test_setup::update_text,
-            update_winit,
-        ))
+        .add_systems(Startup, test_setup::setup)
+        .add_systems(
+            Update,
+            (
+                test_setup::cycle_modes,
+                test_setup::rotate_cube,
+                test_setup::update_text,
+                update_winit,
+            ),
+        )
         .run();
 }
 
@@ -145,7 +148,6 @@ pub(crate) mod test_setup {
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
         mut event: EventWriter<RequestRedraw>,
-        asset_server: Res<AssetServer>,
     ) {
         commands.spawn((
             PbrBundle {
@@ -174,38 +176,35 @@ pub(crate) mod test_setup {
                 TextSection::new(
                     "Press spacebar to cycle modes\n",
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,
                         color: Color::WHITE,
+                        ..default()
                     },
                 ),
                 TextSection::from_style(TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 50.0,
                     color: Color::GREEN,
+                    ..default()
                 }),
                 TextSection::new(
                     "\nFrame: ",
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,
                         color: Color::YELLOW,
+                        ..default()
                     },
                 ),
                 TextSection::from_style(TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 50.0,
                     color: Color::YELLOW,
+                    ..default()
                 }),
             ])
             .with_style(Style {
                 align_self: AlignSelf::FlexStart,
                 position_type: PositionType::Absolute,
-                position: UiRect {
-                    top: Val::Px(5.0),
-                    left: Val::Px(5.0),
-                    ..default()
-                },
+                top: Val::Px(5.0),
+                left: Val::Px(5.0),
                 ..default()
             }),
             ModeText,

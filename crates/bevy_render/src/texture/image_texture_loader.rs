@@ -34,6 +34,16 @@ const FILE_EXTENSIONS: &[&str] = &[
     "jpeg",
     #[cfg(feature = "ktx2")]
     "ktx2",
+    #[cfg(feature = "webp")]
+    "webp",
+    #[cfg(feature = "pnm")]
+    "pam",
+    #[cfg(feature = "pnm")]
+    "pbm",
+    #[cfg(feature = "pnm")]
+    "pgm",
+    #[cfg(feature = "pnm")]
+    "ppm",
 ];
 
 impl AssetLoader for ImageTextureLoader {

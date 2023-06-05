@@ -1,3 +1,5 @@
+//! Helpers for mapping window entities to accessibility types
+
 use std::{
     collections::VecDeque,
     sync::{atomic::Ordering, Arc, Mutex},
@@ -9,7 +11,7 @@ use bevy_a11y::{
     accesskit::{ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, Role, TreeUpdate},
     AccessKitEntityExt, AccessibilityNode, AccessibilityRequested, Focus,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
@@ -167,11 +169,14 @@ impl Plugin for AccessibilityPlugin {
         app.init_non_send_resource::<AccessKitAdapters>()
             .init_resource::<WinitActionHandlers>()
             .add_event::<ActionRequestWrapper>()
-            .add_systems((
-                handle_window_focus,
-                window_closed,
-                poll_receivers,
-                update_accessibility_nodes,
-            ));
+            .add_systems(
+                PostUpdate,
+                (
+                    handle_window_focus,
+                    window_closed,
+                    poll_receivers,
+                    update_accessibility_nodes,
+                ),
+            );
     }
 }

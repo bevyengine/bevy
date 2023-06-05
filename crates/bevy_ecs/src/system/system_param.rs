@@ -9,7 +9,7 @@ use crate::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
     system::{Query, SystemMeta},
-    world::{FromWorld, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::Resource;
@@ -19,6 +19,7 @@ use bevy_utils::{all_tuples, synccell::SyncCell};
 use std::{
     borrow::Cow,
     fmt::Debug,
+    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
@@ -35,12 +36,10 @@ use std::{
 /// Derived `SystemParam` structs may have two lifetimes: `'w` for data stored in the [`World`],
 /// and `'s` for data stored in the parameter's state.
 ///
-/// ## Attributes
+/// ## `PhantomData`
 ///
-/// `#[system_param(ignore)]`:
-/// Can be added to any field in the struct. Fields decorated with this attribute
-/// will be created with the default value upon realisation.
-/// This is most useful for `PhantomData` fields, such as markers for generic types.
+/// [`PhantomData`] is a special type of `SystemParam` that does nothing.
+/// This is useful for constraining generic types or lifetimes.
 ///
 /// # Example
 ///
@@ -54,7 +53,6 @@ use std::{
 /// #[derive(SystemParam)]
 /// struct MyParam<'w, Marker: 'static> {
 ///     foo: Res<'w, SomeResource>,
-///     #[system_param(ignore)]
 ///     marker: PhantomData<Marker>,
 /// }
 ///
@@ -89,38 +87,6 @@ use std::{
 /// This will most commonly occur when working with `SystemParam`s generically, as the requirement
 /// has not been proven to the compiler.
 ///
-/// # `!Sync` Resources
-/// A `!Sync` type cannot implement `Resource`. However, it is possible to wrap a `Send` but not `Sync`
-/// type in [`SyncCell`] or the currently unstable [`Exclusive`] to make it `Sync`. This forces only
-/// having mutable access (`&mut T` only, never `&T`), but makes it safe to reference across multiple
-/// threads.
-///
-/// This will fail to compile since `RefCell` is `!Sync`.
-/// ```compile_fail
-/// # use std::cell::RefCell;
-/// # use bevy_ecs::system::Resource;
-///
-/// #[derive(Resource)]
-/// struct NotSync {
-///    counter: RefCell<usize>,
-/// }
-/// ```
-///
-/// This will compile since the `RefCell` is wrapped with `SyncCell`.
-/// ```
-/// # use std::cell::RefCell;
-/// # use bevy_ecs::system::Resource;
-/// use bevy_utils::synccell::SyncCell;
-///
-/// #[derive(Resource)]
-/// struct ActuallySync {
-///    counter: SyncCell<RefCell<usize>>,
-/// }
-/// ```
-///
-/// [`SyncCell`]: bevy_utils::synccell::SyncCell
-/// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
-///
 /// # Safety
 ///
 /// The implementor must ensure the following is true.
@@ -152,7 +118,7 @@ pub unsafe trait SystemParam: Sized {
     }
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`] during [`apply_system_buffers`](crate::prelude::apply_system_buffers).
+    /// This is used to apply [`Commands`] during [`apply_deferred`](crate::prelude::apply_deferred).
     ///
     /// [`Commands`]: crate::prelude::Commands
     #[inline]
@@ -161,14 +127,13 @@ pub unsafe trait SystemParam: Sized {
 
     /// # Safety
     ///
-    /// This call might use any of the [`World`] accesses that were registered in [`Self::init_state`].
-    /// - None of those accesses may conflict with any other [`SystemParam`]s
-    ///   that exist at the same time, including those on other threads.
+    /// - The passed [`UnsafeWorldCell`] must have access to any world data
+    ///   registered in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same `World` that was used to initialize [`state`](SystemParam::init_state).
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
-        world: &'world World,
+        world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state>;
 }
@@ -226,10 +191,19 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        Query::new(world, state, system_meta.last_run, change_tick, false)
+        Query::new(
+            // SAFETY: We have registered all of the query's world accesses,
+            // so the caller ensures that `world` has permission to access any
+            // world data that the query needs.
+            world.unsafe_world(),
+            state,
+            system_meta.last_run,
+            change_tick,
+            false,
+        )
     }
 }
 
@@ -364,7 +338,7 @@ fn assert_component_access_compatibility(
 /// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::State,
-    world: &'w World,
+    world: UnsafeWorldCell<'w>,
     system_meta: SystemMeta,
     change_tick: Tick,
 }
@@ -400,6 +374,38 @@ impl_param_set!();
 /// # schedule.add_systems((read_resource_system, write_resource_system).chain());
 /// # schedule.run(&mut world);
 /// ```
+///
+/// # `!Sync` Resources
+/// A `!Sync` type cannot implement `Resource`. However, it is possible to wrap a `Send` but not `Sync`
+/// type in [`SyncCell`] or the currently unstable [`Exclusive`] to make it `Sync`. This forces only
+/// having mutable access (`&mut T` only, never `&T`), but makes it safe to reference across multiple
+/// threads.
+///
+/// This will fail to compile since `RefCell` is `!Sync`.
+/// ```compile_fail
+/// # use std::cell::RefCell;
+/// # use bevy_ecs::system::Resource;
+///
+/// #[derive(Resource)]
+/// struct NotSync {
+///    counter: RefCell<usize>,
+/// }
+/// ```
+///
+/// This will compile since the `RefCell` is wrapped with `SyncCell`.
+/// ```
+/// # use std::cell::RefCell;
+/// # use bevy_ecs::system::Resource;
+/// use bevy_utils::synccell::SyncCell;
+///
+/// #[derive(Resource)]
+/// struct ActuallySync {
+///    counter: SyncCell<RefCell<usize>>,
+/// }
+/// ```
+///
+/// [`SyncCell`]: bevy_utils::synccell::SyncCell
+/// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 
 // SAFETY: Res only reads a single World resource
@@ -438,11 +444,10 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
-            .as_unsafe_world_cell_migration_internal()
             .get_resource_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -479,11 +484,10 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world
-            .as_unsafe_world_cell_migration_internal()
             .get_resource_with_ticks(component_id)
             .map(|(ptr, ticks)| Res {
                 value: ptr.deref(),
@@ -533,11 +537,10 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         let value = world
-            .as_unsafe_world_cell_migration_internal()
             .get_resource_mut_by_id(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -571,11 +574,10 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world
-            .as_unsafe_world_cell_migration_internal()
             .get_resource_mut_by_id(component_id)
             .map(|value| ResMut {
                 value: value.value.deref_mut::<T>(),
@@ -624,10 +626,11 @@ unsafe impl SystemParam for &'_ World {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        world
+        // SAFETY: Read-only access to the entire world was registerd in `init_state`.
+        world.world()
     }
 }
 
@@ -675,7 +678,7 @@ unsafe impl SystemParam for &'_ World {
 ///     move |mut val| val.0 = value.0
 /// }
 ///
-/// // .add_system(reset_to_system(my_config))
+/// // .add_systems(reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
 pub struct Local<'s, T: FromWorld + Send + 'static>(pub(crate) &'s mut T);
@@ -745,7 +748,7 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        _world: &'w World,
+        _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         Local(state.get())
@@ -763,7 +766,8 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
 }
 
-/// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] at the end of a stage.
+/// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
+/// [`apply_deferred`](crate::schedule::apply_deferred).
 /// This is used internally by [`Commands`] to defer `World` mutations.
 ///
 /// [`Commands`]: crate::system::Commands
@@ -806,7 +810,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// struct AlarmFlag(bool);
 ///
 /// impl AlarmFlag {
-///     /// Sounds the alarm at the end of the current stage.
+///     /// Sounds the alarm the next time buffers are applied via apply_deferred.
 ///     pub fn flag(&mut self) {
 ///         self.0 = true;
 ///     }
@@ -814,7 +818,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// impl SystemBuffer for AlarmFlag {
 ///     // When `AlarmFlag` is used in a system, this function will get
-///     // called at the end of the system's stage.
+///     // called the next time buffers are applied via apply_deferred.
 ///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
 ///         if self.0 {
 ///             world.resource_mut::<Alarm>().0 = true;
@@ -918,7 +922,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        _world: &'w World,
+        _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         Deferred(state.get())
@@ -1024,11 +1028,10 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
-            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -1063,11 +1066,10 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world
-            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
@@ -1116,11 +1118,10 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
-            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -1149,11 +1150,10 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world
-            .as_unsafe_world_cell_migration_internal()
             .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
@@ -1176,7 +1176,7 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.archetypes()
@@ -1197,7 +1197,7 @@ unsafe impl<'a> SystemParam for &'a Components {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.components()
@@ -1218,7 +1218,7 @@ unsafe impl<'a> SystemParam for &'a Entities {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.entities()
@@ -1239,7 +1239,7 @@ unsafe impl<'a> SystemParam for &'a Bundles {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.bundles()
@@ -1288,7 +1288,7 @@ unsafe impl SystemParam for SystemChangeTick {
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         system_meta: &SystemMeta,
-        _world: &'w World,
+        _world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         SystemChangeTick {
@@ -1358,7 +1358,7 @@ unsafe impl SystemParam for SystemName<'_> {
     unsafe fn get_param<'w, 's>(
         name: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        _world: &'w World,
+        _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         SystemName { name }
@@ -1400,7 +1400,7 @@ macro_rules! impl_system_param_tuple {
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
                 _system_meta: &SystemMeta,
-                _world: &'w World,
+                _world: UnsafeWorldCell<'w>,
                 _change_tick: Tick,
             ) -> Self::Item<'w, 's> {
 
@@ -1466,7 +1466,6 @@ pub mod lifetimeless {
 /// #[derive(SystemParam)]
 /// struct GenericParam<'w, 's, T: SystemParam> {
 ///     field: T,
-///     #[system_param(ignore)]
 ///     // Use the lifetimes in this type, or they will be unbound.
 ///     phantom: core::marker::PhantomData<&'w &'s ()>
 /// }
@@ -1524,7 +1523,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
-        world: &'world World,
+        world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         // SAFETY: Defer to the safety of P::SystemParam
@@ -1532,106 +1531,198 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     }
 }
 
+// SAFETY: No world access.
+unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
+    type State = ();
+    type Item<'world, 'state> = Self;
+
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        PhantomData
+    }
+}
+
+// SAFETY: No world access.
+unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
         query::{ReadOnlyWorldQuery, WorldQuery},
-        system::Query,
+        system::{assert_is_system, Query},
     };
     use std::marker::PhantomData;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
-    #[derive(SystemParam)]
-    pub struct SpecialQuery<
-        'w,
-        's,
-        Q: WorldQuery + Send + Sync + 'static,
-        F: ReadOnlyWorldQuery + Send + Sync + 'static = (),
-    > {
-        _query: Query<'w, 's, Q, F>,
+    #[test]
+    fn system_param_generic_bounds() {
+        #[derive(SystemParam)]
+        pub struct SpecialQuery<
+            'w,
+            's,
+            Q: WorldQuery + Send + Sync + 'static,
+            F: ReadOnlyWorldQuery + Send + Sync + 'static = (),
+        > {
+            _query: Query<'w, 's, Q, F>,
+        }
+
+        fn my_system(_: SpecialQuery<(), ()>) {}
+        assert_is_system(my_system);
     }
 
     // Compile tests for https://github.com/bevyengine/bevy/pull/6694.
+    #[test]
+    fn system_param_flexibility() {
+        #[derive(SystemParam)]
+        pub struct SpecialRes<'w, T: Resource> {
+            _res: Res<'w, T>,
+        }
 
-    #[derive(SystemParam)]
-    pub struct SpecialRes<'w, T: Resource> {
-        _res: Res<'w, T>,
-    }
+        #[derive(SystemParam)]
+        pub struct SpecialLocal<'s, T: FromWorld + Send + 'static> {
+            _local: Local<'s, T>,
+        }
 
-    #[derive(SystemParam)]
-    pub struct SpecialLocal<'s, T: FromWorld + Send + 'static> {
-        _local: Local<'s, T>,
+        #[derive(Resource)]
+        struct R;
+
+        fn my_system(_: SpecialRes<R>, _: SpecialLocal<u32>) {}
+        assert_is_system(my_system);
     }
 
     #[derive(Resource)]
     pub struct R<const I: usize>;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/7001.
-    #[derive(SystemParam)]
-    pub struct ConstGenericParam<'w, const I: usize>(Res<'w, R<I>>);
+    #[test]
+    fn system_param_const_generics() {
+        #[derive(SystemParam)]
+        pub struct ConstGenericParam<'w, const I: usize>(Res<'w, R<I>>);
 
-    // Compile test for https://github.com/bevyengine/bevy/pull/6867.
-    #[derive(SystemParam)]
-    pub struct LongParam<'w> {
-        _r0: Res<'w, R<0>>,
-        _r1: Res<'w, R<1>>,
-        _r2: Res<'w, R<2>>,
-        _r3: Res<'w, R<3>>,
-        _r4: Res<'w, R<4>>,
-        _r5: Res<'w, R<5>>,
-        _r6: Res<'w, R<6>>,
-        _r7: Res<'w, R<7>>,
-        _r8: Res<'w, R<8>>,
-        _r9: Res<'w, R<9>>,
-        _r10: Res<'w, R<10>>,
-        _r11: Res<'w, R<11>>,
-        _r12: Res<'w, R<12>>,
-        _r13: Res<'w, R<13>>,
-        _r14: Res<'w, R<14>>,
-        _r15: Res<'w, R<15>>,
-        _r16: Res<'w, R<16>>,
+        fn my_system(_: ConstGenericParam<0>, _: ConstGenericParam<1000>) {}
+        assert_is_system(my_system);
     }
 
-    #[allow(dead_code)]
-    fn long_system(_param: LongParam) {
-        crate::system::assert_is_system(long_system);
+    // Compile test for https://github.com/bevyengine/bevy/pull/6867.
+    #[test]
+    fn system_param_field_limit() {
+        #[derive(SystemParam)]
+        pub struct LongParam<'w> {
+            // Each field should be a distinct type so there will
+            // be an error if the derive messes up the field order.
+            _r0: Res<'w, R<0>>,
+            _r1: Res<'w, R<1>>,
+            _r2: Res<'w, R<2>>,
+            _r3: Res<'w, R<3>>,
+            _r4: Res<'w, R<4>>,
+            _r5: Res<'w, R<5>>,
+            _r6: Res<'w, R<6>>,
+            _r7: Res<'w, R<7>>,
+            _r8: Res<'w, R<8>>,
+            _r9: Res<'w, R<9>>,
+            _r10: Res<'w, R<10>>,
+            _r11: Res<'w, R<11>>,
+            _r12: Res<'w, R<12>>,
+            _r13: Res<'w, R<13>>,
+            _r14: Res<'w, R<14>>,
+            _r15: Res<'w, R<15>>,
+            _r16: Res<'w, R<16>>,
+        }
+
+        fn long_system(_: LongParam) {}
+        assert_is_system(long_system);
     }
 
     // Compile test for https://github.com/bevyengine/bevy/pull/6919.
     // Regression test for https://github.com/bevyengine/bevy/issues/7447.
-    #[derive(SystemParam)]
-    struct IgnoredParam<'w, T: Resource, Marker: 'static> {
-        _foo: Res<'w, T>,
-        #[system_param(ignore)]
-        marker: PhantomData<&'w Marker>,
+    #[test]
+    fn system_param_phantom_data() {
+        #[derive(SystemParam)]
+        struct PhantomParam<'w, T: Resource, Marker: 'static> {
+            _foo: Res<'w, T>,
+            marker: PhantomData<&'w Marker>,
+        }
+
+        fn my_system(_: PhantomParam<R<0>, ()>) {}
+        assert_is_system(my_system);
     }
 
     // Compile tests for https://github.com/bevyengine/bevy/pull/6957.
+    #[test]
+    fn system_param_struct_variants() {
+        #[derive(SystemParam)]
+        pub struct UnitParam;
 
-    #[derive(SystemParam)]
-    pub struct UnitParam;
+        #[derive(SystemParam)]
+        pub struct TupleParam<'w, 's, R: Resource, L: FromWorld + Send + 'static>(
+            Res<'w, R>,
+            Local<'s, L>,
+        );
 
-    #[derive(SystemParam)]
-    pub struct TupleParam<'w, 's, R: Resource, L: FromWorld + Send + 'static>(
-        Res<'w, R>,
-        Local<'s, L>,
-    );
-
-    #[derive(Resource)]
-    struct PrivateResource;
+        fn my_system(_: UnitParam, _: TupleParam<R<0>, u32>) {}
+        assert_is_system(my_system);
+    }
 
     // Regression test for https://github.com/bevyengine/bevy/issues/4200.
-    #[derive(SystemParam)]
-    pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
+    #[test]
+    fn system_param_private_fields() {
+        #[derive(Resource)]
+        struct PrivateResource;
 
-    // regression test for https://github.com/bevyengine/bevy/issues/7103.
-    #[derive(SystemParam)]
-    pub struct WhereParam<'w, 's, Q>
-    where
-        Q: 'static + WorldQuery,
-    {
-        _q: Query<'w, 's, Q, ()>,
+        #[derive(SystemParam)]
+        pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
+
+        fn my_system(_: EncapsulatedParam) {}
+        assert_is_system(my_system);
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/7103.
+    #[test]
+    fn system_param_where_clause() {
+        #[derive(SystemParam)]
+        pub struct WhereParam<'w, 's, Q>
+        where
+            Q: 'static + WorldQuery,
+        {
+            _q: Query<'w, 's, Q, ()>,
+        }
+
+        fn my_system(_: WhereParam<()>) {}
+        assert_is_system(my_system);
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/1727.
+    #[test]
+    fn system_param_name_collision() {
+        #[derive(Resource)]
+        pub struct FetchState;
+
+        #[derive(SystemParam)]
+        pub struct Collide<'w> {
+            _x: Res<'w, FetchState>,
+        }
+
+        fn my_system(_: Collide) {}
+        assert_is_system(my_system);
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/8192.
+    #[test]
+    fn system_param_invariant_lifetime() {
+        #[derive(SystemParam)]
+        pub struct InvariantParam<'w, 's> {
+            _set: ParamSet<'w, 's, (Query<'w, 's, ()>,)>,
+        }
+
+        fn my_system(_: InvariantParam) {}
+        assert_is_system(my_system);
     }
 }

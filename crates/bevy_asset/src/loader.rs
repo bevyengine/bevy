@@ -1,6 +1,6 @@
 use crate::{
     path::AssetPath, AssetIo, AssetIoError, AssetMeta, AssetServer, Assets, Handle, HandleId,
-    RefChangeChannel,
+    HandleUntyped, RefChangeChannel,
 };
 use anyhow::Error;
 use anyhow::Result;
@@ -166,9 +166,14 @@ impl<'a> LoadContext<'a> {
         self.get_handle(AssetPath::new_ref(self.path(), Some(label)))
     }
 
-    /// Gets a handle to an asset of type `T` from its id.
+    /// Gets a strong handle to an asset of type `T` from its id.
     pub fn get_handle<I: Into<HandleId>, T: Asset>(&self, id: I) -> Handle<T> {
         Handle::strong(id.into(), self.ref_change_channel.sender.clone())
+    }
+
+    /// Gets an untyped strong handle for an asset with the provided id.
+    pub fn get_handle_untyped<I: Into<HandleId>>(&self, id: I) -> HandleUntyped {
+        HandleUntyped::strong(id.into(), self.ref_change_channel.sender.clone())
     }
 
     /// Reads the contents of the file at the specified path through the [`AssetIo`] associated

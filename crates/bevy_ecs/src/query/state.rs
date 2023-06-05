@@ -788,8 +788,6 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
     /// iter() method, but cannot be chained like a normal [`Iterator`].
     ///
-    /// This can only be called for read-only queries.
-    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -820,6 +818,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         QueryParIter {
             world,
             state: self,
+            last_run: world.last_change_tick(),
+            this_run: world.read_change_tick(),
             batching_strategy: BatchingStrategy::new(),
         }
     }
@@ -832,9 +832,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     #[inline]
     pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, Q, F> {
         self.update_archetypes(world);
+        let this_run = world.change_tick();
         QueryParIter {
             world,
             state: self,
+            last_run: world.last_change_tick(),
+            this_run,
             batching_strategy: BatchingStrategy::new(),
         }
     }
@@ -1159,12 +1162,19 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 }
 
-/// An error that occurs when retrieving a specific [`Entity`]'s query result.
+/// An error that occurs when retrieving a specific [`Entity`]'s query result from [`Query`](crate::system::Query) or [`QueryState`].
 // TODO: return the type_name as part of this error
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum QueryEntityError {
+    /// The given [`Entity`]'s components do not match the query.
+    ///
+    /// Either it does not have a requested component, or it has a component which the query filters out.
     QueryDoesNotMatch(Entity),
+    /// The given [`Entity`] does not exist.
     NoSuchEntity(Entity),
+    /// The [`Entity`] was requested mutably more than once.
+    ///
+    /// See [`QueryState::get_many_mut`] for an example.
     AliasedMutability(Entity),
 }
 
@@ -1174,7 +1184,7 @@ impl fmt::Display for QueryEntityError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             QueryEntityError::QueryDoesNotMatch(_) => {
-                write!(f, "The given entity does not have the requested component.")
+                write!(f, "The given entity's components do not match the query.")
             }
             QueryEntityError::NoSuchEntity(_) => write!(f, "The requested entity does not exist."),
             QueryEntityError::AliasedMutability(_) => {
@@ -1293,11 +1303,13 @@ mod tests {
     }
 }
 
-/// An error that occurs when evaluating a [`QueryState`] as a single expected resulted via
-/// [`QueryState::single`] or [`QueryState::single_mut`].
+/// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`] as a single expected result via
+/// [`get_single`](crate::system::Query::get_single) or [`get_single_mut`](crate::system::Query::get_single_mut).
 #[derive(Debug)]
 pub enum QuerySingleError {
+    /// No entity fits the query.
     NoEntities(&'static str),
+    /// Multiple entities fit the query.
     MultipleEntities(&'static str),
 }
 

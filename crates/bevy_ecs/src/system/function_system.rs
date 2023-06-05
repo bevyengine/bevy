@@ -4,13 +4,13 @@ use crate::{
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
-    world::{World, WorldId},
+    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 
 use bevy_utils::all_tuples;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
-use super::ReadOnlySystem;
+use super::{In, IntoSystem, ReadOnlySystem};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -81,18 +81,18 @@ impl SystemMeta {
 ///
 /// Basic usage:
 /// ```rust
-/// use bevy_ecs::prelude::*;
-/// use bevy_ecs::{system::SystemState};
-/// use bevy_ecs::event::Events;
-///
-/// #[derive(Event)]
-/// struct MyEvent;
-/// #[derive(Resource)]
-/// struct MyResource(u32);
-///
-/// #[derive(Component)]
-/// struct MyComponent;
-///
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::SystemState;
+/// # use bevy_ecs::event::Events;
+/// #
+/// # #[derive(Event)]
+/// # struct MyEvent;
+/// # #[derive(Resource)]
+/// # struct MyResource(u32);
+/// #
+/// # #[derive(Component)]
+/// # struct MyComponent;
+/// #
 /// // Work directly on the `World`
 /// let mut world = World::new();
 /// world.init_resource::<Events<MyEvent>>();
@@ -103,35 +103,37 @@ impl SystemMeta {
 ///     EventWriter<MyEvent>,
 ///     Option<ResMut<MyResource>>,
 ///     Query<&MyComponent>,
-///     )> = SystemState::new(&mut world);
+/// )> = SystemState::new(&mut world);
 ///
 /// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
 /// // system_state.get(&world) provides read-only versions of your system parameters instead.
 /// let (event_writer, maybe_resource, query) = system_state.get_mut(&mut world);
 ///
-/// // If you are using [`Commands`], you can choose when you want to apply them to the world.
-/// // You need to manually call `.apply(world)` on the [`SystemState`] to apply them.
+/// // If you are using `Commands`, you can choose when you want to apply them to the world.
+/// // You need to manually call `.apply(world)` on the `SystemState` to apply them.
 /// ```
 /// Caching:
 /// ```rust
-/// use bevy_ecs::prelude::*;
-/// use bevy_ecs::{system::SystemState};
-/// use bevy_ecs::event::Events;
-///
-/// #[derive(Event)]
-/// struct MyEvent;
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::SystemState;
+/// # use bevy_ecs::event::Events;
+/// #
+/// # #[derive(Event)]
+/// # struct MyEvent;
 /// #[derive(Resource)]
 /// struct CachedSystemState {
-///    event_state: SystemState<EventReader<'static, 'static, MyEvent>>
+///     event_state: SystemState<EventReader<'static, 'static, MyEvent>>,
 /// }
 ///
 /// // Create and store a system state once
 /// let mut world = World::new();
 /// world.init_resource::<Events<MyEvent>>();
-/// let initial_state: SystemState<EventReader<MyEvent>>  = SystemState::new(&mut world);
+/// let initial_state: SystemState<EventReader<MyEvent>> = SystemState::new(&mut world);
 ///
 /// // The system state is cached in a resource
-/// world.insert_resource(CachedSystemState{event_state: initial_state});
+/// world.insert_resource(CachedSystemState {
+///     event_state: initial_state,
+/// });
 ///
 /// // Later, fetch the cached system state, saving on overhead
 /// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
@@ -139,7 +141,7 @@ impl SystemMeta {
 ///
 ///     for events in event_reader.iter() {
 ///         println!("Hello World!");
-///     };
+///     }
 /// });
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
@@ -291,7 +293,12 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'w World,
         change_tick: Tick,
     ) -> SystemParamItem<'w, 's, Param> {
-        let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
+        let param = Param::get_param(
+            &mut self.param_state,
+            &self.meta,
+            world.as_unsafe_world_cell_migration_internal(),
+            change_tick,
+        );
         self.meta.last_run = change_tick;
         param
     }
@@ -303,65 +310,6 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
     }
 }
 
-/// Conversion trait to turn something into a [`System`].
-///
-/// Use this to get a system from a function. Also note that every system implements this trait as
-/// well.
-///
-/// # Examples
-///
-/// ```
-/// use bevy_ecs::prelude::*;
-///
-/// fn my_system_function(a_usize_local: Local<usize>) {}
-///
-/// let system = IntoSystem::into_system(my_system_function);
-/// ```
-// This trait has to be generic because we have potentially overlapping impls, in particular
-// because Rust thinks a type could impl multiple different `FnMut` combinations
-// even though none can currently
-pub trait IntoSystem<In, Out, Marker>: Sized {
-    type System: System<In = In, Out = Out>;
-    /// Turns this value into its corresponding [`System`].
-    fn into_system(this: Self) -> Self::System;
-}
-
-// Systems implicitly implement IntoSystem
-impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, ()> for Sys {
-    type System = Sys;
-    fn into_system(this: Self) -> Sys {
-        this
-    }
-}
-
-/// Wrapper type to mark a [`SystemParam`] as an input.
-///
-/// [`System`]s may take an optional input which they require to be passed to them when they
-/// are being [`run`](System::run). For [`FunctionSystems`](FunctionSystem) the input may be marked
-/// with this `In` type, but only the first param of a function may be tagged as an input. This also
-/// means a system can only have one or zero input parameters.
-///
-/// # Examples
-///
-/// Here is a simple example of a system that takes a [`usize`] returning the square of it.
-///
-/// ```
-/// use bevy_ecs::prelude::*;
-///
-/// fn main() {
-///     let mut square_system = IntoSystem::into_system(square);
-///
-///     let mut world = World::default();
-///     square_system.initialize(&mut world);
-///     assert_eq!(square_system.run(12, &mut world), 144);
-/// }
-///
-/// fn square(In(input): In<usize>) -> usize {
-///     input * input
-/// }
-/// ```
-pub struct In<In>(pub In);
-
 /// The [`System`] counter part of an ordinary function.
 ///
 /// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
@@ -369,6 +317,9 @@ pub struct In<In>(pub In);
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 ///
 /// [`FunctionSystem`] must be `.initialized` before they can be run.
+///
+/// The [`Clone`] implementation for [`FunctionSystem`] returns a new instance which
+/// is NOT initialized. The cloned system must also be `.initialized` before it can be run.
 pub struct FunctionSystem<Marker, F>
 where
     F: SystemParamFunction<Marker>,
@@ -380,6 +331,23 @@ where
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn() -> Marker>,
+}
+
+// De-initializes the cloned system.
+impl<Marker, F> Clone for FunctionSystem<Marker, F>
+where
+    F: SystemParamFunction<Marker> + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            func: self.func.clone(),
+            param_state: None,
+            system_meta: SystemMeta::new::<F>(),
+            world_id: None,
+            archetype_generation: ArchetypeGeneration::initial(),
+            marker: PhantomData,
+        }
+    }
 }
 
 pub struct IsFunctionSystem;
@@ -451,13 +419,14 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         let change_tick = world.increment_change_tick();
 
-        // Safety:
-        // We update the archetype component access correctly based on `Param`'s requirements
-        // in `update_archetype_component_access`.
-        // Our caller upholds the requirements.
+        // SAFETY:
+        // - The caller has invoked `update_archetype_component_access`, which will panic
+        //   if the world does not match.
+        // - All world accesses used by `F::Param` have been registered, so the caller
+        //   will ensure that there are no data access conflicts.
         let params = F::Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
@@ -478,7 +447,7 @@ where
     }
 
     #[inline]
-    fn apply_buffers(&mut self, world: &mut World) {
+    fn apply_deferred(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
         F::Param::apply(param_state, &self.system_meta, world);
     }
@@ -490,7 +459,7 @@ where
         self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
     }
 
-    fn update_archetype_component_access(&mut self, world: &World) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
@@ -522,7 +491,7 @@ where
     }
 }
 
-/// SAFETY: `F`'s param is `ReadOnlySystemParam`, so this system will only read from the world.
+/// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
 unsafe impl<Marker, F> ReadOnlySystem for FunctionSystem<Marker, F>
 where
     Marker: 'static,
@@ -548,7 +517,6 @@ where
 /// use std::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::system::{SystemParam, SystemParamItem};
 ///
 /// /// Pipe creates a new system which calls `a`, then calls `b` with the output of `a`
 /// pub fn pipe<A, B, AMarker, BMarker>(
@@ -620,7 +588,7 @@ macro_rules! impl_system_function {
             #[inline]
             fn run(&mut self, _input: (), param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
-                // without using this function. It fails to recognise that `func`
+                // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(

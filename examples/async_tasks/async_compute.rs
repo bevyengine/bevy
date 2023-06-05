@@ -12,8 +12,8 @@ use std::time::{Duration, Instant};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_systems((setup_env, add_assets, spawn_tasks))
-        .add_system(handle_tasks)
+        .add_systems(Startup, (setup_env, add_assets, spawn_tasks))
+        .add_systems(Update, handle_tasks)
         .run();
 }
 
@@ -47,7 +47,7 @@ struct ComputeTransform(Task<Transform>);
 
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
-/// system, `handle_tasks`, will poll the spawned tasks on subsequent
+/// system, [`handle_tasks`], will poll the spawned tasks on subsequent
 /// frames/ticks, and use the results to spawn cubes
 fn spawn_tasks(mut commands: Commands) {
     let thread_pool = AsyncComputeTaskPool::get();
