@@ -1436,11 +1436,13 @@ mod tests {
 
         impl Default for TestStruct {
             fn default() -> Self {
-                TestStruct { _hrl: |input| input }
+                TestStruct {
+                    _hrl: |input| input,
+                }
             }
         }
 
-        fn get_type_registration<T: GetTypeRegistration>() { }
+        fn get_type_registration<T: GetTypeRegistration>() {}
         get_type_registration::<TestStruct>();
     }
 
