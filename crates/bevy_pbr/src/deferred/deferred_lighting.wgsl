@@ -29,8 +29,14 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 #endif
 
     var pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, deferred_data);
+    var output_color = vec4(0.0);
     
-    var output_color = pbr(pbr_input);
+    // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
+    if ((pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
+        output_color = pbr(pbr_input);
+    } else {
+        output_color = pbr_input.material.base_color;
+    }
 
     // fog
     if (fog.mode != FOG_MODE_OFF && (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {

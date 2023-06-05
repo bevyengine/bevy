@@ -53,10 +53,18 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
 #endif //WEBGL
     let flags = deferred_flags_from_mesh_mat_flags(in.flags, in.material.flags);
     let oct_nor = octa_encode(normalize(in.N));
-    let base_color_srgb = pow(in.material.base_color.rgb, vec3(1.0 / 2.2));
+    var base_color_srgb = vec3(0.0);
+    var emissive = in.material.emissive.rgb;
+    if ((in.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
+        // Material is unlit, use emissive component of gbuffer for color data
+        // unlit materials are effectively emissive
+        emissive = in.material.base_color.rgb;
+    } else {
+        base_color_srgb = pow(in.material.base_color.rgb, vec3(1.0 / 2.2));
+    }
     let deferred = vec4(
         pack_unorm4x8(vec4(base_color_srgb, in.material.perceptual_roughness)),
-        float3_to_rgb9e5(in.material.emissive.rgb),
+        float3_to_rgb9e5(emissive),
         props,
         pack_24bit_nor_and_flags(oct_nor, flags),
     );
@@ -65,10 +73,19 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
 
 // Creates a PbrInput from the deferred gbuffer
 fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
+    let flags = unpack_flags(gbuffer.a);
+    let deferred_flags = mesh_mat_flags_from_deferred_flags(flags);
+    let mesh_flags = deferred_flags.x;
+    let mat_flags = deferred_flags.y;
+
     let base_rough = unpack_unorm4x8(gbuffer.r);
-    let base_color = pow(base_rough.rgb, vec3(2.2));
+    var base_color = pow(base_rough.rgb, vec3(2.2));
     let perceptual_roughness = base_rough.a;
-    let emissive = vec4(rgb9e5_to_float3(gbuffer.g), 1.0);
+    var emissive = rgb9e5_to_float3(gbuffer.g);
+    if ((mat_flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
+        base_color = emissive;
+        emissive = vec3(0.0);
+    }
 #ifdef WEBGL // More crunched for webgl so we can fit also depth
     let props = unpack_unorm3x4_plus_unorm_20(gbuffer.b);
     // bias to 0.5 since that's the value for almost all materials
@@ -81,10 +98,6 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let occlusion = props.b;
     let oct_nor = unpack_24bit_nor(gbuffer.a);
     let N = octa_decode(oct_nor);
-    let flags = unpack_flags(gbuffer.a);
-    let deferred_flags = mesh_mat_flags_from_deferred_flags(flags);
-    let mesh_flags = deferred_flags.x;
-    let mat_flags = deferred_flags.y;
 
     let world_position = vec4(position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);
     let is_orthographic = view.projection[3].w == 1.0;
@@ -98,7 +111,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     pbr_input.occlusion = occlusion;
 
     pbr_input.material.base_color = vec4(base_color, 1.0);
-    pbr_input.material.emissive = emissive;
+    pbr_input.material.emissive = vec4(emissive, 1.0);
     pbr_input.material.perceptual_roughness = perceptual_roughness;
     pbr_input.material.metallic = metallic;
     pbr_input.material.reflectance = reflectance;
