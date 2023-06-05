@@ -69,7 +69,7 @@ bitflags::bitflags! {
         const VISIBLE_IN_HIERARCHY = 1 << 1;
     }
 }
-bevy_reflect::impl_reflect_value!(ComputedVisibilityFlags);
+bevy_reflect::impl_reflect_value!((in bevy_render::view) ComputedVisibilityFlags);
 bevy_reflect::impl_from_reflect_value!(ComputedVisibilityFlags);
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
