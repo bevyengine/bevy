@@ -214,9 +214,9 @@ impl Mesh {
         })
     }
 
-    /// For a given `descriptor` returns a [`VertexBufferLayout`] compatible with this mesh. If this
-    /// mesh is not compatible with the given `descriptor` (ex: it is missing vertex attributes), [`None`] will
-    /// be returned.
+    /// Get this `Mesh`'s [`MeshVertexBufferLayout`], used in [`SpecializedMeshPipeline`].
+    ///
+    /// [`SpecializedMeshPipeline`]: crate::render_resource::SpecializedMeshPipeline
     pub fn get_mesh_vertex_buffer_layout(&self) -> MeshVertexBufferLayout {
         let mut attributes = Vec::with_capacity(self.attributes.len());
         let mut attribute_ids = Vec::with_capacity(self.attributes.len());

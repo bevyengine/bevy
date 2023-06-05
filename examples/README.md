@@ -70,6 +70,9 @@ git checkout v0.4.0
   - [WASM](#wasm)
     - [Setup](#setup-2)
     - [Build & Run](#build--run-2)
+    - [WebGL2 and WebGPU](#webgl2-and-webgpu)
+    - [Audio in the browsers](#audio-in-the-browsers)
+    - [Optimizing](#optimizing)
     - [Loading Assets](#loading-assets)
 
 # The Bare Minimum
@@ -92,6 +95,7 @@ Example | Description
 [2D Gizmos](../examples/2d/2d_gizmos.rs) | A scene showcasing 2D gizmos
 [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders a rectangle, circle, and hexagon
+[Custom glTF vertex attribute 2D](../examples/2d/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
@@ -202,7 +206,7 @@ Example | Description
 
 Example | Description
 --- | ---
-[Apply System Buffers](../examples/ecs/apply_system_buffers.rs) | Show how to use `apply_system_buffers` system
+[Apply System Buffers](../examples/ecs/apply_deferred.rs) | Show how to use `apply_deferred` system
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
@@ -238,6 +242,7 @@ Example | Description
 [Char Input Events](../examples/input/char_input_events.rs) | Prints out all chars as they are inputted
 [Gamepad Input](../examples/input/gamepad_input.rs) | Shows handling of gamepad input, connections, and disconnections
 [Gamepad Input Events](../examples/input/gamepad_input_events.rs) | Iterates and prints gamepad input and connection events
+[Gamepad Rumble](../examples/input/gamepad_rumble.rs) | Shows how to rumble a gamepad using force feedback
 [Keyboard Input](../examples/input/keyboard_input.rs) | Demonstrates handling a key press/release
 [Keyboard Input Events](../examples/input/keyboard_input_events.rs) | Prints out all keyboard events
 [Keyboard Modifiers](../examples/input/keyboard_modifiers.rs) | Demonstrates using key modifiers (ctrl, shift)
@@ -337,8 +342,10 @@ Example | Description
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
+[Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
+[Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
@@ -492,7 +499,7 @@ Following is an example for `lighting`. For other examples, change the `lighting
 following commands.
 
 ```sh
-cargo build --release --example lighting --target wasm32-unknown-unknown
+cargo build --release --example lighting --target wasm32-unknown-unknown --features webgl
 wasm-bindgen --out-name wasm_example \
   --out-dir examples/wasm/target \
   --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
@@ -515,6 +522,25 @@ python3 -m http.server --directory examples/wasm
 # with ruby
 ruby -run -ehttpd examples/wasm
 ```
+
+#### WebGL2 and WebGPU
+
+Bevy support for WebGPU is being worked on, but is currently experimental.
+
+To build for WebGPU, you'll need to disable default features and add all those you need, making sure to omit the `webgl2` feature.
+
+Bevy has an helper to build its examples:
+
+- Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
+- Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
+
+This helper will log the command used to build the examples.
+
+### Audio in the browsers
+
+For the moment, everything is single threaded, this can lead to stuttering when playing audio in browsers. Not all browsers react the same way for all games, you will have to experiment for your game.
+
+In browsers, audio is not authorized to start without being triggered by an user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interact with your game.
 
 ### Optimizing
 

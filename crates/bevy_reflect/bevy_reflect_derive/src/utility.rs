@@ -32,7 +32,7 @@ pub(crate) struct ResultSifter<T> {
     errors: Option<syn::Error>,
 }
 
-/// Returns a `Member` made of `ident` or `index` if `ident` is None.
+/// Returns a [`Member`] made of `ident` or `index` if `ident` is None.
 ///
 /// Rust struct syntax allows for `Struct { foo: "string" }` with explicitly
 /// named fields. It allows the `Struct { 0: "string" }` syntax when the struct

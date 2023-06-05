@@ -5,6 +5,7 @@ use crate::type_path::parse_path_no_leading_colon;
 use crate::utility::{members_to_serialization_denylist, StringExpr, WhereClauseOptions};
 use bit_set::BitSet;
 use quote::{quote, ToTokens};
+use syn::token::Comma;
 
 use crate::{
     utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
@@ -13,8 +14,8 @@ use crate::{
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, Lit, LitStr, Meta,
-    Path, PathSegment, Token, Type, TypeParam, Variant,
+    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Meta, Path,
+    PathSegment, Type, TypeParam, Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -145,8 +146,8 @@ impl<'a> ReflectDerive<'a> {
         #[cfg(feature = "documentation")]
         let mut doc = crate::documentation::Documentation::default();
 
-        for attribute in input.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
-            match attribute {
+        for attribute in &input.attrs {
+            match &attribute.meta {
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
                     if !matches!(reflect_mode, None | Some(ReflectMode::Normal)) {
                         return Err(syn::Error::new(
@@ -156,8 +157,10 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-                    let new_traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
-                    traits = traits.merge(new_traits)?;
+                    let new_traits = ReflectTraits::from_metas(
+                        meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
+                    )?;
+                    traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
                     if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
@@ -168,8 +171,10 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let new_traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
-                    traits = traits.merge(new_traits)?;
+                    let new_traits = ReflectTraits::from_metas(
+                        meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
+                    )?;
+                    traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
                     if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
@@ -182,7 +187,10 @@ impl<'a> ReflectDerive<'a> {
                     reflect_mode = Some(ReflectMode::Value);
                 }
                 Meta::NameValue(pair) if pair.path.is_ident(TYPE_PATH_ATTRIBUTE_NAME) => {
-                    let Lit::Str(lit) = pair.lit else {
+                    let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(lit),
+                        ..
+                    }) = &pair.value else {
                         return Err(syn::Error::new(
                             pair.span(),
                             format_args!("`#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
@@ -195,7 +203,10 @@ impl<'a> ReflectDerive<'a> {
                     )?);
                 }
                 Meta::NameValue(pair) if pair.path.is_ident(TYPE_NAME_ATTRIBUTE_NAME) => {
-                    let Lit::Str(lit) = pair.lit else {
+                    let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(lit),
+                        ..
+                    }) = &pair.value else {
                         return Err(syn::Error::new(
                             pair.span(),
                             format_args!("`#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
@@ -206,7 +217,11 @@ impl<'a> ReflectDerive<'a> {
                 }
                 #[cfg(feature = "documentation")]
                 Meta::NameValue(pair) if pair.path.is_ident("doc") => {
-                    if let Lit::Str(lit) = pair.lit {
+                    if let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(lit),
+                        ..
+                    }) = &pair.value
+                    {
                         doc.push(lit.value());
                     }
                 }
@@ -308,7 +323,7 @@ impl<'a> ReflectDerive<'a> {
     }
 
     fn collect_enum_variants(
-        variants: &'a Punctuated<Variant, Token![,]>,
+        variants: &'a Punctuated<Variant, Comma>,
     ) -> Result<Vec<EnumVariant<'a>>, syn::Error> {
         let sifter: utility::ResultSifter<EnumVariant<'a>> = variants
             .iter()

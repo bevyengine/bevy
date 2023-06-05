@@ -34,6 +34,7 @@ The default feature set enables most of the expected features of a game engine, 
 |png|PNG image format support|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files|
 |vorbis|OGG/VORBIS audio format support|
+|webgl2|Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm|
 |x11|X11 display server support|
 |zstd|For KTX2 supercompression|
 
@@ -56,7 +57,10 @@ The default feature set enables most of the expected features of a game engine, 
 |jpeg|JPEG image format support|
 |minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|
+|pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |serialize|Enable serialization support through serde|
+|shader_format_glsl|Enable support for shaders in GLSL|
+|shader_format_spirv|Enable support for shaders in SPIR-V|
 |subpixel_glyph_atlas|Enable rendering of font glyphs using subpixel accuracy|
 |symphonia-aac|AAC audio format support (through symphonia)|
 |symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|

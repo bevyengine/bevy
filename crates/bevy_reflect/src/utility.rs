@@ -69,21 +69,21 @@ mod sealed {
 /// }
 /// #
 /// # impl Reflect for Foo {
-/// #     fn type_name(&self) -> &str { todo!() }
-/// #     fn get_type_info(&self) -> &'static TypeInfo { todo!() }
-/// #     fn get_type_path(&self) -> &dyn DynamicTypePath { todo!() }
-/// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
-/// #     fn as_any(&self) -> &dyn Any { todo!() }
-/// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
-/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
-/// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
-/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #     fn apply(&mut self, value: &dyn Reflect) { todo!() }
-/// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
-/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
-/// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
+/// #   fn type_name(&self) -> &str { todo!() }
+/// #   fn get_type_path(&self) -> &dyn DynamicTypePath { todo!() }
+/// #   fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
+/// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
+/// #   fn as_any(&self) -> &dyn Any { todo!() }
+/// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
+/// #   fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
+/// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
+/// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
+/// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }
+/// #   fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
+/// #   fn reflect_ref(&self) -> ReflectRef { todo!() }
+/// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
+/// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
 /// ```
 ///
@@ -141,21 +141,21 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 /// }
 /// #
 /// # impl<T: Reflect> Reflect for Foo<T> {
-/// #     fn type_name(&self) -> &str { todo!() }
-/// #     fn get_type_info(&self) -> &'static TypeInfo { todo!() }
-/// #     fn get_type_path(&self) -> &dyn DynamicTypePath { todo!() }
-/// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
-/// #     fn as_any(&self) -> &dyn Any { todo!() }
-/// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
-/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
-/// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
-/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #     fn apply(&mut self, value: &dyn Reflect) { todo!() }
-/// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
-/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
-/// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
+/// #   fn type_name(&self) -> &str { todo!() }
+/// #   fn get_type_path(&self) -> &dyn DynamicTypePath { todo!() }
+/// #   fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
+/// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
+/// #   fn as_any(&self) -> &dyn Any { todo!() }
+/// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
+/// #   fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
+/// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
+/// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
+/// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }
+/// #   fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
+/// #   fn reflect_ref(&self) -> ReflectRef { todo!() }
+/// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
+/// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
 /// ```
 ///

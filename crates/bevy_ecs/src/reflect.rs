@@ -3,7 +3,7 @@
 use crate::{
     change_detection::Mut,
     component::Component,
-    entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
+    entity::{Entity, EntityMap, EntityMapper, MapEntities},
     system::Resource,
     world::{
         unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell},
@@ -412,8 +412,8 @@ impl_from_reflect_value!(Entity);
 
 #[derive(Clone)]
 pub struct ReflectMapEntities {
-    map_entities: fn(&mut World, &EntityMap) -> Result<(), MapEntitiesError>,
-    map_specific_entities: fn(&mut World, &EntityMap, &[Entity]) -> Result<(), MapEntitiesError>,
+    map_all_entities: fn(&mut World, &mut EntityMapper),
+    map_entities: fn(&mut World, &mut EntityMapper, &[Entity]),
 }
 
 impl ReflectMapEntities {
@@ -424,49 +424,42 @@ impl ReflectMapEntities {
     /// by the [`EntityMap`] might already contain valid entity references, you should use [`map_entities`](Self::map_entities).
     ///
     /// An example of this: A scene can be loaded with `Parent` components, but then a `Parent` component can be added
-    /// to these entities after they have been loaded. If you reload the scene using [`map_entities`](Self::map_entities), those `Parent`
+    /// to these entities after they have been loaded. If you reload the scene using [`map_all_entities`](Self::map_all_entities), those `Parent`
     /// components with already valid entity references could be updated to point at something else entirely.
-    pub fn map_entities(
-        &self,
-        world: &mut World,
-        entity_map: &EntityMap,
-    ) -> Result<(), MapEntitiesError> {
-        (self.map_entities)(world, entity_map)
+    pub fn map_all_entities(&self, world: &mut World, entity_map: &mut EntityMap) {
+        entity_map.world_scope(world, self.map_all_entities);
     }
 
-    /// This is like [`map_entities`](Self::map_entities), but only applied to specific entities, not all values
+    /// A general method for applying [`MapEntities`] behavior to elements in an [`EntityMap`]. Unlike
+    /// [`map_all_entities`](Self::map_all_entities), this is applied to specific entities, not all values
     /// in the [`EntityMap`].
     ///
     /// This is useful mostly for when you need to be careful not to update components that already contain valid entity
-    /// values. See [`map_entities`](Self::map_entities) for more details.
-    pub fn map_specific_entities(
-        &self,
-        world: &mut World,
-        entity_map: &EntityMap,
-        entities: &[Entity],
-    ) -> Result<(), MapEntitiesError> {
-        (self.map_specific_entities)(world, entity_map, entities)
+    /// values. See [`map_all_entities`](Self::map_all_entities) for more details.
+    pub fn map_entities(&self, world: &mut World, entity_map: &mut EntityMap, entities: &[Entity]) {
+        entity_map.world_scope(world, |world, mapper| {
+            (self.map_entities)(world, mapper, entities);
+        });
     }
 }
 
 impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
-            map_specific_entities: |world, entity_map, entities| {
+            map_entities: |world, entity_mapper, entities| {
                 for &entity in entities {
                     if let Some(mut component) = world.get_mut::<C>(entity) {
-                        component.map_entities(entity_map)?;
+                        component.map_entities(entity_mapper);
                     }
                 }
-                Ok(())
             },
-            map_entities: |world, entity_map| {
-                for entity in entity_map.values() {
-                    if let Some(mut component) = world.get_mut::<C>(entity) {
-                        component.map_entities(entity_map)?;
+            map_all_entities: |world, entity_mapper| {
+                let entities = entity_mapper.get_map().values().collect::<Vec<Entity>>();
+                for entity in &entities {
+                    if let Some(mut component) = world.get_mut::<C>(*entity) {
+                        component.map_entities(entity_mapper);
                     }
                 }
-                Ok(())
             },
         }
     }

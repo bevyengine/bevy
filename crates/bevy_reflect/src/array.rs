@@ -1,9 +1,8 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect,
-    utility::{reflect_hasher, NonGenericTypeInfoCell},
-    DynamicInfo, DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+    self as bevy_reflect, utility::reflect_hasher, DynamicTypePath, Reflect, ReflectMut,
+    ReflectOwned, ReflectRef, TypeInfo,
 };
 use std::{
     any::{Any, TypeId},
@@ -70,7 +69,7 @@ pub trait Array: Reflect {
     /// Clones the list, producing a [`DynamicArray`].
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
-            name: self.type_name().to_string(),
+            represented_type: self.get_represented_type_info(),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
     }
@@ -170,7 +169,7 @@ impl ArrayInfo {
 /// [`DynamicList`]: crate::DynamicList
 #[derive(Debug)]
 pub struct DynamicArray {
-    pub(crate) name: String,
+    pub(crate) represented_type: Option<&'static TypeInfo>,
     pub(crate) values: Box<[Box<dyn Reflect>]>,
 }
 
@@ -178,14 +177,14 @@ impl DynamicArray {
     #[inline]
     pub fn new(values: Box<[Box<dyn Reflect>]>) -> Self {
         Self {
-            name: String::default(),
+            represented_type: None,
             values,
         }
     }
 
     pub fn from_vec<T: Reflect>(values: Vec<T>) -> Self {
         Self {
-            name: String::default(),
+            represented_type: None,
             values: values
                 .into_iter()
                 .map(|field| Box::new(field) as Box<dyn Reflect>)
@@ -194,26 +193,37 @@ impl DynamicArray {
         }
     }
 
-    #[inline]
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    /// Sets the [type] to be represented by this `DynamicArray`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [type] is not a [`TypeInfo::Array`].
+    ///
+    /// [type]: TypeInfo
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::Array(_)),
+                "expected TypeInfo::Array but received: {:?}",
+                represented_type
+            );
+        }
 
-    #[inline]
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+        self.represented_type = represented_type;
     }
 }
 
 impl Reflect for DynamicArray {
     #[inline]
     fn type_name(&self) -> &str {
-        self.name.as_str()
+        self.represented_type
+            .map(|info| info.type_name())
+            .unwrap_or_else(|| std::any::type_name::<Self>())
     }
 
     #[inline]
-    fn get_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 
     #[inline]
@@ -289,6 +299,11 @@ impl Reflect for DynamicArray {
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         array_partial_eq(self, value)
     }
+
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
+    }
 }
 
 impl Array for DynamicArray {
@@ -320,7 +335,7 @@ impl Array for DynamicArray {
     #[inline]
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
-            name: self.name.clone(),
+            represented_type: self.represented_type,
             values: self
                 .values
                 .iter()
@@ -330,15 +345,7 @@ impl Array for DynamicArray {
     }
 }
 
-impl Typed for DynamicArray {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
-    }
-}
-
 impl_type_path!((in bevy_reflect) DynamicArray);
-
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {
     array: &'a dyn Array,

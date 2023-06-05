@@ -14,7 +14,7 @@ use parking_lot::{Mutex, RwLock};
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
-/// Errors that occur while loading assets with an `AssetServer`.
+/// Errors that occur while loading assets with an [`AssetServer`].
 #[derive(Error, Debug)]
 pub enum AssetServerError {
     /// Asset folder is not a directory.
@@ -82,10 +82,11 @@ pub struct AssetServerInternal {
 /// ```
 /// # use bevy_asset::*;
 /// # use bevy_app::*;
+/// # use bevy_utils::Duration;
 /// # let mut app = App::new();
 /// // The asset plugin can be configured to watch for asset changes.
 /// app.add_plugin(AssetPlugin {
-///     watch_for_changes: true,
+///     watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
 ///     ..Default::default()
 /// });
 /// ```
@@ -702,7 +703,7 @@ mod test {
     fn setup(asset_path: impl AsRef<Path>) -> AssetServer {
         use crate::FileAssetIo;
         IoTaskPool::init(Default::default);
-        AssetServer::new(FileAssetIo::new(asset_path, false))
+        AssetServer::new(FileAssetIo::new(asset_path, &None))
     }
 
     #[test]

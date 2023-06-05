@@ -39,7 +39,7 @@ pub mod prelude {
         query::{Added, AnyOf, Changed, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_state_transition, apply_system_buffers, common_conditions::*, Condition,
+            apply_deferred, apply_state_transition, common_conditions::*, Condition,
             IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
             OnEnter, OnExit, OnTransition, Schedule, Schedules, State, States, SystemSet,
         },
@@ -55,7 +55,7 @@ pub mod prelude {
 
 pub use bevy_utils::all_tuples;
 
-/// A specialized hashmap type with Key of `TypeId`
+/// A specialized hashmap type with Key of [`TypeId`]
 type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 
 #[cfg(test)]

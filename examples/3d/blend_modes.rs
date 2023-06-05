@@ -302,7 +302,7 @@ fn example_control_system(
     let randomize_colors = input.just_pressed(KeyCode::C);
 
     for (material_handle, controls) in &controllable {
-        let mut material = materials.get_mut(material_handle).unwrap();
+        let material = materials.get_mut(material_handle).unwrap();
         material.base_color.set_a(state.alpha);
 
         if controls.color && randomize_colors {

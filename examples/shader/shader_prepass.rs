@@ -28,6 +28,8 @@ fn main() {
         })
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, toggle_prepass_view))
+        // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
+        .insert_resource(Msaa::Off)
         .run();
 }
 

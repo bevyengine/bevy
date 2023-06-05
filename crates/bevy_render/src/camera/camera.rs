@@ -18,7 +18,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_log::warn;
-use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{Mat4, Ray, Rect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
@@ -103,10 +103,7 @@ pub struct Camera {
     #[reflect(ignore)]
     pub target: RenderTarget,
     /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render texture.
-    /// Warning: we are still working on this feature. If MSAA is enabled, there will be artifacts in
-    /// some cases. When rendering with WebGL, this will crash if MSAA is enabled.
-    /// See <https://github.com/bevyengine/bevy/pull/3425> for details.
-    // TODO: resolve the issues mentioned in the doc comment above, then remove the warning.
+    /// This allows rendering with a wider range of lighting values.
     pub hdr: bool,
     // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
@@ -156,13 +153,16 @@ impl Camera {
         Some((min, max))
     }
 
-    /// The rendered logical bounds (minimum, maximum) of the camera. If the `viewport` field is set
-    /// to [`Some`], this will be the rect of that custom viewport. Otherwise it will default to the
+    /// The rendered logical bounds [`Rect`] of the camera. If the `viewport` field is set to
+    /// [`Some`], this will be the rect of that custom viewport. Otherwise it will default to the
     /// full logical rect of the current [`RenderTarget`].
     #[inline]
-    pub fn logical_viewport_rect(&self) -> Option<(Vec2, Vec2)> {
+    pub fn logical_viewport_rect(&self) -> Option<Rect> {
         let (min, max) = self.physical_viewport_rect()?;
-        Some((self.to_logical(min)?, self.to_logical(max)?))
+        Some(Rect {
+            min: self.to_logical(min)?,
+            max: self.to_logical(max)?,
+        })
     }
 
     /// The logical size of this camera's viewport. If the `viewport` field is set to [`Some`], this

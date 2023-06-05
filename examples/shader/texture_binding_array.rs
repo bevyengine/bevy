@@ -9,30 +9,17 @@ use bevy::{
         render_resource::{AsBindGroupError, PreparedBindGroup, *},
         renderer::RenderDevice,
         texture::FallbackImage,
+        RenderApp,
     },
 };
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, process::exit};
 
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()));
 
-    let render_device = app.world.resource::<RenderDevice>();
-
-    // check if the device support the required feature
-    if !render_device
-        .features()
-        .contains(WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING)
-    {
-        error!(
-            "Render device doesn't support feature \
-            SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING, \
-            which is required for texture binding arrays"
-        );
-        return;
-    }
-
-    app.add_plugin(MaterialPlugin::<BindlessMaterial>::default())
+    app.add_plugin(GpuFeatureSupportChecker)
+        .add_plugin(MaterialPlugin::<BindlessMaterial>::default())
         .add_systems(Startup, setup)
         .run();
 }
@@ -41,6 +28,34 @@ const MAX_TEXTURE_COUNT: usize = 16;
 const TILE_ID: [usize; 16] = [
     19, 23, 4, 33, 12, 69, 30, 48, 10, 65, 40, 47, 57, 41, 44, 46,
 ];
+
+struct GpuFeatureSupportChecker;
+
+impl Plugin for GpuFeatureSupportChecker {
+    fn build(&self, _app: &mut App) {}
+
+    fn finish(&self, app: &mut App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return
+        };
+
+        let render_device = render_app.world.resource::<RenderDevice>();
+
+        // Check if the device support the required feature. If not, exit the example.
+        // In a real application, you should setup a fallback for the missing feature
+        if !render_device
+            .features()
+            .contains(WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING)
+        {
+            error!(
+                "Render device doesn't support feature \
+SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING, \
+which is required for texture binding arrays"
+            );
+            exit(1);
+        }
+    }
+}
 
 fn setup(
     mut commands: Commands,

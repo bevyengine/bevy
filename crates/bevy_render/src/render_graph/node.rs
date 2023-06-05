@@ -6,7 +6,10 @@ use crate::{
     },
     renderer::RenderContext,
 };
-use bevy_ecs::world::World;
+use bevy_ecs::{
+    query::{QueryItem, QueryState, ReadOnlyWorldQuery},
+    world::{FromWorld, World},
+};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
@@ -329,6 +332,78 @@ impl Node for RunGraphOnViewNode {
         _world: &World,
     ) -> Result<(), NodeRunError> {
         graph.run_sub_graph(self.graph_name.clone(), vec![], Some(graph.view_entity()))?;
+        Ok(())
+    }
+}
+
+/// This trait should be used instead of the [`Node`] trait when making a render node that runs on a view.
+///
+/// It is intended to be used with [`ViewNodeRunner`]
+pub trait ViewNode {
+    /// The query that will be used on the view entity.
+    /// It is guaranteed to run on the view entity, so there's no need for a filter
+    type ViewQuery: ReadOnlyWorldQuery;
+
+    /// Updates internal node state using the current render [`World`] prior to the run method.
+    fn update(&mut self, _world: &mut World) {}
+
+    /// Runs the graph node logic, issues draw calls, updates the output slots and
+    /// optionally queues up subgraphs for execution. The graph data, input and output values are
+    /// passed via the [`RenderGraphContext`].
+    fn run(
+        &self,
+        graph: &mut RenderGraphContext,
+        render_context: &mut RenderContext,
+        view_query: QueryItem<Self::ViewQuery>,
+        world: &World,
+    ) -> Result<(), NodeRunError>;
+}
+
+/// This [`Node`] can be used to run any [`ViewNode`].
+/// It will take care of updating the view query in `update()` and running the query in `run()`.
+///
+/// This [`Node`] exists to help reduce boilerplate when making a render node that runs on a view.
+pub struct ViewNodeRunner<N: ViewNode> {
+    view_query: QueryState<N::ViewQuery>,
+    node: N,
+}
+
+impl<N: ViewNode> ViewNodeRunner<N> {
+    pub fn new(node: N, world: &mut World) -> Self {
+        Self {
+            view_query: world.query_filtered(),
+            node,
+        }
+    }
+}
+
+impl<N: ViewNode + FromWorld> FromWorld for ViewNodeRunner<N> {
+    fn from_world(world: &mut World) -> Self {
+        Self::new(N::from_world(world), world)
+    }
+}
+
+impl<T> Node for ViewNodeRunner<T>
+where
+    T: ViewNode + Send + Sync + 'static,
+{
+    fn update(&mut self, world: &mut World) {
+        self.view_query.update_archetypes(world);
+        self.node.update(world);
+    }
+
+    fn run(
+        &self,
+        graph: &mut RenderGraphContext,
+        render_context: &mut RenderContext,
+        world: &World,
+    ) -> Result<(), NodeRunError> {
+        let Ok(view) = self
+            .view_query
+            .get_manual(world, graph.view_entity())
+        else { return Ok(()); };
+
+        ViewNode::run(&self.node, graph, render_context, view, world)?;
         Ok(())
     }
 }
