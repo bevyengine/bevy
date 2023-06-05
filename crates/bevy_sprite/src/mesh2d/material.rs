@@ -111,9 +111,7 @@ use crate::{
 /// @group(1) @binding(2)
 /// var color_sampler: sampler;
 /// ```
-pub trait Material2d:
-    AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Sized + 'static
-{
+pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {

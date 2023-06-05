@@ -275,22 +275,6 @@ macro_rules! impl_reflect_for_veclike {
                 <$sub>::get_mut(self, index).map(|value| value as &mut dyn Reflect)
             }
 
-            #[inline]
-            fn len(&self) -> usize {
-                <$sub>::len(self)
-            }
-
-            #[inline]
-            fn iter(&self) -> ListIter {
-                ListIter::new(self)
-            }
-
-            #[inline]
-            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-                self.into_iter()
-                    .map(|value| Box::new(value) as Box<dyn Reflect>)
-                    .collect()
-            }
             fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
                 let value = value.take::<T>().unwrap_or_else(|value| {
                     T::from_reflect(&*value).unwrap_or_else(|| {
@@ -319,6 +303,23 @@ macro_rules! impl_reflect_for_veclike {
 
             fn pop(&mut self) -> Option<Box<dyn Reflect>> {
                 $pop(self).map(|value| Box::new(value) as Box<dyn Reflect>)
+            }
+
+            #[inline]
+            fn len(&self) -> usize {
+                <$sub>::len(self)
+            }
+
+            #[inline]
+            fn iter(&self) -> ListIter {
+                ListIter::new(self)
+            }
+
+            #[inline]
+            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+                self.into_iter()
+                    .map(|value| Box::new(value) as Box<dyn Reflect>)
+                    .collect()
             }
         }
 
@@ -666,8 +667,8 @@ impl_type_path!(::std::collections::hash_map::RandomState);
 impl_type_path!(
     ::std::collections::HashMap<K, V, S>
     where
-        K: FromReflect + Eq + Hash,
-        V: FromReflect,
+        K: FromReflect + Eq + Hash + ?Sized,
+        V: FromReflect + ?Sized,
         S: BuildHasher + Send + Sync + 'static,
 );
 
@@ -676,8 +677,8 @@ impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
 impl_type_path!(
     ::bevy_utils::hashbrown::HashMap<K, V, S>
     where
-        K: FromReflect + Eq + Hash,
-        V: FromReflect,
+        K: FromReflect + Eq + Hash + ?Sized,
+        V: FromReflect + ?Sized,
         S: BuildHasher + Send + Sync + 'static,
 );
 
@@ -1458,7 +1459,7 @@ impl Typed for Cow<'static, Path> {
 
 trait PathOnly: ToOwned {}
 impl PathOnly for Path {}
-impl_type_path!(::alloc::borrow::Cow<'a: 'static, T: PathOnly>);
+impl_type_path!(::alloc::borrow::Cow<'a: 'static, T: PathOnly + ?Sized>);
 impl_type_path!(::std::path::Path);
 
 impl FromReflect for Cow<'static, Path> {

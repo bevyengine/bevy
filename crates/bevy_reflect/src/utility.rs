@@ -99,7 +99,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
         Self(OnceBox::new())
     }
 
-    /// Returns a reference to the [`TypeInfo`] stored in the cell.
+    /// Returns a reference to the [`TypedProperty`] stored in the cell.
     ///
     /// If there is no entry found, a new one will be generated from the given function.
     pub fn get_or_set<F>(&self, f: F) -> &T::Stored
