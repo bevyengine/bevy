@@ -1,3 +1,12 @@
+#![allow(clippy::type_complexity)]
+#![warn(missing_docs)]
+//! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
+//!
+//! Most commonly, the [`WinitPlugin`] is used as part of
+//! [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
+//! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`](winit::event_loop::EventLoop).
+//! See `winit_runner` for details.
+
 pub mod accessibility;
 mod converters;
 mod system;
@@ -8,12 +17,14 @@ mod winit_windows;
 
 use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::system::{SystemParam, SystemState};
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_tasks::tick_global_task_pools_on_main_thread;
 use system::{changed_window, create_window, despawn_window, CachedWindow};
 
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, CoreSet, Plugin};
+use bevy_app::{App, AppExit, Last, Plugin};
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::*;
 use bevy_input::{
@@ -47,8 +58,9 @@ use crate::accessibility::{AccessKitAdapters, AccessibilityPlugin, WinitActionHa
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
 #[cfg(target_os = "android")]
-pub static ANDROID_APP: once_cell::sync::OnceCell<AndroidApp> = once_cell::sync::OnceCell::new();
+pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::new();
 
+/// A [`Plugin`] that utilizes [`winit`] for window creation and event loop management.
 #[derive(Default)]
 pub struct WinitPlugin;
 
@@ -76,12 +88,12 @@ impl Plugin for WinitPlugin {
             // exit_on_all_closed only uses the query to determine if the query is empty,
             // and so doesn't care about ordering relative to changed_window
             .add_systems(
+                Last,
                 (
                     changed_window.ambiguous_with(exit_on_all_closed),
                     // Update the state of the window before attempting to despawn to ensure consistent event ordering
                     despawn_window.after(changed_window),
-                )
-                    .in_base_set(CoreSet::Last),
+                ),
             );
 
         app.add_plugin(AccessibilityPlugin);
@@ -144,7 +156,7 @@ impl Plugin for WinitPlugin {
             ) = create_window_system_state.get_mut(&mut app.world);
 
             // Here we need to create a winit-window and give it a WindowHandle which the renderer can use.
-            // It needs to be spawned before the start of the startup-stage, so we cannot use a regular system.
+            // It needs to be spawned before the start of the startup schedule, so we cannot use a regular system.
             // Instead we need to create the window and spawn it using direct world access
             create_window(
                 commands,
@@ -254,7 +266,8 @@ struct WinitPersistentState {
     low_power_event: bool,
     /// Tracks whether the event loop was started this frame because of a redraw request.
     redraw_request_sent: bool,
-    /// Tracks if the event loop was started this frame because of a `WaitUntil` timeout.
+    /// Tracks if the event loop was started this frame because of a [`ControlFlow::WaitUntil`]
+    /// timeout.
     timeout_reached: bool,
     last_update: Instant,
 }
@@ -270,6 +283,9 @@ impl Default for WinitPersistentState {
     }
 }
 
+/// The default [`App::runner`] for the [`WinitPlugin`] plugin.
+///
+/// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the `EventLoop`.
 pub fn winit_runner(mut app: App) {
     // We remove this so that we have ownership over it.
     let mut event_loop = app
@@ -313,11 +329,24 @@ pub fn winit_runner(mut app: App) {
         ResMut<CanvasParentResizeEventChannel>,
     )> = SystemState::from_world(&mut app.world);
 
+    let mut finished_and_setup_done = false;
+
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
                               control_flow: &mut ControlFlow| {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
+
+        if !finished_and_setup_done {
+            if !app.ready() {
+                #[cfg(not(target_arch = "wasm32"))]
+                tick_global_task_pools_on_main_thread();
+            } else {
+                app.finish();
+                app.cleanup();
+                finished_and_setup_done = true;
+            }
+        }
 
         if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
             if app_exit_event_reader.iter(app_exit_events).last().is_some() {
@@ -422,11 +451,7 @@ pub fn winit_runner(mut app: App) {
                             .send(converters::convert_keyboard_input(input));
                     }
                     WindowEvent::CursorMoved { position, .. } => {
-                        let physical_position = DVec2::new(
-                            position.x,
-                            // Flip the coordinate space from winit's context to our context.
-                            window.resolution.physical_height() as f64 - position.y,
-                        );
+                        let physical_position = DVec2::new(position.x, position.y);
 
                         window.set_physical_cursor_position(Some(physical_position));
 
@@ -555,7 +580,7 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                     WindowEvent::HoveredFileCancelled => {
-                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCancelled {
+                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCanceled {
                             window: window_entity,
                         });
                     }
@@ -638,7 +663,7 @@ pub fn winit_runner(mut app: App) {
                     false
                 };
 
-                if update {
+                if update && finished_and_setup_done {
                     winit_state.last_update = Instant::now();
                     app.update();
                 }

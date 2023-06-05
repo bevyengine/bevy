@@ -39,7 +39,7 @@ use std::{
 /// #
 /// # impl Reflect for Foo {
 /// #   fn type_name(&self) -> &str { todo!() }
-/// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
+/// #   fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
 /// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
@@ -102,7 +102,7 @@ impl NonGenericTypeInfoCell {
 /// #
 /// # impl<T: Reflect> Reflect for Foo<T> {
 /// #   fn type_name(&self) -> &str { todo!() }
-/// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
+/// #   fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
 /// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }

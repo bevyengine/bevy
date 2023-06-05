@@ -169,7 +169,7 @@
 //! ```
 //! # use bevy_reflect::{DynamicEnum, Reflect};
 //! let mut value = Some(123_i32);
-//! let patch = DynamicEnum::new(std::any::type_name::<Option<i32>>(), "None", ());
+//! let patch = DynamicEnum::new("None", ());
 //! value.apply(&patch);
 //! assert_eq!(None, value);
 //! ```
@@ -435,6 +435,7 @@
 //! [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type:~:text=But%20we%20can%E2%80%99t,implementation%20to%20use.
 //! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
 //! [derive `Reflect`]: derive@crate::Reflect
+#![allow(clippy::type_complexity)]
 
 mod array;
 mod fields;
@@ -478,7 +479,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         reflect_trait, FromReflect, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
-        ReflectSerialize, Struct, TupleStruct,
+        ReflectFromReflect, ReflectSerialize, Struct, TupleStruct,
     };
 }
 
@@ -748,6 +749,39 @@ mod tests {
         let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
 
         assert_eq!(Some(expected), my_struct);
+    }
+
+    #[test]
+    fn from_reflect_should_use_default_variant_field_attributes() {
+        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        enum MyEnum {
+            Foo(#[reflect(default)] String),
+            Bar {
+                #[reflect(default = "get_baz_default")]
+                #[reflect(ignore)]
+                baz: usize,
+            },
+        }
+
+        fn get_baz_default() -> usize {
+            123
+        }
+
+        let expected = MyEnum::Foo(String::default());
+
+        let dyn_enum = DynamicEnum::new("Foo", DynamicTuple::default());
+        let my_enum = <MyEnum as FromReflect>::from_reflect(&dyn_enum);
+
+        assert_eq!(Some(expected), my_enum);
+
+        let expected = MyEnum::Bar {
+            baz: get_baz_default(),
+        };
+
+        let dyn_enum = DynamicEnum::new("Bar", DynamicStruct::default());
+        let my_enum = <MyEnum as FromReflect>::from_reflect(&dyn_enum);
+
+        assert_eq!(Some(expected), my_enum);
     }
 
     #[test]
@@ -1099,7 +1133,7 @@ mod tests {
 
         // TypeInfo (instance)
         let value: &dyn Reflect = &123_i32;
-        let info = value.get_type_info();
+        let info = value.get_represented_type_info().unwrap();
         assert!(info.is::<i32>());
 
         // Struct
@@ -1132,7 +1166,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &MyStruct { foo: 123, bar: 321 };
-        let info = value.get_type_info();
+        let info = value.get_represented_type_info().unwrap();
         assert!(info.is::<MyStruct>());
 
         // Struct (generic)
@@ -1166,7 +1200,7 @@ mod tests {
             foo: String::from("Hello!"),
             bar: 321,
         };
-        let info = value.get_type_info();
+        let info = value.get_represented_type_info().unwrap();
         assert!(info.is::<MyGenericStruct<String>>());
 
         // Tuple Struct
@@ -1202,7 +1236,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &(123_u32, 1.23_f32, String::from("Hello!"));
-        let info = value.get_type_info();
+        let info = value.get_represented_type_info().unwrap();
         assert!(info.is::<MyTuple>());
 
         // List
@@ -1219,7 +1253,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &vec![123_usize];
-        let info = value.get_type_info();
+        let info = value.get_represented_type_info().unwrap();
         assert!(info.is::<MyList>());
 
         // List (SmallVec)
@@ -1239,7 +1273,7 @@ mod tests {
 
             let value: MySmallVec = smallvec::smallvec![String::default(); 2];
             let value: &dyn Reflect = &value;
-            let info = value.get_type_info();
+            let info = value.get_represented_type_info().unwrap();
             assert!(info.is::<MySmallVec>());
         }
 
@@ -1258,7 +1292,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &[1usize, 2usize, 3usize];
-        let info = value.get_type_info();
+        let info = value.get_represented_type_info().unwrap();
         assert!(info.is::<MyArray>());
 
         // Map
@@ -1277,7 +1311,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &MyMap::new();
-        let info = value.get_type_info();
+        let info = value.get_represented_type_info().unwrap();
         assert!(info.is::<MyMap>());
 
         // Value
@@ -1292,23 +1326,23 @@ mod tests {
         }
 
         let value: &dyn Reflect = &String::from("Hello!");
-        let info = value.get_type_info();
+        let info = value.get_represented_type_info().unwrap();
         assert!(info.is::<MyValue>());
+    }
 
-        // Dynamic
-        type MyDynamic = DynamicList;
+    #[test]
+    fn should_permit_valid_represented_type_for_dynamic() {
+        let type_info = <[i32; 2] as Typed>::type_info();
+        let mut dynamic_array = [123; 2].clone_dynamic();
+        dynamic_array.set_represented_type(Some(type_info));
+    }
 
-        let info = MyDynamic::type_info();
-        if let TypeInfo::Dynamic(info) = info {
-            assert!(info.is::<MyDynamic>());
-            assert_eq!(std::any::type_name::<MyDynamic>(), info.type_name());
-        } else {
-            panic!("Expected `TypeInfo::Dynamic`");
-        }
-
-        let value: &dyn Reflect = &DynamicList::default();
-        let info = value.get_type_info();
-        assert!(info.is::<MyDynamic>());
+    #[test]
+    #[should_panic(expected = "expected TypeInfo::Array but received")]
+    fn should_prohibit_invalid_represented_type_for_dynamic() {
+        let type_info = <(i32, i32) as Typed>::type_info();
+        let mut dynamic_array = [123; 2].clone_dynamic();
+        dynamic_array.set_represented_type(Some(type_info));
     }
 
     #[cfg(feature = "documentation")]
@@ -1633,6 +1667,24 @@ bevy_reflect::tests::should_reflect_debug::Test {
         assert!(foo.reflect_hash().is_some());
         assert_eq!(Some(true), foo.reflect_partial_eq(foo));
         assert_eq!("Foo".to_string(), format!("{foo:?}"));
+    }
+
+    #[test]
+    fn custom_debug_function() {
+        #[derive(Reflect)]
+        #[reflect(Debug(custom_debug))]
+        struct Foo {
+            a: u32,
+        }
+
+        fn custom_debug(_x: &Foo, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "123")
+        }
+
+        let foo = Foo { a: 1 };
+        let foo: &dyn Reflect = &foo;
+
+        assert_eq!("123", format!("{:?}", foo));
     }
 
     #[cfg(feature = "glam")]

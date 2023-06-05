@@ -8,7 +8,8 @@ use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), movement, animate_light_direction))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (movement, animate_light_direction))
         .run();
 }
 
@@ -231,6 +232,23 @@ fn setup(
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
+
+    // example instructions
+    commands.spawn(
+        TextBundle::from_section(
+            "Use arrow keys to move objects",
+            TextStyle {
+                font_size: 20.0,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        }),
+    );
 }
 
 fn animate_light_direction(

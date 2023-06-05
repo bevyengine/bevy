@@ -1,4 +1,4 @@
-//! This example shows how you can know when a `Component` has been removed, so you can react to it.
+//! This example shows how you can know when a [`Component`] has been removed, so you can react to it.
 
 use bevy::prelude::*;
 
@@ -7,18 +7,16 @@ fn main() {
     // to react to the removal before the frame is over.
     //
     // Also, `Components` are removed via a `Command`, which are not applied immediately.
-    // So you need to react to the removal at some stage after `apply_system_buffers` has run,
+    // So you need to react to the removal at some stage after `apply_deferred` has run,
     // and the Component` is removed.
     //
     // With these constraints in mind we make sure to place the system that removes a `Component` in
     // `CoreSet::Update', and the system that reacts on the removal in `CoreSet::PostUpdate`.
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((
-            setup.on_startup(),
-            remove_component,
-            react_on_removal.in_base_set(CoreSet::PostUpdate),
-        ))
+        .add_systems(Startup, setup)
+        .add_systems(Update, remove_component)
+        .add_systems(PostUpdate, react_on_removal)
         .run();
 }
 

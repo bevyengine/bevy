@@ -5,7 +5,7 @@ use bevy_render::color::Color;
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
-use crate::Font;
+use crate::{Font, DEFAULT_FONT_HANDLE};
 
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
@@ -15,7 +15,7 @@ pub struct Text {
     /// Should not affect its position within a container.
     pub alignment: TextAlignment,
     /// How the text should linebreak when running out of the bounds determined by max_size
-    pub linebreak_behaviour: BreakLineOn,
+    pub linebreak_behavior: BreakLineOn,
 }
 
 impl Default for Text {
@@ -23,7 +23,7 @@ impl Default for Text {
         Self {
             sections: Default::default(),
             alignment: TextAlignment::Left,
-            linebreak_behaviour: BreakLineOn::WordBoundary,
+            linebreak_behavior: BreakLineOn::WordBoundary,
         }
     }
 }
@@ -167,7 +167,7 @@ pub struct TextStyle {
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
-            font: Default::default(),
+            font: DEFAULT_FONT_HANDLE.typed(),
             font_size: 12.0,
             color: Color::WHITE,
         }
@@ -180,10 +180,10 @@ impl Default for TextStyle {
 pub enum BreakLineOn {
     /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).
     /// Lines will be broken up at the nearest suitable word boundary, usually a space.
-    /// This behaviour suits most cases, as it keeps words intact across linebreaks.
+    /// This behavior suits most cases, as it keeps words intact across linebreaks.
     WordBoundary,
     /// Lines will be broken without discrimination on any character that would leave bounds.
-    /// This is closer to the behaviour one might expect from text in a terminal.
+    /// This is closer to the behavior one might expect from text in a terminal.
     /// However it may lead to words being broken up across linebreaks.
     AnyCharacter,
 }

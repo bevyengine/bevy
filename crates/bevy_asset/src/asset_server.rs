@@ -14,7 +14,7 @@ use parking_lot::{Mutex, RwLock};
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
-/// Errors that occur while loading assets with an `AssetServer`.
+/// Errors that occur while loading assets with an [`AssetServer`].
 #[derive(Error, Debug)]
 pub enum AssetServerError {
     /// Asset folder is not a directory.
@@ -82,10 +82,11 @@ pub struct AssetServerInternal {
 /// ```
 /// # use bevy_asset::*;
 /// # use bevy_app::*;
+/// # use bevy_utils::Duration;
 /// # let mut app = App::new();
 /// // The asset plugin can be configured to watch for asset changes.
 /// app.add_plugin(AssetPlugin {
-///     watch_for_changes: true,
+///     watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
 ///     ..Default::default()
 /// });
 /// ```
@@ -644,7 +645,7 @@ pub fn free_unused_assets_system(asset_server: Res<AssetServer>) {
 mod test {
     use super::*;
     use crate::{loader::LoadedAsset, update_asset_storage_system};
-    use bevy_app::App;
+    use bevy_app::{App, Update};
     use bevy_ecs::prelude::*;
     use bevy_reflect::TypeUuid;
     use bevy_utils::BoxedFuture;
@@ -702,7 +703,7 @@ mod test {
     fn setup(asset_path: impl AsRef<Path>) -> AssetServer {
         use crate::FileAssetIo;
         IoTaskPool::init(Default::default);
-        AssetServer::new(FileAssetIo::new(asset_path, false))
+        AssetServer::new(FileAssetIo::new(asset_path, &None))
     }
 
     #[test]
@@ -852,10 +853,13 @@ mod test {
         let mut app = App::new();
         app.insert_resource(assets);
         app.insert_resource(asset_server);
-        app.add_systems((
-            free_unused_assets_system.in_set(FreeUnusedAssets),
-            update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets),
-        ));
+        app.add_systems(
+            Update,
+            (
+                free_unused_assets_system.in_set(FreeUnusedAssets),
+                update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets),
+            ),
+        );
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
             let asset_server = world.resource::<AssetServer>();
