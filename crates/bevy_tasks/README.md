@@ -11,6 +11,20 @@ or ordering of spawned tasks.
 It is based on [`async-executor`][async-executor], a lightweight executor that allows the end user to manage their own threads.
 `async-executor` is based on async-task, a core piece of async-std.
 
+## Usage
+
+Tasks are spawned via thread pools, of which bevy_tasks provides three different ones for different kinds of tasks.
+The determining factor for what kind of work should go in each pool is latency requirements:
+
+* For CPU-intensive work (tasks that generally spin until completion) we have a standard
+  [`ComputeTaskPool`] and an [`AsyncComputeTaskPool`]. Work that does not need to be completed to
+  present the next frame should go to the [`AsyncComputeTaskPool`].
+
+* For IO-intensive work (tasks that spend very little time in a "woken" state) we have an
+  [`IoTaskPool`] whose tasks are expected to complete very quickly. Generally speaking, they should just
+  await receiving data from somewhere (i.e. disk) and signal other systems when the data is ready
+  for consumption. (likely via channels)
+
 [bevy]: https://bevyengine.org
 [rayon]: https://github.com/rayon-rs/rayon
 [async-executor]: https://github.com/stjepang/async-executor
