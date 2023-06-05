@@ -81,9 +81,10 @@ impl Sphere {
     }
 }
 
-/// A half-space defined by a unit normal and distance from the origin along the normal
-/// Any point `p` is considered to be within the half-space,
-/// or on the positive side (inside) of the plane, if the equation `n.p + d > 0` is satisfied.
+/// A HalfSpace, characterized by the bisecting plane's unit normal and distance from the origin along the normal.
+/// This bisecting plane partitions the 3D space into two regions.
+/// Any point `p` is considered to be within the HalfSpace when the distance is positive,
+/// meaning: if the equation `n.p + d > 0` is satisfied.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HalfSpace {
     normal_d: Vec4,
@@ -91,10 +92,9 @@ pub struct HalfSpace {
 
 impl HalfSpace {
     /// Constructs a `HalfSpace` from a 4D vector whose first 3 components
-    /// are the normal and whose last component is the distance along the normal
-    /// from the origin.
-    /// This constructor ensures that the normal is normalized and the distance is
-    /// scaled accordingly so it represents the signed distance from the origin.
+    /// represent the bisecting plane's unit normal, and the last component signifies
+    /// the distance from the origin to the plane along the normal.
+    /// The constructor ensures the normal vector is normalized and the distance is appropriately scaled.
     #[inline]
     pub fn new(normal_d: Vec4) -> Self {
         Self {
@@ -102,21 +102,21 @@ impl HalfSpace {
         }
     }
 
-    /// `HalfSpace` unit normal
+    /// Returns the unit normal vector of the bisecting plane that characterizes the `HalfSpace`.
     #[inline]
     pub fn normal(&self) -> Vec3A {
         Vec3A::from(self.normal_d)
     }
 
-    /// Signed distance from the origin along the unit normal such that n.p + d = 0 for point p in
-    /// the `HalfSpace`
+    /// Returns the distance from the origin to the bisecting plane along the plane's unit normal vector.
+    /// This distance helps determine the position of a point `p` on the bisecting plane, as per the equation `n.p + d = 0`.
     #[inline]
     pub fn d(&self) -> f32 {
         self.normal_d.w
     }
 
-    /// `HalfSpace` unit normal and signed distance from the origin such that n.p + d = 0 for point p
-    /// in the `HalfSpace`
+    /// Returns the bisecting plane's unit normal vector and the distance from the origin to the plane.
+    /// The returned 4D vector embodies the key properties of the bisecting plane that characterizes the `HalfSpace`.
     #[inline]
     pub fn normal_d(&self) -> Vec4 {
         self.normal_d
