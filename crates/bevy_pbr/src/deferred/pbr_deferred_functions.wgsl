@@ -73,29 +73,34 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
 
 // Creates a PbrInput from the deferred gbuffer
 fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
+    var pbr: PbrInput;
+    pbr.material = standard_material_new();
+
     let flags = unpack_flags(gbuffer.a);
     let deferred_flags = mesh_mat_flags_from_deferred_flags(flags);
-    let mesh_flags = deferred_flags.x;
-    let mat_flags = deferred_flags.y;
+    pbr.flags = deferred_flags.x;
+    pbr.material.flags = deferred_flags.y;
 
     let base_rough = unpack_unorm4x8(gbuffer.r);
-    var base_color = pow(base_rough.rgb, vec3(2.2));
-    let perceptual_roughness = base_rough.a;
-    var emissive = rgb9e5_to_float3(gbuffer.g);
-    if ((mat_flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
-        base_color = emissive;
-        emissive = vec3(0.0);
+    pbr.material.perceptual_roughness = base_rough.a;
+    let emissive = rgb9e5_to_float3(gbuffer.g);
+    if ((pbr.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
+        pbr.material.base_color = vec4(emissive, 1.0);
+        pbr.material.emissive = vec4(vec3(0.0), 1.0);
+    } else {
+        pbr.material.base_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
+        pbr.material.emissive = vec4(emissive, 1.0);
     }
 #ifdef WEBGL // More crunched for webgl so we can fit also depth
     let props = unpack_unorm3x4_plus_unorm_20(gbuffer.b);
     // bias to 0.5 since that's the value for almost all materials
-    let reflectance = saturate(props.r - 0.03333333333); 
+    pbr.material.reflectance = saturate(props.r - 0.03333333333); 
 #else
     let props = unpack_unorm4x8(gbuffer.b);
-    let reflectance = props.r;
+    pbr.material.reflectance = props.r;
 #endif //WEBGL
-    let metallic = props.g;
-    let occlusion = props.b;
+    pbr.material.metallic = props.g;
+    pbr.occlusion = props.b;
     let oct_nor = unpack_24bit_nor(gbuffer.a);
     let N = octa_decode(oct_nor);
 
@@ -103,28 +108,14 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let is_orthographic = view.projection[3].w == 1.0;
     let V = calculate_view(world_position, is_orthographic);
     
-    var pbr_input: PbrInput;
+    pbr.frag_coord = frag_coord;
+    pbr.world_normal = N; 
+    pbr.world_position = world_position;
+    pbr.N = N;
+    pbr.V = V;
+    pbr.is_orthographic = is_orthographic;
 
-    pbr_input.material = standard_material_new();
-
-    pbr_input.flags = mesh_flags;
-    pbr_input.occlusion = occlusion;
-
-    pbr_input.material.base_color = vec4(base_color, 1.0);
-    pbr_input.material.emissive = vec4(emissive, 1.0);
-    pbr_input.material.perceptual_roughness = perceptual_roughness;
-    pbr_input.material.metallic = metallic;
-    pbr_input.material.reflectance = reflectance;
-    pbr_input.material.flags = mat_flags;
-
-    pbr_input.frag_coord = frag_coord;
-    pbr_input.world_normal = N; 
-    pbr_input.world_position = world_position;
-    pbr_input.N = N;
-    pbr_input.V = V;
-    pbr_input.is_orthographic = is_orthographic;
-
-    return pbr_input;
+    return pbr;
 }
 
 
