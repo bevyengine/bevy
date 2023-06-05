@@ -60,7 +60,7 @@ pub fn ui_stack_system(
     children_query: Query<&Children>,
 ) {
     ui_stacks.stacks.clear();
-    
+
     // Remove the associated layout root for removed camera entities, if one exists
     for camera_entity in removed_cameras.iter() {
         if let Some(layout_root) = camera_to_root.remove(&camera_entity) {
@@ -91,6 +91,9 @@ pub fn ui_stack_system(
                         .set_style(layout_root.taffy_root, layout_context.root_style())
                         .unwrap();
                     layout_root.context = layout_context;
+                    layout_root.perform_full_update = true;
+                } else {
+                    layout_root.perform_full_update = false;
                 }
             } else {
                 let taffy_root = ui_surface

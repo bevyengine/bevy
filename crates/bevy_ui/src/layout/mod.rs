@@ -248,6 +248,7 @@ pub fn ui_layout_system(
     };
 
     if perform_full_update {
+        println!("full update");
         // update all nodes
         for (entity, style) in style_query.iter() {
             ui_surface.upsert_node(entity, &style, &context);
@@ -261,11 +262,11 @@ pub fn ui_layout_system(
             if style.is_changed() {
                 ui_surface.upsert_node(entity, &style, &context);
             }
+        }
 
-            for (entity, children) in &children_query {
-                if children.is_changed() {
-                    ui_surface.update_children(entity, &children);
-                }
+        for (entity, children) in &children_query {
+            if children.is_changed() {
+                ui_surface.update_children(entity, &children);
             }
         }
     }

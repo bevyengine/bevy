@@ -227,7 +227,6 @@ pub fn ui_focus_system(
                                 // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
                                 interaction.set_if_neq(Interaction::None);
                             }
-
                             continue;
                         }
                     }
