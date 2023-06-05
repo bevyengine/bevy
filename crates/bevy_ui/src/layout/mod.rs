@@ -20,21 +20,25 @@ use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChan
 use std::fmt;
 use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
+/// The size and scaling information for the
 pub struct LayoutContext {
-    pub scale_factor: f64,
+    /// Physical size of the target in pixels.
     pub physical_size: Vec2,
-    pub min_size: f32,
-    pub max_size: f32,
+    /// Product of the target's scale factor and the camera's `UiScale`.
+    pub combined_scale_factor: f64,
+    /// Inverse of the target's scale factor.
+    pub inverse_target_scale_factor: f64,
 }
 
 impl LayoutContext {
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
-    fn new(scale_factor: f64, physical_size: Vec2) -> Self {
+    fn new(target_scale_factor: f64, ui_scale: f64, physical_size: Vec2) -> Self {
+        let combined_scale_factor = ui_scale * target_scale_factor;
+        let inverse_target_scale_factor = target_scale_factor.recip();
         Self {
-            scale_factor,
             physical_size,
-            min_size: physical_size.x.min(physical_size.y),
-            max_size: physical_size.x.max(physical_size.y),
+            combined_scale_factor,
+            inverse_target_scale_factor,
         }
     }
 }
@@ -230,7 +234,7 @@ pub fn ui_layout_system(
 ) {
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let (primary_window_entity, logical_to_physical_factor, physical_size) =
+    let (primary_window_entity, window_scale_factor, window_physical_size) =
         if let Ok((entity, primary_window)) = primary_window.get_single() {
             (
                 entity,
@@ -253,9 +257,8 @@ pub fn ui_layout_system(
         ui_surface.update_window(entity, &window.resolution);
     }
 
-    let scale_factor = logical_to_physical_factor * ui_scale.scale;
-
-    let layout_context = LayoutContext::new(scale_factor, physical_size);
+    let layout_context =
+        LayoutContext::new(window_scale_factor, ui_scale.scale, window_physical_size);
 
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
         scale_factor_events.clear();
@@ -301,7 +304,7 @@ pub fn ui_layout_system(
     // compute layouts
     ui_surface.compute_window_layouts();
 
-    let physical_to_logical_factor = 1. / logical_to_physical_factor;
+    let physical_to_logical_factor = 1. / window_scale_factor;
 
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
