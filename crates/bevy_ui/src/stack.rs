@@ -59,6 +59,8 @@ pub fn ui_stack_system(
     zindex_query: Query<&ZIndex, With<Node>>,
     children_query: Query<&Children>,
 ) {
+    ui_stacks.stacks.clear();
+    
     // Remove the associated layout root for removed camera entities, if one exists
     for camera_entity in removed_cameras.iter() {
         if let Some(layout_root) = camera_to_root.remove(&camera_entity) {
@@ -117,7 +119,7 @@ pub fn ui_stack_system(
             .map(|camera| camera.entity)
             .or(default_camera.entity)
             .and_then(|camera| camera_to_root.get_mut(&camera));
-        if let Some(mut layout_root) = layout_root {
+        if let Some(layout_root) = layout_root {
             layout_root.root_uinodes.push(root_uinode);
         }
     }
