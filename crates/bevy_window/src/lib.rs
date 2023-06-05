@@ -39,8 +39,8 @@ impl Default for WindowPlugin {
 /// A [`Plugin`] that defines an interface for windowing support in Bevy.
 pub struct WindowPlugin {
     /// Settings for the primary window. This will be spawned by
-    /// default, if you want to run without a primary window you should
-    /// set this to `None`.
+    /// default, with the marker component [`PrimaryWindow`](PrimaryWindow).
+    /// If you want to run without a primary window you should set this to `None`.
     ///
     /// Note that if there are no windows, by default the App will exit,
     /// due to [`exit_on_all_closed`].
