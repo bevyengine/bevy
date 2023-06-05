@@ -50,11 +50,11 @@ pub trait Command: Send + 'static {
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
-/// when the [`apply_system_buffers`] system runs.
+/// when the [`apply_deferred`] system runs.
 ///
 /// The command queue of an individual system can also be manually applied
-/// by calling [`System::apply_buffers`].
-/// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_system_buffers`].
+/// by calling [`System::apply_deferred`].
+/// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_deferred`].
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
@@ -68,7 +68,7 @@ pub trait Command: Send + 'static {
 ///
 /// # Usage
 ///
-/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_system_buffers`] runs.
+/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_deferred`] runs.
 /// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
@@ -100,9 +100,9 @@ pub trait Command: Send + 'static {
 /// # }
 /// ```
 ///
-/// [`System::apply_buffers`]: crate::system::System::apply_buffers
-/// [`apply_system_buffers`]: crate::schedule::apply_system_buffers
-/// [`Schedule::apply_system_buffers`]: crate::schedule::Schedule::apply_system_buffers
+/// [`System::apply_deferred`]: crate::system::System::apply_deferred
+/// [`apply_deferred`]: crate::schedule::apply_deferred
+/// [`Schedule::apply_deferred`]: crate::schedule::Schedule::apply_deferred
 #[derive(SystemParam)]
 pub struct Commands<'w, 's> {
     queue: Deferred<'s, CommandQueue>,

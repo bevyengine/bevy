@@ -5,7 +5,7 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_window::{CursorIcon, WindowLevel};
+use bevy_window::{CursorIcon, WindowLevel, WindowTheme};
 
 pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
     KeyboardInput {
@@ -272,5 +272,19 @@ pub fn convert_window_level(window_level: WindowLevel) -> winit::window::WindowL
         WindowLevel::AlwaysOnBottom => winit::window::WindowLevel::AlwaysOnBottom,
         WindowLevel::Normal => winit::window::WindowLevel::Normal,
         WindowLevel::AlwaysOnTop => winit::window::WindowLevel::AlwaysOnTop,
+    }
+}
+
+pub fn convert_winit_theme(theme: winit::window::Theme) -> WindowTheme {
+    match theme {
+        winit::window::Theme::Light => WindowTheme::Light,
+        winit::window::Theme::Dark => WindowTheme::Dark,
+    }
+}
+
+pub fn convert_window_theme(theme: WindowTheme) -> winit::window::Theme {
+    match theme {
+        WindowTheme::Light => winit::window::Theme::Light,
+        WindowTheme::Dark => winit::window::Theme::Dark,
     }
 }

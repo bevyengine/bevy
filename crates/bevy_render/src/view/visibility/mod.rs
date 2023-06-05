@@ -63,12 +63,14 @@ impl std::cmp::PartialEq<&Visibility> for Visibility {
 }
 
 bitflags::bitflags! {
-    #[derive(Reflect)]
+    #[derive(Clone, Debug, Eq, PartialEq)]
     pub(super) struct ComputedVisibilityFlags: u8 {
         const VISIBLE_IN_VIEW = 1 << 0;
         const VISIBLE_IN_HIERARCHY = 1 << 1;
     }
 }
+bevy_reflect::impl_reflect_value!((in bevy_render::view) ComputedVisibilityFlags);
+bevy_reflect::impl_from_reflect_value!(ComputedVisibilityFlags);
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
 #[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
@@ -95,7 +97,7 @@ impl ComputedVisibility {
     /// Reading it during [`Update`](bevy_app::Update) will yield the value from the previous frame.
     #[inline]
     pub fn is_visible(&self) -> bool {
-        self.flags.bits == ComputedVisibilityFlags::all().bits
+        self.flags.bits() == ComputedVisibilityFlags::all().bits()
     }
 
     /// Whether this entity is visible in the entity hierarchy, which is determined by the [`Visibility`] component.
@@ -212,10 +214,7 @@ impl Plugin for VisibilityPlugin {
 
         app
             // We add an AABB component in CalculateBounds, which must be ready on the same frame.
-            .add_systems(
-                PostUpdate,
-                apply_system_buffers.in_set(CalculateBoundsFlush),
-            )
+            .add_systems(PostUpdate, apply_deferred.in_set(CalculateBoundsFlush))
             .configure_set(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
             .add_systems(
                 PostUpdate,

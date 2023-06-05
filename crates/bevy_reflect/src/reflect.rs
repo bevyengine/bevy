@@ -1,7 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
-    ValueInfo,
+    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
+    TypeInfo, Typed, ValueInfo,
 };
 use std::{
     any::{self, Any, TypeId},
@@ -92,6 +92,14 @@ pub trait Reflect: Any + Send + Sync {
     /// [`DynamicList`]: crate::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
+
+    /// Returns the [`TypePath`] implementation for the underlying type.
+    ///
+    /// Methods on [`DynamicTypePath`] suffer the same performance concerns as [`get_represented_type_info`].
+    ///
+    /// [`TypePath`]: crate::TypePath
+    /// [`get_represented_type_info`]: Reflect::get_represented_type_info
+    fn get_type_path(&self) -> &dyn DynamicTypePath;
 
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
     fn into_any(self: Box<Self>) -> Box<dyn Any>;

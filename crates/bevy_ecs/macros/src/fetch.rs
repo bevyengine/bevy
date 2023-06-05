@@ -88,17 +88,18 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
     let user_generics = ast.generics.clone();
     let (user_impl_generics, user_ty_generics, user_where_clauses) = user_generics.split_for_impl();
     let user_generics_with_world = {
-        let mut generics = ast.generics.clone();
+        let mut generics = ast.generics;
         generics.params.insert(0, parse_quote!('__w));
         generics
     };
     let (user_impl_generics_with_world, user_ty_generics_with_world, user_where_clauses_with_world) =
         user_generics_with_world.split_for_impl();
 
-    let struct_name = ast.ident.clone();
+    let struct_name = ast.ident;
     let read_only_struct_name = if fetch_struct_attributes.is_mutable {
         Ident::new(&format!("{struct_name}ReadOnly"), Span::call_site())
     } else {
+        #[allow(clippy::redundant_clone)]
         struct_name.clone()
     };
 
@@ -106,6 +107,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
     let read_only_item_struct_name = if fetch_struct_attributes.is_mutable {
         Ident::new(&format!("{struct_name}ReadOnlyItem"), Span::call_site())
     } else {
+        #[allow(clippy::redundant_clone)]
         item_struct_name.clone()
     };
 
@@ -115,6 +117,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
         let new_ident = Ident::new(&format!("{struct_name}ReadOnlyFetch"), Span::call_site());
         ensure_no_collision(new_ident, tokens.clone())
     } else {
+        #[allow(clippy::redundant_clone)]
         fetch_struct_name.clone()
     };
 

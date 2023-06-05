@@ -35,7 +35,6 @@ raw-window-handle = "0.5"
 
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.28", default-features = false, features = ["android-native-activity"] }
-once_cell = "1.11"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
