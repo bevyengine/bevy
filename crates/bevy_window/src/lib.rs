@@ -84,7 +84,8 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowScaleFactorChanged>()
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
-            .add_event::<WindowMoved>();
+            .add_event::<WindowMoved>()
+            .add_event::<WindowThemeChanged>();
 
         if let Some(primary_window) = &self.primary_window {
             app.world
@@ -121,7 +122,8 @@ impl Plugin for WindowPlugin {
             .register_type::<WindowScaleFactorChanged>()
             .register_type::<WindowBackendScaleFactorChanged>()
             .register_type::<FileDragAndDrop>()
-            .register_type::<WindowMoved>();
+            .register_type::<WindowMoved>()
+            .register_type::<WindowThemeChanged>();
 
         // Register window descriptor and related types
         app.register_type::<Window>()
@@ -136,7 +138,8 @@ impl Plugin for WindowPlugin {
             .register_type::<PresentMode>()
             .register_type::<InternalWindowState>()
             .register_type::<MonitorSelection>()
-            .register_type::<WindowResizeConstraints>();
+            .register_type::<WindowResizeConstraints>()
+            .register_type::<WindowTheme>();
 
         // Register `PathBuf` as it's used by `FileDragAndDrop`
         app.register_type::<PathBuf>();
