@@ -2,8 +2,6 @@
 #import bevy_pbr::pbr_bindings
 #import bevy_pbr::mesh_bindings
 
-#import bevy_pbr::pbr_deferred_types
-#import bevy_pbr::pbr_deferred_functions
 #import bevy_pbr::utils
 #import bevy_pbr::clustered_forward
 #import bevy_pbr::lighting
@@ -15,14 +13,32 @@
 
 #import bevy_pbr::prepass_utils
 
+#ifdef DEFERRED_PREPASS
+#import bevy_pbr::pbr_deferred_types
+#import bevy_pbr::pbr_deferred_functions
+#import bevy_pbr::pbr_prepass_functions
+#import bevy_pbr::prepass_io
+#endif
+
+#ifndef DEFERRED_PREPASS
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
     #import bevy_pbr::mesh_vertex_output
 };
+#endif
 
 @fragment
+#ifdef DEFERRED_PREPASS
+fn fragment(in: FragmentInput) -> FragmentOutput {
+#else
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+#endif
+
+#ifdef DEFERRED_PREPASS
+    prepass_alpha_discard(in);
+    var out: FragmentOutput;
+#endif
     
     let is_orthographic = view.projection[3].w == 1.0;
     let V = calculate_view(in.world_position, is_orthographic);
@@ -128,11 +144,28 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.occlusion = occlusion;
 
         pbr_input.flags = mesh.flags;
+#ifdef DEFERRED_PREPASS
+        out.deferred = deferred_gbuffer_from_pbr_input(pbr_input, in.frag_coord.z);
+#ifdef NORMAL_PREPASS
+        out.normal = pbr_input.N;
+#endif
+#else
         output_color = pbr(pbr_input);
+#endif //DEFERRED_PREPASS
     } else {
-        output_color = alpha_discard(material, output_color);
+        #ifdef DEFERRED_PREPASS
+            var pbr_input = pbr_input_new();
+            pbr_input.material.base_color = output_color;
+            pbr_input.material.flags |= STANDARD_MATERIAL_FLAGS_UNLIT_BIT;
+            out.deferred = deferred_gbuffer_from_pbr_input(pbr_input, in.frag_coord.z);
+        #else
+            output_color = alpha_discard(material, output_color);
+        #endif //DEFERRED_PREPASS
     }
 
+#ifdef DEFERRED_PREPASS
+    return out;
+#else
     // fog
     if (fog.mode != FOG_MODE_OFF && (material.flags & STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
         output_color = apply_fog(fog, output_color, in.world_position.xyz, view.world_position.xyz);
@@ -153,5 +186,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef PREMULTIPLY_ALPHA
     output_color = premultiply_alpha(material.flags, output_color);
 #endif
+
     return output_color;
+#endif //DEFERRED_PREPASS
 }

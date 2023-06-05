@@ -165,6 +165,19 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
         ShaderRef::Default
     }
 
+    /// Returns this material's deferred vertex shader. If [`ShaderRef::Default`] is returned, the default deferred vertex shader
+    /// will be used.
+    fn deferred_vertex_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's deferred fragment shader. If [`ShaderRef::Default`] is returned, the default deferred fragment shader
+    /// will be used.
+    #[allow(unused_variables)]
+    fn deferred_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
     /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
     #[allow(unused_variables)]

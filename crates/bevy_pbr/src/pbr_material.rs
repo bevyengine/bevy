@@ -575,6 +575,10 @@ impl Material for StandardMaterial {
         PBR_PREPASS_SHADER_HANDLE.typed().into()
     }
 
+    fn deferred_fragment_shader() -> ShaderRef {
+        PBR_SHADER_HANDLE.typed().into()
+    }
+
     fn fragment_shader() -> ShaderRef {
         PBR_SHADER_HANDLE.typed().into()
     }

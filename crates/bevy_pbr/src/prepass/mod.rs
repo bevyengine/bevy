@@ -250,8 +250,10 @@ pub struct PrepassPipeline<M: Material> {
     pub mesh_layout: BindGroupLayout,
     pub skinned_mesh_layout: BindGroupLayout,
     pub material_layout: BindGroupLayout,
-    pub material_vertex_shader: Option<Handle<Shader>>,
-    pub material_fragment_shader: Option<Handle<Shader>>,
+    pub prepass_material_vertex_shader: Option<Handle<Shader>>,
+    pub prepass_material_fragment_shader: Option<Handle<Shader>>,
+    pub deferred_material_vertex_shader: Option<Handle<Shader>>,
+    pub deferred_material_fragment_shader: Option<Handle<Shader>>,
     pub material_pipeline: MaterialPipeline<M>,
     _marker: PhantomData<M>,
 }
@@ -337,12 +339,22 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             view_layout_no_motion_vectors,
             mesh_layout: mesh_pipeline.mesh_layout.clone(),
             skinned_mesh_layout: mesh_pipeline.skinned_mesh_layout.clone(),
-            material_vertex_shader: match M::prepass_vertex_shader() {
+            prepass_material_vertex_shader: match M::prepass_vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             },
-            material_fragment_shader: match M::prepass_fragment_shader() {
+            prepass_material_fragment_shader: match M::prepass_fragment_shader() {
+                ShaderRef::Default => None,
+                ShaderRef::Handle(handle) => Some(handle),
+                ShaderRef::Path(path) => Some(asset_server.load(path)),
+            },
+            deferred_material_vertex_shader: match M::deferred_vertex_shader() {
+                ShaderRef::Default => None,
+                ShaderRef::Handle(handle) => Some(handle),
+                ShaderRef::Path(path) => Some(asset_server.load(path)),
+            },
+            deferred_material_fragment_shader: match M::deferred_fragment_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
@@ -515,13 +527,20 @@ where
         // prepass shader
         let fragment_required = !targets.is_empty()
             || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
-                && self.material_fragment_shader.is_some());
+                && self.prepass_material_fragment_shader.is_some());
 
         let fragment = fragment_required.then(|| {
             // Use the fragment shader from the material
-            let frag_shader_handle = match self.material_fragment_shader.clone() {
-                Some(frag_shader_handle) => frag_shader_handle,
-                _ => PREPASS_SHADER_HANDLE.typed::<Shader>(),
+            let frag_shader_handle = if key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
+                match self.deferred_material_fragment_shader.clone() {
+                    Some(frag_shader_handle) => frag_shader_handle,
+                    _ => PREPASS_SHADER_HANDLE.typed::<Shader>(),
+                }
+            } else {
+                match self.prepass_material_fragment_shader.clone() {
+                    Some(frag_shader_handle) => frag_shader_handle,
+                    _ => PREPASS_SHADER_HANDLE.typed::<Shader>(),
+                }
             };
 
             FragmentState {
@@ -533,10 +552,18 @@ where
         });
 
         // Use the vertex shader from the material if present
-        let vert_shader_handle = if let Some(handle) = &self.material_vertex_shader {
-            handle.clone()
+        let vert_shader_handle = if key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
+            if let Some(handle) = &self.deferred_material_vertex_shader {
+                handle.clone()
+            } else {
+                PREPASS_SHADER_HANDLE.typed::<Shader>()
+            }
         } else {
-            PREPASS_SHADER_HANDLE.typed::<Shader>()
+            if let Some(handle) = &self.prepass_material_vertex_shader {
+                handle.clone()
+            } else {
+                PREPASS_SHADER_HANDLE.typed::<Shader>()
+            }
         };
 
         let mut descriptor = RenderPipelineDescriptor {
