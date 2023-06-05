@@ -1793,6 +1793,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "multi_window_ui"
+path = "examples/ui/multi_window_ui.rs"
+
+[package.metadata.example.multi_window_ui]
+name = "Multiple Window UI"
+description = "Demonstrates multiple windows each with their own UI layout"
+category = "UI (User Interface)"
+wasm = false
+
+[[example]]
 name = "overflow"
 path = "examples/ui/overflow.rs"
 

@@ -85,6 +85,8 @@ impl Plugin for UiPlugin {
             .init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .init_resource::<UiDefaultCamera>()
+            .init_resource::<UiCameraToRoot>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
