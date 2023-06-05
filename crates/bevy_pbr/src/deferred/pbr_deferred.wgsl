@@ -8,9 +8,12 @@ struct StandardPbrDeferredOutput {
 // NOTE: KEEP IN FEATURE PARITY WITH @fragment IN pbr.wgsl
 fn standard_pbr_deferred(in: FragmentInput) -> StandardPbrDeferredOutput {
     var out: StandardPbrDeferredOutput;
-    var pbr_input: PbrInput;
+    var pbr_input = pbr_input_new();
     var deferred = vec4(0u);
     out.normal = in.world_normal;
+
+    pbr_input.material = material;
+    pbr_input.flags = mesh.flags;
 
     let is_orthographic = view.projection[3].w == 1.0;
     let V = calculate_view(in.world_position, is_orthographic);
@@ -109,14 +112,10 @@ fn standard_pbr_deferred(in: FragmentInput) -> StandardPbrDeferredOutput {
         );
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
-        pbr_input.flags = mesh.flags;
 
         out.deferred = deferred_gbuffer_from_pbr_input(pbr_input, in.frag_coord.z);
         out.normal = pbr_input.N;
     } else {
-        var pbr_input = pbr_input_new();
-        pbr_input.flags = deferred_flags_from_mesh_mat_flags(mesh.flags, 0u);
-        pbr_input.material.flags |= STANDARD_MATERIAL_FLAGS_UNLIT_BIT;
         pbr_input.material.base_color = output_color;
         pbr_input.world_normal = in.world_normal;
         out.deferred = deferred_gbuffer_from_pbr_input(pbr_input, in.frag_coord.z);
