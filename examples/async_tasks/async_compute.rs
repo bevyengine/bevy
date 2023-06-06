@@ -55,7 +55,7 @@ fn spawn_tasks(mut commands: Commands) {
         for y in 0..NUM_CUBES {
             for z in 0..NUM_CUBES {
                 // Spawn new task on the AsyncComputeTaskPool; the task will be
-                // executed in th background, and the Task future returned by
+                // executed in the background, and the Task future returned by
                 // spawn() can be used to poll for the result
                 let task = thread_pool.spawn(async move {
                     let mut rng = rand::thread_rng();
