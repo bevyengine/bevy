@@ -300,7 +300,9 @@ impl dyn Reflect {
     /// Read `is` for more information on underlying values and represented types.
     #[inline]
     pub fn represents<T: Reflect + TypePath>(&self) -> bool {
-        self.reflect_type_path() == T::type_path()
+        self.get_represented_type_info()
+            .map(|t| t.type_path() == T::type_path())
+            .unwrap_or(false)
     }
 
     /// Returns `true` if the underlying value is of type `T`, or `false`

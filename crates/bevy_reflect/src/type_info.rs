@@ -25,7 +25,7 @@ use std::fmt::Debug;
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, ValueInfo};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, TypePathId, ValueInfo};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -42,17 +42,19 @@ use std::fmt::Debug;
 ///         NamedField::new::<usize >("foo"),
 ///         NamedField::new::<(f32, f32) >("bar"),
 ///       ];
-///       let info = StructInfo::new::<Self>("MyStruct", &fields);
+///       let info = StructInfo::new::<Self>(&fields);
 ///       TypeInfo::Struct(info)
 ///     })
 ///   }
 /// }
 ///
-/// #
+/// # impl TypePath for MyStruct {
+/// #     fn type_path() -> &'static str { todo!() }
+/// #     fn short_type_path() -> &'static str { todo!() }
+/// #     const TYPE_PATH_ID: TypePathId = todo!();
+/// # }
 /// # impl Reflect for MyStruct {
-/// #   fn type_name(&self) -> &str { todo!() }
 /// #   fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
-/// #   fn type_path(&self) -> &dyn DynamicTypePath { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
 /// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }

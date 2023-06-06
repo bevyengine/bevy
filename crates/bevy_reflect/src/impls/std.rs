@@ -87,7 +87,7 @@ impl_reflect_value!(isize(
 ));
 impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize, Default));
 impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(String(
+impl_reflect_value!(::alloc::string::String(
     Debug,
     Hash,
     PartialEq,

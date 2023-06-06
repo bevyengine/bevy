@@ -21,7 +21,7 @@ use std::{any::TypeId, fmt::Debug, sync::Arc};
 pub struct TypeRegistry {
     registrations: HashMap<TypeId, TypeRegistration>,
     short_path_to_id: HashMap<&'static str, TypeId>,
-    full_name_to_id: HashMap<&'static str, TypeId>,
+    type_path_to_id: HashMap<&'static str, TypeId>,
     ambiguous_names: HashSet<&'static str>,
 }
 
@@ -35,7 +35,7 @@ pub struct TypeRegistryArc {
 
 impl Debug for TypeRegistryArc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.internal.read().full_name_to_id.keys().fmt(f)
+        self.internal.read().type_path_to_id.keys().fmt(f)
     }
 }
 
@@ -64,7 +64,7 @@ impl TypeRegistry {
         Self {
             registrations: Default::default(),
             short_path_to_id: Default::default(),
-            full_name_to_id: Default::default(),
+            type_path_to_id: Default::default(),
             ambiguous_names: Default::default(),
         }
     }
@@ -121,7 +121,7 @@ impl TypeRegistry {
             self.short_path_to_id
                 .insert(short_name, registration.type_id());
         }
-        self.full_name_to_id
+        self.type_path_to_id
             .insert(registration.type_info().type_path(), registration.type_id());
         self.registrations
             .insert(registration.type_id(), registration);
@@ -179,7 +179,7 @@ impl TypeRegistry {
     ///
     /// If no type with the given name has been registered, returns `None`.
     pub fn get_with_type_path(&self, type_path: &str) -> Option<&TypeRegistration> {
-        self.full_name_to_id
+        self.type_path_to_id
             .get(type_path)
             .and_then(|id| self.get(*id))
     }
@@ -189,7 +189,7 @@ impl TypeRegistry {
     ///
     /// If no type with the given name has been registered, returns `None`.
     pub fn get_with_type_path_mut(&mut self, type_path: &str) -> Option<&mut TypeRegistration> {
-        self.full_name_to_id
+        self.type_path_to_id
             .get(type_path)
             .cloned()
             .and_then(move |id| self.get_mut(id))
@@ -294,7 +294,7 @@ impl TypeRegistryArc {
 /// let mut registration = TypeRegistration::of::<Option<String>>();
 ///
 /// assert_eq!("core::option::Option<alloc::string::String>", registration.type_info().type_path());
-/// assert_eq!("Option<String>", registration.short_name());
+/// assert_eq!("Option<String>", registration.type_info().type_path_vtable().short_path());
 ///
 /// registration.insert::<ReflectDefault>(FromType::<Option<String>>::from_type());
 /// assert!(registration.data::<ReflectDefault>().is_some())

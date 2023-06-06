@@ -50,7 +50,7 @@ mod sealed {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath, TypePathId};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -70,6 +70,7 @@ mod sealed {
 /// # impl TypePath for Foo {
 /// #     fn type_path() -> &'static str { todo!() }
 /// #     fn short_type_path() -> &'static str { todo!() }
+/// #     const TYPE_PATH_ID: TypePathId = todo!();
 /// # }
 /// # impl Reflect for Foo {
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
@@ -125,26 +126,27 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField};
+/// # use bevy_reflect::{DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, TypePathId, UnnamedField};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T>(T);
 ///
-/// impl<T: Reflect> Typed for Foo<T> {
+/// impl<T: Reflect + TypePath> Typed for Foo<T> {
 ///     fn type_info() -> &'static TypeInfo {
 ///         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
 ///             let fields = [UnnamedField::new::<T>(0)];
-///             let info = TupleStructInfo::new::<Self>("Foo", &fields);
+///             let info = TupleStructInfo::new::<Self>(&fields);
 ///             TypeInfo::TupleStruct(info)
 ///         })
 ///     }
 /// }
-/// # impl TypePath for Foo {
+/// # impl<T: TypePath> TypePath for Foo<T> {
 /// #     fn type_path() -> &'static str { todo!() }
 /// #     fn short_type_path() -> &'static str { todo!() }
+/// #     const TYPE_PATH_ID: TypePathId = todo!();
 /// # }
-/// # impl<T: Reflect> Reflect for Foo<T> {
+/// # impl<T: Reflect + TypePath> Reflect for Foo<T> {
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
@@ -165,6 +167,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 ///
 /// ```
 /// # use std::any::Any;
+/// # use bevy_reflect::{TypePath, TypePathId};
 /// use bevy_reflect::utility::GenericTypePathCell;
 ///
 /// struct Foo<T>(T);
@@ -191,6 +194,8 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 ///     fn crate_name() -> Option<&'static str> {
 ///         Some("my_crate")
 ///     }
+///
+///     const TYPE_PATH_ID: TypePathId = todo!();
 /// }
 /// ```
 /// [`impl_type_path`]: crate::impl_type_path

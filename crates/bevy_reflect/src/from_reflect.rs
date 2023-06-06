@@ -75,7 +75,7 @@ pub trait FromReflect: Reflect + Sized {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{DynamicTupleStruct, FromReflect, Reflect, ReflectFromReflect, Typed, TypeRegistry};
+/// # use bevy_reflect::{DynamicTupleStruct, FromReflect, Reflect, ReflectFromReflect, Typed, TypeRegistry, TypePath};
 /// # #[derive(Reflect, FromReflect, PartialEq, Eq, Debug)]
 /// # #[reflect(FromReflect)]
 /// # struct Foo(#[reflect(default = "default_value")] usize);
@@ -86,7 +86,7 @@ pub trait FromReflect: Reflect + Sized {
 /// let mut reflected = DynamicTupleStruct::default();
 /// reflected.set_represented_type(Some(<Foo as Typed>::type_info()));
 ///
-/// let registration = registry.get_with_name(reflected.reflect_type_path()).unwrap();
+/// let registration = registry.get_with_type_path(<Foo as TypePath>::type_path()).unwrap();
 /// let rfr = registration.data::<ReflectFromReflect>().unwrap();
 ///
 /// let concrete: Box<dyn Reflect> = rfr.from_reflect(&reflected).unwrap();
