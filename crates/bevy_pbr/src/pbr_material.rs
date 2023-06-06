@@ -799,7 +799,7 @@ impl Material for StandardMaterial {
     }
 
     #[inline]
-    fn is_transmissive(&self) -> bool {
+    fn reads_view_transmission_texture(&self) -> bool {
         self.transmission > 0.0
     }
 }

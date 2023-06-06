@@ -135,9 +135,11 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
     }
 
     #[inline]
-    /// Returns whether or not the material has light transmission properties. Transmissive materials use the color
-    /// output from the [`Opaque3d`] pass as an input and therefore must run in a separate [`Transmissive3d`] pass.
-    fn is_transmissive(&self) -> bool {
+    /// Returns whether the material would like to read from [`ViewTransmissionTexture`](bevy_core_pipeline::core_3d::ViewTransmissionTexture).
+    ///
+    /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
+    /// rendering to take place in a separate [`Transmissive3d`] pass.
+    fn reads_view_transmission_texture(&self) -> bool {
         false
     }
 
@@ -518,7 +520,7 @@ pub fn queue_material_meshes<M: Material>(
                         + material.properties.depth_bias;
                     match material.properties.alpha_mode {
                         AlphaMode::Opaque => {
-                            if material.properties.is_transmissive {
+                            if material.properties.reads_view_transmission_texture {
                                 transmissive_phase.add(Transmissive3d {
                                     entity: *visible_entity,
                                     draw_function: draw_transmissive_pbr,
@@ -568,9 +570,11 @@ pub struct MaterialProperties {
     /// for meshes with equal depth, to avoid z-fighting.
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
     pub depth_bias: f32,
-    /// Whether or not the material has light transmission properties. Transmissive materials use the color
-    /// output from the [`Opaque3d`] pass as an input and therefore must run in a separate [`Transmissive3d`] pass.
-    pub is_transmissive: bool,
+    /// Whether the material would like to read from [`ViewTransmissionTexture`](bevy_core_pipeline::core_3d::ViewTransmissionTexture).
+    ///
+    /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
+    /// rendering to take place in a separate [`Transmissive3d`] pass.
+    pub reads_view_transmission_texture: bool,
 }
 
 /// Data prepared for a [`Material`] instance.
@@ -724,7 +728,7 @@ fn prepare_material<M: Material>(
         properties: MaterialProperties {
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),
-            is_transmissive: material.is_transmissive(),
+            reads_view_transmission_texture: material.reads_view_transmission_texture(),
         },
     })
 }

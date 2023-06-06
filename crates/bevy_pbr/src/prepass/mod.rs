@@ -993,7 +993,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 rangefinder.distance(&mesh_uniform.transform) + material.properties.depth_bias;
             match alpha_mode {
                 AlphaMode::Opaque => {
-                    if !material.properties.is_transmissive {
+                    if material.properties.reads_view_transmission_texture {
+                        // No-op: Materials reading from `ViewTransmissionTexture` are not rendered in the `Opaque3d`
+                        // phase, and are therefore also excluded from the prepass much like alpha-blended materials.
+                    } else {
                         opaque_phase.add(Opaque3dPrepass {
                             entity: *visible_entity,
                             draw_function: opaque_draw_prepass,
