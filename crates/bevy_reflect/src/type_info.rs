@@ -67,11 +67,6 @@ use std::fmt::Debug;
 /// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
-/// #
-/// # impl TypePath for MyStruct {
-/// #   fn type_path() -> &'static str { todo!() }
-/// #   fn short_type_path() -> &'static str { todo!() }
-/// # }
 /// ```
 ///
 /// [utility]: crate::utility

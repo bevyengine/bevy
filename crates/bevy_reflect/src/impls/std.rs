@@ -1152,30 +1152,6 @@ impl Typed for Cow<'static, str> {
     }
 }
 
-impl TypePath for Cow<'static, str> {
-    fn type_path() -> &'static str {
-        static CELL: GenericTypePathCell = GenericTypePathCell::new();
-        CELL.get_or_insert::<Self, _>(|| "std::borrow::Cow::<str>".to_owned())
-    }
-
-    fn short_type_path() -> &'static str {
-        static CELL: GenericTypePathCell = GenericTypePathCell::new();
-        CELL.get_or_insert::<Self, _>(|| "Cow<str>".to_owned())
-    }
-
-    fn type_ident() -> Option<&'static str> {
-        Some("Cow")
-    }
-
-    fn crate_name() -> Option<&'static str> {
-        Some("std")
-    }
-
-    fn module_path() -> Option<&'static str> {
-        Some("std::borrow")
-    }
-}
-
 impl GetTypeRegistration for Cow<'static, str> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Cow<'static, str>>();

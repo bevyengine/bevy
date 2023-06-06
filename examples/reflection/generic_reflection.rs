@@ -21,7 +21,10 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     let type_registry = type_registry.read();
 
     let registration = type_registry.get(TypeId::of::<MyType<u32>>()).unwrap();
-    info!("Registration for {} exists", registration.short_name());
+    info!(
+        "Registration for {} exists",
+        registration.type_info().type_path(),
+    );
 
     // MyType<String> was not manually registered, so it does not exist
     assert!(type_registry.get(TypeId::of::<MyType<String>>()).is_none());
