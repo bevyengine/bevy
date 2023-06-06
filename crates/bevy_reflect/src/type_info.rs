@@ -70,7 +70,7 @@ use std::fmt::Debug;
 /// ```
 ///
 /// [utility]: crate::utility
-pub trait Typed: Reflect {
+pub trait Typed: Reflect + TypePath {
     /// Returns the compile-time [info] for the underlying type.
     ///
     /// [info]: TypeInfo

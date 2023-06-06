@@ -5,7 +5,7 @@ use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{spanned::Spanned, LitStr, Member, Path, Type, WhereClause};
+use syn::{spanned::Spanned, Lifetime, LitStr, Member, Path, Type, WhereClause};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -60,6 +60,10 @@ pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
 
 /// Options defining how to extend the `where` clause in reflection with any additional bounds needed.
 pub(crate) struct WhereClauseOptions {
+    /// Lifetime parameters that need extra trait bounds.
+    pub(crate) parameter_lifetimes: Box<[Lifetime]>,
+    /// Bounds to add to the lifetime parameters.
+    pub(crate) parameter_lifetime_bounds: proc_macro2::TokenStream,
     /// Type parameters that need extra trait bounds.
     pub(crate) parameter_types: Box<[Ident]>,
     /// Trait bounds to add to the type parameters.
@@ -79,6 +83,13 @@ impl WhereClauseOptions {
     pub fn type_path_bounds(meta: &ReflectMeta) -> Self {
         let bevy_reflect_path = meta.bevy_reflect_path();
         Self {
+            parameter_lifetimes: meta
+                .type_path()
+                .generics()
+                .lifetimes()
+                .map(|param| param.lifetime.clone())
+                .collect(),
+            parameter_lifetime_bounds: quote! { 'static },
             parameter_types: meta
                 .type_path()
                 .generics()
@@ -95,10 +106,12 @@ impl Default for WhereClauseOptions {
     /// By default, don't add any additional bounds to the `where` clause
     fn default() -> Self {
         Self {
+            parameter_lifetimes: Box::new([]),
             parameter_types: Box::new([]),
             active_types: Box::new([]),
             ignored_types: Box::new([]),
             parameter_trait_bounds: quote! {},
+            parameter_lifetime_bounds: quote! {},
             active_trait_bounds: quote! {},
             ignored_trait_bounds: quote! {},
         }
@@ -140,9 +153,11 @@ pub(crate) fn extend_where_clause(
     where_clause: Option<&WhereClause>,
     where_clause_options: &WhereClauseOptions,
 ) -> proc_macro2::TokenStream {
+    let parameter_lifetimes = &where_clause_options.parameter_lifetimes;
     let parameter_types = &where_clause_options.parameter_types;
     let active_types = &where_clause_options.active_types;
     let ignored_types = &where_clause_options.ignored_types;
+    let parameter_lifetime_bounds = &where_clause_options.parameter_lifetime_bounds;
     let parameter_trait_bounds = &where_clause_options.parameter_trait_bounds;
     let active_trait_bounds = &where_clause_options.active_trait_bounds;
     let ignored_trait_bounds = &where_clause_options.ignored_trait_bounds;
@@ -150,7 +165,11 @@ pub(crate) fn extend_where_clause(
     let mut generic_where_clause = if let Some(where_clause) = where_clause {
         let predicates = where_clause.predicates.iter();
         quote! {where #(#predicates,)*}
-    } else if !(parameter_types.is_empty() && active_types.is_empty() && ignored_types.is_empty()) {
+    } else if !(parameter_lifetimes.is_empty()
+        && parameter_types.is_empty()
+        && active_types.is_empty()
+        && ignored_types.is_empty())
+    {
         quote! {where}
     } else {
         quote!()
@@ -161,6 +180,7 @@ pub(crate) fn extend_where_clause(
     // the whole bound by default, resulting in a failure to prove trait
     // adherence.
     generic_where_clause.extend(quote! {
+        #(#parameter_lifetimes: #parameter_lifetime_bounds,)*
         #((#active_types): #active_trait_bounds,)*
         #((#ignored_types): #ignored_trait_bounds,)*
         // Leave parameter bounds to the end for more sane error messages.
