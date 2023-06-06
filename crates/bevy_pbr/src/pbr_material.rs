@@ -183,16 +183,23 @@ pub struct StandardMaterial {
 
     /// The amount of light transmitted _specularly_ through the material (i.e. via refraction)
     ///
-    /// Implemented as a relatively expensive screen-space effect that allows ocluded objects to be seen through the material, while
-    /// taking [`StandardMaterial::ior`], [`StandardMaterial::thickness`] and [`StandardMaterial::perceptual_roughness`] into account. If purely
-    /// diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead.
-    ///
     /// - When set to `0.0` (the default) no light is transmitted.
     /// - When set to `1.0` all light is transmitted through the material.
     ///
     /// The material's [`StandardMaterial::base_color`] also modulates the transmitted light.
     ///
-    /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`] and [`StandardMaterial::ior`].
+    /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`], [`StandardMaterial::ior`] and [`StandardMaterial::perceptual_roughness`].
+    ///
+    /// ## Performance
+    ///
+    /// Transmission is implemented as a relatively expensive screen-space effect that allows ocluded objects to be seen through the material.
+    ///
+    /// - [`Camera3d::transmissive_steps`](bevy_core_pipeline::core_3d::Camera3d::transmissive_steps) can be used to enable transmissive objects
+    /// to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
+    ///     - If a simplified approximation of transmission using only environment map lighting is sufficient, consider setting
+    /// [`Camera3d::transmissive_steps`](bevy_core_pipeline::core_3d::Camera3d::transmissive_steps) to `0`.
+    /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
+    /// for a much less expensive effect.
     #[doc(alias = "refraction")]
     pub transmission: f32,
 
@@ -224,7 +231,7 @@ pub struct StandardMaterial {
     /// When set to `0.0` (the default) the material appears as an infinitely-thin film,
     /// transmitting light without distorting it.
     ///
-    /// When set to any other value, the material distorts light like a volumetric lens.
+    /// When set to any other value, the material distorts light like a thick lens.
     ///
     /// **Note:** Typically used in conjunction with [`StandardMaterial::transmission`] and [`StandardMaterial::ior`], or with
     /// [`StandardMaterial::diffuse_transmission`].

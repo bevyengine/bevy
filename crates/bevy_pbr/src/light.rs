@@ -602,6 +602,10 @@ impl Default for AmbientLight {
 #[reflect(Component, Default)]
 pub struct NotShadowCaster;
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows.
+///
+/// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
+/// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled.
+/// Use [`NotTransmittedShadowReceiver`] to disable only the latter.
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
@@ -612,7 +616,7 @@ pub struct NotShadowReceiver;
 /// has a complicated shape that's hard to model via [`StandardMaterial::thickness`](crate::pbr_material::StandardMaterial::thickness), and you'd like
 /// to avoid self-shadows from affecting the transmitted light.
 ///
-/// **Note:** Setting [`NotShadowReceiver`] disables both regular and transmitted shadows.
+/// **Note:** Using [`NotShadowReceiver`] also implies [`NotTransmittedShadowReceiver`].
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotTransmittedShadowReceiver;
