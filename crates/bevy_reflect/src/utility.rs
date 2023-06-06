@@ -50,7 +50,7 @@ mod sealed {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -83,6 +83,11 @@ mod sealed {
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #     fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
+/// # }
+
+/// # impl TypePath for Foo {
+/// #   fn type_path() -> &'static str { todo!() }
+/// #   fn short_type_path() -> &'static str { todo!() }
 /// # }
 /// ```
 ///
@@ -123,7 +128,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField};
+/// # use bevy_reflect::{DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T>(T);
@@ -155,6 +160,10 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #     fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
+/// # impl<T: Reflect> TypePath for Foo<T> {
+/// #   fn type_path() -> &'static str { todo!() }
+/// #   fn short_type_path() -> &'static str { todo!() }
+/// # }
 /// ```
 ///
 ///  Implementing [`TypePath`] with generics.
@@ -178,7 +187,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 ///     }
 /// }
 /// #
-/// # impl<T: Reflect> Reflect for Foo<T> {
+/// # impl<T: Reflect + TypePath> Reflect for Foo<T> {
 /// #     fn type_name(&self) -> &str { todo!() }
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
