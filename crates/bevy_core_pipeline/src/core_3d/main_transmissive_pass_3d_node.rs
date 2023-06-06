@@ -70,7 +70,12 @@ impl ViewNode for MainTransmissivePass3dNode {
             if transmissive_steps > 0 {
                 let transmission =
                     transmission.expect("`ViewTransmissionTexture` should exist at this point");
+
+                // `transmissive_phase.items` are depth sorted, so we split them into N = `transmissive_steps` ranges,
+                // rendering them back-to-front in multiple steps, allowing multiple levels of transparency.
                 for range in split_range(0..transmissive_phase.items.len(), transmissive_steps) {
+                    // Copy the main texture to the transmission texture, allowing to use the color output of the
+                    // previous step (or of the `Opaque3d` phase, for the first step) as a transmissive color input
                     render_context.command_encoder().copy_texture_to_texture(
                         target.main_texture().as_image_copy(),
                         transmission.texture.as_image_copy(),
@@ -88,6 +93,7 @@ impl ViewNode for MainTransmissivePass3dNode {
                         render_pass.set_camera_viewport(viewport);
                     }
 
+                    // render items in range
                     transmissive_phase.render_range(&mut render_pass, world, view_entity, range);
                 }
             } else {
