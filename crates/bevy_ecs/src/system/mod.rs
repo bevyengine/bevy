@@ -247,6 +247,17 @@ impl<T: System> IntoSystem<T::In, T::Out, ()> for T {
     }
 }
 
+impl<A, B, In, AOut, BOut, AMarker, BMarker> IntoSystem<In, (AOut, BOut), (Join, AMarker, BMarker)> for (A, B)
+where In: Copy,
+      A: IntoSystem<In, AOut, AMarker>,
+      B: IntoSystem<In, BOut, BMarker>,
+{
+    type System = JoinSystem<A::System, B::System>;
+    fn into_system(this: Self) -> Self::System {
+        this.0.join(this.1)
+    }
+}
+
 /// Wrapper type to mark a [`SystemParam`] as an input.
 ///
 /// [`System`]s may take an optional input which they require to be passed to them when they
