@@ -49,7 +49,7 @@ fn get_serializable<'a, E: serde::ser::Error>(
 /// 1. `type`: The _full_ [type path]
 /// 2. `value`: The serialized value of the reflected type
 ///
-/// [type path]: TypePath::type_path
+/// [type path]: crate::TypePath::type_path
 pub struct ReflectSerializer<'a> {
     pub value: &'a dyn Reflect,
     pub registry: &'a TypeRegistry,

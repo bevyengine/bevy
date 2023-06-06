@@ -233,7 +233,7 @@ impl<'de> Visitor<'de> for U32Visitor {
 /// [`DynamicStruct`]: crate::DynamicStruct
 /// [`DynamicList`]: crate::DynamicList
 /// [`FromReflect`]: crate::FromReflect
-/// [type path]: TypePath::type_path
+/// [type path]: crate::TypePath::type_path
 pub struct UntypedReflectDeserializer<'a> {
     registry: &'a TypeRegistry,
 }
@@ -264,7 +264,7 @@ impl<'a, 'de> DeserializeSeed<'de> for UntypedReflectDeserializer<'a> {
 /// type to find the `TypeRegistration` of.
 ///
 /// [`&TypeRegistration`]: crate::TypeRegistration
-/// [type path]: TypePath::type_path
+/// [type path]: crate::TypePath::type_path
 pub struct TypeRegistrationDeserializer<'a> {
     registry: &'a TypeRegistry,
 }
