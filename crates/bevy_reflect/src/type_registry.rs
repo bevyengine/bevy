@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
+use crate::{serde::Serializable, Reflect, TypeInfo, TypePath, Typed};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
@@ -20,9 +20,9 @@ use std::{any::TypeId, fmt::Debug, sync::Arc};
 /// [crate-level documentation]: crate
 pub struct TypeRegistry {
     registrations: HashMap<TypeId, TypeRegistration>,
-    short_name_to_id: HashMap<String, TypeId>,
-    full_name_to_id: HashMap<String, TypeId>,
-    ambiguous_names: HashSet<String>,
+    short_path_to_id: HashMap<&'static str, TypeId>,
+    full_name_to_id: HashMap<&'static str, TypeId>,
+    ambiguous_names: HashSet<&'static str>,
 }
 
 // TODO:  remove this wrapper once we migrate to Atelier Assets and the Scene AssetLoader doesn't
@@ -63,7 +63,7 @@ impl TypeRegistry {
     pub fn empty() -> Self {
         Self {
             registrations: Default::default(),
-            short_name_to_id: Default::default(),
+            short_path_to_id: Default::default(),
             full_name_to_id: Default::default(),
             ambiguous_names: Default::default(),
         }
@@ -110,21 +110,19 @@ impl TypeRegistry {
             return;
         }
 
-        let short_name = registration.short_name.to_string();
-        if self.short_name_to_id.contains_key(&short_name)
-            || self.ambiguous_names.contains(&short_name)
+        let short_name = registration.type_info().type_path_vtable().short_path();
+        if self.short_path_to_id.contains_key(short_name)
+            || self.ambiguous_names.contains(short_name)
         {
             // name is ambiguous. fall back to long names for all ambiguous types
-            self.short_name_to_id.remove(&short_name);
+            self.short_path_to_id.remove(short_name);
             self.ambiguous_names.insert(short_name);
         } else {
-            self.short_name_to_id
+            self.short_path_to_id
                 .insert(short_name, registration.type_id());
         }
-        self.full_name_to_id.insert(
-            registration.type_info().type_path().to_string(),
-            registration.type_id(),
-        );
+        self.full_name_to_id
+            .insert(registration.type_info().type_path(), registration.type_id());
         self.registrations
             .insert(registration.type_id(), registration);
     }
@@ -145,11 +143,11 @@ impl TypeRegistry {
     /// type_registry.register_type_data::<Option<String>, ReflectSerialize>();
     /// type_registry.register_type_data::<Option<String>, ReflectDeserialize>();
     /// ```
-    pub fn register_type_data<T: Reflect + 'static, D: TypeData + FromType<T>>(&mut self) {
+    pub fn register_type_data<T: Reflect + TypePath, D: TypeData + FromType<T>>(&mut self) {
         let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
             panic!(
                 "attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first",
-                T = std::any::type_name::<T>(),
+                T = T::type_path(),
                 D = std::any::type_name::<D>(),
             )
         });
@@ -180,9 +178,9 @@ impl TypeRegistry {
     /// given name.
     ///
     /// If no type with the given name has been registered, returns `None`.
-    pub fn get_with_name(&self, type_name: &str) -> Option<&TypeRegistration> {
+    pub fn get_with_type_path(&self, type_path: &str) -> Option<&TypeRegistration> {
         self.full_name_to_id
-            .get(type_name)
+            .get(type_path)
             .and_then(|id| self.get(*id))
     }
 
@@ -190,9 +188,9 @@ impl TypeRegistry {
     /// the given name.
     ///
     /// If no type with the given name has been registered, returns `None`.
-    pub fn get_with_name_mut(&mut self, type_name: &str) -> Option<&mut TypeRegistration> {
+    pub fn get_with_type_path_mut(&mut self, type_path: &str) -> Option<&mut TypeRegistration> {
         self.full_name_to_id
-            .get(type_name)
+            .get(type_path)
             .cloned()
             .and_then(move |id| self.get_mut(id))
     }
@@ -202,9 +200,9 @@ impl TypeRegistry {
     ///
     /// If the short name is ambiguous, or if no type with the given short name
     /// has been registered, returns `None`.
-    pub fn get_with_short_name(&self, short_type_name: &str) -> Option<&TypeRegistration> {
-        self.short_name_to_id
-            .get(short_type_name)
+    pub fn get_with_short_type_path(&self, short_type_path: &str) -> Option<&TypeRegistration> {
+        self.short_path_to_id
+            .get(short_type_path)
             .and_then(|id| self.registrations.get(id))
     }
 
@@ -213,12 +211,12 @@ impl TypeRegistry {
     ///
     /// If the short name is ambiguous, or if no type with the given short name
     /// has been registered, returns `None`.
-    pub fn get_with_short_name_mut(
+    pub fn get_with_short_type_path_mut(
         &mut self,
-        short_type_name: &str,
+        short_type_path: &str,
     ) -> Option<&mut TypeRegistration> {
-        self.short_name_to_id
-            .get(short_type_name)
+        self.short_path_to_id
+            .get(short_type_path)
             .and_then(|id| self.registrations.get_mut(id))
     }
 
@@ -295,7 +293,7 @@ impl TypeRegistryArc {
 /// # use bevy_reflect::{TypeRegistration, std_traits::ReflectDefault, FromType};
 /// let mut registration = TypeRegistration::of::<Option<String>>();
 ///
-/// assert_eq!("core::option::Option<alloc::string::String>", registration.type_name());
+/// assert_eq!("core::option::Option<alloc::string::String>", registration.type_info().type_path());
 /// assert_eq!("Option<String>", registration.short_name());
 ///
 /// registration.insert::<ReflectDefault>(FromType::<Option<String>>::from_type());
@@ -305,7 +303,6 @@ impl TypeRegistryArc {
 /// [short name]: bevy_utils::get_short_name
 /// [crate-level documentation]: crate
 pub struct TypeRegistration {
-    short_name: String,
     data: HashMap<TypeId, Box<dyn TypeData>>,
     type_info: &'static TypeInfo,
 }
@@ -313,7 +310,6 @@ pub struct TypeRegistration {
 impl Debug for TypeRegistration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TypeRegistration")
-            .field("short_name", &self.short_name)
             .field("type_info", &self.type_info)
             .finish()
     }
@@ -361,20 +357,11 @@ impl TypeRegistration {
     }
 
     /// Creates type registration information for `T`.
-    pub fn of<T: Reflect + Typed>() -> Self {
-        let type_name = std::any::type_name::<T>();
+    pub fn of<T: Reflect + Typed + TypePath>() -> Self {
         Self {
             data: HashMap::default(),
-            short_name: bevy_utils::get_short_name(type_name),
             type_info: T::type_info(),
         }
-    }
-
-    /// Returns the [short name] of the type.
-    ///
-    /// [short name]: bevy_utils::get_short_name
-    pub fn short_name(&self) -> &str {
-        &self.short_name
     }
 }
 
@@ -387,7 +374,6 @@ impl Clone for TypeRegistration {
 
         TypeRegistration {
             data,
-            short_name: self.short_name.clone(),
             type_info: self.type_info,
         }
     }
@@ -570,9 +556,8 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 
 #[cfg(test)]
 mod test {
-    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
+    use crate::{GetTypeRegistration, ReflectFromPtr};
     use bevy_ptr::{Ptr, PtrMut};
-    use bevy_utils::HashMap;
 
     use crate as bevy_reflect;
     use crate::Reflect;
@@ -616,38 +601,5 @@ mod test {
                 _ => panic!("invalid reflection"),
             }
         }
-    }
-
-    #[test]
-    fn test_property_type_registration() {
-        assert_eq!(
-            TypeRegistration::of::<Option<f64>>().short_name,
-            "Option<f64>"
-        );
-        assert_eq!(
-            TypeRegistration::of::<HashMap<u32, String>>().short_name,
-            "HashMap<u32, String>"
-        );
-        assert_eq!(
-            TypeRegistration::of::<Option<HashMap<u32, String>>>().short_name,
-            "Option<HashMap<u32, String>>"
-        );
-        assert_eq!(
-            TypeRegistration::of::<Option<HashMap<u32, Option<String>>>>().short_name,
-            "Option<HashMap<u32, Option<String>>>"
-        );
-        assert_eq!(
-            TypeRegistration::of::<Option<HashMap<String, Option<String>>>>().short_name,
-            "Option<HashMap<String, Option<String>>>"
-        );
-        assert_eq!(
-            TypeRegistration::of::<Option<HashMap<Option<String>, Option<String>>>>().short_name,
-            "Option<HashMap<Option<String>, Option<String>>>"
-        );
-        assert_eq!(
-            TypeRegistration::of::<Option<HashMap<Option<String>, (String, Option<String>)>>>()
-                .short_name,
-            "Option<HashMap<Option<String>, (String, Option<String>)>>"
-        );
     }
 }

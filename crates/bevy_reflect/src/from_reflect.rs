@@ -86,7 +86,7 @@ pub trait FromReflect: Reflect + Sized {
 /// let mut reflected = DynamicTupleStruct::default();
 /// reflected.set_represented_type(Some(<Foo as Typed>::type_info()));
 ///
-/// let registration = registry.get_with_name(reflected.type_name()).unwrap();
+/// let registration = registry.get_with_name(reflected.reflect_type_path()).unwrap();
 /// let rfr = registration.data::<ReflectFromReflect>().unwrap();
 ///
 /// let concrete: Box<dyn Reflect> = rfr.from_reflect(&reflected).unwrap();

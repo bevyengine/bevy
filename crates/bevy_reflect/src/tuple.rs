@@ -518,7 +518,7 @@ macro_rules! impl_reflect_tuple {
             fn clone_dynamic(&self) -> DynamicTuple {
                 let info = self.get_represented_type_info();
                 DynamicTuple {
-                    name: Cow::Borrowed(::core::any::type_name::<Self>()),
+                    name: Cow::Borrowed(Self::type_path()),
                     represented_type: info,
                     fields: self
                         .iter_fields()

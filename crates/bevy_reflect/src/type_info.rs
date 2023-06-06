@@ -87,7 +87,7 @@ pub trait Typed: Reflect {
 /// Each return a static reference to [`TypeInfo`], but they all have their own use cases.
 /// For example, if you know the type at compile time, [`Typed::type_info`] is probably
 /// the simplest. If all you have is a `dyn Reflect`, you'll probably want [`Reflect::get_represented_type_info`].
-/// Lastly, if all you have is a [`TypeId`] or [type name], you will need to go through
+/// Lastly, if all you have is a [`TypeId`] or [type path], you will need to go through
 /// [`TypeRegistry::get_type_info`].
 ///
 /// You may also opt to use [`TypeRegistry::get_type_info`] in place of the other methods simply because
@@ -97,7 +97,7 @@ pub trait Typed: Reflect {
 /// [`Reflect::get_represented_type_info`]: crate::Reflect::get_represented_type_info
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
 /// [`TypeId`]: std::any::TypeId
-/// [type name]: std::any::type_name
+/// [type path]: TypePath::type_path
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
     Struct(StructInfo),

@@ -1080,18 +1080,18 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_names() {
+    fn not_dynamic_names() {
         let list = Vec::<usize>::new();
         let dyn_list = list.clone_dynamic();
-        assert_eq!(dyn_list.reflect_type_path(), Vec::<usize>::type_path());
+        assert_ne!(dyn_list.reflect_type_path(), Vec::<usize>::type_path());
 
         let array = [b'0'; 4];
         let dyn_array = array.clone_dynamic();
-        assert_eq!(dyn_array.reflect_type_path(), <[u8; 4]>::type_path());
+        assert_ne!(dyn_array.reflect_type_path(), <[u8; 4]>::type_path());
 
         let map = HashMap::<usize, String>::default();
         let dyn_map = map.clone_dynamic();
-        assert_eq!(
+        assert_ne!(
             dyn_map.reflect_type_path(),
             HashMap::<usize, String>::type_path()
         );
@@ -1099,7 +1099,7 @@ mod tests {
         let tuple = (0usize, "1".to_string(), 2.0f32);
         let mut dyn_tuple = tuple.clone_dynamic();
         dyn_tuple.insert::<usize>(3);
-        assert_eq!(
+        assert_ne!(
             dyn_tuple.reflect_type_path(),
             <(usize, String, f32, usize)>::type_path()
         );
@@ -1110,13 +1110,13 @@ mod tests {
         }
         let struct_ = TestStruct { a: 0 };
         let dyn_struct = struct_.clone_dynamic();
-        assert_eq!(dyn_struct.reflect_type_path(), TestStruct::type_path());
+        assert_ne!(dyn_struct.reflect_type_path(), TestStruct::type_path());
 
         #[derive(Reflect)]
         struct TestTupleStruct(usize);
         let tuple_struct = TestTupleStruct(0);
         let dyn_tuple_struct = tuple_struct.clone_dynamic();
-        assert_eq!(
+        assert_ne!(
             dyn_tuple_struct.reflect_type_path(),
             TestTupleStruct::type_path()
         );
@@ -1668,7 +1668,7 @@ mod tests {
 
         let reflected: &dyn Reflect = &test;
         let expected = r#"
-bevy_reflect::tests::should_reflect_debug::Test {
+bevy_reflect::tests::Test {
     value: 123,
     list: [
         "A",
@@ -1683,10 +1683,10 @@ bevy_reflect::tests::should_reflect_debug::Test {
     map: {
         123: 1.23,
     },
-    a_struct: bevy_reflect::tests::should_reflect_debug::SomeStruct {
+    a_struct: bevy_reflect::tests::SomeStruct {
         foo: "A Struct!",
     },
-    a_tuple_struct: bevy_reflect::tests::should_reflect_debug::SomeTupleStruct(
+    a_tuple_struct: bevy_reflect::tests::SomeTupleStruct(
         "A Tuple Struct!",
     ),
     enum_unit: A,

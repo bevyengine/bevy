@@ -37,6 +37,7 @@ glam = { version = "0.24", features = ["serde"], optional = true }
 ron = "0.8.0"
 rmp-serde = "1.1"
 bincode = "1.3"
+sha2 = "0.10.6"
 
 [[example]]
 name = "reflect_docs"

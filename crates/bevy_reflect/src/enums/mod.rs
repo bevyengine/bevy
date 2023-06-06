@@ -283,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "`((usize, i32))` is not an enum")]
+    #[should_panic(expected = "`bevy_reflect::DynamicTuple` is not an enum")]
     fn applying_non_enum_should_panic() {
         let mut value = MyEnum::B(0, 0);
         let mut dyn_tuple = DynamicTuple::default();

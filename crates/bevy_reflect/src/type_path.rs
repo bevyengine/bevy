@@ -213,3 +213,30 @@ impl TypePathVtable {
         self.type_path_id
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::Digest;
+
+    fn verify(text: &'static str) {
+        let real_hash = {
+            let mut sha_hasher = sha2::Sha256::new();
+            sha_hasher.update(text.as_bytes());
+            sha_hasher.finalize()
+        };
+        println!("{:2x?}", real_hash);
+        let short_hash: [u8; 16] = real_hash[..16].try_into().unwrap();
+        let real = TypePathId::new_raw(short_hash);
+        let ours = TypePathId::from_base(text);
+        assert_eq!(real, ours);
+    }
+
+    #[test]
+    fn test_uuid_sha() {
+        verify("one, two, buckle my shoe!");
+        verify("my_crate::foo::bar::baz::Qux");
+        verify("()");
+        verify("");
+    }
+}

@@ -76,7 +76,7 @@ impl DynamicScene {
 
         for resource in &self.resources {
             let registration = type_registry
-                .get_with_name(resource.reflect_type_path())
+                .get_with_type_path(resource.reflect_type_path())
                 .ok_or_else(|| SceneSpawnError::UnregisteredType {
                     type_name: resource.reflect_type_path().to_string(),
                 })?;
@@ -109,7 +109,7 @@ impl DynamicScene {
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {
                 let registration = type_registry
-                    .get_with_name(component.reflect_type_path())
+                    .get_with_type_path(component.reflect_type_path())
                     .ok_or_else(|| SceneSpawnError::UnregisteredType {
                         type_name: component.reflect_type_path().to_string(),
                     })?;
