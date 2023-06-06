@@ -1330,7 +1330,7 @@ impl GamepadRumbleIntensity {
 #[doc(alias = "force feedback")]
 #[doc(alias = "vibration")]
 #[doc(alias = "vibrate")]
-#[derive(Clone)]
+#[derive(Event, Clone)]
 pub enum GamepadRumbleRequest {
     /// Add a rumble to the given gamepad.
     ///
