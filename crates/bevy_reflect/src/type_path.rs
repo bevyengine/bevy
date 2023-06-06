@@ -228,7 +228,6 @@ mod tests {
             sha_hasher.update(text.as_bytes());
             sha_hasher.finalize()
         };
-        println!("{:2x?}", real_hash);
         let short_hash: [u8; 16] = real_hash[..16].try_into().unwrap();
         let real = TypePathId::new_raw(short_hash);
         let ours = TypePathId::from_base(text);
