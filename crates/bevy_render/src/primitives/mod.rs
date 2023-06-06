@@ -81,8 +81,9 @@ impl Sphere {
     }
 }
 
-/// A HalfSpace, characterized by the bisecting plane's unit normal and distance from the origin along the normal.
-/// This bisecting plane partitions the 3D space into two regions.
+/// A bisecting plane that partitions 3D space into two regions.
+///
+/// Mathematically, each instance of this type is characterized by the bisecting plane's unit normal and distance from the origin along the normal.
 /// Any point `p` is considered to be within the HalfSpace when the distance is positive,
 /// meaning: if the equation `n.p + d > 0` is satisfied.
 #[derive(Clone, Copy, Debug, Default)]
