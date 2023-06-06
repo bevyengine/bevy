@@ -241,14 +241,12 @@ pub fn ui_layout_system(
         ui_surface.try_remove_children(entity);
     }
 
-    // Need to modify UI stack to fix this
     let Some(&UiLayoutRoot { context, perform_full_update, .. }) = camera_to_root.values().next() else {
         // No layout roots, nothing to update so return.
         return;
     };
 
     if perform_full_update {
-        println!("full update");
         // update all nodes
         for (entity, style) in style_query.iter() {
             ui_surface.upsert_node(entity, &style, &context);
@@ -319,7 +317,6 @@ pub fn ui_layout_system(
 
     let to_logical = |v| (context.inverse_target_scale_factor * v as f64) as f32;
 
-    // PERF: try doing this incrementally
     for (entity, mut node, mut transform, parent) in &mut node_transform_query {
         let layout = ui_surface.get_layout(entity).unwrap();
         let new_size = Vec2::new(

@@ -44,6 +44,7 @@ struct StackingContextEntry {
 ///
 /// First generate a UI node tree (`StackingContext`) based on z-index.
 /// Then flatten that tree into back-to-front ordered `UiStack`.
+#[allow(clippy::too_many_arguments)]
 pub fn ui_stack_system(
     mut ui_surface: ResMut<UiSurface>,
     mut camera_to_root: ResMut<UiCameraToRoot>,
@@ -81,7 +82,6 @@ pub fn ui_stack_system(
                     bevy_render::camera::NormalizedRenderTarget::Image(image_handle) =>
                         image_assets.get(&image_handle).map(|image| LayoutContext::new(image.size(),1.0,ui_scale.scale)),
                 }) else {
-                    bevy_log::debug!("UI Camera has invalid render target");
                     continue;
                 };
             if let Some(layout_root) = camera_to_root.get_mut(&camera_entity) {
@@ -133,7 +133,7 @@ pub fn ui_stack_system(
         let mut global_context = StackingContext::default();
         let mut total_entry_count: usize = 0;
 
-        for entity in layout_root.root_uinodes.iter() {
+        for entity in &layout_root.root_uinodes {
             insert_context_hierarchy(
                 &zindex_query,
                 &children_query,

@@ -214,7 +214,7 @@ pub fn ui_focus_system(
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
     let mut hovered_nodes = vec![];
-    for ui_stack in ui_stacks.stacks.iter() {
+    for ui_stack in &ui_stacks.stacks {
         if window_cameras.contains(&ui_stack.camera_entity) {
             // reverse the iterator to traverse the tree from closest nodes to furthest
             for &entity in ui_stack.uinodes.iter().rev() {
@@ -266,11 +266,9 @@ pub fn ui_focus_system(
 
                     if contains_cursor {
                         hovered_nodes.push(entity);
-                    } else {
-                        if let Some(mut interaction) = node.interaction {
-                            if *interaction == Interaction::Hovered || (cursor_position.is_none()) {
-                                interaction.set_if_neq(Interaction::None);
-                            }
+                    } else if let Some(mut interaction) = node.interaction {
+                        if *interaction == Interaction::Hovered || (cursor_position.is_none()) {
+                            interaction.set_if_neq(Interaction::None);
                         }
                     }
                 }

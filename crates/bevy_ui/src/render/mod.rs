@@ -155,7 +155,7 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
-    pub camera: Entity,
+    pub view: Entity,
 }
 
 #[derive(Resource, Default)]
@@ -179,7 +179,7 @@ pub fn extract_uinodes(
     >,
 ) {
     extracted_uinodes.uinodes.clear();
-    for ui_stack in ui_stacks.stacks.iter() {
+    for ui_stack in &ui_stacks.stacks {
         for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
             if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
                 uinode_query.get(*entity)
@@ -212,7 +212,7 @@ pub fn extract_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     flip_x,
                     flip_y,
-                    camera: ui_stack.camera_entity,
+                    view: ui_stack.camera_entity,
                 });
             }
         }
@@ -303,7 +303,7 @@ pub fn extract_text_uinodes(
 
     let inverse_scale_factor = scale_factor.recip();
 
-    for ui_stack in ui_stacks.stacks.iter() {
+    for ui_stack in &ui_stacks.stacks {
         for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
             if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
                 uinode_query.get(*entity)
@@ -344,7 +344,7 @@ pub fn extract_text_uinodes(
                         clip: clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
-                        camera: ui_stack.camera_entity,
+                        view: ui_stack.camera_entity,
                     });
                 }
             }
@@ -389,7 +389,7 @@ pub struct UiBatch {
     pub range: Range<u32>,
     pub image: Handle<Image>,
     pub z: f32,
-    pub camera: Entity,
+    pub view: Entity,
 }
 
 pub fn prepare_uinodes(
@@ -410,25 +410,25 @@ pub fn prepare_uinodes(
     let mut end = 0;
     let mut current_batch_handle = Default::default();
     let mut last_z = 0.0;
-    let Some(mut current_batch_camera) = extracted_uinodes.uinodes.iter().next()
-        .map(|extracted_uinode| extracted_uinode.camera) else {
+    let Some(mut current_batch_view) = extracted_uinodes.uinodes.first()
+        .map(|extracted_uinode| extracted_uinode.view) else {
         return;
     };
     for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image
-            || current_batch_camera != extracted_uinode.camera
+            || current_batch_view != extracted_uinode.view
         {
             if start != end {
                 commands.spawn(UiBatch {
                     range: start..end,
                     image: current_batch_handle,
                     z: last_z,
-                    camera: current_batch_camera,
+                    view: current_batch_view,
                 });
                 start = end;
             }
             current_batch_handle = extracted_uinode.image.clone_weak();
-            current_batch_camera = extracted_uinode.camera;
+            current_batch_view = extracted_uinode.view;
         }
 
         let mut uinode_rect = extracted_uinode.rect;
@@ -545,7 +545,7 @@ pub fn prepare_uinodes(
             range: start..end,
             image: current_batch_handle,
             z: last_z,
-            camera: current_batch_camera,
+            view: current_batch_view,
         });
     }
 
@@ -599,7 +599,7 @@ pub fn queue_uinodes(
                 UiPipelineKey { hdr: view.hdr },
             );
             for (entity, batch) in &ui_batches {
-                if view_entity == batch.camera {
+                if view_entity == batch.view {
                     image_bind_groups
                         .values
                         .entry(batch.image.clone_weak())

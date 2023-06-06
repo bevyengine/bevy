@@ -60,62 +60,87 @@ fn spawn_nodes<M: Component + Default>(
     title: &str,
     camera_target: Option<Entity>,
 ) {
-    let mut ec = commands.spawn(NodeBundle {
+    let mut entity_commands = commands.spawn(NodeBundle {
         style: Style {
-            flex_direction: FlexDirection::Column,
-            column_gap: Val::Px(30.),
+            width: Val::Percent(100.),
+            justify_content: JustifyContent::Center,
             ..Default::default()
         },
         ..Default::default()
     });
-    ec.with_children(|builder| {
-        builder.spawn(TextBundle::from_section(
-            title,
-            TextStyle {
-                font_size: 50.,
+
+    if let Some(view) = camera_target {
+        entity_commands.insert(UiTargetCamera { entity: view });
+    }
+
+    entity_commands.with_children(|builder| {
+        builder.spawn(NodeBundle {
+            style: Style {
+                width: Val::Vw(50.),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceAround,
+                row_gap: Val::Vw(10.),
+                align_items: AlignItems::Center,
                 ..Default::default()
             },
-        ));
-
-        builder.spawn((
-            TextBundle::from_section(
-                "0",
+            background_color: Color::NAVY.into(),
+            ..Default::default()
+        }).with_children(|builder| {
+            builder.spawn(TextBundle::from_section(
+                title,
                 TextStyle {
                     font_size: 50.,
                     ..Default::default()
                 },
-            ),
-            Value(0),
-            M::default(),
-        ));
+            ));
 
-        builder
-            .spawn((
-                ButtonBundle {
-                    button: Button,
-                    style: Style {
-                        padding: UiRect::all(Val::Px(10.)),
-                        ..Default::default()
-                    },
-                    background_color: Color::BLACK.into(),
+            builder.spawn(NodeBundle {
+                style: Style {
+                    justify_content: JustifyContent::Center,
+                    padding: UiRect::all(Val::Px(10.)),
                     ..Default::default()
                 },
-                M::default(),
-            ))
-            .with_children(|builder| {
-                builder.spawn(TextBundle::from_section(
-                    format!("{title} button"),
-                    TextStyle {
-                        font_size: 50.,
-                        ..Default::default()
-                    },
+                background_color: Color::BLACK.into(),
+                ..Default::default()
+            }).with_children(|builder| {
+                builder.spawn((
+                    TextBundle::from_section(
+                        "0",
+                        TextStyle {
+                            font_size: 50.,
+                            ..Default::default()
+                        },
+                    ),
+                    Value(0),
+                    M::default(),
                 ));
             });
-    });
 
-    if let Some(view) = camera_target {
-        ec.insert(UiTargetCamera { entity: view });
-    }
+            builder
+                .spawn((
+                    ButtonBundle {
+                        button: Button,
+                        style: Style {
+                            padding: UiRect::all(Val::Px(10.)),
+                            ..Default::default()
+                        },
+                        background_color: Color::WHITE.into(),
+                        ..Default::default()
+                    },
+                    M::default(),
+                ))
+                .with_children(|builder| {
+                    builder.spawn(TextBundle::from_section(
+                        format!("{title} button"),
+                        TextStyle {
+                            font_size: 50.,
+                            color: Color::BLACK,
+                            ..Default::default()
+                        },
+                    ));
+                });
+        });
+    });
 }
 
 fn update_buttons<M: Component + Default, N: Component + Default>(
@@ -133,10 +158,10 @@ fn update_buttons<M: Component + Default, N: Component + Default>(
                     color.0 = Color::RED;
                 }
                 Interaction::Hovered => {
-                    color.0 = Color::NAVY;
+                    color.0 = Color::YELLOW;
                 }
                 Interaction::None => {
-                    color.0 = Color::BLACK;
+                    color.0 = Color::WHITE;
                 }
             }
         }
