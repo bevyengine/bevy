@@ -1,4 +1,4 @@
-use crate::UiCameraToRoot;
+use crate::UiLayouts;
 use crate::UiSurface;
 use bevy_ecs::prelude::Entity;
 use bevy_utils::HashMap;
@@ -7,13 +7,13 @@ use taffy::prelude::Node;
 use taffy::tree::LayoutTree;
 
 /// Prints a debug representation of the computed layout of the UI layout tree for each window.
-pub fn print_ui_layout_tree(ui_surface: &UiSurface, camera_to_root: &UiCameraToRoot) {
+pub fn print_ui_layout_tree(ui_surface: &UiSurface, layouts: &UiLayouts) {
     let taffy_to_entity: HashMap<Node, Entity> = ui_surface
         .entity_to_taffy
         .iter()
         .map(|(entity, node)| (*node, *entity))
         .collect();
-    for (&entity, node) in camera_to_root.iter() {
+    for (&entity, node) in layouts.iter() {
         let mut out = String::new();
         print_node(
             ui_surface,

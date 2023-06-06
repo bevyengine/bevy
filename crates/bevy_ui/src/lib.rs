@@ -44,8 +44,8 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
-use stack::ui_stack_system;
 pub use stack::UiStacks;
+use stack::{ui_stack_system, UiNodeToCamera};
 use update::update_clipping_system;
 
 /// The basic plugin for Bevy UI
@@ -67,7 +67,7 @@ pub enum UiSystem {
 ///
 /// A multiplier to fixed-sized ui values.
 /// **Note:** This will only affect fixed ui values like [`Val::Px`]
-#[derive(Debug, Resource)]
+#[derive(Debug, Resource, Component)]
 pub struct UiScale {
     /// The scale to be applied.
     pub scale: f64,
@@ -86,7 +86,8 @@ impl Plugin for UiPlugin {
             .init_resource::<UiScale>()
             .init_resource::<UiStacks>()
             .init_resource::<UiDefaultCamera>()
-            .init_resource::<UiCameraToRoot>()
+            .init_resource::<UiNodeToCamera>()
+            .init_resource::<UiLayouts>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()

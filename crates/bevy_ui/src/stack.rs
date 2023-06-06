@@ -1,15 +1,17 @@
 //! This module contains the systems that update the stored UI nodes stack
 
 use bevy_asset::Assets;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::prelude::*;
 use bevy_math::Vec2;
 use bevy_render::{prelude::Camera, texture::Image};
+use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window};
 
 use crate::{
-    prelude::UiCameraConfig, LayoutContext, Node, UiCameraToRoot, UiDefaultCamera, UiLayout,
-    UiScale, UiSurface, UiTargetCamera, ZIndex,
+    prelude::UiCameraConfig, LayoutContext, Node, UiDefaultCamera, UiLayout, UiLayouts, UiScale,
+    UiSurface, UiTargetCamera, ZIndex,
 };
 
 #[derive(Debug, Resource, Default)]
@@ -40,6 +42,9 @@ struct StackingContextEntry {
     pub stack: StackingContext,
 }
 
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct UiNodeToCamera(HashMap<Entity, Entity>);
+
 /// Generates the render stack for UI nodes.
 ///
 /// First generate a UI node tree (`StackingContext`) based on z-index.
@@ -47,7 +52,7 @@ struct StackingContextEntry {
 #[allow(clippy::too_many_arguments)]
 pub fn ui_stack_system(
     mut ui_surface: ResMut<UiSurface>,
-    mut camera_to_root: ResMut<UiCameraToRoot>,
+    mut ui_layouts: ResMut<UiLayouts>,
     mut default_camera: ResMut<UiDefaultCamera>,
     ui_scale: Res<UiScale>,
     image_assets: Res<Assets<Image>>,
@@ -59,12 +64,14 @@ pub fn ui_stack_system(
     root_node_query: Query<(Entity, Option<&UiTargetCamera>), (With<Node>, Without<Parent>)>,
     zindex_query: Query<&ZIndex, With<Node>>,
     children_query: Query<&Children>,
+    mut uinode_map: ResMut<UiNodeToCamera>,
 ) {
     ui_stacks.stacks.clear();
+    uinode_map.clear();
 
     // Remove the associated layout root for removed camera entities, if one exists
     for camera_entity in removed_cameras.iter() {
-        if let Some(layout_root) = camera_to_root.remove(&camera_entity) {
+        if let Some(layout_root) = ui_layouts.remove(&camera_entity) {
             let _ = ui_surface.taffy.remove(layout_root.taffy_root);
         }
     }
@@ -76,35 +83,41 @@ pub fn ui_stack_system(
         if is_ui_camera {
             // If no default camera, set the first `camera_entity` with UI enabled as the default camera
             default_camera.entity.get_or_insert(camera_entity);
-            let Some(layout_context) = camera.target.normalize(primary_window).and_then(|render_target| match render_target {
+            let Some(new_context) = camera.target.normalize(primary_window).and_then(|render_target| match render_target {
                     bevy_render::camera::NormalizedRenderTarget::Window(window_ref) =>
                         windows.get(window_ref.entity()).map(|window| LayoutContext::new(Vec2::new(window.physical_width() as f32, window.physical_height() as f32),window.scale_factor(),ui_scale.scale,)).ok(),
-                    bevy_render::camera::NormalizedRenderTarget::Image(image_handle) =>
-                        image_assets.get(&image_handle).map(|image| LayoutContext::new(image.size(),1.0,ui_scale.scale)),
+                    bevy_render::camera::NormalizedRenderTarget::Image(image_handle) => {
+                        let image_size = image_assets.get(&image_handle)?.size();
+                        Some(LayoutContext::new(image_size, 1.0, 1.0))
+                    }
                 }) else {
                     continue;
                 };
-            if let Some(layout_root) = camera_to_root.get_mut(&camera_entity) {
-                if layout_context != layout_root.context {
+            if let Some(layout) = ui_layouts.get_mut(&camera_entity) {
+                if new_context != layout.context {
                     ui_surface
                         .taffy
-                        .set_style(layout_root.taffy_root, layout_context.root_style())
+                        .set_style(layout.taffy_root, new_context.root_style())
                         .unwrap();
-                    layout_root.context = layout_context;
-                    layout_root.needs_full_update = true;
+
+                    layout.scale_factor_changed = layout.context.combined_scale_factor
+                        != new_context.combined_scale_factor;
+                    layout.context = new_context;
+                    layout.needs_full_update = true;
                 } else {
-                    layout_root.needs_full_update = false;
+                    layout.scale_factor_changed = false;
+                    layout.needs_full_update = false;
                 }
             } else {
                 let taffy_root = ui_surface
                     .taffy
-                    .new_leaf(layout_context.root_style())
+                    .new_leaf(new_context.root_style())
                     .unwrap();
-                camera_to_root.insert(camera_entity, UiLayout::new(taffy_root, layout_context));
+                ui_layouts.insert(camera_entity, UiLayout::new(taffy_root, new_context));
             }
         } else {
             // `camera_entity` not a UI camera so delete its layout root, if it has one
-            if let Some(layout_root) = camera_to_root.remove(&camera_entity) {
+            if let Some(layout_root) = ui_layouts.remove(&camera_entity) {
                 let _ = ui_surface.taffy.remove(layout_root.taffy_root);
             }
             // if `camera_entity` is the default camera, set the default camera to `None`
@@ -113,7 +126,7 @@ pub fn ui_stack_system(
             }
         }
     }
-    for layout_root in camera_to_root.values_mut() {
+    for layout_root in ui_layouts.values_mut() {
         layout_root.root_uinodes.clear();
     }
 
@@ -121,14 +134,14 @@ pub fn ui_stack_system(
         let layout_root = maybe_camera
             .map(|camera| camera.entity)
             .or(default_camera.entity)
-            .and_then(|camera| camera_to_root.get_mut(&camera));
+            .and_then(|camera| ui_layouts.get_mut(&camera));
         if let Some(layout_root) = layout_root {
             layout_root.root_uinodes.push(root_uinode);
         }
     }
 
     let mut base_index = 0;
-    for (camera_entity, layout_root) in camera_to_root.iter() {
+    for (camera_entity, layout_root) in ui_layouts.iter() {
         // Generate `StackingContext` tree
         let mut global_context = StackingContext::default();
         let mut total_entry_count: usize = 0;
@@ -147,6 +160,9 @@ pub fn ui_stack_system(
         // Flatten `StackingContext` into `UiStack`
         let mut uinodes = Vec::with_capacity(total_entry_count);
         fill_stack_recursively(&mut uinodes, &mut global_context);
+        for &entity in &uinodes {
+            uinode_map.insert(entity, *camera_entity);
+        }
         ui_stacks.stacks.push(UiStack {
             camera_entity: *camera_entity,
             uinodes,

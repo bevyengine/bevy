@@ -1,17 +1,11 @@
 mod pipeline;
 mod render_pass;
 
-use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_render::{ExtractSchedule, Render};
-#[cfg(feature = "bevy_text")]
-use bevy_window::{PrimaryWindow, Window};
-pub use pipeline::*;
-pub use render_pass::*;
-
 use crate::stack::UiStacks;
-use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage};
+use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiLayouts};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
+use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
@@ -28,6 +22,7 @@ use bevy_render::{
     view::{ComputedVisibility, ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
+use bevy_render::{ExtractSchedule, Render};
 use bevy_sprite::SpriteAssetEvents;
 #[cfg(feature = "bevy_text")]
 use bevy_sprite::TextureAtlas;
@@ -37,6 +32,8 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
+pub use pipeline::*;
+pub use render_pass::*;
 use std::ops::Range;
 
 pub mod node {
@@ -281,8 +278,8 @@ pub fn extract_default_ui_camera_view<T: Component>(
 pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_stacks: Extract<Res<UiStacks>>,
+    ui_layouts: Extract<Res<UiLayouts>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -294,20 +291,17 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
-    // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
-
-    let scale_factor = windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor() as f32)
-        .unwrap_or(1.0);
-
-    let inverse_scale_factor = scale_factor.recip();
-
     for ui_stack in &ui_stacks.stacks {
         for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
             if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
                 uinode_query.get(*entity)
             {
+                let inverse_scale_factor = ui_layouts
+                    .get(&ui_stack.camera_entity)
+                    .map(|layout| layout.context.combined_scale_factor)
+                    .unwrap_or(1.)
+                    .recip() as f32;
+
                 // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
                 if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {
                     continue;

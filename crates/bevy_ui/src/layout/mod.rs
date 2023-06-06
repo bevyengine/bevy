@@ -63,6 +63,7 @@ pub struct UiLayout {
     pub(crate) context: LayoutContext,
     pub(crate) needs_full_update: bool,
     pub(crate) root_uinodes: Vec<Entity>,
+    pub(crate) scale_factor_changed: bool,
 }
 
 impl UiLayout {
@@ -72,6 +73,7 @@ impl UiLayout {
             context: layout_context,
             needs_full_update: true,
             root_uinodes: vec![],
+            scale_factor_changed: true,
         }
     }
 }
@@ -109,7 +111,7 @@ pub struct UiDefaultCamera {
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct UiCameraToRoot {
+pub struct UiLayouts {
     camera_to_root: HashMap<Entity, UiLayout>,
 }
 
@@ -198,7 +200,7 @@ pub enum LayoutError {
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
-    mut camera_to_root: ResMut<UiCameraToRoot>,
+    mut camera_to_root: ResMut<UiLayouts>,
     default_camera: ResMut<UiDefaultCamera>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
@@ -279,8 +281,10 @@ pub fn ui_layout_system(
     ) {
         if let Ok((style, maybe_children)) = uinode_query.get(uinode) {
             let taffy_node = *ui_surface.entity_to_taffy.get(&uinode).unwrap();
-            let _ = ui_surface.taffy.set_style(taffy_node, convert::from_style(context, &style));
-            
+            let _ = ui_surface
+                .taffy
+                .set_style(taffy_node, convert::from_style(context, &style));
+
             if let Some(children) = maybe_children {
                 ui_surface.update_children(taffy_node, &children);
 
@@ -300,7 +304,9 @@ pub fn ui_layout_system(
         if let Ok((style, maybe_children)) = uinode_query.get(uinode) {
             if style.is_changed() {
                 let taffy_node = *ui_surface.entity_to_taffy.get(&uinode).unwrap();
-                let _ = ui_surface.taffy.set_style(taffy_node, convert::from_style(context, &style));
+                let _ = ui_surface
+                    .taffy
+                    .set_style(taffy_node, convert::from_style(context, &style));
             }
 
             if let Some(children) = maybe_children {

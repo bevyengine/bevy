@@ -1,11 +1,11 @@
-use crate::{ContentSize, Measure, Node, UiScale};
+use crate::{stack::UiNodeToCamera, ContentSize, Measure, Node, UiLayouts};
 use bevy_asset::Assets;
 use bevy_ecs::{
-    prelude::{Component, DetectChanges},
+    prelude::{Component, DetectChanges, Entity},
     query::With,
     reflect::ReflectComponent,
-    system::{Local, Query, Res, ResMut},
-    world::{Mut, Ref},
+    system::{Query, Res, ResMut},
+    world::Ref,
 };
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -15,7 +15,6 @@ use bevy_text::{
     Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextMeasureInfo,
     TextPipeline, TextSettings, YAxisOrientation,
 };
-use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
 
 /// Text system flags
@@ -74,132 +73,44 @@ impl Measure for TextMeasure {
     }
 }
 
-#[inline]
-fn create_text_measure(
-    fonts: &Assets<Font>,
-    text_pipeline: &mut TextPipeline,
-    scale_factor: f64,
-    text: Ref<Text>,
-    mut content_size: Mut<ContentSize>,
-    mut text_flags: Mut<TextFlags>,
-) {
-    match text_pipeline.create_text_measure(
-        fonts,
-        &text.sections,
-        scale_factor,
-        text.alignment,
-        text.linebreak_behavior,
-    ) {
-        Ok(measure) => {
-            content_size.set(TextMeasure { info: measure });
-
-            // Text measure func created succesfully, so set `TextFlags` to schedule a recompute
-            text_flags.needs_new_measure_func = false;
-            text_flags.needs_recompute = true;
-        }
-        Err(TextError::NoSuchFont) => {
-            // Try again next frame
-            text_flags.needs_new_measure_func = true;
-        }
-        Err(e @ TextError::FailedToAddGlyph(_)) => {
-            panic!("Fatal error when processing text: {e}.");
-        }
-    };
-}
-
 /// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 pub fn measure_text_system(
-    mut last_scale_factor: Local<f64>,
     fonts: Res<Assets<Font>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    ui_scale: Res<UiScale>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
+    mut text_query: Query<(Entity, Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
+    uinode_map: Res<UiNodeToCamera>,
+    ui_layouts: Res<UiLayouts>,
 ) {
-    let window_scale_factor = windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.);
-
-    let scale_factor = ui_scale.scale * window_scale_factor;
-
-    #[allow(clippy::float_cmp)]
-    if *last_scale_factor == scale_factor {
-        // scale factor unchanged, only create new measure funcs for modified text
-        for (text, content_size, text_flags) in text_query.iter_mut() {
-            if text.is_changed() || text_flags.needs_new_measure_func {
-                create_text_measure(
+    for (text_uinode, text, mut content_size, mut text_flags) in text_query.iter_mut() {
+        if let Some(layout) = uinode_map
+            .get(&text_uinode)
+            .and_then(|entity| ui_layouts.get(entity))
+        {
+            if text.is_changed() || text_flags.needs_new_measure_func || layout.scale_factor_changed
+            {
+                match text_pipeline.create_text_measure(
                     &fonts,
-                    &mut text_pipeline,
-                    scale_factor,
-                    text,
-                    content_size,
-                    text_flags,
-                );
-            }
-        }
-    } else {
-        // scale factor changed, create new measure funcs for all text
-        *last_scale_factor = scale_factor;
+                    &text.sections,
+                    layout.context.combined_scale_factor,
+                    text.alignment,
+                    text.linebreak_behavior,
+                ) {
+                    Ok(measure) => {
+                        content_size.set(TextMeasure { info: measure });
 
-        for (text, content_size, text_flags) in text_query.iter_mut() {
-            create_text_measure(
-                &fonts,
-                &mut text_pipeline,
-                scale_factor,
-                text,
-                content_size,
-                text_flags,
-            );
-        }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-#[inline]
-fn queue_text(
-    fonts: &Assets<Font>,
-    text_pipeline: &mut TextPipeline,
-    font_atlas_warning: &mut FontAtlasWarning,
-    font_atlas_set_storage: &mut Assets<FontAtlasSet>,
-    texture_atlases: &mut Assets<TextureAtlas>,
-    textures: &mut Assets<Image>,
-    text_settings: &TextSettings,
-    scale_factor: f64,
-    text: &Text,
-    node: Ref<Node>,
-    mut text_flags: Mut<TextFlags>,
-    mut text_layout_info: Mut<TextLayoutInfo>,
-) {
-    // Skip the text node if it is waiting for a new measure func
-    if !text_flags.needs_new_measure_func {
-        let physical_node_size = node.physical_size(scale_factor);
-
-        match text_pipeline.queue_text(
-            fonts,
-            &text.sections,
-            scale_factor,
-            text.alignment,
-            text.linebreak_behavior,
-            physical_node_size,
-            font_atlas_set_storage,
-            texture_atlases,
-            textures,
-            text_settings,
-            font_atlas_warning,
-            YAxisOrientation::TopToBottom,
-        ) {
-            Err(TextError::NoSuchFont) => {
-                // There was an error processing the text layout, try again next frame
-                text_flags.needs_recompute = true;
-            }
-            Err(e @ TextError::FailedToAddGlyph(_)) => {
-                panic!("Fatal error when processing text: {e}.");
-            }
-            Ok(info) => {
-                *text_layout_info = info;
-                text_flags.needs_recompute = false;
+                        // Text measure func created succesfully, so set `TextFlags` to schedule a recompute
+                        text_flags.needs_new_measure_func = false;
+                        text_flags.needs_recompute = true;
+                    }
+                    Err(TextError::NoSuchFont) => {
+                        // Try again next frame
+                        text_flags.needs_new_measure_func = true;
+                    }
+                    Err(e @ TextError::FailedToAddGlyph(_)) => {
+                        panic!("Fatal error when processing text: {e}.");
+                    }
+                };
             }
         }
     }
@@ -215,64 +126,61 @@ fn queue_text(
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
-    mut last_scale_factor: Local<f64>,
     fonts: Res<Assets<Font>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
     text_settings: Res<TextSettings>,
     mut font_atlas_warning: ResMut<FontAtlasWarning>,
-    ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(Ref<Node>, &Text, &mut TextLayoutInfo, &mut TextFlags)>,
+    mut text_query: Query<(
+        Entity,
+        Ref<Node>,
+        &Text,
+        &mut TextLayoutInfo,
+        &mut TextFlags,
+    )>,
+    uinode_map: Res<UiNodeToCamera>,
+    ui_layouts: Res<UiLayouts>,
 ) {
-    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let window_scale_factor = windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.);
-
-    let scale_factor = ui_scale.scale * window_scale_factor;
-
-    if *last_scale_factor == scale_factor {
-        // Scale factor unchanged, only recompute text for modified text nodes
-        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
-            if node.is_changed() || text_flags.needs_recompute {
-                queue_text(
-                    &fonts,
-                    &mut text_pipeline,
-                    &mut font_atlas_warning,
-                    &mut font_atlas_set_storage,
-                    &mut texture_atlases,
-                    &mut textures,
-                    &text_settings,
-                    scale_factor,
-                    text,
-                    node,
-                    text_flags,
-                    text_layout_info,
-                );
+    for (text_uinode, node, text, mut text_layout_info, mut text_flags) in text_query.iter_mut() {
+        if let Some(layout) = uinode_map
+            .get(&text_uinode)
+            .and_then(|entity| ui_layouts.get(entity))
+        {
+            if node.is_changed()
+                || text_flags.needs_recompute
+                || layout.scale_factor_changed
+                || !text_flags.needs_new_measure_func
+            {
+                {
+                    match text_pipeline.queue_text(
+                        &fonts,
+                        &text.sections,
+                        layout.context.combined_scale_factor,
+                        text.alignment,
+                        text.linebreak_behavior,
+                        node.physical_size(layout.context.combined_scale_factor),
+                        &mut font_atlas_set_storage,
+                        &mut texture_atlases,
+                        &mut textures,
+                        &text_settings,
+                        &mut font_atlas_warning,
+                        YAxisOrientation::TopToBottom,
+                    ) {
+                        Err(TextError::NoSuchFont) => {
+                            // There was an error processing the text layout, try again next frame
+                            text_flags.needs_recompute = true;
+                        }
+                        Err(e @ TextError::FailedToAddGlyph(_)) => {
+                            panic!("Fatal error when processing text: {e}.");
+                        }
+                        Ok(info) => {
+                            *text_layout_info = info;
+                            text_flags.needs_recompute = false;
+                        }
+                    }
+                }
             }
-        }
-    } else {
-        // Scale factor changed, recompute text for all text nodes
-        *last_scale_factor = scale_factor;
-
-        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
-            queue_text(
-                &fonts,
-                &mut text_pipeline,
-                &mut font_atlas_warning,
-                &mut font_atlas_set_storage,
-                &mut texture_atlases,
-                &mut textures,
-                &text_settings,
-                scale_factor,
-                text,
-                node,
-                text_flags,
-                text_layout_info,
-            );
         }
     }
 }
