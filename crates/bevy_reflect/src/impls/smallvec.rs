@@ -4,9 +4,9 @@ use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, DynamicTypePath, FromReflect, FromType, GetTypeRegistration, List,
-    ListInfo, ListIter, Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypePath, TypeRegistration, Typed,
+    self as bevy_reflect, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter,
+    Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    TypeRegistration, Typed,
 };
 
 impl<T: smallvec::Array + TypePath + Send + Sync> List for SmallVec<T>
@@ -86,11 +86,6 @@ where
 
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
     }
 
     fn into_any(self: Box<Self>) -> Box<dyn Any> {

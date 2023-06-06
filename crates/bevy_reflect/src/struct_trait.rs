@@ -1,6 +1,5 @@
 use crate::{
-    self as bevy_reflect, DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo,
+    self as bevy_reflect, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
@@ -403,11 +402,6 @@ impl Reflect for DynamicStruct {
     #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
-    }
-
-    #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
     }
 
     #[inline]
