@@ -1,4 +1,9 @@
-use crate::{Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, UnnamedField};
+use bevy_reflect_derive::impl_type_path;
+
+use crate::{
+    self as bevy_reflect, DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    UnnamedField,
+};
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
@@ -304,6 +309,11 @@ impl Reflect for DynamicTupleStruct {
     }
 
     #[inline]
+    fn get_type_path(&self) -> &dyn DynamicTypePath {
+        self
+    }
+
+    #[inline]
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -385,6 +395,8 @@ impl Reflect for DynamicTupleStruct {
         true
     }
 }
+
+impl_type_path!((in bevy_reflect) DynamicTupleStruct);
 
 impl Debug for DynamicTupleStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

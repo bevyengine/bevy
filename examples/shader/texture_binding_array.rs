@@ -3,7 +3,7 @@
 
 use bevy::{
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::{
         render_asset::RenderAssets,
         render_resource::{AsBindGroupError, PreparedBindGroup, *},
@@ -85,7 +85,7 @@ fn setup(
     });
 }
 
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Debug, Clone, TypePath, TypeUuid)]
 #[uuid = "8dd2b424-45a2-4a53-ac29-7ce356b2d5fe"]
 struct BindlessMaterial {
     textures: Vec<Handle<Image>>,

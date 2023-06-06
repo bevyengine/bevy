@@ -489,7 +489,7 @@ mod tests {
 
     #[test]
     fn asset_overwriting() {
-        #[derive(bevy_reflect::TypeUuid)]
+        #[derive(bevy_reflect::TypeUuid, bevy_reflect::TypePath)]
         #[uuid = "44115972-f31b-46e5-be5c-2b9aece6a52f"]
         struct MyAsset;
         let mut app = App::new();
