@@ -297,8 +297,13 @@ impl<T: Asset> Default for Handle<T> {
 
 impl<T: Asset> Debug for Handle<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        let name = std::any::type_name::<T>().split("::").last().unwrap();
-        write!(f, "{:?}Handle<{name}>({:?})", self.handle_type, self.id)
+        write!(
+            f,
+            "{:?}Handle<{}>({:?})",
+            self.handle_type,
+            T::short_type_path(),
+            self.id
+        )
     }
 }
 

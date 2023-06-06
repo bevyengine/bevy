@@ -25,7 +25,15 @@ mod tests {
         let info = MyEnum::type_info();
         if let TypeInfo::Enum(info) = info {
             assert!(info.is::<MyEnum>(), "expected type to be `MyEnum`");
-            assert_eq!(std::any::type_name::<MyEnum>(), info.type_name());
+            assert_eq!(MyEnum::type_path(), info.type_path());
+            assert_eq!(MyEnum::type_path(), info.type_path_vtable().path());
+            assert_eq!(MyEnum::type_ident(), info.type_path_vtable().ident());
+            assert_eq!(MyEnum::module_path(), info.type_path_vtable().module_path());
+            assert_eq!(MyEnum::crate_name(), info.type_path_vtable().crate_name());
+            assert_eq!(
+                MyEnum::short_type_path(),
+                info.type_path_vtable().short_path()
+            );
 
             // === MyEnum::A === //
             assert_eq!("A", info.variant_at(0).unwrap().name());

@@ -47,18 +47,8 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
 
         impl #impl_generics #bevy_reflect_path::Reflect for #type_path #ty_generics #where_reflect_clause  {
             #[inline]
-            fn type_name(&self) -> &str {
-                ::core::any::type_name::<Self>()
-            }
-
-            #[inline]
             fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
-            }
-
-            #[inline]
-            fn get_type_path(&self) -> &dyn #bevy_reflect_path::DynamicTypePath {
-                self
             }
 
             #[inline]
@@ -102,7 +92,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
                 if let #FQOption::Some(value) = <dyn #FQAny>::downcast_ref::<Self>(value) {
                     *self = #FQClone::clone(value);
                 } else {
-                    panic!("Value is not {}.", ::core::any::type_name::<Self>());
+                    panic!("Value is not {}.", <Self as #bevy_reflect_path::TypePath>::type_path());
                 }
             }
 

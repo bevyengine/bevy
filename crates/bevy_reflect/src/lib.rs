@@ -307,7 +307,7 @@
 //! The general entry point are the "untyped" versions of these structs.
 //! These will automatically extract the type information and pass them into their respective "typed" version.
 //!
-//! The output of the `ReflectSerializer` will be a map, where the key is the [type name]
+//! The output of the `ReflectSerializer` will be a map, where the key is the [type path]
 //! and the value is the serialized data.
 //! The `TypedReflectSerializer` will simply output the serialized data.
 //!
@@ -427,7 +427,7 @@
 //! [`TypedReflectDeserializer`]: serde::TypedReflectDeserializer
 //! [registry]: TypeRegistry
 //! [type information]: TypeInfo
-//! [type name]: Reflect::type_name
+//! [type path]: TypePath
 //! [type registry]: TypeRegistry
 //! [`bevy_math`]: https://docs.rs/bevy_math/latest/bevy_math/
 //! [`glam`]: https://docs.rs/glam/latest/glam/
@@ -1083,25 +1083,25 @@ mod tests {
     fn dynamic_names() {
         let list = Vec::<usize>::new();
         let dyn_list = list.clone_dynamic();
-        assert_eq!(dyn_list.type_name(), std::any::type_name::<Vec<usize>>());
+        assert_eq!(dyn_list.reflect_type_path(), Vec::<usize>::type_path());
 
         let array = [b'0'; 4];
         let dyn_array = array.clone_dynamic();
-        assert_eq!(dyn_array.type_name(), std::any::type_name::<[u8; 4]>());
+        assert_eq!(dyn_array.reflect_type_path(), <[u8; 4]>::type_path());
 
         let map = HashMap::<usize, String>::default();
         let dyn_map = map.clone_dynamic();
         assert_eq!(
-            dyn_map.type_name(),
-            std::any::type_name::<HashMap<usize, String>>()
+            dyn_map.reflect_type_path(),
+            HashMap::<usize, String>::type_path()
         );
 
         let tuple = (0usize, "1".to_string(), 2.0f32);
         let mut dyn_tuple = tuple.clone_dynamic();
         dyn_tuple.insert::<usize>(3);
         assert_eq!(
-            dyn_tuple.type_name(),
-            std::any::type_name::<(usize, String, f32, usize)>()
+            dyn_tuple.reflect_type_path(),
+            <(usize, String, f32, usize)>::type_path()
         );
 
         #[derive(Reflect)]
@@ -1110,15 +1110,15 @@ mod tests {
         }
         let struct_ = TestStruct { a: 0 };
         let dyn_struct = struct_.clone_dynamic();
-        assert_eq!(dyn_struct.type_name(), std::any::type_name::<TestStruct>());
+        assert_eq!(dyn_struct.reflect_type_path(), TestStruct::type_path());
 
         #[derive(Reflect)]
         struct TestTupleStruct(usize);
         let tuple_struct = TestTupleStruct(0);
         let dyn_tuple_struct = tuple_struct.clone_dynamic();
         assert_eq!(
-            dyn_tuple_struct.type_name(),
-            std::any::type_name::<TestTupleStruct>()
+            dyn_tuple_struct.reflect_type_path(),
+            TestTupleStruct::type_path()
         );
     }
 
@@ -1218,7 +1218,7 @@ mod tests {
     fn reflect_type_info() {
         // TypeInfo
         let info = i32::type_info();
-        assert_eq!(std::any::type_name::<i32>(), info.type_name());
+        assert_eq!(i32::type_path(), info.type_path());
         assert_eq!(std::any::TypeId::of::<i32>(), info.type_id());
 
         // TypeInfo (unsized)
@@ -1242,21 +1242,15 @@ mod tests {
         let info = MyStruct::type_info();
         if let TypeInfo::Struct(info) = info {
             assert!(info.is::<MyStruct>());
-            assert_eq!(std::any::type_name::<MyStruct>(), info.type_name());
-            assert_eq!(
-                std::any::type_name::<i32>(),
-                info.field("foo").unwrap().type_name()
-            );
+            assert_eq!(MyStruct::type_path(), info.type_path());
+            assert_eq!(i32::type_path(), info.field("foo").unwrap().type_path());
             assert_eq!(
                 std::any::TypeId::of::<i32>(),
                 info.field("foo").unwrap().type_id()
             );
             assert!(info.field("foo").unwrap().is::<i32>());
             assert_eq!("foo", info.field("foo").unwrap().name());
-            assert_eq!(
-                std::any::type_name::<usize>(),
-                info.field_at(1).unwrap().type_name()
-            );
+            assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
         } else {
             panic!("Expected `TypeInfo::Struct`");
         }
@@ -1275,19 +1269,10 @@ mod tests {
         let info = <MyGenericStruct<i32>>::type_info();
         if let TypeInfo::Struct(info) = info {
             assert!(info.is::<MyGenericStruct<i32>>());
-            assert_eq!(
-                std::any::type_name::<MyGenericStruct<i32>>(),
-                info.type_name()
-            );
-            assert_eq!(
-                std::any::type_name::<i32>(),
-                info.field("foo").unwrap().type_name()
-            );
+            assert_eq!(MyGenericStruct::<i32>::type_path(), info.type_path());
+            assert_eq!(i32::type_path(), info.field("foo").unwrap().type_path());
             assert_eq!("foo", info.field("foo").unwrap().name());
-            assert_eq!(
-                std::any::type_name::<usize>(),
-                info.field_at(1).unwrap().type_name()
-            );
+            assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
         } else {
             panic!("Expected `TypeInfo::Struct`");
         }
@@ -1306,11 +1291,8 @@ mod tests {
         let info = MyTupleStruct::type_info();
         if let TypeInfo::TupleStruct(info) = info {
             assert!(info.is::<MyTupleStruct>());
-            assert_eq!(std::any::type_name::<MyTupleStruct>(), info.type_name());
-            assert_eq!(
-                std::any::type_name::<i32>(),
-                info.field_at(1).unwrap().type_name()
-            );
+            assert_eq!(MyTupleStruct::type_path(), info.type_path());
+            assert_eq!(i32::type_path(), info.field_at(1).unwrap().type_path());
             assert!(info.field_at(1).unwrap().is::<i32>());
         } else {
             panic!("Expected `TypeInfo::TupleStruct`");
@@ -1322,11 +1304,8 @@ mod tests {
         let info = MyTuple::type_info();
         if let TypeInfo::Tuple(info) = info {
             assert!(info.is::<MyTuple>());
-            assert_eq!(std::any::type_name::<MyTuple>(), info.type_name());
-            assert_eq!(
-                std::any::type_name::<f32>(),
-                info.field_at(1).unwrap().type_name()
-            );
+            assert_eq!(MyTuple::type_path(), info.type_path());
+            assert_eq!(f32::type_path(), info.field_at(1).unwrap().type_path());
         } else {
             panic!("Expected `TypeInfo::Tuple`");
         }
@@ -1342,8 +1321,8 @@ mod tests {
         if let TypeInfo::List(info) = info {
             assert!(info.is::<MyList>());
             assert!(info.item_is::<usize>());
-            assert_eq!(std::any::type_name::<MyList>(), info.type_name());
-            assert_eq!(std::any::type_name::<usize>(), info.item_type_name());
+            assert_eq!(MyList::type_path(), info.type_path());
+            assert_eq!(usize::type_path(), info.item_type_path_vtable().path());
         } else {
             panic!("Expected `TypeInfo::List`");
         }
@@ -1361,8 +1340,8 @@ mod tests {
             if let TypeInfo::List(info) = info {
                 assert!(info.is::<MySmallVec>());
                 assert!(info.item_is::<String>());
-                assert_eq!(std::any::type_name::<MySmallVec>(), info.type_name());
-                assert_eq!(std::any::type_name::<String>(), info.item_type_name());
+                assert_eq!(MySmallVec::type_path(), info.type_path());
+                assert_eq!(String::type_path(), info.item_type_path_vtable().path());
             } else {
                 panic!("Expected `TypeInfo::List`");
             }
@@ -1380,8 +1359,8 @@ mod tests {
         if let TypeInfo::Array(info) = info {
             assert!(info.is::<MyArray>());
             assert!(info.item_is::<usize>());
-            assert_eq!(std::any::type_name::<MyArray>(), info.type_name());
-            assert_eq!(std::any::type_name::<usize>(), info.item_type_name());
+            assert_eq!(MyArray::type_path(), info.type_path());
+            assert_eq!(usize::type_path(), info.item_type_path_vtable().path());
             assert_eq!(3, info.capacity());
         } else {
             panic!("Expected `TypeInfo::Array`");
@@ -1399,9 +1378,9 @@ mod tests {
             assert!(info.is::<MyMap>());
             assert!(info.key_is::<usize>());
             assert!(info.value_is::<f32>());
-            assert_eq!(std::any::type_name::<MyMap>(), info.type_name());
-            assert_eq!(std::any::type_name::<usize>(), info.key_type_name());
-            assert_eq!(std::any::type_name::<f32>(), info.value_type_name());
+            assert_eq!(MyMap::type_path(), info.type_path());
+            assert_eq!(usize::type_path(), info.key_type_path_vtable().path());
+            assert_eq!(f32::type_path(), info.value_type_path_vtable().path());
         } else {
             panic!("Expected `TypeInfo::Map`");
         }
@@ -1416,7 +1395,7 @@ mod tests {
         let info = MyValue::type_info();
         if let TypeInfo::Value(info) = info {
             assert!(info.is::<MyValue>());
-            assert_eq!(std::any::type_name::<MyValue>(), info.type_name());
+            assert_eq!(MyValue::type_path(), info.type_path());
         } else {
             panic!("Expected `TypeInfo::Value`");
         }

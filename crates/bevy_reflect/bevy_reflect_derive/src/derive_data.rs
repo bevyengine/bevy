@@ -35,7 +35,7 @@ pub(crate) enum ReflectDerive<'a> {
 /// //                          traits
 /// //        |----------------------------------------|
 /// #[reflect(PartialEq, Serialize, Deserialize, Default)]
-/// //            type_name       generics
+/// //            type_path       generics
 /// //     |-------------------||----------|
 /// struct ThingThatImReflecting<T1, T2, T3> {/* ... */}
 /// ```

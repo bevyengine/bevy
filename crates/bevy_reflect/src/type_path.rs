@@ -82,21 +82,21 @@ pub trait TypePath: 'static {
     ///
     /// Generic parameter types are also fully expanded.
     ///
-    /// For `Option<PhantomData>`, this is `"core::option::Option<core::marker::PhantomData>"`.
+    /// For `Option<Vec<usize>>`, this is `"core::option::Option<alloc::vec::Vec<usize>>"`.
     fn type_path() -> &'static str;
 
     /// Returns a short, pretty-print enabled path to the type.
     ///
     /// Generic parameter types are also shortened.
     ///
-    /// For `Option<PhantomData>`, this is `"Option<PhantomData>"`.
+    /// For `Option<Vec<usize>>`, this is `"Option<Vec<usize>>"`.
     fn short_type_path() -> &'static str;
 
     /// Returns the name of the type, or [`None`] if it is [anonymous].
     ///
     /// Primitive types will return [`Some`].
     ///
-    /// For `Option<PhantomData>`, this is `"Option"`.
+    /// For `Option<Vec<usize>>`, this is `"Option"`.
     ///
     /// [anonymous]: TypePath#anonymity
     fn type_ident() -> Option<&'static str> {
@@ -105,7 +105,7 @@ pub trait TypePath: 'static {
 
     /// Returns the name of the crate the type is in, or [`None`] if it is [anonymous].
     ///
-    /// For `Option<PhantomData>`, this is `"core"`.
+    /// For `Option<Vec<usize>>`, this is `"core"`.
     ///
     /// [anonymous]: TypePath#anonymity
     fn crate_name() -> Option<&'static str> {
@@ -114,7 +114,7 @@ pub trait TypePath: 'static {
 
     /// Returns the path to the moudle the type is in, or [`None`] if it is [anonymous].
     ///
-    /// For `Option<PhantomData>`, this is `"core::option"`.
+    /// For `Option<Vec<usize>>`, this is `"core::option"`.
     ///
     /// [anonymous]: TypePath#anonymity
     fn module_path() -> Option<&'static str> {
@@ -124,9 +124,9 @@ pub trait TypePath: 'static {
 
 /// Dynamic dispatch for [`TypePath`].
 ///
-/// Retrieved using [`Reflect::get_type_path`].
+/// Since this is a supertrait of [`Reflect`] its methods can be called on a `dyn Reflect`.
 ///
-/// [`Reflect::get_type_path`]: crate::Reflect::get_type_path
+/// [`Reflect`]: crate::Reflect
 pub trait DynamicTypePath {
     /// See [`TypePath::type_path`].
     fn reflect_type_path(&self) -> &str;
@@ -163,5 +163,53 @@ impl<T: TypePath> DynamicTypePath for T {
 
     fn reflect_module_path(&self) -> Option<&str> {
         Self::module_path()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TypePathVtable {
+    // Cache the type path as it is likely the only one that will be used.
+    type_path: &'static str,
+    short_type_path: fn() -> &'static str,
+    type_ident: fn() -> Option<&'static str>,
+    crate_name: fn() -> Option<&'static str>,
+    module_path: fn() -> Option<&'static str>,
+    type_path_id: TypePathId,
+}
+
+impl TypePathVtable {
+    pub fn of<T: TypePath + ?Sized>() -> Self {
+        Self {
+            type_path: T::type_path(),
+            short_type_path: T::short_type_path,
+            type_ident: T::type_ident,
+            crate_name: T::crate_name,
+            module_path: T::module_path,
+            type_path_id: T::TYPE_PATH_ID,
+        }
+    }
+
+    pub fn path(&self) -> &'static str {
+        self.type_path
+    }
+
+    pub fn short_path(&self) -> &'static str {
+        (self.short_type_path)()
+    }
+
+    pub fn ident(&self) -> Option<&'static str> {
+        (self.type_ident)()
+    }
+
+    pub fn crate_name(&self) -> Option<&'static str> {
+        (self.crate_name)()
+    }
+
+    pub fn module_path(&self) -> Option<&'static str> {
+        (self.module_path)()
+    }
+
+    pub fn type_path_id(&self) -> TypePathId {
+        self.type_path_id
     }
 }

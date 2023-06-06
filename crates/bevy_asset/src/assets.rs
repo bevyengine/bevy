@@ -26,24 +26,15 @@ impl<T: Asset> Debug for AssetEvent<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AssetEvent::Created { handle } => f
-                .debug_struct(&format!(
-                    "AssetEvent<{}>::Created",
-                    std::any::type_name::<T>()
-                ))
+                .debug_struct(&format!("AssetEvent<{}>::Created", T::type_path()))
                 .field("handle", &handle.id())
                 .finish(),
             AssetEvent::Modified { handle } => f
-                .debug_struct(&format!(
-                    "AssetEvent<{}>::Modified",
-                    std::any::type_name::<T>()
-                ))
+                .debug_struct(&format!("AssetEvent<{}>::Modified", T::type_path()))
                 .field("handle", &handle.id())
                 .finish(),
             AssetEvent::Removed { handle } => f
-                .debug_struct(&format!(
-                    "AssetEvent<{}>::Removed",
-                    std::any::type_name::<T>()
-                ))
+                .debug_struct(&format!("AssetEvent<{}>::Removed", T::type_path()))
                 .field("handle", &handle.id())
                 .finish(),
         }

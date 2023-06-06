@@ -116,7 +116,7 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
         let mut state = serializer.serialize_map(Some(self.entries.len()))?;
         for reflect in self.entries {
             state.serialize_entry(
-                reflect.type_name(),
+                reflect.reflect_type_path(),
                 &TypedReflectSerializer::new(&**reflect, &self.registry.read()),
             )?;
         }
@@ -393,7 +393,7 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
             if !added.insert(registration.type_id()) {
                 return Err(Error::custom(format_args!(
                     "duplicate reflect type: `{}`",
-                    registration.type_name()
+                    registration.type_info().type_path(),
                 )));
             }
 
@@ -813,9 +813,12 @@ mod tests {
                 let received = received
                     .components
                     .iter()
-                    .find(|component| component.type_name() == expected.type_name())
+                    .find(|component| component.reflect_type_path() == expected.reflect_type_path())
                     .unwrap_or_else(|| {
-                        panic!("missing component (expected: `{}`)", expected.type_name())
+                        panic!(
+                            "missing component (expected: `{}`)",
+                            expected.reflect_type_path()
+                        )
                     });
 
                 assert!(

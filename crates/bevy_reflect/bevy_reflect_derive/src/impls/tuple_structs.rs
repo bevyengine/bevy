@@ -58,20 +58,18 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         }
     };
 
-    let string_name = struct_path.get_ident().unwrap().to_string();
-
     #[cfg(feature = "documentation")]
     let info_generator = {
         let doc = reflect_struct.meta().doc();
         quote! {
-           #bevy_reflect_path::TupleStructInfo::new::<Self>(#string_name, &fields).with_docs(#doc)
+           #bevy_reflect_path::TupleStructInfo::new::<Self>(&fields).with_docs(#doc)
         }
     };
 
     #[cfg(not(feature = "documentation"))]
     let info_generator = {
         quote! {
-            #bevy_reflect_path::TupleStructInfo::new::<Self>(#string_name, &fields)
+            #bevy_reflect_path::TupleStructInfo::new::<Self>(&fields)
         }
     };
 
@@ -135,18 +133,8 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
         impl #impl_generics #bevy_reflect_path::Reflect for #struct_path #ty_generics #where_reflect_clause {
             #[inline]
-            fn type_name(&self) -> &str {
-                ::core::any::type_name::<Self>()
-            }
-
-            #[inline]
             fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
-            }
-
-            #[inline]
-            fn get_type_path(&self) -> &dyn #bevy_reflect_path::DynamicTypePath {
-                self
             }
 
             #[inline]

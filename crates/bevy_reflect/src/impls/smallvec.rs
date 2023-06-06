@@ -4,14 +4,14 @@ use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, DynamicTypePath, FromReflect, FromType, GetTypeRegistration, List,
-    ListInfo, ListIter, Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypePath, TypeRegistration, Typed,
+    self as bevy_reflect, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter,
+    Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    TypeRegistration, Typed,
 };
 
 impl<T: smallvec::Array + TypePath + Send + Sync> List for SmallVec<T>
 where
-    T::Item: FromReflect,
+    T::Item: FromReflect + TypePath,
 {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         if index < SmallVec::len(self) {
@@ -34,7 +34,7 @@ where
             <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
                     "Attempted to insert invalid value of type {}.",
-                    value.type_name()
+                    value.reflect_type_path()
                 )
             })
         });
@@ -50,7 +50,7 @@ where
             <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
                     "Attempted to push invalid value of type {}.",
-                    value.type_name()
+                    value.reflect_type_path()
                 )
             })
         });
@@ -78,19 +78,10 @@ where
 
 impl<T: smallvec::Array + TypePath + Send + Sync> Reflect for SmallVec<T>
 where
-    T::Item: FromReflect,
+    T::Item: FromReflect + TypePath,
 {
-    fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
-    }
-
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
     }
 
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
@@ -149,7 +140,7 @@ where
 
 impl<T: smallvec::Array + TypePath + Send + Sync + 'static> Typed for SmallVec<T>
 where
-    T::Item: FromReflect,
+    T::Item: FromReflect + TypePath,
 {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
@@ -161,7 +152,7 @@ impl_type_path!(::smallvec::SmallVec<T: smallvec::Array + TypePath + Send + Sync
 
 impl<T: smallvec::Array + TypePath + Send + Sync> FromReflect for SmallVec<T>
 where
-    T::Item: FromReflect,
+    T::Item: FromReflect + TypePath,
 {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
         if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
@@ -178,7 +169,7 @@ where
 
 impl<T: smallvec::Array + TypePath + Send + Sync> GetTypeRegistration for SmallVec<T>
 where
-    T::Item: FromReflect,
+    T::Item: FromReflect + TypePath,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<SmallVec<T>>();

@@ -121,8 +121,10 @@ impl TypeRegistry {
             self.short_name_to_id
                 .insert(short_name, registration.type_id());
         }
-        self.full_name_to_id
-            .insert(registration.type_name().to_string(), registration.type_id());
+        self.full_name_to_id.insert(
+            registration.type_info().type_path().to_string(),
+            registration.type_id(),
+        );
         self.registrations
             .insert(registration.type_id(), registration);
     }
@@ -374,13 +376,6 @@ impl TypeRegistration {
     pub fn short_name(&self) -> &str {
         &self.short_name
     }
-
-    /// Returns the [name] of the type.
-    ///
-    /// [name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_info.type_name()
-    }
 }
 
 impl Clone for TypeRegistration {
@@ -445,7 +440,7 @@ impl<T: Reflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
         ReflectSerialize {
             get_serializable: |value| {
                 let value = value.downcast_ref::<T>().unwrap_or_else(|| {
-                    panic!("ReflectSerialize::get_serialize called with type `{}`, even though it was created for `{}`", value.type_name(), std::any::type_name::<T>())
+                    panic!("ReflectSerialize::get_serialize called with type `{}`, even though it was created for `{}`", value.reflect_type_path(), std::any::type_name::<T>())
                 });
                 Serializable::Borrowed(value)
             },

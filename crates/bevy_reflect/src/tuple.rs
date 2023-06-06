@@ -1,10 +1,11 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, utility::GenericTypePathCell, DynamicTypePath, FromReflect,
-    GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypeRegistration, Typed, UnnamedField,
+    self as bevy_reflect, utility::GenericTypePathCell, FromReflect, GetTypeRegistration, Reflect,
+    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
+    UnnamedField,
 };
+use crate::{TypePathId, TypePathVtable};
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
@@ -138,7 +139,7 @@ impl GetTupleField for dyn Tuple {
 /// A container for compile-time tuple info.
 #[derive(Clone, Debug)]
 pub struct TupleInfo {
-    type_name: &'static str,
+    type_path: TypePathVtable,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
     #[cfg(feature = "documentation")]
@@ -152,9 +153,9 @@ impl TupleInfo {
     ///
     /// * `fields`: The fields of this tuple in the order they are defined
     ///
-    pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
+    pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
-            type_name: std::any::type_name::<T>(),
+            type_path: TypePathVtable::of::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             #[cfg(feature = "documentation")]
@@ -183,11 +184,21 @@ impl TupleInfo {
         self.fields.len()
     }
 
-    /// The [type name] of the tuple.
+    /// A representation of the type path of the tuple.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_vtable(&self) -> &TypePathVtable {
+        &self.type_path
+    }
+
+    /// The [stable, full type path] of the tuple.
+    ///
+    /// Use [`type_path_vtable`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_vtable`]: Self::type_path_vtable
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_vtable().path()
     }
 
     /// The [`TypeId`] of the tuple.
@@ -231,7 +242,7 @@ impl DynamicTuple {
                 represented_type
             );
 
-            self.name = Cow::Borrowed(represented_type.type_name());
+            self.name = Cow::Borrowed(represented_type.type_path());
         }
         self.represented_type = represented_type;
     }
@@ -258,7 +269,7 @@ impl DynamicTuple {
             if i > 0 {
                 name.push_str(", ");
             }
-            name.push_str(field.type_name());
+            name.push_str(field.reflect_type_path());
         }
         name.push(')');
         self.name = Cow::Owned(name);
@@ -310,20 +321,8 @@ impl Tuple for DynamicTuple {
 
 impl Reflect for DynamicTuple {
     #[inline]
-    fn type_name(&self) -> &str {
-        self.represented_type
-            .map(|info| info.type_name())
-            .unwrap_or_else(|| &self.name)
-    }
-
-    #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
-    }
-
-    #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
     }
 
     #[inline]
@@ -530,17 +529,8 @@ macro_rules! impl_reflect_tuple {
         }
 
         impl<$($name: Reflect + TypePath),*> Reflect for ($($name,)*) {
-            fn type_name(&self) -> &str {
-                std::any::type_name::<Self>()
-            }
-
             fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                 Some(<Self as Typed>::type_info())
-            }
-
-            #[inline]
-            fn get_type_path(&self) -> &dyn DynamicTypePath {
-                self
             }
 
             fn into_any(self: Box<Self>) -> Box<dyn Any> {

@@ -6,8 +6,8 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::utility::reflect_hasher;
 use crate::{
-    self as bevy_reflect, DynamicTypePath, FromReflect, Reflect, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo,
+    self as bevy_reflect, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    TypePath, TypePathVtable,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -109,9 +109,9 @@ pub trait List: Reflect {
 /// A container for compile-time list info.
 #[derive(Clone, Debug)]
 pub struct ListInfo {
-    type_name: &'static str,
+    type_path: TypePathVtable,
     type_id: TypeId,
-    item_type_name: &'static str,
+    item_type_path: TypePathVtable,
     item_type_id: TypeId,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -119,11 +119,11 @@ pub struct ListInfo {
 
 impl ListInfo {
     /// Create a new [`ListInfo`].
-    pub fn new<TList: List, TItem: FromReflect>() -> Self {
+    pub fn new<TList: List + TypePath, TItem: FromReflect + TypePath>() -> Self {
         Self {
-            type_name: std::any::type_name::<TList>(),
+            type_path: TypePathVtable::of::<TList>(),
             type_id: TypeId::of::<TList>(),
-            item_type_name: std::any::type_name::<TItem>(),
+            item_type_path: TypePathVtable::of::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -136,11 +136,21 @@ impl ListInfo {
         Self { docs, ..self }
     }
 
-    /// The [type name] of the list.
+    /// A representation of the type path of the list.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_vtable(&self) -> &TypePathVtable {
+        &self.type_path
+    }
+
+    /// The [stable, full type path] of the list.
+    ///
+    /// Use [`type_path_vtable`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_vtable`]: Self::type_path_vtable
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_vtable().path()
     }
 
     /// The [`TypeId`] of the list.
@@ -153,11 +163,11 @@ impl ListInfo {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The [type name] of the list item.
+    /// A representation of the type path of the list item.
     ///
-    /// [type name]: std::any::type_name
-    pub fn item_type_name(&self) -> &'static str {
-        self.item_type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn item_type_path_vtable(&self) -> &TypePathVtable {
+        &self.item_type_path
     }
 
     /// The [`TypeId`] of the list item.
@@ -265,20 +275,8 @@ impl List for DynamicList {
 
 impl Reflect for DynamicList {
     #[inline]
-    fn type_name(&self) -> &str {
-        self.represented_type
-            .map(|info| info.type_name())
-            .unwrap_or_else(|| std::any::type_name::<Self>())
-    }
-
-    #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
-    }
-
-    #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
     }
 
     #[inline]

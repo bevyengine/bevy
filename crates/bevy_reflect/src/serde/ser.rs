@@ -37,7 +37,7 @@ fn get_serializable<'a, E: serde::ser::Error>(
         .ok_or_else(|| {
             serde::ser::Error::custom(format_args!(
                 "Type '{}' did not register ReflectSerialize",
-                reflect_value.type_name()
+                reflect_value.reflect_type_path()
             ))
         })?;
     Ok(reflect_serialize.get_serializable(reflect_value))
@@ -68,7 +68,7 @@ impl<'a> Serialize for ReflectSerializer<'a> {
     {
         let mut state = serializer.serialize_map(Some(1))?;
         state.serialize_entry(
-            self.value.type_name(),
+            self.value.reflect_type_path(),
             &TypedReflectSerializer::new(self.value, self.registry),
         )?;
         state.end()
@@ -172,7 +172,7 @@ impl<'a> Serialize for StructSerializer<'a> {
             .ok_or_else(|| {
                 Error::custom(format_args!(
                     "cannot get type info for {}",
-                    self.struct_value.type_name()
+                    self.struct_value.reflect_type_path()
                 ))
             })?;
 
@@ -191,7 +191,7 @@ impl<'a> Serialize for StructSerializer<'a> {
             .and_then(|registration| registration.data::<SerializationData>());
         let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
         let mut state = serializer.serialize_struct(
-            struct_info.name(),
+            struct_info.type_path_vtable().ident().unwrap(),
             self.struct_value.field_len() - ignored_len,
         )?;
 
@@ -225,7 +225,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             .ok_or_else(|| {
                 Error::custom(format_args!(
                     "cannot get type info for {}",
-                    self.tuple_struct.type_name()
+                    self.tuple_struct.reflect_type_path()
                 ))
             })?;
 
@@ -244,7 +244,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             .and_then(|registration| registration.data::<SerializationData>());
         let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
         let mut state = serializer.serialize_tuple_struct(
-            tuple_struct_info.name(),
+            tuple_struct_info.type_path_vtable().ident().unwrap(),
             self.tuple_struct.field_len() - ignored_len,
         )?;
 
@@ -274,7 +274,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
         let type_info = self.enum_value.get_represented_type_info().ok_or_else(|| {
             Error::custom(format_args!(
                 "cannot get type info for {}",
-                self.enum_value.type_name()
+                self.enum_value.reflect_type_path()
             ))
         })?;
 
@@ -287,7 +287,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
             }
         };
 
-        let enum_name = enum_info.name();
+        let enum_name = enum_info.type_path_vtable().ident().unwrap();
         let variant_index = self.enum_value.variant_index() as u32;
         let variant_info = enum_info
             .variant_at(variant_index as usize)
@@ -302,10 +302,8 @@ impl<'a> Serialize for EnumSerializer<'a> {
 
         match variant_type {
             VariantType::Unit => {
-                if self
-                    .enum_value
-                    .type_name()
-                    .starts_with("core::option::Option")
+                if self.enum_value.reflect_module_path() == Some("core::option")
+                    && self.enum_value.reflect_type_ident() == Some("Option")
                 {
                     serializer.serialize_none()
                 } else {
@@ -341,7 +339,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
                 let field = self.enum_value.field_at(0).unwrap();
                 if self
                     .enum_value
-                    .type_name()
+                    .reflect_type_path()
                     .starts_with("core::option::Option")
                 {
                     serializer.serialize_some(&TypedReflectSerializer::new(field, self.registry))

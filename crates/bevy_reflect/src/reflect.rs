@@ -1,10 +1,10 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
     tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
-    TypeInfo, Typed, ValueInfo,
+    TypeInfo, TypePath, TypePathId, Typed, ValueInfo,
 };
 use std::{
-    any::{self, Any, TypeId},
+    any::{Any, TypeId},
     fmt::Debug,
 };
 
@@ -72,10 +72,7 @@ pub enum ReflectOwned {
 /// [`bevy_reflect`]: crate
 /// [derive macro]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
-pub trait Reflect: Any + Send + Sync {
-    /// Returns the [type name][std::any::type_name] of the underlying type.
-    fn type_name(&self) -> &str;
-
+pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// Returns the [`TypeInfo`] of the type _represented_ by this value.
     ///
     /// For most types, this will simply return their own `TypeInfo`.
@@ -93,13 +90,13 @@ pub trait Reflect: Any + Send + Sync {
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 
-    /// Returns the [`TypePath`] implementation for the underlying type.
-    ///
-    /// Methods on [`DynamicTypePath`] suffer the same performance concerns as [`get_represented_type_info`].
-    ///
-    /// [`TypePath`]: crate::TypePath
-    /// [`get_represented_type_info`]: Reflect::get_represented_type_info
-    fn get_type_path(&self) -> &dyn DynamicTypePath;
+    // /// Returns the [`TypePath`] implementation for the underlying type.
+    // ///
+    // /// Methods on [`DynamicTypePath`] suffer the same performance concerns as [`get_represented_type_info`].
+    // ///
+    // /// [`TypePath`]: crate::TypePath
+    // /// [`get_represented_type_info`]: Reflect::get_represented_type_info
+    // fn type_path(&self) -> &dyn DynamicTypePath;
 
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
@@ -208,10 +205,10 @@ pub trait Reflect: Any + Send + Sync {
     /// Debug formatter for the value.
     ///
     /// Any value that is not an implementor of other `Reflect` subtraits
-    /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_name)"`,
-    /// where `type_name` is the [type name] of the underlying type.
+    /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_path)"`,
+    /// where `type_path` is the [type path] of the underlying type.
     ///
-    /// [type name]: Self::type_name
+    /// [type path]: TypePath::type_path
     fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.reflect_ref() {
             ReflectRef::Struct(dyn_struct) => struct_debug(dyn_struct, f),
@@ -221,7 +218,7 @@ pub trait Reflect: Any + Send + Sync {
             ReflectRef::Array(dyn_array) => array_debug(dyn_array, f),
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
             ReflectRef::Enum(dyn_enum) => enum_debug(dyn_enum, f),
-            _ => write!(f, "Reflect({})", self.type_name()),
+            _ => write!(f, "Reflect({})", self.reflect_type_path()),
         }
     }
 
@@ -262,6 +259,21 @@ impl Typed for dyn Reflect {
     }
 }
 
+// The following implementation never actually shadows the concrete TypePath implementation.
+
+// See this playground (https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=589064053f27bc100d90da89c6a860aa).
+impl TypePath for dyn Reflect {
+    fn type_path() -> &'static str {
+        "dyn bevy_reflect::Reflect"
+    }
+
+    fn short_type_path() -> &'static str {
+        "dyn Reflect"
+    }
+
+    const TYPE_PATH_ID: TypePathId = TypePathId::from_base("dyn bevy_reflect::Reflect");
+}
+
 #[deny(rustdoc::broken_intra_doc_links)]
 impl dyn Reflect {
     /// Downcasts the value to type `T`, consuming the trait object.
@@ -287,8 +299,8 @@ impl dyn Reflect {
     ///
     /// Read `is` for more information on underlying values and represented types.
     #[inline]
-    pub fn represents<T: Reflect>(&self) -> bool {
-        self.type_name() == any::type_name::<T>()
+    pub fn represents<T: Reflect + TypePath>(&self) -> bool {
+        self.reflect_type_path() == T::type_path()
     }
 
     /// Returns `true` if the underlying value is of type `T`, or `false`

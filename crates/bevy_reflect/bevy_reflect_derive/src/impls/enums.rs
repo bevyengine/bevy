@@ -59,20 +59,18 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
         });
 
-    let string_name = enum_path.get_ident().unwrap().to_string();
-
     #[cfg(feature = "documentation")]
     let info_generator = {
         let doc = reflect_enum.meta().doc();
         quote! {
-            #bevy_reflect_path::EnumInfo::new::<Self>(#string_name, &variants).with_docs(#doc)
+            #bevy_reflect_path::EnumInfo::new::<Self>(&variants).with_docs(#doc)
         }
     };
 
     #[cfg(not(feature = "documentation"))]
     let info_generator = {
         quote! {
-            #bevy_reflect_path::EnumInfo::new::<Self>(#string_name, &variants)
+            #bevy_reflect_path::EnumInfo::new::<Self>(&variants)
         }
     };
 
@@ -190,18 +188,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
 
         impl #impl_generics #bevy_reflect_path::Reflect for #enum_path #ty_generics #where_reflect_clause {
             #[inline]
-            fn type_name(&self) -> &str {
-                ::core::any::type_name::<Self>()
-            }
-
-            #[inline]
             fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
-            }
-
-            #[inline]
-            fn get_type_path(&self) -> &dyn #bevy_reflect_path::DynamicTypePath {
-                self
             }
 
             #[inline]
@@ -270,11 +258,11 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                             #(#variant_names => {
                                 *self = #variant_constructors
                             })*
-                            name => panic!("variant with name `{}` does not exist on enum `{}`", name, ::core::any::type_name::<Self>()),
+                            name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
                         }
                     }
                 } else {
-                    panic!("`{}` is not an enum", #bevy_reflect_path::Reflect::type_name(#ref_value));
+                    panic!("`{}` is not an enum", #bevy_reflect_path::DynamicTypePath::reflect_type_path(#ref_value));
                 }
             }
 

@@ -1,5 +1,6 @@
 use crate::{
     ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
+    TypePath, TypePathVtable,
 };
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
@@ -51,7 +52,7 @@ use std::fmt::Debug;
 /// # impl Reflect for MyStruct {
 /// #   fn type_name(&self) -> &str { todo!() }
 /// #   fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
-/// #   fn get_type_path(&self) -> &dyn DynamicTypePath { todo!() }
+/// #   fn type_path(&self) -> &dyn DynamicTypePath { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
 /// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
@@ -124,20 +125,30 @@ impl TypeInfo {
         }
     }
 
-    /// The [name] of the underlying type.
+    /// A representation of the type path of the underlying type.
     ///
-    /// [name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_vtable(&self) -> &TypePathVtable {
         match self {
-            Self::Struct(info) => info.type_name(),
-            Self::TupleStruct(info) => info.type_name(),
-            Self::Tuple(info) => info.type_name(),
-            Self::List(info) => info.type_name(),
-            Self::Array(info) => info.type_name(),
-            Self::Map(info) => info.type_name(),
-            Self::Enum(info) => info.type_name(),
-            Self::Value(info) => info.type_name(),
+            Self::Struct(info) => info.type_path_vtable(),
+            Self::TupleStruct(info) => info.type_path_vtable(),
+            Self::Tuple(info) => info.type_path_vtable(),
+            Self::List(info) => info.type_path_vtable(),
+            Self::Array(info) => info.type_path_vtable(),
+            Self::Map(info) => info.type_path_vtable(),
+            Self::Enum(info) => info.type_path_vtable(),
+            Self::Value(info) => info.type_path_vtable(),
         }
+    }
+
+    /// The [stable, full type path] of the underlying type.
+    ///
+    /// Use [`type_path_vtable`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_vtable`]: Self::type_path_vtable
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_vtable().path()
     }
 
     /// Check if the given type matches the underlying type.
@@ -171,16 +182,16 @@ impl TypeInfo {
 /// it _as_ a struct. It therefore makes more sense to represent it as a [`ValueInfo`].
 #[derive(Debug, Clone)]
 pub struct ValueInfo {
-    type_name: &'static str,
+    type_path: TypePathVtable,
     type_id: TypeId,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
 
 impl ValueInfo {
-    pub fn new<T: Reflect + ?Sized>() -> Self {
+    pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
         Self {
-            type_name: std::any::type_name::<T>(),
+            type_path: TypePathVtable::of::<T>(),
             type_id: TypeId::of::<T>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -193,11 +204,21 @@ impl ValueInfo {
         Self { docs: doc, ..self }
     }
 
-    /// The [type name] of the value.
+    /// A representation of the type path of the value.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_vtable(&self) -> &TypePathVtable {
+        &self.type_path
+    }
+
+    /// The [stable, full type path] of the value.
+    ///
+    /// Use [`type_path_vtable`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_vtable`]: Self::type_path_vtable
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_vtable().path()
     }
 
     /// The [`TypeId`] of the value.
