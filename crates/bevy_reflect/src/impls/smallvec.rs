@@ -148,7 +148,7 @@ where
     }
 }
 
-impl_type_path!(::smallvec::SmallVec<T: smallvec::Array + TypePath + Send + Sync>);
+impl_type_path!(::smallvec::SmallVec<T: smallvec::Array>);
 
 impl<T: smallvec::Array + TypePath + Send + Sync> FromReflect for SmallVec<T>
 where

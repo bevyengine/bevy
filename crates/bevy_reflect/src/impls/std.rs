@@ -393,7 +393,7 @@ macro_rules! impl_reflect_for_veclike {
             }
         }
 
-        impl_type_path!($ty where T: FromReflect);
+        impl_type_path!($ty);
 
         impl<T: FromReflect + TypePath> GetTypeRegistration for $ty {
             fn get_type_registration() -> TypeRegistration {
@@ -652,20 +652,12 @@ impl_reflect_for_hashmap!(::std::collections::HashMap<K, V, S>);
 impl_type_path!(::std::collections::hash_map::RandomState);
 impl_type_path!(
     ::std::collections::HashMap<K, V, S>
-    where
-        K: FromReflect + Eq + Hash + ?Sized,
-        V: FromReflect + ?Sized,
-        S: BuildHasher + Send + Sync + 'static,
 );
 
 impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
 impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
 impl_type_path!(
     ::bevy_utils::hashbrown::HashMap<K, V, S>
-    where
-        K: FromReflect + Eq + Hash + ?Sized,
-        V: FromReflect + ?Sized,
-        S: BuildHasher + Send + Sync + 'static,
 );
 
 impl<T: Reflect + TypePath, const N: usize> Array for [T; N] {
@@ -795,7 +787,7 @@ impl<T: Reflect + TypePath, const N: usize> Typed for [T; N] {
     }
 }
 
-impl<T: Reflect + TypePath, const N: usize> TypePath for [T; N] {
+impl<T: TypePath, const N: usize> TypePath for [T; N] {
     fn type_path() -> &'static str {
         static CELL: GenericTypePathCell = GenericTypePathCell::new();
         CELL.get_or_insert::<Self, _>(|| format!("[{t}; {N}]", t = T::type_path()))
@@ -1067,7 +1059,21 @@ impl<T: FromReflect + TypePath> Typed for Option<T> {
     }
 }
 
-impl_type_path!(::core::option::Option<T: FromReflect + TypePath>);
+impl_type_path!(::core::option::Option<T>);
+
+impl<T: TypePath + ?Sized> TypePath for &'static T {
+    fn type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| format!("&{}", T::type_path()))
+    }
+
+    fn short_type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| format!("&{}", T::short_type_path()))
+    }
+
+    const TYPE_PATH_ID: TypePathId = TypePathId::from_base("&").with_generics(&[T::TYPE_PATH_ID]);
+}
 
 impl Reflect for Cow<'static, str> {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
@@ -1455,13 +1461,6 @@ impl FromReflect for &'static Path {
 }
 
 impl Reflect for Cow<'static, Path> {
-<<<<<<< HEAD
-=======
-    fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
-    }
-
->>>>>>> bevy/main
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
     }
@@ -1548,10 +1547,7 @@ impl Typed for Cow<'static, Path> {
     }
 }
 
-trait PathOnly: ToOwned {}
-impl PathOnly for Path {}
-impl_type_path!(::alloc::borrow::Cow<'a: 'static, T: PathOnly + ?Sized>);
-impl_type_path!(::std::path::Path);
+impl_type_path!(::alloc::borrow::Cow<'a: 'static, T: ToOwned + ?Sized>);
 
 impl FromReflect for Cow<'static, Path> {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {

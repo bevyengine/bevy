@@ -41,7 +41,6 @@ use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
 use type_path::NamedTypePathDef;
 use type_uuid::TypeUuidDef;
-use utility::WhereClauseOptions;
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
@@ -220,11 +219,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
-    impls::impl_type_path(
-        derive_data.meta(),
-        &WhereClauseOptions::type_path_bounds(derive_data.meta()),
-    )
-    .into()
+    impls::impl_type_path(derive_data.meta()).into()
 }
 
 // From https://github.com/randomPoison/type-uuid
@@ -516,7 +511,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
 
     let meta = ReflectMeta::new(type_path, ReflectTraits::default());
 
-    impls::impl_type_path(&meta, &WhereClauseOptions::type_path_bounds(&meta)).into()
+    impls::impl_type_path(&meta).into()
 }
 
 /// Derives `TypeUuid` for the given type. This is used internally to implement `TypeUuid` on foreign types, such as those in the std. This macro should be used in the format of `<[Generic Params]> [Type (Path)], [Uuid (String Literal)]`.

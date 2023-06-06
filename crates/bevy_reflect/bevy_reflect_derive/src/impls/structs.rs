@@ -90,7 +90,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         },
     );
 
-    let type_path_impl = impl_type_path(reflect_struct.meta(), &where_clause_options);
+    let type_path_impl = impl_type_path(reflect_struct.meta());
 
     let get_type_registration_impl = reflect_struct.get_type_registration(&where_clause_options);
 

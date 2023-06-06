@@ -48,12 +48,10 @@ pub(crate) enum TypedProperty {
     TypePath,
 }
 
-pub(crate) fn impl_type_path(
-    meta: &ReflectMeta,
-    where_clause_options: &WhereClauseOptions,
-) -> proc_macro2::TokenStream {
+pub(crate) fn impl_type_path(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
+    let where_clause_options = WhereClauseOptions::type_path_bounds(meta);
 
     let (long_type_path, short_type_path) = if type_path.impl_is_generic() {
         let long_path_cell = static_type_cell(
@@ -97,7 +95,7 @@ pub(crate) fn impl_type_path(
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
 
     // Add Typed bound for each active field
-    let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
+    let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 
     quote! {
         #primitive_assert
