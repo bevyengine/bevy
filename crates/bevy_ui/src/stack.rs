@@ -8,7 +8,7 @@ use bevy_render::{prelude::Camera, texture::Image};
 use bevy_window::{PrimaryWindow, Window};
 
 use crate::{
-    prelude::UiCameraConfig, LayoutContext, Node, UiCameraToRoot, UiDefaultCamera, UiLayoutRoot,
+    prelude::UiCameraConfig, LayoutContext, Node, UiCameraToRoot, UiDefaultCamera, UiLayout,
     UiScale, UiSurface, UiTargetCamera, ZIndex,
 };
 
@@ -91,16 +91,16 @@ pub fn ui_stack_system(
                         .set_style(layout_root.taffy_root, layout_context.root_style())
                         .unwrap();
                     layout_root.context = layout_context;
-                    layout_root.perform_full_update = true;
+                    layout_root.needs_full_update = true;
                 } else {
-                    layout_root.perform_full_update = false;
+                    layout_root.needs_full_update = false;
                 }
             } else {
                 let taffy_root = ui_surface
                     .taffy
                     .new_leaf(layout_context.root_style())
                     .unwrap();
-                camera_to_root.insert(camera_entity, UiLayoutRoot::new(taffy_root, layout_context));
+                camera_to_root.insert(camera_entity, UiLayout::new(taffy_root, layout_context));
             }
         } else {
             // `camera_entity` not a UI camera so delete its layout root, if it has one

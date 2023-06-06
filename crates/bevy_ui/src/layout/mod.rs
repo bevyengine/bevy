@@ -7,9 +7,9 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     prelude::Component,
-    query::{With, Without},
+    query::{Added, With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, ResMut, Resource},
+    system::{ParamSet, Query, ResMut, Resource},
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
@@ -58,19 +58,19 @@ impl LayoutContext {
 }
 
 #[derive(Debug)]
-pub struct UiLayoutRoot {
+pub struct UiLayout {
     pub(crate) taffy_root: TaffyNode,
     pub(crate) context: LayoutContext,
-    pub(crate) perform_full_update: bool,
+    pub(crate) needs_full_update: bool,
     pub(crate) root_uinodes: Vec<Entity>,
 }
 
-impl UiLayoutRoot {
+impl UiLayout {
     pub(crate) fn new(taffy_root: TaffyNode, layout_context: LayoutContext) -> Self {
         Self {
             taffy_root,
             context: layout_context,
-            perform_full_update: true,
+            needs_full_update: true,
             root_uinodes: vec![],
         }
     }
@@ -110,7 +110,7 @@ pub struct UiDefaultCamera {
 
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct UiCameraToRoot {
-    camera_to_root: HashMap<Entity, UiLayoutRoot>,
+    camera_to_root: HashMap<Entity, UiLayout>,
 }
 
 impl Default for UiSurface {
@@ -223,10 +223,13 @@ pub fn ui_layout_system(
     mut removed_ui_nodes: RemovedComponents<Node>,
     default_root_node_query: Query<Entity, (With<Node>, Without<Parent>, Without<UiTargetCamera>)>,
     root_uinode_query: Query<(Entity, &UiTargetCamera), (With<Node>, Without<Parent>)>,
-    style_query: Query<(Entity, Ref<Style>), With<Node>>,
     mut measure_query: Query<(Entity, &mut ContentSize)>,
-    children_query: Query<(Entity, Ref<Children>), With<Node>>,
-    mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
+    uinode_query: Query<(Ref<Style>, Option<Ref<Children>>), With<Node>>,
+    mut uinode_queries_paramset: ParamSet<(
+        Query<Entity, Added<Node>>,
+        Query<(&mut Node, &mut Transform)>,
+    )>,
+    children_query: Query<&Children>,
 ) {
     // clean up removed nodes
     ui_surface.remove_entities(removed_ui_nodes.iter());
@@ -241,45 +244,23 @@ pub fn ui_layout_system(
         ui_surface.try_remove_children(entity);
     }
 
-    let Some(&UiLayoutRoot { context, perform_full_update, .. }) = camera_to_root.values().next() else {
-        // No layout roots, nothing to update so return.
-        return;
-    };
-
-    if perform_full_update {
-        // update all nodes
-        for (entity, style) in style_query.iter() {
-            ui_surface.upsert_node(entity, &style, &context);
-        }
-
-        for (entity, children) in &children_query {
-            ui_surface.update_children(entity, &children);
-        }
-    } else {
-        for (entity, style) in style_query.iter() {
-            if style.is_changed() {
-                ui_surface.upsert_node(entity, &style, &context);
-            }
-        }
-
-        for (entity, children) in &children_query {
-            if children.is_changed() {
-                ui_surface.update_children(entity, &children);
-            }
-        }
+    let new_uinodes_query = uinode_queries_paramset.p0();
+    // Insert new uinodes
+    for uinode in new_uinodes_query.iter() {
+        let taffy_node = ui_surface
+            .taffy
+            .new_leaf(taffy::style::Style::default())
+            .unwrap();
+        ui_surface.entity_to_taffy.insert(uinode, taffy_node);
     }
 
-    for (entity, mut content_size) in measure_query.iter_mut() {
-        if let Some(measure_func) = content_size.measure_func.take() {
-            ui_surface.update_measure(entity, measure_func);
-        }
-    }
-
+    // Clear root uinodes lists
     for layout_root in camera_to_root.values_mut() {
         layout_root.root_uinodes.clear();
         let _ = ui_surface.taffy.set_children(layout_root.taffy_root, &[]);
     }
 
+    // Add uinodes without a `Parent` or a `UiTargetCamera` to the default layout and make their associated Taffy node a child of the layout's root node.
     if let Some(default_root) = default_camera
         .entity
         .and_then(|default_camera| camera_to_root.get_mut(&default_camera))
@@ -298,6 +279,7 @@ pub fn ui_layout_system(
             .ok();
     }
 
+    // Add uinodes without a `Parent` to the layout corresponding to their `UiTargetCamera` and make their associated Taffy node a child of the layout's root node.
     for (root_uinode, camera) in root_uinode_query.iter() {
         if let Some(layout_root) = camera_to_root.get_mut(&camera.entity) {
             layout_root.root_uinodes.push(root_uinode);
@@ -307,38 +289,135 @@ pub fn ui_layout_system(
         }
     }
 
+    fn taffy_tree_full_update_recursive(
+        uinode: Entity,
+        ui_surface: &mut UiSurface,
+        context: &LayoutContext,
+        uinode_query: &Query<(Ref<Style>, Option<Ref<Children>>), With<Node>>,
+    ) {
+        if let Ok((style, maybe_children)) = uinode_query.get(uinode) {
+            ui_surface.upsert_node(uinode, &style, context);
+
+            if let Some(children) = maybe_children {
+                ui_surface.update_children(uinode, &children);
+
+                for &child in &children {
+                    taffy_tree_full_update_recursive(child, ui_surface, context, uinode_query);
+                }
+            }
+        }
+    }
+
+    fn taffy_tree_update_changed_recursive(
+        uinode: Entity,
+        ui_surface: &mut UiSurface,
+        context: &LayoutContext,
+        uinode_query: &Query<(Ref<Style>, Option<Ref<Children>>), With<Node>>,
+    ) {
+        if let Ok((style, maybe_children)) = uinode_query.get(uinode) {
+            if style.is_changed() {
+                ui_surface.upsert_node(uinode, &style, context);
+            }
+
+            if let Some(children) = maybe_children {
+                if children.is_changed() {
+                    ui_surface.update_children(uinode, &children);
+                }
+
+                for &child in &children {
+                    taffy_tree_update_changed_recursive(child, ui_surface, context, uinode_query);
+                }
+            }
+        }
+    }
+
+    // Synchronise the Bevy and Taffy node's styles and parent-child hierarchy.
+    for layout in camera_to_root.values() {
+        if layout.needs_full_update {
+            for &uinode in &layout.root_uinodes {
+                taffy_tree_full_update_recursive(
+                    uinode,
+                    &mut ui_surface,
+                    &layout.context,
+                    &uinode_query,
+                )
+            }
+        } else {
+            for &uinode in &layout.root_uinodes {
+                taffy_tree_update_changed_recursive(
+                    uinode,
+                    &mut ui_surface,
+                    &layout.context,
+                    &uinode_query,
+                )
+            }
+        }
+    }
+
+    for (entity, mut content_size) in measure_query.iter_mut() {
+        if let Some(measure_func) = content_size.measure_func.take() {
+            ui_surface.update_measure(entity, measure_func);
+        }
+    }
+
     // compute layouts
-    for root in camera_to_root.values() {
+    for layout in camera_to_root.values() {
         ui_surface
             .taffy
-            .compute_layout(root.taffy_root, Size::MAX_CONTENT)
+            .compute_layout(layout.taffy_root, Size::MAX_CONTENT)
             .unwrap();
     }
 
-    let to_logical = |v| (context.inverse_target_scale_factor * v as f64) as f32;
+    fn update_uinode_geometry_recursive(
+        uinode: Entity,
+        ui_surface: &UiSurface,
+        uinode_geometry_query: &mut Query<(&mut Node, &mut Transform)>,
+        children_query: &Query<&Children>,
+        inverse_target_scale_factor: f32,
+        parent_size: Vec2,
+    ) {
+        if let Ok((mut node, mut transform)) = uinode_geometry_query.get_mut(uinode) {
+            let layout = ui_surface.get_layout(uinode).unwrap();
+            let size =
+                Vec2::new(layout.size.width, layout.size.height) * inverse_target_scale_factor;
+            let position = Vec2::new(layout.location.x, layout.location.y)
+                * inverse_target_scale_factor
+                + 0.5 * (size - parent_size);
 
-    for (entity, mut node, mut transform, parent) in &mut node_transform_query {
-        let layout = ui_surface.get_layout(entity).unwrap();
-        let new_size = Vec2::new(
-            to_logical(layout.size.width),
-            to_logical(layout.size.height),
-        );
-        // only trigger change detection when the new value is different
-        if node.calculated_size != new_size {
-            node.calculated_size = new_size;
-        }
-        let mut new_position = transform.translation;
-        new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-        new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
-        if let Some(parent) = parent {
-            if let Ok(parent_layout) = ui_surface.get_layout(**parent) {
-                new_position.x -= to_logical(parent_layout.size.width / 2.0);
-                new_position.y -= to_logical(parent_layout.size.height / 2.0);
+            // only trigger change detection when the new values are different
+            if node.calculated_size != size {
+                node.calculated_size = size;
+            }
+            if transform.translation.truncate() != position {
+                transform.translation = position.extend(0.);
+            }
+
+            if let Ok(children) = children_query.get(uinode) {
+                for &child_uinode in children {
+                    update_uinode_geometry_recursive(
+                        child_uinode,
+                        ui_surface,
+                        uinode_geometry_query,
+                        children_query,
+                        inverse_target_scale_factor,
+                        size,
+                    );
+                }
             }
         }
-        // only trigger change detection when the new value is different
-        if transform.translation != new_position {
-            transform.translation = new_position;
+    }
+
+    let mut uinode_geometries_query = uinode_queries_paramset.p1();
+    for layout in camera_to_root.values() {
+        for &root_uinode in &layout.root_uinodes {
+            update_uinode_geometry_recursive(
+                root_uinode,
+                &ui_surface,
+                &mut uinode_geometries_query,
+                &children_query,
+                layout.context.inverse_target_scale_factor as f32,
+                Vec2::ZERO,
+            );
         }
     }
 }
