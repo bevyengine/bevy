@@ -123,23 +123,6 @@ impl Default for UiSurface {
 }
 
 impl UiSurface {
-    /// Retrieves the taffy node corresponding to given entity exists, or inserts a new taffy node into the layout if no corresponding node exists.
-    /// Then convert the given `Style` and use it update the taffy node's style.
-    pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {
-        let mut added = false;
-        let taffy = &mut self.taffy;
-        let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
-            added = true;
-            taffy.new_leaf(convert::from_style(context, style)).unwrap()
-        });
-
-        if !added {
-            self.taffy
-                .set_style(*taffy_node, convert::from_style(context, style))
-                .unwrap();
-        }
-    }
-
     /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`].
     pub fn update_measure(&mut self, entity: Entity, measure_func: taffy::node::MeasureFunc) {
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
@@ -147,7 +130,7 @@ impl UiSurface {
     }
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
-    pub fn update_children(&mut self, entity: Entity, children: &Children) {
+    pub fn update_children(&mut self, taffy_node: TaffyNode, children: &Children) {
         let mut taffy_children = Vec::with_capacity(children.len());
         for child in children {
             if let Some(taffy_node) = self.entity_to_taffy.get(child) {
@@ -160,9 +143,8 @@ without UI components as a child of an entity with UI components, results may be
             }
         }
 
-        let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
         self.taffy
-            .set_children(*taffy_node, &taffy_children)
+            .set_children(taffy_node, &taffy_children)
             .unwrap();
     }
 
@@ -296,10 +278,11 @@ pub fn ui_layout_system(
         uinode_query: &Query<(Ref<Style>, Option<Ref<Children>>), With<Node>>,
     ) {
         if let Ok((style, maybe_children)) = uinode_query.get(uinode) {
-            ui_surface.upsert_node(uinode, &style, context);
-
+            let taffy_node = *ui_surface.entity_to_taffy.get(&uinode).unwrap();
+            let _ = ui_surface.taffy.set_style(taffy_node, convert::from_style(context, &style));
+            
             if let Some(children) = maybe_children {
-                ui_surface.update_children(uinode, &children);
+                ui_surface.update_children(taffy_node, &children);
 
                 for &child in &children {
                     taffy_tree_full_update_recursive(child, ui_surface, context, uinode_query);
@@ -316,12 +299,14 @@ pub fn ui_layout_system(
     ) {
         if let Ok((style, maybe_children)) = uinode_query.get(uinode) {
             if style.is_changed() {
-                ui_surface.upsert_node(uinode, &style, context);
+                let taffy_node = *ui_surface.entity_to_taffy.get(&uinode).unwrap();
+                let _ = ui_surface.taffy.set_style(taffy_node, convert::from_style(context, &style));
             }
 
             if let Some(children) = maybe_children {
                 if children.is_changed() {
-                    ui_surface.update_children(uinode, &children);
+                    let taffy_node = *ui_surface.entity_to_taffy.get(&uinode).unwrap();
+                    ui_surface.update_children(taffy_node, &children);
                 }
 
                 for &child in &children {
