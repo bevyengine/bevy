@@ -17,9 +17,9 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the "main 3d render graph".
-#[derive(Component, Reflect, Clone, ExtractComponent)]
+#[derive(Component, Reflect, FromReflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component)]
+#[reflect(Component, FromReflect)]
 pub struct Camera3d {
     /// The clear color operation to perform for the main 3d pass.
     pub clear_color: ClearColorConfig,
@@ -55,8 +55,8 @@ impl From<Camera3dDepthTextureUsage> for TextureUsages {
 }
 
 /// The depth clear operation to perform for the main 3d pass.
-#[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
-#[reflect(Serialize, Deserialize)]
+#[derive(Reflect, FromReflect, Serialize, Deserialize, Clone, Debug)]
+#[reflect(Serialize, Deserialize, FromReflect)]
 pub enum Camera3dDepthLoadOp {
     /// Clear with a specified value.
     /// Note that 0.0 is the far plane due to bevy's use of reverse-z projections.

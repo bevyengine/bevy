@@ -127,7 +127,7 @@ pub struct TonemappingPipeline {
     FromReflect,
 )]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component)]
+#[reflect(Component, FromReflect)]
 pub enum Tonemapping {
     /// Bypass tonemapping.
     None,
@@ -314,7 +314,7 @@ pub fn queue_view_tonemapping_pipelines(
     FromReflect,
 )]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component)]
+#[reflect(Component, FromReflect)]
 pub enum DebandDither {
     #[default]
     Disabled,

@@ -95,7 +95,7 @@ pub struct FogSettings {
 ///     - [`FogFalloff::from_visibility_contrast_color()`]
 ///     - [`FogFalloff::from_visibility_contrast_colors()`]
 #[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(FromReflect)]
+#[reflect(FromReflect, FromReflect)]
 pub enum FogFalloff {
     /// A linear fog falloff that grows in intensity between `start` and `end` distances.
     ///
