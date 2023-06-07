@@ -334,7 +334,7 @@ pub fn ui_layout_system(
         }
     }
 
-    // Synchronise the Bevy and Taffy node's styles and parent-child hierarchy.
+    // Synchronise the Bevy and Taffy node's styles and parent-child hierarchies
     for layout in view_to_layout.values() {
         if layout.needs_full_update {
             for &uinode in &layout.root_uinodes {
