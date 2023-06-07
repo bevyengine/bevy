@@ -6,8 +6,8 @@ use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_reflect::Reflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
+use bevy_reflect::{Reflect, ReflectFromReflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
 use std::cell::Cell;
@@ -173,7 +173,7 @@ pub struct NoFrustumCulling;
 /// Currently this component is ignored by the sprite renderer, so sprite rendering
 /// is not optimized per view.
 #[derive(Clone, Component, Default, Debug, Reflect, FromReflect)]
-#[reflect(Component)]
+#[reflect(Component, FromReflect)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
     pub entities: Vec<Entity>,

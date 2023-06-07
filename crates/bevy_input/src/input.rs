@@ -1,5 +1,5 @@
 use bevy_ecs::system::Resource;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 use bevy_utils::HashSet;
 use std::hash::Hash;
 
@@ -42,7 +42,7 @@ use bevy_ecs::schedule::State;
 ///[`ResMut`]: bevy_ecs::system::ResMut
 ///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
 #[derive(Debug, Clone, Resource, Reflect, FromReflect)]
-#[reflect(Default)]
+#[reflect(Default, FromReflect)]
 pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,

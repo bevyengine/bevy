@@ -3,7 +3,7 @@ use bevy_ecs::{
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{DVec2, IVec2, Vec2};
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -18,7 +18,7 @@ use crate::CursorIcon;
 #[derive(
     Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect, FromReflect,
 )]
-#[reflect(Component)]
+#[reflect(Component, FromReflect)]
 pub struct PrimaryWindow;
 
 /// Reference to a window, whether it be a direct link to a specific entity or

@@ -1,6 +1,6 @@
 use bevy_ecs::{component::Component, prelude::Entity, reflect::ReflectComponent};
 use bevy_math::{Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
 use bevy_utils::HashMap;
 
 /// An axis-aligned bounding box.
@@ -128,7 +128,7 @@ impl Plane {
 /// Planes are ordered left, right, top, bottom, near, far
 /// Normals point into the contained volume
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, FromReflect)]
-#[reflect(Component)]
+#[reflect(Component, FromReflect)]
 pub struct Frustum {
     #[reflect(ignore)]
     pub planes: [Plane; 6],
@@ -220,7 +220,7 @@ impl Frustum {
 }
 
 #[derive(Component, Debug, Default, Reflect, FromReflect)]
-#[reflect(Component)]
+#[reflect(Component, FromReflect)]
 pub struct CubemapFrusta {
     #[reflect(ignore)]
     pub frusta: [Frustum; 6],
@@ -236,7 +236,7 @@ impl CubemapFrusta {
 }
 
 #[derive(Component, Debug, Default, Reflect, FromReflect)]
-#[reflect(Component)]
+#[reflect(Component, FromReflect)]
 pub struct CascadesFrusta {
     #[reflect(ignore)]
     pub frusta: HashMap<Entity, Vec<Frustum>>,
