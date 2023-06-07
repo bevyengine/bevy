@@ -3,15 +3,13 @@
 use std::f32::consts::*;
 
 use bevy::{
-    pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
-    prelude::*,
-};
-use bevy_internal::{
     core_pipeline::{
         fxaa::Fxaa,
         prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     },
+    pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     pbr::{DefaultOpaqueRendererMethod, NotShadowCaster, OpaqueRendererMethod},
+    prelude::*,
     render::render_resource::TextureFormat,
 };
 
