@@ -8,7 +8,7 @@ use bevy_ecs::{
     world::{Mut, Ref},
 };
 use bevy_math::Vec2;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
@@ -21,7 +21,7 @@ use taffy::style::AvailableSpace;
 /// Text system flags
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct TextFlags {
     /// If set a new measure function for the text node will be created

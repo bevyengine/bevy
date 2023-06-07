@@ -40,7 +40,7 @@ use crate::{
 /// | 4000 | 300 |    | 75-100 | 40.5  |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
-#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[derive(Component, Debug, Clone, Copy, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct PointLight {
     pub color: Color,
@@ -75,7 +75,7 @@ impl PointLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Resource, Clone, Debug, Reflect)]
+#[derive(Resource, Clone, Debug, Reflect, FromReflect)]
 #[reflect(Resource)]
 pub struct PointLightShadowMap {
     pub size: usize,
@@ -91,7 +91,7 @@ impl Default for PointLightShadowMap {
 /// Behaves like a point light in a perfectly absorbent housing that
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](bevy_transform::components::Transform::looking_at).
-#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[derive(Component, Debug, Clone, Copy, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct SpotLight {
     pub color: Color,
@@ -187,7 +187,7 @@ impl Default for SpotLight {
 /// App::new()
 ///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
 /// ```
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct DirectionalLight {
     pub color: Color,
@@ -218,7 +218,7 @@ impl DirectionalLight {
 }
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
-#[derive(Resource, Clone, Debug, Reflect)]
+#[derive(Resource, Clone, Debug, Reflect, FromReflect)]
 #[reflect(Resource)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
@@ -243,7 +243,7 @@ impl Default for DirectionalLightShadowMap {
 ///   ..default()
 /// }.into();
 /// ```
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct CascadeShadowConfig {
     /// The (positive) distance to the far boundary of each cascade.
@@ -380,7 +380,7 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
     }
 }
 
-#[derive(Component, Clone, Debug, Default, Reflect)]
+#[derive(Component, Clone, Debug, Default, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
@@ -580,7 +580,7 @@ fn calculate_cascade(
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
+#[derive(Resource, Clone, Debug, ExtractResource, Reflect, FromReflect)]
 #[reflect(Resource)]
 pub struct AmbientLight {
     pub color: Color,
@@ -658,7 +658,7 @@ impl Default for ClusterZConfig {
 }
 
 /// Configuration of the clustering strategy for clustered forward rendering
-#[derive(Debug, Copy, Clone, Component, Reflect)]
+#[derive(Debug, Copy, Clone, Component, Reflect, FromReflect)]
 #[reflect(Component)]
 pub enum ClusterConfig {
     /// Disable light cluster calculations for this view

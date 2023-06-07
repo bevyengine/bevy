@@ -15,7 +15,7 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
 /// Describes the size of a UI node
-#[derive(Component, Debug, Copy, Clone, Reflect)]
+#[derive(Component, Debug, Copy, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct Node {
     /// The size of the node as width and height in logical pixels
@@ -1564,7 +1564,7 @@ impl From<Color> for BackgroundColor {
 }
 
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct UiImage {
     /// Handle to the texture

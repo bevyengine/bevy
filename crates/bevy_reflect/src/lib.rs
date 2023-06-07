@@ -1745,7 +1745,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
     #[test]
     fn multiple_reflect_lists() {
-        #[derive(Hash, PartialEq, Reflect)]
+        #[derive(Hash, PartialEq, Reflect, FromReflect)]
         #[reflect(Debug, Hash)]
         #[reflect(PartialEq)]
         struct Foo(i32);
@@ -1766,7 +1766,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
     #[test]
     fn multiple_reflect_value_lists() {
-        #[derive(Clone, Hash, PartialEq, Reflect)]
+        #[derive(Clone, Hash, PartialEq, Reflect, FromReflect)]
         #[reflect_value(Debug, Hash)]
         #[reflect_value(PartialEq)]
         struct Foo(i32);

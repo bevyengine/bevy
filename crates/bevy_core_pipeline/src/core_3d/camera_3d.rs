@@ -3,7 +3,7 @@ use crate::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
     camera::{Camera, CameraRenderGraph, Projection},
     extract_component::ExtractComponent,
@@ -37,7 +37,7 @@ impl Default for Camera3d {
     }
 }
 
-#[derive(Clone, Copy, Reflect)]
+#[derive(Clone, Copy, Reflect, FromReflect)]
 pub struct Camera3dDepthTextureUsage(u32);
 
 impl From<TextureUsages> for Camera3dDepthTextureUsage {

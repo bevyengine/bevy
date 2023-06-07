@@ -127,7 +127,7 @@ impl Plane {
 /// A frustum defined by the 6 containing planes
 /// Planes are ordered left, right, top, bottom, near, far
 /// Normals point into the contained volume
-#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
+#[derive(Component, Clone, Copy, Debug, Default, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct Frustum {
     #[reflect(ignore)]
@@ -219,7 +219,7 @@ impl Frustum {
     }
 }
 
-#[derive(Component, Debug, Default, Reflect)]
+#[derive(Component, Debug, Default, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct CubemapFrusta {
     #[reflect(ignore)]
@@ -235,7 +235,7 @@ impl CubemapFrusta {
     }
 }
 
-#[derive(Component, Debug, Default, Reflect)]
+#[derive(Component, Debug, Default, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct CascadesFrusta {
     #[reflect(ignore)]

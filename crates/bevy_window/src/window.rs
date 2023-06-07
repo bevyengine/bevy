@@ -15,7 +15,9 @@ use crate::CursorIcon;
 /// Marker component for the window considered the primary window.
 ///
 /// Currently this is assumed to only exist on 1 entity at a time.
-#[derive(Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect)]
+#[derive(
+    Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect, FromReflect,
+)]
 #[reflect(Component)]
 pub struct PrimaryWindow;
 

@@ -172,7 +172,7 @@ pub struct NoFrustumCulling;
 ///
 /// Currently this component is ignored by the sprite renderer, so sprite rendering
 /// is not optimized per view.
-#[derive(Clone, Component, Default, Debug, Reflect)]
+#[derive(Clone, Component, Default, Debug, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct VisibleEntities {
     #[reflect(ignore)]

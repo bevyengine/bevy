@@ -38,7 +38,7 @@ struct ComponentA {
 // ignored with the #[reflect(skip_serializing)] attribute. This is also generally where the `FromWorld`
 // trait comes into play. `FromWorld` gives you access to your App's current ECS `Resources`
 // when you construct your component.
-#[derive(Component, Reflect)]
+#[derive(Component, Reflect, FromReflect)]
 #[reflect(Component)]
 struct ComponentB {
     pub value: String,
