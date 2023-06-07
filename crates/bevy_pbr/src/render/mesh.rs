@@ -742,6 +742,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
+        if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
+            || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && key.msaa_samples() == 1)
+        {
+            shader_defs.push("PREPASS_TEXTURES".into());
+        }
+
         let mut bind_group_layout = match key.msaa_samples() {
             1 => vec![self.view_layout.clone()],
             _ => {

@@ -1,5 +1,6 @@
 #define_import_path bevy_pbr::prepass_utils
 
+#ifdef PREPASS_TEXTURES
 #ifndef DEPTH_PREPASS
 fn prepass_depth(frag_coord: vec4<f32>, sample_index: u32) -> f32 {
 #ifdef MULTISAMPLED
@@ -32,3 +33,4 @@ fn prepass_motion_vector(frag_coord: vec4<f32>, sample_index: u32) -> vec2<f32> 
     return motion_vector_sample.rg;
 }
 #endif // MOTION_VECTOR_PREPASS
+#endif // PREPASS_TEXTURES

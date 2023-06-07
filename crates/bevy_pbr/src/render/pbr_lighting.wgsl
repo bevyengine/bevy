@@ -402,10 +402,12 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         // Calucalte final offset position, with blur and spiral offset
         let modified_offset_position = offset_position + rotated_spiral_offset * blur_intensity * (1.0 - f32(pixel_mesh) * 0.1);
 
+#ifdef PREPASS_TEXTURES
         // Use depth prepass data to reject values that are in front of the current fragment
         if (prepass_depth(vec4<f32>(modified_offset_position * view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z) {
             continue;
         }
+#endif
 
         // Sample the view transmission texture at the offset position + noise offset, to get the background color
         let sample = textureSample(
