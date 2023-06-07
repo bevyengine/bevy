@@ -15,7 +15,7 @@ default = []
 bevy = ["glam", "smallvec", "bevy_math"]
 # When enabled, allows documentation comments to be accessed via reflection
 documentation = ["bevy_reflect_derive/documentation"]
-# When enabled, allows to reflect SmolStr, which bevy can expose through the winit dependency.
+# When enabled, provides winit-related reflection implementations
 winit = ["smol_str"]
 
 [dependencies]
