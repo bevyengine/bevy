@@ -7,11 +7,9 @@ use smol_str::SmolStr;
 
 use crate::{
     utility::{reflect_hasher, GenericTypePathCell, NonGenericTypeInfoCell},
-    FromReflect, FromType, GetTypeRegistration, Reflect, ReflectFromPtr, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed, ValueInfo,
+    FromReflect, FromType, GetTypeRegistration, Reflect, ReflectFromPtr, ReflectFromReflect,
+    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed, ValueInfo,
 };
-
-use crate::{ReflectDeserialize, ReflectSerialize};
 
 impl Reflect for SmolStr {
     fn type_name(&self) -> &str {
@@ -134,12 +132,8 @@ impl TypePath for SmolStr {
 impl GetTypeRegistration for SmolStr {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        #[cfg(feature = "serde")]
-        {
-            registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
-            registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
-        }
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
         registration
     }
 }
