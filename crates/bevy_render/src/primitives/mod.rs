@@ -130,7 +130,7 @@ impl HalfSpace {
 #[reflect(Component)]
 pub struct Frustum {
     #[reflect(ignore)]
-    pub planes: [HalfSpace; 6],
+    pub half_spaces: [HalfSpace; 6],
 }
 
 impl Frustum {
@@ -138,7 +138,7 @@ impl Frustum {
     #[inline]
     pub fn from_view_projection(view_projection: &Mat4) -> Self {
         let mut frustum = Frustum::from_view_projection_no_far(view_projection);
-        frustum.planes[5] = HalfSpace::new(view_projection.row(2));
+        frustum.half_spaces[5] = HalfSpace::new(view_projection.row(2));
         frustum
     }
 
@@ -153,7 +153,8 @@ impl Frustum {
     ) -> Self {
         let mut frustum = Frustum::from_view_projection_no_far(view_projection);
         let far_center = *view_translation - far * *view_backward;
-        frustum.planes[5] = HalfSpace::new(view_backward.extend(-view_backward.dot(far_center)));
+        frustum.half_spaces[5] =
+            HalfSpace::new(view_backward.extend(-view_backward.dot(far_center)));
         frustum
     }
 
@@ -162,16 +163,16 @@ impl Frustum {
     // Rendering by Lengyel.
     fn from_view_projection_no_far(view_projection: &Mat4) -> Self {
         let row3 = view_projection.row(3);
-        let mut planes = [HalfSpace::default(); 6];
-        for (i, plane) in planes.iter_mut().enumerate().take(5) {
+        let mut half_spaces = [HalfSpace::default(); 6];
+        for (i, half_space) in half_spaces.iter_mut().enumerate().take(5) {
             let row = view_projection.row(i / 2);
-            *plane = HalfSpace::new(if (i & 1) == 0 && i != 4 {
+            *half_space = HalfSpace::new(if (i & 1) == 0 && i != 4 {
                 row3 + row
             } else {
                 row3 - row
             });
         }
-        Self { planes }
+        Self { half_spaces }
     }
 
     /// Checks if a sphere intersects the frustum.
@@ -179,8 +180,8 @@ impl Frustum {
     pub fn intersects_sphere(&self, sphere: &Sphere, intersect_far: bool) -> bool {
         let sphere_center = sphere.center.extend(1.0);
         let max = if intersect_far { 6 } else { 5 };
-        for plane in &self.planes[..max] {
-            if plane.normal_d().dot(sphere_center) + sphere.radius <= 0.0 {
+        for half_space in &self.half_spaces[..max] {
+            if half_space.normal_d().dot(sphere_center) + sphere.radius <= 0.0 {
                 return false;
             }
         }
@@ -203,16 +204,16 @@ impl Frustum {
             Vec3A::from(model_to_world.z_axis),
         ];
 
-        for (idx, plane) in self.planes.into_iter().enumerate() {
+        for (idx, half_space) in self.half_spaces.into_iter().enumerate() {
             if idx == 4 && !intersect_near {
                 continue;
             }
             if idx == 5 && !intersect_far {
                 continue;
             }
-            let p_normal = plane.normal();
+            let p_normal = half_space.normal();
             let relative_radius = aabb.relative_radius(&p_normal, &axes);
-            if plane.normal_d().dot(aabb_center_world) + relative_radius <= 0.0 {
+            if half_space.normal_d().dot(aabb_center_world) + relative_radius <= 0.0 {
                 return false;
             }
         }
@@ -250,7 +251,7 @@ mod tests {
     // A big, offset frustum
     fn big_frustum() -> Frustum {
         Frustum {
-            planes: [
+            half_spaces: [
                 HalfSpace::new(Vec4::new(-0.9701, -0.2425, -0.0000, 7.7611)),
                 HalfSpace::new(Vec4::new(-0.0000, 1.0000, -0.0000, 4.0000)),
                 HalfSpace::new(Vec4::new(-0.0000, -0.2425, -0.9701, 2.9104)),
@@ -286,7 +287,7 @@ mod tests {
     // A frustum
     fn frustum() -> Frustum {
         Frustum {
-            planes: [
+            half_spaces: [
                 HalfSpace::new(Vec4::new(-0.9701, -0.2425, -0.0000, 0.7276)),
                 HalfSpace::new(Vec4::new(-0.0000, 1.0000, -0.0000, 1.0000)),
                 HalfSpace::new(Vec4::new(-0.0000, -0.2425, -0.9701, 0.7276)),
@@ -366,7 +367,7 @@ mod tests {
     // A long frustum.
     fn long_frustum() -> Frustum {
         Frustum {
-            planes: [
+            half_spaces: [
                 HalfSpace::new(Vec4::new(-0.9998, -0.0222, -0.0000, -1.9543)),
                 HalfSpace::new(Vec4::new(-0.0000, 1.0000, -0.0000, 45.1249)),
                 HalfSpace::new(Vec4::new(-0.0000, -0.0168, -0.9999, 2.2718)),
