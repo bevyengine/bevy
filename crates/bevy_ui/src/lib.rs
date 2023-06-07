@@ -85,7 +85,7 @@ impl Plugin for UiPlugin {
             .init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStacks>()
-            .init_resource::<UiDefaultCamera>()
+            .init_resource::<UiDefaultView>()
             .init_resource::<UiNodeToView>()
             .init_resource::<UiLayouts>()
             .init_resource::<UiCursorOverride>()

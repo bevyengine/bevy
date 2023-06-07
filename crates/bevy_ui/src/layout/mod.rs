@@ -25,7 +25,7 @@ type TaffyNode = taffy::node::Node;
 
 /// The size and scaling information for a UI layout derived from its render target.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct LayoutContext {
+pub struct UiContext {
     /// Physical size of the target in pixels.
     pub physical_size: Vec2,
     /// Product of the target's scale factor and the camera's `UiScale`.
@@ -34,7 +34,7 @@ pub struct LayoutContext {
     pub inverse_target_scale_factor: f64,
 }
 
-impl LayoutContext {
+impl UiContext {
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
     pub(crate) fn new(physical_size: Vec2, target_scale_factor: f64, ui_scale: f64) -> Self {
         let combined_scale_factor = ui_scale * target_scale_factor;
@@ -63,7 +63,7 @@ pub struct UiLayout {
     /// Root node of this layout's Taffy tree.
     pub(crate) taffy_root: TaffyNode,
     /// The physical size and scaling for this layout.
-    pub(crate) context: LayoutContext,
+    pub(crate) context: UiContext,
     /// Update every node in the internal Taffy tree for this layout from its corresponding UI node's `Style` and `Children` components.
     pub(crate) needs_full_update: bool,
     /// Root uinodes are UI node entities without a `Parent` component.
@@ -74,7 +74,7 @@ pub struct UiLayout {
 }
 
 impl UiLayout {
-    pub(crate) fn new(taffy_root: TaffyNode, layout_context: LayoutContext) -> Self {
+    pub(crate) fn new(taffy_root: TaffyNode, layout_context: UiContext) -> Self {
         Self {
             taffy_root,
             context: layout_context,
@@ -113,7 +113,7 @@ impl fmt::Debug for UiSurface {
 }
 
 #[derive(Resource, Default)]
-pub struct UiDefaultCamera {
+pub struct UiDefaultView {
     // Orphaned UI nodes without a `UiTargetCamera` component are added to the default camera's associated layout.
     pub entity: Option<Entity>,
 }
@@ -209,8 +209,8 @@ pub enum LayoutError {
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
-    mut camera_to_root: ResMut<UiLayouts>,
-    default_camera: ResMut<UiDefaultCamera>,
+    mut view_to_layout: ResMut<UiLayouts>,
+    default_view: ResMut<UiDefaultView>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_ui_nodes: RemovedComponents<Node>,
@@ -248,33 +248,33 @@ pub fn ui_layout_system(
     }
 
     // Clear root uinodes lists
-    for layout_root in camera_to_root.values_mut() {
-        layout_root.root_uinodes.clear();
-        let _ = ui_surface.taffy.set_children(layout_root.taffy_root, &[]);
+    for layout in view_to_layout.values_mut() {
+        layout.root_uinodes.clear();
+        let _ = ui_surface.taffy.set_children(layout.taffy_root, &[]);
     }
 
-    // Add uinodes without a `Parent` or a `UiTargetCamera` to the default layout and make their associated Taffy node a child of the layout's root node.
-    if let Some(default_root) = default_camera
+    // Add uinodes without a `Parent` or a `UiView` to the default layout and make their associated Taffy node a child of the layout's root node.
+    if let Some(default_layout) = default_view
         .entity
-        .and_then(|default_camera| camera_to_root.get_mut(&default_camera))
+        .and_then(|default_camera| view_to_layout.get_mut(&default_camera))
     {
-        default_root
+        default_layout
             .root_uinodes
             .extend(default_root_node_query.iter());
-        let taffy_children = default_root
+        let taffy_children = default_layout
             .root_uinodes
             .iter()
             .map(|e| *ui_surface.entity_to_taffy.get(e).unwrap())
             .collect::<Vec<TaffyNode>>();
         ui_surface
             .taffy
-            .set_children(default_root.taffy_root, &taffy_children)
+            .set_children(default_layout.taffy_root, &taffy_children)
             .ok();
     }
 
-    // Add uinodes without a `Parent` to the layout corresponding to their `UiTargetCamera` and make their associated Taffy node a child of the layout's root node.
+    // Add uinodes without a `Parent` to the layout corresponding to their `UiView` and make their associated Taffy node a child of the layout's root node.
     for (root_uinode, camera) in root_uinode_query.iter() {
-        if let Some(layout_root) = camera_to_root.get_mut(&camera.entity) {
+        if let Some(layout_root) = view_to_layout.get_mut(&camera.entity) {
             layout_root.root_uinodes.push(root_uinode);
             let taffy_root = layout_root.taffy_root;
             let taffy_child = *ui_surface.entity_to_taffy.get(&root_uinode).unwrap();
@@ -285,7 +285,7 @@ pub fn ui_layout_system(
     fn taffy_tree_full_update_recursive(
         uinode: Entity,
         ui_surface: &mut UiSurface,
-        context: &LayoutContext,
+        context: &UiContext,
         uinode_query: &Query<(Ref<Style>, Option<Ref<Children>>), With<Node>>,
     ) {
         if let Ok((style, maybe_children)) = uinode_query.get(uinode) {
@@ -307,7 +307,7 @@ pub fn ui_layout_system(
     fn taffy_tree_update_changed_recursive(
         uinode: Entity,
         ui_surface: &mut UiSurface,
-        context: &LayoutContext,
+        context: &UiContext,
         uinode_query: &Query<(Ref<Style>, Option<Ref<Children>>), With<Node>>,
     ) {
         if let Ok((style, maybe_children)) = uinode_query.get(uinode) {
@@ -332,7 +332,7 @@ pub fn ui_layout_system(
     }
 
     // Synchronise the Bevy and Taffy node's styles and parent-child hierarchy.
-    for layout in camera_to_root.values() {
+    for layout in view_to_layout.values() {
         if layout.needs_full_update {
             for &uinode in &layout.root_uinodes {
                 taffy_tree_full_update_recursive(
@@ -361,7 +361,7 @@ pub fn ui_layout_system(
     }
 
     // compute layouts
-    for layout in camera_to_root.values() {
+    for layout in view_to_layout.values() {
         ui_surface
             .taffy
             .compute_layout(layout.taffy_root, Size::MAX_CONTENT)
@@ -408,7 +408,7 @@ pub fn ui_layout_system(
     }
 
     let mut uinode_geometries_query = uinode_queries_paramset.p1();
-    for layout in camera_to_root.values() {
+    for layout in view_to_layout.values() {
         for &root_uinode in &layout.root_uinodes {
             update_uinode_geometry_recursive(
                 root_uinode,

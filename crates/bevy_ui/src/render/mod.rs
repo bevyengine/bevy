@@ -209,7 +209,7 @@ pub fn extract_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     flip_x,
                     flip_y,
-                    view: ui_stack.camera_entity,
+                    view: ui_stack.view,
                 });
             }
         }
@@ -297,7 +297,7 @@ pub fn extract_text_uinodes(
                 uinode_query.get(*entity)
             {
                 let inverse_scale_factor = ui_layouts
-                    .get(&ui_stack.camera_entity)
+                    .get(&ui_stack.view)
                     .map(|layout| layout.context.combined_scale_factor)
                     .unwrap_or(1.)
                     .recip() as f32;
@@ -338,7 +338,7 @@ pub fn extract_text_uinodes(
                         clip: clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
-                        view: ui_stack.camera_entity,
+                        view: ui_stack.view,
                     });
                 }
             }

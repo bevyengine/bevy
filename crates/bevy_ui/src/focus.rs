@@ -231,7 +231,7 @@ pub fn ui_focus_system(
     for ui_stack in &ui_stacks.stacks {
         if cursor_state
             .as_ref()
-            .map_or(false, |state| state.views.contains(&ui_stack.camera_entity))
+            .map_or(false, |state| state.views.contains(&ui_stack.view))
         {
             // reverse the iterator to traverse the tree from closest nodes to furthest
             for &entity in ui_stack.uinodes.iter().rev() {
