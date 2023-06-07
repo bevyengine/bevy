@@ -139,8 +139,8 @@ impl GetTypeRegistration for SmolStr {
 }
 
 impl FromReflect for SmolStr {
-    fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
-        Some(reflect.as_any().downcast_ref::<SmolStr>()?.clone())
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        Some(reflect.downcast_ref::<Self>()?.clone())
     }
 }
 
