@@ -59,7 +59,7 @@ pub enum UiSystem {
     Layout,
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
-    /// After this label, the [`UiStack`] resource has been updated
+    /// After this label, the [`UiStacks`] resource has been updated
     Stack,
 }
 

@@ -37,7 +37,7 @@ pub struct UiContext {
 }
 
 impl UiContext {
-    /// create new a [`LayoutContext`] from the window's physical size and scale factor
+    /// create new a [`UiContext`] from the window's physical size and scale factor
     pub(crate) fn new(physical_size: Vec2, target_scale_factor: f64, ui_scale: f64) -> Self {
         let combined_scale_factor = ui_scale * target_scale_factor;
         let inverse_target_scale_factor = target_scale_factor.recip();
