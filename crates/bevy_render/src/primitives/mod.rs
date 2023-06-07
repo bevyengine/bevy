@@ -123,9 +123,9 @@ impl HalfSpace {
     }
 }
 
-/// A frustum defined by the 6 containing planes
-/// Planes are ordered left, right, top, bottom, near, far
-/// Normals point into the contained volume
+/// A frustum defined by the 6 defining half spaces.
+/// Half spaces are ordered left, right, top, bottom, near, far.
+/// The normal vectors of the half spaces point towards the interior of the frustum.
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Frustum {
@@ -142,8 +142,8 @@ impl Frustum {
         frustum
     }
 
-    /// Returns a frustum derived from `view_projection`, but with a custom
-    /// far plane.
+    /// Returns a frustum derived from `view_projection`,
+    /// but with a custom far plane.
     #[inline]
     pub fn from_view_projection_custom_far(
         view_projection: &Mat4,
@@ -157,7 +157,7 @@ impl Frustum {
         frustum
     }
 
-    // NOTE: This approach of extracting the frustum planes from the view
+    // NOTE: This approach of extracting the frustum HalfSpaces from the view
     // projection matrix is from Foundations of Game Engine Development 2
     // Rendering by Lengyel.
     fn from_view_projection_no_far(view_projection: &Mat4) -> Self {
@@ -174,6 +174,7 @@ impl Frustum {
         Self { planes }
     }
 
+    /// Checks if a sphere intersects the frustum.
     #[inline]
     pub fn intersects_sphere(&self, sphere: &Sphere, intersect_far: bool) -> bool {
         let sphere_center = sphere.center.extend(1.0);
@@ -186,6 +187,7 @@ impl Frustum {
         true
     }
 
+    /// Checks if an Oriented Bounding Box (obb) intersects the frustum.
     #[inline]
     pub fn intersects_obb(
         &self,
