@@ -128,7 +128,7 @@ mod tests {
         let a: &dyn Reflect = &SmolStr::new("A");
         let b: &dyn Reflect = &SmolStr::new("A");
         let c: &dyn Reflect = &SmolStr::new("B");
-        assert!(a.reflect_partial_eq(b).unwrap_or_default());
-        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+        assert_eq!(Some(true), a.reflect_partial_eq(b));
+        assert_ne!(Some(false), a.reflect_partial_eq(c));
     }
 }
