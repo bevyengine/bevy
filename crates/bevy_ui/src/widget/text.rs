@@ -1,4 +1,4 @@
-use crate::{stack::UiNodeToCamera, ContentSize, Measure, Node, UiLayouts};
+use crate::{stack::UiNodeToView, ContentSize, Measure, Node, UiLayouts};
 use bevy_asset::Assets;
 use bevy_ecs::{
     prelude::{Component, DetectChanges, Entity},
@@ -79,7 +79,7 @@ pub fn measure_text_system(
     fonts: Res<Assets<Font>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Entity, Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
-    uinode_map: Res<UiNodeToCamera>,
+    uinode_map: Res<UiNodeToView>,
     ui_layouts: Res<UiLayouts>,
 ) {
     for (text_uinode, text, mut content_size, mut text_flags) in text_query.iter_mut() {
@@ -139,7 +139,7 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextFlags,
     )>,
-    uinode_map: Res<UiNodeToCamera>,
+    uinode_map: Res<UiNodeToView>,
     ui_layouts: Res<UiLayouts>,
 ) {
     for (text_uinode, node, text, mut text_layout_info, mut text_flags) in text_query.iter_mut() {

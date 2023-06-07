@@ -11,15 +11,16 @@ use bevy_window::{PrimaryWindow, Window};
 
 use crate::{
     prelude::UiCameraConfig, LayoutContext, Node, UiDefaultCamera, UiLayout, UiLayouts, UiScale,
-    UiSurface, UiTargetCamera, ZIndex,
+    UiSurface, UiView, ZIndex,
 };
 
+/// The UI stack for every UI layout
 #[derive(Debug, Resource, Default)]
 pub struct UiStacks {
     pub stacks: Vec<UiStack>,
 }
 
-/// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
+/// The UI stack for a UI node, which contains all UI nodes ordered by their depth (back-to-front).
 ///
 /// The first entry is the furthest node from the camera and is the first one to get rendered
 /// while the last entry is the first node to receive interactions.
@@ -42,8 +43,9 @@ struct StackingContextEntry {
     pub stack: StackingContext,
 }
 
+/// Maps uinode entities to their camera view
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct UiNodeToCamera(HashMap<Entity, Entity>);
+pub struct UiNodeToView(HashMap<Entity, Entity>);
 
 /// Generates the render stack for UI nodes.
 ///
@@ -61,10 +63,10 @@ pub fn ui_stack_system(
     primary_window_query: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,
     mut ui_stacks: ResMut<UiStacks>,
-    root_node_query: Query<(Entity, Option<&UiTargetCamera>), (With<Node>, Without<Parent>)>,
+    root_node_query: Query<(Entity, Option<&UiView>), (With<Node>, Without<Parent>)>,
     zindex_query: Query<&ZIndex, With<Node>>,
     children_query: Query<&Children>,
-    mut uinode_map: ResMut<UiNodeToCamera>,
+    mut uinode_map: ResMut<UiNodeToView>,
 ) {
     ui_stacks.stacks.clear();
     uinode_map.clear();

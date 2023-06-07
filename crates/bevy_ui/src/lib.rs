@@ -45,7 +45,7 @@ use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 pub use stack::UiStacks;
-use stack::{ui_stack_system, UiNodeToCamera};
+use stack::{ui_stack_system, UiNodeToView};
 use update::update_clipping_system;
 
 /// The basic plugin for Bevy UI
@@ -86,7 +86,7 @@ impl Plugin for UiPlugin {
             .init_resource::<UiScale>()
             .init_resource::<UiStacks>()
             .init_resource::<UiDefaultCamera>()
-            .init_resource::<UiNodeToCamera>()
+            .init_resource::<UiNodeToView>()
             .init_resource::<UiLayouts>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
