@@ -59,7 +59,7 @@ pub fn ui_stack_system(
     ui_scale: Res<UiScale>,
     image_assets: Res<Assets<Image>>,
     mut removed_cameras: RemovedComponents<Camera>,
-    camera_query: Query<(Entity, &Camera, Option<&UiCameraConfig>)>,
+    camera_query: Query<(Entity, &Camera, Option<&UiCameraConfig>, Option<&UiScale>)>,
     primary_window_query: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,
     mut ui_stacks: ResMut<UiStacks>,
@@ -80,14 +80,15 @@ pub fn ui_stack_system(
 
     let primary_window = primary_window_query.get_single().ok();
 
-    for (view_entity, camera, ui_camera_config) in camera_query.iter() {
+    for (view_entity, camera, ui_camera_config, maybe_ui_scale) in camera_query.iter() {
+        let local_ui_scale = maybe_ui_scale.map_or(ui_scale.scale, |ui_scale| ui_scale.scale);
         let is_ui_camera = ui_camera_config.map(|inner| inner.show_ui).unwrap_or(true);
         if is_ui_camera {
             // If no default camera, set the first `camera_entity` with UI enabled as the default camera
             default_view.entity.get_or_insert(view_entity);
             let Some(new_context) = camera.target.normalize(primary_window).and_then(|render_target| match render_target {
                     bevy_render::camera::NormalizedRenderTarget::Window(window_ref) =>
-                        windows.get(window_ref.entity()).map(|window| UiContext::new(Vec2::new(window.physical_width() as f32, window.physical_height() as f32),window.scale_factor(),ui_scale.scale,)).ok(),
+                        windows.get(window_ref.entity()).map(|window| UiContext::new(Vec2::new(window.physical_width() as f32, window.physical_height() as f32),window.scale_factor(),local_ui_scale,)).ok(),
                     bevy_render::camera::NormalizedRenderTarget::Image(image_handle) => {
                         let image_size = image_assets.get(&image_handle)?.size();
                         Some(UiContext::new(image_size, 1.0, 1.0))

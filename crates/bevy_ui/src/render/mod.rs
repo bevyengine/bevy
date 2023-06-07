@@ -298,9 +298,10 @@ pub fn extract_text_uinodes(
             {
                 let inverse_scale_factor = ui_layouts
                     .get(&ui_stack.view)
-                    .map(|layout| layout.context.combined_scale_factor)
-                    .unwrap_or(1.)
-                    .recip() as f32;
+                    .map(|layout| {
+                        layout.context.combined_scale_factor.recip() * layout.context.ui_scale
+                    })
+                    .unwrap_or(1.) as f32;
 
                 // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
                 if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {

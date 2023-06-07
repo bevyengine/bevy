@@ -13,13 +13,13 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface, layouts: &UiLayouts) {
         .iter()
         .map(|(entity, node)| (*node, *entity))
         .collect();
-    for (&entity, node) in layouts.iter() {
+    for (&entity, layout) in layouts.iter() {
         let mut out = String::new();
         print_node(
             ui_surface,
             &taffy_to_entity,
             entity,
-            node.taffy_root,
+            layout.taffy_root,
             false,
             String::new(),
             &mut out,
