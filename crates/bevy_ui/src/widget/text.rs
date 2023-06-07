@@ -147,37 +147,35 @@ pub fn text_system(
             .get(&text_uinode)
             .and_then(|entity| ui_layouts.get(entity))
         {
-            if node.is_changed()
+            if !text_flags.needs_new_measure_func
+                && node.is_changed()
                 || text_flags.needs_recompute
-                || layout.scale_factor_changed
-                || !text_flags.needs_new_measure_func
+                || layout.scale_factor_changed 
             {
-                {
-                    match text_pipeline.queue_text(
-                        &fonts,
-                        &text.sections,
-                        layout.context.combined_scale_factor,
-                        text.alignment,
-                        text.linebreak_behavior,
-                        node.physical_size(layout.context.combined_scale_factor),
-                        &mut font_atlas_set_storage,
-                        &mut texture_atlases,
-                        &mut textures,
-                        &text_settings,
-                        &mut font_atlas_warning,
-                        YAxisOrientation::TopToBottom,
-                    ) {
-                        Err(TextError::NoSuchFont) => {
-                            // There was an error processing the text layout, try again next frame
-                            text_flags.needs_recompute = true;
-                        }
-                        Err(e @ TextError::FailedToAddGlyph(_)) => {
-                            panic!("Fatal error when processing text: {e}.");
-                        }
-                        Ok(info) => {
-                            *text_layout_info = info;
-                            text_flags.needs_recompute = false;
-                        }
+                match text_pipeline.queue_text(
+                    &fonts,
+                    &text.sections,
+                    layout.context.combined_scale_factor,
+                    text.alignment,
+                    text.linebreak_behavior,
+                    node.physical_size(layout.context.combined_scale_factor),
+                    &mut font_atlas_set_storage,
+                    &mut texture_atlases,
+                    &mut textures,
+                    &text_settings,
+                    &mut font_atlas_warning,
+                    YAxisOrientation::TopToBottom,
+                ) {
+                    Err(TextError::NoSuchFont) => {
+                        // There was an error processing the text layout, try again next frame
+                        text_flags.needs_recompute = true;
+                    }
+                    Err(e @ TextError::FailedToAddGlyph(_)) => {
+                        panic!("Fatal error when processing text: {e}.");
+                    }
+                    Ok(info) => {
+                        *text_layout_info = info;
+                        text_flags.needs_recompute = false;
                     }
                 }
             }
