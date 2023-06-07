@@ -1783,6 +1783,16 @@ category = "UI (User Interface)"
 wasm = false
 
 [[example]]
+name = "ui_image_tiling"
+path = "examples/ui/ui_image_tiling.rs"
+
+[package.metadata.example.ui_image_tiling]
+name = "UI Image Tiling"
+description = "This example demonstrates how to use different tiling modes for a `UiImage`."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
 
