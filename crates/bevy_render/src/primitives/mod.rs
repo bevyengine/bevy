@@ -117,7 +117,6 @@ impl HalfSpace {
     }
 
     /// Returns the bisecting plane's unit normal vector and the distance from the origin to the plane.
-    /// The returned 4D vector embodies the key properties of the bisecting plane that characterizes the `HalfSpace`.
     #[inline]
     pub fn normal_d(&self) -> Vec4 {
         self.normal_d
