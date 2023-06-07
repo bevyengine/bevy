@@ -123,7 +123,7 @@ impl HalfSpace {
     }
 }
 
-/// A frustum defined by the 6 defining half spaces.
+/// A frustum made up of the 6 defining half spaces.
 /// Half spaces are ordered left, right, top, bottom, near, far.
 /// The normal vectors of the half spaces point towards the interior of the frustum.
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
