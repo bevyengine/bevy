@@ -1,4 +1,4 @@
-//! Loads and renders a glTF file as a scene.
+//! This example compares Forward, Forward + Prepass, and Deferred rendering.
 
 use std::f32::consts::*;
 
@@ -64,7 +64,6 @@ fn setup(
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         },
-        //NormalPrepass,
         DepthPrepass,
         MotionVectorPrepass,
         DeferredPrepass,
@@ -195,6 +194,24 @@ fn setup(
             ..default()
         });
     }
+
+    // example instructions
+    commands.spawn(
+        TextBundle::from_section(
+            "",
+            TextStyle {
+                font_size: 18.0,
+                color: Color::WHITE,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..default()
+        }),
+    );
 }
 
 #[derive(Resource)]
@@ -215,53 +232,6 @@ fn animate_light_direction(
             time.elapsed_seconds() * PI / 5.0,
             -FRAC_PI_4,
         );
-    }
-}
-
-fn switch_mode(
-    mut commands: Commands,
-    input: Res<Input<KeyCode>>,
-    mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    cameras: Query<Entity, With<Camera>>,
-    mut pause: ResMut<Pause>,
-) {
-    if input.just_pressed(KeyCode::Space) {
-        pause.0 = !pause.0;
-    }
-
-    if input.just_pressed(KeyCode::D) {
-        default_opaque_renderer_method.0 = OpaqueRendererMethod::Deferred;
-        println!("DefaultOpaqueRendererMethod: Deferred");
-        for _ in materials.iter_mut() {}
-        for camera in &cameras {
-            commands.entity(camera).remove::<NormalPrepass>();
-            commands.entity(camera).insert(DepthPrepass);
-            commands.entity(camera).insert(MotionVectorPrepass);
-            commands.entity(camera).insert(DeferredPrepass);
-        }
-    }
-    if input.just_pressed(KeyCode::F) {
-        default_opaque_renderer_method.0 = OpaqueRendererMethod::Forward;
-        println!("DefaultOpaqueRendererMethod: Forward");
-        for _ in materials.iter_mut() {}
-        for camera in &cameras {
-            commands.entity(camera).remove::<NormalPrepass>();
-            commands.entity(camera).remove::<DepthPrepass>();
-            commands.entity(camera).remove::<MotionVectorPrepass>();
-            commands.entity(camera).remove::<DeferredPrepass>();
-        }
-    }
-    if input.just_pressed(KeyCode::P) {
-        default_opaque_renderer_method.0 = OpaqueRendererMethod::Forward;
-        println!("DefaultOpaqueRendererMethod: Forward + Prepass");
-        for _ in materials.iter_mut() {}
-        for camera in &cameras {
-            commands.entity(camera).insert(NormalPrepass);
-            commands.entity(camera).insert(DepthPrepass);
-            commands.entity(camera).insert(MotionVectorPrepass);
-            commands.entity(camera).insert(DeferredPrepass);
-        }
     }
 }
 
@@ -341,5 +311,106 @@ fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>, pause: Res<P
         transform.rotate_local_y(spin.speed * time.delta_seconds());
         transform.rotate_local_x(spin.speed * time.delta_seconds());
         transform.rotate_local_z(-spin.speed * time.delta_seconds());
+    }
+}
+
+#[derive(Resource, Default)]
+enum DefaultRenderMode {
+    #[default]
+    Deferred,
+    Forward,
+    ForwardPrepass,
+}
+
+fn switch_mode(
+    mut text: Query<&mut Text>,
+    mut commands: Commands,
+    keys: Res<Input<KeyCode>>,
+    mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    cameras: Query<Entity, With<Camera>>,
+    mut pause: ResMut<Pause>,
+    mut hide_ui: Local<bool>,
+    mut mode: Local<DefaultRenderMode>,
+) {
+    let mut text = text.single_mut();
+    let text = &mut text.sections[0].value;
+
+    text.clear();
+
+    if keys.just_pressed(KeyCode::Space) {
+        pause.0 = !pause.0;
+    }
+
+    if keys.just_pressed(KeyCode::Key1) {
+        *mode = DefaultRenderMode::Deferred;
+        default_opaque_renderer_method.0 = OpaqueRendererMethod::Deferred;
+        println!("DefaultOpaqueRendererMethod: Deferred");
+        for _ in materials.iter_mut() {}
+        for camera in &cameras {
+            commands.entity(camera).remove::<NormalPrepass>();
+            commands.entity(camera).insert(DepthPrepass);
+            commands.entity(camera).insert(MotionVectorPrepass);
+            commands.entity(camera).insert(DeferredPrepass);
+        }
+    }
+    if keys.just_pressed(KeyCode::Key2) {
+        *mode = DefaultRenderMode::Forward;
+        default_opaque_renderer_method.0 = OpaqueRendererMethod::Forward;
+        println!("DefaultOpaqueRendererMethod: Forward");
+        for _ in materials.iter_mut() {}
+        for camera in &cameras {
+            commands.entity(camera).remove::<NormalPrepass>();
+            commands.entity(camera).remove::<DepthPrepass>();
+            commands.entity(camera).remove::<MotionVectorPrepass>();
+            commands.entity(camera).remove::<DeferredPrepass>();
+        }
+    }
+    if keys.just_pressed(KeyCode::Key3) {
+        *mode = DefaultRenderMode::ForwardPrepass;
+        default_opaque_renderer_method.0 = OpaqueRendererMethod::Forward;
+        println!("DefaultOpaqueRendererMethod: Forward + Prepass");
+        for _ in materials.iter_mut() {}
+        for camera in &cameras {
+            commands.entity(camera).insert(NormalPrepass);
+            commands.entity(camera).insert(DepthPrepass);
+            commands.entity(camera).insert(MotionVectorPrepass);
+            commands.entity(camera).insert(DeferredPrepass);
+        }
+    }
+
+    if keys.just_pressed(KeyCode::H) {
+        *hide_ui = !*hide_ui;
+    }
+
+    if !*hide_ui {
+        text.push_str("(H) Hide UI\n");
+        text.push_str("(Space) Play/Pause\n\n");
+        text.push_str("Rendering Method:\n");
+
+        text.push_str(&format!(
+            "(1) {} Deferred\n",
+            if let DefaultRenderMode::Deferred = *mode {
+                ">"
+            } else {
+                ""
+            }
+        ));
+        text.push_str(&format!(
+            "(2) {} Forward\n",
+            if let DefaultRenderMode::Forward = *mode {
+                ">"
+            } else {
+                ""
+            }
+        ));
+        text.push_str(&format!(
+            "(3) {} Forward + Prepass\n",
+            if let DefaultRenderMode::ForwardPrepass = *mode {
+                ">"
+            } else {
+                ""
+            }
+        ));
     }
 }
