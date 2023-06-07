@@ -88,6 +88,7 @@ impl Plugin for UiPlugin {
             .init_resource::<UiDefaultCamera>()
             .init_resource::<UiNodeToView>()
             .init_resource::<UiLayouts>()
+            .init_resource::<UiCursorOverride>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()

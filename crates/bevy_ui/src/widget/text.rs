@@ -147,10 +147,9 @@ pub fn text_system(
             .get(&text_uinode)
             .and_then(|entity| ui_layouts.get(entity))
         {
-            if !text_flags.needs_new_measure_func
-                && node.is_changed()
+            if !text_flags.needs_new_measure_func && node.is_changed()
                 || text_flags.needs_recompute
-                || layout.scale_factor_changed 
+                || layout.scale_factor_changed
             {
                 match text_pipeline.queue_text(
                     &fonts,

@@ -6,7 +6,7 @@ use bevy_ecs::{
     prelude::{Component, With},
     query::WorldQuery,
     reflect::ReflectComponent,
-    system::{Local, Query, Res},
+    system::{Local, Query, Res, ResMut, Resource},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
@@ -133,6 +133,20 @@ pub struct NodeQuery {
     computed_visibility: Option<&'static ComputedVisibility>,
 }
 
+#[derive(Debug)]
+pub struct CursorState {
+    /// Views that output to the window the cursor is above.
+    pub views: Vec<Entity>,
+    /// The cursor's relative postion within the window.
+    pub position: Vec2,
+}
+
+#[derive(Resource, Debug, Default)]
+pub struct UiCursorOverride {
+    /// If set to some value, overrides the cursor position with a custom value.
+    pub cursor_state: Option<CursorState>,
+}
+
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
 /// Entities with a hidden [`ComputedVisibility`] are always treated as released.
@@ -146,54 +160,54 @@ pub fn ui_focus_system(
     ui_stacks: Res<UiStacks>,
     mut node_query: Query<NodeQuery>,
     primary_window_query: Query<Entity, With<PrimaryWindow>>,
+    cursor_override: Option<ResMut<UiCursorOverride>>,
 ) {
-    let primary_window = primary_window_query.get_single().ok();
     let cursor_state = {
-        let mut cursor_state = None;
-        for (window_entity, window) in windows.iter() {
-            if let Some(position) = window.cursor_position() {
-                cursor_state = Some((window_entity, position));
-                break;
-            }
-        }
-        cursor_state
-    }
-    .or_else(|| {
-        touches_input
-            .first_pressed_position()
-            .and_then(|position| primary_window.map(|primary_window| (primary_window, position)))
-    });
-
-    let (window_cameras, cursor_position) =
-        if let Some((pointed_window, cursor_position)) = cursor_state {
-            (
-                camera_query
-                    .iter()
-                    .filter(|(_, _, config)| {
-                        matches!(config, Some(&UiCameraConfig { show_ui: true, .. }) | None)
-                    })
-                    .filter_map(|(camera_entity, camera, _)| match camera.target {
-                        bevy_render::camera::RenderTarget::Window(window_ref) => {
-                            if window_ref
-                                .normalize(primary_window)
-                                .map(|normalized_window_ref| {
-                                    normalized_window_ref.entity() == pointed_window
-                                })
-                                .unwrap_or(false)
-                            {
-                                Some(camera_entity)
-                            } else {
-                                None
-                            }
+        cursor_override
+            .and_then(|mut cursor_override| cursor_override.cursor_state.take())
+            .or_else(|| {
+                let primary_window = primary_window_query.get_single().ok();
+                let window_cursor = {
+                    let mut cursor_state = None;
+                    for (window_entity, window) in windows.iter() {
+                        if let Some(position) = window.cursor_position() {
+                            cursor_state = Some((window_entity, position));
+                            break;
                         }
-                        bevy_render::camera::RenderTarget::Image(_) => None,
+                    }
+                    cursor_state
+                }
+                .or_else(|| {
+                    touches_input.first_pressed_position().and_then(|position| {
+                        primary_window.map(|primary_window| (primary_window, position))
                     })
-                    .collect(),
-                Some(cursor_position),
-            )
-        } else {
-            (vec![], None)
-        };
+                });
+                window_cursor.map(|(window, position)| CursorState {
+                    views: camera_query
+                        .iter()
+                        .filter(|(_, _, config)| {
+                            matches!(config, Some(&UiCameraConfig { show_ui: true, .. }) | None)
+                        })
+                        .filter_map(|(camera_entity, camera, _)| match camera.target {
+                            bevy_render::camera::RenderTarget::Window(window_ref) => {
+                                if window_ref.normalize(primary_window).map_or(
+                                    false,
+                                    |normalized_window_ref| {
+                                        normalized_window_ref.entity() == window
+                                    },
+                                ) {
+                                    Some(camera_entity)
+                                } else {
+                                    None
+                                }
+                            }
+                            _ => None,
+                        })
+                        .collect(),
+                    position,
+                })
+            })
+    };
 
     let mouse_released =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
@@ -215,7 +229,10 @@ pub fn ui_focus_system(
     // for all nodes encountered that are no longer hovered.
     let mut hovered_nodes = vec![];
     for ui_stack in &ui_stacks.stacks {
-        if window_cameras.contains(&ui_stack.camera_entity) {
+        if cursor_state
+            .as_ref()
+            .map_or(false, |state| state.views.contains(&ui_stack.camera_entity))
+        {
             // reverse the iterator to traverse the tree from closest nodes to furthest
             for &entity in ui_stack.uinodes.iter().rev() {
                 if let Ok(node) = node_query.get_mut(entity) {
@@ -241,12 +258,9 @@ pub fn ui_focus_system(
 
                     // The mouse position relative to the node
                     // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
-                    let relative_cursor_position = cursor_position.map(|cursor_position| {
-                        Vec2::new(
-                            (cursor_position.x - min.x) / node.node.size().x,
-                            (cursor_position.y - min.y) / node.node.size().y,
-                        )
-                    });
+                    let relative_cursor_position = cursor_state
+                        .as_ref()
+                        .map(|cursor| (cursor.position - min) / node.node.size());
 
                     // If the current cursor position is within the bounds of the node, consider it for
                     // clicking
@@ -267,7 +281,7 @@ pub fn ui_focus_system(
                     if contains_cursor {
                         hovered_nodes.push(entity);
                     } else if let Some(mut interaction) = node.interaction {
-                        if *interaction == Interaction::Hovered || (cursor_position.is_none()) {
+                        if *interaction == Interaction::Hovered || (cursor_state.is_none()) {
                             interaction.set_if_neq(Interaction::None);
                         }
                     }

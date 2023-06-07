@@ -14,7 +14,7 @@ use crate::{
     UiSurface, UiView, ZIndex,
 };
 
-/// The UI stack for every UI layout
+/// List of UI stacks, one for each UI layout
 #[derive(Debug, Resource, Default)]
 pub struct UiStacks {
     pub stacks: Vec<UiStack>,
@@ -102,8 +102,8 @@ pub fn ui_stack_system(
                         .set_style(layout.taffy_root, new_context.root_style())
                         .unwrap();
 
-                    layout.scale_factor_changed = layout.context.combined_scale_factor
-                        != new_context.combined_scale_factor;
+                    layout.scale_factor_changed =
+                        layout.context.combined_scale_factor != new_context.combined_scale_factor;
                     layout.context = new_context;
                     layout.needs_full_update = true;
                 } else {
@@ -111,10 +111,7 @@ pub fn ui_stack_system(
                     layout.needs_full_update = false;
                 }
             } else {
-                let taffy_root = ui_surface
-                    .taffy
-                    .new_leaf(new_context.root_style())
-                    .unwrap();
+                let taffy_root = ui_surface.taffy.new_leaf(new_context.root_style()).unwrap();
                 ui_layouts.insert(camera_entity, UiLayout::new(taffy_root, new_context));
             }
         } else {

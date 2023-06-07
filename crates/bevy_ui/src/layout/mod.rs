@@ -93,13 +93,13 @@ pub struct UiView {
 
 #[derive(Resource)]
 pub struct UiSurface {
-    pub(crate) entity_to_taffy: HashMap<Entity, taffy::node::Node>,
+    pub(crate) entity_to_taffy: HashMap<Entity, TaffyNode>,
     pub(crate) taffy: Taffy,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
+    _assert_send_sync::<HashMap<Entity, TaffyNode>>();
     _assert_send_sync::<Taffy>();
     _assert_send_sync::<UiSurface>();
 }
@@ -282,73 +282,74 @@ pub fn ui_layout_system(
         }
     }
 
+    fn taffy_tree_full_update_recursive(
+        uinode: Entity,
+        ui_surface: &mut UiSurface,
+        context: &LayoutContext,
+        uinode_query: &Query<(Ref<Style>, Option<Ref<Children>>), With<Node>>,
+    ) {
+        if let Ok((style, maybe_children)) = uinode_query.get(uinode) {
+            let taffy_node = *ui_surface.entity_to_taffy.get(&uinode).unwrap();
+            let _ = ui_surface
+                .taffy
+                .set_style(taffy_node, convert::from_style(context, &style));
+
+            if let Some(children) = maybe_children {
+                ui_surface.update_children(taffy_node, &children);
+
+                for &child in &children {
+                    taffy_tree_full_update_recursive(child, ui_surface, context, uinode_query);
+                }
+            }
+        }
+    }
+
+    fn taffy_tree_update_changed_recursive(
+        uinode: Entity,
+        ui_surface: &mut UiSurface,
+        context: &LayoutContext,
+        uinode_query: &Query<(Ref<Style>, Option<Ref<Children>>), With<Node>>,
+    ) {
+        if let Ok((style, maybe_children)) = uinode_query.get(uinode) {
+            if style.is_changed() {
+                let taffy_node = *ui_surface.entity_to_taffy.get(&uinode).unwrap();
+                let _ = ui_surface
+                    .taffy
+                    .set_style(taffy_node, convert::from_style(context, &style));
+            }
+
+            if let Some(children) = maybe_children {
+                if children.is_changed() {
+                    let taffy_node = *ui_surface.entity_to_taffy.get(&uinode).unwrap();
+                    ui_surface.update_children(taffy_node, &children);
+                }
+
+                for &child in &children {
+                    taffy_tree_update_changed_recursive(child, ui_surface, context, uinode_query);
+                }
+            }
+        }
+    }
+
     // Synchronise the Bevy and Taffy node's styles and parent-child hierarchy.
     for layout in camera_to_root.values() {
         if layout.needs_full_update {
             for &uinode in &layout.root_uinodes {
-                fn taffy_tree_full_update_recursive(
-                    uinode: Entity,
-                    ui_surface: &mut UiSurface,
-                    context: &LayoutContext,
-                    uinode_query: &Query<(Ref<Style>, Option<Ref<Children>>), With<Node>>,
-                ) {
-                    if let Ok((style, maybe_children)) = uinode_query.get(uinode) {
-                        let taffy_node = *ui_surface.entity_to_taffy.get(&uinode).unwrap();
-                        let _ = ui_surface
-                            .taffy
-                            .set_style(taffy_node, convert::from_style(context, &style));
-            
-                        if let Some(children) = maybe_children {
-                            ui_surface.update_children(taffy_node, &children);
-            
-                            for &child in &children {
-                                taffy_tree_full_update_recursive(child, ui_surface, context, uinode_query);
-                            }
-                        }
-                    }
-                }
-            
                 taffy_tree_full_update_recursive(
                     uinode,
                     &mut ui_surface,
                     &layout.context,
                     &uinode_query,
-                )
+                );
             }
         } else {
             for &uinode in &layout.root_uinodes {
-                fn taffy_tree_update_changed_recursive(
-                    uinode: Entity,
-                    ui_surface: &mut UiSurface,
-                    context: &LayoutContext,
-                    uinode_query: &Query<(Ref<Style>, Option<Ref<Children>>), With<Node>>,
-                ) {
-                    if let Ok((style, maybe_children)) = uinode_query.get(uinode) {
-                        if style.is_changed() {
-                            let taffy_node = *ui_surface.entity_to_taffy.get(&uinode).unwrap();
-                            let _ = ui_surface
-                                .taffy
-                                .set_style(taffy_node, convert::from_style(context, &style));
-                        }
-            
-                        if let Some(children) = maybe_children {
-                            if children.is_changed() {
-                                let taffy_node = *ui_surface.entity_to_taffy.get(&uinode).unwrap();
-                                ui_surface.update_children(taffy_node, &children);
-                            }
-            
-                            for &child in &children {
-                                taffy_tree_update_changed_recursive(child, ui_surface, context, uinode_query);
-                            }
-                        }
-                    }
-                }
                 taffy_tree_update_changed_recursive(
                     uinode,
                     &mut ui_surface,
                     &layout.context,
                     &uinode_query,
-                )
+                );
             }
         }
     }

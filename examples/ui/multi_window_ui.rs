@@ -1,6 +1,8 @@
 //! Demonstrates multiple windows each with their own UI layout
 
+use bevy::ui::UiCursorOverride;
 use bevy::{prelude::*, render::camera::RenderTarget, window::WindowRef};
+use bevy_internal::app::AppExit;
 use bevy_internal::{
     render::render_resource::{
         Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
@@ -16,8 +18,10 @@ fn main() {
             Update,
             (
                 bevy::window::close_on_esc,
-                update::<FirstWindowNode, SecondWindowNode>,
-                update::<SecondWindowNode, FirstWindowNode>,
+                update_window_ui::<FirstWindowNode, SecondWindowNode>,
+                update_window_ui::<SecondWindowNode, FirstWindowNode>,
+                override_cursor_system,
+                update_sprite_ui,
             ),
         )
         .run();
@@ -28,6 +32,9 @@ struct FirstWindowNode;
 
 #[derive(Component, Default)]
 struct SecondWindowNode;
+
+#[derive(Component, Default)]
+struct SpriteCamera;
 
 #[derive(Component, Default)]
 struct Value(u64);
@@ -92,13 +99,16 @@ fn setup_scene(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     });
 
     let sprite_camera = commands
-        .spawn(Camera2dBundle {
-            camera: Camera {
-                target: RenderTarget::Image(image_handle),
+        .spawn((
+            SpriteCamera,
+            Camera2dBundle {
+                camera: Camera {
+                    target: RenderTarget::Image(image_handle),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
-            ..Default::default()
-        })
+        ))
         .id();
 
     commands
@@ -123,7 +133,8 @@ fn setup_scene(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::SpaceBetween,
-                        flex_grow: 1.0,
+                        flex_grow: 1.,
+                        padding: UiRect::all(Val::Px(10.)),
                         ..Default::default()
                     },
                     background_color: Color::MAROON.into(),
@@ -140,6 +151,29 @@ fn setup_scene(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
                         )
                         .with_text_alignment(TextAlignment::Center),
                     );
+
+                    builder.spawn((
+                        TextBundle::from_section(
+                            "0",
+                            TextStyle {
+                                font_size: 50.,
+                                ..Default::default()
+                            },
+                        ),
+                        Value(0),
+                        FirstWindowNode,
+                    ));
+                    builder.spawn((
+                        TextBundle::from_section(
+                            "0",
+                            TextStyle {
+                                font_size: 50.,
+                                ..Default::default()
+                            },
+                        ),
+                        Value(0),
+                        SecondWindowNode,
+                    ));
                     builder
                         .spawn((
                             ButtonBundle {
@@ -169,28 +203,6 @@ fn setup_scene(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
                                 }),
                             );
                         });
-                    builder.spawn((
-                        TextBundle::from_section(
-                            "0",
-                            TextStyle {
-                                font_size: 50.,
-                                ..Default::default()
-                            },
-                        ),
-                        Value(0),
-                        FirstWindowNode,
-                    ));
-                    builder.spawn((
-                        TextBundle::from_section(
-                            "0",
-                            TextStyle {
-                                font_size: 50.,
-                                ..Default::default()
-                            },
-                        ),
-                        Value(0),
-                        SecondWindowNode,
-                    ));
                 });
         });
 }
@@ -220,10 +232,10 @@ fn spawn_nodes<M: Component + Default>(
         builder
             .spawn(NodeBundle {
                 style: Style {
-                    width: Val::Vw(50.),
+                    width: Val::Px(400.),
                     flex_direction: FlexDirection::Column,
                     justify_content: JustifyContent::SpaceBetween,
-                    margin: UiRect::all(Val::Vw(5.)),
+                    margin: UiRect::all(Val::Px(25.)),
                     align_items: AlignItems::Center,
                     ..Default::default()
                 },
@@ -265,11 +277,9 @@ fn spawn_nodes<M: Component + Default>(
     });
 }
 
-fn update<M: Component + Default, N: Component + Default>(
-    time: Res<Time>,
+fn update_window_ui<M: Component + Default, N: Component + Default>(
     mut button_query: Query<(Ref<Interaction>, &mut BackgroundColor), With<M>>,
     mut text_query: Query<(&mut Value, &mut Text), With<N>>,
-    mut sprite_query: Query<&mut Transform, With<Sprite>>,
 ) {
     for (interaction, mut color) in button_query.iter_mut() {
         if interaction.is_changed() {
@@ -290,8 +300,62 @@ fn update<M: Component + Default, N: Component + Default>(
             }
         }
     }
+}
 
+fn update_sprite_ui(
+    time: Res<Time>,
+    mut exit_event: EventWriter<AppExit>,
+    mut button_query: Query<(Ref<Interaction>, &mut BackgroundColor), With<ExitButton>>,
+    mut sprite_query: Query<&mut Transform, With<Sprite>>,
+) {
     for mut transform in sprite_query.iter_mut() {
-        transform.rotation = Quat::from_rotation_z(0.25 * (0.25 * time.elapsed_seconds()).sin())
+        transform.rotation = Quat::from_rotation_z(0.5 * (0.25 * time.elapsed_seconds()).sin());
+    }
+
+    for (interaction, mut color) in button_query.iter_mut() {
+        if interaction.is_changed() {
+            match *interaction {
+                Interaction::Clicked => {
+                    color.0 = Color::RED;
+                    exit_event.send(AppExit);
+                }
+                Interaction::Hovered => {
+                    color.0 = Color::YELLOW;
+                }
+                Interaction::None => {
+                    color.0 = Color::WHITE;
+                }
+            }
+        }
+    }
+}
+
+fn override_cursor_system(
+    windows: Query<&Window>,
+    images: ResMut<Assets<Image>>,
+    sprite_query: Query<(&Handle<Image>, &GlobalTransform), With<Sprite>>,
+    mut cursor_override: ResMut<UiCursorOverride>,
+    sprite_cam: Query<Entity, With<SpriteCamera>>,
+) {
+    cursor_override.cursor_state = None;
+    let Some(cursor_position) = windows
+        .iter()
+        .find_map(|window| {
+            window.cursor_position().map(|position| { position - 0.5 * Vec2::new(window.resolution.width(), window.resolution.height()) })
+        }) else { return; };
+
+    for (texture_handle, transform) in sprite_query.iter() {
+        let Some(size) = images.get(texture_handle).map(|image| image.size()) else { continue };
+        let position = transform
+            .transform_point(cursor_position.extend(0.))
+            .truncate();
+        let rect = Rect::from_center_size(Vec2::ZERO, size);
+        if rect.contains(position) {
+            let position = position + 0.5 * size;
+            cursor_override.cursor_state = Some(bevy::ui::CursorState {
+                views: vec![sprite_cam.single()],
+                position,
+            });
+        }
     }
 }
