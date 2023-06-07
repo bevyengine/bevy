@@ -32,7 +32,7 @@ pub struct UiContext {
     pub combined_scale_factor: f64,
     /// Inverse of the target's scale factor.
     pub inverse_target_scale_factor: f64,
-    /// `UiScale` for this layout
+    /// The local `UiScale` for this layout
     pub ui_scale: f64,
 }
 
