@@ -6,11 +6,12 @@ use std::{
 use smol_str::SmolStr;
 
 use crate::{
-    utility::{reflect_hasher, NonGenericTypeInfoCell},
-    FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr,
-    ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypeRegistration, Typed,
-    ValueInfo,
+    utility::{reflect_hasher, GenericTypePathCell, NonGenericTypeInfoCell},
+    FromReflect, FromType, GetTypeRegistration, Reflect, ReflectFromPtr, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed, ValueInfo,
 };
+
+use crate::{ReflectDeserialize, ReflectSerialize};
 
 impl Reflect for SmolStr {
     fn type_name(&self) -> &str {
@@ -47,10 +48,17 @@ impl Reflect for SmolStr {
 
     fn apply(&mut self, value: &dyn Reflect) {
         let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<String>() {
+
+        if let Some(value) = value.downcast_ref::<SmolStr>() {
+            *self = value.clone();
+        } else if let Some(value) = value.downcast_ref::<String>() {
             *self = SmolStr::new(value);
         } else {
-            panic!("Value is not a {}.", std::any::type_name::<Self>());
+            panic!(
+                "Value is not a {} nor a {}.",
+                std::any::type_name::<Self>(),
+                std::any::type_name::<String>()
+            );
         }
     }
 
@@ -99,6 +107,30 @@ impl Typed for SmolStr {
     }
 }
 
+impl TypePath for SmolStr {
+    fn type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| "smol_str::SmolStr".to_owned())
+    }
+
+    fn short_type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| "SmolStr".to_owned())
+    }
+
+    fn type_ident() -> Option<&'static str> {
+        Some("SmolStr")
+    }
+
+    fn crate_name() -> Option<&'static str> {
+        Some("smol_str")
+    }
+
+    fn module_path() -> Option<&'static str> {
+        Some("SmolStr")
+    }
+}
+
 impl GetTypeRegistration for SmolStr {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
@@ -114,21 +146,28 @@ impl GetTypeRegistration for SmolStr {
 
 impl FromReflect for SmolStr {
     fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
-        Some(reflect.as_any().downcast_ref::<String>()?.into())
+        Some(reflect.as_any().downcast_ref::<SmolStr>()?.clone())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::Reflect;
+    use crate::{FromReflect, Reflect};
     use smol_str::SmolStr;
 
     #[test]
     fn should_partial_eq_smolstr() {
         let a: &dyn Reflect = &SmolStr::new("A");
-        let b: &dyn Reflect = &SmolStr::new("A");
-        let c: &dyn Reflect = &SmolStr::new("B");
-        assert_eq!(Some(true), a.reflect_partial_eq(b));
-        assert_ne!(Some(false), a.reflect_partial_eq(c));
+        let a2: &dyn Reflect = &SmolStr::new("A");
+        let b: &dyn Reflect = &SmolStr::new("B");
+        assert_eq!(Some(true), a.reflect_partial_eq(a2));
+        assert_eq!(Some(false), a.reflect_partial_eq(b));
+    }
+
+    #[test]
+    fn smolstr_should_from_reflect() {
+        let smolstr = SmolStr::new("hello_world.rs");
+        let output = <SmolStr as FromReflect>::from_reflect(&smolstr);
+        assert_eq!(Some(smolstr), output);
     }
 }
