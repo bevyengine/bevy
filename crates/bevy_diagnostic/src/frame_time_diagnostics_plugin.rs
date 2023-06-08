@@ -1,4 +1,4 @@
-use crate::{Diagnostic, DiagnosticId, Diagnostics, DiagnosticsPlugin, RegisterDiagnostic};
+use crate::{Diagnostic, DiagnosticId, Diagnostics, RegisterDiagnostic};
 use bevy_app::prelude::*;
 use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
@@ -8,7 +8,7 @@ use bevy_time::Time;
 ///
 /// # Warning
 ///
-/// Must be added after [`DiagnosticsPlugin`] or a panic will occur due to missing resources.
+/// Must be added after [`DiagnosticsPlugin`](crate::DiagnosticsPlugin) or a panic will occur due to missing resources.
 #[derive(Default)]
 pub struct FrameTimeDiagnosticsPlugin;
 
