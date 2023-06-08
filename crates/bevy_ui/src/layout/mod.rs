@@ -25,7 +25,7 @@ type TaffyNode = taffy::node::Node;
 
 /// The size and scaling information for a UI layout derived from its render target.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct UiContext {
+pub struct LayoutContext {
     /// Physical size of the target in pixels.
     pub physical_size: Vec2,
     /// Product of the target's scale factor and the camera's `UiScale`.
@@ -36,8 +36,8 @@ pub struct UiContext {
     pub ui_scale: f64,
 }
 
-impl UiContext {
-    /// create new a [`UiContext`] from the window's physical size and scale factor
+impl LayoutContext {
+    /// Creates a new `LayoutContext` from the window's physical size and scale factor
     pub(crate) fn new(physical_size: Vec2, target_scale_factor: f64, ui_scale: f64) -> Self {
         let combined_scale_factor = ui_scale * target_scale_factor;
         let inverse_target_scale_factor = target_scale_factor.recip();
@@ -66,7 +66,7 @@ pub struct UiLayout {
     /// Root node of this layout's Taffy tree.
     pub(crate) taffy_root: TaffyNode,
     /// The physical size and scaling for this layout.
-    pub(crate) context: UiContext,
+    pub(crate) context: LayoutContext,
     /// Update every node in the internal Taffy tree for this layout from its corresponding UI node's `Style` and `Children` components.
     pub(crate) needs_full_update: bool,
     /// Root uinodes are UI node entities without a `Parent` component.
@@ -77,7 +77,7 @@ pub struct UiLayout {
 }
 
 impl UiLayout {
-    pub(crate) fn new(taffy_root: TaffyNode, layout_context: UiContext) -> Self {
+    pub(crate) fn new(taffy_root: TaffyNode, layout_context: LayoutContext) -> Self {
         Self {
             taffy_root,
             context: layout_context,
@@ -288,7 +288,7 @@ pub fn ui_layout_system(
     fn taffy_tree_full_update_recursive(
         uinode: Entity,
         ui_surface: &mut UiSurface,
-        context: &UiContext,
+        context: &LayoutContext,
         uinode_query: &Query<(Ref<Style>, Option<Ref<Children>>), With<Node>>,
     ) {
         if let Ok((style, maybe_children)) = uinode_query.get(uinode) {
@@ -310,7 +310,7 @@ pub fn ui_layout_system(
     fn taffy_tree_update_changed_recursive(
         uinode: Entity,
         ui_surface: &mut UiSurface,
-        context: &UiContext,
+        context: &LayoutContext,
         uinode_query: &Query<(Ref<Style>, Option<Ref<Children>>), With<Node>>,
     ) {
         if let Ok((style, maybe_children)) = uinode_query.get(uinode) {

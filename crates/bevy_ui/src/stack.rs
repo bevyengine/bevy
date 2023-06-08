@@ -10,7 +10,7 @@ use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window};
 
 use crate::{
-    prelude::UiCameraConfig, Node, UiContext, UiDefaultView, UiLayout, UiLayouts, UiScale,
+    prelude::UiCameraConfig, Node, LayoutContext, UiDefaultView, UiLayout, UiLayouts, UiScale,
     UiSurface, UiView, ZIndex,
 };
 
@@ -88,10 +88,10 @@ pub fn ui_stack_system(
             default_view.entity.get_or_insert(view_entity);
             let Some(new_context) = camera.target.normalize(primary_window).and_then(|render_target| match render_target {
                     bevy_render::camera::NormalizedRenderTarget::Window(window_ref) =>
-                        windows.get(window_ref.entity()).map(|window| UiContext::new(Vec2::new(window.physical_width() as f32, window.physical_height() as f32),window.scale_factor(),local_ui_scale,)).ok(),
+                        windows.get(window_ref.entity()).map(|window| LayoutContext::new(Vec2::new(window.physical_width() as f32, window.physical_height() as f32),window.scale_factor(),local_ui_scale,)).ok(),
                     bevy_render::camera::NormalizedRenderTarget::Image(image_handle) => {
                         let image_size = image_assets.get(&image_handle)?.size();
-                        Some(UiContext::new(image_size, 1.0, 1.0))
+                        Some(LayoutContext::new(image_size, 1.0, 1.0))
                     }
                 }) else {
                     continue;
