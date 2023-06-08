@@ -45,6 +45,8 @@ pub enum Interaction {
     Hovered,
     /// Nothing has happened
     None,
+    /// The node has just been released
+    Released,
 }
 
 impl Interaction {
@@ -158,15 +160,6 @@ pub fn ui_focus_system(
 
     let mouse_released =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
-    if mouse_released {
-        for node in node_query.iter_mut() {
-            if let Some(mut interaction) = node.interaction {
-                if *interaction == Interaction::Clicked {
-                    *interaction = Interaction::None;
-                }
-            }
-        }
-    }
 
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
@@ -178,10 +171,10 @@ pub fn ui_focus_system(
         .iter()
         .filter(|(_, camera_ui)| !is_ui_disabled(*camera_ui))
         .filter_map(|(camera, _)| {
-            if let Some(NormalizedRenderTarget::Window(window_ref)) =
+            if let Some(NormalizedRenderTarget::Window(window_id)) =
                 camera.target.normalize(primary_window)
             {
-                Some(window_ref)
+                Some(window_id)
             } else {
                 None
             }
@@ -193,6 +186,20 @@ pub fn ui_focus_system(
                 .and_then(|window| window.cursor_position())
         })
         .or_else(|| touches_input.first_pressed_position());
+    if mouse_released {
+        for node in node_query.iter_mut() {
+            let contains_cursor = get_mouse_relative_to_node(&node, cursor_position).mouse_over();
+            if let Some(mut interaction) = node.interaction {
+                if *interaction == Interaction::Clicked {
+                    *interaction = if contains_cursor {
+                        Interaction::Released
+                    } else {
+                        Interaction::None
+                    };
+                }
+            }
+        }
+    }
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
@@ -216,29 +223,8 @@ pub fn ui_focus_system(
                         return None;
                     }
                 }
-
-                let position = node.global_transform.translation();
-                let ui_position = position.truncate();
-                let extents = node.node.size() / 2.0;
-                let mut min = ui_position - extents;
-                if let Some(clip) = node.calculated_clip {
-                    min = Vec2::max(min, clip.clip.min);
-                }
-
-                // The mouse position relative to the node
-                // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
-                let relative_cursor_position = cursor_position.map(|cursor_position| {
-                    Vec2::new(
-                        (cursor_position.x - min.x) / node.node.size().x,
-                        (cursor_position.y - min.y) / node.node.size().y,
-                    )
-                });
-
-                // If the current cursor position is within the bounds of the node, consider it for
-                // clicking
-                let relative_cursor_position_component = RelativeCursorPosition {
-                    normalized: relative_cursor_position,
-                };
+                let relative_cursor_position_component =
+                    get_mouse_relative_to_node(&node, cursor_position);
 
                 let contains_cursor = relative_cursor_position_component.mouse_over();
 
@@ -253,7 +239,10 @@ pub fn ui_focus_system(
                     Some(*entity)
                 } else {
                     if let Some(mut interaction) = node.interaction {
-                        if *interaction == Interaction::Hovered || (cursor_position.is_none()) {
+                        if *interaction == Interaction::Hovered
+                            || *interaction == Interaction::Released
+                            || (cursor_position.is_none())
+                        {
                             interaction.set_if_neq(Interaction::None);
                         }
                     }
@@ -294,7 +283,7 @@ pub fn ui_focus_system(
         }
     }
     // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain in
-    // `moused_over_nodes` after the previous loop is exited.
+    // `hovered_nodes` after the previous loop is exited.
     let mut iter = node_query.iter_many_mut(hovered_nodes);
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
@@ -303,5 +292,34 @@ pub fn ui_focus_system(
                 interaction.set_if_neq(Interaction::None);
             }
         }
+    }
+}
+
+/// helper functions for calculating cursor relative position to node
+fn get_mouse_relative_to_node(
+    node: &NodeQueryItem,
+    cursor_position: Option<Vec2>,
+) -> RelativeCursorPosition {
+    let position = node.global_transform.translation();
+    let ui_position = position.truncate();
+    let extents = node.node.size() / 2.0;
+    let mut min = ui_position - extents;
+    if let Some(clip) = node.calculated_clip {
+        min = Vec2::max(min, clip.clip.min);
+    }
+
+    // The mouse position relative to the node
+    // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
+    let relative_cursor_position = cursor_position.map(|cursor_position| {
+        Vec2::new(
+            (cursor_position.x - min.x) / node.node.size().x,
+            (cursor_position.y - min.y) / node.node.size().y,
+        )
+    });
+
+    // If the current cursor position is within the bounds of the node, consider it for
+    // clicking
+    RelativeCursorPosition {
+        normalized: relative_cursor_position,
     }
 }
