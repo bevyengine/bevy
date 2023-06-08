@@ -161,6 +161,8 @@ impl Frustum {
     // NOTE: This approach of extracting the frustum half-space from the view
     // projection matrix is from Foundations of Game Engine Development 2
     // Rendering by Lengyel.
+    /// Returns a frustum derived from `view_projection`,
+    /// without a far plane.
     fn from_view_projection_no_far(view_projection: &Mat4) -> Self {
         let row3 = view_projection.row(3);
         let mut half_spaces = [HalfSpace::default(); 6];
