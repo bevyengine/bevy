@@ -133,7 +133,7 @@ pub struct MouseWheel {
 ///
 /// ## Platform-specific
 ///
-/// - Only available on **macOS**.
+/// - Only available on **`macOS`**.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -150,7 +150,7 @@ pub struct Magnify(pub f32);
 ///
 /// ## Platform-specific
 ///
-/// - Only available on **macOS**.
+/// - Only available on **`macOS`**.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
