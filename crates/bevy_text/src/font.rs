@@ -1,11 +1,11 @@
 use ab_glyph::{FontArc, FontVec, InvalidFont, OutlinedGlyph};
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_render::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
 
-#[derive(Debug, TypeUuid, Clone)]
+#[derive(Debug, TypeUuid, TypePath, Clone)]
 #[uuid = "97059ac6-c9ba-4da9-95b6-bed82c3ce198"]
 pub struct Font {
     pub font: FontArc,

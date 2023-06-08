@@ -2,6 +2,7 @@
 
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
+pub use bevy_ecs_macros::Event;
 use bevy_utils::detailed_trace;
 use std::ops::{Deref, DerefMut};
 use std::{
@@ -17,7 +18,6 @@ use std::{
 ///
 /// Events must be thread-safe.
 pub trait Event: Send + Sync + 'static {}
-impl<T> Event for T where T: Send + Sync + 'static {}
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///
@@ -113,8 +113,9 @@ struct EventInstance<E: Event> {
 ///
 /// # Example
 /// ```
-/// use bevy_ecs::event::Events;
+/// use bevy_ecs::event::{Event, Events};
 ///
+/// #[derive(Event)]
 /// struct MyEvent {
 ///     value: usize
 /// }
@@ -253,6 +254,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Event)]
     /// struct CollisionEvent;
     ///
     /// fn play_collision_sound(mut events: EventReader<CollisionEvent>) {
@@ -294,6 +297,7 @@ impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
 /// ```
 /// # use bevy_ecs::prelude::*;
 ///
+/// #[derive(Event)]
 /// pub struct MyEvent; // Custom event type.
 /// fn my_system(mut writer: EventWriter<MyEvent>) {
 ///     writer.send(MyEvent);
@@ -310,7 +314,7 @@ impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, event::Events};
-///
+/// # #[derive(Event)]
 /// # pub struct MyEvent;
 /// fn send_untyped(mut commands: Commands) {
 ///     // Send an event of a specific type without having to declare that
@@ -715,7 +719,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(Copy, Clone, PartialEq, Eq, Debug)]
+    #[derive(Event, Copy, Clone, PartialEq, Eq, Debug)]
     struct TestEvent {
         i: usize,
     }
@@ -818,7 +822,7 @@ mod tests {
         reader.iter(events).cloned().collect::<Vec<E>>()
     }
 
-    #[derive(PartialEq, Eq, Debug)]
+    #[derive(Event, PartialEq, Eq, Debug)]
     struct E(usize);
 
     fn events_clear_and_read_impl(clear_func: impl FnOnce(&mut Events<E>)) {
@@ -1025,7 +1029,7 @@ mod tests {
         assert!(last.is_none(), "EventReader should be empty");
     }
 
-    #[derive(Clone, PartialEq, Debug, Default)]
+    #[derive(Event, Clone, PartialEq, Debug, Default)]
     struct EmptyTestEvent;
 
     #[test]
