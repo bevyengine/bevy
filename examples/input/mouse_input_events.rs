@@ -37,10 +37,12 @@ fn print_mouse_events_system(
         info!("{:?}", event);
     }
 
+    // This event will only fire on macOS
     for event in magnify_events.iter() {
         info!("{:?}", event);
     }
 
+    // This event will only fire on macOS
     for event in rotate_events.iter() {
         info!("{:?}", event);
     }
