@@ -31,7 +31,7 @@ use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
-    touchpad::{Magnify, Rotate},
+    touchpad::{TouchpadMagnify, TouchpadRotate},
 };
 use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::{
@@ -237,8 +237,8 @@ struct InputEvents<'w> {
     keyboard_input: EventWriter<'w, KeyboardInput>,
     character_input: EventWriter<'w, ReceivedCharacter>,
     mouse_button_input: EventWriter<'w, MouseButtonInput>,
-    magnify_input: EventWriter<'w, Magnify>,
-    rotate_input: EventWriter<'w, Rotate>,
+    touchpad_magnify_input: EventWriter<'w, TouchpadMagnify>,
+    touchpad_rotate_input: EventWriter<'w, TouchpadRotate>,
     mouse_wheel_input: EventWriter<'w, MouseWheel>,
     touch_input: EventWriter<'w, TouchInput>,
     ime_input: EventWriter<'w, Ime>,
@@ -485,10 +485,14 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                     WindowEvent::TouchpadMagnify { delta, .. } => {
-                        input_events.magnify_input.send(Magnify(delta as f32));
+                        input_events
+                            .touchpad_magnify_input
+                            .send(TouchpadMagnify(delta as f32));
                     }
                     WindowEvent::TouchpadRotate { delta, .. } => {
-                        input_events.rotate_input.send(Rotate(delta));
+                        input_events
+                            .touchpad_rotate_input
+                            .send(TouchpadRotate(delta));
                     }
                     WindowEvent::MouseWheel { delta, .. } => match delta {
                         event::MouseScrollDelta::LineDelta(x, y) => {
