@@ -18,19 +18,19 @@ impl Val {
             Val::Auto => taffy::style::LengthPercentageAuto::Auto,
             Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.),
             Val::Px(value) => taffy::style::LengthPercentageAuto::Points(
-                (context.scale_factor * value as f64) as f32,
+                (context.combined_scale_factor * value as f64) as f32,
             ),
-            Val::VMin(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.min_size * value / 100.)
-            }
-            Val::VMax(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.max_size * value / 100.)
-            }
+            Val::VMin(value) => taffy::style::LengthPercentageAuto::Points(
+                context.root_node_size.min_element() * value / 100.,
+            ),
+            Val::VMax(value) => taffy::style::LengthPercentageAuto::Points(
+                context.root_node_size.max_element() * value / 100.,
+            ),
             Val::Vw(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.physical_size.x * value / 100.)
+                taffy::style::LengthPercentageAuto::Points(context.root_node_size.x * value / 100.)
             }
             Val::Vh(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.physical_size.y * value / 100.)
+                taffy::style::LengthPercentageAuto::Points(context.root_node_size.y * value / 100.)
             }
         }
     }
@@ -466,7 +466,11 @@ mod tests {
             grid_column: GridPlacement::start(4),
             grid_row: GridPlacement::span(3),
         };
-        let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
+        let viewport_values = LayoutContext {
+            combined_scale_factor: 1.0,
+            root_node_size: bevy_math::Vec2::new(800., 600.),
+            layout_to_logical_factor: 1.0,
+        };
         let taffy_style = from_style(&viewport_values, &bevy_style);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
@@ -633,7 +637,11 @@ mod tests {
     #[test]
     fn test_into_length_percentage() {
         use taffy::style::LengthPercentage;
-        let context = LayoutContext::new(2.0, bevy_math::Vec2::new(800., 600.));
+        let context = LayoutContext {
+            combined_scale_factor: 2.0,
+            root_node_size: bevy_math::Vec2::new(800., 600.),
+            layout_to_logical_factor: 2.0,
+        };
         let cases = [
             (Val::Auto, LengthPercentage::Points(0.)),
             (Val::Percent(1.), LengthPercentage::Percent(0.01)),

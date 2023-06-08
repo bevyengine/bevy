@@ -55,7 +55,7 @@ pub struct UiPlugin;
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum UiSystem {
-    /// After this label, the ui layout state has been updated
+    /// After this label, the UI layout state has been updated
     Layout,
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
@@ -119,7 +119,7 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .add_systems(
                 PreUpdate,
-                ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+                (ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),),
             );
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
@@ -165,6 +165,16 @@ impl Plugin for UiPlugin {
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             ),
         );
+
+        if let Ok(entity) = app
+            .world
+            .query_filtered::<Entity, With<bevy_window::PrimaryWindow>>()
+            .get_single(&app.world)
+        {
+            app.world
+                .entity_mut(entity)
+                .insert(LayoutContext::default());
+        }
 
         crate::render::build_ui_render(app);
     }
