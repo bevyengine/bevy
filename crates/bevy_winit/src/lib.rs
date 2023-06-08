@@ -487,7 +487,7 @@ pub fn winit_runner(mut app: App) {
                         input_events.magnify_input.send(Magnify(delta as f32));
                     }
                     WindowEvent::TouchpadRotate { delta, .. } => {
-                        input_events.rotate_input.send(Rotate(delta as f32));
+                        input_events.rotate_input.send(Rotate(delta));
                     }
                     WindowEvent::MouseWheel { delta, .. } => match delta {
                         event::MouseScrollDelta::LineDelta(x, y) => {
