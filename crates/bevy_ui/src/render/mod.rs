@@ -472,7 +472,12 @@ pub fn prepare_uinodes(
             }
         }
         let uvs = if current_batch_handle.id() == DEFAULT_IMAGE_HANDLE.id() {
-            [Vec2::splat(f32::MAX), Vec2::splat(f32::MAX), Vec2::splat(f32::MAX), Vec2::splat(f32::MAX)]
+            [
+                Vec2::splat(f32::MAX),
+                Vec2::splat(f32::MAX),
+                Vec2::splat(f32::MAX),
+                Vec2::splat(f32::MAX),
+            ]
         } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
             if extracted_uinode.flip_x {
