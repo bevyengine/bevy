@@ -1,4 +1,4 @@
-use crate::{Diagnostic, DiagnosticId, Diagnostics, RegisterDiagnostic};
+use crate::{Diagnostic, DiagnosticId, Diagnostics, DiagnosticsPlugin, RegisterDiagnostic};
 use bevy_app::prelude::*;
 use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
