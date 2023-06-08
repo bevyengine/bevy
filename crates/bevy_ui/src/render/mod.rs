@@ -398,17 +398,19 @@ pub fn prepare_uinodes(
 
     let mut start = 0;
     let mut end = 0;
-    let mut current_batch_handle = Default::default();
+    let mut current_batch_handle = DEFAULT_IMAGE_HANDLE.typed();
     let mut last_z = 0.0;
     for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image {
-            if start != end {
-                commands.spawn(UiBatch {
-                    range: start..end,
-                    image: current_batch_handle,
-                    z: last_z,
-                });
-                start = end;
+            if current_batch_handle.id() != DEFAULT_IMAGE_HANDLE.id() {
+                if start != end {
+                    commands.spawn(UiBatch {
+                        range: start..end,
+                        image: current_batch_handle,
+                        z: last_z,
+                    });
+                    start = end;
+                }
             }
             current_batch_handle = extracted_uinode.image.clone_weak();
         }
@@ -470,7 +472,7 @@ pub fn prepare_uinodes(
             }
         }
         let uvs = if current_batch_handle.id() == DEFAULT_IMAGE_HANDLE.id() {
-            [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
+            [Vec2::splat(f32::MAX), Vec2::splat(f32::MAX), Vec2::splat(f32::MAX), Vec2::splat(f32::MAX)]
         } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
             if extracted_uinode.flip_x {
