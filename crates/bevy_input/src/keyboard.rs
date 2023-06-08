@@ -326,8 +326,10 @@ pub enum KeyCode {
     LControl,
     /// The `LShift` / `Left Shift` key.
     LShift,
-    /// The `LWin` / `Left Windows` key. Maps to `Left Command` on Mac.
-    LWin,
+    /// The `LSuper` / `Left Super` key.
+    /// Generic keyboards usually display this key with the *Microsoft Windows* logo.
+    /// Apple keyboards call this key the *Command Key* and display it using the ⌘ character.
+    LSuper,
 
     /// The `Mail` key.
     Mail,
@@ -376,8 +378,10 @@ pub enum KeyCode {
     RControl,
     /// The `RShift` / `Right Shift` key.
     RShift,
-    /// The `RWin` / `Right Windows` key. Maps to `Right Command` on Mac.
-    RWin,
+    /// The `RSuper` / `Right Super` key.
+    /// Generic keyboards usually display this key with the *Microsoft Windows* logo.
+    /// Apple keyboards call this key the *Command Key* and display it using the ⌘ character.
+    RSuper,
 
     /// The `Semicolon` / `;` key.
     Semicolon,
