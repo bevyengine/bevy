@@ -4,7 +4,8 @@ use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
 use bevy_time::Time;
 
-/// Adds "frame time" diagnostic to an App, specifically "frame time", "fps" and "frame count"
+/// Adds "frame time" diagnostic to an [`App`], specifically "frame time", "fps" and "frame count"
+/// Must be added after [`DiagnosticsPlugin`]
 #[derive(Default)]
 pub struct FrameTimeDiagnosticsPlugin;
 
