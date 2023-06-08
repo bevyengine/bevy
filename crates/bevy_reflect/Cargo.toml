@@ -12,11 +12,9 @@ readme = "README.md"
 [features]
 default = []
 # When enabled, provides Bevy-related reflection implementations
-bevy = ["glam", "smallvec", "bevy_math"]
+bevy = ["glam", "smallvec", "bevy_math", "smol_str"]
 # When enabled, allows documentation comments to be accessed via reflection
 documentation = ["bevy_reflect_derive/documentation"]
-# When enabled, provides winit-related reflection implementations
-winit = ["smol_str"]
 
 [dependencies]
 # bevy
