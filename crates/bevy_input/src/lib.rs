@@ -8,6 +8,7 @@ mod input;
 pub mod keyboard;
 pub mod mouse;
 pub mod touch;
+pub mod touchpad;
 
 pub use axis::*;
 pub use input::*;
@@ -30,10 +31,11 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::{FromReflect, Reflect};
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{
-    mouse_button_input_system, Magnify, MouseButton, MouseButtonInput, MouseMotion,
-    MouseScrollUnit, MouseWheel, Rotate,
+    mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseScrollUnit,
+    MouseWheel,
 };
 use touch::{touch_screen_input_system, ForceTouch, TouchInput, TouchPhase, Touches};
+use touchpad::{Magnify, Rotate};
 
 use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,

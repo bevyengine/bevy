@@ -1,7 +1,10 @@
 //! Prints all mouse events to the console.
 
 use bevy::{
-    input::mouse::{Magnify, MouseButtonInput, MouseMotion, MouseWheel, Rotate},
+    input::{
+        mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+        touchpad::{Magnify, Rotate},
+    },
     prelude::*,
 };
 

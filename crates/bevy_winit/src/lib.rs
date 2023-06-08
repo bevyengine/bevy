@@ -29,8 +29,9 @@ use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::*;
 use bevy_input::{
     keyboard::KeyboardInput,
-    mouse::{Magnify, MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel, Rotate},
+    mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
+    touchpad::{Magnify, Rotate},
 };
 use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::{

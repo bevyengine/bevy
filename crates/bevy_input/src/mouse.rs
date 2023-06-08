@@ -126,40 +126,6 @@ pub struct MouseWheel {
     pub y: f32,
 }
 
-/// Touchpad magnification event with two-finger pinch gesture.
-///
-/// Positive delta values indicate magnification (zooming in) and
-/// negative delta values indicate shrinking (zooming out).
-///
-/// ## Platform-specific
-///
-/// - Only available on **`macOS`**.
-#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub struct Magnify(pub f32);
-
-/// Touchpad rotation event with two-finger rotation gesture.
-///
-/// Positive delta values indicate rotation counterclockwise and
-/// negative delta values indicate rotation clockwise.
-///
-/// ## Platform-specific
-///
-/// - Only available on **`macOS`**.
-#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub struct Rotate(pub f32);
-
 /// Updates the [`Input<MouseButton>`] resource with the latest [`MouseButtonInput`] events.
 ///
 /// ## Differences
