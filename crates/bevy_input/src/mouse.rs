@@ -130,6 +130,10 @@ pub struct MouseWheel {
 ///
 /// Positive delta values indicate magnification (zooming in) and
 /// negative delta values indicate shrinking (zooming out).
+///
+/// ## Platform-specific
+///
+/// - Only available on **macOS**.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -143,6 +147,10 @@ pub struct Magnify(pub f32);
 ///
 /// Positive delta values indicate rotation counterclockwise and
 /// negative delta values indicate rotation clockwise.
+///
+/// ## Platform-specific
+///
+/// - Only available on **macOS**.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
