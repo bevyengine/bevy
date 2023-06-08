@@ -1,7 +1,7 @@
 //! Prints all mouse events to the console.
 
 use bevy::{
-    input::mouse::{Magnify, MouseButtonInput, MouseMotion, MouseWheel},
+    input::mouse::{Magnify, MouseButtonInput, MouseMotion, MouseWheel, Rotate},
     prelude::*,
 };
 
@@ -19,6 +19,7 @@ fn print_mouse_events_system(
     mut cursor_moved_events: EventReader<CursorMoved>,
     mut mouse_wheel_events: EventReader<MouseWheel>,
     mut magnify_events: EventReader<Magnify>,
+    mut rotate_events: EventReader<Rotate>,
 ) {
     for event in mouse_button_input_events.iter() {
         info!("{:?}", event);
@@ -37,6 +38,10 @@ fn print_mouse_events_system(
     }
 
     for event in magnify_events.iter() {
+        info!("{:?}", event);
+    }
+
+    for event in rotate_events.iter() {
         info!("{:?}", event);
     }
 }
