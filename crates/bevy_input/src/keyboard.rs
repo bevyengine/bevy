@@ -329,6 +329,7 @@ pub enum KeyCode {
     /// The `LSuper` / `Left Super` key.
     /// Generic keyboards usually display this key with the *Microsoft Windows* logo.
     /// Apple keyboards call this key the *Command Key* and display it using the ⌘ character.
+    #[doc(alias("LWin", "LMeta", "LLogo"))]
     LSuper,
 
     /// The `Mail` key.
@@ -381,6 +382,7 @@ pub enum KeyCode {
     /// The `RSuper` / `Right Super` key.
     /// Generic keyboards usually display this key with the *Microsoft Windows* logo.
     /// Apple keyboards call this key the *Command Key* and display it using the ⌘ character.
+    #[doc(alias("RWin", "RMeta", "RLogo"))]
     RSuper,
 
     /// The `Semicolon` / `;` key.
