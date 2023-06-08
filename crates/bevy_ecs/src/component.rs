@@ -264,7 +264,7 @@ impl ComponentInfo {
     }
 }
 
-/// A semi-opaque value which uniquely identifies the type of a [`Component`] within a
+/// A value which uniquely identifies the type of a [`Component`] within a
 /// [`World`](crate::world::World).
 ///
 /// Each time a new `Component` type is registered within a `World` using
