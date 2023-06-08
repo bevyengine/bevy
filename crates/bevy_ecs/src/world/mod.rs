@@ -1472,7 +1472,7 @@ impl World {
         }
     }
 
-    /// Increments the world's current change tick, and returns the old value.
+    /// Increments the world's current change tick and returns the old value.
     #[inline]
     pub fn increment_change_tick(&self) -> Tick {
         let prev_tick = self.change_tick.fetch_add(1, Ordering::AcqRel);

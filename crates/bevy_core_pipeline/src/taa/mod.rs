@@ -9,7 +9,7 @@ use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
-    query::{QueryState, With},
+    query::{QueryItem, With},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
@@ -19,7 +19,7 @@ use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     prelude::{Camera, Projection},
-    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
@@ -72,7 +72,7 @@ impl Plugin for TemporalAntiAliasPlugin {
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
                 ),
             )
-            .add_render_graph_node::<TAANode>(CORE_3D, draw_3d_graph::node::TAA)
+            .add_render_graph_node::<ViewNodeRunner<TAANode>>(CORE_3D, draw_3d_graph::node::TAA)
             .add_render_graph_edges(
                 CORE_3D,
                 &[
@@ -157,41 +157,28 @@ impl Default for TemporalAntiAliasSettings {
     }
 }
 
-struct TAANode {
-    view_query: QueryState<(
+#[derive(Default)]
+struct TAANode;
+
+impl ViewNode for TAANode {
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static TAAHistoryTextures,
         &'static ViewPrepassTextures,
         &'static TAAPipelineId,
-    )>,
-}
-
-impl FromWorld for TAANode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for TAANode {
-    fn update(&mut self, world: &mut World) {
-        self.view_query.update_archetypes(world);
-    }
+    );
 
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
+        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
+            Self::ViewQuery,
+        >,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let (
-            Ok((camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id)),
-            Some(pipelines),
-            Some(pipeline_cache),
-        ) = (
-            self.view_query.get_manual(world, graph.view_entity()),
+        let (Some(pipelines), Some(pipeline_cache)) = (
             world.get_resource::<TAAPipeline>(),
             world.get_resource::<PipelineCache>(),
         ) else {
