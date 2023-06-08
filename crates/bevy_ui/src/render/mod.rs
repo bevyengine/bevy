@@ -402,8 +402,10 @@ pub fn prepare_uinodes(
     let mut last_z = 0.0;
     for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle.id() != extracted_uinode.image.id() {
-            if current_batch_handle.id() != DEFAULT_IMAGE_HANDLE.id() 
-            && extracted_uinode.image.id() != DEFAULT_IMAGE_HANDLE.id() && start != end {
+            if current_batch_handle.id() != DEFAULT_IMAGE_HANDLE.id()
+                && extracted_uinode.image.id() != DEFAULT_IMAGE_HANDLE.id()
+                && start != end
+            {
                 commands.spawn(UiBatch {
                     range: start..end,
                     image: current_batch_handle,
