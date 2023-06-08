@@ -256,7 +256,7 @@ impl Default for CameraController {
             key_right: KeyCode::D,
             key_up: KeyCode::E,
             key_down: KeyCode::Q,
-            key_run: KeyCode::LShift,
+            key_run: KeyCode::ShiftLeft,
             walk_speed: 10.0,
             run_speed: 30.0,
             friction: 0.5,
