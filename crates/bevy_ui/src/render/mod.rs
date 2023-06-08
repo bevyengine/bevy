@@ -402,15 +402,13 @@ pub fn prepare_uinodes(
     let mut last_z = 0.0;
     for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image {
-            if current_batch_handle.id() != DEFAULT_IMAGE_HANDLE.id() {
-                if start != end {
-                    commands.spawn(UiBatch {
-                        range: start..end,
-                        image: current_batch_handle,
-                        z: last_z,
-                    });
-                    start = end;
-                }
+            if current_batch_handle.id() != DEFAULT_IMAGE_HANDLE.id() && start != end {
+                commands.spawn(UiBatch {
+                    range: start..end,
+                    image: current_batch_handle,
+                    z: last_z,
+                });
+                start = end;
             }
             current_batch_handle = extracted_uinode.image.clone_weak();
         }
