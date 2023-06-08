@@ -158,7 +158,7 @@ impl Frustum {
         frustum
     }
 
-    // NOTE: This approach of extracting the frustum HalfSpaces from the view
+    // NOTE: This approach of extracting the frustum half-space from the view
     // projection matrix is from Foundations of Game Engine Development 2
     // Rendering by Lengyel.
     fn from_view_projection_no_far(view_projection: &Mat4) -> Self {
