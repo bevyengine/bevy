@@ -161,8 +161,13 @@ impl Plugin for UiPlugin {
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
-                ui_stack_system.in_set(UiSystem::Stack),
-                update_clipping_system.after(TransformSystem::TransformPropagate),
+                ui_stack_system
+                    .run_if(|ui_surface: Res<UiSurface>| ui_surface.layout_updated())
+                    .after(UiSystem::Layout)
+                    .in_set(UiSystem::Stack),
+                update_clipping_system
+                    .run_if(|ui_surface: Res<UiSurface>| ui_surface.layout_updated())
+                    .after(TransformSystem::TransformPropagate),
             ),
         );
 
