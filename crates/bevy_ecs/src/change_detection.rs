@@ -544,7 +544,7 @@ impl<'a, T: ?Sized> Ref<'a, T> {
     }
     /// Map `Ref` to a different type using `f`.
     ///
-    /// Note that unlike [`Map::map_unchanged`] this doesn't do anything
+    /// Note that unlike [`Mut::map_unchanged`] this doesn't do anything
     /// special. It's just a more convinient way of constructing a new `Ref`
     /// from an existing one.
     pub fn map<U>(self, f: impl FnOnce(&T) -> &U) -> Ref<'a, U> {
