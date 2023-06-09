@@ -5,6 +5,7 @@ use bevy_ecs::{
     system::ResMut,
 };
 use bevy_reflect::{FromReflect, Reflect};
+use smol_str::SmolStr;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -591,7 +592,7 @@ pub enum NativeKey {
     Xkb(u32),
     /// A "key value string".
     // TOCLEAN: Thierry: this is originally SmolStr, but difficult to translate to FromReflect.
-    Web(String),
+    Web(SmolStr),
 }
 
 /// The logical key code of a [`KeyboardInput`](crate::keyboard::KeyboardInput).
@@ -619,8 +620,7 @@ pub enum Key {
     /// A key string that corresponds to the character typed by the user, taking into account the
     /// user’s current locale setting, and any system-level keyboard mapping overrides that are in
     /// effect.
-    // TOCLEAN: Thierry: this is originally SmolStr, but difficult to translate to FromReflect.
-    Character(String),
+    Character(SmolStr),
 
     /// This variant is used when the key cannot be translated to any other variant.
     ///

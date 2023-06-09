@@ -278,7 +278,7 @@ pub fn convert_logical_key_code(
     logical_key_code: &winit::keyboard::Key,
 ) -> bevy_input::keyboard::Key {
     match logical_key_code {
-        Key::Character(s) => bevy_input::keyboard::Key::Character(s.to_string()),
+        Key::Character(s) => bevy_input::keyboard::Key::Character(s.clone()),
         Key::Unidentified(nk) => bevy_input::keyboard::Key::Unidentified(convert_native_key(nk)),
         Key::Dead(c) => bevy_input::keyboard::Key::Dead(c.to_owned()),
         Key::Alt => bevy_input::keyboard::Key::Alt,
@@ -598,7 +598,7 @@ pub fn convert_native_key(native_key: &NativeKey) -> bevy_input::keyboard::Nativ
         NativeKey::MacOS(v) => bevy_input::keyboard::NativeKey::MacOS(*v),
         NativeKey::Windows(v) => bevy_input::keyboard::NativeKey::Windows(*v),
         NativeKey::Xkb(v) => bevy_input::keyboard::NativeKey::Xkb(*v),
-        NativeKey::Web(v) => bevy_input::keyboard::NativeKey::Web(v.to_string()),
+        NativeKey::Web(v) => bevy_input::keyboard::NativeKey::Web(v.clone()),
     }
 }
 
@@ -606,7 +606,6 @@ pub fn convert_cursor_icon(cursor_icon: CursorIcon) -> winit::window::CursorIcon
     match cursor_icon {
         CursorIcon::Crosshair => winit::window::CursorIcon::Crosshair,
         CursorIcon::Pointer => winit::window::CursorIcon::Pointer,
-        // TOCLEAN: Thierry: removed arrow, see https://github.com/rust-windowing/winit/commit/bd9cc2a9da7de62bf2cdd5d220f8c3635c3d82cc#diff-16d03f80ac1bc39829a757b6ad926ac811321ee124bed73d7bdd5f3ce898075eL57
         CursorIcon::Move => winit::window::CursorIcon::Move,
         CursorIcon::Text => winit::window::CursorIcon::Text,
         CursorIcon::Wait => winit::window::CursorIcon::Wait,

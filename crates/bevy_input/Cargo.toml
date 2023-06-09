@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 default = []
-serialize = ["serde"]
+serialize = ["serde", "smol_str/serde"]
 
 [dependencies]
 # bevy
@@ -25,6 +25,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev", features = [
 # other
 serde = { version = "1", features = ["derive"], optional = true }
 thiserror = "1.0"
+smol_str = "0.2"
 
 [dev-dependencies]
 bevy = { path = "../../", version = "0.11.0-dev" }
