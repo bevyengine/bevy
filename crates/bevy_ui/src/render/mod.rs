@@ -383,6 +383,9 @@ pub struct UiBatch {
     pub z: f32,
 }
 
+const TEXTURED_QUAD: u32 = 0;
+const UNTEXTURED_QUAD: u32 = 1;
+
 pub fn prepare_uinodes(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -402,11 +405,9 @@ pub fn prepare_uinodes(
     let mut stored_batch_handle = DEFAULT_IMAGE_HANDLE.typed();
     let mut last_z = 0.0;
     let default_id = DEFAULT_IMAGE_HANDLE.id();
-    let mut mode;
 
     for extracted_uinode in &extracted_uinodes.uinodes {
-        if extracted_uinode.image.id() != default_id {
-            mode = 0;
+        let mode = if extracted_uinode.image.id() != default_id {
             if stored_batch_handle.id() != default_id {
                 if stored_batch_handle.id() != extracted_uinode.image.id() {
                     if start != end {
@@ -422,9 +423,10 @@ pub fn prepare_uinodes(
             } else {
                 stored_batch_handle = extracted_uinode.image.clone_weak();
             }
+            TEXTURED_QUAD
         } else {
-            mode = 1;
-        }
+            UNTEXTURED_QUAD
+        };
 
         let mut uinode_rect = extracted_uinode.rect;
 
@@ -482,7 +484,7 @@ pub fn prepare_uinodes(
                 continue;
             }
         }
-        let uvs = if extracted_uinode.image.id() == DEFAULT_IMAGE_HANDLE.id() {
+        let uvs = if mode == UNTEXTURED_QUAD {
             [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
         } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
