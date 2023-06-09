@@ -118,7 +118,7 @@ pub unsafe trait SystemParam: Sized {
     }
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`] during [`apply_system_buffers`](crate::prelude::apply_system_buffers).
+    /// This is used to apply [`Commands`] during [`apply_deferred`](crate::prelude::apply_deferred).
     ///
     /// [`Commands`]: crate::prelude::Commands
     #[inline]
@@ -308,6 +308,7 @@ fn assert_component_access_compatibility(
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
+/// # #[derive(Event)]
 /// # struct MyEvent;
 /// # impl MyEvent {
 /// #   pub fn new() -> Self { Self }
@@ -766,7 +767,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
-/// [`apply_system_buffers`](crate::schedule::apply_system_buffers).
+/// [`apply_deferred`](crate::schedule::apply_deferred).
 /// This is used internally by [`Commands`] to defer `World` mutations.
 ///
 /// [`Commands`]: crate::system::Commands
@@ -809,7 +810,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// struct AlarmFlag(bool);
 ///
 /// impl AlarmFlag {
-///     /// Sounds the alarm the next time buffers are applied via apply_system_buffers.
+///     /// Sounds the alarm the next time buffers are applied via apply_deferred.
 ///     pub fn flag(&mut self) {
 ///         self.0 = true;
 ///     }
@@ -817,7 +818,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// impl SystemBuffer for AlarmFlag {
 ///     // When `AlarmFlag` is used in a system, this function will get
-///     // called the next time buffers are applied via apply_system_buffers.
+///     // called the next time buffers are applied via apply_deferred.
 ///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
 ///         if self.0 {
 ///             world.resource_mut::<Alarm>().0 = true;

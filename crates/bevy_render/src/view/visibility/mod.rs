@@ -69,7 +69,7 @@ bitflags::bitflags! {
         const VISIBLE_IN_HIERARCHY = 1 << 1;
     }
 }
-bevy_reflect::impl_reflect_value!(ComputedVisibilityFlags);
+bevy_reflect::impl_reflect_value!((in bevy_render::view) ComputedVisibilityFlags);
 bevy_reflect::impl_from_reflect_value!(ComputedVisibilityFlags);
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
@@ -214,10 +214,7 @@ impl Plugin for VisibilityPlugin {
 
         app
             // We add an AABB component in CalculateBounds, which must be ready on the same frame.
-            .add_systems(
-                PostUpdate,
-                apply_system_buffers.in_set(CalculateBoundsFlush),
-            )
+            .add_systems(PostUpdate, apply_deferred.in_set(CalculateBoundsFlush))
             .configure_set(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
             .add_systems(
                 PostUpdate,

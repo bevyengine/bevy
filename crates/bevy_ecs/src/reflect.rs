@@ -407,7 +407,7 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
     }
 }
 
-impl_reflect_value!(Entity(Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!((in bevy_ecs) Entity(Hash, PartialEq, Serialize, Deserialize));
 impl_from_reflect_value!(Entity);
 
 #[derive(Clone)]

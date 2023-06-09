@@ -5,7 +5,7 @@ use bevy::{
     math::vec2,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::{
         render_resource::{
             AsBindGroup, Extent3d, SamplerDescriptor, ShaderRef, TextureDimension, TextureFormat,
@@ -689,7 +689,7 @@ impl Material for ColorGradientMaterial {
     }
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "117f64fe-6844-1822-8926-e3ed372291c8"]
 pub struct ColorGradientMaterial {}
 

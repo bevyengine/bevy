@@ -876,6 +876,7 @@ pub mod common_conditions {
     ///     my_system.run_if(on_event::<MyEvent>()),
     /// );
     ///
+    /// #[derive(Event)]
     /// struct MyEvent;
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
@@ -1042,8 +1043,8 @@ where
         !self.condition.run(input, world)
     }
 
-    fn apply_buffers(&mut self, world: &mut World) {
-        self.condition.apply_buffers(world);
+    fn apply_deferred(&mut self, world: &mut World) {
+        self.condition.apply_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut World) {
@@ -1133,6 +1134,7 @@ mod tests {
     use crate::schedule::{common_conditions::not, State, States};
     use crate::system::Local;
     use crate::{change_detection::ResMut, schedule::Schedule, world::World};
+    use bevy_ecs_macros::Event;
     use bevy_ecs_macros::Resource;
 
     #[derive(Resource, Default)]
@@ -1239,6 +1241,9 @@ mod tests {
     #[derive(Component)]
     struct TestComponent;
 
+    #[derive(Event)]
+    struct TestEvent;
+
     fn test_system() {}
 
     // Ensure distributive_run_if compiles with the common conditions.
@@ -1256,7 +1261,7 @@ mod tests {
                 .distributive_run_if(state_exists::<TestState>())
                 .distributive_run_if(in_state(TestState::A))
                 .distributive_run_if(state_changed::<TestState>())
-                .distributive_run_if(on_event::<u8>())
+                .distributive_run_if(on_event::<TestEvent>())
                 .distributive_run_if(any_with_component::<TestComponent>())
                 .distributive_run_if(not(run_once())),
         );

@@ -219,12 +219,12 @@ impl Schedule {
         self
     }
 
-    /// Set whether the schedule applies buffers on final time or not. This is a catchall
-    /// incase a system uses commands but was not explicitly ordered after a
-    /// [`apply_system_buffers`](crate::prelude::apply_system_buffers). By default this
+    /// Set whether the schedule applies deferred system buffers on final time or not. This is a catch-all
+    /// in case a system uses commands but was not explicitly ordered before an instance of
+    /// [`apply_deferred`](crate::prelude::apply_deferred). By default this
     /// setting is true, but may be disabled if needed.
-    pub fn set_apply_final_buffers(&mut self, apply_final_buffers: bool) -> &mut Self {
-        self.executor.set_apply_final_buffers(apply_final_buffers);
+    pub fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) -> &mut Self {
+        self.executor.set_apply_final_deferred(apply_final_deferred);
         self
     }
 
@@ -271,7 +271,9 @@ impl Schedule {
     /// This prevents overflow and thus prevents false positives.
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for system in &mut self.executable.systems {
-            system.check_change_tick(change_tick);
+            if !is_apply_deferred(system) {
+                system.check_change_tick(change_tick);
+            }
         }
 
         for conditions in &mut self.executable.system_conditions {
@@ -287,17 +289,17 @@ impl Schedule {
         }
     }
 
-    /// Directly applies any accumulated system buffers (like [`Commands`](crate::prelude::Commands)) to the `world`.
+    /// Directly applies any accumulated [`Deferred`](crate::system::Deferred) system parameters (like [`Commands`](crate::prelude::Commands)) to the `world`.
     ///
-    /// Like always, system buffers are applied in the "topological sort order" of the schedule graph.
+    /// Like always, deferred system parameters are applied in the "topological sort order" of the schedule graph.
     /// As a result, buffers from one system are only guaranteed to be applied before those of other systems
     /// if there is an explicit system ordering between the two systems.
     ///
     /// This is used in rendering to extract data from the main world, storing the data in system buffers,
     /// before applying their buffers in a different world.
-    pub fn apply_system_buffers(&mut self, world: &mut World) {
+    pub fn apply_deferred(&mut self, world: &mut World) {
         for system in &mut self.executable.systems {
-            system.apply_buffers(world);
+            system.apply_deferred(world);
         }
     }
 }

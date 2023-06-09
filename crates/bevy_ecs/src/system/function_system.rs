@@ -85,6 +85,7 @@ impl SystemMeta {
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
 /// #
+/// # #[derive(Event)]
 /// # struct MyEvent;
 /// # #[derive(Resource)]
 /// # struct MyResource(u32);
@@ -117,6 +118,7 @@ impl SystemMeta {
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
 /// #
+/// # #[derive(Event)]
 /// # struct MyEvent;
 /// #[derive(Resource)]
 /// struct CachedSystemState {
@@ -445,7 +447,7 @@ where
     }
 
     #[inline]
-    fn apply_buffers(&mut self, world: &mut World) {
+    fn apply_deferred(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
         F::Param::apply(param_state, &self.system_meta, world);
     }

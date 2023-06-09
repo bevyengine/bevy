@@ -37,7 +37,6 @@ raw-window-handle = "0.5"
 winit = { git = "https://github.com/rust-windowing/winit.git", branch = "master", default-features = false, features = [
     "android-native-activity",
 ] }
-once_cell = "1.11"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }

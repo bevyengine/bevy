@@ -6,6 +6,7 @@ struct Enemy {
     score_value: u32,
 }
 
+#[derive(Event)]
 struct EnemyDied(u32);
 
 #[derive(Resource)]
