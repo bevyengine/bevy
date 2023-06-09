@@ -542,6 +542,29 @@ impl<'a, T: ?Sized> Ref<'a, T> {
     pub fn into_inner(self) -> &'a T {
         self.value
     }
+    pub fn map<U>(self, f: impl FnOnce(&T) -> &U) -> Ref<'a, U> {
+        Ref {
+            value: f(self.value),
+            ticks: self.ticks,
+        }
+    }
+    pub fn new(
+        value: &'a T,
+        added: &'a Tick,
+        last_changed: &'a Tick,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Ref<'a, T> {
+        Ref {
+            value,
+            ticks: Ticks {
+                added,
+                changed: last_changed,
+                last_run,
+                this_run,
+            },
+        }
+    }
 }
 
 impl<'w, 'a, T> IntoIterator for &'a Ref<'w, T>
