@@ -544,9 +544,8 @@ impl<'a, T: ?Sized> Ref<'a, T> {
     }
     /// Map `Ref` to a different type using `f`.
     ///
-    /// Note that unlike [`Mut::map_unchanged`] this doesn't do anything
-    /// special. It's just a more convinient way of constructing a new `Ref`
-    /// from an existing one.
+    /// This doesn't do anything else than call `f` on the wrapped value.
+    /// This is equivalent to [`Mut::map_unchanged`].
     pub fn map<U>(self, f: impl FnOnce(&T) -> &U) -> Ref<'a, U> {
         Ref {
             value: f(self.value),
@@ -555,19 +554,19 @@ impl<'a, T: ?Sized> Ref<'a, T> {
     }
     /// Create a new `Ref` using provided values.
     ///
-    /// Note that most of the time, you should get `Ref`s as return value
-    /// from engine-internal code.
+    /// This is an advanced feature, `Ref`s are designed to be _created_ by
+    /// engine-internal code and _consumed_ by end-user code.
     ///
     /// - `value` - The value wrapped by `Ref`.
     /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
-    /// - `last_changed` - A [`Tick`] that stores the last time the wrapped value was changed.
+    /// - `changed` - A [`Tick`] that stores the last time the wrapped value was changed.
     /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
     ///    as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
     pub fn new(
         value: &'a T,
         added: &'a Tick,
-        last_changed: &'a Tick,
+        changed: &'a Tick,
         last_run: Tick,
         this_run: Tick,
     ) -> Ref<'a, T> {
@@ -575,7 +574,7 @@ impl<'a, T: ?Sized> Ref<'a, T> {
             value,
             ticks: Ticks {
                 added,
-                changed: last_changed,
+                changed,
                 last_run,
                 this_run,
             },
