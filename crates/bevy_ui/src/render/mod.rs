@@ -204,9 +204,9 @@ pub fn extract_uinode_borders(
         .get_single()
         .map(|window| {
             Vec2::new(
-                window.resolution.physical_width() as f32,
-                window.resolution.physical_height() as f32,
-            ) / window.resolution.scale_factor() as f32
+                window.resolution.width(),
+                window.resolution.height(),
+            )
         })
         .unwrap_or(Vec2::ZERO);
 
