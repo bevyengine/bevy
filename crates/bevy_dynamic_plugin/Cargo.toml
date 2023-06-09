@@ -15,5 +15,5 @@ keywords = ["bevy"]
 bevy_app = { path = "../bevy_app", version = "0.11.0-dev" }
 
 # other
-libloading = { version = "0.7" }
+libloading = { version = "0.8" }
 thiserror = "1.0"

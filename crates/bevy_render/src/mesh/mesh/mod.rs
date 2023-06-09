@@ -12,7 +12,7 @@ use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::*;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_utils::{tracing::error, Hashed};
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
@@ -25,7 +25,7 @@ pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
-#[derive(Debug, TypeUuid, Clone)]
+#[derive(Debug, TypeUuid, TypePath, Clone)]
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
@@ -110,13 +110,24 @@ impl Mesh {
         attribute: MeshVertexAttribute,
         values: impl Into<VertexAttributeValues>,
     ) {
-        let values = values.into();
+        let mut values = values.into();
         let values_format = VertexFormat::from(&values);
         if values_format != attribute.format {
             panic!(
                 "Failed to insert attribute. Invalid attribute format for {}. Given format is {values_format:?} but expected {:?}",
                 attribute.name, attribute.format
             );
+        }
+
+        // validate attributes
+        if attribute.id == Self::ATTRIBUTE_JOINT_WEIGHT.id {
+            let VertexAttributeValues::Float32x4(ref mut values) = values else {
+                unreachable!() // we confirmed the format above
+            };
+            for value in values.iter_mut().filter(|v| *v == &[0.0, 0.0, 0.0, 0.0]) {
+                // zero weights are invalid
+                value[0] = 1.0;
+            }
         }
 
         self.attributes
@@ -203,9 +214,9 @@ impl Mesh {
         })
     }
 
-    /// For a given `descriptor` returns a [`VertexBufferLayout`] compatible with this mesh. If this
-    /// mesh is not compatible with the given `descriptor` (ex: it is missing vertex attributes), [`None`] will
-    /// be returned.
+    /// Get this `Mesh`'s [`MeshVertexBufferLayout`], used in [`SpecializedMeshPipeline`].
+    ///
+    /// [`SpecializedMeshPipeline`]: crate::render_resource::SpecializedMeshPipeline
     pub fn get_mesh_vertex_buffer_layout(&self) -> MeshVertexBufferLayout {
         let mut attributes = Vec::with_capacity(self.attributes.len());
         let mut attribute_ids = Vec::with_capacity(self.attributes.len());
@@ -249,7 +260,7 @@ impl Mesh {
     }
 
     /// Computes and returns the vertex data of the mesh as bytes.
-    /// Therefore the attributes are located in alphabetical order.
+    /// Therefore the attributes are located in the order of their [`MeshVertexAttribute::id`].
     /// This is used to transform the vertex data into a GPU friendly format.
     ///
     /// # Panics
@@ -809,6 +820,7 @@ impl From<&Indices> for IndexFormat {
 pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,
+    pub vertex_count: u32,
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
@@ -823,9 +835,7 @@ pub enum GpuBufferInfo {
         count: u32,
         index_format: IndexFormat,
     },
-    NonIndexed {
-        vertex_count: u32,
-    },
+    NonIndexed,
 }
 
 impl RenderAsset for Mesh {
@@ -850,11 +860,8 @@ impl RenderAsset for Mesh {
             contents: &vertex_buffer_data,
         });
 
-        let buffer_info = mesh.get_index_buffer_bytes().map_or(
-            GpuBufferInfo::NonIndexed {
-                vertex_count: mesh.count_vertices() as u32,
-            },
-            |data| GpuBufferInfo::Indexed {
+        let buffer_info = if let Some(data) = mesh.get_index_buffer_bytes() {
+            GpuBufferInfo::Indexed {
                 buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
                     usage: BufferUsages::INDEX,
                     contents: data,
@@ -862,13 +869,16 @@ impl RenderAsset for Mesh {
                 }),
                 count: mesh.indices().unwrap().len() as u32,
                 index_format: mesh.indices().unwrap().into(),
-            },
-        );
+            }
+        } else {
+            GpuBufferInfo::NonIndexed
+        };
 
         let mesh_vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout();
 
         Ok(GpuMesh {
             vertex_buffer,
+            vertex_count: mesh.count_vertices() as u32,
             buffer_info,
             primitive_topology: mesh.primitive_topology(),
             layout: mesh_vertex_buffer_layout,

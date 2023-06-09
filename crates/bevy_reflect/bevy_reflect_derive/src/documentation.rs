@@ -3,7 +3,7 @@
 use crate::fq_std::FQOption;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{Attribute, Lit, Meta};
+use syn::{Attribute, Expr, ExprLit, Lit, Meta};
 
 /// A struct used to represent a type's documentation, if any.
 ///
@@ -21,18 +21,18 @@ impl Documentation {
     pub fn from_attributes<'a>(attributes: impl IntoIterator<Item = &'a Attribute>) -> Self {
         let docs = attributes
             .into_iter()
-            .filter_map(|attr| {
-                let meta = attr.parse_meta().ok()?;
-                match meta {
-                    Meta::NameValue(pair) if pair.path.is_ident("doc") => {
-                        if let Lit::Str(lit) = pair.lit {
-                            Some(lit.value())
-                        } else {
-                            None
-                        }
+            .filter_map(|attr| match &attr.meta {
+                Meta::NameValue(pair) if pair.path.is_ident("doc") => {
+                    if let Expr::Lit(ExprLit {
+                        lit: Lit::Str(lit), ..
+                    }) = &pair.value
+                    {
+                        Some(lit.value())
+                    } else {
+                        None
                     }
-                    _ => None,
                 }
+                _ => None,
             })
             .collect();
 

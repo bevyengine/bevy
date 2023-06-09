@@ -1,7 +1,7 @@
 use bevy_ecs::system::Resource;
 use bevy_utils::Duration;
 
-/// A resource for configuring usage of the `rust_winit` library.
+/// A resource for configuring usage of the [`winit`] library.
 #[derive(Debug, Resource)]
 pub struct WinitSettings {
     /// Configures `winit` to return control to the caller after exiting the
@@ -51,7 +51,7 @@ impl WinitSettings {
         }
     }
 
-    /// Gets the configured `UpdateMode` depending on whether the window is focused or not
+    /// Gets the configured [`UpdateMode`] depending on whether the window is focused or not
     pub fn update_mode(&self, focused: bool) -> &UpdateMode {
         match focused {
             true => &self.focused_mode,

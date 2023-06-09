@@ -9,17 +9,16 @@ fn main() {
         .add_event::<MyEvent>()
         .add_event::<PlaySound>()
         .init_resource::<EventTriggerState>()
-        .add_system(event_trigger)
-        .add_system(event_listener)
-        .add_system(sound_player)
+        .add_systems(Update, (event_trigger, event_listener, sound_player))
         .run();
 }
 
+#[derive(Event)]
 struct MyEvent {
     pub message: String,
 }
 
-#[derive(Default)]
+#[derive(Event, Default)]
 struct PlaySound;
 
 #[derive(Resource)]
