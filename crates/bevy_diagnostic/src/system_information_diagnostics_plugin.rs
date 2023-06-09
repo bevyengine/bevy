@@ -10,6 +10,10 @@ use bevy_app::prelude::*;
 /// * macos
 ///
 /// NOT supported when using the `bevy/dynamic` feature even when using previously mentioned targets
+///
+/// # Warning
+///
+/// Must be added after [`DiagnosticsPlugin`](crate::DiagnosticsPlugin) or a panic will occur due to missing resources.
 #[derive(Default)]
 pub struct SystemInformationDiagnosticsPlugin;
 impl Plugin for SystemInformationDiagnosticsPlugin {

@@ -3,7 +3,11 @@ use bevy_ecs::entity::Entities;
 
 use crate::{Diagnostic, DiagnosticId, Diagnostics, RegisterDiagnostic};
 
-/// Adds "entity count" diagnostic to an App
+/// Adds "entity count" diagnostic to an [`App`]
+///
+/// # Warning
+///
+/// Must be added after [`DiagnosticsPlugin`](crate::DiagnosticsPlugin) or a panic will occur due to missing resources.
 #[derive(Default)]
 pub struct EntityCountDiagnosticsPlugin;
 

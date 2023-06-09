@@ -6,6 +6,10 @@ use bevy_diagnostic::{
 use bevy_ecs::prelude::*;
 
 /// Adds an asset count diagnostic to an [`App`] for assets of type `T`.
+///
+/// # Warning
+///
+/// Must be added after [`DiagnosticsPlugin`](bevy_diagnostic::DiagnosticsPlugin) or a panic will occur due to missing resources.
 pub struct AssetCountDiagnosticsPlugin<T: Asset> {
     marker: std::marker::PhantomData<T>,
 }
