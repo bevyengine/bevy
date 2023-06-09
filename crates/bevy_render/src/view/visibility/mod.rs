@@ -6,10 +6,8 @@ use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_reflect::Reflect;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
-use bevy_transform::components::GlobalTransform;
-use bevy_transform::TransformSystem;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_transform::{components::GlobalTransform, TransformSystem};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -157,7 +155,8 @@ pub struct VisibilityBundle {
 }
 
 /// Use this component to opt-out of built-in frustum culling for Mesh entities
-#[derive(Component)]
+#[derive(Component, Reflect, Default)]
+#[reflect(Component, Default)]
 pub struct NoFrustumCulling;
 
 /// Collection of entities visible from the current view.
