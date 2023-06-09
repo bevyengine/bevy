@@ -29,7 +29,9 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.11.0-dev" }
 
 # other
 winit = { git = "https://github.com/rust-windowing/winit.git", branch = "master", default-features = false }
-accesskit_winit = { git = "https://github.com/Vrixyz/accesskit.git", branch = "winit-main-after-0.28", default-features = false }
+accesskit_winit = { git = "https://github.com/Vrixyz/accesskit.git", branch = "winit-main-after-0.28", default-features = false, features = [
+    "async-io",
+] }
 approx = { version = "0.5", default-features = false }
 raw-window-handle = "0.5"
 
