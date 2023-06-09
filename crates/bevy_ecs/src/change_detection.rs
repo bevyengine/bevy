@@ -542,6 +542,7 @@ impl<'a, T: ?Sized> Ref<'a, T> {
     pub fn into_inner(self) -> &'a T {
         self.value
     }
+
     /// Map `Ref` to a different type using `f`.
     ///
     /// This doesn't do anything else than call `f` on the wrapped value.
@@ -552,6 +553,7 @@ impl<'a, T: ?Sized> Ref<'a, T> {
             ticks: self.ticks,
         }
     }
+
     /// Create a new `Ref` using provided values.
     ///
     /// This is an advanced feature, `Ref`s are designed to be _created_ by
