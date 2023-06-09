@@ -285,7 +285,10 @@ impl ComponentInfo {
 pub struct ComponentId(usize);
 
 impl ComponentId {
-    /// Creates a new [`ComponentId`] wrapping the specified index.
+    /// Creates a new [`ComponentId`].
+    ///
+    /// The `index` is a unique value associated with each type of component in a given world.
+    /// Usually, this value is taken from a counter incremented for each type of component registered with the world.
     #[inline]
     pub const fn new(index: usize) -> ComponentId {
         ComponentId(index)
