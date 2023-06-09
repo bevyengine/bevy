@@ -57,14 +57,39 @@ pub fn keyboard_input_system(
             ..
         } = event;
         match state {
-            ButtonState::Pressed => key_input.press(key_code.clone()),
-            ButtonState::Released => key_input.release(key_code.clone()),
+            ButtonState::Pressed => key_input.press(*key_code),
+            ButtonState::Released => key_input.release(*key_code),
         }
         match state {
             ButtonState::Pressed => logical_key_input.press(logical_key.clone()),
             ButtonState::Released => logical_key_input.release(logical_key.clone()),
         }
     }
+}
+
+/// Contains the platform-native physical key identifier
+///
+/// The exact values vary from platform to platform (which is part of why this is a per-platform
+/// enum), but the values are primarily tied to the key's physical location on the keyboard.
+///
+/// This enum is primarily used to store raw keycodes when Winit doesn't map a given native
+/// physical key identifier to a meaningful [`KeyCode`] variant. In the presence of identifiers we
+/// haven't mapped for you yet, this lets you use use [`KeyCode`] to:
+///
+/// - Correctly match key press and release events.
+/// - On non-web platforms, support assigning keybinds to virtually any key through a UI.
+#[derive(Debug, Clone, PartialOrd, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum NativeKeyCode {
+    Unidentified,
+    /// An Android "scancode".
+    Android(u32),
+    /// A macOS "scancode".
+    MacOS(u16),
+    /// A Windows "scancode".
+    Windows(u16),
+    /// An XKB "keycode".
+    Xkb(u32),
 }
 
 /// The physical key code of a [`KeyboardInput`](crate::keyboard::KeyboardInput).
@@ -77,7 +102,7 @@ pub fn keyboard_input_system(
 /// keyboard and correlate to an [`Key`](Key)
 ///
 /// Its values map 1 to 1 to winit's KeyCode.
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
+#[derive(Debug, Hash, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -91,7 +116,7 @@ pub enum KeyCode {
     /// The native keycode is provided (if available) so you're able to more reliably match
     /// key-press and key-release events by hashing the [`KeyCode`]. It is also possible to use
     /// this for keybinds for non-standard keys, but such keybinds are tied to a given platform.
-    Unidentified,
+    Unidentified(NativeKeyCode),
     /// <kbd>`</kbd> on a US keyboard. This is also called a backtick or grave.
     /// This is the <kbd>半角</kbd>/<kbd>全角</kbd>/<kbd>漢字</kbd>
     /// (hankaku/zenkaku/kanji) key on Japanese keyboards

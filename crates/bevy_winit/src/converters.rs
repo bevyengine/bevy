@@ -1,15 +1,12 @@
 use bevy_input::{
-    keyboard::{KeyCode, KeyboardInput},
+    keyboard::{KeyCode, KeyboardInput, NativeKeyCode},
     mouse::MouseButton,
     touch::{ForceTouch, TouchInput, TouchPhase},
     ButtonState,
 };
 use bevy_math::Vec2;
 use bevy_window::{CursorIcon, WindowLevel, WindowTheme};
-use winit::{
-    keyboard::{Key, NativeKey, NativeKeyCode},
-    platform::scancode::KeyCodeExtScancode,
-};
+use winit::keyboard::{Key, NativeKey};
 
 pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyEvent) -> KeyboardInput {
     KeyboardInput {
@@ -63,10 +60,22 @@ pub fn convert_touch_input(
     }
 }
 
+pub fn convert_physical_native_key_code(
+    native_key_code: winit::keyboard::NativeKeyCode,
+) -> NativeKeyCode {
+    match native_key_code {
+        winit::keyboard::NativeKeyCode::Unidentified => NativeKeyCode::Unidentified,
+        winit::keyboard::NativeKeyCode::Android(scan_code) => NativeKeyCode::Android(scan_code),
+        winit::keyboard::NativeKeyCode::MacOS(scan_code) => NativeKeyCode::MacOS(scan_code),
+        winit::keyboard::NativeKeyCode::Windows(scan_code) => NativeKeyCode::Windows(scan_code),
+        winit::keyboard::NativeKeyCode::Xkb(key_code) => NativeKeyCode::Xkb(key_code),
+    }
+}
 pub fn convert_physical_key_code(virtual_key_code: winit::keyboard::KeyCode) -> KeyCode {
     match virtual_key_code {
-        // TOCLEAN: Thierry: we probably want to pass this nativeKeyCode, but then interface it by our own type "NativeKeyCode"
-        winit::keyboard::KeyCode::Unidentified(native_key_code) => KeyCode::Unidentified,
+        winit::keyboard::KeyCode::Unidentified(native_key_code) => {
+            KeyCode::Unidentified(convert_physical_native_key_code(native_key_code))
+        }
         winit::keyboard::KeyCode::Backquote => KeyCode::Backquote,
         winit::keyboard::KeyCode::Backslash => KeyCode::Backslash,
         winit::keyboard::KeyCode::BracketLeft => KeyCode::BracketLeft,
@@ -119,7 +128,7 @@ pub fn convert_physical_key_code(virtual_key_code: winit::keyboard::KeyCode) -> 
         winit::keyboard::KeyCode::Slash => KeyCode::Slash,
         winit::keyboard::KeyCode::AltLeft => KeyCode::AltLeft,
         winit::keyboard::KeyCode::AltRight => KeyCode::AltRight,
-        winit::keyboard::KeyCode::Enter => KeyCode::Enter,
+        winit::keyboard::KeyCode::Backspace => KeyCode::Backspace,
         winit::keyboard::KeyCode::CapsLock => KeyCode::CapsLock,
         winit::keyboard::KeyCode::ContextMenu => KeyCode::ContextMenu,
         winit::keyboard::KeyCode::ControlLeft => KeyCode::ControlLeft,
@@ -261,7 +270,7 @@ pub fn convert_physical_key_code(virtual_key_code: winit::keyboard::KeyCode) -> 
         winit::keyboard::KeyCode::F33 => KeyCode::F33,
         winit::keyboard::KeyCode::F34 => KeyCode::F34,
         winit::keyboard::KeyCode::F35 => KeyCode::F35,
-        _ => KeyCode::Unidentified,
+        _ => KeyCode::Unidentified(NativeKeyCode::Unidentified),
     }
 }
 
