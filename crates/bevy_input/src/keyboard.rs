@@ -108,7 +108,7 @@ pub enum NativeKeyCode {
 /// The resource values are mapped to the physical location of a key on the
 /// keyboard and correlate to an [`Key`](Key)
 ///
-/// Its values map 1 to 1 to winit's [`KeyCode`](winit::KeyCode).
+/// Its values map 1 to 1 to winit's "KeyCode".
 #[derive(Debug, Hash, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
