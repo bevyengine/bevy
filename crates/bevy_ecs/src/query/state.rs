@@ -346,7 +346,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
     /// This method is slightly more efficient than [`QueryState::get`] in some situations, since
-    /// it does not update this instance's internal cache. This method will return `None` if `entity`
+    /// it does not update this instance's internal cache. This method will return an error if `entity`
     /// belongs to an archetype that has not been cached.
     ///
     /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this method.
