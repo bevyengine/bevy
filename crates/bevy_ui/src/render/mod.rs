@@ -223,6 +223,8 @@ pub fn extract_uinode_borders(
                 continue;
             }
 
+            // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+            // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
             let parent_width = parent
                 .and_then(|parent| parent_node_query.get(parent.get()).ok())
                 .map(|parent_node| parent_node.size().x)
