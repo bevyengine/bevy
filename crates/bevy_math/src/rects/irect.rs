@@ -60,6 +60,9 @@ impl IRect {
 
     /// Create a new rectangle from its center and size.
     ///
+    /// # Rounding Behaviour
+    /// If the size contains odd numbers they will be **rounded down** to the nearest whole number
+    ///
     /// # Panics
     ///
     /// This method panics if any of the components of the size is negative.
@@ -68,9 +71,9 @@ impl IRect {
     ///
     /// ```rust
     /// # use bevy_math::{IRect, IVec2};
-    /// let r = IRect::from_center_size(IVec2::ZERO, IVec2::splat(2)); // w=2 h=2
-    /// assert_eq!(r.min, IVec2::splat(-1));
-    /// assert_eq!(r.max, IVec2::splat(1));
+    /// let r = IRect::from_center_size(IVec2::ZERO, IVec2::new(3, 2)); // w=2 h=2
+    /// assert_eq!(r.min, IVec2::new(-1, -1));
+    /// assert_eq!(r.max, IVec2::new(1, 1));
     /// ```
     #[inline]
     pub fn from_center_size(origin: IVec2, size: IVec2) -> Self {
@@ -170,7 +173,7 @@ impl IRect {
     ///
     /// ```rust
     /// # use bevy_math::{IRect, IVec2};
-    /// let r = IRect::new(0, 0, 4, 2); // w=4 h=2
+    /// let r = IRect::new(0, 0, 4, 3); // w=4 h=3
     /// assert_eq!(r.half_size(), IVec2::new(2, 1));
     /// ```
     #[inline]
@@ -180,11 +183,14 @@ impl IRect {
 
     /// The center point of the rectangle.
     ///
+    /// # Rounding Behaviour
+    /// If the (min + max) contains odd numbers they will be **rounded down** to the nearest whole number when calculating the center.
+    ///
     /// # Examples
     ///
     /// ```rust
     /// # use bevy_math::{IRect, IVec2};
-    /// let r = IRect::new(0, 0, 4, 2); // w=4 h=2
+    /// let r = IRect::new(0, 0, 5, 2); // w=5 h=2
     /// assert_eq!(r.center(), IVec2::new(2, 1));
     /// ```
     #[inline]
