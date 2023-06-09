@@ -1,6 +1,6 @@
 use crate::{
     prelude::{Button, Label},
-    Node, UiImage,
+    NodeSize, UiImage,
 };
 use bevy_a11y::{
     accesskit::{NodeBuilder, Rect, Role},
@@ -36,19 +36,19 @@ fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
 
 fn calc_bounds(
     camera: Query<(&Camera, &GlobalTransform)>,
-    mut nodes: Query<(&mut AccessibilityNode, Ref<Node>, Ref<GlobalTransform>)>,
+    mut nodes: Query<(&mut AccessibilityNode, Ref<NodeSize>, Ref<GlobalTransform>)>,
 ) {
     if let Ok((camera, camera_transform)) = camera.get_single() {
-        for (mut accessible, node, transform) in &mut nodes {
-            if node.is_changed() || transform.is_changed() {
+        for (mut accessible, node_size, transform) in &mut nodes {
+            if node_size.is_changed() || transform.is_changed() {
                 if let Some(translation) =
                     camera.world_to_viewport(camera_transform, transform.translation())
                 {
                     let bounds = Rect::new(
                         translation.x.into(),
                         translation.y.into(),
-                        (translation.x + node.calculated_size.x).into(),
-                        (translation.y + node.calculated_size.y).into(),
+                        (translation.x + node_size.calculated_size.x).into(),
+                        (translation.y + node_size.calculated_size.y).into(),
                     );
                     accessible.set_bounds(bounds);
                 }

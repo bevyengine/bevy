@@ -3,7 +3,7 @@
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::prelude::*;
 
-use crate::{Node, ZIndex};
+use crate::{NodeSize, ZIndex};
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -32,8 +32,8 @@ struct StackingContextEntry {
 /// Then flatten that tree into back-to-front ordered `UiStack`.
 pub fn ui_stack_system(
     mut ui_stack: ResMut<UiStack>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    zindex_query: Query<&ZIndex, With<Node>>,
+    root_node_query: Query<Entity, (With<NodeSize>, Without<Parent>)>,
+    zindex_query: Query<&ZIndex, With<NodeSize>>,
     children_query: Query<&Children>,
 ) {
     // Generate `StackingContext` tree
@@ -59,7 +59,7 @@ pub fn ui_stack_system(
 
 /// Generate z-index based UI node tree
 fn insert_context_hierarchy(
-    zindex_query: &Query<&ZIndex, With<Node>>,
+    zindex_query: &Query<&ZIndex, With<NodeSize>>,
     children_query: &Query<&Children>,
     entity: Entity,
     global_context: &mut StackingContext,
@@ -124,19 +124,19 @@ mod tests {
     };
     use bevy_hierarchy::BuildChildren;
 
-    use crate::{Node, UiStack, ZIndex};
+    use crate::{NodeSize, UiStack, ZIndex};
 
     use super::ui_stack_system;
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
 
-    fn node_with_zindex(name: &'static str, z_index: ZIndex) -> (Label, Node, ZIndex) {
-        (Label(name), Node::default(), z_index)
+    fn node_with_zindex(name: &'static str, z_index: ZIndex) -> (Label, NodeSize, ZIndex) {
+        (Label(name), NodeSize::default(), z_index)
     }
 
-    fn node_without_zindex(name: &'static str) -> (Label, Node) {
-        (Label(name), Node::default())
+    fn node_without_zindex(name: &'static str) -> (Label, NodeSize) {
+        (Label(name), NodeSize::default())
     }
 
     /// Tests the UI Stack system.
