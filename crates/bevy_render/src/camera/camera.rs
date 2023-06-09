@@ -24,7 +24,8 @@ use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
-    NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
+    NormalizedWindowRef, PrimaryWindow, Window, WindowClosed, WindowCreated, WindowRef,
+    WindowResized,
 };
 
 use std::{borrow::Cow, ops::Range};
@@ -492,6 +493,9 @@ impl NormalizedRenderTarget {
 
 /// System in charge of updating a [`Camera`] when its window or projection changes.
 ///
+/// The system will detect when a [`Window`] is closed and it disables any [`Camera`] that used that
+/// [`Window`] has a [`RenderTarget`].
+///
 /// The system detects window creation and resize events to update the camera projection if
 /// needed. It also queries any [`CameraProjection`] component associated with the same entity
 /// as the [`Camera`] one, to automatically update the camera projection matrix.
@@ -509,9 +513,11 @@ impl NormalizedRenderTarget {
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 /// [`Projection`]: crate::camera::Projection
+#[allow(clippy::too_many_arguments)]
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
+    mut window_close_events: EventReader<WindowClosed>,
     mut image_asset_events: EventReader<AssetEvent<Image>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
@@ -519,6 +525,18 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut cameras: Query<(&mut Camera, &mut T)>,
 ) {
     let primary_window = primary_window.iter().next();
+
+    // Disable the camera associated to a window that's just been closed
+    for ev in window_close_events.iter() {
+        for (mut camera, _) in &mut cameras {
+            let Some(NormalizedRenderTarget::Window(window_ref)) = camera.target.normalize(primary_window)
+            else { continue; };
+
+            if window_ref.entity() == ev.window {
+                camera.is_active = false;
+            }
+        }
+    }
 
     let mut changed_window_ids = HashSet::new();
     changed_window_ids.extend(window_created_events.iter().map(|event| event.window));
