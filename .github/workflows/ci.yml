@@ -177,7 +177,7 @@ jobs:
           sudo apt-get update -y -qq
           sudo add-apt-repository ppa:oibaf/graphics-drivers -y
           sudo apt-get update
-          sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+          sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers libxkbcommon-x11-0
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
         with:
