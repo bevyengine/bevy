@@ -451,9 +451,17 @@ pub fn winit_runner(mut app: App) {
                             });
                     }
                     WindowEvent::KeyboardInput { ref event, .. } => {
-                        input_events
-                            .keyboard_input
-                            .send(converters::convert_keyboard_input(event));
+                        let keyboard_event = converters::convert_keyboard_input(event);
+                        if let bevy_input::keyboard::Key::Character(c) = &keyboard_event.logical_key
+                        {
+                            if let Some(first_char) = c.chars().next() {
+                                input_events.character_input.send(ReceivedCharacter {
+                                    window: window_entity,
+                                    char: first_char,
+                                });
+                            }
+                        }
+                        input_events.keyboard_input.send(keyboard_event);
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let physical_position = DVec2::new(position.x, position.y);

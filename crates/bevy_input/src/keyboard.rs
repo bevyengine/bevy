@@ -8,6 +8,8 @@ use bevy_reflect::{FromReflect, Reflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
 
 /// A keyboard input event.
 ///
@@ -79,7 +81,11 @@ pub fn keyboard_input_system(
 /// - Correctly match key press and release events.
 /// - On non-web platforms, support assigning keybinds to virtually any key through a UI.
 #[derive(Debug, Clone, PartialOrd, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum NativeKeyCode {
     Unidentified,
     /// An Android "scancode".
@@ -101,7 +107,7 @@ pub enum NativeKeyCode {
 /// The resource values are mapped to the physical location of a key on the
 /// keyboard and correlate to an [`Key`](Key)
 ///
-/// Its values map 1 to 1 to winit's KeyCode.
+/// Its values map 1 to 1 to winit's [`KeyCode`](winit::KeyCode).
 #[derive(Debug, Hash, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
@@ -571,7 +577,7 @@ pub enum KeyCode {
 /// key identifier to a meaningful [`Key`] variant. This lets you use [`Key`], and let the user
 /// define keybinds which work in the presence of identifiers we haven't mapped for you yet.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum NativeKey {
     Unidentified,
     /// An Android "keycode", which is similar to a "virtual-key code" on Windows.
@@ -604,7 +610,11 @@ pub enum NativeKey {
 /// Its values map 1 to 1 to winit's Key.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Key {
     /// A key string that corresponds to the character typed by the user, taking into account the
     /// user’s current locale setting, and any system-level keyboard mapping overrides that are in

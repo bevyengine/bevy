@@ -97,7 +97,7 @@ fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
 
 // This system will toggle the color theme used by the window
 fn toggle_theme(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
-    if input.just_pressed(KeyCode::F) {
+    if input.just_pressed(KeyCode::KeyF) {
         let mut window = windows.single_mut();
 
         if let Some(current_theme) = window.window_theme {

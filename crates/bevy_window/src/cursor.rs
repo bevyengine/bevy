@@ -1,4 +1,4 @@
-use bevy_reflect::{prelude::ReflectDefault, FromReflect, Reflect};
+use bevy_reflect::{FromReflect, Reflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};

@@ -70,7 +70,7 @@ where
     pub fn press(&mut self, input: T) {
         // Returns `true` if the `input` wasn't pressed.
         if self.pressed.insert(input.clone()) {
-            self.just_pressed.insert(input.clone());
+            self.just_pressed.insert(input);
         }
     }
 
