@@ -300,6 +300,11 @@ impl IRect {
     /// let r2 = r.inset(3); // w=11 h=7
     /// assert_eq!(r2.min, IVec2::splat(-3));
     /// assert_eq!(r2.max, IVec2::new(8, 4));
+    ///
+    /// let r = IRect::new(0, -1, 4, 3); // w=4 h=4
+    /// let r2 = r.inset(-1); // w=11 h=7
+    /// assert_eq!(r2.min, IVec2::new(1, 0));
+    /// assert_eq!(r2.max, IVec2::new(3, 2));
     /// ```
     #[inline]
     pub fn inset(&self, inset: i32) -> Self {

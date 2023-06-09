@@ -279,52 +279,34 @@ impl URect {
 
     /// Create a new rectangle with a constant inset.
     ///
-    /// The inset is the extra border on all sides. This will always result in a smaller rect.
+    /// The inset is the extra border on all sides. A positive inset produces a larger rectangle,
+    /// while a negative inset is allowed and produces a smaller rectangle. If the inset is negative
+    /// and its absolute value is larger than the rectangle half-size, the created rectangle is empty.
     ///
     /// # Examples
     ///
     /// ```rust
     /// # use bevy_math::{URect, UVec2};
-    /// let r = URect::new(2, 2, 6, 6); // w=3 h=3
-    /// let r2 = r.inset(1); // w=2 h=2
+    /// let r = URect::new(4, 4, 6, 6); // w=2 h=2
+    /// let r2 = r.inset(1); // w=3 h=3
     /// assert_eq!(r2.min, UVec2::splat(3));
-    /// assert_eq!(r2.max, UVec2::splat(5));
+    /// assert_eq!(r2.max, UVec2::splat(7));
+    ///
+    /// let r = URect::new(4, 4, 8, 8); // w=4 h=4
+    /// let r2 = r.inset(-1); // w=3 h=3
+    /// assert_eq!(r2.min, UVec2::splat(5));
+    /// assert_eq!(r2.max, UVec2::splat(7));
     /// ```
     #[inline]
-    pub fn inset(&self, inset: u32) -> Self {
+    pub fn inset(&self, inset: i32) -> Self {
         let mut r = Self {
-            min: self.min + inset,
-            max: self.max - inset,
+            min: (self.min.as_ivec2() - inset).as_uvec2(),
+            max: (self.max.as_ivec2() + inset).as_uvec2(),
         };
         // Collapse min over max to enforce invariants and ensure e.g. width() or
         // height() never return a negative value.
         r.min = r.min.min(r.max);
         r
-    }
-
-    /// Create a new rectangle with a constant inset.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if the inset is larger than any of the components of the rect's min.
-    ///
-    /// The outset is the extra border on all sides. This will always result in a larger rect.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use bevy_math::{URect, UVec2};
-    /// let r = URect::new(2, 2, 6, 6); // w=3 h=3
-    /// let r2 = r.outset(1); // w=4 h=4
-    /// assert_eq!(r2.min, UVec2::splat(1));
-    /// assert_eq!(r2.max, UVec2::splat(7));
-    /// ```
-    #[inline]
-    pub fn outset(&self, outset: u32) -> Self {
-        Self {
-            min: self.min - outset,
-            max: self.max + outset,
-        }
     }
 }
 
@@ -443,19 +425,10 @@ mod tests {
 
     #[test]
     fn rect_inset() {
-        let r = URect::from_center_size(UVec2::splat(6), UVec2::splat(8)); // [2, 2] - [10, 10]
+        let r = URect::from_center_size(UVec2::splat(6), UVec2::splat(6)); // [3, 3] - [9, 9]
 
         let r2 = r.inset(2);
-        assert_eq!(r2.min, UVec2::new(4, 4));
-        assert_eq!(r2.max, UVec2::new(8, 8));
-    }
-
-    #[test]
-    fn rect_outset() {
-        let r = URect::from_center_size(UVec2::splat(6), UVec2::splat(4)); // [4, 4] - [8, 8]
-
-        let r2 = r.outset(2);
-        assert_eq!(r2.min, UVec2::new(2, 2));
-        assert_eq!(r2.max, UVec2::new(10, 10));
+        assert_eq!(r2.min, UVec2::new(1, 1));
+        assert_eq!(r2.max, UVec2::new(11, 11));
     }
 }
