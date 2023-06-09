@@ -349,6 +349,7 @@ struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
+    pub mode: u32,
 }
 
 #[derive(Resource)]
@@ -401,9 +402,11 @@ pub fn prepare_uinodes(
     let mut stored_batch_handle = DEFAULT_IMAGE_HANDLE.typed();
     let mut last_z = 0.0;
     let default_id = DEFAULT_IMAGE_HANDLE.id();
+    let mut mode;
 
     for extracted_uinode in &extracted_uinodes.uinodes {
         if extracted_uinode.image.id() != default_id {
+            mode = 0;
             if stored_batch_handle.id() != default_id {
                 if stored_batch_handle.id() != extracted_uinode.image.id() {
                     if start != end {
@@ -419,6 +422,8 @@ pub fn prepare_uinodes(
             } else {
                 stored_batch_handle = extracted_uinode.image.clone_weak();
             }
+        } else {
+            mode = 1;
         }
 
         let mut uinode_rect = extracted_uinode.rect;
@@ -478,12 +483,7 @@ pub fn prepare_uinodes(
             }
         }
         let uvs = if extracted_uinode.image.id() == DEFAULT_IMAGE_HANDLE.id() {
-            [
-                Vec2::splat(f32::MAX),
-                Vec2::splat(f32::MAX),
-                Vec2::splat(f32::MAX),
-                Vec2::splat(f32::MAX),
-            ]
+            [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
         } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
             if extracted_uinode.flip_x {
@@ -527,6 +527,7 @@ pub fn prepare_uinodes(
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color,
+                mode,
             });
         }
 

@@ -6,6 +6,7 @@ var<uniform> view: View;
 struct VertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
+    @location(3) mode: u32,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -14,11 +15,13 @@ fn vertex(
     @location(0) vertex_position: vec3<f32>,
     @location(1) vertex_uv: vec2<f32>,
     @location(2) vertex_color: vec4<f32>,
+    @location(3) mode: u32,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
     out.color = vertex_color;
+    out.mode = mode;
     return out;
 }
 
@@ -30,7 +33,7 @@ var sprite_sampler: sampler;
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = textureSample(sprite_texture, sprite_sampler, in.uv);
-    if in.uv.x < 1.e+20 {
+    if in.mode == 0u {
         color = in.color * color;
     } else {
         color = in.color;   
