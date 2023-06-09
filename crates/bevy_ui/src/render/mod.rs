@@ -398,22 +398,27 @@ pub fn prepare_uinodes(
 
     let mut start = 0;
     let mut end = 0;
-    let mut current_batch_handle = DEFAULT_IMAGE_HANDLE.typed();
+    let mut stored_batch_handle = DEFAULT_IMAGE_HANDLE.typed();
     let mut last_z = 0.0;
+    let default_id = DEFAULT_IMAGE_HANDLE.id();
+
     for extracted_uinode in &extracted_uinodes.uinodes {
-        if current_batch_handle.id() != extracted_uinode.image.id() {
-            if current_batch_handle.id() != DEFAULT_IMAGE_HANDLE.id()
-                && extracted_uinode.image.id() != DEFAULT_IMAGE_HANDLE.id()
-                && start != end
-            {
-                commands.spawn(UiBatch {
-                    range: start..end,
-                    image: current_batch_handle,
-                    z: last_z,
-                });
-                start = end;
+        if extracted_uinode.image.id() != default_id {
+            if stored_batch_handle.id() != default_id {
+                if stored_batch_handle.id() != extracted_uinode.image.id() {
+                    if start != end {
+                        commands.spawn(UiBatch {
+                            range: start..end,
+                            image: stored_batch_handle,
+                            z: last_z,
+                        });
+                        start = end;
+                    }
+                    stored_batch_handle = extracted_uinode.image.clone_weak();
+                }
+            } else {
+                stored_batch_handle = extracted_uinode.image.clone_weak();
             }
-            current_batch_handle = extracted_uinode.image.clone_weak();
         }
 
         let mut uinode_rect = extracted_uinode.rect;
@@ -472,7 +477,7 @@ pub fn prepare_uinodes(
                 continue;
             }
         }
-        let uvs = if current_batch_handle.id() == DEFAULT_IMAGE_HANDLE.id() {
+        let uvs = if extracted_uinode.image.id() == DEFAULT_IMAGE_HANDLE.id() {
             [
                 Vec2::splat(f32::MAX),
                 Vec2::splat(f32::MAX),
@@ -533,7 +538,7 @@ pub fn prepare_uinodes(
     if start != end {
         commands.spawn(UiBatch {
             range: start..end,
-            image: current_batch_handle,
+            image: stored_batch_handle,
             z: last_z,
         });
     }
