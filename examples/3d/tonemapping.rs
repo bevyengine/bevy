@@ -75,9 +75,9 @@ fn setup(
         TextBundle::from_section(
             "",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 18.0,
                 color: Color::WHITE,
+                ..default()
             },
         )
         .with_style(Style {
@@ -243,7 +243,6 @@ fn setup_image_viewer_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     camera_transform: Res<CameraTransform>,
-    asset_server: Res<AssetServer>,
 ) {
     let mut transform = camera_transform.0;
     transform.translation += transform.forward();
@@ -273,9 +272,9 @@ fn setup_image_viewer_scene(
             TextBundle::from_section(
                 "Drag and drop an HDR or EXR file",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 36.0,
                     color: Color::BLACK,
+                    ..default()
                 },
             )
             .with_text_alignment(TextAlignment::Center)
@@ -401,7 +400,10 @@ fn toggle_tonemapping_method(
         *method = Tonemapping::BlenderFilmic;
     }
 
-    *color_grading = *per_method_settings.settings.get(&method).unwrap();
+    *color_grading = *per_method_settings
+        .settings
+        .get::<Tonemapping>(&method)
+        .unwrap();
 }
 
 #[derive(Resource)]
@@ -428,7 +430,7 @@ fn update_color_grading_settings(
     mut selected_parameter: ResMut<SelectedParameter>,
 ) {
     let method = tonemapping.single();
-    let mut color_grading = per_method_settings.settings.get_mut(method).unwrap();
+    let color_grading = per_method_settings.settings.get_mut(method).unwrap();
     let mut dt = time.delta_seconds() * 0.25;
     if keys.pressed(KeyCode::Left) {
         dt = -dt;

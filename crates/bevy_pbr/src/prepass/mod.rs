@@ -108,10 +108,17 @@ where
                 Render,
                 queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
             )
-            .init_resource::<PrepassPipeline<M>>()
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .init_resource::<PreviousViewProjectionUniforms>();
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.init_resource::<PrepassPipeline<M>>();
     }
 }
 
@@ -158,7 +165,7 @@ where
                         prepare_previous_view_projection_uniforms
                             .in_set(RenderSet::Prepare)
                             .after(PrepassLightsViewFlush),
-                        apply_system_buffers
+                        apply_deferred
                             .in_set(RenderSet::Prepare)
                             .in_set(PrepassLightsViewFlush)
                             .after(prepare_lights),
@@ -357,8 +364,8 @@ where
             shader_defs.push("DEPTH_PREPASS".into());
         }
 
-        if key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK) {
-            shader_defs.push("ALPHA_MASK".into());
+        if key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD) {
+            shader_defs.push("MAY_DISCARD".into());
         }
 
         let blend_key = key
@@ -460,9 +467,7 @@ where
         // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
         // prepass shader
         let fragment_required = !targets.is_empty()
-            || ((key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
-                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
-                || blend_key == MeshPipelineKey::BLEND_ALPHA)
+            || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && self.material_fragment_shader.is_some());
 
         let fragment = fragment_required.then(|| {
@@ -561,7 +566,7 @@ pub fn get_bind_group_layout_entries(
             visibility: ShaderStages::FRAGMENT,
             ty: BindingType::Texture {
                 multisampled,
-                sample_type: TextureSampleType::Float { filterable: true },
+                sample_type: TextureSampleType::Float { filterable: false },
                 view_dimension: TextureViewDimension::D2,
             },
             count: None,
@@ -572,7 +577,7 @@ pub fn get_bind_group_layout_entries(
             visibility: ShaderStages::FRAGMENT,
             ty: BindingType::Texture {
                 multisampled,
-                sample_type: TextureSampleType::Float { filterable: true },
+                sample_type: TextureSampleType::Float { filterable: false },
                 view_dimension: TextureViewDimension::D2,
             },
             count: None,
@@ -960,7 +965,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
                 AlphaMode::Opaque => {}
-                AlphaMode::Mask(_) => mesh_key |= MeshPipelineKey::ALPHA_MASK,
+                AlphaMode::Mask(_) => mesh_key |= MeshPipelineKey::MAY_DISCARD,
                 AlphaMode::Blend
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add

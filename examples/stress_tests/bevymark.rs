@@ -37,7 +37,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(LogDiagnosticsPlugin::default())
         .insert_resource(BevyCounter {
             count: 0,
@@ -103,9 +103,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TextSection::new(
             value,
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
                 color,
+                ..default()
             },
         )
     };

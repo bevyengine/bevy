@@ -1,5 +1,5 @@
 //! This example illustrates loading scenes from files.
-use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
+use bevy::{asset::ChangeWatcher, prelude::*, tasks::IoTaskPool, utils::Duration};
 use std::{fs::File, io::Write};
 
 fn main() {
@@ -7,7 +7,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(AssetPlugin {
             // This tells the AssetServer to watch for changes to assets.
             // It enables our scenes to automatically reload in game when we modify their files.
-            watch_for_changes: true,
+            watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
             ..default()
         }))
         .register_type::<ComponentA>()
@@ -140,15 +140,15 @@ fn save_scene_system(world: &mut World) {
 
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
 // text example.
-fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn infotext_system(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn(
         TextBundle::from_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 50.0,
                 color: Color::WHITE,
+                ..default()
             },
         )
         .with_style(Style {
