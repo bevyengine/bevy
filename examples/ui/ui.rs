@@ -273,16 +273,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                     parent
                         .spawn(ImageBundle {
+                            image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
                             style: Style {
                                 width: Val::Px(500.0),
+                                aspect_ratio: Some(1000.0 / 250.0),
                                 ..default()
                             },
                             ..default()
                         })
                         .with_children(|parent| {
                             // alt text
-                            parent
-                                .spawn(TextBundle::from_section("Bevy logo", TextStyle::default()));
+                            parent.spawn(TextBundle {
+                                visibility: Visibility::Hidden,
+                                ..TextBundle::from_section("Bevy logo", TextStyle::default())
+                            });
                         });
                 });
         });
