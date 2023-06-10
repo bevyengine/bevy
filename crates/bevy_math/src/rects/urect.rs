@@ -287,6 +287,10 @@ impl URect {
     }
 
     /// Create a new rectangle with a constant inset.
+    /// 
+    /// # Panics
+    /// 
+    /// This method panics if the inset is larger than the rect's min x or y
     ///
     /// The inset is the extra border on all sides. A positive inset produces a larger rectangle,
     /// while a negative inset is allowed and produces a smaller rectangle. If the inset is negative
@@ -309,8 +313,14 @@ impl URect {
     #[inline]
     pub fn inset(&self, inset: i32) -> Self {
         let mut r = Self {
-            min: (self.min.as_ivec2() - inset).as_uvec2(),
-            max: (self.max.as_ivec2() + inset).as_uvec2(),
+            min: UVec2::new(
+                self.min.x.checked_add_signed(-inset).unwrap(),
+                self.min.y.checked_add_signed(-inset).unwrap(),
+            ),
+            max: UVec2::new(
+                self.max.x.checked_add_signed(inset).unwrap(),
+                self.max.y.checked_add_signed(inset).unwrap(),
+            ),
         };
         // Collapse min over max to enforce invariants and ensure e.g. width() or
         // height() never return a negative value.
