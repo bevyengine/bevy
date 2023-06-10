@@ -253,6 +253,43 @@ impl Color {
         }
     }
 
+    /// New `Color` with LCH representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    ///
+    /// See also [`Color::lcha`].
+    pub const fn lch(lightness: f32, chroma: f32, hue: f32) -> Color {
+        Color::Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha: 1.0,
+        }
+    }
+
+    /// New `Color` with LCH representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
+    ///
+    /// See also [`Color::lch`].
+    pub const fn lcha(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Color {
+        Color::Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha,
+        }
+    }
+
     /// New `Color` from sRGB colorspace.
     ///
     /// # Examples
@@ -750,7 +787,7 @@ impl Color {
                 let [red, green, blue] =
                     LchRepresentation::lch_to_nonlinear_srgb(*lightness, *chroma, *hue);
 
-                Color::Rgba {
+                Color::RgbaLinear {
                     red: red.nonlinear_to_linear_srgb(),
                     green: green.nonlinear_to_linear_srgb(),
                     blue: blue.nonlinear_to_linear_srgb(),
@@ -869,6 +906,17 @@ impl Color {
             }
             Color::Lcha { .. } => *self,
         }
+    }
+
+    /// Converts a `Color` to a `[u8; 4]` from sRGB colorspace
+    pub fn as_rgba_u8(&self) -> [u8; 4] {
+        let [r, g, b, a] = self.as_rgba_f32();
+        [
+            (r * u8::MAX as f32) as u8,
+            (g * u8::MAX as f32) as u8,
+            (b * u8::MAX as f32) as u8,
+            (a * u8::MAX as f32) as u8,
+        ]
     }
 
     /// Converts a `Color` to a `[f32; 4]` from sRGB colorspace
@@ -2082,5 +2130,18 @@ mod tests {
         mutated_color *= transformation;
 
         assert_eq!(starting_color * transformation, mutated_color,);
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/8040
+    #[test]
+    fn convert_to_rgba_linear() {
+        let rgba = Color::rgba(0., 0., 0., 0.);
+        let rgba_l = Color::rgba_linear(0., 0., 0., 0.);
+        let hsla = Color::hsla(0., 0., 0., 0.);
+        let lcha = Color::lcha(0., 0., 0., 0.);
+        assert_eq!(rgba_l, rgba_l.as_rgba_linear());
+        let Color::RgbaLinear { .. } = rgba.as_rgba_linear() else { panic!("from Rgba") };
+        let Color::RgbaLinear { .. } = hsla.as_rgba_linear() else { panic!("from Hsla") };
+        let Color::RgbaLinear { .. } = lcha.as_rgba_linear() else { panic!("from Lcha") };
     }
 }

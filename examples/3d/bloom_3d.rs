@@ -16,9 +16,8 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_scene)
-        .add_system(update_bloom_settings)
-        .add_system(bounce_spheres)
+        .add_systems(Startup, setup_scene)
+        .add_systems(Update, (update_bloom_settings, bounce_spheres))
         .run();
 }
 
@@ -26,7 +25,6 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
         Camera3dBundle {
@@ -93,22 +91,20 @@ fn setup_scene(
         }
     }
 
+    // example instructions
     commands.spawn(
         TextBundle::from_section(
             "",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 18.0,
+                font_size: 20.0,
                 color: Color::BLACK,
+                ..default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );

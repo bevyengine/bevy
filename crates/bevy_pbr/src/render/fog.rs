@@ -8,7 +8,7 @@ use bevy_render::{
     render_resource::{DynamicUniformBuffer, Shader, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ExtractedView,
-    RenderApp, RenderSet,
+    Render, RenderApp, RenderSet,
 };
 
 use crate::{FogFalloff, FogSettings};
@@ -142,8 +142,11 @@ impl Plugin for FogPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<FogMeta>()
-                .add_system(prepare_fog.in_set(RenderFogSystems::PrepareFog))
-                .configure_set(RenderFogSystems::PrepareFog.in_set(RenderSet::Prepare));
+                .add_systems(Render, prepare_fog.in_set(RenderFogSystems::PrepareFog))
+                .configure_set(
+                    Render,
+                    RenderFogSystems::PrepareFog.in_set(RenderSet::Prepare),
+                );
         }
     }
 }

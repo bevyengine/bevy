@@ -3,7 +3,6 @@ use crate::{
     plugin::Plugin,
 };
 use bevy_ecs::event::{Events, ManualEventReader};
-use bevy_ecs::prelude::Resource;
 use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
@@ -13,7 +12,7 @@ use wasm_bindgen::{prelude::*, JsCast};
 
 /// Determines the method used to run an [`App`]'s [`Schedule`](bevy_ecs::schedule::Schedule).
 ///
-/// It is used in the [`ScheduleRunnerSettings`].
+/// It is used in the [`ScheduleRunnerPlugin`].
 #[derive(Copy, Clone, Debug)]
 pub enum RunMode {
     /// Indicates that the [`App`]'s schedule should run repeatedly.
@@ -32,33 +31,6 @@ impl Default for RunMode {
     }
 }
 
-/// The configuration information for the [`ScheduleRunnerPlugin`].
-///
-/// It gets added as a [`Resource`](bevy_ecs::system::Resource) inside of the [`ScheduleRunnerPlugin`].
-#[derive(Copy, Clone, Default, Resource)]
-pub struct ScheduleRunnerSettings {
-    /// Determines whether the [`Schedule`](bevy_ecs::schedule::Schedule) is run once or repeatedly.
-    pub run_mode: RunMode,
-}
-
-impl ScheduleRunnerSettings {
-    /// See [`RunMode::Once`].
-    pub fn run_once() -> Self {
-        ScheduleRunnerSettings {
-            run_mode: RunMode::Once,
-        }
-    }
-
-    /// See [`RunMode::Loop`].
-    pub fn run_loop(wait_duration: Duration) -> Self {
-        ScheduleRunnerSettings {
-            run_mode: RunMode::Loop {
-                wait: Some(wait_duration),
-            },
-        }
-    }
-}
-
 /// Configures an [`App`] to run its [`Schedule`](bevy_ecs::schedule::Schedule) according to a given
 /// [`RunMode`].
 ///
@@ -72,17 +44,35 @@ impl ScheduleRunnerSettings {
 /// (see [`WinitPlugin`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html))
 /// executes the schedule making [`ScheduleRunnerPlugin`] unnecessary.
 #[derive(Default)]
-pub struct ScheduleRunnerPlugin;
+pub struct ScheduleRunnerPlugin {
+    /// Determines whether the [`Schedule`](bevy_ecs::schedule::Schedule) is run once or repeatedly.
+    pub run_mode: RunMode,
+}
+
+impl ScheduleRunnerPlugin {
+    /// See [`RunMode::Once`].
+    pub fn run_once() -> Self {
+        ScheduleRunnerPlugin {
+            run_mode: RunMode::Once,
+        }
+    }
+
+    /// See [`RunMode::Loop`].
+    pub fn run_loop(wait_duration: Duration) -> Self {
+        ScheduleRunnerPlugin {
+            run_mode: RunMode::Loop {
+                wait: Some(wait_duration),
+            },
+        }
+    }
+}
 
 impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut App) {
-        let settings = app
-            .world
-            .get_resource_or_insert_with(ScheduleRunnerSettings::default)
-            .to_owned();
+        let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| {
             let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
-            match settings.run_mode {
+            match run_mode {
                 RunMode::Once => {
                     app.update();
                 }

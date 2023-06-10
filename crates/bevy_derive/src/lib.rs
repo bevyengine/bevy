@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 extern crate proc_macro;
 
 mod app_plugin;
@@ -15,13 +17,19 @@ pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
     app_plugin::derive_dynamic_plugin(input)
 }
 
-/// Implements [`Deref`] for _single-item_ structs. This is especially useful when
-/// utilizing the [newtype] pattern.
+/// Implements [`Deref`] for structs. This is especially useful when utilizing the [newtype] pattern.
+///
+/// For single-field structs, the implementation automatically uses that field.
+/// For multi-field structs, you must specify which field to use with the `#[deref]` attribute.
 ///
 /// If you need [`DerefMut`] as well, consider using the other [derive] macro alongside
 /// this one.
 ///
 /// # Example
+///
+/// ## Tuple Structs
+///
+/// Using a single-field struct:
 ///
 /// ```
 /// use bevy_derive::Deref;
@@ -30,25 +38,82 @@ pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
 /// struct MyNewtype(String);
 ///
 /// let foo = MyNewtype(String::from("Hello"));
-/// assert_eq!(5, foo.len());
+/// assert_eq!("Hello", *foo);
+/// ```
+///
+/// Using a multi-field struct:
+///
+/// ```
+/// # use std::marker::PhantomData;
+/// use bevy_derive::Deref;
+///
+/// #[derive(Deref)]
+/// struct MyStruct<T>(#[deref] String, PhantomData<T>);
+///
+/// let foo = MyStruct(String::from("Hello"), PhantomData::<usize>);
+/// assert_eq!("Hello", *foo);
+/// ```
+///
+/// ## Named Structs
+///
+/// Using a single-field struct:
+///
+/// ```
+/// use bevy_derive::{Deref, DerefMut};
+///
+/// #[derive(Deref, DerefMut)]
+/// struct MyStruct {
+///   value: String,
+/// }
+///
+/// let foo = MyStruct {
+///   value: String::from("Hello")
+/// };
+/// assert_eq!("Hello", *foo);
+/// ```
+///
+/// Using a multi-field struct:
+///
+/// ```
+/// # use std::marker::PhantomData;
+/// use bevy_derive::{Deref, DerefMut};
+///
+/// #[derive(Deref, DerefMut)]
+/// struct MyStruct<T> {
+///   #[deref]
+///   value: String,
+///   _phantom: PhantomData<T>,
+/// }
+///
+/// let foo = MyStruct {
+///   value:String::from("Hello"),
+///   _phantom:PhantomData::<usize>
+/// };
+/// assert_eq!("Hello", *foo);
 /// ```
 ///
 /// [`Deref`]: std::ops::Deref
 /// [newtype]: https://doc.rust-lang.org/rust-by-example/generics/new_types.html
 /// [`DerefMut`]: std::ops::DerefMut
 /// [derive]: crate::derive_deref_mut
-#[proc_macro_derive(Deref)]
+#[proc_macro_derive(Deref, attributes(deref))]
 pub fn derive_deref(input: TokenStream) -> TokenStream {
     derefs::derive_deref(input)
 }
 
-/// Implements [`DerefMut`] for _single-item_ structs. This is especially useful when
-/// utilizing the [newtype] pattern.
+/// Implements [`DerefMut`] for structs. This is especially useful when utilizing the [newtype] pattern.
+///
+/// For single-field structs, the implementation automatically uses that field.
+/// For multi-field structs, you must specify which field to use with the `#[deref]` attribute.
 ///
 /// [`DerefMut`] requires a [`Deref`] implementation. You can implement it manually or use
 /// Bevy's [derive] macro for convenience.
 ///
 /// # Example
+///
+/// ## Tuple Structs
+///
+/// Using a single-field struct:
 ///
 /// ```
 /// use bevy_derive::{Deref, DerefMut};
@@ -61,11 +126,65 @@ pub fn derive_deref(input: TokenStream) -> TokenStream {
 /// assert_eq!("Hello World!", *foo);
 /// ```
 ///
+/// Using a multi-field struct:
+///
+/// ```
+/// # use std::marker::PhantomData;
+/// use bevy_derive::{Deref, DerefMut};
+///
+/// #[derive(Deref, DerefMut)]
+/// struct MyStruct<T>(#[deref] String, PhantomData<T>);
+///
+/// let mut foo = MyStruct(String::from("Hello"), PhantomData::<usize>);
+/// foo.push_str(" World!");
+/// assert_eq!("Hello World!", *foo);
+/// ```
+///
+/// ## Named Structs
+///
+/// Using a single-field struct:
+///
+/// ```
+/// use bevy_derive::{Deref, DerefMut};
+///
+/// #[derive(Deref, DerefMut)]
+/// struct MyStruct {
+///   value: String,
+/// }
+///
+/// let mut foo = MyStruct {
+///   value: String::from("Hello")
+/// };
+/// foo.push_str(" World!");
+/// assert_eq!("Hello World!", *foo);
+/// ```
+///
+/// Using a multi-field struct:
+///
+/// ```
+/// # use std::marker::PhantomData;
+/// use bevy_derive::{Deref, DerefMut};
+///
+/// #[derive(Deref, DerefMut)]
+/// struct MyStruct<T> {
+///   #[deref]
+///   value: String,
+///   _phantom: PhantomData<T>,
+/// }
+///
+/// let mut foo = MyStruct {
+///   value:String::from("Hello"),
+///   _phantom:PhantomData::<usize>
+/// };
+/// foo.push_str(" World!");
+/// assert_eq!("Hello World!", *foo);
+/// ```
+///
 /// [`DerefMut`]: std::ops::DerefMut
 /// [newtype]: https://doc.rust-lang.org/rust-by-example/generics/new_types.html
 /// [`Deref`]: std::ops::Deref
 /// [derive]: crate::derive_deref
-#[proc_macro_derive(DerefMut)]
+#[proc_macro_derive(DerefMut, attributes(deref))]
 pub fn derive_deref_mut(input: TokenStream) -> TokenStream {
     derefs::derive_deref_mut(input)
 }

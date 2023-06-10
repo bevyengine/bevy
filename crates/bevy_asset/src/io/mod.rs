@@ -25,6 +25,8 @@ use std::{
 };
 use thiserror::Error;
 
+use crate::ChangeWatcher;
+
 /// Errors that occur while loading assets.
 #[derive(Error, Debug)]
 pub enum AssetIoError {
@@ -67,7 +69,7 @@ pub trait AssetIo: Downcast + Send + Sync + 'static {
 
     /// Tells the asset I/O to watch for changes recursively at the provided path.
     ///
-    /// No-op if `watch_for_changes` hasn't been called yet.
+    /// No-op if [`watch_for_changes`](AssetIo::watch_for_changes) hasn't been called yet.
     /// Otherwise triggers a reload each time `to_watch` changes.
     /// In most cases the asset found at the watched path should be changed,
     /// but when an asset depends on data at another path, the asset's path
@@ -81,7 +83,7 @@ pub trait AssetIo: Downcast + Send + Sync + 'static {
     ) -> Result<(), AssetIoError>;
 
     /// Enables change tracking in this asset I/O.
-    fn watch_for_changes(&self) -> Result<(), AssetIoError>;
+    fn watch_for_changes(&self, configuration: &ChangeWatcher) -> Result<(), AssetIoError>;
 
     /// Returns `true` if the path is a directory.
     fn is_dir(&self, path: &Path) -> bool {
