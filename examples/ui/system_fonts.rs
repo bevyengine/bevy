@@ -17,7 +17,7 @@ fn setup(mut commands: Commands, mut text_pipeline: ResMut<TextPipeline>) {
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
-        font_size: 50.0,
+        font_size: 42.0,
         color: Color::WHITE,
         ..default()
     };
@@ -25,7 +25,7 @@ fn setup(mut commands: Commands, mut text_pipeline: ResMut<TextPipeline>) {
 
     // the default font is sans-serif
     sections.push(TextSection {
-        value: "Default font\n".to_string(),
+        value: "(The default font)\n".to_string(),
         style: TextStyle {
             font: FontQuery::default().into(),
             ..text_style
@@ -84,7 +84,7 @@ fn setup(mut commands: Commands, mut text_pipeline: ResMut<TextPipeline>) {
         "Impact",
         "Courier New",
         "Times New Roman",
-        "A fallback font for fonts that can't be found",
+        "(A fallback when not found)",
     ] {
         sections.push(TextSection {
             value: family.to_string() + "\n",
@@ -94,5 +94,24 @@ fn setup(mut commands: Commands, mut text_pipeline: ResMut<TextPipeline>) {
             },
         })
     }
+
+    // bidirectional text
+    sections.push(TextSection {
+        value: "We can even render اللغة العربية and\n".to_string(),
+        style: TextStyle {
+            font: FontQuery::serif().into(),
+            ..text_style
+        },
+    });
+
+    // and emojis
+    sections.push(TextSection {
+        value: "emojis: 🐣🐤🐥🐔🐓🦃🐦🐧🕊️🦅🦆🦢🦉🦩🦚🦜\n".to_string(),
+        style: TextStyle {
+            font: FontQuery::cursive().into(),
+            ..text_style
+        },
+    });
+
     commands.spawn(TextBundle::from_sections(sections));
 }
