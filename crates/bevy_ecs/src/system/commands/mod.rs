@@ -50,11 +50,11 @@ pub trait Command: Send + 'static {
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
-/// when the [`apply_system_buffers`] system runs.
+/// when the [`apply_deferred`] system runs.
 ///
 /// The command queue of an individual system can also be manually applied
-/// by calling [`System::apply_buffers`].
-/// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_system_buffers`].
+/// by calling [`System::apply_deferred`].
+/// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_deferred`].
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
@@ -68,7 +68,7 @@ pub trait Command: Send + 'static {
 ///
 /// # Usage
 ///
-/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_system_buffers`] runs.
+/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_deferred`] runs.
 /// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
@@ -100,9 +100,9 @@ pub trait Command: Send + 'static {
 /// # }
 /// ```
 ///
-/// [`System::apply_buffers`]: crate::system::System::apply_buffers
-/// [`apply_system_buffers`]: crate::schedule::apply_system_buffers
-/// [`Schedule::apply_system_buffers`]: crate::schedule::Schedule::apply_system_buffers
+/// [`System::apply_deferred`]: crate::system::System::apply_deferred
+/// [`apply_deferred`]: crate::schedule::apply_deferred
+/// [`Schedule::apply_deferred`]: crate::schedule::Schedule::apply_deferred
 #[derive(SystemParam)]
 pub struct Commands<'w, 's> {
     queue: Deferred<'s, CommandQueue>,
@@ -200,7 +200,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
     pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
-        self.add(GetOrSpawn { entity });
+        self.add(move |world: &mut World| {
+            world.get_or_spawn(entity);
+        });
         EntityCommands {
             entity,
             commands: self,
@@ -839,8 +841,10 @@ where
     }
 }
 
+/// A [`Command`] that spawns a new entity and adds the components in a [`Bundle`] to it.
 #[derive(Debug)]
 pub struct Spawn<T> {
+    /// The [`Bundle`] of components that will be added to the newly-spawned entity.
     pub bundle: T,
 }
 
@@ -850,16 +854,6 @@ where
 {
     fn write(self, world: &mut World) {
         world.spawn(self.bundle);
-    }
-}
-
-pub struct GetOrSpawn {
-    entity: Entity,
-}
-
-impl Command for GetOrSpawn {
-    fn write(self, world: &mut World) {
-        world.get_or_spawn(self.entity);
     }
 }
 
@@ -907,6 +901,7 @@ where
     }
 }
 
+/// A [`Command`] that despawns a specific entity.
 #[derive(Debug)]
 pub struct Despawn {
     pub entity: Entity,
@@ -918,8 +913,11 @@ impl Command for Despawn {
     }
 }
 
+/// A [`Command`] that adds the components in a [`Bundle`] to an entity.
 pub struct Insert<T> {
+    /// The entity to which the components will be added.
     pub entity: Entity,
+    /// The [`Bundle`] containing the components that will be added to the entity.
     pub bundle: T,
 }
 
@@ -936,10 +934,13 @@ where
     }
 }
 
+/// A [`Command`] that removes components from an entity.
+/// For a [`Bundle`] type `T`, this will remove any components in the bundle.
+/// Any components in the bundle that aren't found on the entity will be ignored.
 #[derive(Debug)]
 pub struct Remove<T> {
     pub entity: Entity,
-    pub phantom: PhantomData<T>,
+    _marker: PhantomData<T>,
 }
 
 impl<T> Command for Remove<T>
@@ -954,17 +955,19 @@ where
 }
 
 impl<T> Remove<T> {
-    /// Creates a [`Command`] which will remove the specified [`Entity`] when flushed
+    /// Creates a [`Command`] which will remove the specified [`Entity`] when applied.
     pub const fn new(entity: Entity) -> Self {
         Self {
             entity,
-            phantom: PhantomData::<T>,
+            _marker: PhantomData,
         }
     }
 }
 
+/// A [`Command`] that inserts a [`Resource`] into the world using a value
+/// created with the [`FromWorld`] trait.
 pub struct InitResource<R: Resource + FromWorld> {
-    _phantom: PhantomData<R>,
+    _marker: PhantomData<R>,
 }
 
 impl<R: Resource + FromWorld> Command for InitResource<R> {
@@ -977,11 +980,12 @@ impl<R: Resource + FromWorld> InitResource<R> {
     /// Creates a [`Command`] which will insert a default created [`Resource`] into the [`World`]
     pub const fn new() -> Self {
         Self {
-            _phantom: PhantomData::<R>,
+            _marker: PhantomData,
         }
     }
 }
 
+/// A [`Command`] that inserts a [`Resource`] into the world.
 pub struct InsertResource<R: Resource> {
     pub resource: R,
 }
@@ -992,8 +996,9 @@ impl<R: Resource> Command for InsertResource<R> {
     }
 }
 
+/// A [`Command`] that removes the [resource](Resource) `R` from the world.
 pub struct RemoveResource<R: Resource> {
-    pub phantom: PhantomData<R>,
+    _marker: PhantomData<R>,
 }
 
 impl<R: Resource> Command for RemoveResource<R> {
@@ -1006,7 +1011,7 @@ impl<R: Resource> RemoveResource<R> {
     /// Creates a [`Command`] which will remove a [`Resource`] from the [`World`]
     pub const fn new() -> Self {
         Self {
-            phantom: PhantomData::<R>,
+            _marker: PhantomData,
         }
     }
 }

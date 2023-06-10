@@ -6,10 +6,8 @@ use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_reflect::Reflect;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
-use bevy_transform::components::GlobalTransform;
-use bevy_transform::TransformSystem;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
+use bevy_transform::{components::GlobalTransform, TransformSystem};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -30,7 +28,7 @@ use crate::{
 /// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
 /// `Visibility` to set the values of each entity's [`ComputedVisibility`] component.
 #[derive(Component, Clone, Copy, Reflect, FromReflect, Debug, PartialEq, Eq, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, FromReflect)]
 pub enum Visibility {
     /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
     ///
@@ -63,12 +61,14 @@ impl std::cmp::PartialEq<&Visibility> for Visibility {
 }
 
 bitflags::bitflags! {
-    #[derive(Reflect)]
+    #[derive(Clone, Debug, Eq, PartialEq)]
     pub(super) struct ComputedVisibilityFlags: u8 {
         const VISIBLE_IN_VIEW = 1 << 0;
         const VISIBLE_IN_HIERARCHY = 1 << 1;
     }
 }
+bevy_reflect::impl_reflect_value!((in bevy_render::view) ComputedVisibilityFlags);
+bevy_reflect::impl_from_reflect_value!(ComputedVisibilityFlags);
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
 #[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
@@ -95,7 +95,7 @@ impl ComputedVisibility {
     /// Reading it during [`Update`](bevy_app::Update) will yield the value from the previous frame.
     #[inline]
     pub fn is_visible(&self) -> bool {
-        self.flags.bits == ComputedVisibilityFlags::all().bits
+        self.flags.bits() == ComputedVisibilityFlags::all().bits()
     }
 
     /// Whether this entity is visible in the entity hierarchy, which is determined by the [`Visibility`] component.
@@ -155,7 +155,8 @@ pub struct VisibilityBundle {
 }
 
 /// Use this component to opt-out of built-in frustum culling for Mesh entities
-#[derive(Component)]
+#[derive(Component, Default, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct NoFrustumCulling;
 
 /// Collection of entities visible from the current view.
@@ -212,10 +213,7 @@ impl Plugin for VisibilityPlugin {
 
         app
             // We add an AABB component in CalculateBounds, which must be ready on the same frame.
-            .add_systems(
-                PostUpdate,
-                apply_system_buffers.in_set(CalculateBoundsFlush),
-            )
+            .add_systems(PostUpdate, apply_deferred.in_set(CalculateBoundsFlush))
             .configure_set(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
             .add_systems(
                 PostUpdate,

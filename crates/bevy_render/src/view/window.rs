@@ -123,7 +123,7 @@ fn extract_windows(
             window.resolution.physical_height().max(1),
         );
 
-        let mut extracted_window = extracted_windows.entry(entity).or_insert(ExtractedWindow {
+        let extracted_window = extracted_windows.entry(entity).or_insert(ExtractedWindow {
             entity,
             handle: handle.clone(),
             physical_width: new_width,
@@ -377,7 +377,7 @@ pub fn prepare_windows(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: surface_configuration.format,
+                format: surface_configuration.format.add_srgb_suffix(),
                 usage: TextureUsages::RENDER_ATTACHMENT
                     | TextureUsages::COPY_SRC
                     | TextureUsages::TEXTURE_BINDING,

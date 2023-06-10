@@ -1,13 +1,16 @@
 use bevy_ecs::prelude::*;
 
-pub struct Benchmark<const SIZE: usize>(Events<[u8; SIZE]>);
+#[derive(Event)]
+struct BenchEvent<const SIZE: usize>([u8; SIZE]);
+
+pub struct Benchmark<const SIZE: usize>(Events<BenchEvent<SIZE>>);
 
 impl<const SIZE: usize> Benchmark<SIZE> {
     pub fn new(count: usize) -> Self {
         let mut events = Events::default();
 
         for _ in 0..count {
-            events.send([0u8; SIZE]);
+            events.send(BenchEvent([0u8; SIZE]));
         }
 
         Self(events)

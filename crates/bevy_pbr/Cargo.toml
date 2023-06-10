@@ -26,7 +26,7 @@ bevy_window = { path = "../bevy_window", version = "0.11.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.11.0-dev" }
 
 # other
-bitflags = "1.2"
+bitflags = "2.3"
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive"] }
 radsort = "0.1"

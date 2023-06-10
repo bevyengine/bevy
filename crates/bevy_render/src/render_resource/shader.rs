@@ -1,7 +1,7 @@
 use super::ShaderDefVal;
 use crate::define_atomic_id;
 use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
 #[cfg(feature = "shader_format_glsl")]
 use naga::back::wgsl::WriterFlags;
@@ -31,7 +31,7 @@ pub enum ShaderReflectError {
 }
 /// A shader, as defined by its [`ShaderSource`] and [`ShaderStage`](naga::ShaderStage)
 /// This is an "unprocessed" shader. It can contain preprocessor directives.
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "d95bc916-6c55-4de3-9622-37e7b6969fda"]
 pub struct Shader {
     source: Source,

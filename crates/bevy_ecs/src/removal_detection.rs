@@ -4,7 +4,9 @@ use crate::{
     self as bevy_ecs,
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
-    event::{EventId, Events, ManualEventIterator, ManualEventIteratorWithId, ManualEventReader},
+    event::{
+        Event, EventId, Events, ManualEventIterator, ManualEventIteratorWithId, ManualEventReader,
+    },
     prelude::Local,
     storage::SparseSet,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam},
@@ -21,7 +23,7 @@ use std::{
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
 /// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
-#[derive(Debug, Clone)]
+#[derive(Event, Debug, Clone)]
 pub struct RemovedComponentEntity(Entity);
 
 impl From<RemovedComponentEntity> for Entity {

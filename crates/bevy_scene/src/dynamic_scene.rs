@@ -8,7 +8,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
+use bevy_reflect::{Reflect, TypePath, TypeRegistryArc, TypeUuid};
 use bevy_utils::HashMap;
 
 #[cfg(feature = "serialize")]
@@ -26,7 +26,7 @@ use serde::Serialize;
 /// * adding the [`Handle<DynamicScene>`](bevy_asset::Handle) to an entity (the scene will only be
 /// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
-#[derive(Default, TypeUuid)]
+#[derive(Default, TypeUuid, TypePath)]
 #[uuid = "749479b1-fb8c-4ff8-a775-623aa76014f5"]
 pub struct DynamicScene {
     pub resources: Vec<Box<dyn Reflect>>,

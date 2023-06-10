@@ -2,8 +2,12 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
+use bevy_reflect_derive::impl_type_path;
+
 use crate::utility::reflect_hasher;
-use crate::{FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
+use crate::{
+    self as bevy_reflect, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+};
 
 /// A trait used to power [list-like] operations via [reflection].
 ///
@@ -351,6 +355,8 @@ impl Reflect for DynamicList {
         true
     }
 }
+
+impl_type_path!((in bevy_reflect) DynamicList);
 
 impl Debug for DynamicList {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
