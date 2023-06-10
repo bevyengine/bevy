@@ -1,4 +1,4 @@
-use crate::IVec2;
+use crate::{IVec2, Rect, URect};
 
 /// A rectangle defined by two opposite corners.
 ///
@@ -319,6 +319,28 @@ impl IRect {
         // height() never return a negative value.
         r.min = r.min.min(r.max);
         r
+    }
+
+    /// Returns self as [`Rect`] (f32)
+    #[inline]
+    pub fn as_rect(&self) -> Rect {
+        Rect::new(
+            self.min.x as f32,
+            self.min.y as f32,
+            self.max.x as f32,
+            self.max.y as f32,
+        )
+    }
+
+    /// Returns self as [`URect`] (u32)
+    #[inline]
+    pub fn as_urect(&self) -> URect {
+        URect::new(
+            self.min.x as u32,
+            self.min.y as u32,
+            self.max.x as u32,
+            self.max.y as u32,
+        )
     }
 }
 
