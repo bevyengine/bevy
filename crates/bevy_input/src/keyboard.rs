@@ -1,5 +1,9 @@
 use crate::{ButtonState, Input};
-use bevy_ecs::{change_detection::DetectChangesMut, event::EventReader, system::ResMut};
+use bevy_ecs::{
+    change_detection::DetectChangesMut,
+    event::{Event, EventReader},
+    system::ResMut,
+};
 use bevy_reflect::{FromReflect, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -14,7 +18,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",

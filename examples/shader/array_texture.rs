@@ -1,7 +1,7 @@
 use bevy::{
     asset::LoadState,
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
@@ -89,7 +89,7 @@ fn create_array_texture(
     }
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "9c5a0ddf-1eaf-41b4-9832-ed736fd26af3"]
 struct ArrayTextureMaterial {
     #[texture(0, dimension = "2d_array")]
