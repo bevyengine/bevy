@@ -18,14 +18,12 @@ use crate::{
     TextAlignment, TextSection, TextSettings, YAxisOrientation,
 };
 
-// TODO: introduce FontQuery enum instead of Handle<Font>
 // TODO: cache buffers / store buffers on the entity
 // TODO: reconstruct byte indices
 // TODO: rescale font sizes in all examples
 // TODO: fix any broken examples
-// TODO: solve spans with different font sizes
+// TODO: solve spans with different font sizes, see https://github.com/pop-os/cosmic-text/issues/64
 // TODO: (future work) split text entities into section entities
-// TODO: (future work) support emojis
 // TODO: (future work) text editing
 // TODO: font validation
 
@@ -108,7 +106,7 @@ impl TextPipeline {
 
         buffer.lines.clear();
         let mut attrs_list = AttrsList::new(Attrs::new());
-        let mut line_text = String::new();
+        let mut line_string = String::new();
         // all sections need to be combined and broken up into lines
         // e.g.
         // style0"Lorem ipsum\ndolor sit amet,"
@@ -124,48 +122,75 @@ impl TextPipeline {
         // line3: style2"incididunt"
         //        style3"ut labore et dolore"
         // line4: style3"magna aliqua."
-        for (section_index, section) in sections.iter().enumerate() {
-            // We can't simply use `let mut lines = section.value.lines()` because
-            // `unicode-bidi` used by `cosmic_text` doesn't have the same newline behaviour: it breaks on `\r` for example.
-            // In example `font_atlas_debug`, eventually a `\r` character is inserted and there is a panic in shaping.
-            let mut lines = BidiParagraphs::new(&section.value);
 
-            // continue the current line, adding spans
-            if let Some(line) = lines.next() {
+        // combine all sections into a string
+        // as well as metadata that links those sections to that string
+        let mut end = 0;
+        let (string, sections_data): (String, Vec<_>) = sections
+            .iter()
+            .enumerate()
+            .map(|(section_index, section)| {
+                let start = end;
+                end += section.value.len();
+                (section.value.as_str(), (section, section_index, start..end))
+            })
+            .unzip();
+
+        let mut sections_iter = sections_data.into_iter();
+        let mut maybe_section = sections_iter.next();
+
+        // split the string into lines, as ranges
+        let string_start = string.as_ptr() as usize;
+        let mut lines_iter = BidiParagraphs::new(&string).map(|line: &str| {
+            let start = line.as_ptr() as usize - string_start;
+            let end = start + line.len();
+            start..end
+        });
+        let mut maybe_line = lines_iter.next();
+
+        loop {
+            let (Some(line_range), Some((section, section_index, section_range))) = (&maybe_line, &maybe_section) else {
+                // if there are no more lines or no more sections we're done.
+                buffer.lines.push(BufferLine::new(line_string, attrs_list));
+                break;
+            };
+
+            // start..end is the intersection of this line and this section
+            let start = line_range.start.max(section_range.start);
+            let end = line_range.end.min(section_range.end);
+            if start < end {
+                let text = &string[start..end];
                 add_span(
-                    &mut line_text,
+                    &mut line_string,
                     &mut attrs_list,
                     section,
-                    section_index,
-                    line,
+                    *section_index,
+                    text,
                     font_system,
                     &mut self.map_handle_to_font_id,
                     fonts,
                 );
             }
-            // for any remaining lines in this section
-            for line in lines {
+
+            // we know that at the end of a line,
+            // section text's end index is always >= line text's end index
+            // so if this section ends before this line ends,
+            // there is another section in this line.
+            // otherwise, we move on to the next line.
+            if section_range.end < line_range.end {
+                maybe_section = sections_iter.next();
+            } else {
                 // finalise this line and start a new line
                 let prev_attrs_list =
                     std::mem::replace(&mut attrs_list, AttrsList::new(Attrs::new()));
-                let prev_line_text = std::mem::take(&mut line_text);
+                let prev_line_string = std::mem::take(&mut line_string);
                 buffer
                     .lines
-                    .push(BufferLine::new(prev_line_text, prev_attrs_list));
-                add_span(
-                    &mut line_text,
-                    &mut attrs_list,
-                    section,
-                    section_index,
-                    line,
-                    font_system,
-                    &mut self.map_handle_to_font_id,
-                    fonts,
-                );
+                    .push(BufferLine::new(prev_line_string, prev_attrs_list));
+
+                maybe_line = lines_iter.next();
             }
         }
-        // finalise last line
-        buffer.lines.push(BufferLine::new(line_text, attrs_list));
 
         // node size (bounds) is already scaled by the systems that call queue_text
         // TODO: cosmic text does not shape/layout text outside the buffer height
@@ -197,10 +222,9 @@ impl TextPipeline {
     pub fn queue_text(
         &mut self,
         fonts: &Assets<Font>,
-        // TODO: TextSection should support referencing fonts via "Font Query" (Family, Stretch, Weight and Style)
         sections: &[TextSection],
         scale_factor: f64,
-        // TODO: Implement text alignment
+        // TODO: Implement text alignment properly
         text_alignment: TextAlignment,
         linebreak_behavior: BreakLineOn,
         bounds: Vec2,
@@ -439,18 +463,18 @@ impl TextMeasureInfo {
 /// loading fonts into the DB if required.
 #[allow(clippy::too_many_arguments)]
 fn add_span(
-    line_text: &mut String,
+    line_string: &mut String,
     attrs_list: &mut AttrsList,
     section: &TextSection,
     section_index: usize,
-    line: &str,
+    text: &str,
     font_system: &mut cosmic_text::FontSystem,
     map_handle_to_font_id: &mut HashMap<HandleId, cosmic_text::fontdb::ID>,
     fonts: &Assets<Font>,
 ) {
-    let start = line_text.len();
-    line_text.push_str(line);
-    let end = line_text.len();
+    let start = line_string.len();
+    line_string.push_str(text);
+    let end = line_string.len();
 
     let attrs = match section.style.font {
         FontRef::Asset(ref font_handle) => {
@@ -511,7 +535,7 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
         .map(|run| run.line_w)
         .reduce(|max_w, w| max_w.max(w))
         .unwrap();
-    // TODO: support multiple line heights / font sizes (once supported by cosmic text)
+    // TODO: support multiple line heights / font sizes (once supported by cosmic text), see https://github.com/pop-os/cosmic-text/issues/64
     let line_height = buffer.metrics().line_height.ceil();
     let height = buffer.layout_runs().count() as f32 * line_height;
 

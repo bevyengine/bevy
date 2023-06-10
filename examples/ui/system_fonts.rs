@@ -25,7 +25,7 @@ fn setup(mut commands: Commands, mut text_pipeline: ResMut<TextPipeline>) {
 
     // the default font is sans-serif
     sections.push(TextSection {
-        value: "Default font".into(),
+        value: "Default font\n".to_string(),
         style: TextStyle {
             font: FontQuery::default().into(),
             ..text_style
@@ -34,7 +34,7 @@ fn setup(mut commands: Commands, mut text_pipeline: ResMut<TextPipeline>) {
 
     // sans-serif
     sections.push(TextSection {
-        value: "\nsans-serif".into(),
+        value: "sans-serif\n".to_string(),
         style: TextStyle {
             font: FontQuery::sans_serif().into(),
             ..text_style
@@ -43,7 +43,7 @@ fn setup(mut commands: Commands, mut text_pipeline: ResMut<TextPipeline>) {
 
     // serif
     sections.push(TextSection {
-        value: "\nserif".into(),
+        value: "serif\n".to_string(),
         style: TextStyle {
             font: FontQuery::serif().into(),
             ..text_style
@@ -52,7 +52,7 @@ fn setup(mut commands: Commands, mut text_pipeline: ResMut<TextPipeline>) {
 
     // fantasy
     sections.push(TextSection {
-        value: "\nfantasy".into(),
+        value: "fantasy\n".to_string(),
         style: TextStyle {
             font: FontQuery::fantasy().into(),
             ..text_style
@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, mut text_pipeline: ResMut<TextPipeline>) {
 
     // cursive
     sections.push(TextSection {
-        value: "\ncursive".into(),
+        value: "cursive\n".to_string(),
         style: TextStyle {
             font: FontQuery::cursive().into(),
             ..text_style
@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, mut text_pipeline: ResMut<TextPipeline>) {
 
     // monospace
     sections.push(TextSection {
-        value: "\nmonospace".into(),
+        value: "monospace\n".to_string(),
         style: TextStyle {
             font: FontQuery::monospace().into(),
             ..text_style
@@ -87,7 +87,7 @@ fn setup(mut commands: Commands, mut text_pipeline: ResMut<TextPipeline>) {
         "A fallback font for fonts that can't be found",
     ] {
         sections.push(TextSection {
-            value: "\n".to_string() + family,
+            value: family.to_string() + "\n",
             style: TextStyle {
                 font: FontQuery::family(family).into(),
                 ..text_style
