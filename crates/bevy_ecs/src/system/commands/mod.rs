@@ -43,6 +43,7 @@ use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 /// }
 /// ```
 pub trait Command: Send + 'static {
+    /// Executes this command.
     fn write(self, world: &mut World);
 }
 
@@ -50,11 +51,11 @@ pub trait Command: Send + 'static {
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
-/// when the [`apply_system_buffers`] system runs.
+/// when the [`apply_deferred`] system runs.
 ///
 /// The command queue of an individual system can also be manually applied
-/// by calling [`System::apply_buffers`].
-/// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_system_buffers`].
+/// by calling [`System::apply_deferred`].
+/// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_deferred`].
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
@@ -62,9 +63,13 @@ pub trait Command: Send + 'static {
 /// * inserting resources
 /// * etc.
 ///
+/// For a version of [`Commands`] that works in parallel contexts (such as
+/// within [`Query::par_iter`](crate::system::Query::par_iter)) see
+/// [`ParallelCommands`]
+///
 /// # Usage
 ///
-/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_system_buffers`] runs.
+/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_deferred`] runs.
 /// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
@@ -96,9 +101,9 @@ pub trait Command: Send + 'static {
 /// # }
 /// ```
 ///
-/// [`System::apply_buffers`]: crate::system::System::apply_buffers
-/// [`apply_system_buffers`]: crate::schedule::apply_system_buffers
-/// [`Schedule::apply_system_buffers`]: crate::schedule::Schedule::apply_system_buffers
+/// [`System::apply_deferred`]: crate::system::System::apply_deferred
+/// [`apply_deferred`]: crate::schedule::apply_deferred
+/// [`Schedule::apply_deferred`]: crate::schedule::Schedule::apply_deferred
 #[derive(SystemParam)]
 pub struct Commands<'w, 's> {
     queue: Deferred<'s, CommandQueue>,
@@ -184,7 +189,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a [`Command`] to the queue for creating a new [`Entity`] if the given one does not exists,
     /// and returns its corresponding [`EntityCommands`].
     ///
-    /// This method silently fails by returning `EntityCommands`
+    /// This method silently fails by returning [`EntityCommands`]
     /// even if the given `Entity` cannot be spawned.
     ///
     /// See [`World::get_or_spawn`] for more details.
@@ -196,7 +201,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
     pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
-        self.add(GetOrSpawn { entity });
+        self.add(move |world: &mut World| {
+            world.get_or_spawn(entity);
+        });
         EntityCommands {
             entity,
             commands: self,
@@ -345,7 +352,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Pushes a [`Command`] to the queue for creating entities with a particular [`Bundle`] type.
     ///
-    /// `bundles_iter` is a type that can be converted into a `Bundle` iterator
+    /// `bundles_iter` is a type that can be converted into a [`Bundle`] iterator
     /// (it can also be a collection).
     ///
     /// This method is equivalent to iterating `bundles_iter`
@@ -444,9 +451,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
     /// ```
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        self.queue.push(InitResource::<R> {
-            _phantom: PhantomData::<R>::default(),
-        });
+        self.queue.push(InitResource::<R>::new());
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
@@ -499,9 +504,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn remove_resource<R: Resource>(&mut self) {
-        self.queue.push(RemoveResource::<R> {
-            phantom: PhantomData,
-        });
+        self.queue.push(RemoveResource::<R>::new());
     }
 
     /// Pushes a generic [`Command`] to the command queue.
@@ -582,9 +585,9 @@ impl<'w, 's> Commands<'w, 's> {
 /// # world.init_resource::<Counter>();
 /// #
 /// # let mut setup_schedule = Schedule::new();
-/// # setup_schedule.add_system(setup);
+/// # setup_schedule.add_systems(setup);
 /// # let mut assert_schedule = Schedule::new();
-/// # assert_schedule.add_system(assert_names);
+/// # assert_schedule.add_systems(assert_names);
 /// #
 /// # setup_schedule.run(&mut world);
 /// # assert_schedule.run(&mut world);
@@ -601,6 +604,7 @@ impl<'w, 's> Commands<'w, 's> {
 /// }
 /// ```
 pub trait EntityCommand: Send + 'static {
+    /// Executes this command for the given [`Entity`].
     fn write(self, id: Entity, world: &mut World);
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
     fn with_entity(self, id: Entity) -> WithEntity<Self>
@@ -748,10 +752,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     where
         T: Bundle,
     {
-        self.commands.add(Remove::<T> {
-            entity: self.entity,
-            phantom: PhantomData,
-        });
+        self.commands.add(Remove::<T>::new(self.entity));
         self
     }
 
@@ -842,8 +843,10 @@ where
     }
 }
 
+/// A [`Command`] that spawns a new entity and adds the components in a [`Bundle`] to it.
 #[derive(Debug)]
 pub struct Spawn<T> {
+    /// The [`Bundle`] of components that will be added to the newly-spawned entity.
     pub bundle: T,
 }
 
@@ -856,21 +859,15 @@ where
     }
 }
 
-pub struct GetOrSpawn {
-    entity: Entity,
-}
-
-impl Command for GetOrSpawn {
-    fn write(self, world: &mut World) {
-        world.get_or_spawn(self.entity);
-    }
-}
-
+/// A [`Command`] that consumes an iterator of [`Bundle`]s to spawn a series of entities.
+///
+/// This is more efficient than spawning the entities individually.
 pub struct SpawnBatch<I>
 where
     I: IntoIterator,
     I::Item: Bundle,
 {
+    /// The iterator that returns the [`Bundle`]s which will be added to each newly-spawned entity.
     pub bundles_iter: I,
 }
 
@@ -884,12 +881,17 @@ where
     }
 }
 
+/// A [`Command`] that consumes an iterator to add a series of [`Bundle`]s to a set of entities.
+/// If any entities do not already exist in the world, they will be spawned.
+///
+/// This is more efficient than inserting the bundles individually.
 pub struct InsertOrSpawnBatch<I, B>
 where
     I: IntoIterator + Send + Sync + 'static,
     B: Bundle,
     I::IntoIter: Iterator<Item = (Entity, B)>,
 {
+    /// The iterator that returns each [entity ID](Entity) and corresponding [`Bundle`].
     pub bundles_iter: I,
 }
 
@@ -910,8 +912,11 @@ where
     }
 }
 
+/// A [`Command`] that despawns a specific entity.
+/// This will emit a warning if the entity does not exist.
 #[derive(Debug)]
 pub struct Despawn {
+    /// The entity that will be despawned.
     pub entity: Entity,
 }
 
@@ -921,8 +926,11 @@ impl Command for Despawn {
     }
 }
 
+/// A [`Command`] that adds the components in a [`Bundle`] to an entity.
 pub struct Insert<T> {
+    /// The entity to which the components will be added.
     pub entity: Entity,
+    /// The [`Bundle`] containing the components that will be added to the entity.
     pub bundle: T,
 }
 
@@ -939,10 +947,14 @@ where
     }
 }
 
+/// A [`Command`] that removes components from an entity.
+/// For a [`Bundle`] type `T`, this will remove any components in the bundle.
+/// Any components in the bundle that aren't found on the entity will be ignored.
 #[derive(Debug)]
 pub struct Remove<T> {
+    /// The entity from which the components will be removed.
     pub entity: Entity,
-    pub phantom: PhantomData<T>,
+    _marker: PhantomData<T>,
 }
 
 impl<T> Command for Remove<T>
@@ -956,8 +968,20 @@ where
     }
 }
 
+impl<T> Remove<T> {
+    /// Creates a [`Command`] which will remove the specified [`Entity`] when applied.
+    pub const fn new(entity: Entity) -> Self {
+        Self {
+            entity,
+            _marker: PhantomData,
+        }
+    }
+}
+
+/// A [`Command`] that inserts a [`Resource`] into the world using a value
+/// created with the [`FromWorld`] trait.
 pub struct InitResource<R: Resource + FromWorld> {
-    _phantom: PhantomData<R>,
+    _marker: PhantomData<R>,
 }
 
 impl<R: Resource + FromWorld> Command for InitResource<R> {
@@ -966,7 +990,18 @@ impl<R: Resource + FromWorld> Command for InitResource<R> {
     }
 }
 
+impl<R: Resource + FromWorld> InitResource<R> {
+    /// Creates a [`Command`] which will insert a default created [`Resource`] into the [`World`]
+    pub const fn new() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
+
+/// A [`Command`] that inserts a [`Resource`] into the world.
 pub struct InsertResource<R: Resource> {
+    /// The resource that will be added to the world.
     pub resource: R,
 }
 
@@ -976,13 +1011,23 @@ impl<R: Resource> Command for InsertResource<R> {
     }
 }
 
+/// A [`Command`] that removes the [resource](Resource) `R` from the world.
 pub struct RemoveResource<R: Resource> {
-    pub phantom: PhantomData<R>,
+    _marker: PhantomData<R>,
 }
 
 impl<R: Resource> Command for RemoveResource<R> {
     fn write(self, world: &mut World) {
         world.remove_resource::<R>();
+    }
+}
+
+impl<R: Resource> RemoveResource<R> {
+    /// Creates a [`Command`] which will remove a [`Resource`] from the [`World`]
+    pub const fn new() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
     }
 }
 

@@ -1,0 +1,15 @@
+error: Deref cannot be derived on field-less structs
+ --> tests/deref_derive/invalid_item.fail.rs:3:10
+  |
+3 | #[derive(Deref)]
+  |          ^^^^^
+  |
+  = note: this error originates in the derive macro `Deref` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: Deref can only be derived on structs
+ --> tests/deref_derive/invalid_item.fail.rs:6:10
+  |
+6 | #[derive(Deref)]
+  |          ^^^^^
+  |
+  = note: this error originates in the derive macro `Deref` (in Nightly builds, run with -Z macro-backtrace for more info)

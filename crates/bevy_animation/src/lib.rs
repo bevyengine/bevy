@@ -1,11 +1,12 @@
 //! Animation for the game engine Bevy
 
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 use std::ops::Deref;
 use std::time::Duration;
 
-use bevy_app::{App, CoreSet, Plugin};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::prelude::*;
@@ -314,7 +315,7 @@ fn find_bone(
     Some(current_entity)
 }
 
-/// Verify that there are no ancestors of a given entity that have an `AnimationPlayer`.
+/// Verify that there are no ancestors of a given entity that have an [`AnimationPlayer`].
 fn verify_no_ancestor_player(
     player_parent: Option<&Parent>,
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
@@ -543,17 +544,16 @@ fn update_transitions(player: &mut AnimationPlayer, time: &Time) {
 
 /// Adds animation support to an app
 #[derive(Default)]
-pub struct AnimationPlugin {}
+pub struct AnimationPlugin;
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
-            .add_system(
-                animation_player
-                    .in_base_set(CoreSet::PostUpdate)
-                    .before(TransformSystem::TransformPropagate),
+            .add_systems(
+                PostUpdate,
+                animation_player.before(TransformSystem::TransformPropagate),
             );
     }
 }

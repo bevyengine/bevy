@@ -9,6 +9,7 @@
 //! [asset storage]: struct.Assets.html
 
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 mod asset_server;
 mod assets;
@@ -46,17 +47,39 @@ pub use loader::*;
 pub use path::*;
 pub use reflect::*;
 
-use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
+use bevy_app::{prelude::*, MainScheduleOrder};
+use bevy_ecs::schedule::ScheduleLabel;
+use bevy_utils::Duration;
 
-/// [`SystemSet`]s for asset loading in an [`App`] schedule.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-#[system_set(base)]
-pub enum AssetSet {
-    /// Asset storages are updated.
-    LoadAssets,
-    /// Asset events are generated.
-    AssetEvents,
+/// Asset storages are updated.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
+pub struct LoadAssets;
+/// Asset events are generated.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
+pub struct AssetEvents;
+
+/// Configuration for hot reloading assets by watching for changes.
+#[derive(Debug, Clone)]
+pub struct ChangeWatcher {
+    /// Minimum delay after which a file change will trigger a reload.
+    ///
+    /// The change watcher will wait for this duration after a file change before reloading the
+    /// asset. This is useful to avoid reloading an asset multiple times when it is changed
+    /// multiple times in a short period of time, or to avoid reloading an asset that is still
+    /// being written to.
+    ///
+    /// If you have a slow hard drive or expect to reload large assets, you may want to increase
+    /// this value.
+    pub delay: Duration,
+}
+
+impl ChangeWatcher {
+    /// Enable change watching with the given delay when a file is changed.
+    ///
+    /// See [`Self::delay`] for more details on how this value is used.
+    pub fn with_delay(delay: Duration) -> Option<Self> {
+        Some(Self { delay })
+    }
 }
 
 /// Adds support for [`Assets`] to an App.
@@ -69,26 +92,26 @@ pub struct AssetPlugin {
     pub asset_folder: String,
     /// Whether to watch for changes in asset files. Requires the `filesystem_watcher` feature,
     /// and cannot be supported on the wasm32 arch nor android os.
-    pub watch_for_changes: bool,
+    pub watch_for_changes: Option<ChangeWatcher>,
 }
 
 impl Default for AssetPlugin {
     fn default() -> Self {
         Self {
             asset_folder: "assets".to_string(),
-            watch_for_changes: false,
+            watch_for_changes: None,
         }
     }
 }
 
 impl AssetPlugin {
-    /// Creates an instance of the platform's default `AssetIo`.
+    /// Creates an instance of the platform's default [`AssetIo`].
     ///
     /// This is useful when providing a custom `AssetIo` instance that needs to
     /// delegate to the default `AssetIo` for the platform.
     pub fn create_platform_default_asset_io(&self) -> Box<dyn AssetIo> {
         #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-        let source = FileAssetIo::new(&self.asset_folder, self.watch_for_changes);
+        let source = FileAssetIo::new(&self.asset_folder, &self.watch_for_changes);
         #[cfg(target_arch = "wasm32")]
         let source = WasmAssetIo::new(&self.asset_folder);
         #[cfg(target_os = "android")]
@@ -107,23 +130,20 @@ impl Plugin for AssetPlugin {
         }
 
         app.register_type::<HandleId>();
+        app.register_type::<AssetPath>();
 
-        app.configure_set(
-            AssetSet::LoadAssets
-                .before(CoreSet::PreUpdate)
-                .after(CoreSet::First),
-        )
-        .configure_set(
-            AssetSet::AssetEvents
-                .after(CoreSet::PostUpdate)
-                .before(CoreSet::Last),
-        )
-        .add_system(asset_server::free_unused_assets_system.in_base_set(CoreSet::PreUpdate));
+        app.add_systems(PreUpdate, asset_server::free_unused_assets_system);
+        app.init_schedule(LoadAssets);
+        app.init_schedule(AssetEvents);
 
         #[cfg(all(
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system(io::filesystem_watcher_system.in_base_set(AssetSet::LoadAssets));
+        app.add_systems(LoadAssets, io::filesystem_watcher_system);
+
+        let mut order = app.world.resource_mut::<MainScheduleOrder>();
+        order.insert_after(First, LoadAssets);
+        order.insert_after(PostUpdate, AssetEvents);
     }
 }

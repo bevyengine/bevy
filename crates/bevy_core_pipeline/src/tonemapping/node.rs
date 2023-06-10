@@ -2,76 +2,51 @@ use std::sync::Mutex;
 
 use crate::tonemapping::{TonemappingLuts, TonemappingPipeline, ViewTonemappingPipeline};
 
-use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryState;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, LoadOp, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
-        TextureViewId,
+        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, BufferId, LoadOp,
+        Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
+        SamplerDescriptor, TextureViewId,
     },
     renderer::RenderContext,
     texture::Image,
-    view::{ExtractedView, ViewTarget, ViewUniformOffset, ViewUniforms},
+    view::{ViewTarget, ViewUniformOffset, ViewUniforms},
 };
 
 use super::{get_lut_bindings, Tonemapping};
 
+#[derive(Default)]
 pub struct TonemappingNode {
-    query: QueryState<
-        (
-            &'static ViewUniformOffset,
-            &'static ViewTarget,
-            &'static ViewTonemappingPipeline,
-            &'static Tonemapping,
-        ),
-        With<ExtractedView>,
-    >,
-    cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
+    cached_bind_group: Mutex<Option<(BufferId, TextureViewId, BindGroup)>>,
     last_tonemapping: Mutex<Option<Tonemapping>>,
 }
 
-impl TonemappingNode {
-    pub const IN_VIEW: &'static str = "view";
-
-    pub fn new(world: &mut World) -> Self {
-        Self {
-            query: QueryState::new(world),
-            cached_texture_bind_group: Mutex::new(None),
-            last_tonemapping: Mutex::new(None),
-        }
-    }
-}
-
-impl Node for TonemappingNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(TonemappingNode::IN_VIEW, SlotType::Entity)]
-    }
-
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
+impl ViewNode for TonemappingNode {
+    type ViewQuery = (
+        &'static ViewUniformOffset,
+        &'static ViewTarget,
+        &'static ViewTonemappingPipeline,
+        &'static Tonemapping,
+    );
 
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
+        (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping): QueryItem<
+            Self::ViewQuery,
+        >,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let pipeline_cache = world.resource::<PipelineCache>();
         let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
         let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
         let view_uniforms_resource = world.resource::<ViewUniforms>();
-        let view_uniforms = view_uniforms_resource.uniforms.binding().unwrap();
-
-        let (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) =
-            match self.query.get_manual(world, view_entity) {
-                Ok(result) => result,
-                Err(_) => return Ok(()),
-            };
+        let view_uniforms = &view_uniforms_resource.uniforms;
+        let view_uniforms_id = view_uniforms.buffer().unwrap().id();
 
         if !target.is_hdr() {
             return Ok(());
@@ -97,9 +72,15 @@ impl Node for TonemappingNode {
             *last_tonemapping = Some(*tonemapping);
         }
 
-        let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
+        let mut cached_bind_group = self.cached_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
-            Some((id, bind_group)) if source.id() == *id && !tonemapping_changed => bind_group,
+            Some((buffer_id, texture_id, bind_group))
+                if view_uniforms_id == *buffer_id
+                    && source.id() == *texture_id
+                    && !tonemapping_changed =>
+            {
+                bind_group
+            }
             cached_bind_group => {
                 let sampler = render_context
                     .render_device()
@@ -110,7 +91,7 @@ impl Node for TonemappingNode {
                 let mut entries = vec![
                     BindGroupEntry {
                         binding: 0,
-                        resource: view_uniforms.clone(),
+                        resource: view_uniforms.binding().unwrap(),
                     },
                     BindGroupEntry {
                         binding: 1,
@@ -138,7 +119,8 @@ impl Node for TonemappingNode {
                             entries: &entries,
                         });
 
-                let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
+                let (_, _, bind_group) =
+                    cached_bind_group.insert((view_uniforms_id, source.id(), bind_group));
                 bind_group
             }
         };
