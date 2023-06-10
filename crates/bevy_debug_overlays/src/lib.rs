@@ -15,7 +15,7 @@ use bevy_text::{Text, TextSection, TextStyle};
 use bevy_time::common_conditions::on_timer;
 use bevy_ui::{
     prelude::{NodeBundle, TextBundle},
-    AlignItems, FlexDirection, Size, Style, UiRect, Val,
+    AlignItems, FlexDirection, Style, UiRect, Val,
 };
 use bevy_utils::{default, Duration};
 use std::{env, fmt::Write};
@@ -79,7 +79,7 @@ fn setup_gpu_time_overlay(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::width(Val::Percent(100.0)),
+                width: Val::Percent(100.0),
                 align_items: AlignItems::Start,
                 ..default()
             },
