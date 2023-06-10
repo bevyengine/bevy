@@ -314,12 +314,12 @@ impl URect {
     pub fn inset(&self, inset: i32) -> Self {
         let mut r = Self {
             min: UVec2::new(
-                self.min.x.checked_add_signed(-inset).unwrap(),
-                self.min.y.checked_add_signed(-inset).unwrap(),
+                self.min.x.saturating_add_signed(-inset),
+                self.min.y.saturating_add_signed(-inset),
             ),
             max: UVec2::new(
-                self.max.x.checked_add_signed(inset).unwrap(),
-                self.max.y.checked_add_signed(inset).unwrap(),
+                self.max.x.saturating_add_signed(inset),
+                self.max.y.saturating_add_signed(inset),
             ),
         };
         // Collapse min over max to enforce invariants and ensure e.g. width() or
