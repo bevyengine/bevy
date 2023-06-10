@@ -401,23 +401,25 @@ pub fn prepare_uinodes(
 
     let mut start = 0;
     let mut end = 0;
-    let mut stored_batch_handle = DEFAULT_IMAGE_HANDLE.typed();
-    
+    let mut current_batch_image = DEFAULT_IMAGE_HANDLE.typed();
+
     #[inline]
-    fn is_textured(image: &Handle<Image>) -> bool { image.id() != DEFAULT_IMAGE_HANDLE.id() }
+    fn is_textured(image: &Handle<Image>) -> bool {
+        image.id() != DEFAULT_IMAGE_HANDLE.id()
+    }
 
     for extracted_uinode in &extracted_uinodes.uinodes {
         let mode = if is_textured(&extracted_uinode.image) {
-            if is_textured(&stored_batch_handle) {
-                if stored_batch_handle.id() != extracted_uinode.image.id() {
-                    commands.spawn(UiBatch {
-                        range: start..end,
-                        image: stored_batch_handle,
-                    });
-                    start = end;
-                }
+            if is_textured(&current_batch_image)
+                && current_batch_image.id() != extracted_uinode.image.id()
+            {
+                commands.spawn(UiBatch {
+                    range: start..end,
+                        image: current_batch_image,
+                });
+                start = end;
             }
-            stored_batch_handle = extracted_uinode.image.clone_weak();
+            current_batch_image = extracted_uinode.image.clone_weak();
             TEXTURED_QUAD
         } else {
             UNTEXTURED_QUAD
@@ -535,7 +537,7 @@ pub fn prepare_uinodes(
     if start != end {
         commands.spawn(UiBatch {
             range: start..end,
-            image: stored_batch_handle,
+            image: current_batch_image,
         });
     }
 
