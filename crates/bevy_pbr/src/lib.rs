@@ -174,6 +174,8 @@ impl Plugin for PbrPlugin {
             .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<DirectionalLightShadowMap>()
+            .register_type::<NotShadowCaster>()
+            .register_type::<NotShadowReceiver>()
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
