@@ -83,8 +83,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     if (in.radius > 0.0 || in.border_width > 0.0) {
         var distance = distance_round_border(in.point, in.size * 0.5, in.radius);
-
-        var inner_alpha = 1.0 - smoothstep(0.0, 0.0, distance);
+        var inner_alpha = 1.0 - smoothstep(0.0, 0.1, distance); 
         var border_alpha = 1.0 - smoothstep(in.border_width, in.border_width, abs(distance));
         color = mix(vec4<f32>(0.0), mix(color, in.border_color, border_alpha), inner_alpha);
     }
