@@ -291,8 +291,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .spawn((
                             NodeBundle {
                                 style: Style {
-                                    min_size: Size::new(Val::Px(500.0), Val::Px(125.0)),
-                                    max_size: Size::new(Val::Px(500.0), Val::Px(125.0)),
+                                    width: Val::Px(500.0),
+                                    height: Val::Px(125.0),
                                     ..default()
                                 },
                                 background_color: Color::WHITE.into(),
@@ -303,7 +303,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             // alt text
                             parent
-                                .spawn(TextBundle::from_section("Bevy logo", TextStyle::default()));
+                                .spawn((NodeBundle {
+                                     display: Display::None,
+                                    ..Default::default()
+                                },
+                                Text:from_section("Bevy logo", TextStyle::default())
+                            ));
                         });
                 });
         });
