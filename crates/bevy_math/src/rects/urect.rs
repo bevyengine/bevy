@@ -61,7 +61,8 @@ impl URect {
     /// Create a new rectangle from its center and size.
     ///
     /// # Rounding Behaviour
-    /// If the size contains odd numbers they will be **rounded down** to the nearest whole number.
+    ///
+    /// If the size contains odd numbers they will be rounded down to the nearest whole number.
     ///
     /// # Panics
     ///
@@ -288,12 +289,12 @@ impl URect {
     /// ```rust
     /// # use bevy_math::{URect, UVec2};
     /// let r = URect::new(4, 4, 6, 6); // w=2 h=2
-    /// let r2 = r.inset(1); // w=3 h=3
+    /// let r2 = r.inset(1); // w=4 h=4
     /// assert_eq!(r2.min, UVec2::splat(3));
     /// assert_eq!(r2.max, UVec2::splat(7));
     ///
     /// let r = URect::new(4, 4, 8, 8); // w=4 h=4
-    /// let r2 = r.inset(-1); // w=3 h=3
+    /// let r2 = r.inset(-1); // w=2 h=2
     /// assert_eq!(r2.min, UVec2::splat(5));
     /// assert_eq!(r2.max, UVec2::splat(7));
     /// ```
