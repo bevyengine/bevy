@@ -350,7 +350,15 @@ fn propagate_recursive(
 /// for that view.
 pub fn check_visibility(
     mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
-    mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
+    mut view_query: Query<
+        (
+            &mut VisibleEntities,
+            &Frustum,
+            Option<&RenderLayers>,
+            Option<&Projection>,
+        ),
+        With<Camera>,
+    >,
     mut visible_aabb_query: Query<(
         Entity,
         &mut ComputedVisibility,
@@ -364,7 +372,7 @@ pub fn check_visibility(
         Without<Aabb>,
     >,
 ) {
-    for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
+    for (mut visible_entities, frustum, maybe_view_mask, maybe_projection) in &mut view_query {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
         visible_entities.entities.clear();
@@ -388,6 +396,11 @@ pub fn check_visibility(
                     return;
                 }
 
+                let use_far_culling = match maybe_projection {
+                    Some(p) => p.far().is_some(),
+                    None => false,
+                };
+
                 // If we have an aabb and transform, do frustum culling
                 if maybe_no_frustum_culling.is_none() {
                     let model = transform.compute_matrix();
@@ -396,11 +409,11 @@ pub fn check_visibility(
                         radius: transform.radius_vec3a(model_aabb.half_extents),
                     };
                     // Do quick sphere-based frustum culling
-                    if !frustum.intersects_sphere(&model_sphere, false) {
+                    if !frustum.intersects_sphere(&model_sphere, use_far_culling) {
                         return;
                     }
                     // If we have an aabb, do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &model, true, false) {
+                    if !frustum.intersects_obb(model_aabb, &model, true, use_far_culling) {
                         return;
                     }
                 }

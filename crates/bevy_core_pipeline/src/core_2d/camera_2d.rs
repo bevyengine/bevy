@@ -50,7 +50,7 @@ impl Camera2dBundle {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
         let projection = OrthographicProjection {
-            far,
+            far: Some(far),
             ..Default::default()
         };
         let transform = Transform::from_xyz(0.0, 0.0, far - 0.1);
