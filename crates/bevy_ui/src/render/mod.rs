@@ -402,12 +402,13 @@ pub fn prepare_uinodes(
     let mut start = 0;
     let mut end = 0;
     let mut stored_batch_handle = DEFAULT_IMAGE_HANDLE.typed();
-    let default_id = DEFAULT_IMAGE_HANDLE.id();
     
+    #[inline]
+    fn is_textured(image: &Handle<Image>) -> bool { image.id() != DEFAULT_IMAGE_HANDLE.id() }
 
     for extracted_uinode in &extracted_uinodes.uinodes {
-        let mode = if extracted_uinode.image.id() != default_id {
-            if stored_batch_handle.id() != default_id {
+        let mode = if is_textured(&extracted_uinode.image) {
+            if is_textured(&stored_batch_handle) {
                 if stored_batch_handle.id() != extracted_uinode.image.id() {
                     commands.spawn(UiBatch {
                         range: start..end,
