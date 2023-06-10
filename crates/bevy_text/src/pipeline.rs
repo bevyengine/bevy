@@ -150,8 +150,7 @@ impl TextPipeline {
 
         loop {
             let (Some(line_range), Some((section, section_index, section_range))) = (&maybe_line, &maybe_section) else {
-                // if there are no more lines or no more sections we're done.
-                buffer.lines.push(BufferLine::new(line_string, attrs_list));
+                // this is reached only if this text is empty
                 break;
             };
 
@@ -180,15 +179,20 @@ impl TextPipeline {
             if section_range.end < line_range.end {
                 maybe_section = sections_iter.next();
             } else {
-                // finalise this line and start a new line
-                let prev_attrs_list =
-                    std::mem::replace(&mut attrs_list, AttrsList::new(Attrs::new()));
-                let prev_line_string = std::mem::take(&mut line_string);
-                buffer
-                    .lines
-                    .push(BufferLine::new(prev_line_string, prev_attrs_list));
-
                 maybe_line = lines_iter.next();
+                if maybe_line.is_some() {
+                    // finalize this line and start a new line
+                    let prev_attrs_list =
+                        std::mem::replace(&mut attrs_list, AttrsList::new(Attrs::new()));
+                    let prev_line_string = std::mem::take(&mut line_string);
+                    buffer
+                        .lines
+                        .push(BufferLine::new(prev_line_string, prev_attrs_list));
+                } else {
+                    // finalize the final line
+                    buffer.lines.push(BufferLine::new(line_string, attrs_list));
+                    break;
+                }
             }
         }
 
@@ -545,7 +549,7 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
 }
 
 /// An iterator over the paragraphs in the input text.
-/// It is equivalent to [`core::str::Lines`] but follows `unicode-bidi` behaviour.
+/// It is equivalent to [`core::str::Lines`] but follows `unicode-bidi` behavior.
 // TODO: upstream to cosmic_text, see https://github.com/pop-os/cosmic-text/pull/124
 // TODO: create separate iterator that keeps the ranges, or simply use memory address introspection (as_ptr())
 // TODO: this breaks for lines ending in newlines, e.g. "foo\n" should split into ["foo", ""] but we actually get ["foo"]
@@ -556,7 +560,7 @@ pub struct BidiParagraphs<'text> {
 
 impl<'text> BidiParagraphs<'text> {
     /// Create an iterator to split the input text into paragraphs
-    /// in accordance with `unicode-bidi` behaviour.
+    /// in accordance with `unicode-bidi` behavior.
     pub fn new(text: &'text str) -> Self {
         let info = unicode_bidi::BidiInfo::new(text, None);
         let info = info.paragraphs.into_iter();
