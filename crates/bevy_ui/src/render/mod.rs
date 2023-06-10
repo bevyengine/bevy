@@ -418,11 +418,9 @@ pub fn prepare_uinodes(
                         });
                         start = end;
                     }
-                    stored_batch_handle = extracted_uinode.image.clone_weak();
                 }
-            } else {
-                stored_batch_handle = extracted_uinode.image.clone_weak();
             }
+            stored_batch_handle = extracted_uinode.image.clone_weak();
             TEXTURED_QUAD
         } else {
             UNTEXTURED_QUAD
