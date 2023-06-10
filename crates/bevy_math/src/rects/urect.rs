@@ -287,9 +287,9 @@ impl URect {
     }
 
     /// Create a new rectangle with a constant inset.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// This method panics if the inset is larger than the rect's min x or y
     ///
     /// The inset is the extra border on all sides. A positive inset produces a larger rectangle,
