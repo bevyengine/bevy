@@ -410,18 +410,20 @@ pub fn prepare_uinodes(
 
     for extracted_uinode in &extracted_uinodes.uinodes {
         let mode = if is_textured(&extracted_uinode.image) {
-            if is_textured(&current_batch_image)
-                && current_batch_image.id() != extracted_uinode.image.id()
-            {
-                commands.spawn(UiBatch {
-                    range: start..end,
+            if current_batch_image.id() != extracted_uinode.image.id() {
+                if is_textured(&current_batch_image) {
+                    commands.spawn(UiBatch {
+                        range: start..end,
                         image: current_batch_image,
-                });
-                start = end;
+                    });
+                    start = end;
+                }
+                current_batch_image = extracted_uinode.image.clone_weak();
             }
-            current_batch_image = extracted_uinode.image.clone_weak();
             TEXTURED_QUAD
         } else {
+            // Untextured `UiBatch`es are never spawned within the loop.
+            // If all the `extracted_uinodes` are untextured a single untextured UiBatch will be spawned after the loop terminates.
             UNTEXTURED_QUAD
         };
 
