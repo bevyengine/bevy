@@ -698,10 +698,16 @@ impl ComponentTicks {
         self.changed.is_newer_than(last_run, this_run)
     }
 
-    /// Returns the change tick recording the time this data was most recently changed.
+    /// Returns the tick recording the time this component was most recently changed.
     #[inline]
-    pub fn last_changed(&self) -> u32 {
-        self.changed.get()
+    pub fn last_changed_tick(&self) -> Tick {
+        self.changed
+    }
+
+    /// Returns the tick recording the time this component was added.
+    #[inline]
+    pub fn added_tick(&self) -> Tick {
+        self.added
     }
 
     pub(crate) fn new(change_tick: Tick) -> Self {
