@@ -312,23 +312,13 @@ impl Rect {
     /// Returns self as [`IRect`] (i32)
     #[inline]
     pub fn as_urect(&self) -> IRect {
-        IRect::new(
-            self.min.x as i32,
-            self.min.y as i32,
-            self.max.x as i32,
-            self.max.y as i32,
-        )
+        IRect::from_corners(self.min.as_ivec2(), self.max.as_ivec2())
     }
 
     /// Returns self as [`URect`] (u32)
     #[inline]
     pub fn as_rect(&self) -> URect {
-        URect::new(
-            self.min.x as u32,
-            self.min.y as u32,
-            self.max.x as u32,
-            self.max.y as u32,
-        )
+        URect::from_corners(self.min.as_uvec2(), self.max.as_uvec2())
     }
 }
 
