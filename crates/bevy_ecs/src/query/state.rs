@@ -145,7 +145,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// # Panics
     ///
-    /// Panics if the `world.id()` does not equal the current [`QueryState`] internal id.
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
     pub fn update_archetypes(&mut self, world: &World) {
         self.validate_world(world);
         let archetypes = world.archetypes();
@@ -158,6 +158,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// # Panics
+    ///
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
+    ///
+    /// Many unsafe query methods require the world to match for soundness. This function is the easiest
+    /// way of ensuring that it matches.
     #[inline]
     pub fn validate_world(&self, world: &World) {
         assert!(
@@ -337,6 +343,17 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// Gets the query result for the given [`World`] and [`Entity`].
+    ///
+    /// This method is slightly more efficient than [`QueryState::get`] in some situations, since
+    /// it does not update this instance's internal cache. This method will return an error if `entity`
+    /// belongs to an archetype that has not been cached.
+    ///
+    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this method.
+    /// The cache is also updated in [`QueryState::new`], `QueryState::get`, or any method with mutable
+    /// access to `self`.
+    ///
+    /// This can only be called for read-only queries, see [`Self::get_mut`] for mutable queries.
     #[inline]
     pub fn get_manual<'w>(
         &self,

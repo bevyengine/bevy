@@ -401,7 +401,10 @@ pub struct Res<'w, T: ?Sized + Resource> {
 }
 
 impl<'w, T: Resource> Res<'w, T> {
-    // no it shouldn't clippy
+    /// Copies a reference to a resource.
+    ///
+    /// Note that unless you actually need an instance of `Res<T>`, you should
+    /// prefer to just convert it to `&T` which can be freely copied.
     #[allow(clippy::should_implement_trait)]
     pub fn clone(this: &Self) -> Self {
         Self {
@@ -539,6 +542,7 @@ pub struct Ref<'a, T: ?Sized> {
 }
 
 impl<'a, T: ?Sized> Ref<'a, T> {
+    /// Returns the reference wrapped by this type. The reference is allowed to outlive `self`, which makes this method more flexible than simply borrowing `self`.
     pub fn into_inner(self) -> &'a T {
         self.value
     }

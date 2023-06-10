@@ -43,6 +43,7 @@ use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 /// }
 /// ```
 pub trait Command: Send + 'static {
+    /// Executes this command.
     fn write(self, world: &mut World);
 }
 
@@ -603,6 +604,7 @@ impl<'w, 's> Commands<'w, 's> {
 /// }
 /// ```
 pub trait EntityCommand: Send + 'static {
+    /// Executes this command for the given [`Entity`].
     fn write(self, id: Entity, world: &mut World);
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
     fn with_entity(self, id: Entity) -> WithEntity<Self>
@@ -857,11 +859,15 @@ where
     }
 }
 
+/// A [`Command`] that consumes an iterator of [`Bundle`]s to spawn a series of entities.
+///
+/// This is more efficient than spawning the entities individually.
 pub struct SpawnBatch<I>
 where
     I: IntoIterator,
     I::Item: Bundle,
 {
+    /// The iterator that returns the [`Bundle`]s which will be added to each newly-spawned entity.
     pub bundles_iter: I,
 }
 
@@ -875,12 +881,17 @@ where
     }
 }
 
+/// A [`Command`] that consumes an iterator to add a series of [`Bundle`]s to a set of entities.
+/// If any entities do not already exist in the world, they will be spawned.
+///
+/// This is more efficient than inserting the bundles individually.
 pub struct InsertOrSpawnBatch<I, B>
 where
     I: IntoIterator + Send + Sync + 'static,
     B: Bundle,
     I::IntoIter: Iterator<Item = (Entity, B)>,
 {
+    /// The iterator that returns each [entity ID](Entity) and corresponding [`Bundle`].
     pub bundles_iter: I,
 }
 
@@ -902,8 +913,10 @@ where
 }
 
 /// A [`Command`] that despawns a specific entity.
+/// This will emit a warning if the entity does not exist.
 #[derive(Debug)]
 pub struct Despawn {
+    /// The entity that will be despawned.
     pub entity: Entity,
 }
 
@@ -939,6 +952,7 @@ where
 /// Any components in the bundle that aren't found on the entity will be ignored.
 #[derive(Debug)]
 pub struct Remove<T> {
+    /// The entity from which the components will be removed.
     pub entity: Entity,
     _marker: PhantomData<T>,
 }
@@ -987,6 +1001,7 @@ impl<R: Resource + FromWorld> InitResource<R> {
 
 /// A [`Command`] that inserts a [`Resource`] into the world.
 pub struct InsertResource<R: Resource> {
+    /// The resource that will be added to the world.
     pub resource: R,
 }
 

@@ -54,16 +54,19 @@ impl BatchingStrategy {
         }
     }
 
+    /// Configures the minimum allowed batch size of this instance.
     pub const fn min_batch_size(mut self, batch_size: usize) -> Self {
         self.batch_size_limits.start = batch_size;
         self
     }
 
+    /// Configures the maximum allowed batch size of this instance.
     pub const fn max_batch_size(mut self, batch_size: usize) -> Self {
         self.batch_size_limits.end = batch_size;
         self
     }
 
+    /// Configures the number of batches to assign to each thread for this instance.
     pub fn batches_per_thread(mut self, batches_per_thread: usize) -> Self {
         assert!(
             batches_per_thread > 0,
