@@ -403,18 +403,17 @@ pub fn prepare_uinodes(
     let mut end = 0;
     let mut stored_batch_handle = DEFAULT_IMAGE_HANDLE.typed();
     let default_id = DEFAULT_IMAGE_HANDLE.id();
+    
 
     for extracted_uinode in &extracted_uinodes.uinodes {
         let mode = if extracted_uinode.image.id() != default_id {
             if stored_batch_handle.id() != default_id {
                 if stored_batch_handle.id() != extracted_uinode.image.id() {
-                    if start != end {
-                        commands.spawn(UiBatch {
-                            range: start..end,
-                            image: stored_batch_handle,
-                        });
-                        start = end;
-                    }
+                    commands.spawn(UiBatch {
+                        range: start..end,
+                        image: stored_batch_handle,
+                    });
+                    start = end;
                 }
             }
             stored_batch_handle = extracted_uinode.image.clone_weak();
