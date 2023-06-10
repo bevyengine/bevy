@@ -164,6 +164,10 @@ impl URect {
 
     /// Rectangle half-size.
     ///
+    /// # Rounding Behaviour
+    ///
+    /// If the full size contains odd numbers they will be rounded down to the nearest whole number when calculating the half size.
+    ///
     /// # Examples
     ///
     /// ```rust
@@ -177,6 +181,10 @@ impl URect {
     }
 
     /// The center point of the rectangle.
+    ///
+    /// # Rounding Behaviour
+    ///
+    /// If the (min + max) contains odd numbers they will be rounded down to the nearest whole number when calculating the center.
     ///
     /// # Examples
     ///
