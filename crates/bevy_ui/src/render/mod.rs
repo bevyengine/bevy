@@ -380,7 +380,6 @@ const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 pub struct UiBatch {
     pub range: Range<u32>,
     pub image: Handle<Image>,
-    pub z: f32,
 }
 
 const TEXTURED_QUAD: u32 = 0;
@@ -403,7 +402,6 @@ pub fn prepare_uinodes(
     let mut start = 0;
     let mut end = 0;
     let mut stored_batch_handle = DEFAULT_IMAGE_HANDLE.typed();
-    let mut last_z = 0.0;
     let default_id = DEFAULT_IMAGE_HANDLE.id();
 
     for extracted_uinode in &extracted_uinodes.uinodes {
@@ -414,7 +412,6 @@ pub fn prepare_uinodes(
                         commands.spawn(UiBatch {
                             range: start..end,
                             image: stored_batch_handle,
-                            z: last_z,
                         });
                         start = end;
                     }
@@ -531,7 +528,6 @@ pub fn prepare_uinodes(
             });
         }
 
-        last_z = extracted_uinode.transform.w_axis[2];
         end += QUAD_INDICES.len() as u32;
     }
 
@@ -540,7 +536,6 @@ pub fn prepare_uinodes(
         commands.spawn(UiBatch {
             range: start..end,
             image: stored_batch_handle,
-            z: last_z,
         });
     }
 
@@ -618,7 +613,7 @@ pub fn queue_uinodes(
                     draw_function: draw_ui_function,
                     pipeline,
                     entity,
-                    sort_key: FloatOrd(batch.z),
+                    sort_key: FloatOrd(0.),
                 });
             }
         }
