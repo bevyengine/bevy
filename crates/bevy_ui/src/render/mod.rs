@@ -163,6 +163,14 @@ pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
 }
 
+pub struct ExtractAtlasDetails {
+    rect: Rect,
+    size: Vec2,
+    image: Handle<Image>,
+    flip_x: bool,
+    flip_y: bool,
+}
+
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
@@ -212,13 +220,13 @@ pub fn extract_uinodes(
                                         texture_atlas_handle.id(),
                                     )
                                 });
-                        Some((
-                            atlas_rect,
-                            texture_atlas.size,
-                            &texture_atlas.texture,
-                            atlas_sprite.0.flip_x,
-                            atlas_sprite.0.flip_y,
-                        ))
+                        Some(ExtractAtlasDetails {
+                            rect: atlas_rect,
+                            size: texture_atlas.size,
+                            image: texture_atlas.texture.clone(),
+                            flip_x: atlas_sprite.0.flip_x,
+                            flip_y: atlas_sprite.0.flip_y,
+                        })
                     } else {
                         // Atlas not present in assets resource (should this warn the user?)
                         None
@@ -234,12 +242,12 @@ pub fn extract_uinodes(
 
             let (image, flip_x, flip_y) =
                 // Choose texture atlas image if it exists
-                if let Some((_rect, _size, atlas_image, flip_x, flip_y)) = atlas_details {
+                if let Some(atlas_details) = &atlas_details {
                     // Skip loading images
-                    if !images.contains(atlas_image) {
+                    if !images.contains(&atlas_details.image) {
                         continue;
                     }
-                    (atlas_image.clone_weak(), flip_x, flip_y)
+                    (atlas_details.image.clone_weak(), atlas_details.flip_x, atlas_details.flip_y)
                 // Otherwise use UI Image
                 } else if let Some(image) = maybe_image {
                     // Skip loading images
@@ -251,34 +259,18 @@ pub fn extract_uinodes(
                     (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
                 };
 
-            let uv_rect = if let Some((atlas_rect, _, _, _, _)) = atlas_details {
-                Some(atlas_rect)
-            } else {
-                None
-            };
-
-            let rect = Rect {
-                min: Vec2::ZERO,
-                max: uinode.calculated_size,
-            };
-
-            let atlas_size = if let Some((_, atlas_size, _, _, _)) = atlas_details {
-                Some(atlas_size)
-            } else {
-                None
-            };
-
-            let clip = clip.map(|clip| clip.clip);
-
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
                 color: color.0,
-                rect,
-                uv_rect,
-                clip,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.calculated_size,
+                },
+                uv_rect: atlas_details.as_ref().map(|details| details.rect),
+                clip: clip.map(|clip| clip.clip),
                 image,
-                atlas_size,
+                atlas_size: atlas_details.as_ref().map(|details| details.size),
                 flip_x,
                 flip_y,
             });

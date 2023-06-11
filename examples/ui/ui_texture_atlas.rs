@@ -43,20 +43,18 @@ fn setup(
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Px(256.),
-                        height: Val::Px(256.),
-                        border: UiRect::all(Val::Px(2.)),
-                        ..default()
-                    },
-                    background_color: Color::rgb(0.65, 0.65, 0.65).into(),
+            parent.spawn((TextureAtlasImageBundle {
+                style: Style {
+                    width: Val::Px(256.),
+                    height: Val::Px(256.),
+                    border: UiRect::all(Val::Px(2.)),
                     ..default()
                 },
-                texture_atlas_handle,
-                UiTextureAtlasSprite(TextureAtlasSprite::new(0)),
-            ));
+                background_color: Color::rgb(0.65, 0.65, 0.65).into(),
+                texture_atlas: texture_atlas_handle,
+                texture_atlas_sprite: UiTextureAtlasSprite(TextureAtlasSprite::new(0)),
+                ..default()
+            },));
         });
 }
 
