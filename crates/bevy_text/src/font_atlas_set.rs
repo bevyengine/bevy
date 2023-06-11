@@ -6,6 +6,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::HashMap;
+use cosmic_text::Placement;
 
 type FontSizeKey = u32;
 
@@ -19,10 +20,7 @@ pub struct FontAtlasSet {
 pub struct GlyphAtlasInfo {
     pub texture_atlas: Handle<TextureAtlas>,
     pub glyph_index: usize,
-    pub left: i32,
-    pub top: i32,
-    pub width: u32,
-    pub height: u32,
+    pub placement: Placement,
 }
 
 impl Default for FontAtlasSet {
@@ -65,7 +63,7 @@ impl FontAtlasSet {
                 )]
             });
 
-        let (glyph_texture, left, top, w, h) =
+        let (glyph_texture, placement) =
             Font::get_outlined_glyph_texture(font_system, swash_cache, layout_glyph);
         let add_char_to_font_atlas = |atlas: &mut FontAtlas| -> bool {
             atlas.add_glyph(
@@ -73,10 +71,7 @@ impl FontAtlasSet {
                 texture_atlases,
                 layout_glyph.cache_key,
                 &glyph_texture,
-                left,
-                top,
-                w,
-                h,
+                placement,
             )
         };
         if !font_atlases.iter_mut().any(add_char_to_font_atlas) {
@@ -98,10 +93,7 @@ impl FontAtlasSet {
                 texture_atlases,
                 layout_glyph.cache_key,
                 &glyph_texture,
-                left,
-                top,
-                w,
-                h,
+                placement,
             ) {
                 return Err(TextError::FailedToAddGlyph(layout_glyph.cache_key.glyph_id));
             }
@@ -124,16 +116,11 @@ impl FontAtlasSet {
                             .get_glyph_index(cache_key)
                             .map(|glyph_index| (glyph_index, atlas.texture_atlas.clone_weak()))
                     })
-                    .map(
-                        |((glyph_index, left, top, w, h), texture_atlas)| GlyphAtlasInfo {
-                            texture_atlas,
-                            glyph_index,
-                            left,
-                            top,
-                            width: w,
-                            height: h,
-                        },
-                    )
+                    .map(|((glyph_index, placement), texture_atlas)| GlyphAtlasInfo {
+                        texture_atlas,
+                        glyph_index,
+                        placement,
+                    })
             })
     }
 

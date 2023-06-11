@@ -306,11 +306,9 @@ impl TextPipeline {
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
                 let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
-                let left = atlas_info.left as f32;
-                let top = atlas_info.top as f32;
+                let left = atlas_info.placement.left as f32;
+                let top = atlas_info.placement.top as f32;
                 let glyph_size = Vec2::new(glyph_rect.width(), glyph_rect.height());
-                assert_eq!(atlas_info.width as f32, glyph_size.x);
-                assert_eq!(atlas_info.height as f32, glyph_size.y);
 
                 // offset by half the size because the origin is center
                 let x = glyph_size.x / 2.0 + left + layout_glyph.x_int as f32;

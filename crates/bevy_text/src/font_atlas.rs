@@ -6,10 +6,11 @@ use bevy_render::{
 };
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlas};
 use bevy_utils::HashMap;
+use cosmic_text::Placement;
 
 pub struct FontAtlas {
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
-    pub glyph_to_atlas_index: HashMap<cosmic_text::CacheKey, (usize, i32, i32, u32, u32)>,
+    pub glyph_to_atlas_index: HashMap<cosmic_text::CacheKey, (usize, Placement)>,
     pub texture_atlas: Handle<TextureAtlas>,
 }
 
@@ -37,10 +38,7 @@ impl FontAtlas {
         }
     }
 
-    pub fn get_glyph_index(
-        &self,
-        cache_key: cosmic_text::CacheKey,
-    ) -> Option<(usize, i32, i32, u32, u32)> {
+    pub fn get_glyph_index(&self, cache_key: cosmic_text::CacheKey) -> Option<(usize, Placement)> {
         self.glyph_to_atlas_index.get(&cache_key).copied()
     }
 
@@ -54,10 +52,7 @@ impl FontAtlas {
         texture_atlases: &mut Assets<TextureAtlas>,
         cache_key: cosmic_text::CacheKey,
         texture: &Image,
-        left: i32,
-        top: i32,
-        width: u32,
-        height: u32,
+        placement: Placement,
     ) -> bool {
         let texture_atlas = texture_atlases.get_mut(&self.texture_atlas).unwrap();
         if let Some(index) =
@@ -65,7 +60,7 @@ impl FontAtlas {
                 .add_texture(texture_atlas, textures, texture)
         {
             self.glyph_to_atlas_index
-                .insert(cache_key, (index, left, top, width, height));
+                .insert(cache_key, (index, placement));
             true
         } else {
             false

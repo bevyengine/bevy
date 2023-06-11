@@ -3,6 +3,7 @@ use bevy_render::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
+use cosmic_text::Placement;
 
 #[derive(Debug, TypeUuid, TypePath, Clone)]
 #[uuid = "97059ac6-c9ba-4da9-95b6-bed82c3ce198"]
@@ -23,7 +24,7 @@ impl Font {
         font_system: &mut cosmic_text::FontSystem,
         swash_cache: &mut cosmic_text::SwashCache,
         layout_glyph: &cosmic_text::LayoutGlyph,
-    ) -> (Image, i32, i32, u32, u32) {
+    ) -> (Image, Placement) {
         // TODO: consider using cosmic_text's own caching mechanism
         let image = swash_cache
             .get_image_uncached(font_system, layout_glyph.cache_key)
@@ -58,10 +59,7 @@ impl Font {
                 data,
                 TextureFormat::Rgba8UnormSrgb,
             ),
-            image.placement.left,
-            image.placement.top,
-            width,
-            height,
+            image.placement,
         )
     }
 }
