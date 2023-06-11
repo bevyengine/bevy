@@ -269,6 +269,7 @@ pub fn extract_uinode_borders(
                 if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
                         stack_index,
+                        // This translates the uinode's transform to the center of the current border rectangle
                         transform: transform * Mat4::from_translation(edge.center().extend(0.)),
                         color: border_color.0,
                         rect: Rect {
