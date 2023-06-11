@@ -8,6 +8,7 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
+use crate::UiTextureAtlasSprite;
 use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -34,7 +35,7 @@ use bevy_sprite::TextureAtlas;
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
-use bevy_utils::HashMap;
+use bevy_utils::{tracing::warn, HashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
@@ -149,6 +150,7 @@ pub struct ExtractedUiNode {
     pub transform: Mat4,
     pub color: Color,
     pub rect: Rect,
+    pub uv_rect: Option<Rect>,
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
@@ -164,6 +166,7 @@ pub struct ExtractedUiNodes {
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
+    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
@@ -173,40 +176,109 @@ pub fn extract_uinodes(
             Option<&UiImage>,
             &ComputedVisibility,
             Option<&CalculatedClip>,
+            Option<&Handle<TextureAtlas>>,
+            Option<&UiTextureAtlasSprite>,
         )>,
     >,
 ) {
     extracted_uinodes.uinodes.clear();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
-            uinode_query.get(*entity)
+        if let Ok((
+            uinode,
+            transform,
+            color,
+            maybe_image,
+            visibility,
+            clip,
+            maybe_texture_atlas,
+            maybe_atlas_sprite,
+        )) = uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
             if !visibility.is_visible() || color.0.a() == 0.0 {
                 continue;
             }
 
-            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-                // Skip loading images
-                if !images.contains(&image.texture) {
+            let atlas_details = if let Some(atlas_sprite) = maybe_atlas_sprite {
+                if let Some(texture_atlas_handle) = maybe_texture_atlas {
+                    if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
+                        let atlas_rect = *texture_atlas
+                                .textures
+                                .get(atlas_sprite.0.index)
+                                .unwrap_or_else(|| {
+                                    panic!(
+                                        "Sprite index {:?} does not exist for texture atlas handle {:?}.",
+                                        atlas_sprite.0.index,
+                                        texture_atlas_handle.id(),
+                                    )
+                                });
+                        Some((
+                            atlas_rect,
+                            texture_atlas.size,
+                            &texture_atlas.texture,
+                            atlas_sprite.0.flip_x,
+                            atlas_sprite.0.flip_y,
+                        ))
+                    } else {
+                        // Atlas not present in assets resource (should this warn the user?)
+                        None
+                    }
+                } else {
+                    warn!("UI Texture Atlas is missing a Handle<TextureAtlas> Component");
                     continue;
                 }
-                (image.texture.clone_weak(), image.flip_x, image.flip_y)
             } else {
-                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+                // Not using texture atlas for this node
+                None
             };
+
+            let (image, flip_x, flip_y) =
+                // Choose texture atlas image if it exists
+                if let Some((_rect, _size, atlas_image, flip_x, flip_y)) = atlas_details {
+                    // Skip loading images
+                    if !images.contains(atlas_image) {
+                        continue;
+                    }
+                    (atlas_image.clone_weak(), flip_x, flip_y)
+                // Otherwise use UI Image
+                } else if let Some(image) = maybe_image {
+                    // Skip loading images
+                    if !images.contains(&image.texture) {
+                        continue;
+                    }
+                    (image.texture.clone_weak(), image.flip_x, image.flip_y)
+                } else {
+                    (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+                };
+
+            let uv_rect = if let Some((atlas_rect, _, _, _, _)) = atlas_details {
+                Some(atlas_rect)
+            } else {
+                None
+            };
+
+            let rect = Rect {
+                min: Vec2::ZERO,
+                max: uinode.calculated_size,
+            };
+
+            let atlas_size = if let Some((_, atlas_size, _, _, _)) = atlas_details {
+                Some(atlas_size)
+            } else {
+                None
+            };
+
+            let clip = clip.map(|clip| clip.clip);
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
                 color: color.0,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
-                },
+                rect,
+                uv_rect,
+                clip,
                 image,
-                atlas_size: None,
-                clip: clip.map(|clip| clip.clip),
+                atlas_size,
                 flip_x,
                 flip_y,
             });
@@ -332,6 +404,7 @@ pub fn extract_text_uinodes(
                         * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
                     color,
                     rect,
+                    uv_rect: None,
                     image: atlas.texture.clone_weak(),
                     atlas_size: Some(atlas.size * inverse_scale_factor),
                     clip: clip.map(|clip| clip.clip),
@@ -473,6 +546,7 @@ pub fn prepare_uinodes(
             [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
         } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
+            let uv_rect = extracted_uinode.uv_rect.unwrap_or(uinode_rect);
             if extracted_uinode.flip_x {
                 std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
                 positions_diff[0].x *= -1.;
@@ -489,20 +563,20 @@ pub fn prepare_uinodes(
             }
             [
                 Vec2::new(
-                    uinode_rect.min.x + positions_diff[0].x,
-                    uinode_rect.min.y + positions_diff[0].y,
+                    uv_rect.min.x + positions_diff[0].x,
+                    uv_rect.min.y + positions_diff[0].y,
                 ),
                 Vec2::new(
-                    uinode_rect.max.x + positions_diff[1].x,
-                    uinode_rect.min.y + positions_diff[1].y,
+                    uv_rect.max.x + positions_diff[1].x,
+                    uv_rect.min.y + positions_diff[1].y,
                 ),
                 Vec2::new(
-                    uinode_rect.max.x + positions_diff[2].x,
-                    uinode_rect.max.y + positions_diff[2].y,
+                    uv_rect.max.x + positions_diff[2].x,
+                    uv_rect.max.y + positions_diff[2].y,
                 ),
                 Vec2::new(
-                    uinode_rect.min.x + positions_diff[3].x,
-                    uinode_rect.max.y + positions_diff[3].y,
+                    uv_rect.min.x + positions_diff[3].x,
+                    uv_rect.max.y + positions_diff[3].y,
                 ),
             ]
             .map(|pos| pos / atlas_extent)
