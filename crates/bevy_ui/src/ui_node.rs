@@ -1564,8 +1564,8 @@ impl From<Color> for BackgroundColor {
 }
 
 /// The border color of the UI node.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Copy, Clone, Debug, Reflect, FromReflect)]
+#[reflect(FromReflect, Component, Default)]
 pub struct BorderColor(pub Color);
 
 impl From<Color> for BorderColor {
