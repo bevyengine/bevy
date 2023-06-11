@@ -9,9 +9,13 @@ use crate::{Font, DEFAULT_FONT_HANDLE};
 // TODO: reexport cosmic_text and these types in the prelude
 pub use cosmic_text::{FamilyOwned, Stretch, Style, Weight};
 
+/// A component that is the entry point for rendering text.
+///
+/// It contains all of the text value and styling information.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Text {
+    /// The text's sections
     pub sections: Vec<TextSection>,
     /// The text's internal alignment.
     /// Should not affect its position within a container.
@@ -110,6 +114,7 @@ impl Text {
     }
 }
 
+/// Contains the value of the text in a section and how it should be styled.
 #[derive(Debug, Default, Clone, FromReflect, Reflect)]
 pub struct TextSection {
     pub value: String,
@@ -149,6 +154,7 @@ pub enum TextAlignment {
     Right,
 }
 
+/// Describes the style of a [`TextSection`].
 #[derive(Clone, Debug, Reflect, FromReflect)]
 pub struct TextStyle {
     pub font: FontRef,
@@ -180,6 +186,7 @@ pub enum BreakLineOn {
     AnyCharacter,
 }
 
+/// A reference to a font.
 #[derive(Clone, Debug, Reflect, FromReflect)]
 pub enum FontRef {
     /// A reference to a font loaded as a bevy asset.
@@ -197,11 +204,19 @@ impl From<Handle<Font>> for FontRef {
     }
 }
 
+/// Queries for a font from those already loaded.
 #[derive(Clone, Debug)]
 pub struct FontQuery {
+    /// The font family. See [`cosmic_text::fontdb::Family`] for details.
     pub family: FamilyOwned,
+    /// The stretch (or width) of the font face in this family, e.g. condensed.
+    /// See [`cosmic_text::fontdb::Stretch`] for details.
     pub stretch: Stretch,
+    /// The style of the font face in this family, e.g. italic.
+    /// See [`cosmic_text::fontdb::Style`] for details.
     pub style: Style,
+    /// The weight of the font face in this family, e.g. bold.
+    /// See [`cosmic_text::fontdb::Weight`] for details.
     pub weight: Weight,
 }
 

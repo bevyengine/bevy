@@ -1,24 +1,34 @@
-use crate::{error::TextError, Font, FontAtlas, GlyphAtlasLocation};
-use bevy_asset::{Assets, Handle};
-use bevy_math::Vec2;
-use bevy_reflect::TypePath;
-use bevy_reflect::TypeUuid;
-use bevy_render::texture::Image;
+use bevy_asset::Assets;
+use bevy_math::{IVec2, Vec2};
+use bevy_reflect::{TypePath, TypeUuid};
+use bevy_render::{
+    render_resource::{Extent3d, TextureDimension, TextureFormat},
+    texture::Image,
+};
 use bevy_sprite::TextureAtlas;
 use bevy_utils::HashMap;
 
+use crate::{error::TextError, FontAtlas, GlyphAtlasInfo};
+
 type FontSizeKey = u32;
 
+/// Provides the interface for adding and retrieving rasterized glyphs, and manages the [`FontAtlas`]es.
+///
+/// A `FontAtlasSet` is an asset.
+///
+/// There is one `FontAtlasSet` for each font:
+/// - When a [`Font`](crate::Font) is loaded as an asset and then used in [`Text`](crate::Text),
+///   a `FontAtlasSet` asset is created from a weak handle to the `Font`.
+/// - When a font is loaded as a system font, and then used in [`Text`](crate::Text),
+///   a `FontAtlasSet` asset is created and stored with a strong handle to the `FontAtlasSet`.
+///
+/// A `FontAtlasSet` contains one or more [`FontAtlas`]es for each font size.
+///
+/// It is used by [`TextPipeline::queue_text`](crate::TextPipeline::queue_text).
 #[derive(TypeUuid, TypePath)]
 #[uuid = "73ba778b-b6b5-4f45-982d-d21b6b86ace2"]
 pub struct FontAtlasSet {
     font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct GlyphAtlasInfo {
-    pub texture_atlas: Handle<TextureAtlas>,
-    pub location: GlyphAtlasLocation,
 }
 
 impl Default for FontAtlasSet {
@@ -62,7 +72,7 @@ impl FontAtlasSet {
             });
 
         let (glyph_texture, offset) =
-            Font::get_outlined_glyph_texture(font_system, swash_cache, layout_glyph);
+            Self::get_outlined_glyph_texture(font_system, swash_cache, layout_glyph);
         let add_char_to_font_atlas = |atlas: &mut FontAtlas| -> bool {
             atlas.add_glyph(
                 textures,
@@ -124,17 +134,50 @@ impl FontAtlasSet {
     pub fn num_font_atlases(&self) -> usize {
         self.font_atlases.len()
     }
-}
 
-#[derive(Debug, Clone)]
-pub struct PositionedGlyph {
-    pub position: Vec2,
-    pub size: Vec2,
-    pub atlas_info: GlyphAtlasInfo,
-    pub section_index: usize,
-    /// In order to do text editing, we need access to the size of glyphs and their index in the associated String.
-    /// For example, to figure out where to place the cursor in an input box from the mouse's position.
-    /// Without this, it's only possible in texts where each glyph is one byte.
-    // TODO: re-implement this or equivalent
-    pub byte_index: usize,
+    /// Get the texture of the glyph as a rendered image, and its offset
+    pub fn get_outlined_glyph_texture(
+        font_system: &mut cosmic_text::FontSystem,
+        swash_cache: &mut cosmic_text::SwashCache,
+        layout_glyph: &cosmic_text::LayoutGlyph,
+    ) -> (Image, IVec2) {
+        let image = swash_cache
+            .get_image_uncached(font_system, layout_glyph.cache_key)
+            // TODO: don't unwrap
+            .unwrap();
+
+        let cosmic_text::Placement {
+            left,
+            top,
+            width,
+            height,
+        } = image.placement;
+
+        let data = match image.content {
+            cosmic_text::SwashContent::Mask => image
+                .data
+                .iter()
+                .flat_map(|a| [255, 255, 255, *a])
+                .collect(),
+            cosmic_text::SwashContent::Color => image.data,
+            cosmic_text::SwashContent::SubpixelMask => {
+                // TODO
+                todo!()
+            }
+        };
+
+        (
+            Image::new(
+                Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+                TextureDimension::D2,
+                data,
+                TextureFormat::Rgba8UnormSrgb,
+            ),
+            IVec2::new(left, top),
+        )
+    }
 }

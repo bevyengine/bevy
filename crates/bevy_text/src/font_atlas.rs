@@ -7,19 +7,17 @@ use bevy_render::{
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlas};
 use bevy_utils::HashMap;
 
-/// The location of a glyph in an atlas,
-/// and how it is positioned when placed
-#[derive(Debug, Clone, Copy)]
-pub struct GlyphAtlasLocation {
-    /// The index of the glyph in the atlas
-    pub glyph_index: usize,
-    /// The required offset (relative positioning) when placed
-    pub offset: IVec2,
-}
+use crate::GlyphAtlasLocation;
 
+/// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
+///
+/// A [`FontAtlasSet`](crate::FontAtlasSet) contains one or more `FontAtlas`es.
 pub struct FontAtlas {
+    /// Used to update the [`TextureAtlas`].
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
+    /// A mapping between subpixel-binned glyphs and their [`GlyphAtlasLocation`].
     pub glyph_to_atlas_index: HashMap<cosmic_text::CacheKey, GlyphAtlasLocation>,
+    /// The handle to the [`TextureAtlas`] that holds the rasterized glyphs.
     pub texture_atlas: Handle<TextureAtlas>,
 }
 

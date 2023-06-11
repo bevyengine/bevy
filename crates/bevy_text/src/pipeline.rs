@@ -1,8 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use bevy_asset::{Assets, Handle, HandleId};
-use bevy_ecs::component::Component;
-use bevy_ecs::system::Resource;
+use bevy_ecs::{component::Component, system::Resource};
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
@@ -29,6 +28,7 @@ use crate::{
 
 // TODO: the only reason we need a mutex is due to TextMeasure
 // - is there a way to do this without it?
+/// A wrapper around a [`cosmic_text::FontSystem`]
 pub struct FontSystem(Arc<Mutex<cosmic_text::FontSystem>>);
 
 impl Default for FontSystem {
@@ -55,6 +55,7 @@ impl FontSystem {
     }
 }
 
+/// A wrapper around a [`cosmic_text::SwashCache`]
 pub struct SwashCache(cosmic_text::SwashCache);
 
 impl Default for SwashCache {
@@ -63,13 +64,24 @@ impl Default for SwashCache {
     }
 }
 
+/// The `TextPipeline` is used to layout and render [`Text`](crate::Text).
+///
+/// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
 pub struct TextPipeline {
-    /// Identifies a font ID by its font asset handle
+    /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its font asset handle ID.
     map_handle_to_font_id: HashMap<HandleId, cosmic_text::fontdb::ID>,
-    /// Identifies a font atlas set handle by its font iD
+    /// Identifies a [`FontAtlasSet`] handle by its font [`ID`](cosmic_text::fontdb::ID).
+    ///
+    /// Note that this is a strong handle, so that textures are not dropped.
     map_font_id_to_handle: HashMap<cosmic_text::fontdb::ID, Handle<FontAtlasSet>>,
+    /// The font system is used to retrieve fonts and their information, including glyph outlines.
+    ///
+    /// See [`cosmic_text::FontSystem`] for more information.
     font_system: FontSystem,
+    /// The swash cache rasterizer is used to rasterize glyphs
+    ///
+    /// See [`cosmic_text::SwashCache`] for more information.
     swash_cache: SwashCache,
 }
 
@@ -218,6 +230,10 @@ impl TextPipeline {
         Ok(buffer)
     }
 
+    /// Queues text for rendering
+    ///
+    /// Produces a [`TextLayoutInfo`], containing [`PositionedGlyph`]s
+    /// which contain information for rendering the text.
     #[allow(clippy::too_many_arguments)]
     pub fn queue_text(
         &mut self,
@@ -343,6 +359,10 @@ impl TextPipeline {
         })
     }
 
+    /// Queues text for measurement
+    ///
+    /// Produces a [`TextMeasureInfo`] which can be used by a layout system
+    /// to measure the text area on demand.
     pub fn create_text_measure(
         &mut self,
         fonts: &Assets<Font>,
@@ -391,7 +411,7 @@ impl TextPipeline {
     ///
     /// System fonts loading is a surprisingly complicated task,
     /// mostly unsolvable without interacting with system libraries.
-    /// And since `fontdb` tries to be small and portable, this method
+    /// And since [`fontdb`](cosmic_text::fontdb) tries to be small and portable, this method
     /// will simply scan some predefined directories.
     /// Which means that fonts that are not in those directories must
     /// be added manually.
@@ -423,6 +443,9 @@ pub struct TextLayoutInfo {
 }
 
 // TODO: is there a way to do this without mutexes?
+/// Size information for a corresponding [`Text`](crate::Text) component.
+///
+/// Generated via [`TextPipeline::create_text_measure`].
 pub struct TextMeasureInfo {
     pub min_width_content_size: Vec2,
     pub max_width_content_size: Vec2,
@@ -450,8 +473,9 @@ impl TextMeasureInfo {
     }
 }
 
-/// Adds a span to the attributes list,
-/// loading fonts into the DB if required.
+/// For the current line,
+/// adds a span to the attributes list and pushes the text into the line string,
+/// loading fonts into the [`Database`](cosmic_text::fontdb::Database) if required.
 #[allow(clippy::too_many_arguments)]
 fn add_span(
     line_string: &mut String,
@@ -518,6 +542,7 @@ fn add_span(
     attrs_list.add_span(start..end, attrs);
 }
 
+/// Calculate the size of the text area for the given buffer.
 fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
     // TODO: see https://github.com/pop-os/cosmic-text/issues/70 Let a Buffer figure out its height during set_size
     // TODO: see https://github.com/pop-os/cosmic-text/issues/42 Request: Allow buffer dimensions to be undefined
@@ -536,7 +561,7 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
 }
 
 /// An iterator over the paragraphs in the input text.
-/// It is equivalent to [`core::str::Lines`] but follows `unicode-bidi` behavior.
+/// It is equivalent to [`core::str::Lines`] but follows [`unicode_bidi`] behavior.
 // TODO: upstream to cosmic_text, see https://github.com/pop-os/cosmic-text/pull/124
 // TODO: create separate iterator that keeps the ranges, or simply use memory address introspection (as_ptr())
 // TODO: this breaks for lines ending in newlines, e.g. "foo\n" should split into ["foo", ""] but we actually get ["foo"]
@@ -547,7 +572,7 @@ pub struct BidiParagraphs<'text> {
 
 impl<'text> BidiParagraphs<'text> {
     /// Create an iterator to split the input text into paragraphs
-    /// in accordance with `unicode-bidi` behavior.
+    /// in accordance with [`unicode_bidi`] behavior.
     pub fn new(text: &'text str) -> Self {
         let info = unicode_bidi::BidiInfo::new(text, None);
         let info = info.paragraphs.into_iter();
@@ -574,6 +599,7 @@ impl<'text> Iterator for BidiParagraphs<'text> {
     }
 }
 
+/// Helper method to acquire a font system mutex.
 #[inline(always)]
 fn acquire_font_system(
     font_system: &mut FontSystem,
