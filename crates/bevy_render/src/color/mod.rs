@@ -392,7 +392,7 @@ impl Color {
         }
     }
 
-    /// Set red in sRGB colorspace, returned value is of variant [`Color::Rgba`].
+    /// Set red in sRGB colorspace, `self` is modified to variant [`Color::Rgba`] and returned.
     pub fn set_r(&mut self, r: f32) -> &mut Self {
         *self = self.as_rgba();
         match self {
@@ -409,7 +409,7 @@ impl Color {
         self
     }
 
-    /// Set green in sRGB colorspace, returned value is of variant [`Color::Rgba`].
+    /// Set green in sRGB colorspace, `self` is modified to variant [`Color::Rgba`] and returned.
     pub fn set_g(&mut self, g: f32) -> &mut Self {
         *self = self.as_rgba();
         match self {
@@ -426,7 +426,7 @@ impl Color {
         self
     }
 
-    /// Set blue in sRGB colorspace, returned value is of variant [`Color::Rgba`].
+    /// Set blue in sRGB colorspace, `self` is modified to variant [`Color::Rgba`] and returned.
     pub fn set_b(&mut self, b: f32) -> &mut Self {
         *self = self.as_rgba();
         match self {
@@ -467,7 +467,7 @@ impl Color {
         }
     }
 
-    /// Set the red in rgb linear colorspace, returned value is of variant [`Color::RgbaLinear`].
+    /// Set the red in rgb linear colorspace, `self` is modified to variant [`Color::RgbaLi and returnednear`].
     pub fn set_rgb_linear_r(&mut self, r: f32) -> &mut Self {
         *self = self.as_rgba_linear();
         match self {
@@ -484,7 +484,7 @@ impl Color {
         self
     }
 
-    /// Set the green in rgb linear colorspace, returned value is of variant [`Color::RgbaLinear`].
+    /// Set the green in rgb linear colorspace, `self` is modified to variant [`Color::RgbaLi and returnednear`].
     pub fn set_rgb_linear_g(&mut self, g: f32) -> &mut Self {
         *self = self.as_rgba_linear();
         match self {
@@ -501,7 +501,7 @@ impl Color {
         self
     }
 
-    /// Set the blue in rgb linear colorspace, returned value is of variant [`Color::RgbaLinear`].
+    /// Set the blue in rgb linear colorspace, `self` is modified to variant [`Color::RgbaLi and returnednear`].
     pub fn set_rgb_linear_b(&mut self, b: f32) -> &mut Self {
         *self = self.as_rgba_linear();
         match self {
@@ -542,7 +542,7 @@ impl Color {
         }
     }
 
-    /// Set the hue in hsl colorspace, returned value is of variant [`Color::Hsla`].
+    /// Set the hue in hsl colorspace, `self` is modified to variant [`Color::Hsla`] and returned.
     pub fn set_hsl_hue(&mut self, hue: f32) -> &mut Self {
         *self = self.as_hsla();
         match self {
@@ -559,7 +559,7 @@ impl Color {
         self
     }
 
-    /// Set the saturation in hsl colorspace, returned value is of variant [`Color::Hsla`].
+    /// Set the saturation in hsl colorspace, `self` is modified to variant [`Color::Hsla`] and returned.
     pub fn set_hsl_saturation(&mut self, saturation: f32) -> &mut Self {
         *self = self.as_hsla();
         match self {
@@ -576,7 +576,7 @@ impl Color {
         self
     }
 
-    /// Set the lightness in hsl colorspace, returned value is of variant [`Color::Hsla`].
+    /// Set the lightness in hsl colorspace, `self` is modified to variant [`Color::Hsla`] and returned.
     pub fn set_hsl_lightness(&mut self, lightness: f32) -> &mut Self {
         *self = self.as_hsla();
         match self {
@@ -617,7 +617,7 @@ impl Color {
         }
     }
 
-    /// Set the lightness in lch colorspace, returned value is of variant [`Color::Lcha`].
+    /// Set the lightness in lch colorspace, `self` is modified to variant [`Color::Lcha`] and returned.
     pub fn set_lch_lightness(&mut self, lightness: f32) -> &mut Self {
         *self = self.as_lcha();
         match self {
@@ -634,7 +634,7 @@ impl Color {
         self
     }
 
-    /// Set the chroma in lch colorspace, returned value is of variant [`Color::Lcha`].
+    /// Set the chroma in lch colorspace, `self` is modified to variant [`Color::Lcha`] and returned.
     pub fn set_lch_chroma(&mut self, chroma: f32) -> &mut Self {
         *self = self.as_lcha();
         match self {
@@ -651,7 +651,7 @@ impl Color {
         self
     }
 
-    /// Set the hue in hsl colorspace, returned value is of variant [`Color::Lcha`].
+    /// Set the hue in hsl colorspace, `self` is modified to variant [`Color::Lcha`] and returned.
     pub fn set_lch_hue(&mut self, hue: f32) -> &mut Self {
         *self = self.as_lcha();
         match self {
