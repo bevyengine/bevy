@@ -1,3 +1,4 @@
+use crate::GlyphAtlasLocation;
 use crate::{error::TextError, Font, FontAtlas};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
@@ -6,7 +7,6 @@ use bevy_reflect::TypeUuid;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::HashMap;
-use cosmic_text::Placement;
 
 type FontSizeKey = u32;
 
@@ -19,8 +19,7 @@ pub struct FontAtlasSet {
 #[derive(Debug, Clone)]
 pub struct GlyphAtlasInfo {
     pub texture_atlas: Handle<TextureAtlas>,
-    pub glyph_index: usize,
-    pub placement: Placement,
+    pub location: GlyphAtlasLocation,
 }
 
 impl Default for FontAtlasSet {
@@ -114,12 +113,11 @@ impl FontAtlasSet {
                     .find_map(|atlas| {
                         atlas
                             .get_glyph_index(cache_key)
-                            .map(|glyph_index| (glyph_index, atlas.texture_atlas.clone_weak()))
+                            .map(|location| (location, atlas.texture_atlas.clone_weak()))
                     })
-                    .map(|((glyph_index, placement), texture_atlas)| GlyphAtlasInfo {
+                    .map(|(location, texture_atlas)| GlyphAtlasInfo {
                         texture_atlas,
-                        glyph_index,
-                        placement,
+                        location,
                     })
             })
     }

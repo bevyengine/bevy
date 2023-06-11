@@ -8,9 +8,18 @@ use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlas};
 use bevy_utils::HashMap;
 use cosmic_text::Placement;
 
+/// The location of a glyph in an atlas, and how it is positioned
+#[derive(Debug, Clone, Copy)]
+pub struct GlyphAtlasLocation {
+    /// The index of the glyph in the atlas
+    pub glyph_index: usize,
+    /// The positioning (offset), and size of the glyph
+    pub placement: Placement,
+}
+
 pub struct FontAtlas {
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
-    pub glyph_to_atlas_index: HashMap<cosmic_text::CacheKey, (usize, Placement)>,
+    pub glyph_to_atlas_index: HashMap<cosmic_text::CacheKey, GlyphAtlasLocation>,
     pub texture_atlas: Handle<TextureAtlas>,
 }
 
@@ -38,7 +47,7 @@ impl FontAtlas {
         }
     }
 
-    pub fn get_glyph_index(&self, cache_key: cosmic_text::CacheKey) -> Option<(usize, Placement)> {
+    pub fn get_glyph_index(&self, cache_key: cosmic_text::CacheKey) -> Option<GlyphAtlasLocation> {
         self.glyph_to_atlas_index.get(&cache_key).copied()
     }
 
@@ -55,12 +64,17 @@ impl FontAtlas {
         placement: Placement,
     ) -> bool {
         let texture_atlas = texture_atlases.get_mut(&self.texture_atlas).unwrap();
-        if let Some(index) =
+        if let Some(glyph_index) =
             self.dynamic_texture_atlas_builder
                 .add_texture(texture_atlas, textures, texture)
         {
-            self.glyph_to_atlas_index
-                .insert(cache_key, (index, placement));
+            self.glyph_to_atlas_index.insert(
+                cache_key,
+                GlyphAtlasLocation {
+                    glyph_index,
+                    placement,
+                },
+            );
             true
         } else {
             false

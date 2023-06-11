@@ -305,9 +305,10 @@ impl TextPipeline {
                 }
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
-                let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
-                let left = atlas_info.placement.left as f32;
-                let top = atlas_info.placement.top as f32;
+                let location = atlas_info.location;
+                let glyph_rect = texture_atlas.textures[location.glyph_index];
+                let left = location.placement.left as f32;
+                let top = location.placement.top as f32;
                 let glyph_size = Vec2::new(glyph_rect.width(), glyph_rect.height());
 
                 // offset by half the size because the origin is center

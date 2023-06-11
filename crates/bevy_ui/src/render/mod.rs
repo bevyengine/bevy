@@ -323,7 +323,7 @@ pub fn extract_text_uinodes(
                 }
                 let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-                let mut rect = atlas.textures[atlas_info.glyph_index];
+                let mut rect = atlas.textures[atlas_info.location.glyph_index];
                 rect.min *= inverse_scale_factor;
                 rect.max *= inverse_scale_factor;
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
