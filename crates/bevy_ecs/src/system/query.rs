@@ -823,8 +823,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ) -> Result<[ROQueryItem<'_, Q>; N], QueryEntityError> {
         // SAFETY: it is the scheduler's responsibility to ensure that `Query` is never handed out on the wrong `World`.
         unsafe {
-            self.state
-                .get_many_read_only_manual(self.world, entities, self.last_run, self.this_run)
+            self.state.get_many_read_only_manual(
+                self.world.unsafe_world(),
+                entities,
+                self.last_run,
+                self.this_run,
+            )
         }
     }
 
@@ -1311,8 +1315,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.state
-            .is_empty(self.world, self.last_run, self.this_run)
+        self.state.is_empty(
+            // SAFETY: `QueryState::is_empty` does not access world data.
+            unsafe { self.world.unsafe_world() },
+            self.last_run,
+            self.this_run,
+        )
     }
 
     /// Returns `true` if the given [`Entity`] matches the query.
