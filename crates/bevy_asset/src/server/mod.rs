@@ -6,7 +6,7 @@ use crate::{
     folder::LoadedFolder,
     io::{AssetReader, AssetReaderError, AssetSourceEvent, AssetWatcher, Reader},
     loader::{AssetLoader, AssetLoaderError, ErasedAssetLoader, LoadContext, LoadedAsset},
-    meta::{AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal},
+    meta::{AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal, Settings},
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, Assets, DeserializeMetaError, ErasedLoadedAsset,
     Handle, UntypedAssetId, UntypedHandle,
@@ -160,6 +160,30 @@ impl AssetServer {
 
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
+        self.load_with_meta_transform(path, |_meta| {})
+    }
+
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn load_with_settings<'a, A: Asset, S: Settings>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        settings: impl Fn(&mut S) + Send + Sync + 'static,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(path, move |meta| {
+            if let Some(loader_settings) = meta.loader_settings_mut() {
+                let loader_settings = loader_settings
+                    .downcast_mut::<S>()
+                    .expect("Configured settings type does not match loader settings");
+                settings(loader_settings);
+            }
+        })
+    }
+
+    fn load_with_meta_transform<'a, A: Asset>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        meta_transform: impl FnMut(&mut dyn AssetMetaDyn) + Send + Sync + 'static,
+    ) -> Handle<A> {
         let path: AssetPath = path.into();
         let (handle, should_load) = {
             let mut infos = self.data.infos.write();
@@ -180,7 +204,10 @@ impl AssetServer {
                         owned_path.remove_label();
                         owned_handle = None;
                     }
-                    if let Err(err) = server.load_internal(owned_handle, owned_path, false).await {
+                    if let Err(err) = server
+                        .load_internal(owned_handle, owned_path, false, meta_transform)
+                        .await
+                    {
                         error!("{}", err);
                     }
                 })
@@ -195,7 +222,8 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
-        self.load_internal(None, path.into(), false).await
+        self.load_internal(None, path.into(), false, |_meta| {})
+            .await
     }
 
     async fn load_internal<'a>(
@@ -203,9 +231,10 @@ impl AssetServer {
         input_handle: Option<UntypedHandle>,
         mut path: AssetPath<'a>,
         force: bool,
+        mut meta_transform: impl FnMut(&mut dyn AssetMetaDyn) + Send + Sync + 'static,
     ) -> Result<UntypedHandle, AssetLoadError> {
         let owned_path = path.to_owned();
-        let (meta, loader, mut reader) = self
+        let (mut meta, loader, mut reader) = self
             .get_meta_loader_and_reader(&owned_path)
             .await
             .map_err(|e| {
@@ -262,6 +291,9 @@ impl AssetServer {
             handle.id()
         };
 
+        // TODO: this will be ignored on hot-reload ... not ideal. store in infos?
+        (meta_transform)(&mut *meta);
+
         match self
             .load_with_meta_loader_and_reader(&path, meta, &*loader, &mut *reader, true, false)
             .await
@@ -294,7 +326,10 @@ impl AssetServer {
             .spawn(async move {
                 if server.data.infos.read().is_path_alive(&owned_path) {
                     info!("Reloading {owned_path} because it has changed");
-                    if let Err(err) = server.load_internal(None, owned_path, true).await {
+                    if let Err(err) = server
+                        .load_internal(None, owned_path, true, |_meta| {})
+                        .await
+                    {
                         error!("{}", err);
                     }
                 }

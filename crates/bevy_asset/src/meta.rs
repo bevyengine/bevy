@@ -79,6 +79,7 @@ pub struct AssetMetaProcessedInfoMinimal {
 
 pub trait AssetMetaDyn: Downcast + Send + Sync {
     fn loader_settings(&self) -> Option<&dyn Settings>;
+    fn loader_settings_mut(&mut self) -> Option<&mut dyn Settings>;
     fn serialize(&self) -> Vec<u8>;
     fn processed_info(&self) -> &Option<ProcessedInfo>;
     fn processed_info_mut(&mut self) -> &mut Option<ProcessedInfo>;
@@ -92,6 +93,13 @@ impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
     }
     fn loader_settings(&self) -> Option<&dyn Settings> {
         if let AssetAction::Load { settings, .. } = &self.asset {
+            Some(settings)
+        } else {
+            None
+        }
+    }
+    fn loader_settings_mut(&mut self) -> Option<&mut dyn Settings> {
+        if let AssetAction::Load { settings, .. } = &mut self.asset {
             Some(settings)
         } else {
             None

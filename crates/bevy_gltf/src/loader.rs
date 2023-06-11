@@ -27,7 +27,9 @@ use bevy_render::{
     primitives::Aabb,
     render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
     renderer::RenderDevice,
-    texture::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError},
+    texture::{
+        CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageType, TextureError,
+    },
 };
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
@@ -39,7 +41,10 @@ use gltf::{
     texture::{MagFilter, MinFilter, WrappingMode},
     Material, Node, Primitive,
 };
-use std::{collections::VecDeque, path::Path};
+use std::{
+    collections::VecDeque,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 
 /// An error that occurs when loading a glTF file.
@@ -126,16 +131,9 @@ async fn load_gltf<'a, 'b, 'c>(
     let gltf = gltf::Gltf::from_slice(bytes)?;
     let buffer_data = load_buffers(&gltf, load_context).await?;
 
-    let mut materials = vec![];
-    let mut named_materials = HashMap::default();
     let mut linear_textures = HashSet::default();
 
     for material in gltf.materials() {
-        let handle = load_material(&material, load_context);
-        if let Some(name) = material.name() {
-            named_materials.insert(name.to_string(), handle.clone());
-        }
-        materials.push(handle);
         if let Some(texture) = material.normal_texture() {
             linear_textures.insert(texture.texture().index());
         }
@@ -242,6 +240,85 @@ async fn load_gltf<'a, 'b, 'c>(
         }
         (animations, named_animations, animation_roots)
     };
+
+    // TODO: use the threaded impl on wasm once wasm thread pool doesn't deadlock on it
+    // See https://github.com/bevyengine/bevy/issues/1924 for more details
+    // The taskpool use is also avoided when there is only one texture for performance reasons and
+    // to avoid https://github.com/bevyengine/bevy/pull/2725
+    if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
+        for gltf_texture in gltf.textures() {
+            let parent_path = load_context.path().parent().unwrap();
+            let texture = load_texture(
+                gltf_texture,
+                &buffer_data,
+                &linear_textures,
+                parent_path,
+                loader.supported_compressed_formats,
+            )
+            .await?;
+            match texture {
+                ImageOrPath::Image { label, image } => {
+                    load_context.add_labeled_asset(label, image);
+                }
+                ImageOrPath::Path { path, is_srgb } => {
+                    let _handle: Handle<Image> = load_context.load_with_settings(
+                        path,
+                        move |settings: &mut ImageLoaderSettings| {
+                            settings.is_srgb = is_srgb;
+                        },
+                    );
+                }
+            }
+        }
+    } else {
+        #[cfg(not(target_arch = "wasm32"))]
+        IoTaskPool::get()
+            .scope(|scope| {
+                gltf.textures().for_each(|gltf_texture| {
+                    let parent_path = load_context.path().parent().unwrap();
+                    let linear_textures = &linear_textures;
+                    let buffer_data = &buffer_data;
+                    scope.spawn(async move {
+                        load_texture(
+                            gltf_texture,
+                            buffer_data,
+                            linear_textures,
+                            &parent_path,
+                            supported_compressed_formats,
+                        )
+                        .await
+                    });
+                });
+            })
+            .into_iter()
+            .for_each(|image| match image {
+                Ok(ImageOrPath::Image { label, image }) => {
+                    load_context.add_labeled_asset(label, image);
+                }
+                Ok(ImageOrPath::Path { path, is_srgb }) => {
+                    let _handle: Handle<Image> = load_context.load_with_settings(
+                        path,
+                        move |settings: &mut ImageLoaderSettings| {
+                            settings.is_srgb = is_srgb;
+                        },
+                    );
+                }
+                Err(err) => {
+                    warn!("Error loading glTF texture: {}", err);
+                }
+            });
+    }
+
+    let mut materials = vec![];
+    let mut named_materials = HashMap::default();
+    // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
+    for material in gltf.materials() {
+        let handle = load_material(&material, load_context);
+        if let Some(name) = material.name() {
+            named_materials.insert(name.to_string(), handle.clone());
+        }
+        materials.push(handle);
+    }
 
     let mut meshes = vec![];
     let mut named_meshes = HashMap::default();
@@ -386,61 +463,6 @@ async fn load_gltf<'a, 'b, 'c>(
         })
         .collect();
 
-    // TODO: use the threaded impl on wasm once wasm thread pool doesn't deadlock on it
-    // See https://github.com/bevyengine/bevy/issues/1924 for more details
-    // The taskpool use is also avoided when there is only one texture for performance reasons and
-    // to avoid https://github.com/bevyengine/bevy/pull/2725
-    if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
-        for gltf_texture in gltf.textures() {
-            let label = texture_label(&gltf_texture);
-            let texture = load_texture(
-                gltf_texture,
-                &buffer_data,
-                &linear_textures,
-                load_context,
-                loader.supported_compressed_formats,
-            )
-            .await?;
-            if let Some(image) = texture {
-                load_context.add_labeled_asset(label, image);
-            }
-        }
-    } else {
-        #[cfg(not(target_arch = "wasm32"))]
-        IoTaskPool::get()
-            .scope(|scope| {
-                gltf.textures().for_each(|gltf_texture| {
-                    let linear_textures = &linear_textures;
-                    let buffer_data = &buffer_data;
-                    let label = texture_label(&gltf_texture);
-                    let mut load_context: LoadContext = load_context.begin_labeled_asset(label);
-                    scope.spawn(async move {
-                        let image = load_texture(
-                            gltf_texture,
-                            buffer_data,
-                            linear_textures,
-                            &mut load_context,
-                            supported_compressed_formats,
-                        )
-                        .await;
-                        image.map(|i| i.map(|i| load_context.finish(i, None)))
-                    });
-                });
-            })
-            .into_iter()
-            .filter_map(|res| {
-                if let Err(err) = res.as_ref() {
-                    warn!("Error loading glTF texture: {}", err);
-                }
-                res.ok()
-            })
-            .for_each(|loaded_asset| {
-                if let Some(loaded_asset) = loaded_asset {
-                    load_context.add_loaded_labeled_asset(loaded_asset);
-                }
-            });
-    }
-
     let skinned_mesh_inverse_bindposes: Vec<_> = gltf
         .skins()
         .map(|gltf_skin| {
@@ -578,9 +600,9 @@ async fn load_texture<'a, 'b>(
     gltf_texture: gltf::Texture<'a>,
     buffer_data: &[Vec<u8>],
     linear_textures: &HashSet<usize>,
-    load_context: &mut LoadContext<'b>,
+    parent_path: &'b Path,
     supported_compressed_formats: CompressedImageFormats,
-) -> Result<Option<Image>, GltfError> {
+) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
     match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
@@ -594,7 +616,10 @@ async fn load_texture<'a, 'b>(
                 is_srgb,
             )?;
             image.sampler_descriptor = ImageSampler::Descriptor(texture_sampler(&gltf_texture));
-            Ok(Some(image))
+            Ok(ImageOrPath::Image {
+                image,
+                label: texture_label(&gltf_texture),
+            })
         }
         gltf::image::Source::Uri { uri, mime_type } => {
             let uri = percent_encoding::percent_decode_str(uri)
@@ -604,17 +629,21 @@ async fn load_texture<'a, 'b>(
             if let Ok(data_uri) = DataUri::parse(uri) {
                 let bytes = data_uri.decode()?;
                 let image_type = ImageType::MimeType(data_uri.mime_type);
-                Ok(Some(Image::from_buffer(
-                    &bytes,
-                    mime_type.map(ImageType::MimeType).unwrap_or(image_type),
-                    supported_compressed_formats,
-                    is_srgb,
-                )?))
+                Ok(ImageOrPath::Image {
+                    image: Image::from_buffer(
+                        &bytes,
+                        mime_type.map(ImageType::MimeType).unwrap_or(image_type),
+                        supported_compressed_formats,
+                        is_srgb,
+                    )?,
+                    label: texture_label(&gltf_texture),
+                })
             } else {
-                let parent = load_context.path().parent().unwrap();
-                let image_path = parent.join(uri);
-                let _handle: Handle<Image> = load_context.load(image_path);
-                Ok(None)
+                let image_path = parent_path.join(uri);
+                Ok(ImageOrPath::Path {
+                    path: image_path,
+                    is_srgb,
+                })
             }
         }
     }
@@ -1119,6 +1148,11 @@ fn resolve_node_hierarchy(
         .into_iter()
         .map(|(_, resolved)| resolved)
         .collect()
+}
+
+enum ImageOrPath {
+    Image { image: Image, label: String },
+    Path { path: PathBuf, is_srgb: bool },
 }
 
 struct DataUri<'a> {

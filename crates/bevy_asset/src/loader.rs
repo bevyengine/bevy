@@ -159,6 +159,10 @@ impl<A: Asset> LoadedAsset<A> {
             meta,
         }
     }
+
+    pub fn path(&self) -> Option<&AssetPath<'static>> {
+        self.path.as_ref()
+    }
 }
 
 impl<A: Asset> From<A> for LoadedAsset<A> {
@@ -365,6 +369,23 @@ impl<'a> LoadContext<'a> {
         let path = path.into().to_owned();
         let handle = if self.should_load_dependencies {
             self.asset_server.load(path.clone())
+        } else {
+            self.asset_server
+                .get_or_create_path_handle(path.clone(), TypeId::of::<A>())
+                .typed_debug_checked()
+        };
+        self.dependencies.insert(handle.clone().untyped());
+        handle
+    }
+
+    pub fn load_with_settings<'b, A: Asset, S: Settings + Default>(
+        &mut self,
+        path: impl Into<AssetPath<'b>>,
+        settings: impl Fn(&mut S) + Send + Sync + 'static,
+    ) -> Handle<A> {
+        let path = path.into().to_owned();
+        let handle = if self.should_load_dependencies {
+            self.asset_server.load_with_settings(path.clone(), settings)
         } else {
             self.asset_server
                 .get_or_create_path_handle(path.clone(), TypeId::of::<A>())
