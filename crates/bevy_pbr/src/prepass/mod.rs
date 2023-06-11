@@ -385,6 +385,7 @@ where
         ));
         if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
             shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+            shader_defs.push("PREPASS_FRAGMENT".into());
         }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
@@ -457,8 +458,9 @@ where
 
         // The fragment shader is only used when the normal prepass or motion vectors prepass
         // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
-        // prepass shader
+        // prepass shader or we are clamping the orthographic depth.
         let fragment_required = !targets.is_empty()
+            || key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO)
             || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && self.material_fragment_shader.is_some());
 
