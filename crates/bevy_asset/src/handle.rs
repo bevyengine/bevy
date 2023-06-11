@@ -1,4 +1,7 @@
-use crate::{Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId, UntypedAssetId};
+use crate::{
+    meta::MetaTransform, Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId,
+    UntypedAssetId,
+};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize, Uuid};
 use crossbeam_channel::{Receiver, Sender};
@@ -39,10 +42,12 @@ impl AssetHandleProvider {
         id: InternalAssetId,
         asset_server_managed: bool,
         path: Option<AssetPath<'static>>,
+        meta_transform: Option<MetaTransform>,
     ) -> Arc<InternalAssetHandle> {
         Arc::new(InternalAssetHandle {
             id: id.untyped(self.type_id),
             drop_sender: self.drop_sender.clone(),
+            meta_transform,
             path,
             asset_server_managed,
         })
@@ -52,22 +57,31 @@ impl AssetHandleProvider {
         &self,
         asset_server_managed: bool,
         path: Option<AssetPath<'static>>,
+        meta_transform: Option<MetaTransform>,
     ) -> Arc<InternalAssetHandle> {
         let index = self.allocator.reserve();
-        self.get_handle(InternalAssetId::Index(index), asset_server_managed, path)
+        self.get_handle(
+            InternalAssetId::Index(index),
+            asset_server_managed,
+            path,
+            meta_transform,
+        )
     }
 
     pub fn reserve_handle(&self) -> UntypedHandle {
         let index = self.allocator.reserve();
-        UntypedHandle::Strong(self.get_handle(InternalAssetId::Index(index), false, None))
+        UntypedHandle::Strong(self.get_handle(InternalAssetId::Index(index), false, None, None))
     }
 }
 
-#[derive(Debug)]
 pub struct InternalAssetHandle {
     pub(crate) id: UntypedAssetId,
     pub(crate) asset_server_managed: bool,
     pub(crate) path: Option<AssetPath<'static>>,
+    /// Modifies asset meta. This is stored on the handle because it is:
+    /// 1. configuration tied to the lifetime of a specific asset load
+    /// 2. configuration that must be repeatable when the asset is hot-reloaded
+    pub(crate) meta_transform: Option<MetaTransform>,
     pub(crate) drop_sender: Sender<DropEvent>,
 }
 
@@ -79,6 +93,17 @@ impl Drop for InternalAssetHandle {
         }) {
             println!("Failed to send DropEvent for InternalAssetHandle {:?}", err);
         }
+    }
+}
+
+impl std::fmt::Debug for InternalAssetHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InternalAssetHandle")
+            .field("id", &self.id)
+            .field("asset_server_managed", &self.asset_server_managed)
+            .field("path", &self.path)
+            .field("drop_sender", &self.drop_sender)
+            .finish()
     }
 }
 
@@ -293,6 +318,16 @@ impl UntypedHandle {
             "The target Handle<A>'s TypeId does not match the TypeId of this UntypedHandle"
         );
         self.typed_unchecked()
+    }
+
+    /// The "meta transform" for the strong handle. This will only be [`Some`] if the handle is strong and there is a meta transform
+    /// associated with it.
+    #[inline]
+    pub fn meta_transform(&self) -> Option<&MetaTransform> {
+        match self {
+            UntypedHandle::Strong(handle) => handle.meta_transform.as_ref(),
+            UntypedHandle::Weak(_) => None,
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 use crate::{
-    AssetHandleProvider, AssetPath, DependencyLoadState, ErasedLoadedAsset, InternalAssetEvent,
-    InternalAssetHandle, LoadState, RecursiveDependencyLoadState, UntypedAssetId, UntypedHandle,
+    meta::MetaTransform, AssetHandleProvider, AssetPath, DependencyLoadState, ErasedLoadedAsset,
+    InternalAssetEvent, InternalAssetHandle, LoadState, RecursiveDependencyLoadState,
+    UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
 use bevy_log::warn;
@@ -65,7 +66,14 @@ impl std::fmt::Debug for AssetInfos {
 
 impl AssetInfos {
     pub(crate) fn create_loading_handle(&mut self, type_id: TypeId) -> UntypedHandle {
-        Self::create_handle_internal(&mut self.infos, &self.handle_providers, type_id, None, true)
+        Self::create_handle_internal(
+            &mut self.infos,
+            &self.handle_providers,
+            type_id,
+            None,
+            None,
+            true,
+        )
     }
 
     fn create_handle_internal(
@@ -73,6 +81,7 @@ impl AssetInfos {
         handle_providers: &HashMap<TypeId, AssetHandleProvider>,
         type_id: TypeId,
         path: Option<AssetPath<'static>>,
+        meta_transform: Option<MetaTransform>,
         loading: bool,
     ) -> UntypedHandle {
         let provider = handle_providers.get(&type_id).unwrap_or_else(|| {
@@ -82,7 +91,7 @@ impl AssetInfos {
             )
         });
 
-        let handle = provider.reserve_handle_internal(true, path.clone());
+        let handle = provider.reserve_handle_internal(true, path.clone(), meta_transform);
         let mut info = AssetInfo::new(Arc::downgrade(&handle), path);
         if loading {
             info.load_state = LoadState::Loading;
@@ -100,6 +109,7 @@ impl AssetInfos {
         path: AssetPath<'static>,
         type_id: TypeId,
         loading_mode: HandleLoadingMode,
+        meta_transform: Option<MetaTransform>,
     ) -> (UntypedHandle, bool) {
         match self.path_to_id.entry(path.clone()) {
             Entry::Occupied(entry) => {
@@ -137,7 +147,8 @@ impl AssetInfos {
                             type_id
                         )
                     });
-                    let handle = provider.get_handle(id.internal(), true, Some(path));
+                    let handle =
+                        provider.get_handle(id.internal(), true, Some(path), meta_transform);
                     info.weak_handle = Arc::downgrade(&handle);
                     (UntypedHandle::Strong(handle), should_load)
                 }
@@ -153,6 +164,7 @@ impl AssetInfos {
                     &self.handle_providers,
                     type_id,
                     Some(path),
+                    meta_transform,
                     should_load,
                 );
                 entry.insert(handle.id());

@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 
 pub const META_FORMAT_VERSION: &str = "1.0";
 
+pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
+
 #[derive(Serialize, Deserialize)]
 pub struct AssetMeta<L: AssetLoader, P: Process> {
     pub meta_format_version: String,
@@ -161,4 +163,17 @@ impl AssetLoader for () {
     fn extensions(&self) -> &[&str] {
         unreachable!();
     }
+}
+
+pub(crate) fn loader_settings_meta_transform<S: Settings>(
+    settings: impl Fn(&mut S) + Send + Sync + 'static,
+) -> MetaTransform {
+    Box::new(move |meta| {
+        if let Some(loader_settings) = meta.loader_settings_mut() {
+            let loader_settings = loader_settings
+                .downcast_mut::<S>()
+                .expect("Configured settings type does not match AssetLoader settings type");
+            settings(loader_settings);
+        }
+    })
 }

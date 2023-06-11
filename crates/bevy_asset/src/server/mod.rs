@@ -6,7 +6,10 @@ use crate::{
     folder::LoadedFolder,
     io::{AssetReader, AssetReaderError, AssetSourceEvent, AssetWatcher, Reader},
     loader::{AssetLoader, AssetLoaderError, ErasedAssetLoader, LoadContext, LoadedAsset},
-    meta::{AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal, Settings},
+    meta::{
+        loader_settings_meta_transform, AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal,
+        MetaTransform, Settings,
+    },
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, Assets, DeserializeMetaError, ErasedLoadedAsset,
     Handle, UntypedAssetId, UntypedHandle,
@@ -160,7 +163,7 @@ impl AssetServer {
 
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
-        self.load_with_meta_transform(path, |_meta| {})
+        self.load_with_meta_transform(path, None)
     }
 
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
@@ -169,20 +172,13 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, move |meta| {
-            if let Some(loader_settings) = meta.loader_settings_mut() {
-                let loader_settings = loader_settings
-                    .downcast_mut::<S>()
-                    .expect("Configured settings type does not match loader settings");
-                settings(loader_settings);
-            }
-        })
+        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)))
     }
 
     fn load_with_meta_transform<'a, A: Asset>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        meta_transform: impl FnMut(&mut dyn AssetMetaDyn) + Send + Sync + 'static,
+        meta_transform: Option<MetaTransform>,
     ) -> Handle<A> {
         let path: AssetPath = path.into();
         let (handle, should_load) = {
@@ -191,6 +187,7 @@ impl AssetServer {
                 path.to_owned(),
                 TypeId::of::<A>(),
                 HandleLoadingMode::Request,
+                meta_transform,
             )
         };
 
@@ -205,7 +202,7 @@ impl AssetServer {
                         owned_handle = None;
                     }
                     if let Err(err) = server
-                        .load_internal(owned_handle, owned_path, false, meta_transform)
+                        .load_internal(owned_handle, owned_path, false, None)
                         .await
                     {
                         error!("{}", err);
@@ -222,8 +219,7 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
-        self.load_internal(None, path.into(), false, |_meta| {})
-            .await
+        self.load_internal(None, path.into(), false, None).await
     }
 
     async fn load_internal<'a>(
@@ -231,7 +227,7 @@ impl AssetServer {
         input_handle: Option<UntypedHandle>,
         mut path: AssetPath<'a>,
         force: bool,
-        mut meta_transform: impl FnMut(&mut dyn AssetMetaDyn) + Send + Sync + 'static,
+        meta_transform: Option<MetaTransform>,
     ) -> Result<UntypedHandle, AssetLoadError> {
         let owned_path = path.to_owned();
         let (mut meta, loader, mut reader) = self
@@ -267,6 +263,7 @@ impl AssetServer {
                     path.to_owned(),
                     loader.asset_type_id(),
                     HandleLoadingMode::Request,
+                    meta_transform,
                 )
             }
         };
@@ -285,14 +282,16 @@ impl AssetServer {
                 // ignore current load state ... we kicked off this sub asset load because it needed to be loaded but
                 // does not currently exist
                 HandleLoadingMode::Force,
+                None,
             );
             actual_handle.id()
         } else {
             handle.id()
         };
 
-        // TODO: this will be ignored on hot-reload ... not ideal. store in infos?
-        (meta_transform)(&mut *meta);
+        if let Some(meta_transform) = handle.meta_transform() {
+            (*meta_transform)(&mut *meta);
+        }
 
         match self
             .load_with_meta_loader_and_reader(&path, meta, &*loader, &mut *reader, true, false)
@@ -326,10 +325,7 @@ impl AssetServer {
             .spawn(async move {
                 if server.data.infos.read().is_path_alive(&owned_path) {
                     info!("Reloading {owned_path} because it has changed");
-                    if let Err(err) = server
-                        .load_internal(None, owned_path, true, |_meta| {})
-                        .await
-                    {
+                    if let Err(err) = server.load_internal(None, owned_path, true, None).await {
                         error!("{}", err);
                     }
                 }
@@ -353,7 +349,7 @@ impl AssetServer {
     pub fn load_asset_untyped(&self, asset: impl Into<ErasedLoadedAsset>) -> UntypedHandle {
         let loaded_asset = asset.into();
         let handle = if let Some(path) = loaded_asset.path() {
-            self.get_or_create_path_handle(path.clone(), loaded_asset.asset_type_id())
+            self.get_or_create_path_handle(path.clone(), loaded_asset.asset_type_id(), None)
         } else {
             self.data
                 .infos
@@ -497,10 +493,11 @@ impl AssetServer {
         &self,
         path: AssetPath<'static>,
         type_id: TypeId,
+        meta_transform: Option<MetaTransform>,
     ) -> UntypedHandle {
         let mut infos = self.data.infos.write();
         infos
-            .get_or_create_path_handle(path, type_id, HandleLoadingMode::NotLoading)
+            .get_or_create_path_handle(path, type_id, HandleLoadingMode::NotLoading, meta_transform)
             .0
     }
 
@@ -687,7 +684,6 @@ pub enum RecursiveDependencyLoadState {
 }
 
 #[derive(Error, Debug)]
-
 pub enum AssetLoadError {
     #[error("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
     RequestedHandleTypeMismatch {

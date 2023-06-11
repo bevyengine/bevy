@@ -1,6 +1,9 @@
 use crate::{
     io::{AssetReaderError, Reader},
-    meta::{AssetMeta, AssetMetaDyn, AssetMetaProcessedInfoMinimal, Settings},
+    meta::{
+        loader_settings_meta_transform, AssetMeta, AssetMetaDyn, AssetMetaProcessedInfoMinimal,
+        Settings,
+    },
     path::AssetPath,
     Asset, AssetLoadError, AssetServer, Assets, Handle, UntypedAssetId, UntypedHandle,
 };
@@ -296,7 +299,7 @@ impl<'a> LoadContext<'a> {
         let label = path.label().unwrap().to_string();
         let handle = self
             .asset_server
-            .get_or_create_path_handle(path, TypeId::of::<A>());
+            .get_or_create_path_handle(path, TypeId::of::<A>(), None);
         let returned_handle = handle.clone().typed_debug_checked();
         self.labeled_assets.insert(
             label,
@@ -371,7 +374,7 @@ impl<'a> LoadContext<'a> {
             self.asset_server.load(path.clone())
         } else {
             self.asset_server
-                .get_or_create_path_handle(path.clone(), TypeId::of::<A>())
+                .get_or_create_path_handle(path.clone(), TypeId::of::<A>(), None)
                 .typed_debug_checked()
         };
         self.dependencies.insert(handle.clone().untyped());
@@ -388,7 +391,11 @@ impl<'a> LoadContext<'a> {
             self.asset_server.load_with_settings(path.clone(), settings)
         } else {
             self.asset_server
-                .get_or_create_path_handle(path.clone(), TypeId::of::<A>())
+                .get_or_create_path_handle(
+                    path.clone(),
+                    TypeId::of::<A>(),
+                    Some(loader_settings_meta_transform(settings)),
+                )
                 .typed_debug_checked()
         };
         self.dependencies.insert(handle.clone().untyped());
@@ -399,7 +406,7 @@ impl<'a> LoadContext<'a> {
         let path = self.asset_path.with_label(label);
         let handle = self
             .asset_server
-            .get_or_create_path_handle(path.to_owned(), TypeId::of::<A>())
+            .get_or_create_path_handle(path.to_owned(), TypeId::of::<A>(), None)
             .typed_debug_checked();
         self.dependencies.insert(handle.clone().untyped());
         handle
