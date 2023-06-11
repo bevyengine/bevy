@@ -467,7 +467,7 @@ impl Color {
         }
     }
 
-    /// Set the red in rgb linear colorspace, `self` is modified to variant [`Color::RgbaLi and returnednear`].
+    /// Set the red in rgb linear colorspace, `self` is modified to variant [`Color::RgbaLinear`] and returned.
     pub fn set_rgb_linear_r(&mut self, r: f32) -> &mut Self {
         *self = self.as_rgba_linear();
         match self {
@@ -484,7 +484,7 @@ impl Color {
         self
     }
 
-    /// Set the green in rgb linear colorspace, `self` is modified to variant [`Color::RgbaLi and returnednear`].
+    /// Set the green in rgb linear colorspace, `self` is modified to variant [`Color::RgbaLinear`] and returned.
     pub fn set_rgb_linear_g(&mut self, g: f32) -> &mut Self {
         *self = self.as_rgba_linear();
         match self {
@@ -501,7 +501,7 @@ impl Color {
         self
     }
 
-    /// Set the blue in rgb linear colorspace, `self` is modified to variant [`Color::RgbaLi and returnednear`].
+    /// Set the blue in rgb linear colorspace, `self` is modified to variant [`Color::RgbaLinear`] and returned.
     pub fn set_rgb_linear_b(&mut self, b: f32) -> &mut Self {
         *self = self.as_rgba_linear();
         match self {
