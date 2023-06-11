@@ -43,7 +43,11 @@ use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 /// }
 /// ```
 pub trait Command: Send + 'static {
-    /// Applies this command.
+    /// Applies this command, causing it to mutate the provided `world`.
+    ///
+    /// This method is used to define what a command "does" when it is ultimately applied.
+    /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
+    /// This data is set by the system or other source of the command, and then ultimately read in this method.
     fn apply(self, world: &mut World);
 }
 
