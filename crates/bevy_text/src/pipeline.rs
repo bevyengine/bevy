@@ -95,11 +95,7 @@ impl TextPipeline {
         let (font_size, line_height) = (font_size as f32, line_height as f32);
         let metrics = Metrics::new(font_size, line_height);
 
-        let font_system = &mut self
-            .font_system
-            .0
-            .try_lock()
-            .map_err(|_| TextError::FailedToAcquireMutex)?;
+        let font_system = &mut acquire_font_system(&mut self.font_system)?;
 
         // TODO: cache buffers (see Iced / glyphon)
         let mut buffer = Buffer::new(font_system, metrics);
@@ -246,11 +242,7 @@ impl TextPipeline {
         let buffer =
             self.create_buffer(fonts, sections, linebreak_behavior, bounds, scale_factor)?;
 
-        let font_system = &mut self
-            .font_system
-            .0
-            .try_lock()
-            .map_err(|_| TextError::FailedToAcquireMutex)?;
+        let font_system = &mut acquire_font_system(&mut self.font_system)?;
         let swash_cache = &mut self.swash_cache.0;
 
         let box_size = buffer_dimensions(&buffer);
@@ -374,11 +366,7 @@ impl TextPipeline {
         let min_width_content_size = buffer_dimensions(&buffer);
 
         let max_width_content_size = {
-            let font_system = &mut self
-                .font_system
-                .0
-                .try_lock()
-                .map_err(|_| TextError::FailedToAcquireMutex)?;
+            let font_system = &mut acquire_font_system(&mut self.font_system)?;
 
             buffer.set_size(
                 font_system,
@@ -584,4 +572,14 @@ impl<'text> Iterator for BidiParagraphs<'text> {
             Some(paragraph)
         }
     }
+}
+
+#[inline(always)]
+fn acquire_font_system(
+    font_system: &mut FontSystem,
+) -> Result<std::sync::MutexGuard<'_, cosmic_text::FontSystem>, TextError> {
+    font_system
+        .0
+        .try_lock()
+        .map_err(|_| TextError::FailedToAcquireMutex)
 }
