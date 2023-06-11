@@ -270,14 +270,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // bevy logo (image)
+                    // A `NodeBundle` is used to display the logo the image as an `ImageBundle` can't automatically
+                    // size itself with a child node present.
                     parent
                         .spawn((
                             NodeBundle {
                                 style: Style {
                                     width: Val::Px(500.0),
                                     height: Val::Px(125.0),
+                                    margin: UiRect::top(Val::VMin(5.)),
                                     ..default()
                                 },
+                                // a `NodeBundle` is transparent by default, so to see the image we have to its color to `WHITE`
                                 background_color: Color::WHITE.into(),
                                 ..default()
                             },
@@ -285,15 +289,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ))
                         .with_children(|parent| {
                             // alt text
-                            parent
-                                .spawn((NodeBundle {
+                            // This UI node takes up no space in the layout and the `Text` component is used by the accessiblity module
+                            // and is not rendered.
+                            parent.spawn((
+                                NodeBundle {
                                     style: Style {
                                         display: Display::None,
                                         ..Default::default()
                                     },
                                     ..Default::default()
                                 },
-                                Text::from_section("Bevy logo", TextStyle::default())
+                                Text::from_section("Bevy logo", TextStyle::default()),
                             ));
                         });
                 });
