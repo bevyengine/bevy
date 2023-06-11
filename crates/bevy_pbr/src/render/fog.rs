@@ -137,6 +137,7 @@ impl Plugin for FogPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, FOG_SHADER_HANDLE, "fog.wgsl", Shader::from_wgsl);
 
+        app.register_type::<FogSettings>();
         app.add_plugin(ExtractComponentPlugin::<FogSettings>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {

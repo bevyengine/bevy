@@ -459,6 +459,9 @@ mod impls {
     mod rect;
     #[cfg(feature = "smallvec")]
     mod smallvec;
+    #[cfg(feature = "smol_str")]
+    mod smol_str;
+
     mod std;
 
     #[cfg(feature = "glam")]

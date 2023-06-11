@@ -419,9 +419,12 @@ pub unsafe trait WorldQuery {
         true
     }
 
+    /// Adds any component accesses used by this [`WorldQuery`] to `access`.
     // This does not have a default body of `{}` because 99% of cases need to add accesses
     // and forgetting to do so would be unsound.
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>);
+
+    /// For the given `archetype`, adds any component accessed used by this [`WorldQuery`] to `access`.
     // This does not have a default body of `{}` because 99% of cases need to add accesses
     // and forgetting to do so would be unsound.
     fn update_archetype_component_access(
@@ -430,7 +433,10 @@ pub unsafe trait WorldQuery {
         access: &mut Access<ArchetypeComponentId>,
     );
 
+    /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &mut World) -> Self::State;
+
+    /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,

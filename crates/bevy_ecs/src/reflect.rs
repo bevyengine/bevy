@@ -410,6 +410,11 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
 impl_reflect_value!((in bevy_ecs) Entity(Hash, PartialEq, Serialize, Deserialize));
 impl_from_reflect_value!(Entity);
 
+/// For a specific type of component, this maps any fields with values of type [`Entity`] to a new world.
+/// Since a given `Entity` ID is only valid for the world it came frome, when performing deserialization
+/// any stored IDs need to be re-allocated in the destination world.
+///
+/// See [`MapEntities`] for more information.
 #[derive(Clone)]
 pub struct ReflectMapEntities {
     map_all_entities: fn(&mut World, &mut EntityMapper),
