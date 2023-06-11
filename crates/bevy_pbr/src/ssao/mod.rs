@@ -8,6 +8,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryItem, With},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
@@ -107,13 +108,13 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         }
 
         render_app
-            .init_resource::<SSAOPipelines>()
-            .init_resource::<SpecializedComputePipelines<SSAOPipelines>>()
+            .init_resource::<SsaoPipelines>()
+            .init_resource::<SpecializedComputePipelines<SsaoPipelines>>()
             .add_systems(ExtractSchedule, extract_ssao_settings)
             .add_systems(Render, prepare_ssao_textures.in_set(RenderSet::Prepare))
             .add_systems(Render, prepare_ssao_pipelines.in_set(RenderSet::Prepare))
             .add_systems(Render, queue_ssao_bind_groups.in_set(RenderSet::Queue))
-            .add_render_graph_node::<ViewNodeRunner<SSAONode>>(
+            .add_render_graph_node::<ViewNodeRunner<SsaoNode>>(
                 CORE_3D,
                 draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
             )
@@ -186,13 +187,13 @@ impl ScreenSpaceAmbientOcclusionSettings {
 }
 
 #[derive(Default)]
-struct SSAONode {}
+struct SsaoNode {}
 
-impl ViewNode for SSAONode {
+impl ViewNode for SsaoNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static SSAOPipelineId,
-        &'static SSAOBindGroups,
+        &'static SsaoPipelineId,
+        &'static SsaoBindGroups,
         &'static ViewUniformOffset,
     );
 
@@ -203,19 +204,21 @@ impl ViewNode for SSAONode {
         (camera, pipeline_id, bind_groups, view_uniform_offset): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let pipelines = world.resource::<SSAOPipelines>();
+        let pipelines = world.resource::<SsaoPipelines>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let (
+            Some(camera_size),
             Some(preprocess_depth_pipeline),
             Some(spatial_denoise_pipeline),
+            Some(gtao_pipeline),
         ) = (
+            camera.physical_viewport_size,
+            pipeline_cache.get_compute_pipeline(pipeline_id.0),
             pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
             pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
         ) else {
             return Ok(());
         };
-        let Some(gtao_pipeline) = pipeline_cache.get_compute_pipeline(pipeline_id.0) else { return Ok(()) };
-        let Some(camera_size) = camera.physical_viewport_size else { return Ok(()) };
 
         render_context.command_encoder().push_debug_group("ssao");
 
@@ -284,7 +287,7 @@ impl ViewNode for SSAONode {
 }
 
 #[derive(Resource)]
-struct SSAOPipelines {
+struct SsaoPipelines {
     preprocess_depth_pipeline: CachedComputePipelineId,
     spatial_denoise_pipeline: CachedComputePipelineId,
 
@@ -297,7 +300,7 @@ struct SSAOPipelines {
     point_clamp_sampler: Sampler,
 }
 
-impl FromWorld for SSAOPipelines {
+impl FromWorld for SsaoPipelines {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let render_queue = world.resource::<RenderQueue>();
@@ -309,8 +312,8 @@ impl FromWorld for SSAOPipelines {
                 &(TextureDescriptor {
                     label: Some("ssao_hilbert_index_texture"),
                     size: Extent3d {
-                        width: 64,
-                        height: 64,
+                        width: HILBERT_WIDTH as u32,
+                        height: HILBERT_WIDTH as u32,
                         depth_or_array_layers: 1,
                     },
                     mip_level_count: 1,
@@ -546,13 +549,13 @@ impl FromWorld for SSAOPipelines {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
-struct SSAOPipelineKey {
+struct SsaoPipelineKey {
     ssao_quality: ScreenSpaceAmbientOcclusionSettings,
     temporal_noise: bool,
 }
 
-impl SpecializedComputePipeline for SSAOPipelines {
-    type Key = SSAOPipelineKey;
+impl SpecializedComputePipeline for SsaoPipelines {
+    type Key = SsaoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
         let (slice_count, samples_per_slice_side) = key.ssao_quality.sample_counts();
@@ -614,89 +617,88 @@ fn prepare_ssao_textures(
     views: Query<(Entity, &ExtractedCamera), With<ScreenSpaceAmbientOcclusionSettings>>,
 ) {
     for (entity, camera) in &views {
-        if let Some(physical_viewport_size) = camera.physical_viewport_size {
-            let size = Extent3d {
-                width: physical_viewport_size.x,
-                height: physical_viewport_size.y,
-                depth_or_array_layers: 1,
-            };
+        let Some(physical_viewport_size) = camera.physical_viewport_size else { continue };
+        let size = Extent3d {
+            width: physical_viewport_size.x,
+            height: physical_viewport_size.y,
+            depth_or_array_layers: 1,
+        };
 
-            let preprocessed_depth_texture = texture_cache.get(
-                &render_device,
-                TextureDescriptor {
-                    label: Some("ssao_preprocessed_depth_texture"),
-                    size,
-                    mip_level_count: 5,
-                    sample_count: 1,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::R16Float,
-                    usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                    view_formats: &[],
-                },
-            );
+        let preprocessed_depth_texture = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("ssao_preprocessed_depth_texture"),
+                size,
+                mip_level_count: 5,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R16Float,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        );
 
-            let ssao_noisy_texture = texture_cache.get(
-                &render_device,
-                TextureDescriptor {
-                    label: Some("ssao_noisy_texture"),
-                    size,
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::R16Float,
-                    usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                    view_formats: &[],
-                },
-            );
+        let ssao_noisy_texture = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("ssao_noisy_texture"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R16Float,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        );
 
-            let ssao_texture = texture_cache.get(
-                &render_device,
-                TextureDescriptor {
-                    label: Some("ssao_texture"),
-                    size,
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::R16Float,
-                    usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                    view_formats: &[],
-                },
-            );
+        let ssao_texture = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("ssao_texture"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R16Float,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        );
 
-            let depth_differences_texture = texture_cache.get(
-                &render_device,
-                TextureDescriptor {
-                    label: Some("ssao_depth_differences_texture"),
-                    size,
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::R32Uint,
-                    usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                    view_formats: &[],
-                },
-            );
+        let depth_differences_texture = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("ssao_depth_differences_texture"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R32Uint,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        );
 
-            commands
-                .entity(entity)
-                .insert(ScreenSpaceAmbientOcclusionTextures {
-                    preprocessed_depth_texture,
-                    ssao_noisy_texture,
-                    screen_space_ambient_occlusion_texture: ssao_texture,
-                    depth_differences_texture,
-                });
-        }
+        commands
+            .entity(entity)
+            .insert(ScreenSpaceAmbientOcclusionTextures {
+                preprocessed_depth_texture,
+                ssao_noisy_texture,
+                screen_space_ambient_occlusion_texture: ssao_texture,
+                depth_differences_texture,
+            });
     }
 }
 
 #[derive(Component)]
-struct SSAOPipelineId(CachedComputePipelineId);
+struct SsaoPipelineId(CachedComputePipelineId);
 
 fn prepare_ssao_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedComputePipelines<SSAOPipelines>>,
-    pipeline: Res<SSAOPipelines>,
+    mut pipelines: ResMut<SpecializedComputePipelines<SsaoPipelines>>,
+    pipeline: Res<SsaoPipelines>,
     views: Query<(
         Entity,
         &ScreenSpaceAmbientOcclusionSettings,
@@ -707,18 +709,18 @@ fn prepare_ssao_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            SSAOPipelineKey {
+            SsaoPipelineKey {
                 ssao_quality: ssao_settings.clone(),
                 temporal_noise: temporal_jitter.is_some(),
             },
         );
 
-        commands.entity(entity).insert(SSAOPipelineId(pipeline_id));
+        commands.entity(entity).insert(SsaoPipelineId(pipeline_id));
     }
 }
 
 #[derive(Component)]
-struct SSAOBindGroups {
+struct SsaoBindGroups {
     common_bind_group: BindGroup,
     preprocess_depth_bind_group: BindGroup,
     gtao_bind_group: BindGroup,
@@ -728,7 +730,7 @@ struct SSAOBindGroups {
 fn queue_ssao_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    pipelines: Res<SSAOPipelines>,
+    pipelines: Res<SsaoPipelines>,
     view_uniforms: Res<ViewUniforms>,
     global_uniforms: Res<GlobalsBuffer>,
     views: Query<(
@@ -910,7 +912,7 @@ fn queue_ssao_bind_groups(
             ],
         });
 
-        commands.entity(entity).insert(SSAOBindGroups {
+        commands.entity(entity).insert(SsaoBindGroups {
             common_bind_group,
             preprocess_depth_bind_group,
             gtao_bind_group,
@@ -933,7 +935,7 @@ fn generate_hilbert_index_texture() -> [[u16; 64]; 64] {
 }
 
 // https://www.shadertoy.com/view/3tB3z3
-const HILBERT_WIDTH: u16 = 1 << 6;
+const HILBERT_WIDTH: u16 = 64;
 fn hilbert_index(mut x: u16, mut y: u16) -> u16 {
     let mut index = 0;
 
