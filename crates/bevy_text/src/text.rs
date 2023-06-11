@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Font, DEFAULT_FONT_HANDLE};
 // TODO: reexport cosmic_text and these types in the prelude
-pub use cosmic_text::{FamilyOwned, Stretch, Style, Weight};
+pub use cosmic_text::{
+    FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle, Weight as FontWeight,
+};
 
 /// A component that is the entry point for rendering text.
 ///
@@ -205,25 +207,34 @@ impl From<Handle<Font>> for FontRef {
 }
 
 /// Queries for a font from those already loaded.
+///
+/// ```
+/// let fira_sans_bold = FontQuery::family("FiraSans").weight(FontWeight::Bold);
+///
+/// let text_style = TextStyle {
+///     font: fira_sans_bold.into(),
+///     ..Default::default()
+/// }
+/// ```
 #[derive(Clone, Debug)]
 pub struct FontQuery {
     /// The font family. See [`cosmic_text::fontdb::Family`] for details.
-    pub family: FamilyOwned,
+    pub family: FontFamily,
     /// The stretch (or width) of the font face in this family, e.g. condensed.
     /// See [`cosmic_text::fontdb::Stretch`] for details.
-    pub stretch: Stretch,
+    pub stretch: FontStretch,
     /// The style of the font face in this family, e.g. italic.
     /// See [`cosmic_text::fontdb::Style`] for details.
-    pub style: Style,
+    pub style: FontStyle,
     /// The weight of the font face in this family, e.g. bold.
     /// See [`cosmic_text::fontdb::Weight`] for details.
-    pub weight: Weight,
+    pub weight: FontWeight,
 }
 
 impl FontQuery {
     pub fn sans_serif() -> Self {
         Self {
-            family: FamilyOwned::SansSerif,
+            family: FontFamily::SansSerif,
             stretch: Default::default(),
             style: Default::default(),
             weight: Default::default(),
@@ -232,7 +243,7 @@ impl FontQuery {
 
     pub fn serif() -> Self {
         Self {
-            family: FamilyOwned::Serif,
+            family: FontFamily::Serif,
             stretch: Default::default(),
             style: Default::default(),
             weight: Default::default(),
@@ -241,7 +252,7 @@ impl FontQuery {
 
     pub fn fantasy() -> Self {
         Self {
-            family: FamilyOwned::Fantasy,
+            family: FontFamily::Fantasy,
             stretch: Default::default(),
             style: Default::default(),
             weight: Default::default(),
@@ -250,7 +261,7 @@ impl FontQuery {
 
     pub fn cursive() -> Self {
         Self {
-            family: FamilyOwned::Cursive,
+            family: FontFamily::Cursive,
             stretch: Default::default(),
             style: Default::default(),
             weight: Default::default(),
@@ -259,7 +270,7 @@ impl FontQuery {
 
     pub fn monospace() -> Self {
         Self {
-            family: FamilyOwned::Monospace,
+            family: FontFamily::Monospace,
             stretch: Default::default(),
             style: Default::default(),
             weight: Default::default(),
@@ -268,22 +279,22 @@ impl FontQuery {
 
     pub fn family<S: AsRef<str>>(name: S) -> Self {
         Self {
-            family: FamilyOwned::Name(name.as_ref().to_string()),
+            family: FontFamily::Name(name.as_ref().to_string()),
             stretch: Default::default(),
             style: Default::default(),
             weight: Default::default(),
         }
     }
 
-    pub fn stretch(self, stretch: Stretch) -> Self {
+    pub fn stretch(self, stretch: FontStretch) -> Self {
         Self { stretch, ..self }
     }
 
-    pub fn style(self, style: Style) -> Self {
+    pub fn style(self, style: FontStyle) -> Self {
         Self { style, ..self }
     }
 
-    pub fn weight(self, weight: Weight) -> Self {
+    pub fn weight(self, weight: FontWeight) -> Self {
         Self { weight, ..self }
     }
 }
