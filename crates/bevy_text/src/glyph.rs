@@ -4,7 +4,9 @@ use bevy_asset::Handle;
 use bevy_math::{IVec2, Vec2};
 use bevy_sprite::TextureAtlas;
 
-/// Information about how and where to render a glyph.
+/// A glyph of a font, typically representing a single character, positioned in screen space.
+///
+/// Contains information about how and where to render a glyph.
 ///
 /// Used in [`TextPipeline::queue_text`](crate::TextPipeline::queue_text) and [`crate::TextLayoutInfo`] for rendering glyphs.
 #[derive(Debug, Clone)]

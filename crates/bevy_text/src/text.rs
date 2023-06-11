@@ -188,7 +188,7 @@ pub enum BreakLineOn {
     AnyCharacter,
 }
 
-/// A reference to a font.
+/// Identifies a font to use, which is either stored as an [`Asset`](bevy_asset::Asset) or loaded directly from the user's system.
 #[derive(Clone, Debug, Reflect, FromReflect)]
 pub enum FontRef {
     /// A reference to a font loaded as a bevy asset.

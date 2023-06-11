@@ -3,7 +3,7 @@ use bevy_reflect::{TypePath, TypeUuid};
 #[derive(Debug, TypeUuid, TypePath, Clone)]
 #[uuid = "97059ac6-c9ba-4da9-95b6-bed82c3ce198"]
 
-/// An asset that contains the data for a loaded font, if loaded as an asset.
+/// An [`Asset`](bevy_asset::Asset) that contains the data for a loaded font, if loaded as an asset.
 ///
 /// Loaded by [`FontLoader`](crate::FontLoader).
 pub struct Font {

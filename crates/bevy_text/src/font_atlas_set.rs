@@ -14,7 +14,7 @@ type FontSizeKey = u32;
 
 /// Provides the interface for adding and retrieving rasterized glyphs, and manages the [`FontAtlas`]es.
 ///
-/// A `FontAtlasSet` is an asset.
+/// A `FontAtlasSet` is an [`Asset`](bevy_asset::Asset).
 ///
 /// There is one `FontAtlasSet` for each font:
 /// - When a [`Font`](crate::Font) is loaded as an asset and then used in [`Text`](crate::Text),

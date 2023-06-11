@@ -1,4 +1,8 @@
-//! This example demonstrates using system fonts.
+//! This example demonstrates using system fonts, which are already installed on the user's computer.
+//!
+//! System fonts won't always be present: if they're not found, a fallback will be used instead.
+//!
+//! If you need consistent font rendering for aesthetic reasons, you should package and ship your own font as an asset instead.
 
 use bevy::{
     prelude::*,

@@ -69,7 +69,7 @@ impl Default for SwashCache {
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
 pub struct TextPipeline {
-    /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its font asset handle ID.
+    /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset) [`HandleId`].
     map_handle_to_font_id: HashMap<HandleId, cosmic_text::fontdb::ID>,
     /// Identifies a [`FontAtlasSet`] handle by its font [`ID`](cosmic_text::fontdb::ID).
     ///
