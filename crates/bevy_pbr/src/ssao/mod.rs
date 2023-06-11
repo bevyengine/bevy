@@ -155,6 +155,7 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 /// TAA ([`bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings`]).
 /// Doing so greatly reduces SSAO noise.
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Hash, Clone, Default)]
+#[reflect(Component)]
 pub enum ScreenSpaceAmbientOcclusionSettings {
     Low,
     Medium,
