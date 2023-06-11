@@ -18,6 +18,33 @@ use crate::{
 use bevy_ptr::Ptr;
 use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData};
 
+/// Types that can be safely coerced into an [`UnsafeWorldCell`].
+pub trait AsUnsafeWorldCell<'w> {
+    /// Returns an [`UnsafeWorldCell`] that can be used to access world metadata.
+    fn as_metadata(self) -> UnsafeWorldCell<'w>;
+}
+
+impl<'w> AsUnsafeWorldCell<'w> for UnsafeWorldCell<'w> {
+    #[inline]
+    fn as_metadata(self) -> UnsafeWorldCell<'w> {
+        self
+    }
+}
+
+impl<'w> AsUnsafeWorldCell<'w> for &'w World {
+    #[inline]
+    fn as_metadata(self) -> UnsafeWorldCell<'w> {
+        self.as_unsafe_world_cell_readonly()
+    }
+}
+
+impl<'w> AsUnsafeWorldCell<'w> for &'w mut World {
+    #[inline]
+    fn as_metadata(self) -> UnsafeWorldCell<'w> {
+        self.as_unsafe_world_cell_readonly()
+    }
+}
+
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
 ///

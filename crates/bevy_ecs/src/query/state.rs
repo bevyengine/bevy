@@ -8,7 +8,7 @@ use crate::{
         QueryIter, QueryParIter, WorldQuery,
     },
     storage::{TableId, TableRow},
-    world::{World, WorldId},
+    world::{unsafe_world_cell::AsUnsafeWorldCell, World, WorldId},
 };
 use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "trace")]
@@ -146,7 +146,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// # Panics
     ///
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
-    pub fn update_archetypes(&mut self, world: &World) {
+    pub fn update_archetypes<'w>(&mut self, world: impl AsUnsafeWorldCell<'w>) {
+        let world = world.as_metadata();
         self.validate_world(world);
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
@@ -165,9 +166,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Many unsafe query methods require the world to match for soundness. This function is the easiest
     /// way of ensuring that it matches.
     #[inline]
-    pub fn validate_world(&self, world: &World) {
+    pub fn validate_world<'w>(&self, world: impl AsUnsafeWorldCell<'w>) {
         assert!(
-            world.id() == self.world_id,
+            world.as_metadata().id() == self.world_id,
             "Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
                 std::any::type_name::<Self>(),
         );
