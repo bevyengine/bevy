@@ -289,7 +289,7 @@ pub trait RegisterDiagnostic {
 impl RegisterDiagnostic for App {
     /// Register a new [`Diagnostic`] with an [`App`].
     ///
-    /// Will initialize a [`DiagnosticStore`] if it doesn't exist.
+    /// Will initialize a [`DiagnosticsStore`] if it doesn't exist.
     ///
     /// ```rust
     /// use bevy_app::App;
