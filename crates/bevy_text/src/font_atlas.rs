@@ -1,20 +1,20 @@
 use bevy_asset::{Assets, Handle};
-use bevy_math::Vec2;
+use bevy_math::{IVec2, Vec2};
 use bevy_render::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlas};
 use bevy_utils::HashMap;
-use cosmic_text::Placement;
 
-/// The location of a glyph in an atlas, and how it is positioned
+/// The location of a glyph in an atlas,
+/// and how it is positioned when placed
 #[derive(Debug, Clone, Copy)]
 pub struct GlyphAtlasLocation {
     /// The index of the glyph in the atlas
     pub glyph_index: usize,
-    /// The positioning (offset), and size of the glyph
-    pub placement: Placement,
+    /// The required offset (relative positioning) when placed
+    pub offset: IVec2,
 }
 
 pub struct FontAtlas {
@@ -61,7 +61,7 @@ impl FontAtlas {
         texture_atlases: &mut Assets<TextureAtlas>,
         cache_key: cosmic_text::CacheKey,
         texture: &Image,
-        placement: Placement,
+        offset: IVec2,
     ) -> bool {
         let texture_atlas = texture_atlases.get_mut(&self.texture_atlas).unwrap();
         if let Some(glyph_index) =
@@ -72,7 +72,7 @@ impl FontAtlas {
                 cache_key,
                 GlyphAtlasLocation {
                     glyph_index,
-                    placement,
+                    offset,
                 },
             );
             true

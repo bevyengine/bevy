@@ -1,9 +1,9 @@
+use bevy_math::IVec2;
 use bevy_reflect::{TypePath, TypeUuid};
 use bevy_render::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
-use cosmic_text::Placement;
 
 #[derive(Debug, TypeUuid, TypePath, Clone)]
 #[uuid = "97059ac6-c9ba-4da9-95b6-bed82c3ce198"]
@@ -24,15 +24,19 @@ impl Font {
         font_system: &mut cosmic_text::FontSystem,
         swash_cache: &mut cosmic_text::SwashCache,
         layout_glyph: &cosmic_text::LayoutGlyph,
-    ) -> (Image, Placement) {
+    ) -> (Image, IVec2) {
         // TODO: consider using cosmic_text's own caching mechanism
         let image = swash_cache
             .get_image_uncached(font_system, layout_glyph.cache_key)
             // TODO: don't unwrap
             .unwrap();
 
-        let width = image.placement.width;
-        let height = image.placement.height;
+        let cosmic_text::Placement {
+            left,
+            top,
+            width,
+            height,
+        } = image.placement;
 
         let data = match image.content {
             cosmic_text::SwashContent::Mask => image
@@ -59,7 +63,7 @@ impl Font {
                 data,
                 TextureFormat::Rgba8UnormSrgb,
             ),
-            image.placement,
+            IVec2::new(left, top),
         )
     }
 }

@@ -1,5 +1,4 @@
-use crate::GlyphAtlasLocation;
-use crate::{error::TextError, Font, FontAtlas};
+use crate::{error::TextError, Font, FontAtlas, GlyphAtlasLocation};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
 use bevy_reflect::TypePath;
@@ -62,7 +61,7 @@ impl FontAtlasSet {
                 )]
             });
 
-        let (glyph_texture, placement) =
+        let (glyph_texture, offset) =
             Font::get_outlined_glyph_texture(font_system, swash_cache, layout_glyph);
         let add_char_to_font_atlas = |atlas: &mut FontAtlas| -> bool {
             atlas.add_glyph(
@@ -70,7 +69,7 @@ impl FontAtlasSet {
                 texture_atlases,
                 layout_glyph.cache_key,
                 &glyph_texture,
-                placement,
+                offset,
             )
         };
         if !font_atlases.iter_mut().any(add_char_to_font_atlas) {
@@ -92,7 +91,7 @@ impl FontAtlasSet {
                 texture_atlases,
                 layout_glyph.cache_key,
                 &glyph_texture,
-                placement,
+                offset,
             ) {
                 return Err(TextError::FailedToAddGlyph(layout_glyph.cache_key.glyph_id));
             }
