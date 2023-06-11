@@ -1,4 +1,4 @@
-//! This example illustrates how to use TextureAtlases within ui
+//! This example illustrates how to use `TextureAtlases` within ui
 
 use bevy::{prelude::*, winit::WinitSettings};
 
@@ -50,7 +50,6 @@ fn setup(
                     border: UiRect::all(Val::Px(2.)),
                     ..default()
                 },
-                background_color: Color::rgb(0.65, 0.65, 0.65).into(),
                 texture_atlas: texture_atlas_handle,
                 texture_atlas_sprite: UiTextureAtlasSprite(TextureAtlasSprite::new(0)),
                 ..default()
