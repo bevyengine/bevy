@@ -1267,7 +1267,7 @@ mod tests {
         // as it is shared and unsafe
         // We don't care about aliased mutability for the read-only equivalent
 
-        // SAFETY: mutable access is not checked, but we own the world and don't use the query results
+        // SAFETY: Query does not access world data.
         assert!(unsafe {
             query_state
                 .get_many_unchecked_manual::<10>(
@@ -1280,7 +1280,7 @@ mod tests {
         });
 
         assert_eq!(
-            // SAFETY: mutable access is not checked, but we own the world and don't use the query results
+            // SAFETY: Query does not access world data.
             unsafe {
                 query_state
                     .get_many_unchecked_manual(
@@ -1295,7 +1295,7 @@ mod tests {
         );
 
         assert_eq!(
-            // SAFETY: mutable access is not checked, but we own the world and don't use the query results
+            // SAFETY: Query does not access world data.
             unsafe {
                 query_state
                     .get_many_unchecked_manual(
@@ -1310,7 +1310,7 @@ mod tests {
         );
 
         assert_eq!(
-            // SAFETY: mutable access is not checked, but we own the world and don't use the query results
+            // SAFETY: Query does not access world data.
             unsafe {
                 query_state
                     .get_many_unchecked_manual(
