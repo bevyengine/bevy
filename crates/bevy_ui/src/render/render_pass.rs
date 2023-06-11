@@ -11,6 +11,7 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
+use bevy_utils::FloatOrd;
 
 pub struct UiPassNode {
     ui_view_query: QueryState<
@@ -85,13 +86,14 @@ impl Node for UiPassNode {
 }
 
 pub struct TransparentUi {
+    pub sort_key: FloatOrd,
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
 impl PhaseItem for TransparentUi {
-    type SortKey = ();
+    type SortKey = FloatOrd;
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -99,7 +101,9 @@ impl PhaseItem for TransparentUi {
     }
 
     #[inline]
-    fn sort_key(&self) -> Self::SortKey {}
+    fn sort_key(&self) -> Self::SortKey {
+        self.sort_key
+    }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {

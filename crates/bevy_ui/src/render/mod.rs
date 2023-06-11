@@ -33,6 +33,7 @@ use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
@@ -379,6 +380,7 @@ const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 pub struct UiBatch {
     pub range: Range<u32>,
     pub image: Handle<Image>,
+    pub z: f32,
 }
 
 const TEXTURED_QUAD: u32 = 0;
@@ -401,6 +403,7 @@ pub fn prepare_uinodes(
     let mut start = 0;
     let mut end = 0;
     let mut current_batch_image = DEFAULT_IMAGE_HANDLE.typed();
+    let mut last_z = 0.0;
 
     #[inline]
     fn is_textured(image: &Handle<Image>) -> bool {
@@ -414,6 +417,7 @@ pub fn prepare_uinodes(
                     commands.spawn(UiBatch {
                         range: start..end,
                         image: current_batch_image,
+                        z: last_z,
                     });
                     start = end;
                 }
@@ -531,7 +535,8 @@ pub fn prepare_uinodes(
             });
         }
 
-        end += QUAD_INDICES.len() as u32;
+        last_z = extracted_uinode.transform.w_axis[2];
+        end += QUAD_VERTEX_POSITIONS.len() as u32;
     }
 
     // if start != end, there is one last batch to process
@@ -539,6 +544,7 @@ pub fn prepare_uinodes(
         commands.spawn(UiBatch {
             range: start..end,
             image: current_batch_image,
+            z: last_z,
         });
     }
 
@@ -616,6 +622,7 @@ pub fn queue_uinodes(
                     draw_function: draw_ui_function,
                     pipeline,
                     entity,
+                    sort_key: FloatOrd(batch.z),
                 });
             }
         }
