@@ -22,11 +22,17 @@ use crate::{
 /// it with other colors a no-op.
 #[derive(Resource)]
 pub struct FallbackImage {
+    /// Fallback image for [`TextureViewDimension::D1`].
     pub d1: GpuImage,
+    /// Fallback image for [`TextureViewDimension::D2`].
     pub d2: GpuImage,
+    /// Fallback image for [`TextureViewDimension::D2Array`].
     pub d2_array: GpuImage,
+    /// Fallback image for [`TextureViewDimension::Cube`].
     pub cube: GpuImage,
+    /// Fallback image for [`TextureViewDimension::CubeArray`].
     pub cube_array: GpuImage,
+    /// Fallback image for [`TextureViewDimension::D3`].
     pub d3: GpuImage,
 }
 

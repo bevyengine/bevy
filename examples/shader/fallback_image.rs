@@ -1,11 +1,11 @@
+//! This example tests that all texture dimensions are supported by
+//! `FallbackImage`.
 use bevy::{
     prelude::*,
     reflect::{TypePath, TypeUuid},
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
-/// This example tests that all texture dimensions are supported by
-/// `FallbackImage`.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
