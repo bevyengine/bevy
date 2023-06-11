@@ -36,7 +36,7 @@ fn setup(
             style: Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
-                justify_content: JustifyContent::Start,
+                justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
             },
