@@ -5,7 +5,6 @@ use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
 pub const META_FORMAT_VERSION: &str = "1.0";
-
 pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
 
 #[derive(Serialize, Deserialize)]
@@ -49,15 +48,15 @@ pub enum AssetAction<LoaderSettings, ProcessSettings> {
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct ProcessedInfo {
     /// A hash of the asset bytes and the asset .meta data
-    pub hash: u64,
+    pub hash: AssetHash,
     /// A hash of the asset bytes, the asset .meta data, and the `full_hash` of every process_dependency
-    pub full_hash: u64,
+    pub full_hash: AssetHash,
     pub process_dependencies: Vec<ProcessDependencyInfo>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProcessDependencyInfo {
-    pub full_hash: u64,
+    pub full_hash: AssetHash,
     pub path: AssetPath<'static>,
 }
 
@@ -176,4 +175,29 @@ pub(crate) fn loader_settings_meta_transform<S: Settings>(
             settings(loader_settings);
         }
     })
+}
+
+pub type AssetHash = [u8; 16];
+
+/// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
+pub(crate) fn get_asset_hash(meta_bytes: &[u8], asset_bytes: &[u8]) -> AssetHash {
+    let mut context = md5::Context::new();
+    context.consume(meta_bytes);
+    context.consume(asset_bytes);
+    let digest = context.compute();
+    digest.0
+}
+
+/// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
+pub(crate) fn get_full_asset_hash(
+    asset_hash: AssetHash,
+    dependency_hashes: impl Iterator<Item = AssetHash>,
+) -> AssetHash {
+    let mut context = md5::Context::new();
+    context.consume(asset_hash);
+    for hash in dependency_hashes {
+        context.consume(hash);
+    }
+    let digest = context.compute();
+    digest.0
 }

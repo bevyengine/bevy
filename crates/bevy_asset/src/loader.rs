@@ -1,8 +1,8 @@
 use crate::{
     io::{AssetReaderError, Reader},
     meta::{
-        loader_settings_meta_transform, AssetMeta, AssetMetaDyn, AssetMetaProcessedInfoMinimal,
-        Settings,
+        loader_settings_meta_transform, AssetHash, AssetMeta, AssetMetaDyn,
+        AssetMetaProcessedInfoMinimal, Settings,
     },
     path::AssetPath,
     Asset, AssetLoadError, AssetServer, Assets, Handle, UntypedAssetId, UntypedHandle,
@@ -141,7 +141,7 @@ pub struct LoadedAsset<A: Asset> {
     pub(crate) value: A,
     pub(crate) path: Option<AssetPath<'static>>,
     pub(crate) dependencies: HashSet<UntypedHandle>,
-    pub(crate) loader_dependencies: HashMap<AssetPath<'static>, u64>,
+    pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     pub(crate) labeled_assets: HashMap<String, LabeledAsset>,
     pub(crate) meta: Option<Box<dyn AssetMetaDyn>>,
 }
@@ -178,7 +178,7 @@ pub struct ErasedLoadedAsset {
     pub(crate) value: Box<dyn AssetContainer>,
     pub(crate) path: Option<AssetPath<'static>>,
     pub(crate) dependencies: HashSet<UntypedHandle>,
-    pub(crate) loader_dependencies: HashMap<AssetPath<'static>, u64>,
+    pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     pub(crate) labeled_assets: HashMap<String, LabeledAsset>,
     pub(crate) meta: Option<Box<dyn AssetMetaDyn>>,
 }
@@ -233,7 +233,7 @@ pub struct LoadContext<'a> {
     asset_path: AssetPath<'static>,
     dependencies: HashSet<UntypedHandle>,
     /// Direct dependencies used by this loader.
-    loader_dependencies: HashMap<AssetPath<'static>, u64>,
+    loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     labeled_assets: HashMap<String, LabeledAsset>,
 }
 
@@ -354,7 +354,7 @@ impl<'a> LoadContext<'a> {
                 .ok_or(ReadAssetBytesError::MissingAssetHash)?;
             processed_info.full_hash
         } else {
-            0
+            Default::default()
         };
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -444,7 +444,7 @@ impl<'a> LoadContext<'a> {
             .meta
             .as_ref()
             .and_then(|m| m.processed_info().as_ref());
-        let hash = info.map(|i| i.full_hash).unwrap_or(0);
+        let hash = info.map(|i| i.full_hash).unwrap_or(Default::default());
         self.loader_dependencies.insert(path.to_owned(), hash);
         Ok(loaded_asset)
     }

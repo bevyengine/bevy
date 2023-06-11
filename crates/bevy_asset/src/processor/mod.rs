@@ -10,8 +10,8 @@ use crate::{
         AssetReaderError, AssetSourceEvent, AssetWatcher, AssetWriter, AssetWriterError,
     },
     meta::{
-        AssetAction, AssetActionMinimal, AssetMeta, AssetMetaDyn, AssetMetaMinimal,
-        AssetMetaProcessedInfoMinimal, ProcessedInfo,
+        get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
+        AssetMetaDyn, AssetMetaMinimal, AssetMetaProcessedInfoMinimal, ProcessedInfo,
     },
     AssetLoadError, AssetLoaderError, AssetPath, AssetServer, DeserializeMetaError,
     LoadDirectError, MissingAssetLoaderForExtensionError,
@@ -25,7 +25,6 @@ use futures_lite::{AsyncReadExt, AsyncWriteExt, FutureExt, StreamExt};
 use parking_lot::RwLock;
 use std::{
     collections::VecDeque,
-    hash::{BuildHasher, Hash, Hasher},
     path::{Path, PathBuf},
     sync::Arc,
     time::Instant,
@@ -454,7 +453,7 @@ impl AssetProcessor {
         // PERF: in theory these hashes could be streamed if we want to avoid allocating the whole asset.
         // The downside is that reading assets would need to happen twice (once for the hash and once for the asset loader)
         // Hard to say which is worse
-        let new_hash = Self::get_hash(&meta_bytes, &asset_bytes);
+        let new_hash = get_asset_hash(&meta_bytes, &asset_bytes);
         let mut new_processed_info = ProcessedInfo {
             hash: new_hash,
             full_hash: new_hash,
@@ -515,7 +514,7 @@ impl AssetProcessor {
             // TODO: error handling
             writer.flush().await.unwrap();
 
-            let full_hash = AssetProcessor::get_full_hash(
+            let full_hash = get_full_asset_hash(
                 new_hash,
                 new_processed_info
                     .process_dependencies
@@ -612,29 +611,6 @@ impl AssetProcessor {
             Ok(log) => Some(log),
             Err(err) => panic!("Failed to initialize asset processor log. This cannot be recovered. Try restarting. If that doesn't work, try deleting processed asset state. {}", err),
         };
-    }
-
-    /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
-    fn get_hash(meta_bytes: &[u8], asset_bytes: &[u8]) -> u64 {
-        let mut hasher = Self::get_hasher();
-        meta_bytes.hash(&mut hasher);
-        asset_bytes.hash(&mut hasher);
-        hasher.finish()
-    }
-
-    fn get_full_hash(hash: u64, dependency_hashes: impl Iterator<Item = u64>) -> u64 {
-        let mut hasher = Self::get_hasher();
-        hash.hash(&mut hasher);
-        for hash in dependency_hashes {
-            hash.hash(&mut hasher);
-        }
-        hasher.finish()
-    }
-    /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
-    fn get_hasher() -> bevy_utils::AHasher {
-        // TODO: we probably want to swap out AHash here as these are not guaranteed to be stable across versions or architectures
-        // https://github.com/tkaitchuck/aHash/issues/132
-        bevy_utils::RandomState::with_seed(3152667720467764590).build_hasher()
     }
 }
 
@@ -885,8 +861,8 @@ impl ProcessorAssetInfos {
                     if let Some(error) = loader_error.downcast_ref::<LoadDirectError>() {
                         let info = self.get_mut(&asset_path).expect("info should exist");
                         info.processed_info = Some(ProcessedInfo {
-                            hash: u64::MAX,
-                            full_hash: u64::MAX,
+                            hash: AssetHash::default(),
+                            full_hash: AssetHash::default(),
                             process_dependencies: vec![],
                         });
                         self.add_dependant(&error.dependency, asset_path.to_owned());
