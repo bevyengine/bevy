@@ -163,14 +163,6 @@ pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
 }
 
-pub struct ExtractAtlasDetails {
-    rect: Rect,
-    size: Vec2,
-    image: Handle<Image>,
-    flip_x: bool,
-    flip_y: bool,
-}
-
 pub fn extract_atlas_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
@@ -207,15 +199,15 @@ pub fn extract_atlas_uinodes(
                 continue;
             }
 
-            let atlas_details =
+            let (atlas_rect, atlas_size, image) =
                 if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
                     let mut atlas_rect = *texture_atlas
                         .textures
-                        .get(atlas_sprite.0.index)
+                        .get(atlas_sprite.index)
                         .unwrap_or_else(|| {
                             panic!(
                                 "Sprite index {:?} does not exist for texture atlas handle {:?}.",
-                                atlas_sprite.0.index,
+                                atlas_sprite.index,
                                 texture_atlas_handle.id(),
                             )
                         });
@@ -223,21 +215,14 @@ pub fn extract_atlas_uinodes(
                     atlas_rect.min *= scale;
                     atlas_rect.max *= scale;
                     let atlas_size = texture_atlas.size * scale;
-
-                    ExtractAtlasDetails {
-                        rect: atlas_rect,
-                        size: atlas_size,
-                        image: texture_atlas.texture.clone(),
-                        flip_x: atlas_sprite.0.flip_x,
-                        flip_y: atlas_sprite.0.flip_y,
-                    }
+                    (atlas_rect, atlas_size, texture_atlas.texture.clone())
                 } else {
                     // Atlas not present in assets resource (should this warn the user?)
                     continue;
                 };
 
             // Skip loading images
-            if !images.contains(&atlas_details.image) {
+            if !images.contains(&image) {
                 continue;
             }
 
@@ -245,12 +230,12 @@ pub fn extract_atlas_uinodes(
                 stack_index,
                 transform: transform.compute_matrix(),
                 color: color.0,
-                rect: atlas_details.rect,
+                rect: atlas_rect,
                 clip: clip.map(|clip| clip.clip),
-                image: atlas_details.image,
-                atlas_size: Some(atlas_details.size),
-                flip_x: atlas_details.flip_x,
-                flip_y: atlas_details.flip_y,
+                image,
+                atlas_size: Some(atlas_size),
+                flip_x: atlas_sprite.flip_x,
+                flip_y: atlas_sprite.flip_y,
             });
         };
     }

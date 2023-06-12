@@ -1,7 +1,5 @@
 use crate::UiRect;
 use bevy_asset::Handle;
-use bevy_derive::Deref;
-use bevy_derive::DerefMut;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
@@ -10,7 +8,6 @@ use bevy_render::{
     color::Color,
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
-use bevy_sprite::TextureAtlasSprite;
 use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -1567,9 +1564,16 @@ impl From<Color> for BackgroundColor {
 }
 
 /// The atlas sprite to be used in a UI Texture Atlas Node
-#[derive(Component, Deref, DerefMut, Clone, Debug, Reflect, FromReflect, Default)]
+#[derive(Component, Clone, Debug, Reflect, FromReflect, Default)]
 #[reflect(Component, Default)]
-pub struct UiTextureAtlasSprite(pub TextureAtlasSprite);
+pub struct UiTextureAtlasSprite {
+    /// Texture index in [`TextureAtlas`]
+    pub index: usize,
+    /// Whether to flip the sprite in the X axis
+    pub flip_x: bool,
+    /// Whether to flip the sprite in the Y axis
+    pub flip_y: bool,
+}
 
 /// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect)]
