@@ -183,7 +183,7 @@ impl<Param: SystemParam> SystemState<Param> {
     where
         Param: ReadOnlySystemParam,
     {
-        self.validate_world(world);
+        self.validate_world(world.id());
         self.update_archetypes(world.as_unsafe_world_cell_readonly());
         // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world.as_unsafe_world_cell_readonly()) }
@@ -192,7 +192,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
     pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
-        self.validate_world(world);
+        self.validate_world(world.id());
         self.update_archetypes(world.as_unsafe_world_cell_readonly());
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world.as_unsafe_world_cell()) }
@@ -206,17 +206,17 @@ impl<Param: SystemParam> SystemState<Param> {
         Param::apply(&mut self.param_state, &self.meta, world);
     }
 
-    /// Returns `true` if `world` is the same one that was used to call [`SystemState::new`].
+    /// Returns `true` if `world_id` matches the [`World`] that was used to call [`SystemState::new`].
     /// Otherwise, this returns false.
     #[inline]
-    pub fn matches_world(&self, world: &World) -> bool {
-        self.world_id == world.id()
+    pub fn matches_world(&self, world_id: WorldId) -> bool {
+        self.world_id == world_id
     }
 
-    /// Asserts that the [`SystemState`] matches the provided [`World`].
+    /// Asserts that the [`SystemState`] matches the provided world.
     #[inline]
-    fn validate_world(&self, world: &World) {
-        assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
+    fn validate_world(&self, world_id: WorldId) {
+        assert!(self.matches_world(world_id), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
     }
 
     /// Updates the state's internal view of the `world`'s archetypes. If this is not called before fetching the parameters,
@@ -254,7 +254,7 @@ impl<Param: SystemParam> SystemState<Param> {
     where
         Param: ReadOnlySystemParam,
     {
-        self.validate_world(world);
+        self.validate_world(world.id());
         let change_tick = world.read_change_tick();
         // SAFETY: Param is read-only and doesn't allow mutable access to World.
         // It also matches the World this SystemState was created with.
@@ -273,7 +273,7 @@ impl<Param: SystemParam> SystemState<Param> {
         &'s mut self,
         world: &'w mut World,
     ) -> SystemParamItem<'w, 's, Param> {
-        self.validate_world(world);
+        self.validate_world(world.id());
         let change_tick = world.change_tick();
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.fetch(world.as_unsafe_world_cell(), change_tick) }
