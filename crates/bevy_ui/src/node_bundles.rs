@@ -2,7 +2,8 @@
 
 use crate::{
     widget::{Button, TextFlags, UiImageSize},
-    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
+    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, Style, TilingMode, UiImage,
+    ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -85,6 +86,45 @@ pub struct ImageBundle {
     ///
     /// This field is set automatically
     pub image_size: UiImageSize,
+    /// Whether this node should block interaction with lower nodes
+    pub focus_policy: FocusPolicy,
+    /// The transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub transform: Transform,
+    /// The global transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
+}
+
+/// A UI node that is an image, but without the size of the image affecting the node and with a tiling mode
+#[derive(Bundle, Debug, Default)]
+pub struct TiledImageBundle {
+    /// Describes the logical size of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub node: Node,
+    /// Styles which control the layout (size and position) of the node and it's children
+    /// In some cases these styles also affect how the node drawn/painted.
+    pub style: Style,
+    /// How the image should be tiled
+    pub tiling_mode: TilingMode,
+    /// The background color, which serves as a "fill" for this node
+    ///
+    /// Combines with `UiImage` to tint the provided image.
+    pub background_color: BackgroundColor,
+    /// The image of the node
+    pub image: UiImage,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node

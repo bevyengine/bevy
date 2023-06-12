@@ -8,7 +8,9 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
+use crate::{
+    prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, TilingMode, UiImage, UiStack,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -150,10 +152,12 @@ pub struct ExtractedUiNode {
     pub color: Color,
     pub rect: Rect,
     pub image: Handle<Image>,
+    pub image_size: Option<Vec2>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub tiling_mode: TilingMode,
 }
 
 #[derive(Resource, Default)]
@@ -173,12 +177,13 @@ pub fn extract_uinodes(
             Option<&UiImage>,
             &ComputedVisibility,
             Option<&CalculatedClip>,
+            Option<&TilingMode>,
         )>,
     >,
 ) {
     extracted_uinodes.uinodes.clear();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
+        if let Ok((uinode, transform, color, maybe_image, visibility, clip, maybe_tiling_mode)) =
             uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
@@ -186,14 +191,30 @@ pub fn extract_uinodes(
                 continue;
             }
 
-            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-                // Skip loading images
-                if !images.contains(&image.texture) {
+            let (image, image_size, flip_x, flip_y, tiling_mode) = if let Some(image) = maybe_image
+            {
+                // Retreive Image instance if it exists, don't show the image otherwise
+                if let Some(texture) = images.get(&image.texture) {
+                    (
+                        image.texture.clone_weak(),
+                        Some(texture.size()),
+                        image.flip_x,
+                        image.flip_y,
+                        maybe_tiling_mode
+                            .map_or(TilingMode::None, |tiling_mode| tiling_mode.clone()),
+                    )
+                } else {
+                    // Skip loading images
                     continue;
                 }
-                (image.texture.clone_weak(), image.flip_x, image.flip_y)
             } else {
-                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+                (
+                    DEFAULT_IMAGE_HANDLE.typed().clone_weak(),
+                    None,
+                    false,
+                    false,
+                    TilingMode::None,
+                )
             };
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
@@ -205,10 +226,12 @@ pub fn extract_uinodes(
                     max: uinode.calculated_size,
                 },
                 image,
+                image_size,
                 atlas_size: None,
                 clip: clip.map(|clip| clip.clip),
                 flip_x,
                 flip_y,
+                tiling_mode,
             });
         }
     }
@@ -333,10 +356,12 @@ pub fn extract_text_uinodes(
                     color,
                     rect,
                     image: atlas.texture.clone_weak(),
+                    image_size: None,
                     atlas_size: Some(atlas.size * inverse_scale_factor),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
+                    tiling_mode: TilingMode::None,
                 });
             }
         }
@@ -380,6 +405,15 @@ pub struct UiBatch {
     pub range: Range<u32>,
     pub image: Handle<Image>,
     pub z: f32,
+}
+
+fn get_tiling_uv_factor(tiling: &TilingMode, extent: Vec2, texture_size: Vec2) -> Vec2 {
+    match tiling {
+        TilingMode::None => Vec2::ONE,
+        TilingMode::Horizontal => Vec2::new(extent.x / texture_size.x, 1.0),
+        TilingMode::Vertical => Vec2::new(1.0, extent.y / texture_size.y),
+        TilingMode::Both => extent / texture_size,
+    }
 }
 
 pub fn prepare_uinodes(
@@ -473,6 +507,9 @@ pub fn prepare_uinodes(
             [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
         } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
+            let tiling_factor = extracted_uinode.image_size.map_or(Vec2::ONE, |image_size| {
+                get_tiling_uv_factor(&extracted_uinode.tiling_mode, atlas_extent, image_size)
+            });
             if extracted_uinode.flip_x {
                 std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
                 positions_diff[0].x *= -1.;
@@ -505,7 +542,7 @@ pub fn prepare_uinodes(
                     uinode_rect.max.y + positions_diff[3].y,
                 ),
             ]
-            .map(|pos| pos / atlas_extent)
+            .map(|pos| pos / atlas_extent * tiling_factor)
         };
 
         let color = extracted_uinode.color.as_linear_rgba_f32();

@@ -1563,6 +1563,22 @@ impl From<Color> for BackgroundColor {
     }
 }
 
+/// How/if the 2D texture of [`UiImage`] is tiled/repeated
+///
+/// It requires an Image with the texture sampler descriptor
+/// address mode set to repeat ([`Image::sampler_descriptor`]).
+/// To adjust this globally see also [`bevy_render::texture::ImagePlugin::default_sampler`].
+/// Use with [`crate::node_bundles::TiledImageBundle`] to create a [`UiImage`] with a tiled texture.
+#[derive(Component, Clone, Debug, Reflect, Default)]
+#[reflect(Component, Default)]
+pub enum TilingMode {
+    #[default]
+    None,
+    Horizontal,
+    Vertical,
+    Both,
+}
+
 /// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
