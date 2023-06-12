@@ -122,7 +122,7 @@ impl<'w> EntityRef<'w> {
     }
 
     /// Gets access to the component of type `T` for the current entity,
-    /// including change detection information in [`Ref`].
+    /// including change detection information as a [`Ref`].
     ///
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
