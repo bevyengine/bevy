@@ -554,8 +554,8 @@ mod tests {
     use std::{
         any::TypeId,
         borrow::Cow,
-        marker::PhantomData,
         fmt::{Debug, Formatter},
+        marker::PhantomData,
     };
 
     use super::prelude::*;
