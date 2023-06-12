@@ -26,11 +26,11 @@ pub use bevy_utils_proc_macros::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
-pub use instant::{Duration, Instant};
 pub use petgraph;
 pub use thiserror;
 pub use tracing;
 pub use uuid::Uuid;
+pub use web_time::{Duration, Instant};
 
 use hashbrown::hash_map::RawEntryMut;
 use std::{

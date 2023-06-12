@@ -19,6 +19,7 @@ use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::system::{SystemParam, SystemState};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
+use bevy_utils::Instant;
 use system::{changed_window, create_window, despawn_window, CachedWindow};
 
 pub use winit_config::*;
@@ -34,10 +35,7 @@ use bevy_input::{
     touchpad::{TouchpadMagnify, TouchpadRotate},
 };
 use bevy_math::{ivec2, DVec2, Vec2};
-use bevy_utils::{
-    tracing::{trace, warn},
-    Instant,
-};
+use bevy_utils::tracing::{trace, warn};
 use bevy_window::{
     exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
     ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,

@@ -44,6 +44,7 @@ winit = { git = "https://github.com/rust-windowing/winit.git", branch = "master"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
+
 crossbeam-channel = "0.5"
 
 [package.metadata.docs.rs]
