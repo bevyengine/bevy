@@ -898,7 +898,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     pub fn par_iter<'w, 's>(&'s mut self, world: &'w World) -> QueryParIter<'w, 's, Q, F> {
         self.update_archetypes(world);
         QueryParIter {
-            world,
+            world: world.as_unsafe_world_cell_readonly(),
             state: self,
             last_run: world.last_change_tick(),
             this_run: world.read_change_tick(),
@@ -916,7 +916,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         self.update_archetypes(world);
         let this_run = world.change_tick();
         QueryParIter {
-            world,
+            world: world.as_unsafe_world_cell(),
             state: self,
             last_run: world.last_change_tick(),
             this_run,
