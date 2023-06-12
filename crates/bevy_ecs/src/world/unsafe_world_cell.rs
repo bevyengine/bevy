@@ -651,6 +651,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get<T: Component>(self) -> Option<&'w T> {
+        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
         // SAFETY:
         // - `storage_type` is correct (T component_id + T::STORAGE_TYPE)
         // - `location` is valid
@@ -658,7 +659,7 @@ impl<'w> UnsafeEntityCell<'w> {
         unsafe {
             get_component(
                 self.world,
-                self.world.components().get_id(TypeId::of::<T>())?,
+                component_id,
                 T::Storage::STORAGE_TYPE,
                 self.entity,
                 self.location,
@@ -676,6 +677,7 @@ impl<'w> UnsafeEntityCell<'w> {
     pub unsafe fn get_ref<T: Component>(self) -> Option<Ref<'w, T>> {
         let last_change_tick = self.world.last_change_tick();
         let change_tick = self.world.change_tick();
+        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
 
         // SAFETY:
         // - `storage_type` is correct (T component_id + T::STORAGE_TYPE)
@@ -684,7 +686,7 @@ impl<'w> UnsafeEntityCell<'w> {
         unsafe {
             get_component_and_ticks(
                 self.world,
-                self.world.components().get_id(TypeId::of::<T>())?,
+                component_id,
                 T::Storage::STORAGE_TYPE,
                 self.entity,
                 self.location,
