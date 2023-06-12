@@ -11,11 +11,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
@@ -24,10 +20,7 @@ fn setup(
         color: Color::WHITE,
     };
 
-    let texture_handle = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
-    let texture_atlas =
-        TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1, None, None);
-    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+    let image = asset_server.load("branding/icon.png");
 
     commands
         .spawn(NodeBundle {
@@ -92,11 +85,8 @@ fn setup(
                                 ..Default::default()
                             })
                             .with_children(|parent| {
-                                parent.spawn(AtlasImageBundle {
-                                    texture_atlas: texture_atlas_handle.clone(),
-                                    texture_atlas_sprite: UiTextureAtlasSprite(
-                                        TextureAtlasSprite::new(3),
-                                    ),
+                                parent.spawn(ImageBundle {
+                                    image: UiImage::new(image.clone()),
                                     style: Style {
                                         min_width: Val::Px(100.),
                                         min_height: Val::Px(100.),
