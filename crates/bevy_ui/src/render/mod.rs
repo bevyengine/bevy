@@ -79,6 +79,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
+                extract_atlas_uinodes.after(RenderUiSystem::ExtractNode),
                 #[cfg(feature = "bevy_text")]
                 extract_text_uinodes.after(RenderUiSystem::ExtractNode),
             ),
@@ -170,35 +171,35 @@ pub struct ExtractAtlasDetails {
     flip_y: bool,
 }
 
-pub fn extract_uinodes(
+pub fn extract_atlas_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
-        Query<(
-            &Node,
-            &GlobalTransform,
-            &BackgroundColor,
-            Option<&UiImage>,
-            &ComputedVisibility,
-            Option<&CalculatedClip>,
-            Option<&Handle<TextureAtlas>>,
-            Option<&UiTextureAtlasSprite>,
-        )>,
+        Query<
+            (
+                &Node,
+                &GlobalTransform,
+                &BackgroundColor,
+                &ComputedVisibility,
+                Option<&CalculatedClip>,
+                &Handle<TextureAtlas>,
+                &UiTextureAtlasSprite,
+            ),
+            Without<UiImage>,
+        >,
     >,
 ) {
-    extracted_uinodes.uinodes.clear();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((
             uinode,
             transform,
             color,
-            maybe_image,
             visibility,
             clip,
-            maybe_texture_atlas,
-            maybe_atlas_sprite,
+            texture_atlas_handle,
+            atlas_sprite,
         )) = uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
@@ -206,79 +207,104 @@ pub fn extract_uinodes(
                 continue;
             }
 
-            let atlas_details = if let Some(atlas_sprite) = maybe_atlas_sprite {
-                if let Some(texture_atlas_handle) = maybe_texture_atlas {
-                    if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-                        let mut atlas_rect = *texture_atlas
-                                .textures
-                                .get(atlas_sprite.0.index)
-                                .unwrap_or_else(|| {
-                                    panic!(
-                                        "Sprite index {:?} does not exist for texture atlas handle {:?}.",
-                                        atlas_sprite.0.index,
-                                        texture_atlas_handle.id(),
-                                    )
-                                });
-                        let scale = uinode.size() / atlas_rect.size();
-                        atlas_rect.min *= scale;
-                        atlas_rect.max *= scale;
-                        let atlas_size = texture_atlas.size * scale;
-                        Some(ExtractAtlasDetails {
-                            rect: atlas_rect,
-                            size: atlas_size,
-                            image: texture_atlas.texture.clone(),
-                            flip_x: atlas_sprite.0.flip_x,
-                            flip_y: atlas_sprite.0.flip_y,
-                        })
-                    } else {
-                        // Atlas not present in assets resource (should this warn the user?)
-                        None
-                    }
-                } else {
-                    warn!("UI Texture Atlas is missing a Handle<TextureAtlas> Component");
-                    continue;
-                }
-            } else {
-                // Not using texture atlas for this node
-                None
-            };
+            let atlas_details =
+                if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
+                    let mut atlas_rect = *texture_atlas
+                        .textures
+                        .get(atlas_sprite.0.index)
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Sprite index {:?} does not exist for texture atlas handle {:?}.",
+                                atlas_sprite.0.index,
+                                texture_atlas_handle.id(),
+                            )
+                        });
+                    let scale = uinode.size() / atlas_rect.size();
+                    atlas_rect.min *= scale;
+                    atlas_rect.max *= scale;
+                    let atlas_size = texture_atlas.size * scale;
 
-            let (image, flip_x, flip_y) =
-                // Choose texture atlas image if it exists
-                if let Some(atlas_details) = &atlas_details {
-                    // Skip loading images
-                    if !images.contains(&atlas_details.image) {
-                        continue;
+                    ExtractAtlasDetails {
+                        rect: atlas_rect,
+                        size: atlas_size,
+                        image: texture_atlas.texture.clone(),
+                        flip_x: atlas_sprite.0.flip_x,
+                        flip_y: atlas_sprite.0.flip_y,
                     }
-                    (atlas_details.image.clone_weak(), atlas_details.flip_x, atlas_details.flip_y)
-                // Otherwise use UI Image
-                } else if let Some(image) = maybe_image {
-                    // Skip loading images
-                    if !images.contains(&image.texture) {
-                        continue;
-                    }
-                    (image.texture.clone_weak(), image.flip_x, image.flip_y)
                 } else {
-                    (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+                    // Atlas not present in assets resource (should this warn the user?)
+                    continue;
                 };
 
-            let rect = if let Some(atlas_details) = &atlas_details {
-                atlas_details.rect
-            } else {
-                Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
+            // Skip loading images
+            if !images.contains(&atlas_details.image) {
+                continue;
+            }
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                stack_index,
+                transform: transform.compute_matrix(),
+                color: color.0,
+                rect: atlas_details.rect,
+                clip: clip.map(|clip| clip.clip),
+                image: atlas_details.image,
+                atlas_size: Some(atlas_details.size),
+                flip_x: atlas_details.flip_x,
+                flip_y: atlas_details.flip_y,
+            });
+        };
+    }
+}
+
+pub fn extract_uinodes(
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    images: Extract<Res<Assets<Image>>>,
+    ui_stack: Extract<Res<UiStack>>,
+    uinode_query: Extract<
+        Query<
+            (
+                &Node,
+                &GlobalTransform,
+                &BackgroundColor,
+                Option<&UiImage>,
+                &ComputedVisibility,
+                Option<&CalculatedClip>,
+            ),
+            Without<UiTextureAtlasSprite>,
+        >,
+    >,
+) {
+    extracted_uinodes.uinodes.clear();
+    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
+            uinode_query.get(*entity)
+        {
+            // Skip invisible and completely transparent nodes
+            if !visibility.is_visible() || color.0.a() == 0.0 {
+                continue;
+            }
+
+            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+                // Skip loading images
+                if !images.contains(&image.texture) {
+                    continue;
                 }
+                (image.texture.clone_weak(), image.flip_x, image.flip_y)
+            } else {
+                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
             };
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
                 color: color.0,
-                rect,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.calculated_size,
+                },
                 clip: clip.map(|clip| clip.clip),
                 image,
-                atlas_size: atlas_details.as_ref().map(|details| details.size),
+                atlas_size: None,
                 flip_x,
                 flip_y,
             });
