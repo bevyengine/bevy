@@ -536,7 +536,7 @@ pub fn prepare_uinodes(
         }
 
         last_z = extracted_uinode.transform.w_axis[2];
-        end += QUAD_VERTEX_POSITIONS.len() as u32;
+        end += QUAD_INDICES.len() as u32;
     }
 
     // if start != end, there is one last batch to process
