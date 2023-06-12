@@ -49,7 +49,7 @@ fn setup(
                     ..default()
                 },
                 texture_atlas: texture_atlas_handle,
-                texture_atlas_sprite: UiTextureAtlasSprite(TextureAtlasSprite::new(0)),
+                texture_atlas_sprite: UiTextureAtlasSprite::default(),
                 ..default()
             },));
         });
