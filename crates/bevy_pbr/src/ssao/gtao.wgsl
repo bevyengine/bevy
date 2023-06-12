@@ -12,7 +12,7 @@
 
 @group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
 @group(0) @binding(1) var normals: texture_2d<f32>;
-@group(0) @binding(2) var hilbert_index: texture_2d<u32>;
+@group(0) @binding(2) var hilbert_index_lut: texture_2d<u32>;
 @group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r16float, write>;
 @group(0) @binding(4) var depth_differences: texture_storage_2d<r32uint, write>;
 @group(0) @binding(5) var<uniform> globals: Globals;
@@ -20,7 +20,7 @@
 @group(1) @binding(1) var<uniform> view: View;
 
 fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
-    var index = textureLoad(hilbert_index, pixel_coordinates % 64, 0).r;
+    var index = textureLoad(hilbert_index_lut, pixel_coordinates % 64, 0).r;
 
 #ifdef TEMPORAL_NOISE
     index += 288u * (globals.frame_count % 64u);

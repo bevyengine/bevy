@@ -87,7 +87,9 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa::default())
 ///     .run();
 /// ```
-#[derive(Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd)]
+#[derive(
+    Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd, Debug,
+)]
 #[reflect(Resource)]
 pub enum Msaa {
     Off = 1,

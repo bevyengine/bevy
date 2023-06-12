@@ -32,10 +32,13 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{prelude::default, tracing::warn};
+use bevy_utils::{
+    prelude::default,
+    tracing::{error, warn},
+};
 use std::mem;
 
 pub mod draw_3d_graph {
@@ -213,9 +216,9 @@ impl ViewNode for SsaoNode {
             Some(gtao_pipeline),
         ) = (
             camera.physical_viewport_size,
-            pipeline_cache.get_compute_pipeline(pipeline_id.0),
             pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
             pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
+            pipeline_cache.get_compute_pipeline(pipeline_id.0),
         ) else {
             return Ok(());
         };
@@ -237,8 +240,8 @@ impl ViewNode for SsaoNode {
                 &[view_uniform_offset.offset],
             );
             preprocess_depth_pass.dispatch_workgroups(
-                (camera_size.x + 15) / 16,
-                (camera_size.y + 15) / 16,
+                div_ceil(camera_size.x, 16),
+                div_ceil(camera_size.y, 16),
                 1,
             );
         }
@@ -257,7 +260,11 @@ impl ViewNode for SsaoNode {
                 &bind_groups.common_bind_group,
                 &[view_uniform_offset.offset],
             );
-            gtao_pass.dispatch_workgroups((camera_size.x + 7) / 8, (camera_size.y + 7) / 8, 1);
+            gtao_pass.dispatch_workgroups(
+                div_ceil(camera_size.x, 8),
+                div_ceil(camera_size.y, 8),
+                1,
+            );
         }
 
         {
@@ -275,8 +282,8 @@ impl ViewNode for SsaoNode {
                 &[view_uniform_offset.offset],
             );
             spatial_denoise_pass.dispatch_workgroups(
-                (camera_size.x + 7) / 8,
-                (camera_size.y + 7) / 8,
+                div_ceil(camera_size.x, 8),
+                div_ceil(camera_size.y, 8),
                 1,
             );
         }
@@ -296,7 +303,7 @@ struct SsaoPipelines {
     gtao_bind_group_layout: BindGroupLayout,
     spatial_denoise_bind_group_layout: BindGroupLayout,
 
-    hilbert_index_texture: TextureView,
+    hilbert_index_lut: TextureView,
     point_clamp_sampler: Sampler,
 }
 
@@ -306,11 +313,11 @@ impl FromWorld for SsaoPipelines {
         let render_queue = world.resource::<RenderQueue>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        let hilbert_index_texture = render_device
+        let hilbert_index_lut = render_device
             .create_texture_with_data(
                 render_queue,
                 &(TextureDescriptor {
-                    label: Some("ssao_hilbert_index_texture"),
+                    label: Some("ssao_hilbert_index_lut"),
                     size: Extent3d {
                         width: HILBERT_WIDTH as u32,
                         height: HILBERT_WIDTH as u32,
@@ -323,7 +330,7 @@ impl FromWorld for SsaoPipelines {
                     usage: TextureUsages::TEXTURE_BINDING,
                     view_formats: &[],
                 }),
-                bytemuck::cast_slice(&generate_hilbert_index_texture()),
+                bytemuck::cast_slice(&generate_hilbert_index_lut()),
             )
             .create_view(&TextureViewDescriptor::default());
 
@@ -542,7 +549,7 @@ impl FromWorld for SsaoPipelines {
             gtao_bind_group_layout,
             spatial_denoise_bind_group_layout,
 
-            hilbert_index_texture,
+            hilbert_index_lut,
             point_clamp_sampler,
         }
     }
@@ -594,7 +601,16 @@ fn extract_ssao_settings(
             (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
+    msaa: Extract<Res<Msaa>>,
 ) {
+    if **msaa != Msaa::Off {
+        error!(
+            "SSAO is being used which requires Msaa::Off, but Msaa is currently set to {:?}",
+            *msaa
+        );
+        return;
+    }
+
     for (entity, camera, ssao_settings) in &cameras {
         if camera.is_active {
             commands.get_or_spawn(entity).insert(ssao_settings.clone());
@@ -864,7 +880,7 @@ fn queue_ssao_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: BindingResource::TextureView(&pipelines.hilbert_index_texture),
+                    resource: BindingResource::TextureView(&pipelines.hilbert_index_lut),
                 },
                 BindGroupEntry {
                     binding: 3,
@@ -922,7 +938,7 @@ fn queue_ssao_bind_groups(
 }
 
 #[allow(clippy::needless_range_loop)]
-fn generate_hilbert_index_texture() -> [[u16; 64]; 64] {
+fn generate_hilbert_index_lut() -> [[u16; 64]; 64] {
     let mut t = [[0; 64]; 64];
 
     for x in 0..64 {
@@ -958,4 +974,9 @@ fn hilbert_index(mut x: u16, mut y: u16) -> u16 {
     }
 
     index
+}
+
+/// Divide `numerator` by `denominator`, rounded up to the nearest multiple of `denominator`.
+fn div_ceil(numerator: u32, denominator: u32) -> u32 {
+    (numerator + denominator - 1) / denominator
 }
