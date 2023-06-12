@@ -34,7 +34,7 @@ use bevy_ecs::{
     },
 };
 use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypeUuid, TypePath,
+    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypePath, TypeUuid,
 };
 use bevy_render::{
     color::Color,
