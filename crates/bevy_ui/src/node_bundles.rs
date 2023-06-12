@@ -110,7 +110,7 @@ pub struct ImageBundle {
 
 /// A UI node that is a texture atlas sprite
 #[derive(Bundle, Debug, Default)]
-pub struct TextureAtlasImageBundle {
+pub struct AtlasImageBundle {
     /// Describes the logical size of the node
     ///
     /// This field is automatically managed by the UI layout system.
