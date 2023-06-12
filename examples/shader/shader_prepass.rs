@@ -6,7 +6,7 @@ use bevy::{
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
     pbr::{NotShadowCaster, PbrPlugin},
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
@@ -28,6 +28,8 @@ fn main() {
         })
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, toggle_prepass_view))
+        // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
+        .insert_resource(Msaa::Off)
         .run();
 }
 
@@ -63,7 +65,8 @@ fn setup(
     });
 
     // A quad that shows the outputs of the prepass
-    // To make it easy, we just draw a big quad right in front of the camera. For a real application, this isn't ideal.
+    // To make it easy, we just draw a big quad right in front of the camera.
+    // For a real application, this isn't ideal.
     commands.spawn((
         MaterialMeshBundle {
             mesh: meshes.add(shape::Quad::new(Vec2::new(20.0, 20.0)).into()),
@@ -77,11 +80,15 @@ fn setup(
         NotShadowCaster,
     ));
 
-    // Opaque cube using the StandardMaterial
+    // Opaque cube
     commands.spawn((
-        PbrBundle {
+        MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: std_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+            material: materials.add(CustomMaterial {
+                color: Color::WHITE,
+                color_texture: Some(asset_server.load("branding/icon.png")),
+                alpha_mode: AlphaMode::Opaque,
+            }),
             transform: Transform::from_xyz(-1.0, 0.5, 0.0),
             ..default()
         },
@@ -96,7 +103,6 @@ fn setup(
             base_color_texture: Some(asset_server.load("branding/icon.png")),
             ..default()
         }),
-
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -126,9 +132,9 @@ fn setup(
     });
 
     let style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 18.0,
         color: Color::WHITE,
+        ..default()
     };
 
     commands.spawn(
@@ -149,7 +155,7 @@ fn setup(
 }
 
 // This is the struct that will be passed to your shader
-#[derive(AsBindGroup, TypeUuid, Debug, Clone)]
+#[derive(AsBindGroup, TypePath, TypeUuid, Debug, Clone)]
 #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
 pub struct CustomMaterial {
     #[uniform(0)]
@@ -198,7 +204,7 @@ struct ShowPrepassSettings {
 }
 
 // This shader simply loads the prepass texture and outputs it directly
-#[derive(AsBindGroup, TypeUuid, Debug, Clone)]
+#[derive(AsBindGroup, TypePath, TypeUuid, Debug, Clone)]
 #[uuid = "0af99895-b96e-4451-bc12-c6b1c1c52750"]
 pub struct PrepassOutputMaterial {
     #[uniform(0)]

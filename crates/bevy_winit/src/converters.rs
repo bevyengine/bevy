@@ -5,7 +5,7 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_window::{CursorIcon, WindowLevel};
+use bevy_window::{CursorIcon, WindowLevel, WindowTheme};
 
 pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
     KeyboardInput {
@@ -40,7 +40,7 @@ pub fn convert_touch_input(
             winit::event::TouchPhase::Started => TouchPhase::Started,
             winit::event::TouchPhase::Moved => TouchPhase::Moved,
             winit::event::TouchPhase::Ended => TouchPhase::Ended,
-            winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
+            winit::event::TouchPhase::Cancelled => TouchPhase::Canceled,
         },
         position: Vec2::new(location.x as f32, location.y as f32),
         force: touch_input.force.map(|f| match f {
@@ -272,5 +272,19 @@ pub fn convert_window_level(window_level: WindowLevel) -> winit::window::WindowL
         WindowLevel::AlwaysOnBottom => winit::window::WindowLevel::AlwaysOnBottom,
         WindowLevel::Normal => winit::window::WindowLevel::Normal,
         WindowLevel::AlwaysOnTop => winit::window::WindowLevel::AlwaysOnTop,
+    }
+}
+
+pub fn convert_winit_theme(theme: winit::window::Theme) -> WindowTheme {
+    match theme {
+        winit::window::Theme::Light => WindowTheme::Light,
+        winit::window::Theme::Dark => WindowTheme::Dark,
+    }
+}
+
+pub fn convert_window_theme(theme: WindowTheme) -> winit::window::Theme {
+    match theme {
+        WindowTheme::Light => winit::window::Theme::Light,
+        WindowTheme::Dark => winit::window::Theme::Dark,
     }
 }

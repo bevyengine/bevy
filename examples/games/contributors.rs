@@ -221,7 +221,7 @@ fn select(
     text.sections[1].style.color = sprite.color;
 }
 
-/// Change the modulate color to the "deselected" colour and push
+/// Change the modulate color to the "deselected" color and push
 /// the object to the back.
 fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Transform) {
     sprite.color = Color::hsla(
@@ -334,7 +334,7 @@ fn contributors() -> Result<Contributors, LoadContributorsError> {
 
     let contributors = BufReader::new(stdout)
         .lines()
-        .filter_map(|x| x.ok())
+        .map_while(|x| x.ok())
         .collect();
 
     Ok(contributors)

@@ -3,7 +3,7 @@
 //! Usage: spawn more entities by clicking on the screen.
 
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
 };
@@ -37,7 +37,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(LogDiagnosticsPlugin::default())
         .insert_resource(BevyCounter {
             count: 0,
@@ -103,9 +103,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TextSection::new(
             value,
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
                 color,
+                ..default()
             },
         )
     };
@@ -244,7 +244,7 @@ fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &
 }
 
 fn counter_system(
-    diagnostics: Res<Diagnostics>,
+    diagnostics: Res<DiagnosticsStore>,
     counter: Res<BevyCounter>,
     mut query: Query<&mut Text, With<StatsText>>,
 ) {

@@ -26,8 +26,8 @@ pub struct MainPass2dNode {
     >,
 }
 
-impl MainPass2dNode {
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for MainPass2dNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             query: world.query_filtered(),
         }
@@ -81,7 +81,7 @@ impl Node for MainPass2dNode {
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
         // reset for the next render pass so add an empty render pass without a custom viewport
-        #[cfg(feature = "webgl")]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         if camera.viewport.is_some() {
             #[cfg(feature = "trace")]
             let _reset_viewport_pass_2d = info_span!("reset_viewport_pass_2d").entered();

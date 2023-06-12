@@ -1,7 +1,7 @@
 use std::f32::consts::TAU;
 
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::PresentMode,
 };
@@ -18,7 +18,7 @@ fn main() {
         }),
         ..default()
     }))
-    .add_plugin(FrameTimeDiagnosticsPlugin::default())
+    .add_plugin(FrameTimeDiagnosticsPlugin)
     .insert_resource(Config {
         line_count: 50_000,
         fancy: false,
@@ -73,7 +73,7 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     warn!(include_str!("warning_string.txt"));
 
     commands.spawn(Camera3dBundle {
@@ -84,14 +84,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(TextBundle::from_section(
         "",
         TextStyle {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 30.,
             ..default()
         },
     ));
 }
 
-fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnostics>) {
+fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
     let mut text = query.single_mut();
 
     let Some(fps) = diag.get(FrameTimeDiagnosticsPlugin::FPS).and_then(|fps| fps.smoothed()) else {

@@ -91,6 +91,8 @@ impl<'w> Drop for WorldCell<'w> {
     }
 }
 
+/// A read-only borrow of some data stored in a [`World`]. This type is returned by [`WorldCell`],
+/// which uses run-time checks to ensure that the borrow does not violate Rust's aliasing rules.
 pub struct WorldBorrow<'w, T> {
     value: &'w T,
     archetype_component_id: ArchetypeComponentId,
@@ -133,6 +135,8 @@ impl<'w, T> Drop for WorldBorrow<'w, T> {
     }
 }
 
+/// A mutable borrow of some data stored in a [`World`]. This type is returned by [`WorldCell`],
+/// which uses run-time checks to ensure that the borrow does not violate Rust's aliasing rules.
 pub struct WorldBorrowMut<'w, T> {
     value: Mut<'w, T>,
     archetype_component_id: ArchetypeComponentId,
