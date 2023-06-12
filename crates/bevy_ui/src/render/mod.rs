@@ -150,7 +150,6 @@ pub struct ExtractedUiNode {
     pub transform: Mat4,
     pub color: Color,
     pub rect: Rect,
-    pub uv_rect: Option<Rect>,
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
@@ -210,7 +209,7 @@ pub fn extract_uinodes(
             let atlas_details = if let Some(atlas_sprite) = maybe_atlas_sprite {
                 if let Some(texture_atlas_handle) = maybe_texture_atlas {
                     if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-                        let atlas_rect = *texture_atlas
+                        let mut atlas_rect = *texture_atlas
                                 .textures
                                 .get(atlas_sprite.0.index)
                                 .unwrap_or_else(|| {
@@ -220,9 +219,13 @@ pub fn extract_uinodes(
                                         texture_atlas_handle.id(),
                                     )
                                 });
+                        let scale = uinode.size() / atlas_rect.size();
+                        atlas_rect.min *= scale;
+                        atlas_rect.max *= scale;
+                        let atlas_size = texture_atlas.size * scale;
                         Some(ExtractAtlasDetails {
                             rect: atlas_rect,
-                            size: texture_atlas.size,
+                            size: atlas_size,
                             image: texture_atlas.texture.clone(),
                             flip_x: atlas_sprite.0.flip_x,
                             flip_y: atlas_sprite.0.flip_y,
@@ -259,22 +262,27 @@ pub fn extract_uinodes(
                     (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
                 };
 
+            let rect = if let Some(atlas_details) = &atlas_details {
+                atlas_details.rect
+            } else {
+                Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.calculated_size,
+                }
+            };
+
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
                 color: color.0,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
-                },
-                uv_rect: atlas_details.as_ref().map(|details| details.rect),
+                rect,
                 clip: clip.map(|clip| clip.clip),
                 image,
                 atlas_size: atlas_details.as_ref().map(|details| details.size),
                 flip_x,
                 flip_y,
             });
-        }
+        };
     }
 }
 
@@ -396,7 +404,6 @@ pub fn extract_text_uinodes(
                         * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
                     color,
                     rect,
-                    uv_rect: None,
                     image: atlas.texture.clone_weak(),
                     atlas_size: Some(atlas.size * inverse_scale_factor),
                     clip: clip.map(|clip| clip.clip),
@@ -538,7 +545,6 @@ pub fn prepare_uinodes(
             [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
         } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
-            let uv_rect = extracted_uinode.uv_rect.unwrap_or(uinode_rect);
             if extracted_uinode.flip_x {
                 std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
                 positions_diff[0].x *= -1.;
@@ -555,20 +561,20 @@ pub fn prepare_uinodes(
             }
             [
                 Vec2::new(
-                    uv_rect.min.x + positions_diff[0].x,
-                    uv_rect.min.y + positions_diff[0].y,
+                    uinode_rect.min.x + positions_diff[0].x,
+                    uinode_rect.min.y + positions_diff[0].y,
                 ),
                 Vec2::new(
-                    uv_rect.max.x + positions_diff[1].x,
-                    uv_rect.min.y + positions_diff[1].y,
+                    uinode_rect.max.x + positions_diff[1].x,
+                    uinode_rect.min.y + positions_diff[1].y,
                 ),
                 Vec2::new(
-                    uv_rect.max.x + positions_diff[2].x,
-                    uv_rect.max.y + positions_diff[2].y,
+                    uinode_rect.max.x + positions_diff[2].x,
+                    uinode_rect.max.y + positions_diff[2].y,
                 ),
                 Vec2::new(
-                    uv_rect.min.x + positions_diff[3].x,
-                    uv_rect.max.y + positions_diff[3].y,
+                    uinode_rect.min.x + positions_diff[3].x,
+                    uinode_rect.max.y + positions_diff[3].y,
                 ),
             ]
             .map(|pos| pos / atlas_extent)
