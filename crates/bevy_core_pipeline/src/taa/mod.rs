@@ -26,14 +26,16 @@ use bevy_render::{
         ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState,
         Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
+        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureAspect,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        TextureViewDescriptor, TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
+use bevy_utils::default;
 
 mod draw_3d_graph {
     pub mod node {
@@ -197,6 +199,14 @@ impl ViewNode for TAANode {
         };
         let view_target = view_target.post_process_write();
 
+        let depth_view = prepass_depth_texture
+            .texture
+            .create_view(&TextureViewDescriptor {
+                label: Some("prepass_depth"),
+                aspect: TextureAspect::DepthOnly,
+                ..default()
+            });
+
         let taa_bind_group =
             render_context
                 .render_device()
@@ -222,9 +232,7 @@ impl ViewNode for TAANode {
                         },
                         BindGroupEntry {
                             binding: 3,
-                            resource: BindingResource::TextureView(
-                                &prepass_depth_texture.default_view,
-                            ),
+                            resource: BindingResource::TextureView(&depth_view),
                         },
                         BindGroupEntry {
                             binding: 4,
