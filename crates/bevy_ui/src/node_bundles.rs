@@ -131,6 +131,10 @@ pub struct AtlasImageBundle {
     pub texture_atlas_sprite: UiTextureAtlasSprite,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
+    /// The size of the image in pixels
+    ///
+    /// This field is set automatically
+    pub image_size: UiImageSize,
     /// The transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
