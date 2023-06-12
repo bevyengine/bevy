@@ -1,5 +1,5 @@
 use crate::{Axis, Input};
-use bevy_ecs::event::{EventReader, EventWriter};
+use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     system::{Res, ResMut, Resource},
@@ -1039,7 +1039,7 @@ pub enum GamepadConnection {
 
 /// A Gamepad connection event. Created when a connection to a gamepad
 /// is established and when a gamepad is disconnected.
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -1070,7 +1070,7 @@ impl GamepadConnectionEvent {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -1095,7 +1095,7 @@ impl GamepadAxisChangedEvent {
 
 /// Gamepad event for when the "value" (amount of pressure) on the button
 /// changes by an amount larger than the threshold defined in [`GamepadSettings`].
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -1158,7 +1158,7 @@ pub fn gamepad_button_event_system(
 /// This event type is used over the [`GamepadConnectionEvent`],
 /// [`GamepadButtonChangedEvent`] and [`GamepadAxisChangedEvent`] when
 /// the in-frame relative ordering of events is important.
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -1330,7 +1330,7 @@ impl GamepadRumbleIntensity {
 #[doc(alias = "force feedback")]
 #[doc(alias = "vibration")]
 #[doc(alias = "vibrate")]
-#[derive(Clone)]
+#[derive(Event, Clone)]
 pub enum GamepadRumbleRequest {
     /// Add a rumble to the given gamepad.
     ///

@@ -284,7 +284,7 @@ impl SceneSpawner {
                             parent,
                             child: entity,
                         }
-                        .write(world);
+                        .apply(world);
                     }
                 }
             } else {

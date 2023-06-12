@@ -113,6 +113,9 @@ pub struct CombinatorSystem<Func, A, B> {
 }
 
 impl<Func, A, B> CombinatorSystem<Func, A, B> {
+    /// Creates a new system that combines two inner systems.
+    ///
+    /// The returned system will only be usable if `Func` implements [`Combine<A, B>`].
     pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
         Self {
             _marker: PhantomData,
@@ -187,9 +190,9 @@ where
         )
     }
 
-    fn apply_buffers(&mut self, world: &mut World) {
-        self.a.apply_buffers(world);
-        self.b.apply_buffers(world);
+    fn apply_deferred(&mut self, world: &mut World) {
+        self.a.apply_deferred(world);
+        self.b.apply_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut World) {

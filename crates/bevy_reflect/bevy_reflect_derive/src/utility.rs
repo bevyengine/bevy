@@ -1,11 +1,11 @@
 //! General-purpose utility functions for internal usage within this crate.
 
-use crate::field_attributes::ReflectIgnoreBehavior;
+use crate::{derive_data::ReflectMeta, field_attributes::ReflectIgnoreBehavior, fq_std::FQOption};
 use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
 use proc_macro2::{Ident, Span};
-use quote::quote;
-use syn::{Member, Path, Type, WhereClause};
+use quote::{quote, ToTokens};
+use syn::{spanned::Spanned, LitStr, Member, Path, Type, WhereClause};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -60,6 +60,10 @@ pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
 
 /// Options defining how to extend the `where` clause in reflection with any additional bounds needed.
 pub(crate) struct WhereClauseOptions {
+    /// Type parameters that need extra trait bounds.
+    pub(crate) parameter_types: Box<[Ident]>,
+    /// Trait bounds to add to the type parameters.
+    pub(crate) parameter_trait_bounds: proc_macro2::TokenStream,
     /// Any types that will be reflected and need an extra trait bound
     pub(crate) active_types: Box<[Type]>,
     /// Trait bounds to add to the active types
@@ -70,12 +74,31 @@ pub(crate) struct WhereClauseOptions {
     pub(crate) ignored_trait_bounds: proc_macro2::TokenStream,
 }
 
+impl WhereClauseOptions {
+    /// Extends a where clause, adding a `TypePath` bound to each type parameter.
+    pub fn type_path_bounds(meta: &ReflectMeta) -> Self {
+        let bevy_reflect_path = meta.bevy_reflect_path();
+        Self {
+            parameter_types: meta
+                .type_path()
+                .generics()
+                .type_params()
+                .map(|ty| ty.ident.clone())
+                .collect(),
+            parameter_trait_bounds: quote! { #bevy_reflect_path::TypePath },
+            ..Default::default()
+        }
+    }
+}
+
 impl Default for WhereClauseOptions {
     /// By default, don't add any additional bounds to the `where` clause
     fn default() -> Self {
         Self {
+            parameter_types: Box::new([]),
             active_types: Box::new([]),
             ignored_types: Box::new([]),
+            parameter_trait_bounds: quote! {},
             active_trait_bounds: quote! {},
             ignored_trait_bounds: quote! {},
         }
@@ -117,22 +140,31 @@ pub(crate) fn extend_where_clause(
     where_clause: Option<&WhereClause>,
     where_clause_options: &WhereClauseOptions,
 ) -> proc_macro2::TokenStream {
+    let parameter_types = &where_clause_options.parameter_types;
     let active_types = &where_clause_options.active_types;
     let ignored_types = &where_clause_options.ignored_types;
+    let parameter_trait_bounds = &where_clause_options.parameter_trait_bounds;
     let active_trait_bounds = &where_clause_options.active_trait_bounds;
     let ignored_trait_bounds = &where_clause_options.ignored_trait_bounds;
 
     let mut generic_where_clause = if let Some(where_clause) = where_clause {
         let predicates = where_clause.predicates.iter();
         quote! {where #(#predicates,)*}
-    } else if !(active_types.is_empty() && ignored_types.is_empty()) {
+    } else if !(parameter_types.is_empty() && active_types.is_empty() && ignored_types.is_empty()) {
         quote! {where}
     } else {
-        quote! {}
+        quote!()
     };
+
+    // The nested parentheses here are required to properly scope HRTBs coming
+    // from field types to the type itself, as the compiler will scope them to
+    // the whole bound by default, resulting in a failure to prove trait
+    // adherence.
     generic_where_clause.extend(quote! {
-        #(#active_types: #active_trait_bounds,)*
-        #(#ignored_types: #ignored_trait_bounds,)*
+        #((#active_types): #active_trait_bounds,)*
+        #((#ignored_types): #ignored_trait_bounds,)*
+        // Leave parameter bounds to the end for more sane error messages.
+        #((#parameter_types): #parameter_trait_bounds,)*
     });
     generic_where_clause
 }
@@ -211,4 +243,119 @@ where
     });
 
     bitset
+}
+
+/// Turns an `Option<TokenStream>` into a `TokenStream` for an `Option`.
+pub(crate) fn wrap_in_option(tokens: Option<proc_macro2::TokenStream>) -> proc_macro2::TokenStream {
+    match tokens {
+        Some(tokens) => quote! {
+            #FQOption::Some(#tokens)
+        },
+        None => quote! {
+            #FQOption::None
+        },
+    }
+}
+
+/// Contains tokens representing different kinds of string.
+#[derive(Clone)]
+pub(crate) enum StringExpr {
+    /// A string that is valid at compile time.
+    ///
+    /// This is either a string literal like `"mystring"`,
+    /// or a string created by a macro like [`module_path`]
+    /// or [`concat`].
+    Const(proc_macro2::TokenStream),
+    /// A [string slice](str) that is borrowed for a `'static` lifetime.
+    Borrowed(proc_macro2::TokenStream),
+    /// An [owned string](String).
+    Owned(proc_macro2::TokenStream),
+}
+
+impl<T: ToString + Spanned> From<T> for StringExpr {
+    fn from(value: T) -> Self {
+        Self::from_lit(&LitStr::new(&value.to_string(), value.span()))
+    }
+}
+
+impl StringExpr {
+    /// Creates a [constant] [`StringExpr`] from a [`struct@LitStr`].
+    ///
+    /// [constant]: StringExpr::Const
+    pub fn from_lit(lit: &LitStr) -> Self {
+        Self::Const(lit.to_token_stream())
+    }
+
+    /// Creates a [constant] [`StringExpr`] by interpreting a [string slice][str] as a [`struct@LitStr`].
+    ///
+    /// [constant]: StringExpr::Const
+    pub fn from_str(string: &str) -> Self {
+        Self::Const(string.into_token_stream())
+    }
+
+    /// Returns tokens for an [owned string](String).
+    ///
+    /// The returned expression will allocate unless the [`StringExpr`] is [already owned].
+    ///
+    /// [already owned]: StringExpr::Owned
+    pub fn into_owned(self) -> proc_macro2::TokenStream {
+        match self {
+            Self::Const(tokens) | Self::Borrowed(tokens) => quote! {
+                ::std::string::ToString::to_string(#tokens)
+            },
+            Self::Owned(owned) => owned,
+        }
+    }
+
+    /// Returns tokens for a statically borrowed [string slice](str).
+    pub fn into_borrowed(self) -> proc_macro2::TokenStream {
+        match self {
+            Self::Const(tokens) | Self::Borrowed(tokens) => tokens,
+            Self::Owned(owned) => quote! {
+                &#owned
+            },
+        }
+    }
+
+    /// Appends a [`StringExpr`] to another.
+    ///
+    /// If both expressions are [`StringExpr::Const`] this will use [`concat`] to merge them.
+    pub fn appended_by(mut self, other: StringExpr) -> Self {
+        if let Self::Const(tokens) = self {
+            if let Self::Const(more) = other {
+                return Self::Const(quote! {
+                    ::core::concat!(#tokens, #more)
+                });
+            }
+            self = Self::Const(tokens);
+        }
+
+        let owned = self.into_owned();
+        let borrowed = other.into_borrowed();
+        Self::Owned(quote! {
+            #owned + #borrowed
+        })
+    }
+}
+
+impl Default for StringExpr {
+    fn default() -> Self {
+        StringExpr::from_str("")
+    }
+}
+
+impl FromIterator<StringExpr> for StringExpr {
+    fn from_iter<T: IntoIterator<Item = StringExpr>>(iter: T) -> Self {
+        let mut iter = iter.into_iter();
+        match iter.next() {
+            Some(mut expr) => {
+                for next in iter {
+                    expr = expr.appended_by(next);
+                }
+
+                expr
+            }
+            None => Default::default(),
+        }
+    }
 }
