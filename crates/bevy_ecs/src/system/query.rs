@@ -317,7 +317,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         this_run: Tick,
         force_read_only_component_access: bool,
     ) -> Self {
-        state.validate_world(world);
+        state.validate_world(world.id());
 
         Self {
             force_read_only_component_access,

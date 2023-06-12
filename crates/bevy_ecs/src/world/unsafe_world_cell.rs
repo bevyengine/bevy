@@ -18,27 +18,6 @@ use crate::{
 use bevy_ptr::Ptr;
 use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData};
 
-/// Types that can be safely coerced into an [`UnsafeWorldCell`].
-pub trait AsUnsafeWorldCell<'w> {
-    /// Returns an [`UnsafeWorldCell`] that can be used to access world metadata.
-    #[allow(clippy::wrong_self_convention)]
-    fn as_metadata(self) -> UnsafeWorldCell<'w>;
-}
-
-impl<'w> AsUnsafeWorldCell<'w> for UnsafeWorldCell<'w> {
-    #[inline]
-    fn as_metadata(self) -> UnsafeWorldCell<'w> {
-        self
-    }
-}
-
-impl<'w> AsUnsafeWorldCell<'w> for &'w World {
-    #[inline]
-    fn as_metadata(self) -> UnsafeWorldCell<'w> {
-        self.as_unsafe_world_cell_readonly()
-    }
-}
-
 // Note: We intentionally do not implement this for `&mut World`.
 // Since reborrowing does not work for `impl AsUnsafeWorldCell` parameters,
 // implementing this trait would cause mutable world references to be moved,
