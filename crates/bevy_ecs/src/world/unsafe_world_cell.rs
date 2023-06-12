@@ -21,6 +21,7 @@ use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData};
 /// Types that can be safely coerced into an [`UnsafeWorldCell`].
 pub trait AsUnsafeWorldCell<'w> {
     /// Returns an [`UnsafeWorldCell`] that can be used to access world metadata.
+    #[allow(clippy::wrong_self_convention)]
     fn as_metadata(self) -> UnsafeWorldCell<'w>;
 }
 
