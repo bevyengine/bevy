@@ -35,7 +35,6 @@ fn setup(
         .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
@@ -43,11 +42,10 @@ fn setup(
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn((TextureAtlasImageBundle {
+            parent.spawn((AtlasImageBundle {
                 style: Style {
                     width: Val::Px(256.),
                     height: Val::Px(256.),
-                    border: UiRect::all(Val::Px(2.)),
                     ..default()
                 },
                 texture_atlas: texture_atlas_handle,
