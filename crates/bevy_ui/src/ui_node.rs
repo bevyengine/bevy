@@ -1567,7 +1567,7 @@ impl From<Color> for BackgroundColor {
 #[derive(Component, Clone, Debug, Reflect, FromReflect, Default)]
 #[reflect(Component, Default)]
 pub struct UiTextureAtlasSprite {
-    /// Texture index in [`TextureAtlas`]
+    /// Texture index in the TextureAtlas
     pub index: usize,
     /// Whether to flip the sprite in the X axis
     pub flip_x: bool,
