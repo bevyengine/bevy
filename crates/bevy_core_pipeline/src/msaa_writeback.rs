@@ -57,7 +57,7 @@ impl FromWorld for MsaaWritebackNode {
 
 impl Node for MsaaWritebackNode {
     fn update(&mut self, world: &mut World) {
-        self.cameras.update_archetypes(world);
+        self.cameras.update_archetypes(world.as_unsafe_world_cell());
     }
     fn run(
         &self,

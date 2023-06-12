@@ -184,7 +184,7 @@ impl<Param: SystemParam> SystemState<Param> {
         Param: ReadOnlySystemParam,
     {
         self.validate_world(world);
-        self.update_archetypes(world);
+        self.update_archetypes(world.as_unsafe_world_cell_readonly());
         // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world.as_unsafe_world_cell_readonly()) }
     }
@@ -193,7 +193,7 @@ impl<Param: SystemParam> SystemState<Param> {
     #[inline]
     pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
         self.validate_world(world);
-        self.update_archetypes(world);
+        self.update_archetypes(world.as_unsafe_world_cell_readonly());
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world.as_unsafe_world_cell()) }
     }
@@ -226,7 +226,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
     /// [`SystemState::get`] or [`SystemState::get_mut`] do not need to call this as it will be automatically called for them.
     #[inline]
-    pub fn update_archetypes(&mut self, world: &World) {
+    pub fn update_archetypes(&mut self, world: UnsafeWorldCell) {
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);

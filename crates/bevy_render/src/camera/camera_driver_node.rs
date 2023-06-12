@@ -22,7 +22,7 @@ impl CameraDriverNode {
 
 impl Node for CameraDriverNode {
     fn update(&mut self, world: &mut World) {
-        self.cameras.update_archetypes(world);
+        self.cameras.update_archetypes(world.as_unsafe_world_cell());
     }
     fn run(
         &self,

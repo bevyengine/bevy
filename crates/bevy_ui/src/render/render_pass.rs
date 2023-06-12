@@ -36,8 +36,10 @@ impl UiPassNode {
 
 impl Node for UiPassNode {
     fn update(&mut self, world: &mut World) {
-        self.ui_view_query.update_archetypes(world);
-        self.default_camera_view_query.update_archetypes(world);
+        self.ui_view_query
+            .update_archetypes(world.as_unsafe_world_cell());
+        self.default_camera_view_query
+            .update_archetypes(world.as_unsafe_world_cell());
     }
 
     fn run(

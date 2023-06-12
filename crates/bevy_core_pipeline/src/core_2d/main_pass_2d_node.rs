@@ -36,7 +36,7 @@ impl FromWorld for MainPass2dNode {
 
 impl Node for MainPass2dNode {
     fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
+        self.query.update_archetypes(world.as_unsafe_world_cell());
     }
 
     fn run(

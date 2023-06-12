@@ -1704,8 +1704,10 @@ impl ShadowPassNode {
 
 impl Node for ShadowPassNode {
     fn update(&mut self, world: &mut World) {
-        self.main_view_query.update_archetypes(world);
-        self.view_light_query.update_archetypes(world);
+        self.main_view_query
+            .update_archetypes(world.as_unsafe_world_cell());
+        self.view_light_query
+            .update_archetypes(world.as_unsafe_world_cell());
     }
 
     fn run(

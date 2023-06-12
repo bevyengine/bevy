@@ -388,7 +388,8 @@ where
     T: ViewNode + Send + Sync + 'static,
 {
     fn update(&mut self, world: &mut World) {
-        self.view_query.update_archetypes(world);
+        self.view_query
+            .update_archetypes(world.as_unsafe_world_cell());
         self.node.update(world);
     }
 

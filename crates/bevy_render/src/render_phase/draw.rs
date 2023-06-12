@@ -251,9 +251,12 @@ where
     /// Prepares the render command to be used. This is called once and only once before the phase
     /// begins. There may be zero or more [`draw`](RenderCommandState::draw) calls following a call to this function.
     fn prepare(&mut self, world: &'_ World) {
-        self.state.update_archetypes(world);
-        self.view.update_archetypes(world);
-        self.entity.update_archetypes(world);
+        self.state
+            .update_archetypes(world.as_unsafe_world_cell_readonly());
+        self.view
+            .update_archetypes(world.as_unsafe_world_cell_readonly());
+        self.entity
+            .update_archetypes(world.as_unsafe_world_cell_readonly());
     }
 
     /// Fetches the ECS parameters for the wrapped [`RenderCommand`] and then renders it.
