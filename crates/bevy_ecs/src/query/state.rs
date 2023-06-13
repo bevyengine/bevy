@@ -124,7 +124,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             matched_archetypes: Default::default(),
             archetype_component_access: Default::default(),
         };
-        state.update_archetypes(world.as_unsafe_world_cell());
+        state.update_archetypes(world);
         state
     }
 
@@ -140,13 +140,38 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
-    /// Takes a query for the given [`World`], checks if the given world is the same as the query, and
-    /// updates the [`QueryState`]'s view of the [`World`] with any newly-added archetypes.
+    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before querying data,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// non-`manual` methods such as [`QueryState::get`] do not need to call this as it will be automatically called for them.
+    ///
+    /// If you have an [`UnsafeWorldCell`] instead of `&World`, consider using [`QueryState::update_archetypes_unsafe_world_cell`].
     ///
     /// # Panics
     ///
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
-    pub fn update_archetypes(&mut self, world: UnsafeWorldCell) {
+    #[inline]
+    pub fn update_archetypes(&mut self, world: &World) {
+        self.update_archetypes_unsafe_world_cell(world.as_unsafe_world_cell_readonly());
+    }
+
+    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before querying data,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// non-`manual` methods such as [`QueryState::get`] do not need to call this as it will be automatically called for them.
+    ///
+    /// # Note
+    ///
+    /// This method only accesses world metadata.
+    ///
+    /// # Panics
+    ///
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
+    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         self.validate_world(world.id());
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
@@ -213,7 +238,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         world: &'w World,
         entity: Entity,
     ) -> Result<ROQueryItem<'w, Q>, QueryEntityError> {
-        self.update_archetypes(world.as_unsafe_world_cell_readonly());
+        self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
             self.as_readonly().get_unchecked_manual(
@@ -263,7 +288,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         world: &'w World,
         entities: [Entity; N],
     ) -> Result<[ROQueryItem<'w, Q>; N], QueryEntityError> {
-        self.update_archetypes(world.as_unsafe_world_cell_readonly());
+        self.update_archetypes(world);
 
         // SAFETY: update_archetypes validates the `World` matches
         unsafe {
@@ -283,7 +308,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         world: &'w mut World,
         entity: Entity,
     ) -> Result<Q::Item<'w>, QueryEntityError> {
-        self.update_archetypes(world.as_unsafe_world_cell());
+        self.update_archetypes(world);
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
         // SAFETY: query has unique world access
@@ -341,7 +366,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         world: &'w mut World,
         entities: [Entity; N],
     ) -> Result<[Q::Item<'w>; N], QueryEntityError> {
-        self.update_archetypes(world.as_unsafe_world_cell());
+        self.update_archetypes(world);
 
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
@@ -398,7 +423,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         world: UnsafeWorldCell<'w>,
         entity: Entity,
     ) -> Result<Q::Item<'w>, QueryEntityError> {
-        self.update_archetypes(world);
+        self.update_archetypes_unsafe_world_cell(world);
         self.get_unchecked_manual(world, entity, world.last_change_tick(), world.change_tick())
     }
 
@@ -529,7 +554,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &'s mut self,
         world: &'w World,
     ) -> QueryIter<'w, 's, Q::ReadOnly, F::ReadOnly> {
-        self.update_archetypes(world.as_unsafe_world_cell_readonly());
+        self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
             self.as_readonly().iter_unchecked_manual(
@@ -543,7 +568,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Returns an [`Iterator`] over the query results for the given [`World`].
     #[inline]
     pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, Q, F> {
-        self.update_archetypes(world.as_unsafe_world_cell());
+        self.update_archetypes(world);
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
         // SAFETY: query has unique world access
@@ -598,7 +623,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &'s mut self,
         world: &'w World,
     ) -> QueryCombinationIter<'w, 's, Q::ReadOnly, F::ReadOnly, K> {
-        self.update_archetypes(world.as_unsafe_world_cell_readonly());
+        self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
             self.as_readonly().iter_combinations_unchecked_manual(
@@ -631,7 +656,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &'s mut self,
         world: &'w mut World,
     ) -> QueryCombinationIter<'w, 's, Q, F, K> {
-        self.update_archetypes(world.as_unsafe_world_cell());
+        self.update_archetypes(world);
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
         // SAFETY: query has unique world access
@@ -661,7 +686,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     where
         EntityList::Item: Borrow<Entity>,
     {
-        self.update_archetypes(world.as_unsafe_world_cell_readonly());
+        self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
             self.as_readonly().iter_many_unchecked_manual(
@@ -721,7 +746,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     where
         EntityList::Item: Borrow<Entity>,
     {
-        self.update_archetypes(world.as_unsafe_world_cell());
+        self.update_archetypes(world);
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
         // SAFETY: Query has unique world access.
@@ -746,7 +771,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &'s mut self,
         world: UnsafeWorldCell<'w>,
     ) -> QueryIter<'w, 's, Q, F> {
-        self.update_archetypes(world);
+        self.update_archetypes_unsafe_world_cell(world);
         self.iter_unchecked_manual(world, world.last_change_tick(), world.change_tick())
     }
 
@@ -763,7 +788,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &'s mut self,
         world: UnsafeWorldCell<'w>,
     ) -> QueryCombinationIter<'w, 's, Q, F, K> {
-        self.update_archetypes(world);
+        self.update_archetypes_unsafe_world_cell(world);
         self.iter_combinations_unchecked_manual(
             world,
             world.last_change_tick(),
@@ -840,7 +865,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
     #[inline]
     pub fn for_each<'w, FN: FnMut(ROQueryItem<'w, Q>)>(&mut self, world: &'w World, func: FN) {
-        self.update_archetypes(world.as_unsafe_world_cell_readonly());
+        self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
             self.as_readonly().for_each_unchecked_manual(
@@ -856,7 +881,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// `iter_mut()` method, but cannot be chained like a normal [`Iterator`].
     #[inline]
     pub fn for_each_mut<'w, FN: FnMut(Q::Item<'w>)>(&mut self, world: &'w mut World, func: FN) {
-        self.update_archetypes(world.as_unsafe_world_cell());
+        self.update_archetypes(world);
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
         // SAFETY: query has unique world access
@@ -883,7 +908,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         world: UnsafeWorldCell<'w>,
         func: FN,
     ) {
-        self.update_archetypes(world);
+        self.update_archetypes_unsafe_world_cell(world);
         self.for_each_unchecked_manual(world, func, world.last_change_tick(), world.change_tick());
     }
 
@@ -897,7 +922,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &'s mut self,
         world: &'w World,
     ) -> QueryParIter<'w, 's, Q::ReadOnly, F::ReadOnly> {
-        self.update_archetypes(world.as_unsafe_world_cell_readonly());
+        self.update_archetypes(world);
         QueryParIter {
             world: world.as_unsafe_world_cell_readonly(),
             state: self.as_readonly(),
@@ -914,7 +939,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// [`par_iter`]: Self::par_iter
     #[inline]
     pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, Q, F> {
-        self.update_archetypes(world.as_unsafe_world_cell());
+        self.update_archetypes(world);
         let this_run = world.change_tick();
         let last_run = world.last_change_tick();
         QueryParIter {
@@ -1155,7 +1180,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &mut self,
         world: &'w World,
     ) -> Result<ROQueryItem<'w, Q>, QuerySingleError> {
-        self.update_archetypes(world.as_unsafe_world_cell_readonly());
+        self.update_archetypes(world);
 
         // SAFETY: query is read only
         unsafe {
@@ -1191,7 +1216,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &mut self,
         world: &'w mut World,
     ) -> Result<Q::Item<'w>, QuerySingleError> {
-        self.update_archetypes(world.as_unsafe_world_cell());
+        self.update_archetypes(world);
 
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
@@ -1219,7 +1244,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &mut self,
         world: UnsafeWorldCell<'w>,
     ) -> Result<Q::Item<'w>, QuerySingleError> {
-        self.update_archetypes(world);
+        self.update_archetypes_unsafe_world_cell(world);
         self.get_single_unchecked_manual(world, world.last_change_tick(), world.change_tick())
     }
 

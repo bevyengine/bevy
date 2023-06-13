@@ -184,8 +184,9 @@ impl<Param: SystemParam> SystemState<Param> {
         Param: ReadOnlySystemParam,
     {
         self.validate_world(world.id());
-        self.update_archetypes(world.as_unsafe_world_cell_readonly());
-        // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
+        self.update_archetypes(world);
+        // SAFETY: Param is read-only and doesn't allow mutable access to World.
+        // It also matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world.as_unsafe_world_cell_readonly()) }
     }
 
@@ -193,7 +194,7 @@ impl<Param: SystemParam> SystemState<Param> {
     #[inline]
     pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
         self.validate_world(world.id());
-        self.update_archetypes(world.as_unsafe_world_cell_readonly());
+        self.update_archetypes(world);
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world.as_unsafe_world_cell()) }
     }
@@ -219,14 +220,29 @@ impl<Param: SystemParam> SystemState<Param> {
         assert!(self.matches_world(world_id), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
     }
 
-    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before fetching the parameters,
+    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before fetching the parameters,
     /// the results may not accurately reflect what is in the `world`.
     ///
     /// This is only required if [`SystemState::get_manual`] or [`SystemState::get_manual_mut`] is being called, and it only needs to
     /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
     /// [`SystemState::get`] or [`SystemState::get_mut`] do not need to call this as it will be automatically called for them.
     #[inline]
-    pub fn update_archetypes(&mut self, world: UnsafeWorldCell) {
+    pub fn update_archetypes(&mut self, world: &World) {
+        self.update_archetypes_unsafe_world_cell(world.as_unsafe_world_cell_readonly());
+    }
+
+    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before fetching the parameters,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if [`SystemState::get_manual`] or [`SystemState::get_manual_mut`] is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// [`SystemState::get`] or [`SystemState::get_mut`] do not need to call this as it will be automatically called for them.
+    ///
+    /// # Note
+    ///
+    /// This method only accesses world metadata.
+    #[inline]
+    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
