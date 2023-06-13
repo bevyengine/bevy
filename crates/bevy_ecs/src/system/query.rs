@@ -24,6 +24,8 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 ///   A set of conditions that determines whether query items should be kept or discarded.
 ///   This type parameter is optional.
 ///
+/// [`World`]: crate::world::World
+///
 /// # System parameter declaration
 ///
 /// A query should always be declared as a system parameter.
@@ -734,6 +736,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
     ///
     /// [`par_iter_mut`]: Self::par_iter_mut
+    /// [`World`]: crate::world::World
     #[inline]
     pub fn par_iter(&self) -> QueryParIter<'_, '_, Q::ReadOnly, F::ReadOnly> {
         QueryParIter {
@@ -750,6 +753,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// This can only be called for mutable queries, see [`par_iter`] for read-only-queries.
     ///
     /// [`par_iter`]: Self::par_iter
+    /// [`World`]: crate::world::World
     #[inline]
     pub fn par_iter_mut(&mut self) -> QueryParIter<'_, '_, Q, F> {
         QueryParIter {

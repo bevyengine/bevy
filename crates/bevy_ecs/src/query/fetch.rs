@@ -376,7 +376,7 @@ pub unsafe trait WorldQuery {
     /// - `archetype` and `tables` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
     /// - [`Self::update_archetype_component_access`] must have been previously called with `archetype`.
     /// - `table` must correspond to `archetype`.
-    /// - `state` must be the [`State`](Self::state) that `fetch` was initialized with.
+    /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
@@ -392,7 +392,7 @@ pub unsafe trait WorldQuery {
     /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
     /// - `table` must belong to an archetype that was previously registered with
     ///   [`Self::update_archetype_component_access`].
-    /// - `state` must be the [`State`](Self::state) that `fetch` was initialized with.
+    /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
 
     /// Fetch [`Self::Item`](`WorldQuery::Item`) for either the given `entity` in the current [`Table`],
