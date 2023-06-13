@@ -39,7 +39,7 @@ impl FromWorld for CASNode {
 
 impl Node for CASNode {
     fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world.as_unsafe_world_cell());
+        self.query.update_archetypes(world);
     }
 
     fn run(

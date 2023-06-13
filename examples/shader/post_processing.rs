@@ -136,7 +136,7 @@ impl Node for PostProcessNode {
         // Since this is not a system we need to update the query manually.
         // This is mostly boilerplate. There are plans to remove this in the future.
         // For now, you can just copy it.
-        self.query.update_archetypes(world.as_unsafe_world_cell());
+        self.query.update_archetypes(world);
     }
 
     // Runs the node logic
