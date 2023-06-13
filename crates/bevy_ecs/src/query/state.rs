@@ -865,11 +865,14 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// [`par_iter_mut`]: Self::par_iter_mut
     #[inline]
-    pub fn par_iter<'w, 's>(&'s mut self, world: &'w World) -> QueryParIter<'w, 's, Q, F> {
+    pub fn par_iter<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> QueryParIter<'w, 's, Q::ReadOnly, F::ReadOnly> {
         self.update_archetypes(world);
         QueryParIter {
             world,
-            state: self,
+            state: self.as_readonly(),
             last_run: world.last_change_tick(),
             this_run: world.read_change_tick(),
             batching_strategy: BatchingStrategy::new(),
