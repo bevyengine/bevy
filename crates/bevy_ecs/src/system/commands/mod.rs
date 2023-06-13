@@ -32,7 +32,7 @@ use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 /// struct AddToCounter(u64);
 ///
 /// impl Command for AddToCounter {
-///     fn write(self, world: &mut World) {
+///     fn apply(self, world: &mut World) {
 ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
 ///         counter.0 += self.0;
 ///     }
@@ -43,8 +43,12 @@ use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 /// }
 /// ```
 pub trait Command: Send + 'static {
-    /// Executes this command.
-    fn write(self, world: &mut World);
+    /// Applies this command, causing it to mutate the provided `world`.
+    ///
+    /// This method is used to define what a command "does" when it is ultimately applied.
+    /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
+    /// This data is set by the system or other source of the command, and then ultimately read in this method.
+    fn apply(self, world: &mut World);
 }
 
 /// A [`Command`] queue to perform impactful changes to the [`World`].
@@ -522,7 +526,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// struct AddToCounter(u64);
     ///
     /// impl Command for AddToCounter {
-    ///     fn write(self, world: &mut World) {
+    ///     fn apply(self, world: &mut World) {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         counter.0 += self.0;
     ///     }
@@ -569,7 +573,7 @@ impl<'w, 's> Commands<'w, 's> {
 /// struct CountName;
 ///
 /// impl EntityCommand for CountName {
-///     fn write(self, id: Entity, world: &mut World) {
+///     fn apply(self, id: Entity, world: &mut World) {
 ///         // Get the current value of the counter, and increment it for next time.
 ///         let mut counter = world.resource_mut::<Counter>();
 ///         let i = counter.0;
@@ -605,7 +609,7 @@ impl<'w, 's> Commands<'w, 's> {
 /// ```
 pub trait EntityCommand: Send + 'static {
     /// Executes this command for the given [`Entity`].
-    fn write(self, id: Entity, world: &mut World);
+    fn apply(self, id: Entity, world: &mut World);
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
     fn with_entity(self, id: Entity) -> WithEntity<Self>
     where
@@ -623,8 +627,8 @@ pub struct WithEntity<C: EntityCommand> {
 
 impl<C: EntityCommand> Command for WithEntity<C> {
     #[inline]
-    fn write(self, world: &mut World) {
-        self.cmd.write(self.id, world);
+    fn apply(self, world: &mut World) {
+        self.cmd.apply(self.id, world);
     }
 }
 
@@ -829,7 +833,7 @@ impl<F> Command for F
 where
     F: FnOnce(&mut World) + Send + 'static,
 {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         self(world);
     }
 }
@@ -838,7 +842,7 @@ impl<F> EntityCommand for F
 where
     F: FnOnce(Entity, &mut World) + Send + 'static,
 {
-    fn write(self, id: Entity, world: &mut World) {
+    fn apply(self, id: Entity, world: &mut World) {
         self(id, world);
     }
 }
@@ -854,7 +858,7 @@ impl<T> Command for Spawn<T>
 where
     T: Bundle,
 {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.spawn(self.bundle);
     }
 }
@@ -876,7 +880,7 @@ where
     I: IntoIterator + Send + Sync + 'static,
     I::Item: Bundle,
 {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.spawn_batch(self.bundles_iter);
     }
 }
@@ -901,7 +905,7 @@ where
     B: Bundle,
     I::IntoIter: Iterator<Item = (Entity, B)>,
 {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         if let Err(invalid_entities) = world.insert_or_spawn_batch(self.bundles_iter) {
             error!(
                 "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
@@ -921,7 +925,7 @@ pub struct Despawn {
 }
 
 impl Command for Despawn {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.despawn(self.entity);
     }
 }
@@ -938,7 +942,7 @@ impl<T> Command for Insert<T>
 where
     T: Bundle + 'static,
 {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert(self.bundle);
         } else {
@@ -961,7 +965,7 @@ impl<T> Command for Remove<T>
 where
     T: Bundle,
 {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
             entity_mut.remove::<T>();
         }
@@ -985,7 +989,7 @@ pub struct InitResource<R: Resource + FromWorld> {
 }
 
 impl<R: Resource + FromWorld> Command for InitResource<R> {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.init_resource::<R>();
     }
 }
@@ -1006,7 +1010,7 @@ pub struct InsertResource<R: Resource> {
 }
 
 impl<R: Resource> Command for InsertResource<R> {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.insert_resource(self.resource);
     }
 }
@@ -1017,7 +1021,7 @@ pub struct RemoveResource<R: Resource> {
 }
 
 impl<R: Resource> Command for RemoveResource<R> {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.remove_resource::<R>();
     }
 }
@@ -1037,7 +1041,7 @@ pub struct LogComponents {
 }
 
 impl Command for LogComponents {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         let debug_infos: Vec<_> = world
             .inspect_entity(self.entity)
             .into_iter()

@@ -551,7 +551,7 @@ impl<'a, T: ?Sized> Ref<'a, T> {
     ///
     /// This doesn't do anything else than call `f` on the wrapped value.
     /// This is equivalent to [`Mut::map_unchanged`].
-    pub fn map<U>(self, f: impl FnOnce(&T) -> &U) -> Ref<'a, U> {
+    pub fn map<U: ?Sized>(self, f: impl FnOnce(&T) -> &U) -> Ref<'a, U> {
         Ref {
             value: f(self.value),
             ticks: self.ticks,

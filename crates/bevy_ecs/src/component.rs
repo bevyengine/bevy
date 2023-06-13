@@ -744,16 +744,28 @@ pub struct ComponentTicks {
 }
 
 impl ComponentTicks {
-    #[inline]
     /// Returns `true` if the component was added after the system last ran.
+    #[inline]
     pub fn is_added(&self, last_run: Tick, this_run: Tick) -> bool {
         self.added.is_newer_than(last_run, this_run)
     }
 
-    #[inline]
     /// Returns `true` if the component was added or mutably dereferenced after the system last ran.
+    #[inline]
     pub fn is_changed(&self, last_run: Tick, this_run: Tick) -> bool {
         self.changed.is_newer_than(last_run, this_run)
+    }
+
+    /// Returns the tick recording the time this component was most recently changed.
+    #[inline]
+    pub fn last_changed_tick(&self) -> Tick {
+        self.changed
+    }
+
+    /// Returns the tick recording the time this component was added.
+    #[inline]
+    pub fn added_tick(&self) -> Tick {
+        self.added
     }
 
     pub(crate) fn new(change_tick: Tick) -> Self {
