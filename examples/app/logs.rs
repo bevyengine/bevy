@@ -8,6 +8,7 @@ fn main() {
             // Uncomment this to override the default log settings:
             // level: bevy::log::Level::TRACE,
             // filter: "wgpu=warn,bevy_ecs=info".to_string(),
+            // layer: Box::new(|| Box::new(bevy::log::tracing_subscriber::fmt::layer().pretty().without_time())),
             ..default()
         }))
         .add_systems(Update, log_system)

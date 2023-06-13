@@ -14,6 +14,7 @@ fn main() {
         .add_plugin(LogPlugin {
             level: Level::TRACE,
             filter: "".to_string(),
+            ..default()
         })
         .add_systems(
             Update,
