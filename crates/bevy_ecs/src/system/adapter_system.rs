@@ -38,7 +38,7 @@ where
     }
 
     fn type_id(&self) -> std::any::TypeId {
-        self.system.type_id()
+        std::any::TypeId::of::<Self>()
     }
 
     fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
