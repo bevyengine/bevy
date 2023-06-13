@@ -1003,6 +1003,10 @@ where
     fn adapt(&mut self, input: Self::In, run_system: impl FnOnce(T::In) -> T::Out) -> Self::Out {
         !run_system(input)
     }
+
+    fn adapt_name(&self, name: &str) -> Option<String> {
+        Some(format!("!{name}"))
+    }
 }
 
 /// Combines the outputs of two systems using the `&&` operator.

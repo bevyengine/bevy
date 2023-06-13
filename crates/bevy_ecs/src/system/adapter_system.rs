@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use super::{ReadOnlySystem, System};
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 
@@ -10,19 +12,35 @@ pub trait Adapt<S: System>: Send + Sync + 'static {
     /// When used in an [`AdapterSystem`], this function customizes how the system
     /// is run and how its inputs/outputs are adapted.
     fn adapt(&mut self, input: Self::In, run_system: impl FnOnce(S::In) -> S::Out) -> Self::Out;
+
+    /// Modifies the name of a system that uses this adapter.
+    /// If this returns [`None`], the system name will be unchanged.
+    #[allow(unused_variables)]
+    fn adapt_name(&self, name: &str) -> Option<String> {
+        None
+    }
 }
 
 #[derive(Clone)]
-/// A system that takes the output of `S` and transforms it by applying `Func` to it.
+/// A [`System`] that takes the output of `S` and transforms it by applying `Func` to it.
 pub struct AdapterSystem<Func, S> {
     func: Func,
     system: S,
+    name: Option<String>,
 }
 
-impl<Func, S> AdapterSystem<Func, S> {
+impl<Func, S> AdapterSystem<Func, S>
+where
+    Func: Adapt<S>,
+    S: System,
+{
     /// Creates a new [`System`] that uses `func` to adapt `system`, via the [`Adapt`] trait.
     pub fn new(func: Func, system: S) -> Self {
-        Self { func, system }
+        Self {
+            name: func.adapt_name(&system.name()),
+            func,
+            system,
+        }
     }
 }
 
@@ -34,8 +52,12 @@ where
     type In = Func::In;
     type Out = Func::Out;
 
-    fn name(&self) -> std::borrow::Cow<'static, str> {
-        self.system.name()
+    fn name(&self) -> Cow<'static, str> {
+        if let Some(name) = &self.name {
+            Cow::Owned(name.clone())
+        } else {
+            self.system.name()
+        }
     }
 
     fn type_id(&self) -> std::any::TypeId {
