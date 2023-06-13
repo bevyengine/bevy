@@ -199,9 +199,9 @@ pub fn extract_atlas_uinodes(
                 continue;
             }
 
-            let (atlas_rect, atlas_size, image) =
+            let (mut atlas_rect, mut atlas_size, image) =
                 if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-                    let mut atlas_rect = *texture_atlas
+                    let atlas_rect = *texture_atlas
                         .textures
                         .get(atlas_sprite.index)
                         .unwrap_or_else(|| {
@@ -211,11 +211,11 @@ pub fn extract_atlas_uinodes(
                                 texture_atlas_handle.id(),
                             )
                         });
-                    let scale = uinode.size() / atlas_rect.size();
-                    atlas_rect.min *= scale;
-                    atlas_rect.max *= scale;
-                    let atlas_size = texture_atlas.size * scale;
-                    (atlas_rect, atlas_size, texture_atlas.texture.clone())
+                    (
+                        atlas_rect,
+                        texture_atlas.size,
+                        texture_atlas.texture.clone(),
+                    )
                 } else {
                     // Atlas not present in assets resource (should this warn the user?)
                     continue;
@@ -225,6 +225,11 @@ pub fn extract_atlas_uinodes(
             if !images.contains(&image) {
                 continue;
             }
+
+            let scale = uinode.size() / atlas_rect.size();
+            atlas_rect.min *= scale;
+            atlas_rect.max *= scale;
+            atlas_size *= scale;
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
