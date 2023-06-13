@@ -3,6 +3,42 @@ use std::borrow::Cow;
 use super::{ReadOnlySystem, System};
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 
+/// Customizes the behavior of an [`AdapterSystem`]
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::{Adapt, AdapterSystem};
+///
+/// // A system adapter that inverts the result of a system.
+/// // NOTE: Instead of manually implementing this, you can just use `bevy_ecs::schedule::common_conditions::not`.
+/// pub type NotSystem<S> = AdapterSystem<NotMarker, S>;
+///
+/// // This struct is used to customize the behavior of our adapter.
+/// pub struct NotMarker;
+///
+/// impl<S> Adapt<S> for NotMarker
+/// where
+///     S: System,
+///     S::Out: std::ops::Not,
+/// {
+///     type In = S::In;
+///     type Out = <S::Out as std::ops::Not>::Output;
+///
+///     fn adapt(
+///         &mut self,
+///         input: Self::In,
+///         run_system: impl FnOnce(S::In) -> S::Out,
+///     ) -> Self::Out {
+///         !run_system(input)
+///     }
+/// }
+/// # let mut world = World::new();
+/// # let mut system = NotSystem::new(IntoSystem::into_system(|| false));
+/// # system.initialize(&mut world);
+/// # assert!(system.run((), &mut world));
+/// ```
 pub trait Adapt<S: System>: Send + Sync + 'static {
     /// The [input](System::In) type for an [`AdapterSystem`].
     type In;
