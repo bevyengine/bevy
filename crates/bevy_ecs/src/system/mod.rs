@@ -247,7 +247,10 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     ///     # Err(())
     /// }
     /// ```
-    fn map<T, F: FnMut(Out) -> T>(self, f: F) -> AdapterSystem<F, Self::System> {
+    fn map<T, F>(self, f: F) -> AdapterSystem<F, Self::System>
+    where
+        F: Send + Sync + 'static + FnMut(Out) -> T,
+    {
         AdapterSystem::new(f, Self::into_system(self))
     }
 }
