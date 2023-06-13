@@ -18,11 +18,6 @@ use crate::{
 use bevy_ptr::Ptr;
 use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData};
 
-// Note: We intentionally do not implement this for `&mut World`.
-// Since reborrowing does not work for `impl AsUnsafeWorldCell` parameters,
-// implementing this trait would cause mutable world references to be moved,
-// which is an ergonomic footgun.
-
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
 ///
