@@ -47,6 +47,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     type Item<'w> = ();
     type ReadOnly = Self;
     type State = ComponentId;
+    type Config = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
@@ -97,7 +98,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     ) {
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
+    fn init_state(_config: (), world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
 
@@ -144,6 +145,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     type Item<'w> = ();
     type ReadOnly = Self;
     type State = ComponentId;
+    type Config = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
@@ -194,7 +196,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     ) {
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
+    fn init_state(_config: (), world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
 
@@ -258,6 +260,7 @@ macro_rules! impl_query_filter_tuple {
             type Item<'w> = bool;
             type ReadOnly = Or<($($filter::ReadOnly,)*)>;
             type State = ($($filter::State,)*);
+            type Config = ($($filter::Config,)*);
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
                 item
@@ -361,8 +364,9 @@ macro_rules! impl_query_filter_tuple {
                 $($filter::update_archetype_component_access($filter, archetype, access);)*
             }
 
-            fn init_state(world: &mut World) -> Self::State {
-                ($($filter::init_state(world),)*)
+            fn init_state(config: Self::Config, world: &mut World) -> Self::State {
+                let ($($state,)*) = config;
+                ($($filter::init_state($state, world),)*)
             }
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -406,6 +410,7 @@ macro_rules! impl_tick_filter {
             type Item<'w> = bool;
             type ReadOnly = Self;
             type State = ComponentId;
+            type Config = ();
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
                 item
@@ -532,7 +537,7 @@ macro_rules! impl_tick_filter {
                 }
             }
 
-            fn init_state(world: &mut World) -> ComponentId {
+            fn init_state(_config: (), world: &mut World) -> ComponentId {
                 world.init_component::<T>()
             }
 

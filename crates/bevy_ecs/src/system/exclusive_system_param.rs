@@ -31,6 +31,9 @@ pub type ExclusiveSystemParamItem<'s, P> = <P as ExclusiveSystemParam>::Item<'s>
 
 impl<'a, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> ExclusiveSystemParam
     for &'a mut QueryState<Q, F>
+where
+    <Q as WorldQuery>::Config: Default,
+    <F as WorldQuery>::Config: Default,
 {
     type State = QueryState<Q, F>;
     type Item<'s> = &'s mut QueryState<Q, F>;

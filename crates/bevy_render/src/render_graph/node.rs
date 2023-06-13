@@ -7,7 +7,7 @@ use crate::{
     renderer::RenderContext,
 };
 use bevy_ecs::{
-    query::{QueryItem, QueryState, ReadOnlyWorldQuery},
+    query::{QueryItem, QueryState, ReadOnlyWorldQuery, WorldQuery},
     world::{FromWorld, World},
 };
 use downcast_rs::{impl_downcast, Downcast};
@@ -368,7 +368,10 @@ pub struct ViewNodeRunner<N: ViewNode> {
     node: N,
 }
 
-impl<N: ViewNode> ViewNodeRunner<N> {
+impl<N: ViewNode> ViewNodeRunner<N>
+where
+    <N::ViewQuery as WorldQuery>::Config: Default,
+{
     pub fn new(node: N, world: &mut World) -> Self {
         Self {
             view_query: world.query_filtered(),
@@ -377,7 +380,10 @@ impl<N: ViewNode> ViewNodeRunner<N> {
     }
 }
 
-impl<N: ViewNode + FromWorld> FromWorld for ViewNodeRunner<N> {
+impl<N: ViewNode + FromWorld> FromWorld for ViewNodeRunner<N>
+where
+    <N::ViewQuery as WorldQuery>::Config: Default,
+{
     fn from_world(world: &mut World) -> Self {
         Self::new(N::from_world(world), world)
     }

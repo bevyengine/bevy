@@ -748,7 +748,10 @@ impl World {
     /// ]);
     /// ```
     #[inline]
-    pub fn query<Q: WorldQuery>(&mut self) -> QueryState<Q, ()> {
+    pub fn query<Q: WorldQuery>(&mut self) -> QueryState<Q, ()>
+    where
+        <Q as WorldQuery>::Config: Default,
+    {
         self.query_filtered::<Q, ()>()
     }
 
@@ -772,7 +775,11 @@ impl World {
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<Q: WorldQuery, F: ReadOnlyWorldQuery>(&mut self) -> QueryState<Q, F> {
+    pub fn query_filtered<Q: WorldQuery, F: ReadOnlyWorldQuery>(&mut self) -> QueryState<Q, F>
+    where
+        <Q as WorldQuery>::Config: Default,
+        <F as WorldQuery>::Config: Default,
+    {
         QueryState::new(self)
     }
 

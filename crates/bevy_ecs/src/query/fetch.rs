@@ -328,6 +328,9 @@ pub unsafe trait WorldQuery {
     /// constructing [`Self::Fetch`](crate::query::WorldQuery::Fetch).
     type State: Send + Sync + Sized;
 
+    /// Runtime config value passed to [`WorldQuery::init_state`]
+    type Config;
+
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
 
@@ -434,7 +437,9 @@ pub unsafe trait WorldQuery {
     );
 
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
-    fn init_state(world: &mut World) -> Self::State;
+    ///
+    /// [`WorldQuery::Config`] is used to pass runtime data for dynamic queries.
+    fn init_state(config: Self::Config, world: &mut World) -> Self::State;
 
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     fn matches_component_set(
@@ -465,6 +470,7 @@ unsafe impl WorldQuery for Entity {
     type Item<'w> = Entity;
     type ReadOnly = Self;
     type State = ();
+    type Config = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
@@ -515,7 +521,7 @@ unsafe impl WorldQuery for Entity {
     ) {
     }
 
-    fn init_state(_world: &mut World) {}
+    fn init_state(_config: (), _world: &mut World) {}
 
     fn matches_component_set(
         _state: &Self::State,
@@ -542,6 +548,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     type Item<'w> = &'w T;
     type ReadOnly = Self;
     type State = ComponentId;
+    type Config = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: &'wlong T) -> &'wshort T {
         item
@@ -652,7 +659,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         }
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
+    fn init_state(_config: (), world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
 
@@ -688,6 +695,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     type Item<'w> = Ref<'w, T>;
     type ReadOnly = Self;
     type State = ComponentId;
+    type Config = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Ref<'wlong, T>) -> Ref<'wshort, T> {
         item
@@ -814,7 +822,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         }
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
+    fn init_state(_config: (), world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
 
@@ -850,6 +858,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Item<'w> = Mut<'w, T>;
     type ReadOnly = &'__w T;
     type State = ComponentId;
+    type Config = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
         item
@@ -976,7 +985,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         }
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
+    fn init_state(_config: (), world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
 
@@ -1000,6 +1009,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     type Item<'w> = Option<T::Item<'w>>;
     type ReadOnly = Option<T::ReadOnly>;
     type State = T::State;
+    type Config = T::Config;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item.map(T::shrink)
@@ -1081,8 +1091,8 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         }
     }
 
-    fn init_state(world: &mut World) -> T::State {
-        T::init_state(world)
+    fn init_state(config: Self::Config, world: &mut World) -> T::State {
+        T::init_state(config, world)
     }
 
     fn matches_component_set(
@@ -1106,6 +1116,7 @@ macro_rules! impl_tuple_fetch {
             type Item<'w> = ($($name::Item<'w>,)*);
             type ReadOnly = ($($name::ReadOnly,)*);
             type State = ($($name::State,)*);
+            type Config = ($($name::Config,)*);
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
                 let ($($name,)*) = item;
@@ -1183,8 +1194,9 @@ macro_rules! impl_tuple_fetch {
             }
 
 
-            fn init_state(_world: &mut World) -> Self::State {
-                ($($name::init_state(_world),)*)
+            fn init_state(config: Self::Config, _world: &mut World) -> Self::State {
+                let ($($state,)*) = config;
+                ($($name::init_state($state, _world),)*)
             }
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -1216,6 +1228,7 @@ macro_rules! impl_anytuple_fetch {
             type Item<'w> = ($(Option<$name::Item<'w>>,)*);
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
             type State = ($($name::State,)*);
+            type Config = ($($name::Config,)*);
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
                 let ($($name,)*) = item;
@@ -1313,8 +1326,9 @@ macro_rules! impl_anytuple_fetch {
                 )*
             }
 
-            fn init_state(_world: &mut World) -> Self::State {
-                ($($name::init_state(_world),)*)
+            fn init_state(config: Self::Config, _world: &mut World) -> Self::State {
+                let ($($state,)*) = config;
+                ($($name::init_state($state, _world),)*)
             }
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -1342,6 +1356,7 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     type Item<'w> = ();
     type ReadOnly = Self;
     type State = Q::State;
+    type Config = Q::Config;
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: ()) {}
 
@@ -1383,8 +1398,8 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     ) {
     }
 
-    fn init_state(world: &mut World) -> Self::State {
-        Q::init_state(world)
+    fn init_state(config: Self::Config, world: &mut World) -> Self::State {
+        Q::init_state(config, world)
     }
 
     fn matches_component_set(
@@ -1404,6 +1419,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     type Fetch<'a> = ();
     type ReadOnly = Self;
     type State = ();
+    type Config = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
@@ -1450,7 +1466,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     ) {
     }
 
-    fn init_state(_world: &mut World) -> Self::State {}
+    fn init_state(_config: Self::Config, _world: &mut World) -> Self::State {}
 
     fn matches_component_set(
         _state: &Self::State,

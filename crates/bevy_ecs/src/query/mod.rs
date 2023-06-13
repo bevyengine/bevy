@@ -114,6 +114,8 @@ mod tests {
             Q: ReadOnlyWorldQuery,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
+            Q::Config: Default,
+            F::Config: Default,
         {
             let mut query = world.query_filtered::<Q, F>();
             let query_type = type_name::<QueryCombinationIter<Q, F, K>>();
@@ -129,6 +131,8 @@ mod tests {
             Q: ReadOnlyWorldQuery,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
+            Q::Config: Default,
+            F::Config: Default,
         {
             let mut query = world.query_filtered::<Q, F>();
             let query_type = type_name::<QueryState<Q, F>>();

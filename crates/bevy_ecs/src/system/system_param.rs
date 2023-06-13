@@ -154,6 +154,9 @@ pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<'w, 's, Q: ReadOnlyWorldQuery + 'static, F: ReadOnlyWorldQuery + 'static>
     ReadOnlySystemParam for Query<'w, 's, Q, F>
+where
+    <Q as WorldQuery>::Config: Default,
+    <F as WorldQuery>::Config: Default,
 {
 }
 
@@ -161,6 +164,9 @@ unsafe impl<'w, 's, Q: ReadOnlyWorldQuery + 'static, F: ReadOnlyWorldQuery + 'st
 // this Query conflicts with any prior access, a panic will occur.
 unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
     for Query<'_, '_, Q, F>
+where
+    <Q as WorldQuery>::Config: Default,
+    <F as WorldQuery>::Config: Default,
 {
     type State = QueryState<Q, F>;
     type Item<'w, 's> = Query<'w, 's, Q, F>;
@@ -1586,7 +1592,11 @@ mod tests {
             's,
             Q: WorldQuery + Send + Sync + 'static,
             F: ReadOnlyWorldQuery + Send + Sync + 'static = (),
-        > {
+        >
+        where
+            Q::Config: Default,
+            F::Config: Default,
+        {
             _query: Query<'w, 's, Q, F>,
         }
 
@@ -1707,6 +1717,7 @@ mod tests {
         pub struct WhereParam<'w, 's, Q>
         where
             Q: 'static + WorldQuery,
+            Q::Config: Default,
         {
             _q: Query<'w, 's, Q, ()>,
         }
