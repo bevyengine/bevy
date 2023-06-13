@@ -301,7 +301,7 @@ pub fn extract_camera_prepass_phase(
         >,
     >,
 ) {
-    for (entity, camera, depth_prepass, normal_prepass, deferred_prepass, motion_vector_prepass) in
+    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
         cameras_3d.iter()
     {
         if camera.is_active {
