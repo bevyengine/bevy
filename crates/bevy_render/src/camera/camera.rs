@@ -391,6 +391,7 @@ pub enum NormalizedRenderTarget {
     /// Image to which the camera's view is rendered.
     Image(Handle<Image>),
     /// Texture View to which the camera's view is rendered.
+    /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR. 
     TextureView(ManualTextureViewHandle),
 }
 
