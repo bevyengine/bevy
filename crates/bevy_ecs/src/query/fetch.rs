@@ -329,6 +329,19 @@ pub unsafe trait WorldQuery {
     type State: Send + Sync + Sized;
 
     /// Runtime config value passed to [`WorldQuery::init_state`]
+    ///
+    /// This is used to pass runtime information that is necessary to construct
+    /// [`WorldQuery`].
+    ///
+    /// Statically defined queries for types such as `&T` may obtain a
+    /// [`ComponentId`] statically, however, a dynamic query would require that
+    /// [`ComponentId`] is passed at runtime, such that
+    /// `Self::Config = ComponentId`.
+    ///
+    /// [`QueryState::new`](crate::query::state::QueryState::new) can be used when
+    /// `Self::Config: Default` otherwise
+    /// [`QueryState::new_with_config`](crate::query::state::QueryState::new_with_config)
+    /// is used to construct [`QueryState`](crate::query::state::QueryState).
     type Config;
 
     /// This function manually implements subtyping for the query items.

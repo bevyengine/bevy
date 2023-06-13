@@ -104,7 +104,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         <Q as WorldQuery>::Config: Default,
         <F as WorldQuery>::Config: Default,
     {
-        QueryState::new_with_config(world, Default::default(), Default::default())
+        let fetch_config = Default::default();
+        let filter_config = Default::default();
+        QueryState::new_with_config(world, fetch_config, filter_config)
     }
 
     /// Creates a new [`QueryState`] from a given [`World`], config, and inherits the result of `world.id()`.
