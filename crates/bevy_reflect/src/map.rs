@@ -5,9 +5,7 @@ use std::hash::Hash;
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
-use crate::{
-    self as bevy_reflect, DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-};
+use crate::{self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -308,11 +306,6 @@ impl Reflect for DynamicMap {
     #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
-    }
-
-    #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
     }
 
     fn into_any(self: Box<Self>) -> Box<dyn Any> {

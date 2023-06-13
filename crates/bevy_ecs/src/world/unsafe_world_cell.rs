@@ -1,3 +1,5 @@
+//! Contains types that allow disjoint mutable access to a [`World`].
+
 #![warn(unsafe_op_in_unsafe_fn)]
 
 use super::{Mut, World, WorldId};
@@ -577,37 +579,63 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
+    /// Returns the [ID](Entity) of the current entity.
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(self) -> Entity {
         self.entity
     }
 
+    /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(self) -> EntityLocation {
         self.location
     }
 
+    /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(self) -> &'w Archetype {
         &self.world.archetypes()[self.location.archetype_id]
     }
 
+    /// Gets the world that the current entity belongs to.
     #[inline]
     pub fn world(self) -> UnsafeWorldCell<'w> {
         self.world
     }
 
+    /// Returns `true` if the current entity has a component of type `T`.
+    /// Otherwise, this returns `false`.
+    ///
+    /// ## Notes
+    ///
+    /// If you do not know the concrete type of a component, consider using
+    /// [`Self::contains_id`] or [`Self::contains_type_id`].
     #[inline]
     pub fn contains<T: Component>(self) -> bool {
         self.contains_type_id(TypeId::of::<T>())
     }
 
+    /// Returns `true` if the current entity has a component identified by `component_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
+    /// [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(self, component_id: ComponentId) -> bool {
         self.archetype().contains(component_id)
     }
 
+    /// Returns `true` if the current entity has a component with the type identified by `type_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(self, type_id: TypeId) -> bool {
         let id = match self.world.components().get_id(type_id) {

@@ -127,6 +127,7 @@ impl Plugin for WindowPlugin {
 
         // Register window descriptor and related types
         app.register_type::<Window>()
+            .register_type::<PrimaryWindow>()
             .register_type::<Cursor>()
             .register_type::<CursorIcon>()
             .register_type::<CursorGrabMode>()

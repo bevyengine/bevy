@@ -452,6 +452,11 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::default().get_path("bevy_ecs")
 }
 
+#[proc_macro_derive(Event)]
+pub fn derive_event(input: TokenStream) -> TokenStream {
+    component::derive_event(input)
+}
+
 #[proc_macro_derive(Resource)]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)

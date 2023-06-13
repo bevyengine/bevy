@@ -459,6 +459,9 @@ mod impls {
     mod rect;
     #[cfg(feature = "smallvec")]
     mod smallvec;
+    #[cfg(feature = "smol_str")]
+    mod smol_str;
+
     mod std;
 
     #[cfg(feature = "glam")]
@@ -1424,6 +1427,26 @@ mod tests {
         let value: &dyn Reflect = &String::from("Hello!");
         let info = value.get_represented_type_info().unwrap();
         assert!(info.is::<MyValue>());
+    }
+
+    #[test]
+    fn should_permit_higher_ranked_lifetimes() {
+        #[derive(Reflect)]
+        struct TestStruct {
+            #[reflect(ignore)]
+            _hrl: for<'a> fn(&'a str) -> &'a str,
+        }
+
+        impl Default for TestStruct {
+            fn default() -> Self {
+                TestStruct {
+                    _hrl: |input| input,
+                }
+            }
+        }
+
+        fn get_type_registration<T: GetTypeRegistration>() {}
+        get_type_registration::<TestStruct>();
     }
 
     #[test]

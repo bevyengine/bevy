@@ -1,3 +1,5 @@
+//! Contains APIs for retrieving component data from the world.
+
 mod access;
 mod fetch;
 mod filter;

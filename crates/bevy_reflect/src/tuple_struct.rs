@@ -1,8 +1,7 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    UnnamedField,
+    self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -306,11 +305,6 @@ impl Reflect for DynamicTupleStruct {
     #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
-    }
-
-    #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
     }
 
     #[inline]

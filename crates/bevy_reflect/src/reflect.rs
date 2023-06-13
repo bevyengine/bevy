@@ -72,7 +72,7 @@ pub enum ReflectOwned {
 /// [`bevy_reflect`]: crate
 /// [derive macro]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
-pub trait Reflect: Any + Send + Sync {
+pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
 
@@ -92,14 +92,6 @@ pub trait Reflect: Any + Send + Sync {
     /// [`DynamicList`]: crate::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
-
-    /// Returns the [`TypePath`] implementation for the underlying type.
-    ///
-    /// Methods on [`DynamicTypePath`] suffer the same performance concerns as [`get_represented_type_info`].
-    ///
-    /// [`TypePath`]: crate::TypePath
-    /// [`get_represented_type_info`]: Reflect::get_represented_type_info
-    fn get_type_path(&self) -> &dyn DynamicTypePath;
 
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
     fn into_any(self: Box<Self>) -> Box<dyn Any>;

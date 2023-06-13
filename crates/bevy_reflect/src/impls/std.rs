@@ -2,8 +2,8 @@ use crate::std_traits::ReflectDefault;
 use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwned};
 use crate::{
     impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
-    DynamicMap, DynamicTypePath, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List,
-    ListInfo, ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
+    DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
+    ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
     ReflectSerialize, TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed,
     UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter, VariantInfo, VariantType,
 };
@@ -332,11 +332,6 @@ macro_rules! impl_reflect_for_veclike {
                 Some(<Self as Typed>::type_info())
             }
 
-            #[inline]
-            fn get_type_path(&self) -> &dyn DynamicTypePath {
-                self
-            }
-
             fn into_any(self: Box<Self>) -> Box<dyn Any> {
                 self
             }
@@ -555,10 +550,6 @@ macro_rules! impl_reflect_for_hashmap {
                 Some(<Self as Typed>::type_info())
             }
 
-            fn get_type_path(&self) -> &dyn DynamicTypePath {
-                self
-            }
-
             fn into_any(self: Box<Self>) -> Box<dyn Any> {
                 self
             }
@@ -719,11 +710,6 @@ impl<T: Reflect + TypePath, const N: usize> Reflect for [T; N] {
 
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
     }
 
     #[inline]
@@ -944,11 +930,6 @@ impl<T: FromReflect + TypePath> Reflect for Option<T> {
     }
 
     #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
-    }
-
-    #[inline]
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -1115,11 +1096,6 @@ impl Reflect for Cow<'static, str> {
         Some(<Self as Typed>::type_info())
     }
 
-    #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
-    }
-
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -1252,11 +1228,6 @@ impl Reflect for &'static Path {
         Some(<Self as Typed>::type_info())
     }
 
-    #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
-    }
-
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -1364,11 +1335,6 @@ impl FromReflect for &'static Path {
 impl Reflect for Cow<'static, Path> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
-    }
-
-    #[inline]
-    fn get_type_path(&self) -> &dyn DynamicTypePath {
-        self
     }
 
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {

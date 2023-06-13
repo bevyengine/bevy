@@ -271,7 +271,9 @@ impl Schedule {
     /// This prevents overflow and thus prevents false positives.
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for system in &mut self.executable.systems {
-            system.check_change_tick(change_tick);
+            if !is_apply_deferred(system) {
+                system.check_change_tick(change_tick);
+            }
         }
 
         for conditions in &mut self.executable.system_conditions {
@@ -397,6 +399,7 @@ pub struct ScheduleGraph {
 }
 
 impl ScheduleGraph {
+    /// Creates an empty [`ScheduleGraph`] with default settings.
     pub fn new() -> Self {
         Self {
             systems: Vec::new(),
@@ -1567,6 +1570,8 @@ impl Default for ScheduleBuildSettings {
 }
 
 impl ScheduleBuildSettings {
+    /// Default build settings.
+    /// See the field-level documentation for the default value of each field.
     pub const fn new() -> Self {
         Self {
             ambiguity_detection: LogLevel::Ignore,
