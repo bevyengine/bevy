@@ -20,6 +20,7 @@ pub struct AdapterSystem<Func, S> {
 }
 
 impl<Func, S> AdapterSystem<Func, S> {
+    /// Creates a new [`System`] that uses `func` to adapt `system`, via the [`Adapt`] trait.
     pub fn new(func: Func, system: S) -> Self {
         Self { func, system }
     }
