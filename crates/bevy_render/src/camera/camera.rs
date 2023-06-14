@@ -169,6 +169,10 @@ impl Camera {
     /// of the current [`RenderTarget`].
     ///  For logic that requires the full logical size of the
     /// [`RenderTarget`], prefer [`Camera::logical_target_size`].
+    ///
+    /// Returns None if both:
+    /// - The viewport is not set
+    /// - The render target is not set
     #[inline]
     pub fn logical_viewport_size(&self) -> Option<Vec2> {
         self.viewport
@@ -218,6 +222,15 @@ impl Camera {
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
     /// [`world_to_ndc`](Self::world_to_ndc).
+    ///
+    /// Returns None if any of these conditions occur:
+    /// - The logical viewport size cannot be computed. This can happen if both:
+    ///   - The viewport is not set
+    ///   - The render target is not set
+    /// - The projection matrix is invalid
+    /// - The camera transform is invalid or cannot be inverted
+    /// - The world position is invalid
+    /// - The computed coordinates are beyond the near or far plane
     #[doc(alias = "world_to_screen")]
     pub fn world_to_viewport(
         &self,
@@ -246,6 +259,15 @@ impl Camera {
     ///
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
+    ///
+    /// Returns None if any of these conditions occur:
+    /// - The logical viewport size cannot be computed. This can happen if both:
+    ///   - The viewport is not set
+    ///   - The render target is not set
+    /// - The near or far plane cannot be computed. This can happen if:
+    ///   - The projection matrix is invalid or cannot be inverted
+    ///   - The camera transform is invalid
+    ///   - The viewport position is invalid
     pub fn viewport_to_world(
         &self,
         camera_transform: &GlobalTransform,
@@ -274,6 +296,15 @@ impl Camera {
     ///
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
+    ///
+    /// Returns None if any of these conditions occur:
+    /// - The logical viewport size cannot be computed. This can happen if both:
+    ///   - The viewport is not set
+    ///   - The render target is not set
+    /// - The viewport position cannot be mapped to the world. This can happen if:
+    ///   - The projection matrix is invalid or cannot be inverted
+    ///   - The camera transform is invalid
+    ///   - The viewport position is invalid
     pub fn viewport_to_world_2d(
         &self,
         camera_transform: &GlobalTransform,
@@ -295,6 +326,11 @@ impl Camera {
     /// and between 0.0 and 1.0 on the Z axis.
     /// To get the coordinates in the render target's viewport dimensions, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
+    ///
+    /// Returns None if any of these conditions occur:
+    /// - The projection matrix is invalid
+    /// - The camera transform is invalid or cannot be inverted
+    /// - The world position is invalid
     pub fn world_to_ndc(
         &self,
         camera_transform: &GlobalTransform,
@@ -315,6 +351,11 @@ impl Camera {
     /// and between 0.0 and 1.0 on the Z axis.
     /// To get the world space coordinates with the viewport position, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
+    ///
+    /// Returns None if any of these conditions occur:
+    /// - The projection matrix is invalid or cannot be inverted
+    /// - The camera transform is invalid
+    /// - The ndc is invalid
     pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
         // Build a transformation matrix to convert from NDC to world space using camera data
         let ndc_to_world =
