@@ -6,15 +6,17 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     event::EventReader,
+    prelude::Component,
     query::{With, Without},
+    reflect::ReflectComponent,
     removal_detection::RemovedComponents,
     system::{ParamSet, Query, Res, ResMut, Resource},
-    world::Ref, prelude::Component, reflect::ReflectComponent,
+    world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
@@ -101,8 +103,10 @@ impl UiSurface {
     /// Inserts a node into the Taffy layout, associates it with the given entity, and returns its taffy id.
     pub fn insert_node(&mut self, entity: Entity) -> taffy::node::Node {
         // It's possible for a user to overwrite an active `UiKey` component with `UiKey::default()`.
-        // In which case we reuse the existing node.
-        *self.entity_to_taffy.entry(entity)
+        // In which case we reuse the existing taffy node.
+        *self
+            .entity_to_taffy
+            .entry(entity)
             .or_insert_with(|| self.taffy.new_leaf(taffy::style::Style::default()).unwrap())
     }
 
@@ -137,7 +141,9 @@ without UI components as a child of an entity with UI components, results may be
             }
         }
 
-        self.taffy.set_children(parent_key, &taffy_children).unwrap();
+        self.taffy
+            .set_children(parent_key, &taffy_children)
+            .unwrap();
     }
 
     /// Removes children from the entity's taffy node if it exists. Does nothing otherwise.
