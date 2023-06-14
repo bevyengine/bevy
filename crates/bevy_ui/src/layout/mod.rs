@@ -275,7 +275,8 @@ pub fn ui_layout_system(
         ui_surface.update_window(entity, &window.resolution);
     }
 
-    let layout_context = LayoutContext::new(logical_to_physical_factor * ui_scale.scale, physical_size);
+    let layout_context =
+        LayoutContext::new(logical_to_physical_factor * ui_scale.scale, physical_size);
 
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || window_changed {
         scale_factor_events.clear();
