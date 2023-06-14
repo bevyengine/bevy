@@ -35,7 +35,7 @@ use crate::world::unsafe_world_cell::UnsafeWorldCell;
 ///     }
 /// }
 /// # let mut world = World::new();
-/// # let mut system = NotSystem::new(NotMarker, IntoSystem::into_system(|| false));
+/// # let mut system = NotSystem::new(NotMarker, IntoSystem::into_system(|| false), "".into());
 /// # system.initialize(&mut world);
 /// # assert!(system.run((), &mut world));
 /// ```
