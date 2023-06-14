@@ -1096,6 +1096,134 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 /// SAFETY: [`OptionFetch`] is read only because `T` is read only
 unsafe impl<T: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Option<T> {}
 
+/// Returns whether each entity has component `T`.
+///
+/// This can be used in a [`Query`](crate::system::Query) if you want to know whether or not entities
+/// have the component `T`  but don't actually care about the component's value.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::query::Has;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// #
+/// # #[derive(Component)]
+/// # struct IsHungry;
+/// # #[derive(Component)]
+/// # struct Name { name: &'static str };
+/// #
+/// fn compliment_entity_system(query: Query<(&Name, Has<IsHungry>) >) {
+///     for (name, is_hungry) in &query {
+///         if is_hungry{
+///             println!("{} would like some food.", name.name);
+///         } else {
+///             println!("{} has had sufficient.", name.name);
+///         }
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(compliment_entity_system);
+/// ```
+pub struct Has<T>(PhantomData<T>);
+
+#[doc(hidden)]
+pub struct HasFetch<T: Component> {
+    phantom: PhantomData<T>,
+    matches: bool,
+}
+
+// SAFETY: `Self::ReadOnly` is the same as `Self`
+unsafe impl<T: Component> WorldQuery for Has<T> {
+    type Fetch<'w> = HasFetch<T>;
+    type Item<'w> = bool;
+    type ReadOnly = Self;
+    type State = ComponentId;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
+
+    const IS_ARCHETYPAL: bool = true;
+
+    #[inline]
+    unsafe fn init_fetch(
+        _world: &World,
+        _state: &ComponentId,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> HasFetch<T> {
+        HasFetch {
+            phantom: Default::default(),
+            matches: false,
+        }
+    }
+
+    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
+        HasFetch {
+            phantom: Default::default(),
+            matches: fetch.matches,
+        }
+    }
+
+    #[inline]
+    unsafe fn set_archetype(
+        fetch: &mut HasFetch<T>,
+        state: &ComponentId,
+        archetype: &Archetype,
+        _table: &Table,
+    ) {
+        fetch.matches = archetype.contains(*state);
+    }
+
+    #[inline]
+    unsafe fn set_table(_fetch: &mut HasFetch<T>, _state: &ComponentId, _table: &Table) {
+        _fetch.matches = _table.has_column(*_state);
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+        fetch.matches
+    }
+
+    fn update_component_access(_state: &ComponentId, _access: &mut FilteredAccess<ComponentId>) {
+        // Do nothing as presence of `Has<T>` never affects whether two queries are disjoint
+    }
+
+    fn update_archetype_component_access(
+        _state: &ComponentId,
+        _archetype: &Archetype,
+        _access: &mut Access<ArchetypeComponentId>,
+    ) {
+    }
+
+    fn init_state(world: &mut World) -> ComponentId {
+        world.init_component::<T>()
+    }
+
+    fn matches_component_set(
+        _state: &ComponentId,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        // `Has<T>` always matches
+        true
+    }
+}
+
+/// SAFETY: [`Has`] is read only
+unsafe impl<T: Component> ReadOnlyWorldQuery for Has<T> {}
+
 macro_rules! impl_tuple_fetch {
     ($(($name: ident, $state: ident)),*) => {
         #[allow(non_snake_case)]
