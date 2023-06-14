@@ -216,12 +216,6 @@ without UI components as a child of an entity with UI components, results may be
     }
 }
 
-#[derive(Debug)]
-pub enum LayoutError {
-    InvalidHierarchy,
-    TaffyError(taffy::error::TaffyError),
-}
-
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
