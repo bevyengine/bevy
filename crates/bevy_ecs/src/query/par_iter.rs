@@ -121,7 +121,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     pub fn for_each<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&self, func: FN) {
         // SAFETY:
         // This type can only be shared between threads if the query is read-only.
-        // This means that if the query is mutable, this method cannot be accessed anywhere else at the same time.
+        // This means that if the query is mutable, this method cannot be called anywhere else at the same time.
+        // Since mutable access to the components exists only within the scope of this method, there will be
+        // no conflicting accesses.
         // If the query *is* read-only, then it's okay for this method to be called multiple times in parallel.
         unsafe {
             self.for_each_unchecked(func);
