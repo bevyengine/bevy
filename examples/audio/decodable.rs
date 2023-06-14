@@ -3,13 +3,14 @@ use bevy::audio::AddAudioSource;
 use bevy::audio::AudioPlugin;
 use bevy::audio::Source;
 use bevy::prelude::*;
+use bevy::reflect::TypePath;
 use bevy::utils::Duration;
 
 // This struct usually contains the data for the audio being played.
 // This is where data read from an audio file would be stored, for example.
 // Implementing `TypeUuid` will automatically implement `Asset`.
 // This allows the type to be registered as an asset.
-#[derive(Asset)]
+#[derive(Asset, TypePath)]
 struct SineAudio {
     frequency: f32,
 }

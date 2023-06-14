@@ -145,7 +145,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// # Panics
     ///
-    /// Panics if the `world.id()` does not equal the current [`QueryState`] internal id.
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
     pub fn update_archetypes(&mut self, world: &World) {
         self.validate_world(world);
         let archetypes = world.archetypes();
@@ -158,6 +158,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// # Panics
+    ///
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
+    ///
+    /// Many unsafe query methods require the world to match for soundness. This function is the easiest
+    /// way of ensuring that it matches.
     #[inline]
     pub fn validate_world(&self, world: &World) {
         assert!(
@@ -337,6 +343,17 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// Gets the query result for the given [`World`] and [`Entity`].
+    ///
+    /// This method is slightly more efficient than [`QueryState::get`] in some situations, since
+    /// it does not update this instance's internal cache. This method will return an error if `entity`
+    /// belongs to an archetype that has not been cached.
+    ///
+    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this method.
+    /// The cache is also updated in [`QueryState::new`], `QueryState::get`, or any method with mutable
+    /// access to `self`.
+    ///
+    /// This can only be called for read-only queries, see [`Self::get_mut`] for mutable queries.
     #[inline]
     pub fn get_manual<'w>(
         &self,
@@ -635,6 +652,41 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// Returns an [`Iterator`] over the read-only query items generated from an [`Entity`] list.
+    ///
+    /// Items are returned in the order of the list of entities.
+    /// Entities that don't match the query are skipped.
+    ///
+    /// If `world` archetypes changed since [`Self::update_archetypes`] was last called,
+    /// this will skip entities contained in new archetypes.
+    ///
+    /// This can only be called for read-only queries.
+    ///
+    /// # See also
+    ///
+    /// - [`iter_many`](Self::iter_many) to update archetypes.
+    /// - [`iter_manual`](Self::iter_manual) to iterate over all query items.
+    #[inline]
+    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator>(
+        &'s self,
+        world: &'w World,
+        entities: EntityList,
+    ) -> QueryManyIter<'w, 's, Q::ReadOnly, F::ReadOnly, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
+        self.validate_world(world);
+        // SAFETY: query is read only, world id is validated
+        unsafe {
+            self.as_readonly().iter_many_unchecked_manual(
+                entities,
+                world,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
     /// Returns an iterator over the query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities.
@@ -813,11 +865,14 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// [`par_iter_mut`]: Self::par_iter_mut
     #[inline]
-    pub fn par_iter<'w, 's>(&'s mut self, world: &'w World) -> QueryParIter<'w, 's, Q, F> {
+    pub fn par_iter<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> QueryParIter<'w, 's, Q::ReadOnly, F::ReadOnly> {
         self.update_archetypes(world);
         QueryParIter {
             world,
-            state: self,
+            state: self.as_readonly(),
             last_run: world.last_change_tick(),
             this_run: world.read_change_tick(),
             batching_strategy: BatchingStrategy::new(),

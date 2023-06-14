@@ -3,12 +3,13 @@
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
     prelude::*,
+    reflect::TypePath,
     utils::BoxedFuture,
 };
 use futures_lite::AsyncReadExt;
 use serde::Deserialize;
 
-#[derive(Asset, Debug, Deserialize)]
+#[derive(Asset, TypePath, Debug, Deserialize)]
 pub struct CustomAsset {
     pub value: i32,
 }

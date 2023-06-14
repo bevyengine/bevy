@@ -1,6 +1,8 @@
 use crate::{Asset, AssetId};
+use bevy_ecs::event::Event;
 use std::fmt::Debug;
 
+#[derive(Event)]
 pub enum AssetEvent<A: Asset> {
     Added { id: AssetId<A> },
     Modified { id: AssetId<A> },

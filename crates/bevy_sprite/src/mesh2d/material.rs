@@ -57,7 +57,7 @@ use crate::{
 /// ```
 /// # use bevy_sprite::{Material2d, MaterialMesh2dBundle};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_reflect::TypeUuid;
+/// # use bevy_reflect::{TypeUuid, TypePath};
 /// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
 /// # use bevy_asset::{Handle, AssetServer, Assets};
 ///

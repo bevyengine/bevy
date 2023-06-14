@@ -9,10 +9,10 @@
 
 pub mod cubic_splines;
 mod ray;
-mod rect;
+mod rects;
 
 pub use ray::Ray;
-pub use rect::Rect;
+pub use rects::*;
 
 /// The `bevy_math` prelude.
 pub mod prelude {

@@ -3,6 +3,7 @@
 
 use bevy::{
     prelude::*,
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
@@ -34,7 +35,7 @@ fn setup(
     });
 }
 
-#[derive(Asset, AsBindGroup, Debug, Clone)]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct CustomMaterial {}
 
 impl Material for CustomMaterial {

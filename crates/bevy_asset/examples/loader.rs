@@ -8,6 +8,7 @@ use bevy_asset::{
 use bevy_core::TaskPoolPlugin;
 use bevy_ecs::prelude::*;
 use bevy_log::{Level, LogPlugin};
+use bevy_reflect::TypePath;
 use bevy_utils::Duration;
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
 use serde::{Deserialize, Serialize};
@@ -44,7 +45,7 @@ impl Plugin for TextPlugin {
     }
 }
 
-#[derive(Asset, Debug)]
+#[derive(Asset, TypePath, Debug)]
 struct Text(String);
 
 #[derive(Default)]
@@ -88,7 +89,7 @@ pub struct CoolTextRon {
     embedded_dependencies: Vec<String>,
 }
 
-#[derive(Asset, Debug)]
+#[derive(Asset, TypePath, Debug)]
 pub struct CoolText {
     text: String,
     #[allow(unused)]

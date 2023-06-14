@@ -1,6 +1,7 @@
 use bevy::{
     asset::on_loaded::on_loaded,
     prelude::*,
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
@@ -17,7 +18,7 @@ fn main() {
         .run();
 }
 
-#[derive(Asset, Clone)]
+#[derive(Asset, TypePath, Clone)]
 struct ArrayTexture {
     #[dependency]
     handle: Handle<Image>,
@@ -86,7 +87,7 @@ fn create_array_texture(
     }
 }
 
-#[derive(Asset, AsBindGroup, Debug, Clone)]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct ArrayTextureMaterial {
     #[texture(0, dimension = "2d_array")]
     #[sampler(1)]

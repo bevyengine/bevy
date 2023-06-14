@@ -12,7 +12,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent, world::FromWorld};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, TypePath};
 use bevy_render::mesh::{Mesh, MeshVertexAttribute};
 use bevy_scene::Scene;
 
@@ -48,7 +48,7 @@ impl Plugin for GltfPlugin {
 }
 
 /// Representation of a loaded glTF file.
-#[derive(Asset, Debug)]
+#[derive(Asset, Debug, TypePath)]
 pub struct Gltf {
     pub scenes: Vec<Handle<Scene>>,
     pub named_scenes: HashMap<String, Handle<Scene>>,
@@ -67,7 +67,7 @@ pub struct Gltf {
 
 /// A glTF node with all of its child nodes, its [`GltfMesh`],
 /// [`Transform`](bevy_transform::prelude::Transform) and an optional [`GltfExtras`].
-#[derive(Asset, Debug, Clone)]
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfNode {
     pub children: Vec<GltfNode>,
     pub mesh: Option<Handle<GltfMesh>>,
@@ -77,14 +77,14 @@ pub struct GltfNode {
 
 /// A glTF mesh, which may consist of multiple [`GltfPrimitives`](GltfPrimitive)
 /// and an optional [`GltfExtras`].
-#[derive(Asset, Debug, Clone)]
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfMesh {
     pub primitives: Vec<GltfPrimitive>,
     pub extras: Option<GltfExtras>,
 }
 
 /// Part of a [`GltfMesh`] that consists of a [`Mesh`], an optional [`StandardMaterial`] and [`GltfExtras`].
-#[derive(Asset, Debug, Clone)]
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfPrimitive {
     pub mesh: Handle<Mesh>,
     pub material: Option<Handle<StandardMaterial>>,

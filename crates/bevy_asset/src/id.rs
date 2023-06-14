@@ -16,6 +16,8 @@ pub enum AssetId<A: Asset> {
         marker: PhantomData<fn() -> A>,
     },
     Uuid {
+        // TODO: implement reflect for this or replace it with an unsigned int?
+        #[reflect(ignore)]
         uuid: Uuid,
     },
 }

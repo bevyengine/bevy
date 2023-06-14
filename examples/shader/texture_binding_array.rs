@@ -3,6 +3,7 @@
 
 use bevy::{
     prelude::*,
+    reflect::TypePath,
     render::{
         render_asset::RenderAssets,
         render_resource::{AsBindGroupError, PreparedBindGroup, *},
@@ -84,7 +85,7 @@ fn setup(
     });
 }
 
-#[derive(Asset, Debug, Clone)]
+#[derive(Asset, TypePath, Debug, Clone)]
 struct BindlessMaterial {
     textures: Vec<Handle<Image>>,
 }

@@ -3,6 +3,7 @@
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
+    reflect::TypePath,
     render::{
         mesh::{MeshVertexBufferLayout, PrimitiveTopology},
         render_resource::{
@@ -61,7 +62,7 @@ fn setup(
     });
 }
 
-#[derive(Asset, Default, AsBindGroup, Debug, Clone)]
+#[derive(Asset, TypePath, Default, AsBindGroup, Debug, Clone)]
 struct LineMaterial {
     #[uniform(0)]
     color: Color,

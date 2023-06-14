@@ -3,11 +3,12 @@ use bevy_asset::{
     io::{AsyncReadExt, Reader},
     Asset, AssetLoader, LoadContext,
 };
+use bevy_reflect::TypePath;
 use bevy_utils::BoxedFuture;
 use std::{io::Cursor, sync::Arc};
 
 /// A source of audio data
-#[derive(Asset, Debug, Clone)]
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct AudioSource {
     /// Raw data of the audio source.
     ///

@@ -41,7 +41,7 @@ use crate::{
 use bevy_app::{App, AppTypeRegistry, Plugin, PostUpdate, Startup};
 use bevy_ecs::{schedule::IntoSystemConfigs, world::FromWorld};
 use bevy_log::error;
-use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
+use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use std::{any::TypeId, sync::Arc};
 
 pub enum AssetPlugin {
@@ -163,7 +163,7 @@ impl Plugin for AssetPlugin {
     }
 }
 
-pub trait Asset: AssetDependencyVisitor + Send + Sync + 'static {}
+pub trait Asset: AssetDependencyVisitor + TypePath + Send + Sync + 'static {}
 
 pub trait AssetDependencyVisitor {
     // TODO: should this be an owned handle or can it be an UntypedAssetId
@@ -316,12 +316,13 @@ mod tests {
     use bevy_ecs::event::ManualEventReader;
     use bevy_ecs::prelude::*;
     use bevy_log::LogPlugin;
+    use bevy_reflect::TypePath;
     use bevy_utils::BoxedFuture;
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::path::Path;
 
-    #[derive(Asset, Debug)]
+    #[derive(Asset, TypePath, Debug)]
     pub struct CoolText {
         text: String,
         embedded: String,
@@ -331,7 +332,7 @@ mod tests {
         sub_texts: Vec<Handle<SubText>>,
     }
 
-    #[derive(Asset, Debug)]
+    #[derive(Asset, TypePath, Debug)]
     pub struct SubText {
         text: String,
     }

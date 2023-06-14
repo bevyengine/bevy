@@ -3,6 +3,7 @@ use crate::define_atomic_id;
 use bevy_asset::{
     io::Reader, Asset, AssetId, AssetLoader, AssetPath, AsyncReadExt, Handle, LoadContext,
 };
+use bevy_reflect::TypePath;
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
 #[cfg(feature = "shader_format_glsl")]
 use naga::back::wgsl::WriterFlags;
@@ -32,7 +33,7 @@ pub enum ShaderReflectError {
 }
 /// A shader, as defined by its [`ShaderSource`] and [`ShaderStage`](naga::ShaderStage)
 /// This is an "unprocessed" shader. It can contain preprocessor directives.
-#[derive(Asset, Debug, Clone)]
+#[derive(Asset, TypePath, Debug, Clone)]
 pub struct Shader {
     source: Source,
     import_path: Option<ShaderImport>,

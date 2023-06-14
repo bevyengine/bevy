@@ -1,3 +1,5 @@
+//! Defines the [`World`] and APIs for accessing it directly.
+
 mod entity_ref;
 pub mod error;
 mod spawn_batch;
@@ -941,6 +943,13 @@ impl World {
             .unwrap_or(false)
     }
 
+    /// Return's `true` if a resource of type `R` exists and was added since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this return's `false`.
+    ///
+    /// This means that:
+    /// - When called from an exclusive system, this will check for additions since the system last ran.
+    /// - When called elsewhere, this will check for additions since the last time that [`World::clear_trackers`]
+    ///   was called.
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
@@ -949,6 +958,13 @@ impl World {
             .unwrap_or(false)
     }
 
+    /// Return's `true` if a resource of type `R` exists and was modified since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this return's `false`.
+    ///
+    /// This means that:
+    /// - When called from an exclusive system, this will check for changes since the system last ran.
+    /// - When called elsewhere, this will check for changes since the last time that [`World::clear_trackers`]
+    ///   was called.
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())

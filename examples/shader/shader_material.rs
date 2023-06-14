@@ -2,6 +2,7 @@
 
 use bevy::{
     prelude::*,
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
@@ -52,7 +53,7 @@ impl Material for CustomMaterial {
 }
 
 // This is the struct that will be passed to your shader
-#[derive(Asset, AsBindGroup, Debug, Clone)]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct CustomMaterial {
     #[uniform(0)]
     color: Color,

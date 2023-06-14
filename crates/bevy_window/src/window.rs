@@ -184,6 +184,14 @@ pub struct Window {
     ///
     /// - iOS / Android / Web: Unsupported.
     pub ime_position: Vec2,
+    /// Sets a specific theme for the window.
+    ///
+    /// If `None` is provided, the window will use the system theme.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - iOS / Android / Web: Unsupported.
+    pub window_theme: Option<WindowTheme>,
 }
 
 impl Default for Window {
@@ -208,6 +216,7 @@ impl Default for Window {
             fit_canvas_to_parent: false,
             prevent_default_event_handling: true,
             canvas: None,
+            window_theme: None,
         }
     }
 }
@@ -831,4 +840,20 @@ pub enum WindowLevel {
     Normal,
     /// The window will always be on top of normal windows.
     AlwaysOnTop,
+}
+
+/// The window theme variant to use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
+pub enum WindowTheme {
+    /// Use the light variant.
+    Light,
+
+    /// Use the dark variant.
+    Dark,
 }

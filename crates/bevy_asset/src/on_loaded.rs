@@ -118,8 +118,8 @@ impl<A: Asset + FromWorld + Clone, S: IntoSystem<A, (), Marker> + 'static, Marke
         }
     }
 
-    fn apply_buffers(&mut self, world: &mut World) {
-        self.system.apply_buffers(world);
+    fn apply_deferred(&mut self, world: &mut World) {
+        self.system.apply_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut World) {

@@ -2,6 +2,7 @@
 
 use bevy::{
     prelude::*,
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
@@ -65,7 +66,7 @@ fn rotate_camera(mut camera: Query<&mut Transform, With<MainCamera>>, time: Res<
     cam_transform.look_at(Vec3::ZERO, Vec3::Y);
 }
 
-#[derive(Asset, AsBindGroup, Debug, Clone)]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct CustomMaterial {
     #[texture(0)]
     #[sampler(1)]

@@ -6,6 +6,7 @@ use bevy::{
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
     pbr::{NotShadowCaster, PbrPlugin},
     prelude::*,
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
@@ -154,7 +155,7 @@ fn setup(
 }
 
 // This is the struct that will be passed to your shader
-#[derive(Asset, AsBindGroup, Debug, Clone)]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct CustomMaterial {
     #[uniform(0)]
     color: Color,
@@ -202,7 +203,7 @@ struct ShowPrepassSettings {
 }
 
 // This shader simply loads the prepass texture and outputs it directly
-#[derive(Asset, AsBindGroup, Debug, Clone)]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct PrepassOutputMaterial {
     #[uniform(0)]
     settings: ShowPrepassSettings,
