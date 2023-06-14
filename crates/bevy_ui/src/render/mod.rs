@@ -2,13 +2,17 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_hierarchy::Parent;
 use bevy_render::{ExtractSchedule, Render};
 #[cfg(feature = "bevy_text")]
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
+use crate::{
+    prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
+};
+use crate::{ContentSize, Style, Val};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -78,6 +82,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
+                extract_uinode_borders.after(RenderUiSystem::ExtractNode),
                 #[cfg(feature = "bevy_text")]
                 extract_text_uinodes.after(RenderUiSystem::ExtractNode),
             ),
@@ -161,6 +166,123 @@ pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
 }
 
+fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
+    match value {
+        Val::Auto => 0.,
+        Val::Px(px) => px.max(0.),
+        Val::Percent(percent) => (parent_width * percent / 100.).max(0.),
+        Val::Vw(percent) => (viewport_size.x * percent / 100.).max(0.),
+        Val::Vh(percent) => (viewport_size.y * percent / 100.).max(0.),
+        Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
+        Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
+    }
+}
+
+pub fn extract_uinode_borders(
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
+    ui_stack: Extract<Res<UiStack>>,
+    uinode_query: Extract<
+        Query<
+            (
+                &Node,
+                &GlobalTransform,
+                &Style,
+                &BorderColor,
+                Option<&Parent>,
+                &ComputedVisibility,
+                Option<&CalculatedClip>,
+            ),
+            Without<ContentSize>,
+        >,
+    >,
+    parent_node_query: Extract<Query<&Node, With<Parent>>>,
+) {
+    let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
+
+    let viewport_size = windows
+        .get_single()
+        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .unwrap_or(Vec2::ZERO);
+
+    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok((node, global_transform, style, border_color, parent, visibility, clip)) =
+            uinode_query.get(*entity)
+        {
+            // Skip invisible borders
+            if !visibility.is_visible()
+                || border_color.0.a() == 0.0
+                || node.size().x <= 0.
+                || node.size().y <= 0.
+            {
+                continue;
+            }
+
+            // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+            // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+            let parent_width = parent
+                .and_then(|parent| parent_node_query.get(parent.get()).ok())
+                .map(|parent_node| parent_node.size().x)
+                .unwrap_or(viewport_size.x);
+            let left = resolve_border_thickness(style.border.left, parent_width, viewport_size);
+            let right = resolve_border_thickness(style.border.right, parent_width, viewport_size);
+            let top = resolve_border_thickness(style.border.top, parent_width, viewport_size);
+            let bottom = resolve_border_thickness(style.border.bottom, parent_width, viewport_size);
+
+            // Calculate the border rects, ensuring no overlap.
+            // The border occupies the space between the node's bounding rect and the node's bounding rect inset in each direction by the node's corresponding border value.
+            let max = 0.5 * node.size();
+            let min = -max;
+            let inner_min = min + Vec2::new(left, top);
+            let inner_max = (max - Vec2::new(right, bottom)).max(inner_min);
+            let border_rects = [
+                // Left border
+                Rect {
+                    min,
+                    max: Vec2::new(inner_min.x, max.y),
+                },
+                // Right border
+                Rect {
+                    min: Vec2::new(inner_max.x, min.y),
+                    max,
+                },
+                // Top border
+                Rect {
+                    min: Vec2::new(inner_min.x, min.y),
+                    max: Vec2::new(inner_max.x, inner_min.y),
+                },
+                // Bottom border
+                Rect {
+                    min: Vec2::new(inner_min.x, inner_max.y),
+                    max: Vec2::new(inner_max.x, max.y),
+                },
+            ];
+
+            let transform = global_transform.compute_matrix();
+
+            for edge in border_rects {
+                if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
+                    extracted_uinodes.uinodes.push(ExtractedUiNode {
+                        stack_index,
+                        // This translates the uinode's transform to the center of the current border rectangle
+                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
+                        color: border_color.0,
+                        rect: Rect {
+                            max: edge.size(),
+                            ..Default::default()
+                        },
+                        image: image.clone_weak(),
+                        atlas_size: None,
+                        clip: clip.map(|clip| clip.clip),
+                        flip_x: false,
+                        flip_y: false,
+                    });
+                }
+            }
+        }
+    }
+}
+
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
@@ -177,6 +299,7 @@ pub fn extract_uinodes(
     >,
 ) {
     extracted_uinodes.uinodes.clear();
+
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
