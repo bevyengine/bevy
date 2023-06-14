@@ -1,9 +1,10 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
+    self as bevy_ecs,
     change_detection::MAX_CHANGE_AGE,
     storage::{SparseSetIndex, Storages},
-    system::{Local, Resource},
+    system::{Local, Resource, SystemParam},
     world::{FromWorld, World},
     TypeIdMap,
 };
@@ -795,47 +796,54 @@ impl ComponentTicks {
     }
 }
 
-/// Initialize and fetch a [`ComponentId`] for a specific type.
+/// A [`SystemParam`] that provides access to the [`ComponentId`] for a specific type.
 ///
 /// # Example
 /// ```rust
 /// # use bevy_ecs::{system::Local, component::{Component, ComponentId, ComponentIdFor}};
 /// #[derive(Component)]
 /// struct Player;
-/// fn my_system(component_id: Local<ComponentIdFor<Player>>) {
-///     let component_id: ComponentId = component_id.into();
+/// fn my_system(component_id: ComponentIdFor<Player>) {
+///     let component_id: ComponentId = component_id.get();
 ///     // ...
 /// }
 /// ```
-pub struct ComponentIdFor<T: Component> {
-    component_id: ComponentId,
-    phantom: PhantomData<T>,
-}
+#[derive(SystemParam)]
+pub struct ComponentIdFor<'s, T: Component>(Local<'s, InitComponentId<T>>);
 
-impl<T: Component> FromWorld for ComponentIdFor<T> {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            component_id: world.init_component::<T>(),
-            phantom: PhantomData,
-        }
+impl<T: Component> ComponentIdFor<'_, T> {
+    /// Gets the [`ComponentId`] for the type `T`.
+    #[inline]
+    pub fn get(&self) -> ComponentId {
+        **self
     }
 }
 
-impl<T: Component> std::ops::Deref for ComponentIdFor<T> {
+impl<T: Component> std::ops::Deref for ComponentIdFor<'_, T> {
     type Target = ComponentId;
     fn deref(&self) -> &Self::Target {
-        &self.component_id
+        &self.0.component_id
     }
 }
 
-impl<T: Component> From<ComponentIdFor<T>> for ComponentId {
+impl<T: Component> From<ComponentIdFor<'_, T>> for ComponentId {
+    #[inline]
     fn from(to_component_id: ComponentIdFor<T>) -> ComponentId {
         *to_component_id
     }
 }
 
-impl<'s, T: Component> From<Local<'s, ComponentIdFor<T>>> for ComponentId {
-    fn from(to_component_id: Local<ComponentIdFor<T>>) -> ComponentId {
-        **to_component_id
+/// Initializes the [`ComponentId`] for a specific type when used with [`FromWorld`].
+struct InitComponentId<T: Component> {
+    component_id: ComponentId,
+    marker: PhantomData<T>,
+}
+
+impl<T: Component> FromWorld for InitComponentId<T> {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            component_id: world.init_component::<T>(),
+            marker: PhantomData,
+        }
     }
 }
