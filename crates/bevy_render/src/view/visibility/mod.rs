@@ -368,7 +368,7 @@ pub fn check_visibility(
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
         visible_entities.entities.clear();
-        visible_aabb_query.par_iter_mut().for_each_mut(
+        visible_aabb_query.par_iter_mut().for_each(
             |(
                 entity,
                 mut computed_visibility,
@@ -413,7 +413,7 @@ pub fn check_visibility(
             },
         );
 
-        visible_no_aabb_query.par_iter_mut().for_each_mut(
+        visible_no_aabb_query.par_iter_mut().for_each(
             |(entity, mut computed_visibility, maybe_entity_mask)| {
                 // skip computing visibility for entities that are configured to be hidden. is_visible_in_view has already been set to false
                 // in visibility_propagate_system
