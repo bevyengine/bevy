@@ -328,20 +328,22 @@ pub unsafe trait WorldQuery {
     /// constructing [`Self::Fetch`](crate::query::WorldQuery::Fetch).
     type State: Send + Sync + Sized;
 
-    /// Runtime config value passed to [`WorldQuery::init_state`]
+    /// This associated type defines how a query can be configured at runtime.
     ///
-    /// This is used to pass runtime information that is necessary to construct
-    /// [`WorldQuery`].
+    /// [`QueryState::new_with_config`](crate::query::state::QueryState::new_with_config) uses this
+    /// associated type to construct [`QueryState`](crate::query::state::QueryState).
+    /// When this associated type implements the `Default` trait,
+    /// [`QueryState::new`](crate::query::state::QueryState::new) can be used instead.
     ///
-    /// Statically defined queries for types such as `&T` may obtain a
-    /// [`ComponentId`] statically, however, a dynamic query would require that
-    /// [`ComponentId`] is passed at runtime, such that
-    /// `Self::Config = ComponentId`.
+    /// In the case where no config is required, `()` is conventionally chosen
+    /// as the type for `Config`. This is the case for statically defined
+    /// queries, for types such as `&T`, since they can obtain a
+    /// [`ComponentId`] without any runtime information.
     ///
-    /// [`QueryState::new`](crate::query::state::QueryState::new) can be used when
-    /// `Self::Config: Default` otherwise
-    /// [`QueryState::new_with_config`](crate::query::state::QueryState::new_with_config)
-    /// is used to construct [`QueryState`](crate::query::state::QueryState).
+    /// However, for dynamic queries, the [`ComponentId`] varies at runtime and
+    /// mut be additionally provided. By supplying `Config = ComponentId` we
+    /// can vary the component requested each time we construct a new query,
+    /// even for the same underlying Rust type.
     type Config;
 
     /// This function manually implements subtyping for the query items.
