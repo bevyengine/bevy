@@ -8,7 +8,7 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::UiTextureAtlasSprite;
+use crate::UiTextureAtlasImage;
 use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -177,22 +177,15 @@ pub fn extract_atlas_uinodes(
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
                 &Handle<TextureAtlas>,
-                &UiTextureAtlasSprite,
+                &UiTextureAtlasImage,
             ),
             Without<UiImage>,
         >,
     >,
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((
-            uinode,
-            transform,
-            color,
-            visibility,
-            clip,
-            texture_atlas_handle,
-            atlas_sprite,
-        )) = uinode_query.get(*entity)
+        if let Ok((uinode, transform, color, visibility, clip, texture_atlas_handle, atlas_image)) =
+            uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
             if !visibility.is_visible() || color.0.a() == 0.0 {
@@ -203,11 +196,11 @@ pub fn extract_atlas_uinodes(
                 if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
                     let atlas_rect = *texture_atlas
                         .textures
-                        .get(atlas_sprite.index)
+                        .get(atlas_image.index)
                         .unwrap_or_else(|| {
                             panic!(
-                                "Sprite index {:?} does not exist for texture atlas handle {:?}.",
-                                atlas_sprite.index,
+                                "Atlas index {:?} does not exist for texture atlas handle {:?}.",
+                                atlas_image.index,
                                 texture_atlas_handle.id(),
                             )
                         });
@@ -239,8 +232,8 @@ pub fn extract_atlas_uinodes(
                 clip: clip.map(|clip| clip.clip),
                 image,
                 atlas_size: Some(atlas_size),
-                flip_x: atlas_sprite.flip_x,
-                flip_y: atlas_sprite.flip_y,
+                flip_x: atlas_image.flip_x,
+                flip_y: atlas_image.flip_y,
             });
         };
     }
@@ -260,7 +253,7 @@ pub fn extract_uinodes(
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
             ),
-            Without<UiTextureAtlasSprite>,
+            Without<UiTextureAtlasImage>,
         >,
     >,
 ) {

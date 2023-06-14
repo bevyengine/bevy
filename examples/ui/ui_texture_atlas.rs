@@ -49,21 +49,21 @@ fn setup(
                     ..default()
                 },
                 texture_atlas: texture_atlas_handle,
-                texture_atlas_sprite: UiTextureAtlasSprite::default(),
+                texture_atlas_image: UiTextureAtlasImage::default(),
                 ..default()
             },));
         });
 }
 
 fn increment_atlas_index(
-    mut sprites: Query<&mut UiTextureAtlasSprite>,
+    mut atlas_images: Query<&mut UiTextureAtlasImage>,
     keyboard: Res<Input<KeyCode>>,
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
-        for mut sprite in &mut sprites {
-            sprite.index += 1;
-            if sprite.index > 6 {
-                sprite.index = 0;
+        for mut atlas_image in &mut atlas_images {
+            atlas_image.index += 1;
+            if atlas_image.index > 6 {
+                atlas_image.index = 0;
             }
         }
     }

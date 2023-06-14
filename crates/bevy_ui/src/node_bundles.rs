@@ -3,7 +3,7 @@
 use crate::{
     widget::{Button, TextFlags, UiImageSize},
     BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiTextureAtlasSprite, ZIndex,
+    UiTextureAtlasImage, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -128,7 +128,7 @@ pub struct AtlasImageBundle {
     /// A handle to the texture atlas to use for this Ui Node
     pub texture_atlas: Handle<TextureAtlas>,
     /// The descriptor for which sprite to use from the given texture atlas
-    pub texture_atlas_sprite: UiTextureAtlasSprite,
+    pub texture_atlas_image: UiTextureAtlasImage,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The size of the image in pixels

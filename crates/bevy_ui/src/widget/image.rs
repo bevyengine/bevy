@@ -1,5 +1,5 @@
 use crate::{
-    measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiTextureAtlasSprite,
+    measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiTextureAtlasImage,
 };
 use bevy_asset::{Assets, Handle};
 #[cfg(feature = "bevy_text")]
@@ -100,7 +100,7 @@ pub fn update_atlas_content_size_system(
         (
             &mut ContentSize,
             &Handle<TextureAtlas>,
-            &UiTextureAtlasSprite,
+            &UiTextureAtlasImage,
             &mut UiImageSize,
         ),
         (With<Node>, Without<Text>, Without<UiImage>),
@@ -109,15 +109,15 @@ pub fn update_atlas_content_size_system(
         (
             &mut ContentSize,
             &Handle<TextureAtlas>,
-            &UiTextureAtlasSprite,
+            &UiTextureAtlasImage,
             &mut UiImageSize,
         ),
         (With<Node>, Without<UiImage>),
     >,
 ) {
-    for (mut content_size, atlas, sprite, mut image_size) in &mut atlas_query {
+    for (mut content_size, atlas, atlas_image, mut image_size) in &mut atlas_query {
         if let Some(atlas) = atlases.get(atlas) {
-            let texture_rect = atlas.textures[sprite.index];
+            let texture_rect = atlas.textures[atlas_image.index];
             let size = Vec2::new(
                 texture_rect.max.x - texture_rect.min.x,
                 texture_rect.max.y - texture_rect.min.y,

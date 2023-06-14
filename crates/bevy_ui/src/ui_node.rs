@@ -1566,7 +1566,7 @@ impl From<Color> for BackgroundColor {
 /// The atlas sprite to be used in a UI Texture Atlas Node
 #[derive(Component, Clone, Debug, Reflect, FromReflect, Default)]
 #[reflect(Component, Default)]
-pub struct UiTextureAtlasSprite {
+pub struct UiTextureAtlasImage {
     /// Texture index in the TextureAtlas
     pub index: usize,
     /// Whether to flip the sprite in the X axis
