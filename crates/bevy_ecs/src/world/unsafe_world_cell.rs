@@ -443,7 +443,9 @@ impl<'w> UnsafeWorldCell<'w> {
         };
 
         Some(MutUntyped {
-            // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
+            // SAFETY:
+            // - caller ensures that `self` has permission to access the resource
+            // - caller ensures that the resource is unaliased
             value: unsafe { ptr.assert_unique() },
             ticks,
         })
