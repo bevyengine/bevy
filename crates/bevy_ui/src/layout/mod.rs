@@ -73,7 +73,7 @@ impl Default for UiSurface {
 }
 
 impl UiSurface {
-    /// Inserts a node into the Taffy layout and associates it with the given entity.
+    /// Inserts a node into the Taffy layout, associates it with the given entity, and returns its taffy id.
     pub fn insert_node(&mut self, entity: Entity) -> taffy::node::Node {
         let id = self.taffy.new_leaf(taffy::style::Style::default()).unwrap();
         if let Some(old_taffy_node) = self.entity_to_taffy.insert(entity, id) {
@@ -220,10 +220,10 @@ pub fn ui_layout_system(
     ui_surface.remove_entities(removed_nodes.iter());
 
     let mut ids_query = ui_queries_param_set.p0();
-    for (entity, mut ui_node_id) in ids_query.iter_mut() {
+    for (entity, mut uinode_id) in ids_query.iter_mut() {
         // Users can only instantiate `UiKey` components containing a null key
-        if ui_node_id.is_changed() {
-            ui_node_id.0 = ui_surface.insert_node(entity);
+        if uinode_id.is_changed() {
+            uinode_id.taffy_id = ui_surface.insert_node(entity);
         }
     }
 
@@ -241,9 +241,9 @@ pub fn ui_layout_system(
         ui_queries_param_set.p1();
 
     // update children
-    for (ui_node_id, children) in &children_query {
+    for (uinode_id, children) in &children_query {
         if children.is_changed() {
-            ui_surface.update_children(**ui_node_id, &children);
+            ui_surface.update_children(uinode_id.get(), &children);
         }
     }
 
@@ -281,27 +281,27 @@ pub fn ui_layout_system(
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || window_changed {
         scale_factor_events.clear();
         // update all nodes
-        for (ui_key, style) in style_query.iter() {
-            ui_surface.set_style(ui_key.0, &style, &layout_context);
+        for (uinode_id, style) in style_query.iter() {
+            ui_surface.set_style(uinode_id.get(), &style, &layout_context);
         }
     } else {
-        for (ui_key, style) in style_query.iter() {
+        for (uinode_id, style) in style_query.iter() {
             if style.is_changed() {
-                ui_surface.set_style(ui_key.0, &style, &layout_context);
+                ui_surface.set_style(uinode_id.get(), &style, &layout_context);
             }
         }
     }
 
-    for (ui_node_id, mut content_size) in measure_query.iter_mut() {
+    for (uinode_id, mut content_size) in measure_query.iter_mut() {
         if let Some(measure_func) = content_size.measure_func.take() {
-            ui_surface.set_measure(ui_node_id.0, measure_func);
+            ui_surface.set_measure(uinode_id.get(), measure_func);
         }
     }
 
     // update window children (for now assuming all Nodes live in the primary window)
     ui_surface.set_window_children(
         primary_window_entity,
-        root_node_query.iter().map(|node| **node),
+        root_node_query.iter().map(|uinode_id| uinode_id.get()),
     );
 
     // compute layouts
@@ -311,11 +311,11 @@ pub fn ui_layout_system(
 
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
-    let taffy_window = ui_surface.window_nodes.get(&primary_window_entity).unwrap();
+    let layout_root_id = *ui_surface.window_nodes.get(&primary_window_entity).unwrap();
 
     // PERF: try doing this incrementally
-    for (ui_key, mut node_size, mut transform) in &mut node_transform_query {
-        let layout = ui_surface.taffy.layout(**ui_key).unwrap();
+    for (uinode_id, mut node_size, mut transform) in &mut node_transform_query {
+        let layout = ui_surface.taffy.layout(uinode_id.get()).unwrap();
         let new_size = Vec2::new(
             to_logical(layout.size.width),
             to_logical(layout.size.height),
@@ -328,8 +328,8 @@ pub fn ui_layout_system(
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
 
-        let taffy_parent = taffy::tree::LayoutTree::parent(&ui_surface.taffy, **ui_key).unwrap();
-        if taffy_parent != *taffy_window {
+        let taffy_parent = taffy::tree::LayoutTree::parent(&ui_surface.taffy, uinode_id.get()).unwrap();
+        if taffy_parent != layout_root_id {
             if let Ok(parent_layout) = ui_surface.taffy.layout(taffy_parent) {
                 new_position.x -= to_logical(parent_layout.size.width / 2.0);
                 new_position.y -= to_logical(parent_layout.size.height / 2.0);

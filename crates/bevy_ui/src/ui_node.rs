@@ -1,6 +1,5 @@
 use crate::UiRect;
 use bevy_asset::Handle;
-use bevy_derive::Deref;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
@@ -19,9 +18,18 @@ use thiserror::Error;
 ///
 /// Users can only instantiate null nodes using `UiNodeId::default()`, the keys are set and managed internally by [`super::layout::ui_layout_system`].
 /// All UI nodes must have this component.
-#[derive(Component, Debug, Default, Deref, Reflect)]
+#[derive(Component, Debug, Default, Reflect)]
 #[reflect(Component, Default)]
-pub struct UiNodeId(#[reflect(ignore)] pub(crate) taffy::node::Node);
+pub struct UiNodeId {
+    #[reflect(ignore)]
+    pub (crate) taffy_id: taffy::node::Node,
+}
+
+impl UiNodeId {
+    pub fn get(&self) -> taffy::node::Node {
+        self.taffy_id
+    }
+}
 
 /// Describes the size of a UI node
 #[derive(Component, Debug, Copy, Clone, Reflect)]
