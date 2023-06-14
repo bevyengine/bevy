@@ -208,7 +208,9 @@ where
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
 pub trait IntoSystem<In, Out, Marker>: Sized {
+    /// The type of [`System`] that this instance converts into.
     type System: System<In = In, Out = Out>;
+
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
 
@@ -491,7 +493,10 @@ mod tests {
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
-        schedule::{apply_deferred, IntoSystemConfigs, Schedule},
+        schedule::{
+            apply_deferred, common_conditions::resource_exists, Condition, IntoSystemConfigs,
+            Schedule,
+        },
         system::{
             adapter::new, Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
             QueryComponentError, Res, ResMut, Resource, System, SystemState,
@@ -1832,5 +1837,34 @@ mod tests {
         assert!(!info1.second_flag);
         assert!(info2.first_flag);
         assert!(!info2.second_flag);
+    }
+
+    #[test]
+    fn test_combinator_clone() {
+        let mut world = World::new();
+        #[derive(Resource)]
+        struct A;
+        #[derive(Resource)]
+        struct B;
+        #[derive(Resource, PartialEq, Eq, Debug)]
+        struct C(i32);
+
+        world.insert_resource(A);
+        world.insert_resource(C(0));
+        let mut sched = Schedule::new();
+        sched.add_systems(
+            (
+                (|mut res: ResMut<C>| {
+                    res.0 += 1;
+                }),
+                (|mut res: ResMut<C>| {
+                    res.0 += 2;
+                }),
+            )
+                .distributive_run_if(resource_exists::<A>().or_else(resource_exists::<B>())),
+        );
+        sched.initialize(&mut world).unwrap();
+        sched.run(&mut world);
+        assert_eq!(world.get_resource(), Some(&C(3)));
     }
 }

@@ -18,32 +18,31 @@ use bevy_ecs::{
 use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::ExtractedCamera,
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
     render_phase::{
-        sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand,
-        RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
+        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+        RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
-        DynamicUniformBuffer, Extent3d, FragmentState, FrontFace, MultisampleState, PipelineCache,
+        DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState, PipelineCache,
         PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef,
         ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureDescriptor,
-        TextureDimension, TextureSampleType, TextureUsages, TextureViewDimension, VertexState,
+        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureSampleType,
+        TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
-    texture::{FallbackImagesDepth, FallbackImagesMsaa, TextureCache},
+    texture::{FallbackImagesDepth, FallbackImagesMsaa},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{tracing::error, HashMap};
+use bevy_utils::tracing::error;
 
 use crate::{
     prepare_lights, AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey,
@@ -153,15 +152,10 @@ where
 
         if no_prepass_plugin_loaded {
             render_app
-                .init_resource::<DrawFunctions<Opaque3dPrepass>>()
-                .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
-                .add_systems(ExtractSchedule, extract_camera_prepass_phase)
+                .add_systems(ExtractSchedule, extract_camera_previous_view_projection)
                 .add_systems(
                     Render,
                     (
-                        prepare_prepass_textures
-                            .in_set(RenderSet::Prepare)
-                            .after(bevy_render::view::prepare_windows),
                         prepare_previous_view_projection_uniforms
                             .in_set(RenderSet::Prepare)
                             .after(PrepassLightsViewFlush),
@@ -169,8 +163,6 @@ where
                             .in_set(RenderSet::Prepare)
                             .in_set(PrepassLightsViewFlush)
                             .after(prepare_lights),
-                        sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
-                        sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
                     ),
                 );
         }
@@ -632,53 +624,13 @@ pub fn get_bindings<'a>(
 }
 
 // Extract the render phases for the prepass
-pub fn extract_camera_prepass_phase(
+pub fn extract_camera_previous_view_projection(
     mut commands: Commands,
-    cameras_3d: Extract<
-        Query<
-            (
-                Entity,
-                &Camera,
-                Option<&DepthPrepass>,
-                Option<&NormalPrepass>,
-                Option<&MotionVectorPrepass>,
-                Option<&PreviousViewProjection>,
-            ),
-            With<Camera3d>,
-        >,
-    >,
+    cameras_3d: Extract<Query<(Entity, &Camera, Option<&PreviousViewProjection>), With<Camera3d>>>,
 ) {
-    for (
-        entity,
-        camera,
-        depth_prepass,
-        normal_prepass,
-        motion_vector_prepass,
-        maybe_previous_view_proj,
-    ) in cameras_3d.iter()
-    {
+    for (entity, camera, maybe_previous_view_proj) in cameras_3d.iter() {
         if camera.is_active {
             let mut entity = commands.get_or_spawn(entity);
-
-            if depth_prepass.is_some()
-                || normal_prepass.is_some()
-                || motion_vector_prepass.is_some()
-            {
-                entity.insert((
-                    RenderPhase::<Opaque3dPrepass>::default(),
-                    RenderPhase::<AlphaMask3dPrepass>::default(),
-                ));
-            }
-
-            if depth_prepass.is_some() {
-                entity.insert(DepthPrepass);
-            }
-            if normal_prepass.is_some() {
-                entity.insert(NormalPrepass);
-            }
-            if motion_vector_prepass.is_some() {
-                entity.insert(MotionVectorPrepass);
-            }
 
             if let Some(previous_view) = maybe_previous_view_proj {
                 entity.insert(previous_view.clone());
@@ -726,114 +678,6 @@ pub fn prepare_previous_view_projection_uniforms(
     view_uniforms
         .uniforms
         .write_buffer(&render_device, &render_queue);
-}
-
-// Prepares the textures used by the prepass
-pub fn prepare_prepass_textures(
-    mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
-    msaa: Res<Msaa>,
-    render_device: Res<RenderDevice>,
-    views_3d: Query<
-        (
-            Entity,
-            &ExtractedCamera,
-            Option<&DepthPrepass>,
-            Option<&NormalPrepass>,
-            Option<&MotionVectorPrepass>,
-        ),
-        (
-            With<RenderPhase<Opaque3dPrepass>>,
-            With<RenderPhase<AlphaMask3dPrepass>>,
-        ),
-    >,
-) {
-    let mut depth_textures = HashMap::default();
-    let mut normal_textures = HashMap::default();
-    let mut motion_vectors_textures = HashMap::default();
-    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass) in &views_3d {
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
-        let size = Extent3d {
-            depth_or_array_layers: 1,
-            width: physical_target_size.x,
-            height: physical_target_size.y,
-        };
-
-        let cached_depth_texture = depth_prepass.is_some().then(|| {
-            depth_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| {
-                    let descriptor = TextureDescriptor {
-                        label: Some("prepass_depth_texture"),
-                        size,
-                        mip_level_count: 1,
-                        sample_count: msaa.samples(),
-                        dimension: TextureDimension::D2,
-                        format: DEPTH_PREPASS_FORMAT,
-                        usage: TextureUsages::COPY_DST
-                            | TextureUsages::RENDER_ATTACHMENT
-                            | TextureUsages::TEXTURE_BINDING,
-                        view_formats: &[],
-                    };
-                    texture_cache.get(&render_device, descriptor)
-                })
-                .clone()
-        });
-
-        let cached_normals_texture = normal_prepass.is_some().then(|| {
-            normal_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| {
-                    texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            label: Some("prepass_normal_texture"),
-                            size,
-                            mip_level_count: 1,
-                            sample_count: msaa.samples(),
-                            dimension: TextureDimension::D2,
-                            format: NORMAL_PREPASS_FORMAT,
-                            usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
-                            view_formats: &[],
-                        },
-                    )
-                })
-                .clone()
-        });
-
-        let cached_motion_vectors_texture = motion_vector_prepass.is_some().then(|| {
-            motion_vectors_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| {
-                    texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            label: Some("prepass_motion_vectors_textures"),
-                            size,
-                            mip_level_count: 1,
-                            sample_count: msaa.samples(),
-                            dimension: TextureDimension::D2,
-                            format: MOTION_VECTOR_PREPASS_FORMAT,
-                            usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
-                            view_formats: &[],
-                        },
-                    )
-                })
-                .clone()
-        });
-
-        commands.entity(entity).insert(ViewPrepassTextures {
-            depth: cached_depth_texture,
-            normal: cached_normals_texture,
-            motion_vectors: cached_motion_vectors_texture,
-            size,
-        });
-    }
 }
 
 #[derive(Default, Resource)]

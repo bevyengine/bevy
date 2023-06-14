@@ -152,6 +152,13 @@ pub struct SystemState<Param: SystemParam + 'static> {
 }
 
 impl<Param: SystemParam> SystemState<Param> {
+    /// Creates a new [`SystemState`] with default state.
+    ///
+    /// ## Note
+    /// For users of [`SystemState::get_manual`] or [`get_manual_mut`](SystemState::get_manual_mut):
+    ///
+    /// `new` does not cache any of the world's archetypes, so you must call [`SystemState::update_archetypes`]
+    /// manually before calling `get_manual{_mut}`.
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
@@ -164,6 +171,7 @@ impl<Param: SystemParam> SystemState<Param> {
         }
     }
 
+    /// Gets the metadata for this instance.
     #[inline]
     pub fn meta(&self) -> &SystemMeta {
         &self.meta
@@ -198,6 +206,8 @@ impl<Param: SystemParam> SystemState<Param> {
         Param::apply(&mut self.param_state, &self.meta, world);
     }
 
+    /// Returns `true` if `world` is the same one that was used to call [`SystemState::new`].
+    /// Otherwise, this returns false.
     #[inline]
     pub fn matches_world(&self, world: &World) -> bool {
         self.world_id == world.id()
@@ -350,6 +360,8 @@ where
     }
 }
 
+/// A marker type used to distinguish regular function systems from exclusive function systems.
+#[doc(hidden)]
 pub struct IsFunctionSystem;
 
 impl<Marker, F> IntoSystem<F::In, F::Out, (IsFunctionSystem, Marker)> for F
