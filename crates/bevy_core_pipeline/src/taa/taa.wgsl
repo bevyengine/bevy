@@ -19,6 +19,13 @@ const MIN_HISTORY_BLEND_RATE: f32 = 0.015; // Minimum blend rate allowed, to ens
 @group(0) @binding(4) var nearest_sampler: sampler;
 @group(0) @binding(5) var linear_sampler: sampler;
 
+// Settings for FXAA EXTREME 
+const EDGE_THRESHOLD_MIN: f32 = 0.0078;
+const EDGE_THRESHOLD_MAX: f32 = 0.031;
+const FXAA_ITERATIONS: i32 = 12; //default is 12
+const FXAA_SUBPIXEL_QUALITY: f32 = 0.75;
+#import bevy_core_pipeline::fxaa_functions
+
 struct Output {
     @location(0) view_target: vec4<f32>,
     @location(1) history: vec4<f32>,
@@ -65,11 +72,11 @@ fn clip_towards_aabb_center(history_color: vec3<f32>, current_color: vec3<f32>, 
 }
 
 fn sample_history(u: f32, v: f32) -> vec3<f32> {
-    return textureSample(history, linear_sampler, vec2(u, v)).rgb;
+    return textureSampleLevel(history, linear_sampler, vec2(u, v), 0.0).rgb;
 }
 
 fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
-    var sample = textureSample(view_target, nearest_sampler, uv).rgb;
+    var sample = textureSampleLevel(view_target, nearest_sampler, uv, 0.0).rgb;
 #ifdef TONEMAP
     sample = tonemap(sample);
 #endif
@@ -82,7 +89,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let texel_size = 1.0 / texture_size;
 
     // Fetch the current sample
-    let original_color = textureSample(view_target, nearest_sampler, uv);
+    let original_color = textureSampleLevel(view_target, nearest_sampler, uv, 0.0);
     var current_color = original_color.rgb;
 #ifdef TONEMAP
     current_color = tonemap(current_color);
@@ -97,11 +104,11 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let d_uv_bl = uv + vec2(-offset.x, -offset.y);
     let d_uv_br = uv + vec2(offset.x, -offset.y);
     var closest_uv = uv;
-    let d_tl = textureSample(depth, nearest_sampler, d_uv_tl);
-    let d_tr = textureSample(depth, nearest_sampler, d_uv_tr);
-    var closest_depth = textureSample(depth, nearest_sampler, uv);
-    let d_bl = textureSample(depth, nearest_sampler, d_uv_bl);
-    let d_br = textureSample(depth, nearest_sampler, d_uv_br);
+    let d_tl = textureSampleLevel(depth, nearest_sampler, d_uv_tl, 0.0);
+    let d_tr = textureSampleLevel(depth, nearest_sampler, d_uv_tr, 0.0);
+    var closest_depth = textureSampleLevel(depth, nearest_sampler, uv, 0.0);
+    let d_bl = textureSampleLevel(depth, nearest_sampler, d_uv_bl, 0.0);
+    let d_br = textureSampleLevel(depth, nearest_sampler, d_uv_br, 0.0);
     if d_tl > closest_depth {
         closest_uv = d_uv_tl;
         closest_depth = d_tl;
@@ -117,7 +124,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     if d_br > closest_depth {
         closest_uv = d_uv_br;
     }
-    let closest_motion_vector = textureSample(motion_vectors, nearest_sampler, closest_uv).rg;
+    let closest_motion_vector = textureSampleLevel(motion_vectors, nearest_sampler, closest_uv, 0.0).rg;
 
     // Reproject to find the equivalent sample from the past
     // Uses 5-sample Catmull-Rom filtering (reduces blurriness)
@@ -127,6 +134,19 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let history_uv = uv - closest_motion_vector;
     let sample_position = history_uv * texture_size;
     let texel_center = floor(sample_position - 0.5) + 0.5;
+
+    // Fall back to fxaa if the reprojected uv is off screen 
+    if texel_center.x < -0.5 || 
+       texel_center.y < -0.5 || 
+       texel_center.x > texture_size.x + 0.5 || 
+       texel_center.y > texture_size.y + 0.5 {
+        var out: Output;
+        out.view_target = fxaa(uv, texel_size);
+        let history_confidence = 1.0 / MIN_HISTORY_BLEND_RATE;
+        out.history = vec4(original_color.rgb, history_confidence);
+        return out;
+    }
+
     let f = sample_position - texel_center;
     let w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
     let w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
@@ -164,7 +184,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     history_color = YCoCg_to_RGB(history_color);
 
     // How confident we are that the history is representative of the current frame
-    var history_confidence = textureSample(history, nearest_sampler, uv).a;
+    var history_confidence = textureSampleLevel(history, nearest_sampler, uv, 0.0).a;
     let pixel_motion_vector = abs(closest_motion_vector) * texture_size;
     if pixel_motion_vector.x < 0.01 && pixel_motion_vector.y < 0.01 {
         // Increment when pixels are not moving

@@ -79,6 +79,8 @@ impl Default for Fxaa {
 
 const FXAA_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4182761465141723543);
+pub const FXAA_FUNCTIONS_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 914590283475021983);
 
 /// Adds support for Fast Approximate Anti-Aliasing (FXAA)
 pub struct FxaaPlugin;

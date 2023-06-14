@@ -41,7 +41,7 @@ use crate::{
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
-    fxaa::FxaaPlugin,
+    fxaa::{FxaaPlugin, FXAA_FUNCTIONS_SHADER_HANDLE},
     msaa_writeback::MsaaWritebackPlugin,
     prepass::{DepthPrepass, NormalPrepass},
     tonemapping::TonemappingPlugin,
@@ -60,6 +60,12 @@ impl Plugin for CorePipelinePlugin {
             app,
             FULLSCREEN_SHADER_HANDLE,
             "fullscreen_vertex_shader/fullscreen.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            FXAA_FUNCTIONS_SHADER_HANDLE,
+            "fxaa/fxaa_functions.wgsl",
             Shader::from_wgsl
         );
 
