@@ -202,12 +202,7 @@ pub fn extract_uinode_borders(
 
     let viewport_size = windows
         .get_single()
-        .map(|window| {
-            Vec2::new(
-                window.resolution.width(),
-                window.resolution.height(),
-            )
-        })
+        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
         .unwrap_or(Vec2::ZERO);
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
