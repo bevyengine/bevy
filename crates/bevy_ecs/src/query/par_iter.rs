@@ -1,8 +1,8 @@
 use crate::{component::Tick, world::unsafe_world_cell::UnsafeWorldCell};
 use bevy_tasks::ComputeTaskPool;
-use std::ops::Range;
+use std::{marker::PhantomData, ops::Range};
 
-use super::{QueryItem, QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery};
+use super::{QueryItem, QueryState, ReadOnlyWorldQuery, WorldQuery};
 
 /// Dictates how a parallel query chunks up large tables/archetypes
 /// during iteration.
@@ -87,26 +87,17 @@ pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
+
+    // Ensures that this type is !Send and !Sync unless we specifically add impls for it.
+    // SAFETY: This type must only be shareable between threads if `Q` is read-only.
+    pub(crate) _marker: PhantomData<*mut ()>,
 }
 
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
-    /// Runs `func` on each query result in parallel.
-    ///
-    /// This can only be called for read-only queries, see [`Self::for_each_mut`] for
-    /// write-queries.
-    ///
-    /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
-    ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    #[inline]
-    pub fn for_each<FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(&self, func: FN) {
-        // SAFETY: query is read only
-        unsafe {
-            self.for_each_unchecked(func);
-        }
-    }
+/// SAFETY: We only implement Sync for read-only queries.
+/// This ensures that you cannot call `for_each` multiple times at once for mutable queries.
+unsafe impl<Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> std::marker::Sync
+    for QueryParIter<'_, '_, Q, F>
+{
 }
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
@@ -122,16 +113,32 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     /// Runs `func` on each query result in parallel.
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&mut self, func: FN) {
-        // SAFETY: query has unique world access
+    pub fn for_each<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&self, func: FN) {
+        // SAFETY:
+        // This type can only be shared between threads if the query is read-only.
+        // This means that if the query is mutable, this method cannot be accessed anywhere else at the same time.
+        // If the query *is* read-only, then it's okay for this method to be called multiple times in parallel.
         unsafe {
             self.for_each_unchecked(func);
         }
+    }
+
+    /// Runs `func` on each query result in parallel.
+    ///
+    /// # Panics
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[inline]
+    #[deprecated = "use .for_each(...) instead"]
+    pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&mut self, func: FN) {
+        self.for_each(func);
     }
 
     /// Runs `func` on each query result in parallel.
