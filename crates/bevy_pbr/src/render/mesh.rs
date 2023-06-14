@@ -1,6 +1,3 @@
-mod bindings;
-mod morph;
-
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
     GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
@@ -46,8 +43,10 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap, Hashed};
 
+use crate::render::{mesh_bindings, morph};
+
 #[cfg(doc)]
-use bevy_render::mesh::morph::MorphAttributes;
+use bevy_render::morph::MorphAttributes;
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
@@ -555,10 +554,10 @@ impl FromWorld for MeshPipeline {
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts {
-                model_only: bindings::layout::model_only(&render_device),
-                skinned: bindings::layout::skinned(&render_device),
-                morphed: bindings::layout::morphed(&render_device),
-                morphed_skinned: bindings::layout::morphed_skinned(&render_device),
+                model_only: mesh_bindings::layout::model_only(&render_device),
+                skinned: mesh_bindings::layout::skinned(&render_device),
+                morphed: mesh_bindings::layout::morphed(&render_device),
+                morphed_skinned: mesh_bindings::layout::morphed_skinned(&render_device),
             },
         }
     }
@@ -953,7 +952,7 @@ pub fn queue_mesh_bind_group(
     skinned_mesh_uniform: Res<SkinnedMeshUniform>,
     weights_uniform: Res<morph::Uniform>,
 ) {
-    use bindings::group::{model_only, morphed, morphed_skinned, skinned};
+    use mesh_bindings::group::{model_only, morphed, morphed_skinned, skinned};
 
     groups.reset();
 
