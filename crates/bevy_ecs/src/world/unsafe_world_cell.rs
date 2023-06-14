@@ -127,7 +127,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ///
     /// // !!This is unsound!! Even though this method is safe, we cannot call it until
     /// // `world_mut` is no longer active.
-    /// let tick = world_cell.read_change_tick();
+    /// let tick = world_cell.change_tick();
     ///
     /// // Use mutable access to spawn an entity.
     /// world_mut.spawn(Player);
