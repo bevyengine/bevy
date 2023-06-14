@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
-rust-version = "1.67.0"
+rust-version = "1.70.0"
 
 [workspace]
 exclude = [
@@ -716,7 +716,7 @@ path = "examples/3d/wireframe.rs"
 name = "Wireframe"
 description = "Showcases wireframe rendering"
 category = "3D Rendering"
-wasm = true
+wasm = false
 
 [[example]]
 name = "no_prepass"
@@ -1043,12 +1043,12 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "apply_system_buffers"
-path = "examples/ecs/apply_system_buffers.rs"
+name = "apply_deferred"
+path = "examples/ecs/apply_deferred.rs"
 
-[package.metadata.example.apply_system_buffers]
+[package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
-description = "Show how to use `apply_system_buffers` system"
+description = "Show how to use `apply_deferred` system"
 category = "ECS (Entity Component System)"
 wasm = false
 

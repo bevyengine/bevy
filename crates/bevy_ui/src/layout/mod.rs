@@ -73,6 +73,7 @@ impl Default for UiSurface {
 }
 
 impl UiSurface {
+    /// Inserts a node into the Taffy layout and associates it with the given entity.
     pub fn insert_node(&mut self, entity: Entity) -> taffy::node::Node {
         let id = self.taffy.new_leaf(taffy::style::Style::default()).unwrap();
         if let Some(old_taffy_node) = self.entity_to_taffy.insert(entity, id) {
@@ -81,6 +82,7 @@ impl UiSurface {
         id
     }
 
+    /// Converts the given Bevy UI `Style` to a taffy style and applies it to the taffy node with identifier `id`.
     pub fn set_style(
         &mut self,
         id: taffy::node::Node,
@@ -92,6 +94,7 @@ impl UiSurface {
             .unwrap();
     }
 
+    /// Sets the `MeasureFunc` for taffy node `id` to `measure`.
     pub fn set_measure(&mut self, id: taffy::node::Node, measure: MeasureFunc) {
         self.taffy.set_measure(id, Some(measure)).unwrap();
     }
@@ -260,6 +263,7 @@ pub fn ui_layout_system(
             return;
         };
 
+    // Set the `window_changed` flag if the primary window was resized or created since the last UI update.
     let window_changed = window_resized_events
         .iter()
         .map(|resized| resized.window)
@@ -271,9 +275,7 @@ pub fn ui_layout_system(
         ui_surface.update_window(entity, &window.resolution);
     }
 
-    let scale_factor = logical_to_physical_factor * ui_scale.scale;
-
-    let layout_context = LayoutContext::new(scale_factor, physical_size);
+    let layout_context = LayoutContext::new(logical_to_physical_factor * ui_scale.scale, physical_size);
 
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || window_changed {
         scale_factor_events.clear();
