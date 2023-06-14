@@ -101,12 +101,12 @@ impl Default for UiSurface {
 
 impl UiSurface {
     /// Inserts a node into the Taffy layout, associates it with the given entity, and returns its taffy id.
-    pub fn insert_node(&mut self, entity: Entity) -> taffy::node::Node {
+    pub fn insert_node(&mut self, uinode: Entity) -> taffy::node::Node {
         // It's possible for a user to overwrite an active `UiKey` component with `UiKey::default()`.
         // In which case we reuse the existing taffy node.
         *self
             .entity_to_taffy
-            .entry(entity)
+            .entry(uinode)
             .or_insert_with(|| self.taffy.new_leaf(taffy::style::Style::default()).unwrap())
     }
 
@@ -147,8 +147,8 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Removes children from the entity's taffy node if it exists. Does nothing otherwise.
-    pub fn try_remove_children(&mut self, entity: Entity) {
-        if let Some(key) = self.entity_to_taffy.get(&entity) {
+    pub fn try_remove_children(&mut self, parent: Entity) {
+        if let Some(key) = self.entity_to_taffy.get(&parent) {
             self.taffy.set_children(*key, &[]).unwrap();
         }
     }
