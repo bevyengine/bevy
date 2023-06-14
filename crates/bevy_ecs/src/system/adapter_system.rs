@@ -48,13 +48,6 @@ pub trait Adapt<S: System>: Send + Sync + 'static {
     /// When used in an [`AdapterSystem`], this function customizes how the system
     /// is run and how its inputs/outputs are adapted.
     fn adapt(&mut self, input: Self::In, run_system: impl FnOnce(S::In) -> S::Out) -> Self::Out;
-
-    /// Modifies the name of a system that uses this adapter.
-    /// If this returns [`None`], the system name will be unchanged.
-    #[allow(unused_variables)]
-    fn adapt_name(&self, name: &str) -> Option<String> {
-        None
-    }
 }
 
 #[derive(Clone)]
@@ -62,7 +55,7 @@ pub trait Adapt<S: System>: Send + Sync + 'static {
 pub struct AdapterSystem<Func, S> {
     func: Func,
     system: S,
-    name: Option<String>,
+    name: Cow<'static, str>,
 }
 
 impl<Func, S> AdapterSystem<Func, S>
@@ -71,12 +64,8 @@ where
     S: System,
 {
     /// Creates a new [`System`] that uses `func` to adapt `system`, via the [`Adapt`] trait.
-    pub fn new(func: Func, system: S) -> Self {
-        Self {
-            name: func.adapt_name(&system.name()),
-            func,
-            system,
-        }
+    pub const fn new(func: Func, system: S, name: Cow<'static, str>) -> Self {
+        Self { func, system, name }
     }
 }
 
@@ -89,11 +78,7 @@ where
     type Out = Func::Out;
 
     fn name(&self) -> Cow<'static, str> {
-        if let Some(name) = &self.name {
-            Cow::Owned(name.clone())
-        } else {
-            self.system.name()
-        }
+        self.name.clone()
     }
 
     fn type_id(&self) -> std::any::TypeId {

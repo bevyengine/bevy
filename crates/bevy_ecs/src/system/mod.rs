@@ -251,7 +251,9 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     where
         F: Send + Sync + 'static + FnMut(Out) -> T,
     {
-        AdapterSystem::new(f, Self::into_system(self))
+        let system = Self::into_system(self);
+        let name = system.name();
+        AdapterSystem::new(f, system, name)
     }
 }
 

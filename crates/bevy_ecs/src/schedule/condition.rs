@@ -184,7 +184,7 @@ pub mod common_conditions {
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
         schedule::{State, States},
-        system::{IntoSystem, Res, Resource},
+        system::{IntoSystem, Res, Resource, System},
     };
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -979,7 +979,8 @@ pub mod common_conditions {
         T: IntoSystem<(), TOut, Marker>,
     {
         let condition = IntoSystem::into_system(condition);
-        NotSystem::new(super::NotMarker, condition)
+        let name = format!("!{}", condition.name());
+        NotSystem::new(super::NotMarker, condition, name.into())
     }
 }
 
@@ -1002,10 +1003,6 @@ where
 
     fn adapt(&mut self, input: Self::In, run_system: impl FnOnce(T::In) -> T::Out) -> Self::Out {
         !run_system(input)
-    }
-
-    fn adapt_name(&self, name: &str) -> Option<String> {
-        Some(format!("!{name}"))
     }
 }
 
