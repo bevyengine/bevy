@@ -176,7 +176,6 @@ mod sealed {
 }
 
 pub mod common_conditions {
-
     use super::NotSystem;
     use crate::{
         change_detection::DetectChanges,
