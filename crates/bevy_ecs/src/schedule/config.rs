@@ -504,13 +504,7 @@ pub trait IntoSystemSetConfig: Sized {
 
 impl<S: SystemSet> IntoSystemSetConfig for S {
     fn into_config(self) -> SystemSetConfig {
-        SystemSetConfig::new(Box::new(self))
-    }
-}
-
-impl IntoSystemSetConfig for BoxedSystemSet {
-    fn into_config(self) -> SystemSetConfig {
-        SystemSetConfig::new(self)
+        SystemSetConfig::new(self.into_boxed())
     }
 }
 

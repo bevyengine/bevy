@@ -30,6 +30,15 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
     fn is_anonymous(&self) -> bool {
         false
     }
+
+    /// Convert this system set to a [`BoxedSystemSet`]
+    fn into_boxed(self) -> BoxedSystemSet
+    where
+        Self: Sized,
+    {
+        Box::new(self)
+    }
+
     /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 }
@@ -51,6 +60,24 @@ impl Hash for dyn SystemSet {
 impl Clone for Box<dyn SystemSet> {
     fn clone(&self) -> Self {
         self.dyn_clone()
+    }
+}
+
+impl SystemSet for BoxedSystemSet {
+    fn dyn_clone(&self) -> Box<dyn SystemSet> {
+        self.as_ref().dyn_clone()
+    }
+
+    fn system_type(&self) -> Option<TypeId> {
+        self.as_ref().system_type()
+    }
+
+    fn is_anonymous(&self) -> bool {
+        self.as_ref().is_anonymous()
+    }
+
+    fn into_boxed(self) -> BoxedSystemSet {
+        self
     }
 }
 
