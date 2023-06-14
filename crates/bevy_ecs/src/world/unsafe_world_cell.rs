@@ -104,7 +104,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ///     it is likely *unsound* to call this method.
     /// - The returned `&mut World` *must* be unique: it must never be allowed to exist
     ///   at the same time as any other borrows of the world or any accesses to its data.
-    ///   This includes safe ways of accessing world data, such as [`UnsafeWorldCell::archetypes`]:
+    ///   This includes safe ways of accessing world data, such as [`UnsafeWorldCell::archetypes`].
     ///   - Note that the `&mut World` *may* exist at the same time as instances of `UnsafeWorldCell`,
     ///     so long as none of those instances are used to access world data in any way
     ///     while the mutable borrow is active.
@@ -127,7 +127,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ///
     /// // !!This is unsound!! Even though this method is safe, we cannot call it until
     /// // `world_mut` is no longer active.
-    /// let tick = world_cell.read_change_tick();
+    /// let tick = world_cell.change_tick();
     ///
     /// // Use mutable access to spawn an entity.
     /// world_mut.spawn(Player);
