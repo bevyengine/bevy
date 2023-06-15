@@ -1114,7 +1114,7 @@ unsafe impl<T: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Option<T> {}
 /// # #[derive(Component)]
 /// # struct Name { name: &'static str };
 /// #
-/// fn compliment_entity_system(query: Query<(&Name, Has<IsHungry>) >) {
+/// fn food_entity_system(query: Query<(&Name, Has<IsHungry>) >) {
 ///     for (name, is_hungry) in &query {
 ///         if is_hungry{
 ///             println!("{} would like some food.", name.name);
@@ -1123,7 +1123,29 @@ unsafe impl<T: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Option<T> {}
 ///         }
 ///     }
 /// }
-/// # bevy_ecs::system::assert_is_system(compliment_entity_system);
+/// # bevy_ecs::system::assert_is_system(food_entity_system);
+/// ```
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::query::Has;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// #
+/// # #[derive(Component)]
+/// # struct Alpha{has_beta: bool};
+/// # #[derive(Component)]
+/// # struct Beta { has_alpha: bool };
+/// #
+/// fn alphabet_entity_system(mut alphas: Query<(&mut Alpha, Has<Beta>)>, mut betas: Query<(&mut Beta, Has<Alpha>)>) {
+///     for (mut alpha, has_beta) in alphas.iter_mut() {
+///         alpha.has_beta = has_beta;
+///     }
+///     for (mut beta, has_alpha) in betas.iter_mut() {
+///         beta.has_alpha = has_alpha;
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(alphabet_entity_system);
 /// ```
 pub struct Has<T>(PhantomData<T>);
 
