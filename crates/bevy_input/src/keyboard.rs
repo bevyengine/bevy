@@ -318,16 +318,19 @@ pub enum KeyCode {
     /// The `Kanji` key.
     Kanji,
 
-    /// The `LAlt` / `Left Alt` key. Maps to `Left Option` on Mac.
-    LAlt,
-    /// The `LBracket` / `Left Bracket` key.
-    LBracket,
-    /// The `LControl` / `Left Control` key.
-    LControl,
-    /// The `LShift` / `Left Shift` key.
-    LShift,
-    /// The `LWin` / `Left Windows` key. Maps to `Left Command` on Mac.
-    LWin,
+    /// The `Left Alt` key. Maps to `Left Option` on Mac.
+    AltLeft,
+    /// The `Left Bracket` / `[` key.
+    BracketLeft,
+    /// The `Left Control` key.
+    ControlLeft,
+    /// The `Left Shift` key.
+    ShiftLeft,
+    /// The `Left Super` key.
+    /// Generic keyboards usually display this key with the *Microsoft Windows* logo.
+    /// Apple keyboards call this key the *Command Key* and display it using the ⌘ character.
+    #[doc(alias("LWin", "LMeta", "LLogo"))]
+    SuperLeft,
 
     /// The `Mail` key.
     Mail,
@@ -368,16 +371,19 @@ pub enum KeyCode {
     /// The `PrevTrack` key.
     PrevTrack,
 
-    /// The `RAlt` / `Right Alt` key. Maps to `Right Option` on Mac.
-    RAlt,
-    /// The `RBracket` / `Right Bracket` key.
-    RBracket,
-    /// The `RControl` / `Right Control` key.
-    RControl,
-    /// The `RShift` / `Right Shift` key.
-    RShift,
-    /// The `RWin` / `Right Windows` key. Maps to `Right Command` on Mac.
-    RWin,
+    /// The `Right Alt` key. Maps to `Right Option` on Mac.
+    AltRight,
+    /// The `Right Bracket` / `]` key.
+    BracketRight,
+    /// The `Right Control` key.
+    ControlRight,
+    /// The `Right Shift` key.
+    ShiftRight,
+    /// The `Right Super` key.
+    /// Generic keyboards usually display this key with the *Microsoft Windows* logo.
+    /// Apple keyboards call this key the *Command Key* and display it using the ⌘ character.
+    #[doc(alias("RWin", "RMeta", "RLogo"))]
+    SuperRight,
 
     /// The `Semicolon` / `;` key.
     Semicolon,

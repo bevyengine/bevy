@@ -1763,6 +1763,16 @@ wasm = true
 
 # UI (User Interface)
 [[example]]
+name = "borders"
+path = "examples/ui/borders.rs"
+
+[package.metadata.example.borders]
+name = "Borders"
+description = "Demonstrates how to create a node with a border"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "button"
 path = "examples/ui/button.rs"
 
@@ -1930,6 +1940,16 @@ path = "examples/ui/ui_texture_atlas.rs"
 [package.metadata.example.ui_texture_atlas]
 name = "UI Texture Atlas"
 description = "Illustrates how to use TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "Viewport Debug"
+description = "An example for debugging viewport coordinates"
+
+[package.metadata.example.viewport_debug]
+name = "viewport_debug"
+path = "examples/ui/viewport_debug.rs"
 category = "UI (User Interface)"
 wasm = true
 
