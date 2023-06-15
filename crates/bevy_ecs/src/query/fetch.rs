@@ -1096,7 +1096,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 /// SAFETY: [`OptionFetch`] is read only because `T` is read only
 unsafe impl<T: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Option<T> {}
 
-/// Returns whether each entity has component `T`.
+/// Returns a bool that describes if the entity has component `T`.
 ///
 /// This can be used in a [`Query`](crate::system::Query) if you want to know whether or not entities
 /// have the component `T`  but don't actually care about the component's value.
