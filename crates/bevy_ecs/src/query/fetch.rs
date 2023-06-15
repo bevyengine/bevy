@@ -1151,7 +1151,7 @@ unsafe impl<T: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Option<T> {}
 /// # #[derive(Component)]
 /// # struct Beta { has_alpha: bool };
 /// #
-/// // Unlike `Option<&T>`, `Has<T>` is compatible with `&mut T` 
+/// // Unlike `Option<&T>`, `Has<T>` is compatible with `&mut T`
 /// // as it does not actually access any data.
 /// fn alphabet_entity_system(mut alphas: Query<(&mut Alpha, Has<Beta>)>, mut betas: Query<(&mut Beta, Has<Alpha>)>) {
 ///     for (mut alpha, has_beta) in alphas.iter_mut() {
@@ -1222,8 +1222,8 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     }
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut HasFetch<T>, _state: &ComponentId, _table: &Table) {
-        _fetch.matches = _table.has_column(*_state);
+    unsafe fn set_table(fetch: &mut HasFetch<T>, state: &ComponentId, table: &Table) {
+        fetch.matches = table.has_column(*state);
     }
 
     #[inline(always)]
