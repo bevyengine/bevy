@@ -108,11 +108,16 @@ pub trait System: Send + Sync + 'static {
 /// [`System`] types that do not modify the [`World`] when run.
 /// This is implemented for any systems whose parameters all implement [`ReadOnlySystemParam`].
 ///
+/// Note that systems which perform [deferred](System::apply_deferred) mutations (such as with [`Commands`])
+/// may implement this trait.
+///
 /// [`ReadOnlySystemParam`]: crate::system::ReadOnlySystemParam
+/// [`Commands`]: crate::system::Commands
 ///
 /// # Safety
 ///
-/// This must only be implemented for system types which do not mutate the `World`.
+/// This must only be implemented for system types which do not mutate the `World`
+/// when [`System::run_unsafe`] is called.
 pub unsafe trait ReadOnlySystem: System {
     /// Runs this system with the given input in the world.
     ///
