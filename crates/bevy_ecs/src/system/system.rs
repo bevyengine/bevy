@@ -52,7 +52,12 @@ pub trait System: Send + Sync + 'static {
     ///   point before this one, with the same exact [`World`]. If `update_archetype_component_access`
     ///   panics (or otherwise does not return for any reason), this method must not be called.
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out;
+
     /// Runs the system with the given input in the world.
+    ///
+    /// For [read-only](ReadOnlySystem) systems, see [`run_readonly`], which can be called using `&World`.
+    ///
+    /// [`run_readonly`]: ReadOnlySystem::run_readonly
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         let world = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world);
@@ -61,29 +66,36 @@ pub trait System: Send + Sync + 'static {
         // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world) }
     }
+
     /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.
     ///
     /// This is where [`Commands`](crate::system::Commands) get applied.
     fn apply_deferred(&mut self, world: &mut World);
+
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
+
     /// Update the system's archetype component [`Access`].
     ///
     /// ## Note for implementors
     /// `world` may only be used to access metadata. This can be done in safe code
     /// via functions such as [`UnsafeWorldCell::archetypes`].
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell);
+
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
     /// This method must be called periodically to ensure that change detection behaves correctly.
     /// When using bevy's default configuration, this will be called for you as needed.
     fn check_change_tick(&mut self, change_tick: Tick);
+
     /// Returns the system's default [system sets](crate::schedule::SystemSet).
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
         Vec::new()
     }
+
     /// Gets the tick indicating the last time this system ran.
     fn get_last_run(&self) -> Tick;
+
     /// Overwrites the tick indicating the last time this system ran.
     ///
     /// # Warning
