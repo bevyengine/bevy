@@ -1191,7 +1191,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
 
     #[inline]
     unsafe fn init_fetch(
-        _world: &World,
+        _world: UnsafeWorldCell,
         _state: &ComponentId,
         _last_run: Tick,
         _this_run: Tick,
