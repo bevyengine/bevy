@@ -1151,6 +1151,8 @@ unsafe impl<T: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Option<T> {}
 /// # #[derive(Component)]
 /// # struct Beta { has_alpha: bool };
 /// #
+/// // Unlike `Option<&T>`, `Has<T>` is compatible with `&mut T` 
+/// // as it does not actually access any data.
 /// fn alphabet_entity_system(mut alphas: Query<(&mut Alpha, Has<Beta>)>, mut betas: Query<(&mut Beta, Has<Alpha>)>) {
 ///     for (mut alpha, has_beta) in alphas.iter_mut() {
 ///         alpha.has_beta = has_beta;
