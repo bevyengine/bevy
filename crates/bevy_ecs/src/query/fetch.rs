@@ -5,7 +5,7 @@ use crate::{
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
-    world::{Mut, Ref, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, Mut, Ref, World},
 };
 pub use bevy_ecs_macros::WorldQuery;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -335,10 +335,11 @@ pub unsafe trait WorldQuery {
     ///
     /// # Safety
     ///
-    /// `state` must have been initialized (via [`WorldQuery::init_state`]) using the same `world` passed
-    /// in to this function.
+    /// - `world` must have permission to access any of the components specified in `Self::update_archetype_component_access`.
+    /// - `state` must have been initialized (via [`WorldQuery::init_state`]) using the same `world` passed
+    ///   in to this function.
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         state: &Self::State,
         last_run: Tick,
         this_run: Tick,
@@ -372,8 +373,10 @@ pub unsafe trait WorldQuery {
     ///
     /// # Safety
     ///
-    /// `archetype` and `tables` must be from the [`World`] [`WorldQuery::init_state`] was called on. `state` must
-    /// be the [`Self::State`] this was initialized with.
+    /// - `archetype` and `tables` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
+    /// - [`Self::update_archetype_component_access`] must have been previously called with `archetype`.
+    /// - `table` must correspond to `archetype`.
+    /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
@@ -386,8 +389,10 @@ pub unsafe trait WorldQuery {
     ///
     /// # Safety
     ///
-    /// `table` must be from the [`World`] [`WorldQuery::init_state`] was called on. `state` must be the
-    /// [`Self::State`] this was initialized with.
+    /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
+    /// - `table` must belong to an archetype that was previously registered with
+    ///   [`Self::update_archetype_component_access`].
+    /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
 
     /// Fetch [`Self::Item`](`WorldQuery::Item`) for either the given `entity` in the current [`Table`],
@@ -475,7 +480,7 @@ unsafe impl WorldQuery for Entity {
     const IS_ARCHETYPAL: bool = true;
 
     unsafe fn init_fetch<'w>(
-        _world: &'w World,
+        _world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         _last_run: Tick,
         _this_run: Tick,
@@ -558,7 +563,7 @@ unsafe impl<T: Component> WorldQuery for &T {
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         &component_id: &ComponentId,
         _last_run: Tick,
         _this_run: Tick,
@@ -567,6 +572,11 @@ unsafe impl<T: Component> WorldQuery for &T {
             table_components: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
+                    // SAFETY: The underlying type associated with `component_id` is `T`,
+                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                    // Note that we do not actually access any components in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components in `Self::fetch`.
+                    .unsafe_world()
                     .storages()
                     .sparse_sets
                     .get(component_id)
@@ -704,7 +714,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         &component_id: &ComponentId,
         last_run: Tick,
         this_run: Tick,
@@ -713,6 +723,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             table_data: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
+                    // SAFETY: See &T::init_fetch.
+                    .unsafe_world()
                     .storages()
                     .sparse_sets
                     .get(component_id)
@@ -866,7 +878,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         &component_id: &ComponentId,
         last_run: Tick,
         this_run: Tick,
@@ -875,6 +887,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             table_data: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
+                    // SAFETY: See &T::init_fetch.
+                    .unsafe_world()
                     .storages()
                     .sparse_sets
                     .get(component_id)
@@ -1011,7 +1025,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         state: &T::State,
         last_run: Tick,
         this_run: Tick,
@@ -1116,7 +1130,7 @@ macro_rules! impl_tuple_fetch {
 
             #[inline]
             #[allow(clippy::unused_unit)]
-            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 ($($name::init_fetch(_world, $name, _last_run, _this_run),)*)
             }
@@ -1226,7 +1240,7 @@ macro_rules! impl_anytuple_fetch {
 
             #[inline]
             #[allow(clippy::unused_unit)]
-            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 ($(($name::init_fetch(_world, $name, _last_run, _this_run), false),)*)
             }
@@ -1350,7 +1364,13 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
-    unsafe fn init_fetch(_world: &World, _state: &Q::State, _last_run: Tick, _this_run: Tick) {}
+    unsafe fn init_fetch(
+        _world: UnsafeWorldCell,
+        _state: &Q::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) {
+    }
 
     unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
 
@@ -1408,7 +1428,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
     unsafe fn init_fetch<'w>(
-        _world: &'w World,
+        _world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         _last_run: Tick,
         _this_run: Tick,
