@@ -47,7 +47,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_dynamic_plugin|Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))|
 |bmp|BMP image format support|
 |dds|DDS compressed texture support|
-|debug_asset_server|Enable the "debug asset server" for hot reloading internal assets|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |exr|EXR image format support|
