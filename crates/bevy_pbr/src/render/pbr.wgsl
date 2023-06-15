@@ -147,7 +147,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef DEFERRED_PREPASS
         out.deferred = deferred_gbuffer_from_pbr_input(pbr_input, in.frag_coord.z);
 #ifdef NORMAL_PREPASS
-        out.normal = pbr_input.N;
+        out.normal = vec4(pbr_input.N, 1.0);
 #endif
 #else
         output_color = pbr(pbr_input);
