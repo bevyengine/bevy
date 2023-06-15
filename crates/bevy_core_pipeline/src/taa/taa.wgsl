@@ -201,8 +201,9 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // Blend current and past sample
     // Use more of the history if we're confident in it (reduces noise when there is no motion)
     // https://hhoppe.com/supersample.pdf, section 4.1
-    let current_color_factor = clamp(1.0 / history_confidence, MIN_HISTORY_BLEND_RATE, DEFAULT_HISTORY_BLEND_RATE);
-    current_color = mix(history_color, current_color, select(current_color_factor, 1.0, reprojection_fail));
+    var current_color_factor = clamp(1.0 / history_confidence, MIN_HISTORY_BLEND_RATE, DEFAULT_HISTORY_BLEND_RATE);
+    current_color_factor = select(current_color_factor, 1.0, reprojection_fail);
+    current_color = mix(history_color, current_color, current_color_factor);
 #endif // #ifndef RESET
 
 
