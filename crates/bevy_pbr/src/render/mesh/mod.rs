@@ -656,7 +656,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
-        if key.msaa_samples() != 1 {
+        if key.msaa_samples() > 1 {
             shader_defs.push("MULTISAMPLED".into());
         }
 
@@ -691,7 +691,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(6));
         }
 
-        let view_layout = if key.msaa_samples() != 1 {
+        let view_layout = if key.msaa_samples() > 1 {
             &self.view_layout_multisampled
         } else {
             &self.view_layout

@@ -335,6 +335,8 @@ where
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        // If you are updating this specialize impl, check the MeshPipeline
+        // specialize impl in render/mesh/mod.rs, you probably need to update it as well.
         let mesh_key = key.mesh_key;
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
