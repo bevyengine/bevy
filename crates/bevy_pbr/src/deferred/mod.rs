@@ -84,9 +84,9 @@ impl Plugin for DeferredLightingPlugin {
             .add_render_graph_edges(
                 core_3d::graph::NAME,
                 &[
-                    core_3d::graph::node::DEFERRED,
-                    DeferredLightingNode::NAME,
                     core_3d::graph::node::START_MAIN_PASS,
+                    DeferredLightingNode::NAME,
+                    core_3d::graph::node::MAIN_OPAQUE_PASS,
                 ],
             );
     }
