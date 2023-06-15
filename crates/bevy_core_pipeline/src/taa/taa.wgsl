@@ -126,6 +126,10 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     }
     let closest_motion_vector = textureSampleLevel(motion_vectors, nearest_sampler, closest_uv, 0.0).rg;
 
+    // How confident we are that the history is representative of the current frame
+    var history_confidence = textureSampleLevel(history, nearest_sampler, uv, 1.0).a;
+    var history_color = vec3(0.0);
+
     // Reproject to find the equivalent sample from the past
     // Uses 5-sample Catmull-Rom filtering (reduces blurriness)
     // Catmull-Rom filtering: https://gist.github.com/TheRealMJP/c83b8c0f46b63f3a88a5986f4fa982b1
@@ -135,70 +139,70 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let sample_position = history_uv * texture_size;
     let texel_center = floor(sample_position - 0.5) + 0.5;
 
+    var reprojection_fail = false;
     // Fall back to fxaa if the reprojected uv is off screen 
     if texel_center.x < -0.5 || 
        texel_center.y < -0.5 || 
        texel_center.x > texture_size.x + 0.5 || 
        texel_center.y > texture_size.y + 0.5 {
-        var out: Output;
-        out.view_target = fxaa(uv, texel_size);
-        let history_confidence = 1.0 / MIN_HISTORY_BLEND_RATE;
-        out.history = vec4(original_color.rgb, history_confidence);
-        return out;
-    }
-
-    let f = sample_position - texel_center;
-    let w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
-    let w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
-    let w2 = f * (0.5 + f * (2.0 - 1.5 * f));
-    let w3 = f * f * (-0.5 + 0.5 * f);
-    let w12 = w1 + w2;
-    let texel_position_0 = (texel_center - 1.0) * texel_size;
-    let texel_position_3 = (texel_center + 2.0) * texel_size;
-    let texel_position_12 = (texel_center + (w2 / w12)) * texel_size;
-    var history_color = sample_history(texel_position_12.x, texel_position_0.y) * w12.x * w0.y;
-    history_color += sample_history(texel_position_0.x, texel_position_12.y) * w0.x * w12.y;
-    history_color += sample_history(texel_position_12.x, texel_position_12.y) * w12.x * w12.y;
-    history_color += sample_history(texel_position_3.x, texel_position_12.y) * w3.x * w12.y;
-    history_color += sample_history(texel_position_12.x, texel_position_3.y) * w12.x * w3.y;
-
-    // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
-    // YCoCg: https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 33
-    // Variance clipping: https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
-    let s_tl = sample_view_target(uv + vec2(-texel_size.x,  texel_size.y));
-    let s_tm = sample_view_target(uv + vec2( 0.0,           texel_size.y));
-    let s_tr = sample_view_target(uv + vec2( texel_size.x,  texel_size.y));
-    let s_ml = sample_view_target(uv + vec2(-texel_size.x,  0.0));
-    let s_mm = RGB_to_YCoCg(current_color);
-    let s_mr = sample_view_target(uv + vec2( texel_size.x,  0.0));
-    let s_bl = sample_view_target(uv + vec2(-texel_size.x, -texel_size.y));
-    let s_bm = sample_view_target(uv + vec2( 0.0,          -texel_size.y));
-    let s_br = sample_view_target(uv + vec2( texel_size.x, -texel_size.y));
-    let moment_1 = s_tl + s_tm + s_tr + s_ml + s_mm + s_mr + s_bl + s_bm + s_br;
-    let moment_2 = (s_tl * s_tl) + (s_tm * s_tm) + (s_tr * s_tr) + (s_ml * s_ml) + (s_mm * s_mm) + (s_mr * s_mr) + (s_bl * s_bl) + (s_bm * s_bm) + (s_br * s_br);
-    let mean = moment_1 / 9.0;
-    let variance = (moment_2 / 9.0) - (mean * mean);
-    let std_deviation = sqrt(max(variance, vec3(0.0)));
-    history_color = RGB_to_YCoCg(history_color);
-    history_color = clip_towards_aabb_center(history_color, s_mm, mean - std_deviation, mean + std_deviation);
-    history_color = YCoCg_to_RGB(history_color);
-
-    // How confident we are that the history is representative of the current frame
-    var history_confidence = textureSampleLevel(history, nearest_sampler, uv, 0.0).a;
-    let pixel_motion_vector = abs(closest_motion_vector) * texture_size;
-    if pixel_motion_vector.x < 0.01 && pixel_motion_vector.y < 0.01 {
-        // Increment when pixels are not moving
-        history_confidence += 10.0;
-    } else {
-        // Else reset
+        current_color = fxaa(uv, texel_size).rgb;
+#ifdef TONEMAP
+        current_color = tonemap(current_color);
+#endif
         history_confidence = 1.0;
+        reprojection_fail = true;
+    } else {
+        let f = sample_position - texel_center;
+        let w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+        let w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+        let w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+        let w3 = f * f * (-0.5 + 0.5 * f);
+        let w12 = w1 + w2;
+        let texel_position_0 = (texel_center - 1.0) * texel_size;
+        let texel_position_3 = (texel_center + 2.0) * texel_size;
+        let texel_position_12 = (texel_center + (w2 / w12)) * texel_size;
+        history_color = sample_history(texel_position_12.x, texel_position_0.y) * w12.x * w0.y;
+        history_color += sample_history(texel_position_0.x, texel_position_12.y) * w0.x * w12.y;
+        history_color += sample_history(texel_position_12.x, texel_position_12.y) * w12.x * w12.y;
+        history_color += sample_history(texel_position_3.x, texel_position_12.y) * w3.x * w12.y;
+        history_color += sample_history(texel_position_12.x, texel_position_3.y) * w12.x * w3.y;
+
+        // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
+        // YCoCg: https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 33
+        // Variance clipping: https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
+        let s_tl = sample_view_target(uv + vec2(-texel_size.x,  texel_size.y));
+        let s_tm = sample_view_target(uv + vec2( 0.0,           texel_size.y));
+        let s_tr = sample_view_target(uv + vec2( texel_size.x,  texel_size.y));
+        let s_ml = sample_view_target(uv + vec2(-texel_size.x,  0.0));
+        let s_mm = RGB_to_YCoCg(current_color);
+        let s_mr = sample_view_target(uv + vec2( texel_size.x,  0.0));
+        let s_bl = sample_view_target(uv + vec2(-texel_size.x, -texel_size.y));
+        let s_bm = sample_view_target(uv + vec2( 0.0,          -texel_size.y));
+        let s_br = sample_view_target(uv + vec2( texel_size.x, -texel_size.y));
+        let moment_1 = s_tl + s_tm + s_tr + s_ml + s_mm + s_mr + s_bl + s_bm + s_br;
+        let moment_2 = (s_tl * s_tl) + (s_tm * s_tm) + (s_tr * s_tr) + (s_ml * s_ml) + (s_mm * s_mm) + (s_mr * s_mr) + (s_bl * s_bl) + (s_bm * s_bm) + (s_br * s_br);
+        let mean = moment_1 / 9.0;
+        let variance = (moment_2 / 9.0) - (mean * mean);
+        let std_deviation = sqrt(max(variance, vec3(0.0)));
+        history_color = RGB_to_YCoCg(history_color);
+        history_color = clip_towards_aabb_center(history_color, s_mm, mean - std_deviation, mean + std_deviation);
+        history_color = YCoCg_to_RGB(history_color);
+
+        let pixel_motion_vector = abs(closest_motion_vector) * texture_size;
+        if pixel_motion_vector.x < 0.01 && pixel_motion_vector.y < 0.01 {
+            // Increment when pixels are not moving
+            history_confidence += 10.0;
+        } else {
+            // Else reset
+            history_confidence = 1.0;
+        }
     }
 
     // Blend current and past sample
     // Use more of the history if we're confident in it (reduces noise when there is no motion)
     // https://hhoppe.com/supersample.pdf, section 4.1
     let current_color_factor = clamp(1.0 / history_confidence, MIN_HISTORY_BLEND_RATE, DEFAULT_HISTORY_BLEND_RATE);
-    current_color = mix(history_color, current_color, current_color_factor);
+    current_color = mix(history_color, current_color, select(current_color_factor, 1.0, reprojection_fail));
 #endif // #ifndef RESET
 
 
