@@ -51,17 +51,17 @@ const MAX_JOINTS: usize = 256;
 const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
-pub const VERTEX_OUTPUT: HandleUntyped =
+pub const MESH_VERTEX_OUTPUT: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2645551199423808407);
-pub const VIEW_TYPES_HANDLE: HandleUntyped =
+pub const MESH_VIEW_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8140454348013264787);
-pub const VIEW_BINDINGS_HANDLE: HandleUntyped =
+pub const MESH_VIEW_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
-pub const TYPES_HANDLE: HandleUntyped =
+pub const MESH_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2506024101911992377);
-pub const BINDINGS_HANDLE: HandleUntyped =
+pub const MESH_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16831548636314682308);
-pub const FUNCTIONS_HANDLE: HandleUntyped =
+pub const MESH_FUNCTIONS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6300874327833745635);
 pub const MESH_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
@@ -70,17 +70,37 @@ pub const SKINNING_HANDLE: HandleUntyped =
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_internal_asset!(app, VERTEX_OUTPUT, "vertex_output.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, VIEW_TYPES_HANDLE, "view_types.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
-            VIEW_BINDINGS_HANDLE,
+            MESH_VERTEX_OUTPUT,
+            "vertex_output.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH_VIEW_TYPES_HANDLE,
+            "view_types.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH_VIEW_BINDINGS_HANDLE,
             "view_bindings.wgsl",
             Shader::from_wgsl
         );
-        load_internal_asset!(app, TYPES_HANDLE, "types.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, BINDINGS_HANDLE, "bindings.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, FUNCTIONS_HANDLE, "functions.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, MESH_TYPES_HANDLE, "types.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            MESH_BINDINGS_HANDLE,
+            "bindings.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH_FUNCTIONS_HANDLE,
+            "functions.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
 
