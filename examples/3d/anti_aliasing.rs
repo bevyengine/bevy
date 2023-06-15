@@ -326,7 +326,7 @@ fn setup(
     });
 
     let noise_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(noise_debug_texture(1.0))),
+        base_color_texture: Some(images.add(noise_debug_texture())),
         unlit: true,
         ..default()
     });
@@ -467,14 +467,14 @@ fn uv_debug_texture() -> Image {
 }
 
 /// Creates a noise texture
-fn noise_debug_texture(gamma_adjustment: f32) -> Image {
+fn noise_debug_texture() -> Image {
     const TEXTURE_SIZE: usize = 256;
 
     let mut rng = rand::thread_rng();
 
     let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
     for val in &mut texture_data {
-        *val = (rng.gen_range(0.0..=1.0f32).powf(2.2 * gamma_adjustment) * 255.0 + 0.5) as u8;
+        *val = (rng.gen_range(0.0..=1.0f32).powf(2.2) * 255.0 + 0.5) as u8;
     }
 
     let mut img = Image::new_fill(
