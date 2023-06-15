@@ -4,8 +4,8 @@ use crate::{
     render_asset::RenderAssets,
     render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
     renderer::RenderDevice,
-    texture::FallbackImage,
 };
+use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
 use encase::ShaderType;
 use std::ops::Deref;
@@ -267,13 +267,16 @@ pub trait AsBindGroup {
     /// Data that will be stored alongside the "prepared" bind group.
     type Data: Send + Sync;
 
+    /// Specifies all ECS data required by [`AsBindGroup::as_bind_group`].
+    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
+    type Param: SystemParam;
+
     /// Creates a bind group for `self` matching the layout defined in [`AsBindGroup::bind_group_layout`].
     fn as_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
-        fallback_image: &FallbackImage,
+        param: &SystemParamItem<Self::Param>,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]

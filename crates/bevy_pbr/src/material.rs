@@ -16,7 +16,7 @@ use bevy_ecs::{
     prelude::*,
     system::{
         lifetimeless::{Read, SRes},
-        SystemParamItem,
+        StaticSystemParam, SystemParamItem,
     },
 };
 use bevy_reflect::{TypePath, TypeUuid};
@@ -35,7 +35,6 @@ use bevy_render::{
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -636,19 +635,13 @@ pub fn prepare_materials<M: Material>(
     mut extracted_assets: ResMut<ExtractedMaterials<M>>,
     mut render_materials: ResMut<RenderMaterials<M>>,
     render_device: Res<RenderDevice>,
-    images: Res<RenderAssets<Image>>,
-    fallback_image: Res<FallbackImage>,
+    param: StaticSystemParam<M::Param>,
     pipeline: Res<MaterialPipeline<M>>,
 ) {
+    let param = param.into_inner();
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (handle, material) in queued_assets.into_iter() {
-        match prepare_material(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
+        match prepare_material(&material, &render_device, &param, &pipeline) {
             Ok(prepared_asset) => {
                 render_materials.insert(handle, prepared_asset);
             }
@@ -663,13 +656,7 @@ pub fn prepare_materials<M: Material>(
     }
 
     for (handle, material) in std::mem::take(&mut extracted_assets.extracted) {
-        match prepare_material(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
+        match prepare_material(&material, &render_device, &param, &pipeline) {
             Ok(prepared_asset) => {
                 render_materials.insert(handle, prepared_asset);
             }
@@ -683,16 +670,10 @@ pub fn prepare_materials<M: Material>(
 fn prepare_material<M: Material>(
     material: &M,
     render_device: &RenderDevice,
-    images: &RenderAssets<Image>,
-    fallback_image: &FallbackImage,
+    param: &SystemParamItem<M::Param>,
     pipeline: &MaterialPipeline<M>,
 ) -> Result<PreparedMaterial<M>, AsBindGroupError> {
-    let prepared = material.as_bind_group(
-        &pipeline.material_layout,
-        render_device,
-        images,
-        fallback_image,
-    )?;
+    let prepared = material.as_bind_group(&pipeline.material_layout, render_device, param)?;
     Ok(PreparedMaterial {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,

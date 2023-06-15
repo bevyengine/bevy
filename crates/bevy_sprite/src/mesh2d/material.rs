@@ -5,6 +5,7 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::system::StaticSystemParam;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -18,7 +19,6 @@ use bevy_reflect::{TypePath, TypeUuid};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::Image,
     render_asset::{PrepareAssetSet, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
@@ -30,7 +30,6 @@ use bevy_render::{
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    texture::FallbackImage,
     view::{ComputedVisibility, ExtractedView, Msaa, Visibility, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -510,19 +509,13 @@ pub fn prepare_materials_2d<M: Material2d>(
     mut extracted_assets: ResMut<ExtractedMaterials2d<M>>,
     mut render_materials: ResMut<RenderMaterials2d<M>>,
     render_device: Res<RenderDevice>,
-    images: Res<RenderAssets<Image>>,
-    fallback_image: Res<FallbackImage>,
+    param: StaticSystemParam<M::Param>,
     pipeline: Res<Material2dPipeline<M>>,
 ) {
+    let param = param.into_inner();
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (handle, material) in queued_assets {
-        match prepare_material2d(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
+        match prepare_material2d(&material, &render_device, &param, &pipeline) {
             Ok(prepared_asset) => {
                 render_materials.insert(handle, prepared_asset);
             }
@@ -537,13 +530,7 @@ pub fn prepare_materials_2d<M: Material2d>(
     }
 
     for (handle, material) in std::mem::take(&mut extracted_assets.extracted) {
-        match prepare_material2d(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
+        match prepare_material2d(&material, &render_device, &param, &pipeline) {
             Ok(prepared_asset) => {
                 render_materials.insert(handle, prepared_asset);
             }
@@ -557,16 +544,10 @@ pub fn prepare_materials_2d<M: Material2d>(
 fn prepare_material2d<M: Material2d>(
     material: &M,
     render_device: &RenderDevice,
-    images: &RenderAssets<Image>,
-    fallback_image: &FallbackImage,
+    param: &SystemParamItem<M::Param>,
     pipeline: &Material2dPipeline<M>,
 ) -> Result<PreparedMaterial2d<M>, AsBindGroupError> {
-    let prepared = material.as_bind_group(
-        &pipeline.material2d_layout,
-        render_device,
-        images,
-        fallback_image,
-    )?;
+    let prepared = material.as_bind_group(&pipeline.material2d_layout, render_device, param)?;
     Ok(PreparedMaterial2d {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,

@@ -2,6 +2,7 @@
 //! `binding_array<texture<f32>>` shader binding slot and sample non-uniformly.
 
 use bevy::{
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
     prelude::*,
     reflect::{TypePath, TypeUuid},
     render::{
@@ -94,12 +95,13 @@ struct BindlessMaterial {
 impl AsBindGroup for BindlessMaterial {
     type Data = ();
 
+    type Param = (SRes<RenderAssets<Image>>, SRes<FallbackImage>);
+
     fn as_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        image_assets: &RenderAssets<Image>,
-        fallback_image: &FallbackImage,
+        (image_assets, fallback_image): &SystemParamItem<Self::Param>,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         // retrieve the render resources from handles
         let mut images = vec![];

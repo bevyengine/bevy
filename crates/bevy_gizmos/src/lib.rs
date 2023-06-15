@@ -346,11 +346,13 @@ struct GpuLineGizmo {
 impl RenderAsset for LineGizmo {
     type ExtractedAsset = LineGizmo;
 
+    type ExtractParam = ();
+
     type PreparedAsset = GpuLineGizmo;
 
     type Param = SRes<RenderDevice>;
 
-    fn extract_asset(&self) -> Self::ExtractedAsset {
+    fn extract_asset(&self, _: &SystemParamItem<Self::ExtractParam>) -> Self::ExtractedAsset {
         self.clone()
     }
 

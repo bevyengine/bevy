@@ -40,6 +40,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let manifest = BevyManifest::default();
     let render_path = manifest.get_path("bevy_render");
     let asset_path = manifest.get_path("bevy_asset");
+    let ecs_path = manifest.get_path("bevy_ecs");
 
     let mut binding_states: Vec<BindingState> = Vec::new();
     let mut binding_impls = Vec::new();
@@ -422,12 +423,17 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
         impl #impl_generics #render_path::render_resource::AsBindGroup for #struct_name #ty_generics #where_clause {
             type Data = #prepared_data;
+
+            type Param = (
+                #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::texture::Image>>,
+                #ecs_path::system::lifetimeless::SRes<#render_path::texture::FallbackImage>,
+            );
+
             fn as_bind_group(
                 &self,
                 layout: &#render_path::render_resource::BindGroupLayout,
                 render_device: &#render_path::renderer::RenderDevice,
-                images: &#render_path::render_asset::RenderAssets<#render_path::texture::Image>,
-                fallback_image: &#render_path::texture::FallbackImage,
+                (images, fallback_image): &#ecs_path::system::SystemParamItem<Self::Param>,
             ) -> Result<#render_path::render_resource::PreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
                 let bindings = vec![#(#binding_impls,)*];
 

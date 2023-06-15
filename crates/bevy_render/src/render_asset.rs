@@ -25,13 +25,16 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 pub trait RenderAsset: Asset {
     /// The representation of the asset in the "render world".
     type ExtractedAsset: Send + Sync + 'static;
+    /// Specifies all ECS data required by [`RenderAsset::extract_asset`].
+    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
+    type ExtractParam: SystemParam;
     /// The GPU-representation of the asset.
     type PreparedAsset: Send + Sync + 'static;
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
     /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
     type Param: SystemParam;
     /// Converts the asset into a [`RenderAsset::ExtractedAsset`].
-    fn extract_asset(&self) -> Self::ExtractedAsset;
+    fn extract_asset(&self, param: &SystemParamItem<Self::ExtractParam>) -> Self::ExtractedAsset;
     /// Prepares the `extracted asset` for the GPU by transforming it into
     /// a [`RenderAsset::PreparedAsset`]. Therefore ECS data may be accessed via the `param`.
     fn prepare_asset(
@@ -135,7 +138,9 @@ fn extract_render_asset<A: RenderAsset>(
     mut commands: Commands,
     mut events: Extract<EventReader<AssetEvent<A>>>,
     assets: Extract<Res<Assets<A>>>,
+    param: StaticSystemParam<<A as RenderAsset>::ExtractParam>,
 ) {
+    let param = param.into_inner();
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.iter() {
@@ -153,7 +158,7 @@ fn extract_render_asset<A: RenderAsset>(
     let mut extracted_assets = Vec::new();
     for handle in changed_assets.drain() {
         if let Some(asset) = assets.get(&handle) {
-            extracted_assets.push((handle, asset.extract_asset()));
+            extracted_assets.push((handle, asset.extract_asset(&param)));
         }
     }
 
