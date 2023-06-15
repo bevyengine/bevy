@@ -12,6 +12,7 @@ pub use render_pass::*;
 use crate::UiTextureAtlasImage;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
+};
 use crate::{ContentSize, Style, Val};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -243,7 +244,7 @@ pub fn extract_atlas_uinodes(
         }
     }
 }
-      
+
 fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
     match value {
         Val::Auto => 0.,
@@ -259,6 +260,12 @@ fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) 
 pub fn extract_uinode_borders(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
+    ui_stack: Extract<Res<UiStack>>,
+    uinode_query: Extract<
+        Query<
+            (
+                &Node,
+                &GlobalTransform,
                 &Style,
                 &BorderColor,
                 Option<&Parent>,

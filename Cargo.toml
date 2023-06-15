@@ -1944,12 +1944,12 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "Viewport Debug"
-description = "An example for debugging viewport coordinates"
-
-[package.metadata.example.viewport_debug]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
+
+[package.metadata.example.viewport_debug]
+name = "Viewport Debug"
+description = "An example for debugging viewport coordinates"
 category = "UI (User Interface)"
 wasm = true
 
