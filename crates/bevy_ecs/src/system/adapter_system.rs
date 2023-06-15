@@ -50,8 +50,8 @@ pub trait Adapt<S: System>: Send + Sync + 'static {
     fn adapt(&mut self, input: Self::In, run_system: impl FnOnce(S::In) -> S::Out) -> Self::Out;
 }
 
-#[derive(Clone)]
 /// A [`System`] that takes the output of `S` and transforms it by applying `Func` to it.
+#[derive(Clone)]
 pub struct AdapterSystem<Func, S> {
     func: Func,
     system: S,
