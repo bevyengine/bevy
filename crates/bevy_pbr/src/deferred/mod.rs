@@ -30,7 +30,7 @@ use bevy_render::{
 
 use crate::{
     environment_map, mesh_view_layout_entries, prepass, EnvironmentMapLight, FogMeta,
-    GlobalLightMeta, LightMeta, MeshPipeline, MeshPipelineKey, MeshViewBindGroup, ShadowSamplers,
+    GlobalLightMeta, LightMeta, MeshPipelineKey, MeshViewBindGroup, ShadowSamplers,
     ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
@@ -330,7 +330,7 @@ pub fn prepare_deferred_lighting_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
-    differed_lighting_pipeline: Res<DeferredLightingLayout>,
+    differed_lighting_layout: Res<DeferredLightingLayout>,
     views: Query<
         (
             Entity,
@@ -378,7 +378,7 @@ pub fn prepare_deferred_lighting_pipelines(
         }
 
         let pipeline_id =
-            pipelines.specialize(&pipeline_cache, &differed_lighting_pipeline, view_key);
+            pipelines.specialize(&pipeline_cache, &differed_lighting_layout, view_key);
 
         commands
             .entity(entity)
@@ -390,7 +390,6 @@ pub fn prepare_deferred_lighting_pipelines(
 pub fn queue_deferred_lighting_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    mesh_pipeline: Res<MeshPipeline>,
     shadow_samplers: Res<ShadowSamplers>,
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
@@ -413,6 +412,7 @@ pub fn queue_deferred_lighting_bind_groups(
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
+    differed_lighting_layout: Res<DeferredLightingLayout>,
 ) {
     if let (
         Some(view_binding),
@@ -436,12 +436,6 @@ pub fn queue_deferred_lighting_bind_groups(
             tonemapping,
         ) in &views
         {
-            let layout = if msaa.samples() > 1 {
-                &mesh_pipeline.view_layout_multisampled
-            } else {
-                &mesh_pipeline.view_layout
-            };
-
             let mut entries = vec![
                 BindGroupEntry {
                     binding: 0,
@@ -517,7 +511,7 @@ pub fn queue_deferred_lighting_bind_groups(
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &entries,
                 label: Some("deferred_mesh_view_bind_group"),
-                layout,
+                layout: &differed_lighting_layout.bind_group_layout,
             });
 
             commands.entity(entity).insert(MeshViewBindGroup {
