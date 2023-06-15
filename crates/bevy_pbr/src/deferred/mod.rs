@@ -51,8 +51,18 @@ impl Default for PBRDeferredLightingStencilReference {
     }
 }
 
+#[derive(Resource)]
+pub struct BypassPBRDeferredLightingPlugin;
+
 impl Plugin for DeferredLightingPlugin {
     fn build(&self, app: &mut App) {
+        if app
+            .world
+            .contains_resource::<BypassPBRDeferredLightingPlugin>()
+        {
+            return;
+        }
+
         app.init_resource::<PBRDeferredLightingStencilReference>()
             .register_type::<PBRDeferredLightingStencilReference>()
             .add_plugin(ExtractResourcePlugin::<PBRDeferredLightingStencilReference>::default());
@@ -92,6 +102,12 @@ impl Plugin for DeferredLightingPlugin {
     }
 
     fn finish(&self, app: &mut App) {
+        if app
+            .world
+            .contains_resource::<BypassPBRDeferredLightingPlugin>()
+        {
+            return;
+        }
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
