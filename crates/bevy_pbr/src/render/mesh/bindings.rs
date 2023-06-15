@@ -1,4 +1,4 @@
-//! Bind [`group`] layout related definitions for the mesh pipeline.
+//! Bind group layout related definitions for the mesh pipeline.
 
 use bevy_render::{
     render_resource::{
