@@ -89,13 +89,13 @@ impl Plugin for DeferredLightingPlugin {
             )
             .add_render_graph_node::<ViewNodeRunner<DeferredLightingNode>>(
                 core_3d::graph::NAME,
-                DeferredLightingNode::NAME,
+                DEFERRED_LIGHTING_NODE_NAME,
             )
             .add_render_graph_edges(
                 core_3d::graph::NAME,
                 &[
                     core_3d::graph::node::START_MAIN_PASS,
-                    DeferredLightingNode::NAME,
+                    DEFERRED_LIGHTING_NODE_NAME,
                     core_3d::graph::node::MAIN_OPAQUE_PASS,
                 ],
             );
@@ -116,12 +116,10 @@ impl Plugin for DeferredLightingPlugin {
     }
 }
 
+pub const DEFERRED_LIGHTING_NODE_NAME: &str = "deferred_lighting";
+
 #[derive(Default)]
 struct DeferredLightingNode;
-
-impl DeferredLightingNode {
-    pub const NAME: &str = "deferred_lighting";
-}
 
 impl ViewNode for DeferredLightingNode {
     type ViewQuery = (
