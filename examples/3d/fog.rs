@@ -284,12 +284,12 @@ fn update_system(
         fog.color.set_r(r);
     }
 
-    if keycode.pressed(KeyCode::LBracket) {
+    if keycode.pressed(KeyCode::BracketLeft) {
         let g = (fog.color.g() - 0.1 * delta).max(0.0);
         fog.color.set_g(g);
     }
 
-    if keycode.pressed(KeyCode::RBracket) {
+    if keycode.pressed(KeyCode::BracketRight) {
         let g = (fog.color.g() + 0.1 * delta).min(1.0);
         fog.color.set_g(g);
     }
