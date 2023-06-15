@@ -1,6 +1,6 @@
 use crate::io::{
-    AssetReader, AssetReaderError, AssetSourceEvent, AssetWatcher, AssetWriter, AssetWriterError,
-    PathStream, Reader, Writer,
+    get_meta_path, AssetReader, AssetReaderError, AssetSourceEvent, AssetWatcher, AssetWriter,
+    AssetWriterError, PathStream, Reader, Writer,
 };
 use anyhow::Result;
 use async_fs::{read_dir, File};
@@ -68,17 +68,6 @@ impl FileAssetReader {
     pub fn root_path(&self) -> &PathBuf {
         &self.root_path
     }
-}
-
-fn get_meta_path(path: &Path) -> PathBuf {
-    let mut meta_path = path.to_path_buf();
-    let mut extension = path
-        .extension()
-        .expect("asset paths must have extensions")
-        .to_os_string();
-    extension.push(".meta");
-    meta_path.set_extension(extension);
-    meta_path
 }
 
 impl AssetReader for FileAssetReader {

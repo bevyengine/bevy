@@ -19,7 +19,7 @@ use bevy_log::{error, info};
 use bevy_tasks::IoTaskPool;
 use bevy_utils::{HashMap, HashSet};
 use crossbeam_channel::{Receiver, Sender};
-use futures_lite::{FutureExt, StreamExt};
+use futures_lite::StreamExt;
 use parking_lot::RwLock;
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;
@@ -379,7 +379,7 @@ impl AssetServer {
             server: &'a AssetServer,
             handles: &'a mut Vec<UntypedHandle>,
         ) -> bevy_utils::BoxedFuture<'a, Result<(), AssetLoadError>> {
-            async move {
+            Box::pin(async move {
                 let is_dir = server.reader().is_directory(path).await?;
                 if is_dir {
                     let mut path_stream = server.reader().read_directory(path.as_ref()).await?;
@@ -401,8 +401,7 @@ impl AssetServer {
                     }
                 }
                 Ok(())
-            }
-            .boxed()
+            })
         }
 
         let server = self.clone();

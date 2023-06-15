@@ -7,7 +7,6 @@ use crate::{
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
 use bevy_utils::BoxedFuture;
-use futures_lite::FutureExt;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use thiserror::Error;
@@ -79,7 +78,7 @@ impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
         meta: AssetMeta<(), Self>,
         writer: &'a mut Writer,
     ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>> {
-        async move {
+        Box::pin(async move {
             let AssetAction::Process { settings, .. } = meta.asset else {
                 return Err(ProcessError::WrongMetaType);
             };
@@ -98,8 +97,7 @@ impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
                 .await
                 .map_err(ProcessError::AssetSaveError)?;
             Ok(output_settings)
-        }
-        .boxed()
+        })
     }
 }
 
@@ -121,7 +119,7 @@ impl<P: Process> ErasedProcessor for P {
         meta: Box<dyn AssetMetaDyn>,
         writer: &'a mut Writer,
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>> {
-        async move {
+        Box::pin(async move {
             let meta = meta
                 .downcast::<AssetMeta<(), P>>()
                 .map_err(|_e| ProcessError::WrongMetaType)?;
@@ -132,8 +130,7 @@ impl<P: Process> ErasedProcessor for P {
                     settings: loader_settings,
                 }));
             Ok(output_meta)
-        }
-        .boxed()
+        })
     }
 
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError> {

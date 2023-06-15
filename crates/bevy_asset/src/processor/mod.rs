@@ -21,13 +21,12 @@ use bevy_log::{debug, error, trace, warn};
 use bevy_tasks::{IoTaskPool, Scope};
 use bevy_utils::{BoxedFuture, HashMap, HashSet};
 use futures_io::ErrorKind;
-use futures_lite::{AsyncReadExt, AsyncWriteExt, FutureExt, StreamExt};
+use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},
     sync::Arc,
-    time::Instant,
 };
 use thiserror::Error;
 
@@ -112,17 +111,23 @@ impl AssetProcessor {
         &*self.data.destination_writer
     }
 
-    pub fn start(processor: Res<Self>) {
-        let processor = processor.clone();
-        std::thread::spawn(move || {
-            processor.process_assets();
-            futures_lite::future::block_on(processor.listen_for_source_change_events());
-        });
+    pub fn start(_processor: Res<Self>) {
+        #[cfg(target_arch = "wasm32")]
+        error!("Cannot run AssetProcessor on WASM yet.");
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let processor = _processor.clone();
+            std::thread::spawn(move || {
+                processor.process_assets();
+                futures_lite::future::block_on(processor.listen_for_source_change_events());
+            });
+        }
     }
 
     // TODO: document this process in full and describe why the "eventual consistency" works
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn process_assets(&self) {
-        let start_time = Instant::now();
+        let start_time = std::time::Instant::now();
         debug!("Processing started");
         IoTaskPool::get().scope(|scope| {
             scope.spawn(async move {
@@ -134,7 +139,7 @@ impl AssetProcessor {
         // This must happen _after_ the scope resolves or it will happen "too early"
         // Don't move this into the async scope above! process_assets is a blocking/sync function this is fine
         futures_lite::future::block_on(self.finish_processing_assets());
-        let end_time = Instant::now();
+        let end_time = std::time::Instant::now();
         debug!("Processing finished in {:?}", end_time - start_time);
     }
 
@@ -178,7 +183,9 @@ impl AssetProcessor {
                     }
                     AssetSourceEvent::AddedFolder(path) => {
                         debug!("Folder {:?} was added. Attempting to re-process", path);
-                        // error!("add folder not implemented");
+                        #[cfg(target_arch = "wasm32")]
+                        error!("AddFolder event cannot be handled on WASM yet.");
+                        #[cfg(not(target_arch = "wasm32"))]
                         IoTaskPool::get().scope(|scope| {
                             scope.spawn(async move {
                                 self.process_assets_internal(scope, path).await.unwrap();
@@ -209,12 +216,13 @@ impl AssetProcessor {
         self.set_state(ProcessorState::Finished).await;
     }
 
+    #[allow(unused)]
     fn process_assets_internal<'scope>(
         &'scope self,
         scope: &'scope Scope<'scope, '_, ()>,
         path: PathBuf,
     ) -> bevy_utils::BoxedFuture<'scope, Result<(), AssetReaderError>> {
-        async move {
+        Box::pin(async move {
             if self.source_reader().is_directory(&path).await? {
                 let mut path_stream = self.source_reader().read_directory(&path).await.unwrap();
                 while let Some(path) = path_stream.next().await {
@@ -230,8 +238,7 @@ impl AssetProcessor {
                 }
             }
             Ok(())
-        }
-        .boxed()
+        })
     }
 
     async fn try_reprocessing_queued(&self) {
@@ -275,6 +282,7 @@ impl AssetProcessor {
 
     /// Populates the initial view of each asset by scanning the source and destination folders.
     /// This info will later be used to determine whether or not to re-process an asset
+    #[allow(unused)]
     async fn initialize(&self) -> Result<(), InitializeError> {
         self.validate_transaction_log_and_recover().await;
         let mut asset_infos = self.data.asset_infos.write().await;
@@ -283,7 +291,7 @@ impl AssetProcessor {
             path: PathBuf,
             paths: &'a mut Vec<PathBuf>,
         ) -> BoxedFuture<'a, Result<(), AssetReaderError>> {
-            async move {
+            Box::pin(async move {
                 if reader.is_directory(&path).await? {
                     let mut path_stream = reader.read_directory(&path).await?;
                     while let Some(child_path) = path_stream.next().await {
@@ -293,8 +301,7 @@ impl AssetProcessor {
                     paths.push(path);
                 }
                 Ok(())
-            }
-            .boxed()
+            })
         }
 
         let mut source_paths = Vec::new();

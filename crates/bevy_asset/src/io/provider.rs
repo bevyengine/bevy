@@ -2,10 +2,7 @@ use bevy_ecs::system::Resource;
 use bevy_utils::HashMap;
 
 use crate::{
-    io::{
-        file::{FileAssetReader, FileAssetWriter},
-        AssetReader, AssetWriter,
-    },
+    io::{AssetReader, AssetWriter},
     AssetPlugin,
 };
 
@@ -83,7 +80,13 @@ impl AssetProviders {
 
     pub fn get_source_reader(&mut self, provider: &AssetProvider) -> Box<dyn AssetReader> {
         match provider {
-            AssetProvider::Default => Box::new(FileAssetReader::new(self.default_file_source())),
+            AssetProvider::Default => {
+                #[cfg(not(target_arch = "wasm32"))]
+                let reader = super::file::FileAssetReader::new(self.default_file_source());
+                #[cfg(target_arch = "wasm32")]
+                let reader = super::wasm::HttpWasmAssetReader::new(self.default_file_source());
+                Box::new(reader)
+            }
             AssetProvider::Custom(provider) => {
                 let get_reader = self
                     .readers
@@ -96,7 +99,11 @@ impl AssetProviders {
     pub fn get_destination_reader(&mut self, provider: &AssetProvider) -> Box<dyn AssetReader> {
         match provider {
             AssetProvider::Default => {
-                Box::new(FileAssetReader::new(self.default_file_destination()))
+                #[cfg(not(target_arch = "wasm32"))]
+                let reader = super::file::FileAssetReader::new(self.default_file_destination());
+                #[cfg(target_arch = "wasm32")]
+                let reader = super::wasm::HttpWasmAssetReader::new(self.default_file_destination());
+                Box::new(reader)
             }
             AssetProvider::Custom(provider) => {
                 let get_reader = self
@@ -110,7 +117,14 @@ impl AssetProviders {
 
     pub fn get_source_writer(&mut self, provider: &AssetProvider) -> Box<dyn AssetWriter> {
         match provider {
-            AssetProvider::Default => Box::new(FileAssetWriter::new(self.default_file_source())),
+            AssetProvider::Default => {
+                #[cfg(not(target_arch = "wasm32"))]
+                return Box::new(super::file::FileAssetWriter::new(
+                    self.default_file_source(),
+                ));
+                #[cfg(target_arch = "wasm32")]
+                panic!("Writing assets isn't supported on WASM yet");
+            }
             AssetProvider::Custom(provider) => {
                 let get_writer = self
                     .writers
@@ -123,7 +137,12 @@ impl AssetProviders {
     pub fn get_destination_writer(&mut self, provider: &AssetProvider) -> Box<dyn AssetWriter> {
         match provider {
             AssetProvider::Default => {
-                Box::new(FileAssetWriter::new(self.default_file_destination()))
+                #[cfg(not(target_arch = "wasm32"))]
+                return Box::new(super::file::FileAssetWriter::new(
+                    self.default_file_destination(),
+                ));
+                #[cfg(target_arch = "wasm32")]
+                panic!("Writing assets isn't supported on WASM yet");
             }
             AssetProvider::Custom(provider) => {
                 let get_writer = self

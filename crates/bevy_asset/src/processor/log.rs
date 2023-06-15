@@ -61,7 +61,10 @@ const ENTRY_END: &str = "End ";
 
 impl ProcessorTransactionLog {
     fn full_log_path() -> PathBuf {
+        #[cfg(not(target_arch = "wasm32"))]
         let base_path = crate::io::file::get_base_path();
+        #[cfg(target_arch = "wasm32")]
+        let base_path = PathBuf::new();
         base_path.join(LOG_PATH)
     }
     /// Create a new, fresh log file. This will delete the previous log file if it exists.

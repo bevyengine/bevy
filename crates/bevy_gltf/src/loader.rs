@@ -106,13 +106,7 @@ impl AssetLoader for GltfLoader {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            Ok(load_gltf(
-                self,
-                &mut bytes,
-                load_context,
-                self.supported_compressed_formats,
-            )
-            .await?)
+            Ok(load_gltf(self, &mut bytes, load_context).await?)
         })
     }
 
@@ -126,7 +120,6 @@ async fn load_gltf<'a, 'b, 'c>(
     loader: &GltfLoader,
     bytes: &'a [u8],
     load_context: &'b mut LoadContext<'c>,
-    supported_compressed_formats: CompressedImageFormats,
 ) -> Result<Gltf, GltfError> {
     let gltf = gltf::Gltf::from_slice(bytes)?;
     let buffer_data = load_buffers(&gltf, load_context).await?;
@@ -284,7 +277,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             buffer_data,
                             linear_textures,
                             &parent_path,
-                            supported_compressed_formats,
+                            loader.supported_compressed_formats,
                         )
                         .await
                     });

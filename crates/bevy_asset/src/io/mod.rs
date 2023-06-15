@@ -1,18 +1,25 @@
+#[cfg(not(target_arch = "wasm32"))]
 pub mod file;
 pub mod gated;
 pub mod memory;
 pub mod processor_gated;
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;
 
 mod provider;
 
-use crossbeam_channel::Sender;
 pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 pub use provider::*;
 
 use bevy_utils::BoxedFuture;
+use crossbeam_channel::Sender;
 use futures_io::{AsyncRead, AsyncWrite};
-use futures_lite::Stream;
-use std::path::{Path, PathBuf};
+use futures_lite::{ready, Stream};
+use std::{
+    path::{Path, PathBuf},
+    pin::Pin,
+    task::Poll,
+};
 use thiserror::Error;
 
 /// Errors that occur while loading assets.
@@ -117,3 +124,57 @@ pub enum AssetSourceEvent {
 }
 
 pub trait AssetWatcher: Send + Sync + 'static {}
+
+pub struct VecReader {
+    bytes: Vec<u8>,
+    bytes_read: usize,
+}
+
+impl VecReader {
+    pub fn new(bytes: Vec<u8>) -> Self {
+        Self {
+            bytes_read: 0,
+            bytes,
+        }
+    }
+}
+
+impl AsyncRead for VecReader {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut [u8],
+    ) -> std::task::Poll<futures_io::Result<usize>> {
+        if self.bytes_read >= self.bytes.len() {
+            Poll::Ready(Ok(0))
+        } else {
+            let n = ready!(Pin::new(&mut &self.bytes[self.bytes_read..]).poll_read(cx, buf))?;
+            self.bytes_read += n;
+            Poll::Ready(Ok(n))
+        }
+    }
+}
+
+pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
+    let mut meta_path = path.to_path_buf();
+    let mut extension = path
+        .extension()
+        .expect("asset paths must have extensions")
+        .to_os_string();
+    extension.push(".meta");
+    meta_path.set_extension(extension);
+    meta_path
+}
+
+struct EmptyPathStream;
+
+impl Stream for EmptyPathStream {
+    type Item = PathBuf;
+
+    fn poll_next(
+        self: Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        Poll::Ready(None)
+    }
+}
