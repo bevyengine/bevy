@@ -294,6 +294,7 @@ impl<T: System> IntoSystem<T::In, T::Out, ()> for T {
 pub struct In<In>(pub In);
 
 /// A collection of common adapters for [piping](crate::system::PipeSystem) the result of a system.
+#[deprecated = "this form of system adapter has been deprecated in favor of `system.map(...)`"]
 pub mod adapter {
     use crate::system::In;
     use bevy_utils::tracing;
