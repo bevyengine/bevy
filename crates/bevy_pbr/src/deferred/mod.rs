@@ -30,8 +30,8 @@ use bevy_render::{
 
 use crate::{
     environment_map, mesh_view_layout_entries, prepass, EnvironmentMapLight, FogMeta,
-    GlobalLightMeta, LightMeta, MeshPipelineKey, MeshViewBindGroup, ShadowSamplers,
-    ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
+    GlobalLightMeta, LightMeta, MeshPipelineKey, ShadowSamplers, ViewClusterBindings,
+    ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 
@@ -128,7 +128,7 @@ impl ViewNode for DeferredLightingNode {
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,
         &'static ViewFogUniformOffset,
-        &'static MeshViewBindGroup,
+        &'static DeferredLightingBindGroup,
         &'static ViewTarget,
         &'static ViewDepthTexture,
         &'static Camera3d,
@@ -386,6 +386,11 @@ pub fn prepare_deferred_lighting_pipelines(
     }
 }
 
+#[derive(Component)]
+pub struct DeferredLightingBindGroup {
+    pub value: BindGroup,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn queue_deferred_lighting_bind_groups(
     mut commands: Commands,
@@ -514,7 +519,7 @@ pub fn queue_deferred_lighting_bind_groups(
                 layout: &differed_lighting_layout.bind_group_layout,
             });
 
-            commands.entity(entity).insert(MeshViewBindGroup {
+            commands.entity(entity).insert(DeferredLightingBindGroup {
                 value: view_bind_group,
             });
         }
