@@ -1,4 +1,5 @@
 use crate::{ButtonState, Input};
+use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     event::{Event, EventReader},
@@ -32,6 +33,8 @@ pub struct KeyboardInput {
     pub key_code: Option<KeyCode>,
     /// The press state of the key.
     pub state: ButtonState,
+    /// Window that received the input.
+    pub window: Entity,
 }
 
 /// Updates the [`Input<KeyCode>`] resource with the latest [`KeyboardInput`] events.
