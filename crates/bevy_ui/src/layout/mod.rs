@@ -107,7 +107,7 @@ impl UiSurface {
     #[inline]
     pub fn get_key(&self, entity: Entity) -> Option<TaffyKey> {
         self.entity_to_taffy.get(&entity).copied()
-    } 
+    }
 
     /// Inserts a node into the Taffy layout, associates it with the given entity, and returns its taffy id.
     pub fn insert_node(&mut self, uinode: Entity) -> TaffyKey {
@@ -120,12 +120,7 @@ impl UiSurface {
     }
 
     /// Converts the given Bevy UI `Style` to a taffy style and applies it to the taffy node with identifier `key`.
-    pub fn set_style(
-        &mut self,
-        key: TaffyKey,
-        style: &Style,
-        layout_context: &LayoutContext,
-    ) {
+    pub fn set_style(&mut self, key: TaffyKey, style: &Style, layout_context: &LayoutContext) {
         self.taffy
             .set_style(key, convert::from_style(style, layout_context))
             .unwrap();
@@ -402,14 +397,8 @@ mod tests {
         let taffykey_b = ui_surface.insert_node(uinode_b);
         ui_surface.set_style(taffykey_a, &style_a, &context);
         ui_surface.set_style(taffykey_b, &style_b, &context);
-        assert_eq!(
-            taffykey_a,
-            ui_surface.get_key(uinode_a).unwrap()
-        );
-        assert_eq!(
-            taffykey_b,
-            ui_surface.get_key(uinode_b).unwrap()
-        );
+        assert_eq!(taffykey_a, ui_surface.get_key(uinode_a).unwrap());
+        assert_eq!(taffykey_b, ui_surface.get_key(uinode_b).unwrap());
 
         // The should be be two nodes in the layout
         assert_eq!(ui_surface.entity_to_taffy.len(), 2);
@@ -430,14 +419,8 @@ mod tests {
         assert_eq!(ui_surface.taffy.style(taffykey_b).unwrap(), &taffystyle_a);
 
         // But the ids of the associated nodes should be unchanged
-        assert_eq!(
-            ui_surface.get_key(uinode_a).unwrap(),
-            taffykey_a
-        );
-        assert_eq!(
-            ui_surface.get_key(uinode_b).unwrap(),
-            taffykey_b
-        );
+        assert_eq!(ui_surface.get_key(uinode_a).unwrap(), taffykey_a);
+        assert_eq!(ui_surface.get_key(uinode_b).unwrap(), taffykey_b);
 
         // There should still be exactly two nodes in the layout
         assert_eq!(ui_surface.entity_to_taffy.len(), 2);
