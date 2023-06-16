@@ -45,9 +45,6 @@ use bevy_utils::{tracing::error, HashMap, Hashed};
 
 use crate::render::{mesh_bindings, morph};
 
-#[cfg(doc)]
-use bevy_render::morph::MorphAttributes;
-
 #[derive(Default)]
 pub struct MeshRenderPlugin;
 
@@ -300,9 +297,13 @@ pub struct MeshLayouts {
     /// Also includes the uniform for skinning
     pub skinned: BindGroupLayout,
     /// Also includes the uniform and [`MorphAttributes`] for morph targets.
+    ///
+    /// [`MorphAttributes`]: bevy_render::mesh::morph::MorphAttributes
     pub morphed: BindGroupLayout,
     /// Also includes both uniforms for skinning and morph targets, also the
     /// morph target [`MorphAttributes`] binding.
+    ///
+    /// [`MorphAttributes`]: bevy_render::mesh::morph::MorphAttributes
     pub morphed_skinned: BindGroupLayout,
 }
 
