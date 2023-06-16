@@ -63,7 +63,7 @@ impl UiRect {
     }
 }
 
-pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style {
+pub fn from_style(style: &Style, context: &LayoutContext) -> taffy::style::Style {
     taffy::style::Style {
         display: style.display.into(),
         position: style.position_type.into(),
@@ -466,8 +466,8 @@ mod tests {
             grid_column: GridPlacement::start(4),
             grid_row: GridPlacement::span(3),
         };
-        let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
-        let taffy_style = from_style(&viewport_values, &bevy_style);
+        let context = LayoutContext::new(bevy_math::Vec2::new(800., 600.), 1.0);
+        let taffy_style = from_style(&bevy_style, &context);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
         assert!(matches!(
@@ -633,7 +633,7 @@ mod tests {
     #[test]
     fn test_into_length_percentage() {
         use taffy::style::LengthPercentage;
-        let context = LayoutContext::new(2.0, bevy_math::Vec2::new(800., 600.));
+        let context = LayoutContext::new(bevy_math::Vec2::new(800., 600.), 2.);
         let cases = [
             (Val::Auto, LengthPercentage::Points(0.)),
             (Val::Percent(1.), LengthPercentage::Percent(0.01)),

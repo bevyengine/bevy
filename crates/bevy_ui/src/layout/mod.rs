@@ -56,7 +56,7 @@ pub struct LayoutContext {
 
 impl LayoutContext {
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
-    fn new(scale_factor: f64, physical_size: Vec2) -> Self {
+    fn new(physical_size: Vec2, scale_factor: f64) -> Self {
         Self {
             scale_factor,
             physical_size,
@@ -118,7 +118,7 @@ impl UiSurface {
         layout_context: &LayoutContext,
     ) {
         self.taffy
-            .set_style(key, convert::from_style(layout_context, style))
+            .set_style(key, convert::from_style(style, layout_context))
             .unwrap();
     }
 
@@ -300,7 +300,7 @@ pub fn ui_layout_system(
     }
 
     let layout_context =
-        LayoutContext::new(logical_to_physical_factor * ui_scale.scale, physical_size);
+        LayoutContext::new(physical_size, logical_to_physical_factor * ui_scale.scale);
 
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || window_changed {
         scale_factor_events.clear();
@@ -364,5 +364,80 @@ pub fn ui_layout_system(
         if transform.translation != new_position {
             transform.translation = new_position;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_ecs::world::World;
+    use bevy_math::Vec2;
+
+    use crate::layout::convert::from_style;
+    use crate::UiSurface;
+
+    #[test]
+    fn uisurface_insert_and_remove_nodes() {
+        let mut world = World::new();
+        let mut ui_surface = UiSurface::default();
+        let uinode_a = world.spawn_empty().id();
+        let uinode_b = world.spawn_empty().id();
+        let context = crate::LayoutContext::new(Vec2::new(800., 600.), 1.0);
+        let style_a = crate::Style::default();
+        let style_b = crate::Style {
+            flex_direction: crate::FlexDirection::Column,
+            ..Default::default()
+        };
+        let taffystyle_a = from_style(&style_a, &context);
+        let taffystyle_b = from_style(&style_a, &context);
+        let taffynode_a = ui_surface.insert_node(uinode_a);
+        let taffynode_b = ui_surface.insert_node(uinode_b);
+        ui_surface.set_style(taffynode_a, &style_a, &context);
+        ui_surface.set_style(taffynode_b, &style_b, &context);
+        assert_eq!(
+            taffynode_a,
+            *ui_surface.entity_to_taffy.get(&uinode_a).unwrap()
+        );
+        assert_eq!(
+            taffynode_b,
+            *ui_surface.entity_to_taffy.get(&uinode_b).unwrap()
+        );
+
+        // The should be be two nodes in the layout
+        assert_eq!(ui_surface.entity_to_taffy.len(), 2);
+
+        // The ids for the associated taffy nodes should be different
+        assert_ne!(taffynode_a, taffynode_b);
+
+        // Check the UI nodes each have an associated taffy node with the correct style
+        assert_eq!(ui_surface.taffy.style(taffynode_a).unwrap(), &taffystyle_a);
+        assert_eq!(ui_surface.taffy.style(taffynode_b).unwrap(), &taffystyle_b);
+
+        // Swap the styles of the associated nodes
+        ui_surface.set_style(taffynode_a, &style_b, &context);
+        ui_surface.set_style(taffynode_b, &style_a, &context);
+
+        // The styles should be swapped
+        assert_eq!(ui_surface.taffy.style(taffynode_a).unwrap(), &taffystyle_b);
+        assert_eq!(ui_surface.taffy.style(taffynode_b).unwrap(), &taffystyle_a);
+
+        // But the ids of the associated nodes should be unchanged
+        assert_eq!(
+            *ui_surface.entity_to_taffy.get(&uinode_a).unwrap(),
+            taffynode_a
+        );
+        assert_eq!(
+            *ui_surface.entity_to_taffy.get(&uinode_b).unwrap(),
+            taffynode_b
+        );
+
+        // There should still be exactly two nodes in the layout
+        assert_eq!(ui_surface.entity_to_taffy.len(), 2);
+
+        // Remove the uinodes from the layout and check styles are also removed
+        ui_surface.remove_entities([uinode_a, uinode_b]);
+
+        assert!(ui_surface.entity_to_taffy.is_empty());
+        assert!(ui_surface.taffy.style(taffynode_a).is_err());
+        assert!(ui_surface.taffy.style(taffynode_b).is_err());
     }
 }
