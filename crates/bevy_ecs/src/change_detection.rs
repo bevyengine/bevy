@@ -46,7 +46,12 @@ pub trait DetectChanges {
     /// Returns `true` if this value was added after the system last ran.
     fn is_added(&self) -> bool;
 
-    /// Returns `true` if this value was added or mutably dereferenced after the system last ran.
+    /// Returns `true` if this value was added or mutably dereferenced
+    /// either since the last time the system ran or, if the system never ran,
+    /// since the beginning of the program.
+    ///
+    /// To check if the value was mutably dereferenced only,
+    /// use `this.is_changed() && !this.is_added()`.
     fn is_changed(&self) -> bool;
 
     /// Returns the change tick recording the time this data was most recently changed.
@@ -119,12 +124,38 @@ pub trait DetectChangesMut: DetectChanges {
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
     fn bypass_change_detection(&mut self) -> &mut Self::Inner;
 
-    /// Sets `self` to `value`, if and only if `*self != *value`
-    ///
-    /// `T` is the type stored within the smart pointer (e.g. [`Mut`] or [`ResMut`]).
+    /// Overwrites this smart pointer with the given value, if and only if `*self != value`
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
-    /// changes, instead of every time [`DerefMut`] is used.
+    /// changes, instead of every time it is mutably accessed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, schedule::common_conditions::resource_changed};
+    /// #[derive(Resource, PartialEq, Eq)]
+    /// pub struct Score(u32);
+    ///
+    /// fn reset_score(mut score: ResMut<Score>) {
+    ///     // Set the score to zero, unless it is already zero.
+    ///     score.set_if_neq(Score(0));
+    /// }
+    /// # let mut world = World::new();
+    /// # world.insert_resource(Score(1));
+    /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>());
+    /// # score_changed.initialize(&mut world);
+    /// # score_changed.run((), &mut world);
+    /// #
+    /// # let mut schedule = Schedule::new();
+    /// # schedule.add_systems(reset_score);
+    /// #
+    /// # // first time `reset_score` runs, the score is changed.
+    /// # schedule.run(&mut world);
+    /// # assert!(score_changed.run((), &mut world));
+    /// # // second time `reset_score` runs, the score is not changed.
+    /// # schedule.run(&mut world);
+    /// # assert!(!score_changed.run((), &mut world));
+    /// ```
     #[inline]
     fn set_if_neq(&mut self, value: Self::Inner)
     where
@@ -370,7 +401,10 @@ pub struct Res<'w, T: ?Sized + Resource> {
 }
 
 impl<'w, T: Resource> Res<'w, T> {
-    // no it shouldn't clippy
+    /// Copies a reference to a resource.
+    ///
+    /// Note that unless you actually need an instance of `Res<T>`, you should
+    /// prefer to just convert it to `&T` which can be freely copied.
     #[allow(clippy::should_implement_trait)]
     pub fn clone(this: &Self) -> Self {
         Self {
@@ -508,8 +542,49 @@ pub struct Ref<'a, T: ?Sized> {
 }
 
 impl<'a, T: ?Sized> Ref<'a, T> {
+    /// Returns the reference wrapped by this type. The reference is allowed to outlive `self`, which makes this method more flexible than simply borrowing `self`.
     pub fn into_inner(self) -> &'a T {
         self.value
+    }
+
+    /// Map `Ref` to a different type using `f`.
+    ///
+    /// This doesn't do anything else than call `f` on the wrapped value.
+    /// This is equivalent to [`Mut::map_unchanged`].
+    pub fn map<U: ?Sized>(self, f: impl FnOnce(&T) -> &U) -> Ref<'a, U> {
+        Ref {
+            value: f(self.value),
+            ticks: self.ticks,
+        }
+    }
+
+    /// Create a new `Ref` using provided values.
+    ///
+    /// This is an advanced feature, `Ref`s are designed to be _created_ by
+    /// engine-internal code and _consumed_ by end-user code.
+    ///
+    /// - `value` - The value wrapped by `Ref`.
+    /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
+    /// - `changed` - A [`Tick`] that stores the last time the wrapped value was changed.
+    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
+    ///    as a reference to determine whether the wrapped value is newly added or changed.
+    /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
+    pub fn new(
+        value: &'a T,
+        added: &'a Tick,
+        changed: &'a Tick,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Ref<'a, T> {
+        Ref {
+            value,
+            ticks: Ticks {
+                added,
+                changed,
+                last_run,
+                this_run,
+            },
+        }
     }
 }
 
@@ -783,10 +858,6 @@ mod tests {
 
     #[test]
     fn change_tick_wraparound() {
-        fn change_detected(query: Query<Ref<C>>) -> bool {
-            query.single().is_changed()
-        }
-
         let mut world = World::new();
         world.last_change_tick = Tick::new(u32::MAX);
         *world.change_tick.get_mut() = 0;
@@ -794,13 +865,12 @@ mod tests {
         // component added: 0, changed: 0
         world.spawn(C);
 
-        // system last ran: u32::MAX
-        let mut change_detected_system = IntoSystem::into_system(change_detected);
-        change_detected_system.initialize(&mut world);
+        world.increment_change_tick();
 
         // Since the world is always ahead, as long as changes can't get older than `u32::MAX` (which we ensure),
         // the wrapping difference will always be positive, so wraparound doesn't matter.
-        assert!(change_detected_system.run((), &mut world));
+        let mut query = world.query::<Ref<C>>();
+        assert!(query.single(&world).is_changed());
     }
 
     #[test]

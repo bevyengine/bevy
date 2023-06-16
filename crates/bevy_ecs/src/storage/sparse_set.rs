@@ -539,17 +539,21 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
 /// zero), as the number of bits needed to represent a `SparseSetIndex` in a `FixedBitSet`
 /// is proportional to the **value** of those `usize`.
 pub trait SparseSetIndex: Clone + PartialEq + Eq + Hash {
+    /// Gets the sparse set index corresponding to this instance.
     fn sparse_set_index(&self) -> usize;
+    /// Creates a new instance of this type with the specified index.
     fn get_sparse_set_index(value: usize) -> Self;
 }
 
 macro_rules! impl_sparse_set_index {
     ($($ty:ty),+) => {
         $(impl SparseSetIndex for $ty {
+            #[inline]
             fn sparse_set_index(&self) -> usize {
                 *self as usize
             }
 
+            #[inline]
             fn get_sparse_set_index(value: usize) -> Self {
                 value as $ty
             }
@@ -587,6 +591,7 @@ impl SparseSets {
     }
 
     /// Gets a reference to the [`ComponentSparseSet`] of a [`ComponentId`].
+    #[inline]
     pub fn get(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
         self.sets.get(component_id)
     }
@@ -719,7 +724,7 @@ mod tests {
         );
 
         fn init_component<T: Component>(sets: &mut SparseSets, id: usize) {
-            let descriptor = ComponentDescriptor::new::<TestComponent1>();
+            let descriptor = ComponentDescriptor::new::<T>();
             let id = ComponentId::new(id);
             let info = ComponentInfo::new(id, descriptor);
             sets.get_or_insert(&info);

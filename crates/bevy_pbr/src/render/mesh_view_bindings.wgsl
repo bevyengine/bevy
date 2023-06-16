@@ -63,9 +63,13 @@ var dt_lut_sampler: sampler;
 var depth_prepass_texture: texture_depth_multisampled_2d;
 @group(0) @binding(17)
 var normal_prepass_texture: texture_multisampled_2d<f32>;
+@group(0) @binding(18)
+var motion_vector_prepass_texture: texture_multisampled_2d<f32>;
 #else
 @group(0) @binding(16)
 var depth_prepass_texture: texture_depth_2d;
 @group(0) @binding(17)
 var normal_prepass_texture: texture_2d<f32>;
+@group(0) @binding(18)
+var motion_vector_prepass_texture: texture_2d<f32>;
 #endif

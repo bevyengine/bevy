@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 pub mod wireframe;
 
 mod alpha;
@@ -6,6 +8,7 @@ mod environment_map;
 mod fog;
 mod light;
 mod material;
+mod parallax;
 mod pbr_material;
 mod prepass;
 mod render;
@@ -16,6 +19,7 @@ pub use environment_map::EnvironmentMapLight;
 pub use fog::*;
 pub use light::*;
 pub use material::*;
+pub use parallax::*;
 pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
@@ -32,6 +36,7 @@ pub mod prelude {
         fog::{FogFalloff, FogSettings},
         light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         material::{Material, MaterialPlugin},
+        parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
     };
 }
@@ -80,6 +85,8 @@ pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16550102964439850292);
 pub const PBR_AMBIENT_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2441520459096337034);
+pub const PARALLAX_MAPPING_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17035894873630133905);
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -148,6 +155,12 @@ impl Plugin for PbrPlugin {
             "render/pbr_prepass.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            PARALLAX_MAPPING_SHADER_HANDLE,
+            "render/parallax_mapping.wgsl",
+            Shader::from_wgsl
+        );
 
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
@@ -161,6 +174,8 @@ impl Plugin for PbrPlugin {
             .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<DirectionalLightShadowMap>()
+            .register_type::<NotShadowCaster>()
+            .register_type::<NotShadowReceiver>()
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
@@ -189,7 +204,7 @@ impl Plugin for PbrPlugin {
                 PostUpdate,
                 (
                     add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    apply_system_buffers.in_set(SimulationLightSystems::AddClustersFlush),
+                    apply_deferred.in_set(SimulationLightSystems::AddClustersFlush),
                     assign_lights_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
@@ -270,7 +285,7 @@ impl Plugin for PbrPlugin {
                         .in_set(RenderLightSystems::PrepareLights),
                     // A sync is needed after prepare_lights, before prepare_view_uniforms,
                     // because prepare_lights creates new views for shadow mapping
-                    apply_system_buffers
+                    apply_deferred
                         .in_set(RenderSet::Prepare)
                         .after(RenderLightSystems::PrepareLights)
                         .before(ViewSet::PrepareUniforms),
@@ -280,9 +295,7 @@ impl Plugin for PbrPlugin {
                     sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
                 ),
             )
-            .init_resource::<ShadowSamplers>()
-            .init_resource::<LightMeta>()
-            .init_resource::<GlobalLightMeta>();
+            .init_resource::<LightMeta>();
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
@@ -292,7 +305,19 @@ impl Plugin for PbrPlugin {
         draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
         draw_3d_graph.add_node_edge(
             draw_3d_graph::node::SHADOW_PASS,
-            bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+            bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
         );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
+        // Extract the required data from the main world
+        render_app
+            .init_resource::<ShadowSamplers>()
+            .init_resource::<GlobalLightMeta>();
     }
 }

@@ -8,6 +8,9 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+webgl = []
+
 [dependencies]
 # Bevy
 bevy_pbr = { path = "../bevy_pbr", version = "0.11.0-dev", optional = true }
@@ -21,3 +24,4 @@ bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
 bevy_core = { path = "../bevy_core", version = "0.11.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.11.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.11.0-dev" }
