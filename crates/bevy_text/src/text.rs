@@ -132,6 +132,24 @@ impl TextSection {
     }
 }
 
+impl From<&str> for TextSection {
+    fn from(value: &str) -> Self {
+        Self {
+            value: value.into(),
+            ..default()
+        }
+    }
+}
+
+impl From<String> for TextSection {
+    fn from(value: String) -> Self {
+        Self {
+            value,
+            ..Default::default()
+        }
+    }
+}
+
 /// Describes horizontal alignment preference for positioning & bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
