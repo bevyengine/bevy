@@ -87,6 +87,7 @@ impl NormalizedWindowRef {
 /// The defining [`Component`] for window entities,
 /// storing information about how it will appear and behave.
 ///
+/// Each window corresponds to an entity, and is uniquely identified by the value of their [`Entity`].
 /// When the [`Window`] component is added to an entity, a new window will be opened.
 /// When it is removed or the entity is despawned, the window will close.
 ///
