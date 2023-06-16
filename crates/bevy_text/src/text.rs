@@ -132,6 +132,7 @@ impl TextSection {
     }
 }
 
+#[cfg(feature = "default_font")]
 impl From<&str> for TextSection {
     fn from(value: &str) -> Self {
         Self {
@@ -141,6 +142,7 @@ impl From<&str> for TextSection {
     }
 }
 
+#[cfg(feature = "default_font")]
 impl From<String> for TextSection {
     fn from(value: String) -> Self {
         Self {
