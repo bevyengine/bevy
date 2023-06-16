@@ -1165,15 +1165,10 @@ unsafe impl<T: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Option<T> {}
 /// ```
 pub struct Has<T>(PhantomData<T>);
 
-#[doc(hidden)]
-pub struct HasFetch<T: Component> {
-    phantom: PhantomData<T>,
-    matches: bool,
-}
 
 // SAFETY: `Self::ReadOnly` is the same as `Self`
 unsafe impl<T: Component> WorldQuery for Has<T> {
-    type Fetch<'w> = HasFetch<T>;
+    type Fetch<'w> = bool;
     type Item<'w> = bool;
     type ReadOnly = Self;
     type State = ComponentId;
@@ -1192,38 +1187,32 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline]
-    unsafe fn init_fetch(
-        _world: UnsafeWorldCell,
-        _state: &ComponentId,
+    unsafe fn init_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        _state: &Self::State,
         _last_run: Tick,
         _this_run: Tick,
-    ) -> HasFetch<T> {
-        HasFetch {
-            phantom: Default::default(),
-            matches: false,
-        }
+    ) -> Self::Fetch<'w> {
+        false
     }
 
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        HasFetch {
-            phantom: Default::default(),
-            matches: fetch.matches,
-        }
+        *fetch
     }
 
     #[inline]
-    unsafe fn set_archetype(
-        fetch: &mut HasFetch<T>,
-        state: &ComponentId,
-        archetype: &Archetype,
+    unsafe fn set_archetype<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        archetype: &'w Archetype,
         _table: &Table,
     ) {
-        fetch.matches = archetype.contains(*state);
+        *fetch = archetype.contains(*state);
     }
 
     #[inline]
-    unsafe fn set_table(fetch: &mut HasFetch<T>, state: &ComponentId, table: &Table) {
-        fetch.matches = table.has_column(*state);
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+        *fetch = table.has_column(*state);
     }
 
     #[inline(always)]
@@ -1232,15 +1221,15 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         _entity: Entity,
         _table_row: TableRow,
     ) -> Self::Item<'w> {
-        fetch.matches
+        *fetch
     }
 
-    fn update_component_access(_state: &ComponentId, _access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
         // Do nothing as presence of `Has<T>` never affects whether two queries are disjoint
     }
 
     fn update_archetype_component_access(
-        _state: &ComponentId,
+        _state: &Self::State,
         _archetype: &Archetype,
         _access: &mut Access<ArchetypeComponentId>,
     ) {
@@ -1251,7 +1240,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     }
 
     fn matches_component_set(
-        _state: &ComponentId,
+        _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         // `Has<T>` always matches
