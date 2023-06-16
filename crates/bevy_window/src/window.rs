@@ -266,20 +266,34 @@ impl Window {
         self.resolution.scale_factor()
     }
 
-    /// The cursor position in this window
+    /// The cursor position in this window.
+    ///
+    /// Returns `None` if the cursor is out of bounds of the window.
     #[inline]
     pub fn cursor_position(&self) -> Option<Vec2> {
-        self.internal
-            .physical_cursor_position
-            .map(|position| (position / self.scale_factor()).as_vec2())
+        self.physical_cursor_position()
+            .map(|position| position / self.scale_factor())
     }
 
-    /// The physical cursor position in this window
+    /// The physical cursor position in this window.
+    ///
+    /// Returns `None` if the cursor is out of bounds of the window.
     #[inline]
     pub fn physical_cursor_position(&self) -> Option<Vec2> {
-        self.internal
-            .physical_cursor_position
-            .map(|position| position.as_vec2())
+        match position {
+            Some(position) => {
+                if position.x > self.width()
+                    || position.x < 0.0
+                    || position.y > self.height()
+                    || position.y < 0.0
+                {
+                    None
+                } else {
+                    Some(position.as_vec2())
+                }
+            }
+            None => None,
+        }
     }
 
     /// Set the cursor position in this window
