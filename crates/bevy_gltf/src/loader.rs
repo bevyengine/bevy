@@ -99,7 +99,7 @@ async fn load_gltf<'a, 'b>(
     let mut named_materials = HashMap::default();
     let mut linear_textures = HashSet::default();
     for material in gltf.materials() {
-        let handle = load_material(&material, load_context);
+        let handle = load_material(&material, load_context, false);
         if let Some(name) = material.name() {
             named_materials.insert(name.to_string(), handle.clone());
         }
@@ -592,8 +592,12 @@ async fn load_texture<'a>(
 }
 
 /// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
-fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
-    let material_label = material_label(material);
+fn load_material(
+    material: &Material,
+    load_context: &mut LoadContext,
+    is_scale_inverted: bool,
+) -> Handle<StandardMaterial> {
+    let material_label = material_label(material, is_scale_inverted);
 
     let pbr = material.pbr_metallic_roughness();
 
@@ -650,6 +654,8 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             double_sided: material.double_sided(),
             cull_mode: if material.double_sided() {
                 None
+            } else if is_scale_inverted {
+                Some(Face::Front)
             } else {
                 Some(Face::Back)
             },
@@ -675,6 +681,7 @@ fn load_node(
     let transform = gltf_node.transform();
     let mut gltf_error = None;
     let transform = Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix()));
+    let is_scale_inverted = transform.scale.is_negative_bitmask().count_ones() & 1 == 1;
     let mut node = world_builder.spawn(SpatialBundle::from(transform));
 
     node.insert(node_name(gltf_node));
@@ -736,13 +743,13 @@ fn load_node(
             // append primitives
             for primitive in mesh.primitives() {
                 let material = primitive.material();
-                let material_label = material_label(&material);
+                let material_label = material_label(&material, is_scale_inverted);
 
                 // This will make sure we load the default material now since it would not have been
                 // added when iterating over all the gltf materials (since the default material is
                 // not explicitly listed in the gltf).
                 if !load_context.has_labeled_asset(&material_label) {
-                    load_material(&material, load_context);
+                    load_material(&material, load_context, is_scale_inverted);
                 }
 
                 let primitive_label = primitive_label(&mesh, &primitive);
@@ -886,9 +893,12 @@ fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 }
 
 /// Returns the label for the `material`.
-fn material_label(material: &gltf::Material) -> String {
+fn material_label(material: &gltf::Material, is_scale_inverted: bool) -> String {
     if let Some(index) = material.index() {
-        format!("Material{index}")
+        format!(
+            "Material{index}{}",
+            if is_scale_inverted { " (inverted)" } else { "" }
+        )
     } else {
         "MaterialDefault".to_string()
     }
