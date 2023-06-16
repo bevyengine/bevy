@@ -1,3 +1,4 @@
+use bevy_ecs::entity::Entity;
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     mouse::MouseButton,
@@ -7,11 +8,15 @@ use bevy_input::{
 use bevy_math::Vec2;
 use bevy_window::{CursorIcon, WindowLevel, WindowTheme};
 
-pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
+pub fn convert_keyboard_input(
+    keyboard_input: &winit::event::KeyboardInput,
+    window: Entity,
+) -> KeyboardInput {
     KeyboardInput {
         scan_code: keyboard_input.scancode,
         state: convert_element_state(keyboard_input.state),
         key_code: keyboard_input.virtual_keycode.map(convert_virtual_key_code),
+        window,
     }
 }
 
