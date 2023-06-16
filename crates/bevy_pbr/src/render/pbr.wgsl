@@ -18,7 +18,12 @@
 #import bevy_pbr::pbr_deferred_functions
 #import bevy_pbr::pbr_prepass_functions
 #import bevy_pbr::prepass_io
-#endif
+#endif // DEFERRED_PREPASS
+
+#ifdef MOTION_VECTOR_PREPASS
+@group(0) @binding(2)
+var<uniform> previous_view_proj: mat4x4<f32>;
+#endif // MOTION_VECTOR_PREPASS
 
 #ifndef DEFERRED_PREPASS
 struct FragmentInput {
@@ -26,7 +31,7 @@ struct FragmentInput {
     @builtin(position) frag_coord: vec4<f32>,
     #import bevy_pbr::mesh_vertex_output
 };
-#endif
+#endif // DEFERRED_PREPASS
 
 @fragment
 #ifdef DEFERRED_PREPASS
@@ -38,7 +43,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef DEFERRED_PREPASS
     prepass_alpha_discard(in);
     var out: FragmentOutput;
-#endif
+#endif // DEFERRED_PREPASS
     
     let is_orthographic = view.projection[3].w == 1.0;
     let V = calculate_view(in.world_position, is_orthographic);
@@ -147,25 +152,32 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef DEFERRED_PREPASS
         out.deferred = deferred_gbuffer_from_pbr_input(pbr_input, in.frag_coord.z);
 #ifdef NORMAL_PREPASS
-        out.normal = vec4(pbr_input.N, 1.0);
+        out.normal = vec4(pbr_input.N * 0.5 + vec3(0.5), 1.0);
 #endif
 #else
         output_color = pbr(pbr_input);
-#endif //DEFERRED_PREPASS
+#endif // DEFERRED_PREPASS
     } else {
-        #ifdef DEFERRED_PREPASS
+#ifdef DEFERRED_PREPASS
             var pbr_input = pbr_input_new();
             pbr_input.material.base_color = output_color;
             pbr_input.material.flags |= STANDARD_MATERIAL_FLAGS_UNLIT_BIT;
             out.deferred = deferred_gbuffer_from_pbr_input(pbr_input, in.frag_coord.z);
-        #else
+#else // DEFERRED_PREPASS
             output_color = alpha_discard(material, output_color);
-        #endif //DEFERRED_PREPASS
+#endif // DEFERRED_PREPASS
+#ifdef NORMAL_PREPASS
+            out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
+#endif
     }
+
+#ifdef MOTION_VECTOR_PREPASS
+    out.motion_vector = calculate_motion_vector(in.world_position, in.previous_world_position);
+#endif
 
 #ifdef DEFERRED_PREPASS
     return out;
-#else
+#else //DEFERRED_PREPASS
     // fog
     if (fog.mode != FOG_MODE_OFF && (material.flags & STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
         output_color = apply_fog(fog, output_color, in.world_position.xyz, view.world_position.xyz);
