@@ -1165,7 +1165,6 @@ unsafe impl<T: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Option<T> {}
 /// ```
 pub struct Has<T>(PhantomData<T>);
 
-
 // SAFETY: `Self::ReadOnly` is the same as `Self`
 unsafe impl<T: Component> WorldQuery for Has<T> {
     type Fetch<'w> = bool;
