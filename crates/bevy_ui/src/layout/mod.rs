@@ -23,6 +23,8 @@ use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChan
 use std::fmt;
 use taffy::{node::MeasureFunc, prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
+type TaffyKey = taffy::node::Node;
+
 /// Identifier for the UI node's associated entry in the UI's layout tree.
 ///
 /// Users can only instantiate null nodes using `UiKey::default()`, the keys are set and managed internally by [`super::layout::ui_layout_system`].
@@ -32,12 +34,12 @@ use taffy::{node::MeasureFunc, prelude::Size, style_helpers::TaffyMaxContent, Ta
 pub struct UiKey {
     // The id of the taffy node associated with the entity possessing this component.
     #[reflect(ignore)]
-    taffy_key: taffy::node::Node,
+    taffy_key: TaffyKey,
 }
 
 impl UiKey {
     // Returns the id of the taffy node associated with the entity that has this component.
-    pub fn get(&self) -> taffy::node::Node {
+    pub fn get(&self) -> TaffyKey {
         self.taffy_key
     }
 
@@ -68,14 +70,14 @@ impl LayoutContext {
 
 #[derive(Resource)]
 pub struct UiSurface {
-    entity_to_taffy: HashMap<Entity, taffy::node::Node>,
-    window_nodes: HashMap<Entity, taffy::node::Node>,
+    entity_to_taffy: HashMap<Entity, TaffyKey>,
+    window_nodes: HashMap<Entity, TaffyKey>,
     taffy: Taffy,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
+    _assert_send_sync::<HashMap<Entity, TaffyKey>>();
     _assert_send_sync::<Taffy>();
     _assert_send_sync::<UiSurface>();
 }
@@ -100,8 +102,15 @@ impl Default for UiSurface {
 }
 
 impl UiSurface {
+    /// Returns a key identifying the internal layout tree node associated with the given `Entity`
+    /// or `None` if no such association exists.
+    #[inline]
+    pub fn get_key(&self, entity: Entity) -> Option<TaffyKey> {
+        self.entity_to_taffy.get(&entity).copied()
+    } 
+
     /// Inserts a node into the Taffy layout, associates it with the given entity, and returns its taffy id.
-    pub fn insert_node(&mut self, uinode: Entity) -> taffy::node::Node {
+    pub fn insert_node(&mut self, uinode: Entity) -> TaffyKey {
         // It's possible for a user to overwrite an active `UiKey` component with `UiKey::default()`.
         // In which case we reuse the existing taffy node.
         *self
@@ -113,7 +122,7 @@ impl UiSurface {
     /// Converts the given Bevy UI `Style` to a taffy style and applies it to the taffy node with identifier `key`.
     pub fn set_style(
         &mut self,
-        key: taffy::node::Node,
+        key: TaffyKey,
         style: &Style,
         layout_context: &LayoutContext,
     ) {
@@ -123,16 +132,16 @@ impl UiSurface {
     }
 
     /// Sets the `MeasureFunc` for the taffy node `key` to `measure`.
-    pub fn set_measure(&mut self, key: taffy::node::Node, measure: MeasureFunc) {
+    pub fn set_measure(&mut self, key: TaffyKey, measure: MeasureFunc) {
         self.taffy.set_measure(key, Some(measure)).unwrap();
     }
 
     /// Update the children of the taffy node `parent_key` .
-    pub fn update_children(&mut self, parent_key: taffy::node::Node, children: &Children) {
+    pub fn update_children(&mut self, parent_key: TaffyKey, children: &Children) {
         let mut taffy_children = Vec::with_capacity(children.len());
-        for child in children {
-            if let Some(child_key) = self.entity_to_taffy.get(child) {
-                taffy_children.push(*child_key);
+        for &child in children {
+            if let Some(child_key) = self.get_key(child) {
+                taffy_children.push(child_key);
             } else {
                 warn!(
                     "Unstyled child in a UI entity hierarchy. You are using an entity \
@@ -148,15 +157,15 @@ without UI components as a child of an entity with UI components, results may be
 
     /// Removes children from the entity's taffy node if it exists. Does nothing otherwise.
     pub fn try_remove_children(&mut self, parent: Entity) {
-        if let Some(key) = self.entity_to_taffy.get(&parent) {
-            self.taffy.set_children(*key, &[]).unwrap();
+        if let Some(key) = self.get_key(parent) {
+            self.taffy.set_children(key, &[]).unwrap();
         }
     }
 
     /// Removes the measure from the entity's taffy node if it exists. Does nothing otherwise.
     pub fn try_remove_measure(&mut self, entity: Entity) {
-        if let Some(key) = self.entity_to_taffy.get(&entity) {
-            self.taffy.set_measure(*key, None).unwrap();
+        if let Some(key) = self.get_key(entity) {
+            self.taffy.set_measure(key, None).unwrap();
         }
     }
 
@@ -190,11 +199,11 @@ without UI components as a child of an entity with UI components, results may be
     pub fn set_window_children(
         &mut self,
         parent_window: Entity,
-        children: impl Iterator<Item = taffy::node::Node>,
+        children: impl Iterator<Item = TaffyKey>,
     ) {
-        let key = self.window_nodes.get(&parent_window).unwrap();
-        let child_keys = children.collect::<Vec<taffy::node::Node>>();
-        self.taffy.set_children(*key, &child_keys).unwrap();
+        let window_key = self.window_nodes.get(&parent_window).unwrap();
+        let child_keys = children.collect::<Vec<TaffyKey>>();
+        self.taffy.set_children(*window_key, &child_keys).unwrap();
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
@@ -389,45 +398,45 @@ mod tests {
         };
         let taffystyle_a = from_style(&style_a, &context);
         let taffystyle_b = from_style(&style_a, &context);
-        let taffynode_a = ui_surface.insert_node(uinode_a);
-        let taffynode_b = ui_surface.insert_node(uinode_b);
-        ui_surface.set_style(taffynode_a, &style_a, &context);
-        ui_surface.set_style(taffynode_b, &style_b, &context);
+        let taffykey_a = ui_surface.insert_node(uinode_a);
+        let taffykey_b = ui_surface.insert_node(uinode_b);
+        ui_surface.set_style(taffykey_a, &style_a, &context);
+        ui_surface.set_style(taffykey_b, &style_b, &context);
         assert_eq!(
-            taffynode_a,
-            *ui_surface.entity_to_taffy.get(&uinode_a).unwrap()
+            taffykey_a,
+            ui_surface.get_key(uinode_a).unwrap()
         );
         assert_eq!(
-            taffynode_b,
-            *ui_surface.entity_to_taffy.get(&uinode_b).unwrap()
+            taffykey_b,
+            ui_surface.get_key(uinode_b).unwrap()
         );
 
         // The should be be two nodes in the layout
         assert_eq!(ui_surface.entity_to_taffy.len(), 2);
 
         // The ids for the associated taffy nodes should be different
-        assert_ne!(taffynode_a, taffynode_b);
+        assert_ne!(taffykey_a, taffykey_b);
 
         // Check the UI nodes each have an associated taffy node with the correct style
-        assert_eq!(ui_surface.taffy.style(taffynode_a).unwrap(), &taffystyle_a);
-        assert_eq!(ui_surface.taffy.style(taffynode_b).unwrap(), &taffystyle_b);
+        assert_eq!(ui_surface.taffy.style(taffykey_a).unwrap(), &taffystyle_a);
+        assert_eq!(ui_surface.taffy.style(taffykey_b).unwrap(), &taffystyle_b);
 
         // Swap the styles of the associated nodes
-        ui_surface.set_style(taffynode_a, &style_b, &context);
-        ui_surface.set_style(taffynode_b, &style_a, &context);
+        ui_surface.set_style(taffykey_a, &style_b, &context);
+        ui_surface.set_style(taffykey_b, &style_a, &context);
 
         // The styles should be swapped
-        assert_eq!(ui_surface.taffy.style(taffynode_a).unwrap(), &taffystyle_b);
-        assert_eq!(ui_surface.taffy.style(taffynode_b).unwrap(), &taffystyle_a);
+        assert_eq!(ui_surface.taffy.style(taffykey_a).unwrap(), &taffystyle_b);
+        assert_eq!(ui_surface.taffy.style(taffykey_b).unwrap(), &taffystyle_a);
 
         // But the ids of the associated nodes should be unchanged
         assert_eq!(
-            *ui_surface.entity_to_taffy.get(&uinode_a).unwrap(),
-            taffynode_a
+            ui_surface.get_key(uinode_a).unwrap(),
+            taffykey_a
         );
         assert_eq!(
-            *ui_surface.entity_to_taffy.get(&uinode_b).unwrap(),
-            taffynode_b
+            ui_surface.get_key(uinode_b).unwrap(),
+            taffykey_b
         );
 
         // There should still be exactly two nodes in the layout
@@ -437,7 +446,7 @@ mod tests {
         ui_surface.remove_entities([uinode_a, uinode_b]);
 
         assert!(ui_surface.entity_to_taffy.is_empty());
-        assert!(ui_surface.taffy.style(taffynode_a).is_err());
-        assert!(ui_surface.taffy.style(taffynode_b).is_err());
+        assert!(ui_surface.taffy.style(taffykey_a).is_err());
+        assert!(ui_surface.taffy.style(taffykey_b).is_err());
     }
 }
