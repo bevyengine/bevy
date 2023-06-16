@@ -27,7 +27,7 @@ fn pbr_deferred_functions_frag_coord_to_uv(frag_coord: vec2<f32>) -> vec2<f32> {
 }
 
 /// Convert frag coord to ndc
-fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
+fn pbr_deferred_functions_frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
     return vec3(pbr_deferred_functions_uv_to_ndc(pbr_deferred_functions_frag_coord_to_uv(frag_coord.xy)), frag_coord.z);
 }
 
@@ -104,7 +104,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let oct_nor = unpack_24bit_nor(gbuffer.a);
     let N = octa_decode(oct_nor);
 
-    let world_position = vec4(pbr_deferred_functions_position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);
+    let world_position = vec4(pbr_deferred_functions_position_ndc_to_world(pbr_deferred_functions_frag_coord_to_ndc(frag_coord)), 1.0);
     let is_orthographic = view.projection[3].w == 1.0;
     let V = calculate_view(world_position, is_orthographic);
     
