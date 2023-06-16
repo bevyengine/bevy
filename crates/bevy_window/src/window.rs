@@ -441,18 +441,19 @@ impl Default for Cursor {
 )]
 #[reflect(Debug, PartialEq)]
 pub enum WindowPosition {
-    /// Position will be set by the window manager
+    /// Position will be set by the window manager.
+    /// Bevy will delegate this decision to it and no guarantees can be made about where the window will be placed.
     ///
-    /// Used at creation but will be changed to [`At`](WindowPosition::At)
+    /// Used at creation but will be changed to [`At`](WindowPosition::At).
     #[default]
     Automatic,
-    /// Window will be centered on the selected monitor
+    /// Window will be centered on the selected monitor.
     ///
     /// Note that this does not account for window decorations.
     ///
     /// Used at creation or for update but will be changed to [`At`](WindowPosition::At)
     Centered(MonitorSelection),
-    /// The window's top-left corner should be placed at the specified position (in physical pixels)
+    /// The window's top-left corner should be placed at the specified position (in physical pixels).
     ///
     /// (0,0) represents top-left corner of screen space.
     At(IVec2),
@@ -719,7 +720,8 @@ impl InternalWindowState {
 pub enum MonitorSelection {
     /// Uses the current monitor of the window.
     ///
-    /// Will fall back to the system default if the window has not yet been created.
+    /// If [`WindowPosition::Centered(MonitorSelection::Current)`](WindowPosition::Centered) is used when creating a window,
+    /// the window doesn't have a monitor yet, this will fall back to [`WindowPosition::Automatic`].
     Current,
     /// Uses the primary monitor of the system.
     Primary,
@@ -821,9 +823,8 @@ pub enum CompositeAlphaMode {
     Inherit = 4,
 }
 
-/// Defines the way a [`Window`] is displayed, potentially using a given size.
-///
-/// The "given size" is in the [`Window`]'s [`resolution`](WindowResolution).
+/// Defines the way a [`Window`] is displayed,
+/// potentially using the physical size in the [`Window`]'s [`resolution`](WindowResolution).
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -832,13 +833,13 @@ pub enum CompositeAlphaMode {
 )]
 #[reflect(Debug, PartialEq)]
 pub enum WindowMode {
-    /// The window should take a portion of the screen, using the given size.
+    /// The window should take a portion of the screen, using the window resolution size.
     #[default]
     Windowed,
     /// The window should be borderless and use the full size of the screen.
     BorderlessFullscreen,
     /// The window should be borderless, take the full size of the screen, and render at desktop resolution.
-    /// The app will use the closest supported size from the given size and scale it to fit the screen.
+    /// The app will use the closest supported size from the window resolution size and scale it to fit the screen.
     SizedFullscreen,
     /// The window should take the full size of the screen by using the maximum supported size.
     Fullscreen,
