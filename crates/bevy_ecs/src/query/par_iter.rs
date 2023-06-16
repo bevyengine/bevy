@@ -119,14 +119,35 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn for_each<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&self, func: FN) {
-        // SAFETY:
-        // This type can only be shared between threads if the query is read-only.
-        // This means that if the query is mutable, this method cannot be called anywhere else at the same time.
-        // Since mutable access to the components exists only within the scope of this method, there will be
-        // no conflicting accesses.
-        // If the query *is* read-only, then it's okay for this method to be called multiple times in parallel.
-        unsafe {
-            self.for_each_unchecked(func);
+        let thread_count = ComputeTaskPool::get().thread_num();
+        if thread_count <= 1 {
+            // SAFETY:
+            // This type can only be shared between threads if the query is read-only.
+            // This means that if the query is mutable, this method cannot be called anywhere else at the same time.
+            // Since mutable access to the components exists only within the scope of this method, there will be
+            // no conflicting accesses.
+            // If the query *is* read-only, then it's okay for this method to be called multiple times in parallel.
+            unsafe {
+                self.state.for_each_unchecked_manual(
+                    self.world,
+                    func,
+                    self.last_run,
+                    self.this_run,
+                );
+            }
+        } else {
+            // Need a batch size of at least 1.
+            let batch_size = self.get_batch_size(thread_count).max(1);
+            // SAFETY: See the safety comment above.
+            unsafe {
+                self.state.par_for_each_unchecked_manual(
+                    self.world,
+                    batch_size,
+                    func,
+                    self.last_run,
+                    self.this_run,
+                );
+            }
         }
     }
 
@@ -141,37 +162,6 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     #[deprecated = "use .for_each(...) instead"]
     pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&mut self, func: FN) {
         self.for_each(func);
-    }
-
-    /// Runs `func` on each query result in parallel.
-    ///
-    /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
-    ///
-    /// # Safety
-    ///
-    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
-    /// have unique access to the components they query.
-    ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    #[inline]
-    unsafe fn for_each_unchecked<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&self, func: FN) {
-        let thread_count = ComputeTaskPool::get().thread_num();
-        if thread_count <= 1 {
-            self.state
-                .for_each_unchecked_manual(self.world, func, self.last_run, self.this_run);
-        } else {
-            // Need a batch size of at least 1.
-            let batch_size = self.get_batch_size(thread_count).max(1);
-            self.state.par_for_each_unchecked_manual(
-                self.world,
-                batch_size,
-                func,
-                self.last_run,
-                self.this_run,
-            );
-        }
     }
 
     fn get_batch_size(&self, thread_count: usize) -> usize {
