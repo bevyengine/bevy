@@ -441,6 +441,7 @@ async fn load_gltf<'a, 'b>(
                         &mut node_index_to_entity_map,
                         &mut entity_to_skin_index_map,
                         &mut active_camera_found,
+                        &Transform::default(),
                     );
                     if result.is_err() {
                         err = Some(result);
@@ -677,11 +678,13 @@ fn load_node(
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
     entity_to_skin_index_map: &mut HashMap<Entity, usize>,
     active_camera_found: &mut bool,
+    parent_transform: &Transform,
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
     let transform = Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix()));
-    let is_scale_inverted = transform.scale.is_negative_bitmask().count_ones() & 1 == 1;
+    let world_transform = *parent_transform * transform;
+    let is_scale_inverted = world_transform.scale.is_negative_bitmask().count_ones() & 1 == 1;
     let mut node = world_builder.spawn(SpatialBundle::from(transform));
 
     node.insert(node_name(gltf_node));
@@ -869,6 +872,7 @@ fn load_node(
                 node_index_to_entity_map,
                 entity_to_skin_index_map,
                 active_camera_found,
+                &world_transform,
             ) {
                 gltf_error = Some(err);
                 return;
