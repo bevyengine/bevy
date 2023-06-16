@@ -28,6 +28,8 @@ pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseBut
         winit::event::MouseButton::Left => MouseButton::Left,
         winit::event::MouseButton::Right => MouseButton::Right,
         winit::event::MouseButton::Middle => MouseButton::Middle,
+        winit::event::MouseButton::Back => MouseButton::Back,
+        winit::event::MouseButton::Forward => MouseButton::Forward,
         winit::event::MouseButton::Other(val) => MouseButton::Other(val),
     }
 }
