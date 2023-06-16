@@ -272,7 +272,7 @@ impl Window {
     #[inline]
     pub fn cursor_position(&self) -> Option<Vec2> {
         self.physical_cursor_position()
-            .map(|position| position / self.scale_factor())
+            .map(|position| (position.as_dvec2() / self.scale_factor()).as_vec2())
     }
 
     /// The physical cursor position in this window.
@@ -280,8 +280,9 @@ impl Window {
     /// Returns `None` if the cursor is out of bounds of the window.
     #[inline]
     pub fn physical_cursor_position(&self) -> Option<Vec2> {
-        match position {
+        match self.internal.physical_cursor_position {
             Some(position) => {
+                let position = position.as_vec2();
                 if position.x > self.width()
                     || position.x < 0.0
                     || position.y > self.height()
@@ -289,7 +290,7 @@ impl Window {
                 {
                     None
                 } else {
-                    Some(position.as_vec2())
+                    Some(position)
                 }
             }
             None => None,
