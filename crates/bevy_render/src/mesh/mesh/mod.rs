@@ -986,9 +986,19 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
             ))
         }
     };
+
+    let indices = if mesh.indices().is_none() {
+        if positions.len() < u16::MAX as usize {
+            Indices::U16((0..positions.len()).map(|i| i as u16).collect())
+        } else {
+            Indices::U32((0..positions.len()).map(|i| i as u32).collect())
+        }
+    } else {
+        Indices::U16(Default::default())
+    };
     let indices = mesh
         .indices()
-        .ok_or(GenerateTangentsError::MissingIndices)?;
+        .unwrap_or(&indices);
 
     let len = positions.len();
     let tangents = vec![[0., 0., 0., 0.]; len];
