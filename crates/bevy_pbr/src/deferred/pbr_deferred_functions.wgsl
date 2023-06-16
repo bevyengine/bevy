@@ -5,30 +5,30 @@
 // ---------------------------
 
 /// Convert a ndc space position to world space
-fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
+fn pbr_deferred_functions_position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
     let world_pos = view.inverse_view_proj * vec4(ndc_pos, 1.0);
     return world_pos.xyz / world_pos.w;
 }
 
 /// Convert ndc space xy coordinate [-1.0 .. 1.0] to uv [0.0 .. 1.0]
-fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
+fn pbr_deferred_functions_ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
     return ndc * vec2(0.5, -0.5) + vec2(0.5);
 }
 
 /// Convert uv [0.0 .. 1.0] coordinate to ndc space xy [-1.0 .. 1.0]
-fn uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
+fn pbr_deferred_functions_uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
     return (uv - vec2(0.5)) * vec2(2.0, -2.0);
 }
 
 /// returns the (0.0, 0.0) .. (1.0, 1.0) position within the viewport for the current render target
 /// [0 .. render target viewport size] eg. [(0.0, 0.0) .. (1280.0, 720.0)] to [(0.0, 0.0) .. (1.0, 1.0)]
-fn frag_coord_to_uv(frag_coord: vec2<f32>) -> vec2<f32> {
+fn pbr_deferred_functions_frag_coord_to_uv(frag_coord: vec2<f32>) -> vec2<f32> {
     return (frag_coord - view.viewport.xy) / view.viewport.zw;
 }
 
 /// Convert frag coord to ndc
 fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
-    return vec3(uv_to_ndc(frag_coord_to_uv(frag_coord.xy)), frag_coord.z);
+    return vec3(pbr_deferred_functions_uv_to_ndc(pbr_deferred_functions_frag_coord_to_uv(frag_coord.xy)), frag_coord.z);
 }
 
 // ---------------------------
@@ -104,7 +104,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let oct_nor = unpack_24bit_nor(gbuffer.a);
     let N = octa_decode(oct_nor);
 
-    let world_position = vec4(position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);
+    let world_position = vec4(pbr_deferred_functions_position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);
     let is_orthographic = view.projection[3].w == 1.0;
     let V = calculate_view(world_position, is_orthographic);
     
