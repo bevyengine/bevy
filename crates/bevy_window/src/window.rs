@@ -84,7 +84,14 @@ impl NormalizedWindowRef {
     }
 }
 
-/// Define how a window will be created and how it will behave.
+/// The defining [`Component`] for window entities,
+/// storing information about how it will appear and behave.
+///
+/// When the [`Window`] component is added to an entity, a new window will be opened.
+/// When it is removed or the entity is despawned, the window will close.
+///
+/// This component is syncronised with `winit` through `bevy_winit`:
+/// it will reflect the current state of the window and can be modified to change this state.
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -97,7 +104,7 @@ pub struct Window {
     pub cursor: Cursor,
     /// What presentation mode to give the window.
     pub present_mode: PresentMode,
-    /// Which fullscreen or windowing mode should be used?
+    /// Which fullscreen or windowing mode should be used.
     pub mode: WindowMode,
     /// Where the window should be placed.
     pub position: WindowPosition,
@@ -107,7 +114,7 @@ pub struct Window {
     pub title: String,
     /// How the alpha channel of textures should be handled while compositing.
     pub composite_alpha_mode: CompositeAlphaMode,
-    /// Which size limits to give the window.
+    /// The size limits the window's resolution should not exceed.
     pub resize_constraints: WindowResizeConstraints,
     /// Should the window be resizable?
     ///
@@ -133,9 +140,9 @@ pub struct Window {
     /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>.
     /// You should also set the window `composite_alpha_mode` to `CompositeAlphaMode::PostMultiplied`.
     pub transparent: bool,
-    /// Should the window start focused?
+    /// Should the window be focused?
     pub focused: bool,
-    /// Should the window always be on top of other windows?
+    /// Where should the window appear relative to other overlapping window.
     ///
     /// ## Platform-specific
     ///
@@ -266,7 +273,9 @@ impl Window {
         self.resolution.scale_factor()
     }
 
-    /// The cursor position in this window
+    /// The cursor position in this window in logical pixels.
+    ///
+    /// Returns `None` if the cursor is outside the window area.
     #[inline]
     pub fn cursor_position(&self) -> Option<Vec2> {
         self.internal
@@ -274,7 +283,9 @@ impl Window {
             .map(|position| (position / self.scale_factor()).as_vec2())
     }
 
-    /// The physical cursor position in this window
+    /// The cursor position in this window in physical pixels.
+    ///
+    /// Returns `None` if the cursor is outside the window area.
     #[inline]
     pub fn physical_cursor_position(&self) -> Option<Vec2> {
         self.internal
@@ -282,22 +293,23 @@ impl Window {
             .map(|position| position.as_vec2())
     }
 
-    /// Set the cursor position in this window
+    /// Set the cursor position in this window in logical pixels.
     pub fn set_cursor_position(&mut self, position: Option<Vec2>) {
         self.internal.physical_cursor_position =
             position.map(|p| p.as_dvec2() * self.scale_factor());
     }
 
-    /// Set the physical cursor position in this window
+    /// Set the cursor position in this window in physical pixels.
     pub fn set_physical_cursor_position(&mut self, position: Option<DVec2>) {
         self.internal.physical_cursor_position = position;
     }
 }
 
-/// The size limits on a window.
+/// The size limits on a [`Window`].
 ///
 /// These values are measured in logical pixels, so the user's
 /// scale factor does affect the size limits on the window.
+///
 /// Please note that if the window is resizable, then when the window is
 /// maximized it may have a size outside of these limits. The functionality
 /// required to disable maximizing is not yet exposed by winit.
@@ -367,7 +379,7 @@ impl WindowResizeConstraints {
     }
 }
 
-/// Stores data about the window's cursor.
+/// Cursor data for a [`Window`].
 #[derive(Debug, Copy, Clone, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -376,7 +388,7 @@ impl WindowResizeConstraints {
 )]
 #[reflect(Debug, Default)]
 pub struct Cursor {
-    /// Get the current [`CursorIcon`] while inside the window.
+    /// What the cursor should look like while inside the window.
     pub icon: CursorIcon,
 
     /// Whether the cursor is visible or not.
@@ -389,7 +401,7 @@ pub struct Cursor {
     /// - **`iOS`** and **`Android`** do not have cursors
     pub visible: bool,
 
-    /// Whether or not the cursor is locked.
+    /// Whether or not the cursor is locked by or confined within the window.
     ///
     /// ## Platform-specific
     ///
@@ -419,7 +431,7 @@ impl Default for Cursor {
     }
 }
 
-/// Defines where window should be placed at on creation.
+/// Defines where a [`Window`] should be placed on the screen.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -429,13 +441,17 @@ impl Default for Cursor {
 #[reflect(Debug, PartialEq)]
 pub enum WindowPosition {
     /// Position will be set by the window manager
+    ///
+    /// Used at creation but will be changed to [`At`](WindowPosition::At)
     #[default]
     Automatic,
     /// Window will be centered on the selected monitor
     ///
     /// Note that this does not account for window decorations.
+    ///
+    /// Used at creation or for update but will be changed to [`At`](WindowPosition::At)
     Centered(MonitorSelection),
-    /// The window's top-left corner will be placed at the specified position (in physical pixels)
+    /// The window's top-left corner should be placed at the specified position (in physical pixels)
     ///
     /// (0,0) represents top-left corner of screen space.
     At(IVec2),
@@ -458,7 +474,7 @@ impl WindowPosition {
     }
 }
 
-/// ## Window Sizes
+/// ## [`Window`] Sizes
 ///
 /// There are three sizes associated with a window. The physical size which is
 /// the height and width in physical pixels on the monitor. The logical size
@@ -481,7 +497,13 @@ impl WindowPosition {
 pub struct WindowResolution {
     physical_width: u32,
     physical_height: u32,
+    /// Ratio for `physical_with` (or `physical_height`) over (requested) `width` (or `height`)
+    ///
+    /// Will override `scale_factor`
     scale_factor_override: Option<f64>,
+    /// Ratio for `physical_with` (or `physical_height`) over logical width (or height)
+    ///
+    /// Set by the operating system depending on monitor pixel densities
     scale_factor: f64,
 }
 
@@ -626,7 +648,7 @@ impl From<bevy_math::DVec2> for WindowResolution {
     }
 }
 
-/// Defines if and how the cursor is grabbed.
+/// Defines if and how the [`Cursor`] is grabbed by a [`Window`].
 ///
 /// ## Platform-specific
 ///
@@ -652,7 +674,7 @@ pub enum CursorGrabMode {
     Locked,
 }
 
-/// Stores internal state that isn't directly accessible.
+/// Stores internal [`Window`] state that isn't directly accessible.
 #[derive(Default, Debug, Copy, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -681,7 +703,9 @@ impl InternalWindowState {
     }
 }
 
-/// Defines which monitor to use.
+/// References a screen monitor.
+///
+/// Used when centering a [`Window`] on a monitor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -690,17 +714,17 @@ impl InternalWindowState {
 )]
 #[reflect(Debug, PartialEq)]
 pub enum MonitorSelection {
-    /// Uses current monitor of the window.
+    /// Uses the current monitor of the window.
     ///
     /// Will fall back to the system default if the window has not yet been created.
     Current,
-    /// Uses primary monitor of the system.
+    /// Uses the primary monitor of the system.
     Primary,
-    /// Uses monitor with the specified index.
+    /// Uses the monitor with the specified index.
     Index(usize),
 }
 
-/// Presentation mode for a window.
+/// Presentation mode for a [`Window`].
 ///
 /// The presentation mode specifies when a frame is presented to the window. The [`Fifo`]
 /// option corresponds to a traditional `VSync`, where the framerate is capped by the
@@ -758,7 +782,7 @@ pub enum PresentMode {
     Fifo = 4, // NOTE: The explicit ordinal values mirror wgpu.
 }
 
-/// Specifies how the alpha channel of the textures should be handled during compositing.
+/// Specifies how the alpha channel of the textures should be handled during compositing in, for a [`Window`].
 #[repr(C)]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[cfg_attr(
@@ -794,7 +818,9 @@ pub enum CompositeAlphaMode {
     Inherit = 4,
 }
 
-/// Defines the way a window is displayed
+/// Defines the way a [`Window`] is displayed, potentially using a given size.
+///
+/// The "given size" is in the [`Window`]'s [`resolution`](WindowResolution).
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -803,22 +829,24 @@ pub enum CompositeAlphaMode {
 )]
 #[reflect(Debug, PartialEq)]
 pub enum WindowMode {
-    /// Creates a window that uses the given size.
+    /// The window should take a portion of the screen, using the given size.
     #[default]
     Windowed,
-    /// Creates a borderless window that uses the full size of the screen.
+    /// The window should be borderless and use the full size of the screen.
     BorderlessFullscreen,
-    /// Creates a fullscreen window that will render at desktop resolution. The app will use the closest supported size
-    /// from the given size and scale it to fit the screen.
+    /// The window should be borderless, take the full size of the screen, and render at desktop resolution.
+    /// The app will use the closest supported size from the given size and scale it to fit the screen.
     SizedFullscreen,
-    /// Creates a fullscreen window that uses the maximum supported size.
+    /// The window should take the full size of the screen by using the maximum supported size.
     Fullscreen,
 }
 
-/// A window level groups windows with respect to their z-position.
+/// Specifies where a [`Window`] should appear relative to other overlapping windows (on top or under) .
+///
+/// Levels are groups of windows with respect to their z-position.
 ///
 /// The relative ordering between windows in different window levels is fixed.
-/// The z-order of a window within the same window level may change dynamically on user interaction.
+/// The z-order of windows within the same window level may change dynamically on user interaction.
 ///
 /// ## Platform-specific
 ///
@@ -831,18 +859,18 @@ pub enum WindowMode {
 )]
 #[reflect(Debug, PartialEq)]
 pub enum WindowLevel {
-    /// The window will always be below normal windows.
+    /// The window will always be below [`WindowLevel::Normal`] and [`WindowLevel::AlwaysOnTop`] windows.
     ///
     /// This is useful for a widget-based app.
     AlwaysOnBottom,
-    /// The default.
+    /// The default group.
     #[default]
     Normal,
-    /// The window will always be on top of normal windows.
+    /// The window will always be on top of [`WindowLevel::Normal`] and [`WindowLevel::AlwaysOnBottom`] windows.
     AlwaysOnTop,
 }
 
-/// The window theme variant to use.
+/// The [`Window`] theme variant to use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
