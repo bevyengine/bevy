@@ -59,6 +59,7 @@ use crate::converters::convert_winit_theme;
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
+/// A global reference to the current [`AndroidApp`]
 #[cfg(target_os = "android")]
 pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::new();
 

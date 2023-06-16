@@ -81,10 +81,12 @@ impl AssetProviders {
     pub fn get_source_reader(&mut self, provider: &AssetProvider) -> Box<dyn AssetReader> {
         match provider {
             AssetProvider::Default => {
-                #[cfg(not(target_arch = "wasm32"))]
+                #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
                 let reader = super::file::FileAssetReader::new(self.default_file_source());
                 #[cfg(target_arch = "wasm32")]
                 let reader = super::wasm::HttpWasmAssetReader::new(self.default_file_source());
+                #[cfg(target_os = "android")]
+                let reader = super::android::AndroidAssetReader;
                 Box::new(reader)
             }
             AssetProvider::Custom(provider) => {
@@ -99,10 +101,12 @@ impl AssetProviders {
     pub fn get_destination_reader(&mut self, provider: &AssetProvider) -> Box<dyn AssetReader> {
         match provider {
             AssetProvider::Default => {
-                #[cfg(not(target_arch = "wasm32"))]
+                #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
                 let reader = super::file::FileAssetReader::new(self.default_file_destination());
                 #[cfg(target_arch = "wasm32")]
                 let reader = super::wasm::HttpWasmAssetReader::new(self.default_file_destination());
+                #[cfg(target_os = "android")]
+                let reader = super::android::AndroidAssetReader;
                 Box::new(reader)
             }
             AssetProvider::Custom(provider) => {
@@ -118,12 +122,12 @@ impl AssetProviders {
     pub fn get_source_writer(&mut self, provider: &AssetProvider) -> Box<dyn AssetWriter> {
         match provider {
             AssetProvider::Default => {
-                #[cfg(not(target_arch = "wasm32"))]
+                #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
                 return Box::new(super::file::FileAssetWriter::new(
                     self.default_file_source(),
                 ));
-                #[cfg(target_arch = "wasm32")]
-                panic!("Writing assets isn't supported on WASM yet");
+                #[cfg(any(target_arch = "wasm32", target_os = "android"))]
+                panic!("Writing assets isn't supported on this platform yet");
             }
             AssetProvider::Custom(provider) => {
                 let get_writer = self
@@ -137,12 +141,12 @@ impl AssetProviders {
     pub fn get_destination_writer(&mut self, provider: &AssetProvider) -> Box<dyn AssetWriter> {
         match provider {
             AssetProvider::Default => {
-                #[cfg(not(target_arch = "wasm32"))]
+                #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
                 return Box::new(super::file::FileAssetWriter::new(
                     self.default_file_destination(),
                 ));
-                #[cfg(target_arch = "wasm32")]
-                panic!("Writing assets isn't supported on WASM yet");
+                #[cfg(any(target_arch = "wasm32", target_os = "android"))]
+                panic!("Writing assets isn't supported on this platform yet");
             }
             AssetProvider::Custom(provider) => {
                 let get_writer = self
