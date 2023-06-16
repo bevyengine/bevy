@@ -85,13 +85,13 @@ impl NormalizedWindowRef {
 }
 
 /// The defining [`Component`] for window entities,
-/// storing information about how it will appear and behave.
+/// storing information about how it should appear and behave.
 ///
 /// Each window corresponds to an entity, and is uniquely identified by the value of their [`Entity`].
 /// When the [`Window`] component is added to an entity, a new window will be opened.
 /// When it is removed or the entity is despawned, the window will close.
 ///
-/// This component is syncronised with `winit` through `bevy_winit`:
+/// This component is synchronized with `winit` through `bevy_winit`:
 /// it will reflect the current state of the window and can be modified to change this state.
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[cfg_attr(
@@ -496,15 +496,17 @@ impl WindowPosition {
 )]
 #[reflect(Debug, PartialEq, Default)]
 pub struct WindowResolution {
+    /// Width of the window in physical pixels.
     physical_width: u32,
+    /// Height of the window in physical pixels.
     physical_height: u32,
-    /// Ratio for `physical_with` (or `physical_height`) over (requested) `width` (or `height`)
+    /// Ratio for `physical_with` (or `physical_height`) over (requested) `width` (or `height`).
     ///
-    /// Will override `scale_factor`
+    /// Will override `scale_factor`.
     scale_factor_override: Option<f64>,
-    /// Ratio for `physical_with` (or `physical_height`) over logical width (or height)
+    /// Ratio for `physical_with` (or `physical_height`) over logical width (or height).
     ///
-    /// Set by the operating system depending on monitor pixel densities
+    /// Set by the operating system depending on monitor pixel densities.
     scale_factor: f64,
 }
 
@@ -559,7 +561,7 @@ impl WindowResolution {
         self.physical_height
     }
 
-    /// The ratio of physical pixels to logical pixels
+    /// The ratio of physical pixels to logical pixels.
     ///
     /// `physical_pixels = logical_pixels * scale_factor`
     pub fn scale_factor(&self) -> f64 {
@@ -783,7 +785,7 @@ pub enum PresentMode {
     Fifo = 4, // NOTE: The explicit ordinal values mirror wgpu.
 }
 
-/// Specifies how the alpha channel of the textures should be handled during compositing in, for a [`Window`].
+/// Specifies how the alpha channel of the textures should be handled during compositing, for a [`Window`].
 #[repr(C)]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[cfg_attr(
