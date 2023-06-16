@@ -12,14 +12,17 @@ use bevy_utils::tracing::warn;
 
 use crate::CursorIcon;
 
-/// Marker component for the window considered the primary window.
+/// Marker [`Component`] for the window considered the primary window.
 ///
 /// Currently this is assumed to only exist on 1 entity at a time.
+/// 
+/// [`WindowPlugin`](crate::WindowPlugin) will spawn a window entity
+/// with this component if `primary_window` is some.
 #[derive(Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect)]
 #[reflect(Component)]
 pub struct PrimaryWindow;
 
-/// Reference to a window, whether it be a direct link to a specific entity or
+/// Reference to a [`Window`], whether it be a direct link to a specific entity or
 /// a more vague defaulting choice.
 #[repr(C)]
 #[derive(Default, Copy, Clone, Debug, Reflect, FromReflect)]
