@@ -1781,6 +1781,16 @@ wasm = true
 
 # UI (User Interface)
 [[example]]
+name = "borders"
+path = "examples/ui/borders.rs"
+
+[package.metadata.example.borders]
+name = "Borders"
+description = "Demonstrates how to create a node with a border"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "button"
 path = "examples/ui/button.rs"
 
@@ -1938,6 +1948,16 @@ path = "examples/ui/ui_scaling.rs"
 [package.metadata.example.ui_scaling]
 name = "UI Scaling"
 description = "Illustrates how to scale the UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "viewport_debug"
+path = "examples/ui/viewport_debug.rs"
+
+[package.metadata.example.viewport_debug]
+name = "Viewport Debug"
+description = "An example for debugging viewport coordinates"
 category = "UI (User Interface)"
 wasm = true
 
