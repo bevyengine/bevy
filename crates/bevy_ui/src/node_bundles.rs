@@ -1,5 +1,7 @@
 //! This module contains basic node bundles used to build UIs
 
+#[cfg(feature = "bevy_text")]
+use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
@@ -10,8 +12,6 @@ use bevy_render::{
     prelude::{Color, ComputedVisibility},
     view::Visibility,
 };
-#[cfg(feature = "bevy_text")]
-use crate::widget::TextFlags;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
