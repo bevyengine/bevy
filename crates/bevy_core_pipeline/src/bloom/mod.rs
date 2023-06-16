@@ -177,7 +177,9 @@ impl ViewNode for BloomNode {
                             BindGroupEntry {
                                 binding: 0,
                                 // Read from main texture directly
-                                resource: BindingResource::TextureView(view_target.main_texture()),
+                                resource: BindingResource::TextureView(
+                                    view_target.main_texture_view(),
+                                ),
                             },
                             BindGroupEntry {
                                 binding: 1,

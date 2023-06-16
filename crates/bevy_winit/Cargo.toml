@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 trace = []
-wayland = ["winit/wayland"]
+wayland = ["winit/wayland", "winit/wayland-csd-adwaita"]
 x11 = ["winit/x11"]
 accesskit_unix = ["accesskit_winit/accesskit_unix"]
 
@@ -35,7 +35,6 @@ raw-window-handle = "0.5"
 
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.28", default-features = false, features = ["android-native-activity"] }
-once_cell = "1.11"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }

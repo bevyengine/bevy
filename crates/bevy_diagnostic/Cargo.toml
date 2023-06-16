@@ -30,4 +30,4 @@ sysinfo = { version = "0.29.0", default-features = false, features = [
 
 # Only include when not bevy_dynamic_plugin and on linux/windows/android
 [target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "android"))'.dependencies]
-sysinfo = { version = "0.28.1", default-features = false }
+sysinfo = { version = "0.29.0", default-features = false }

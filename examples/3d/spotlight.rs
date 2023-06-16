@@ -10,7 +10,7 @@ use rand::{thread_rng, Rng};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(Update, (light_sway, movement))
