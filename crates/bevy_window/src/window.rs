@@ -475,7 +475,7 @@ impl WindowPosition {
     }
 }
 
-/// ## [`Window`] Sizes
+/// Controls the size of a [`Window`]
 ///
 /// There are three sizes associated with a window. The physical size which is
 /// the height and width in physical pixels on the monitor. The logical size
