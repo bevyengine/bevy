@@ -244,6 +244,29 @@ pub fn ui_layout_system(
         ),
     )>,
 ) {
+    // assume one window for time being...
+    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
+    let (primary_window_entity, logical_to_physical_factor, physical_size) =
+        if let Ok((entity, primary_window)) = primary_window.get_single() {
+            (
+                entity,
+                primary_window.resolution.scale_factor(),
+                Vec2::new(
+                    primary_window.resolution.physical_width() as f32,
+                    primary_window.resolution.physical_height() as f32,
+                ),
+            )
+        } else {
+            return;
+        };
+
+    // Set the `window_changed` flag if the primary window was resized or created since the last UI update.
+    let window_changed = window_resized_events
+        .iter()
+        .map(|resized| resized.window)
+        .chain(window_created_events.iter().map(|created| created.window))
+        .any(|window| window == primary_window_entity);
+
     // clean up removed nodes first
     ui_surface.remove_entities(removed_nodes.iter());
 
@@ -274,29 +297,6 @@ pub fn ui_layout_system(
             ui_surface.update_children(uikey.get(), &children);
         }
     }
-
-    // assume one window for time being...
-    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let (primary_window_entity, logical_to_physical_factor, physical_size) =
-        if let Ok((entity, primary_window)) = primary_window.get_single() {
-            (
-                entity,
-                primary_window.resolution.scale_factor(),
-                Vec2::new(
-                    primary_window.resolution.physical_width() as f32,
-                    primary_window.resolution.physical_height() as f32,
-                ),
-            )
-        } else {
-            return;
-        };
-
-    // Set the `window_changed` flag if the primary window was resized or created since the last UI update.
-    let window_changed = window_resized_events
-        .iter()
-        .map(|resized| resized.window)
-        .chain(window_created_events.iter().map(|created| created.window))
-        .any(|window| window == primary_window_entity);
 
     // update window root nodes
     for (entity, window) in windows.iter() {
