@@ -119,7 +119,7 @@ pub struct Window {
     /// How the alpha channel of textures should be handled while compositing.
     pub composite_alpha_mode: CompositeAlphaMode,
     /// The limits of the window's physical size
-    /// (found in its [`resolution`](WindowResolution) when resizing.
+    /// (found in its [`resolution`](WindowResolution)) when resizing.
     pub resize_constraints: WindowResizeConstraints,
     /// Should the window be resizable?
     ///
@@ -145,7 +145,7 @@ pub struct Window {
     /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>.
     /// You should also set the window `composite_alpha_mode` to `CompositeAlphaMode::PostMultiplied`.
     pub transparent: bool,
-    /// Should the window be focused?
+    /// Get/set whether the window is focused.
     pub focused: bool,
     /// Where should the window appear relative to other overlapping window.
     ///
@@ -249,24 +249,32 @@ impl Window {
     }
 
     /// The window's client area width in logical pixels.
+    ///
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn width(&self) -> f32 {
         self.resolution.width()
     }
 
     /// The window's client area height in logical pixels.
+    ///
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn height(&self) -> f32 {
         self.resolution.height()
     }
 
     /// The window's client area width in physical pixels.
+    ///
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn physical_width(&self) -> u32 {
         self.resolution.physical_width()
     }
 
     /// The window's client area height in physical pixels.
+    ///
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn physical_height(&self) -> u32 {
         self.resolution.physical_height()
