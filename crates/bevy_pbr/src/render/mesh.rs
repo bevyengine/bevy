@@ -676,7 +676,7 @@ impl MeshPipelineKey {
 fn has_skin(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
     layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX) && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
 }
-pub fn set_special_mesh_attributes(
+pub fn setup_moprh_and_skinning_defs(
     mesh_layouts: &MeshLayouts,
     layout: &Hashed<InnerMeshVertexBufferLayout>,
     offset: u32,
@@ -765,7 +765,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         };
 
-        bind_group_layout.push(set_special_mesh_attributes(
+        bind_group_layout.push(setup_moprh_and_skinning_defs(
             &self.mesh_layouts,
             layout,
             5,
