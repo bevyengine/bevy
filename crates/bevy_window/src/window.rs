@@ -445,7 +445,7 @@ impl Default for Cursor {
 #[reflect(Debug, PartialEq)]
 pub enum WindowPosition {
     /// Position will be set by the window manager.
-    /// Bevy will delegate this decision to it and no guarantees can be made about where the window will be placed.
+    /// Bevy will delegate this decision to the window manager and no guarantees can be made about where the window will be placed.
     ///
     /// Used at creation but will be changed to [`At`](WindowPosition::At).
     #[default]
@@ -504,11 +504,11 @@ pub struct WindowResolution {
     physical_width: u32,
     /// Height of the window in physical pixels.
     physical_height: u32,
-    /// Ratio for `physical_with` (or `physical_height`) over (requested) `width` (or `height`).
+    /// Ratio for `physical_width` (or `physical_height`) over (requested) `width` (or `height`).
     ///
     /// Will override `scale_factor`.
     scale_factor_override: Option<f64>,
-    /// Ratio for `physical_with` (or `physical_height`) over logical width (or height).
+    /// Ratio for `physical_width` (or `physical_height`) over logical width (or height).
     ///
     /// Set by the operating system depending on monitor pixel densities.
     scale_factor: f64,
