@@ -600,7 +600,7 @@ const VISIBILITY_ALL: Symbol = Symbol("all");
 const VISIBILITY_NONE: Symbol = Symbol("none");
 
 fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibility> {
-    let mut flags = vec![];
+    let mut flags = Vec::new();
 
     meta_list.parse_nested_meta(|meta| Ok(flags.push(meta.path)))?;
 
