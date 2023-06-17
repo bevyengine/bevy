@@ -549,7 +549,7 @@ mod tests {
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
-    };  
+    };
     use std::{
         any::TypeId,
         borrow::Cow,
