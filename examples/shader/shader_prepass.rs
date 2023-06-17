@@ -50,9 +50,9 @@ fn setup(
         },
         // To enable the prepass you need to add the components associated with the ones you need
         // This will write the depth buffer to a texture that you can use in the main pass
-        DepthPrepass,
+        DepthPrepass::default(),
         // This will generate a texture containing world normals (with normal maps applied)
-        NormalPrepass,
+        NormalPrepass::default(),
         // This will generate a texture containing screen space pixel motion vectors
         MotionVectorPrepass,
     ));
