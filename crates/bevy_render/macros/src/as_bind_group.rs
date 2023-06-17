@@ -602,9 +602,12 @@ const VISIBILITY_NONE: Symbol = Symbol("none");
 fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibility> {
     let mut flags = Vec::new();
 
-    meta_list.parse_nested_meta(|meta| Ok(flags.push(meta.path)))?;
+    meta_list.parse_nested_meta(|meta| {
+        flags.push(meta.path);
+        Ok(())
+    })?;
 
-    if flags.len() == 0 {
+    if flags.is_empty() {
         return Err(Error::new_spanned(
             meta_list,
             "Invalid visibility format. Must be `visibility(flags)`, flags can be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
