@@ -4,7 +4,9 @@ use std::hash::Hash;
 
 /// Stores the position data of the input devices of type `T`.
 ///
-/// The values are stored as `f32`s, which range from [`Axis::MIN`] to [`Axis::MAX`], inclusive.
+/// The values are stored as `f32`s, using [`Axis::set`].
+/// Use [`Axis::get`] to retrieve the value clamped between [`Axis::MIN`] and [`Axis::MAX`]
+/// inclusive, or unclamped using [`Axis::get_unclamped`].
 #[derive(Debug, Resource)]
 pub struct Axis<T> {
     /// The position data of the input devices.
@@ -43,7 +45,7 @@ where
 
     /// Returns the position data of the provided `input_device`.
     ///
-    /// This will be clamped between [`Axis::MIN`] and [`Axis::MAX`].
+    /// This will be clamped between [`Axis::MIN`] and [`Axis::MAX`] inclusive.
     pub fn get(&self, input_device: T) -> Option<f32> {
         self.axis_data
             .get(&input_device)
