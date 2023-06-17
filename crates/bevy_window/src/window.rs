@@ -2,7 +2,7 @@ use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},
     prelude::{Component, ReflectComponent},
 };
-use bevy_math::{DVec2, IVec2, Vec2};
+use bevy_math::{DVec2, IVec2, Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 
 #[cfg(feature = "serialize")]
