@@ -549,8 +549,7 @@ mod tests {
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
-    };
-    use std::any::TypeId;
+    };  
     use std::{
         any::TypeId,
         borrow::Cow,
@@ -1415,7 +1414,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &Cow::<'static, str>::Owned("Hello!".to_string());
-        let info = value.get_type_info();
+        let info = value.get_represented_type_info().unwrap();
         assert!(info.is::<MyCowStr>());
 
         // Cow<'static, [u8]>
@@ -1432,7 +1431,7 @@ mod tests {
         }
 
         let value: &dyn Reflect = &Cow::<'static, [u8]>::Owned(vec![0, 1, 2, 3]);
-        let info = value.get_type_info();
+        let info = value.get_represented_type_info().unwrap();
         assert!(info.is::<MyCowSlice>());
 
         // Map
