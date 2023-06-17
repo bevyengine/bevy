@@ -529,7 +529,7 @@ pub struct WindowResolution {
     scale_factor_override: Option<f64>,
     /// Ratio of physical size to logical size.
     ///
-    /// Set by the operating system depending on monitor pixel densities.
+    /// Set automatically depending on the pixel density of the screen.
     scale_factor: f64,
 }
 
