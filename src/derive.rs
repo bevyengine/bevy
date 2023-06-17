@@ -1,4 +1,3 @@
-use crate::util::copy_type;
 use indexmap::IndexMap;
 use naga::{
     Arena, ArraySize, Block, Constant, ConstantInner, EntryPoint, Expression, Function,
@@ -82,7 +81,7 @@ impl<'a> DerivedModule<'a> {
                     | TypeInner::Sampler { .. }
                     | TypeInner::Atomic { .. }
                     | TypeInner::AccelerationStructure
-                    | TypeInner::RayQuery => copy_type(ty).inner,
+                    | TypeInner::RayQuery => ty.inner.clone(),
 
                     TypeInner::Pointer { base, space } => TypeInner::Pointer {
                         base: self.import_type(base),

@@ -26,7 +26,6 @@
 pub mod compose;
 pub mod derive;
 pub mod redirect;
-pub mod util;
 
 #[cfg(feature = "prune")]
 pub mod prune;

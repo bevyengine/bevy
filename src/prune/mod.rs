@@ -6,7 +6,7 @@ use naga::{
 use std::collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque};
 use tracing::{debug, trace};
 
-use crate::{derive::DerivedModule, util::serde_range};
+use crate::derive::DerivedModule;
 pub use naga::{Binding, BuiltIn};
 
 #[cfg(test)]
@@ -289,9 +289,8 @@ impl FunctionReq {
                     return None;
                 }
 
-                let expr_values: Vec<_> = exprs.iter().map(|h| h.index() as u32).collect();
-
-                let range = serde_range(&(expr_values[0]..expr_values[expr_values.len() - 1] + 1));
+                let range =
+                    naga::Range::new_from_bounds(*exprs.first().unwrap(), *exprs.last().unwrap());
                 Some(Statement::Emit(range))
             }
             (Statement::Block(block), StatementReq::BlockStmt(reqs)) => self
