@@ -1,4 +1,5 @@
 use crate::{ButtonState, Input};
+use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     event::{Event, EventReader},
@@ -30,6 +31,8 @@ pub struct MouseButtonInput {
     pub button: MouseButton,
     /// The pressed state of the button.
     pub state: ButtonState,
+    /// Window that received the input.
+    pub window: Entity,
 }
 
 /// A button on a mouse device.
@@ -124,6 +127,8 @@ pub struct MouseWheel {
     pub x: f32,
     /// The vertical scroll value.
     pub y: f32,
+    /// Window that received the input.
+    pub window: Entity,
 }
 
 /// Updates the [`Input<MouseButton>`] resource with the latest [`MouseButtonInput`] events.
