@@ -11,10 +11,10 @@ struct VertexInput {
     @location(0) anchor: vec2<f32>,
     @location(1) half_extents: vec2<f32>,
     @location(2) uv: vec4<f32>,
-    @location(3) transform_1: vec3<f32>,
-    @location(4) transform_2: vec3<f32>,
-    @location(5) transform_3: vec3<f32>,
-    @location(6) transform_4: vec3<f32>,
+    @location(3) transform_x: vec3<f32>,
+    @location(4) transform_y: vec3<f32>,
+    @location(5) transform_z: vec3<f32>,
+    @location(6) transform_w: vec3<f32>,
 #ifdef COLORED
     @location(7) color: vec4<f32>,
 #endif
@@ -34,10 +34,10 @@ fn vertex(in: VertexInput) -> VertexOutput {
     var xy = vec2<f32>(f32(in.index & 1u), f32((in.index & 2u) >> 1u));
     var position = ((xy * 2.0 - 1.0) - in.anchor) * in.half_extents;
     let transform_matrix = mat4x4<f32>(
-        vec4<f32>(in.transform_1, 0.0),
-        vec4<f32>(in.transform_2, 0.0),
-        vec4<f32>(in.transform_3, 0.0),
-        vec4<f32>(in.transform_4, 1.0),
+        vec4<f32>(in.transform_x, 0.0),
+        vec4<f32>(in.transform_y, 0.0),
+        vec4<f32>(in.transform_z, 0.0),
+        vec4<f32>(in.transform_w, 1.0),
     );
     var out: VertexOutput;
     out.uv = in.uv.xy + in.uv.zw * (1.0 - xy);

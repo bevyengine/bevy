@@ -209,13 +209,13 @@ impl SpecializedRenderPipeline for SpritePipeline {
             VertexFormat::Float32x2,
             // uv
             VertexFormat::Float32x4,
-            // transform_1
+            // transform_x
             VertexFormat::Float32x3,
-            // transform_2
+            // transform_y
             VertexFormat::Float32x3,
-            // transform_3
+            // transform_z
             VertexFormat::Float32x3,
-            // transform_4
+            // transform_w
             VertexFormat::Float32x3,
         ];
 
@@ -437,10 +437,10 @@ struct SpriteInstance {
     pub anchor: [f32; 2],
     pub half_extents: [f32; 2],
     pub uv: [f32; 4],
-    pub transform_1: [f32; 3],
-    pub transform_2: [f32; 3],
-    pub transform_3: [f32; 3],
-    pub transform_4: [f32; 3],
+    pub transform_x: [f32; 3],
+    pub transform_y: [f32; 3],
+    pub transform_z: [f32; 3],
+    pub transform_w: [f32; 3],
 }
 
 #[repr(C)]
@@ -449,10 +449,10 @@ struct ColoredSpriteInstance {
     pub anchor: [f32; 2],
     pub half_extents: [f32; 2],
     pub uv: [f32; 4],
-    pub transform_1: [f32; 3],
-    pub transform_2: [f32; 3],
-    pub transform_3: [f32; 3],
-    pub transform_4: [f32; 3],
+    pub transform_x: [f32; 3],
+    pub transform_y: [f32; 3],
+    pub transform_z: [f32; 3],
+    pub transform_w: [f32; 3],
     pub color: [f32; 4],
 }
 
@@ -708,10 +708,10 @@ pub fn queue_sprites(
                         anchor: extracted_sprite.anchor.to_array(),
                         half_extents: (quad_size / 2.).to_array(),
                         uv: uv.to_array(),
-                        transform_1: transform_matrix.x_axis.xyz().to_array(),
-                        transform_2: transform_matrix.y_axis.xyz().to_array(),
-                        transform_3: transform_matrix.z_axis.xyz().to_array(),
-                        transform_4: transform_matrix.w_axis.xyz().to_array(),
+                        transform_x: transform_matrix.x_axis.xyz().to_array(),
+                        transform_y: transform_matrix.y_axis.xyz().to_array(),
+                        transform_z: transform_matrix.z_axis.xyz().to_array(),
+                        transform_w: transform_matrix.w_axis.xyz().to_array(),
                         color: instance_color,
                     });
                     let item_start = colored_index;
@@ -730,10 +730,10 @@ pub fn queue_sprites(
                         anchor: extracted_sprite.anchor.to_array(),
                         half_extents: (quad_size / 2.).to_array(),
                         uv: uv.to_array(),
-                        transform_1: transform_matrix.x_axis.xyz().to_array(),
-                        transform_2: transform_matrix.y_axis.xyz().to_array(),
-                        transform_3: transform_matrix.z_axis.xyz().to_array(),
-                        transform_4: transform_matrix.w_axis.xyz().to_array(),
+                        transform_x: transform_matrix.x_axis.xyz().to_array(),
+                        transform_y: transform_matrix.y_axis.xyz().to_array(),
+                        transform_z: transform_matrix.z_axis.xyz().to_array(),
+                        transform_w: transform_matrix.w_axis.xyz().to_array(),
                     });
                     let item_start = index;
                     index += 1;
