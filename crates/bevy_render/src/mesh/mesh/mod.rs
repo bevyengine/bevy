@@ -842,7 +842,7 @@ impl From<&Indices> for IndexFormat {
 
 /// The GPU-representation of a [`Mesh`].
 /// Consists of a vertex data buffer and an optional index data buffer.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,

@@ -7,8 +7,8 @@
 
 #define_import_path bevy_pbr::morph
 
-// NOTE: Those are the "hardcoded" values found in const HARDCODED_ATTRIBUTES
-// in crates/bevy_render/src/mesh/morph/attribute_iter.rs
+// NOTE: Those are the "hardcoded" values found in `MorphAttributes` struct
+// in crates/bevy_render/src/mesh/morph/visitors.rs
 // In an ideal world, the offsets are established dynamically and passed as #defines
 // to the shader, but it's out of scope for the initial implementation of morph targets.
 const position_offset: u32 = 0u;
