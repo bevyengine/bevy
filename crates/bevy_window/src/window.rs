@@ -274,7 +274,7 @@ impl Window {
 
     /// The window's scale factor.
     ///
-    /// Ratio of physical size to logical size, see [WindowResolution].
+    /// Ratio of physical size to logical size, see [`WindowResolution`].
     #[inline]
     pub fn scale_factor(&self) -> f64 {
         self.resolution.scale_factor()
@@ -284,7 +284,7 @@ impl Window {
     ///
     /// Returns `None` if the cursor is outside the window area.
     ///
-    /// See [WindowResolution] for an explanation about logical/physical sizes.
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn cursor_position(&self) -> Option<Vec2> {
         self.internal
@@ -296,7 +296,7 @@ impl Window {
     ///
     /// Returns `None` if the cursor is outside the window area.
     ///
-    /// See [WindowResolution] for an explanation about logical/physical sizes.
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn physical_cursor_position(&self) -> Option<Vec2> {
         self.internal
@@ -306,7 +306,7 @@ impl Window {
 
     /// Set the cursor position in this window in logical pixels.
     ///
-    /// See [WindowResolution] for an explanation about logical/physical sizes.
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     pub fn set_cursor_position(&mut self, position: Option<Vec2>) {
         self.internal.physical_cursor_position =
             position.map(|p| p.as_dvec2() * self.scale_factor());
@@ -314,7 +314,7 @@ impl Window {
 
     /// Set the cursor position in this window in physical pixels.
     ///
-    /// See [WindowResolution] for an explanation about logical/physical sizes.
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     pub fn set_physical_cursor_position(&mut self, position: Option<DVec2>) {
         self.internal.physical_cursor_position = position;
     }
