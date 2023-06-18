@@ -1,0 +1,152 @@
+//! A simple UI containing several buttons that modify a counter, to demonstrate keyboard navigation
+
+use bevy::{prelude::*, winit::WinitSettings};
+use bevy_internal::ui::FocusedState;
+
+fn main() {p
+    App::new()
+        .add_plugins(DefaultPlugins)
+        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
+        .insert_resource(WinitSettings::desktop_app())
+        .add_systems(Startup, setup)
+        .add_systems(Update, (update_button_style, update_focus_style, button_trigger))
+        .run();
+}
+
+const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+
+const NORMAL_BORDER: Color = Color::BLACK;
+const FOCUS_BORDER: Color = Color::BLUE;
+
+#[derive(Component)]
+enum CounterChange {
+    Add,
+    Subtract,
+    Reset,
+}
+
+#[derive(Resource)]
+struct Counter(i32);
+
+#[derive(Component)]
+struct CounterText;
+
+fn update_button_style(
+    mut interaction_query: Query<(&Interaction, &mut BackgroundColor), Changed<Interaction>>,
+) {
+    for (interaction, mut color) in &mut interaction_query {
+        *color = match *interaction {
+            Interaction::Clicked => PRESSED_BUTTON,
+            Interaction::Hovered => HOVERED_BUTTON,
+            Interaction::None => NORMAL_BUTTON,
+        }
+        .into();
+    }
+}
+
+fn update_focus_style(
+    mut interaction_query: Query<(&FocusedState, &mut BorderColor), Changed<FocusedState>>,
+) {
+    for (focus_state, mut color) in &mut interaction_query {
+        info!("Update focus state {focus_state:?}");
+        *color = match *focus_state {
+            FocusedState::Focus {
+                focus_visible: true,
+            } => FOCUS_BORDER,
+            _ => NORMAL_BORDER,
+        }
+        .into();
+    }
+}
+
+fn button_trigger(
+    mut interaction_query: Query<(&Interaction, &CounterChange), Changed<Interaction>>,
+    mut text_query: Query<&mut Text, With<CounterText>>,
+    mut counter: ResMut<Counter>,
+) {
+    for (interaction, counter_change) in &mut interaction_query {
+        if matches!(interaction, Interaction::Clicked) {
+            match counter_change {
+                CounterChange::Add => counter.0 += 1,
+                CounterChange::Subtract => counter.0 -= 1,
+                CounterChange::Reset => counter.0 = 0,
+            }
+            text_query.single_mut().sections[0].value = format!("Counter: {}", counter.0);
+        }
+    }
+}
+
+fn text(text: &str, parent: &mut ChildBuilder, font: Handle<Font>, counter: bool) {
+    let text_bundle = TextBundle::from_section(
+        text,
+        TextStyle {
+            font,
+            font_size: 40.0,
+            color: Color::rgb(0.9, 0.9, 0.9),
+        },
+    );
+    if counter {
+        parent.spawn((text_bundle, CounterText))
+    } else {
+        parent.spawn(text_bundle)
+    };
+}
+
+fn spawn_button(
+    name: &str,
+    parent: &mut ChildBuilder,
+    font: Handle<Font>,
+    counter_change: CounterChange,
+) {
+    parent
+        .spawn((
+            counter_change,
+            ButtonBundle {
+                style: Style {
+                    width: Val::Px(175.0),
+                    height: Val::Px(65.0),
+                    border: UiRect::all(Val::Px(5.0)),
+                    margin: UiRect::all(Val::Px(5.0)),
+                    // horizontally center child text
+                    justify_content: JustifyContent::Center,
+                    // vertically center child text
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                border_color: BorderColor(NORMAL_BORDER),
+                background_color: NORMAL_BUTTON.into(),
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            text(name, parent, font, false);
+        });
+}
+
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(Counter(0));
+    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    // ui camera
+    commands.spawn(Camera2dBundle::default());
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            text("Counter: 0", parent, font.clone(), true);
+            parent.spawn(NodeBundle::default()).with_children(|parent| {
+                spawn_button("Add", parent, font.clone(), CounterChange::Add);
+                spawn_button("Subtract", parent, font.clone(), CounterChange::Subtract);
+                spawn_button("Reset", parent, font, CounterChange::Reset);
+            });
+        });
+}
