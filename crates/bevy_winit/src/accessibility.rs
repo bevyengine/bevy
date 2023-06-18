@@ -50,7 +50,7 @@ fn handle_window_focus(
     for event in focused.iter() {
         if let Some(adapter) = adapters.get(&event.window) {
             adapter.update_if_active(|| {
-                let focus_id = focus.entity.unwrap_or_else(|| event.window);
+                let focus_id = focus.entity.unwrap_or(event.window);
                 TreeUpdate {
                     focus: if event.focused {
                         Some(focus_id.to_node_id())
@@ -136,7 +136,7 @@ fn update_accessibility_nodes(
                         name = Some(title.into_boxed_str());
                     }
                     let focus_id = if has_focus {
-                        focus.entity.or_else(|| Some(primary_window_id))
+                        focus.entity.or(Some(primary_window_id))
                     } else {
                         None
                     };

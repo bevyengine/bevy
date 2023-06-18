@@ -73,23 +73,23 @@ pub(crate) fn keyboard_navigation_system(
         // Start with the entity before the current focused or at the end of the list
         let first_index = current_index.map(|index| index - 1).unwrap_or_default();
 
-        let wrapping_nodes_iterator = ui_nodes
+        let mut wrapping_nodes_iterator = ui_nodes
             .iter()
             .take(first_index)
             .rev()
             .chain(ui_nodes.iter().skip(first_index).rev());
 
-        wrapping_nodes_iterator.filter(can_focus).next().copied()
+        wrapping_nodes_iterator.find(can_focus).copied()
     } else {
         // Start with the entity after the current focused or at the start of the list
         let first_index = current_index.map(|index| index + 1).unwrap_or_default();
 
-        let wrapping_nodes_iterator = ui_nodes
+        let mut wrapping_nodes_iterator = ui_nodes
             .iter()
             .skip(first_index)
             .chain(ui_nodes.iter().take(first_index));
 
-        wrapping_nodes_iterator.filter(can_focus).next().copied()
+        wrapping_nodes_iterator.find(can_focus).copied()
     };
 
     // Reset the clicked state
@@ -113,9 +113,9 @@ pub(crate) fn keyboard_navigation_system(
 }
 
 /// Change the [`FocusedState`] for the specified entity
-fn set_focus_state<'a>(
+fn set_focus_state(
     entity: Option<Entity>,
-    focus_state: &'a mut Query<&mut FocusedState>,
+    focus_state: &mut Query<&mut FocusedState>,
     new_state: FocusedState,
 ) {
     if let Some(mut focus_state) = entity.and_then(|entity| focus_state.get_mut(entity).ok()) {
@@ -167,7 +167,7 @@ pub(crate) fn trigger_click_end(keyboard_input: Res<Input<KeyCode>>) -> bool {
 pub(crate) fn end_keyboard_click(mut interactions: Query<&mut Interaction>) {
     interactions.for_each_mut(|mut interaction| {
         if *interaction == Interaction::Clicked {
-            *interaction = Interaction::None
+            *interaction = Interaction::None;
         }
     });
 }
