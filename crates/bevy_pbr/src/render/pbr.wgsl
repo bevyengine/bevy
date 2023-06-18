@@ -7,12 +7,16 @@
 
 #import bevy_pbr::mesh_vertex_output       MeshVertexOutput
 #import bevy_pbr::mesh_bindings            mesh
-#import bevy_pbr::mesh_view_bindings       view, fog
+#import bevy_pbr::mesh_view_bindings       view, fog, screen_space_ambient_occlusion_texture
 #import bevy_pbr::mesh_view_types          FOG_MODE_OFF
 #import bevy_core_pipeline::tonemapping    screen_space_dither, powsafe, tone_mapping
 #import bevy_pbr::parallax_mapping
 
 #import bevy_pbr::prepass_utils
+
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+#import bevy_pbr::gtao_utils gtao_multibounce
+#endif
 
 @fragment
 fn fragment(
@@ -88,12 +92,20 @@ fn fragment(
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
-        var occlusion: f32 = 1.0;
+        // TODO: Split into diffuse/specular occlusion?
+        var occlusion: vec3<f32> = vec3(1.0);
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
-            occlusion = textureSample(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, in.uv).r;
+            occlusion = vec3(textureSample(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, in.uv).r);
         }
 #endif
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.clip_position.xy), 0i).r;
+        let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
+        occlusion = min(occlusion, ssao_multibounce);
+#endif
+        pbr_input.occlusion = occlusion;
+
         pbr_input.frag_coord = in.clip_position;
         pbr_input.world_position = in.world_position;
 

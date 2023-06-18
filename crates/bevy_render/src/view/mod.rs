@@ -43,6 +43,7 @@ impl Plugin for ViewPlugin {
         app.register_type::<ComputedVisibility>()
             .register_type::<ComputedVisibilityFlags>()
             .register_type::<Msaa>()
+            .register_type::<NoFrustumCulling>()
             .register_type::<RenderLayers>()
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
@@ -86,7 +87,9 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa::default())
 ///     .run();
 /// ```
-#[derive(Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd)]
+#[derive(
+    Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd, Debug,
+)]
 #[reflect(Resource)]
 pub enum Msaa {
     Off = 1,

@@ -113,6 +113,9 @@ pub struct CombinatorSystem<Func, A, B> {
 }
 
 impl<Func, A, B> CombinatorSystem<Func, A, B> {
+    /// Creates a new system that combines two inner systems.
+    ///
+    /// The returned system will only be usable if `Func` implements [`Combine<A, B>`].
     pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
         Self {
             _marker: PhantomData,
@@ -237,6 +240,17 @@ where
     A: ReadOnlySystem,
     B: ReadOnlySystem,
 {
+}
+
+impl<Func, A, B> Clone for CombinatorSystem<Func, A, B>
+where
+    A: Clone,
+    B: Clone,
+{
+    /// Clone the combined system. The cloned instance must be `.initialize()`d before it can run.
+    fn clone(&self) -> Self {
+        CombinatorSystem::new(self.a.clone(), self.b.clone(), self.name.clone())
+    }
 }
 
 /// A [`System`] created by piping the output of the first system into the input of the second.

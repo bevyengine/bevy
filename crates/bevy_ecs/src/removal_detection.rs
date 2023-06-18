@@ -65,24 +65,27 @@ impl<T: Component> DerefMut for RemovedComponentReader<T> {
     }
 }
 
-/// Wrapper around a map of components to [`Events<RemovedComponentEntity>`].
-/// So that we can find the events without naming the type directly.
+/// Stores the [`RemovedComponents`] event buffers for all types of component in a given [`World`].
 #[derive(Default, Debug)]
 pub struct RemovedComponentEvents {
     event_sets: SparseSet<ComponentId, Events<RemovedComponentEntity>>,
 }
 
 impl RemovedComponentEvents {
+    /// Creates an empty storage buffer for component removal events.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// For each type of component, swaps the event buffers and clears the oldest event buffer.
+    /// In general, this should be called once per frame/update.
     pub fn update(&mut self) {
         for (_component_id, events) in self.event_sets.iter_mut() {
             events.update();
         }
     }
 
+    /// Gets the event storage for a given component.
     pub fn get(
         &self,
         component_id: impl Into<ComponentId>,
@@ -90,6 +93,7 @@ impl RemovedComponentEvents {
         self.event_sets.get(component_id.into())
     }
 
+    /// Sends a removal event for the specified component.
     pub fn send(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
         self.event_sets
             .get_or_insert_with(component_id.into(), Default::default)
@@ -132,7 +136,7 @@ impl RemovedComponentEvents {
 /// ```
 #[derive(SystemParam)]
 pub struct RemovedComponents<'w, 's, T: Component> {
-    component_id: Local<'s, ComponentIdFor<T>>,
+    component_id: ComponentIdFor<'s, T>,
     reader: Local<'s, RemovedComponentReader<T>>,
     event_sets: &'w RemovedComponentEvents,
 }
@@ -176,7 +180,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
 
     /// Fetch underlying [`Events`].
     pub fn events(&self) -> Option<&Events<RemovedComponentEntity>> {
-        self.event_sets.get(**self.component_id)
+        self.event_sets.get(self.component_id.get())
     }
 
     /// Destructures to get a mutable reference to the `ManualEventReader`
@@ -191,7 +195,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
         &Events<RemovedComponentEntity>,
     )> {
         self.event_sets
-            .get(**self.component_id)
+            .get(self.component_id.get())
             .map(|events| (&mut *self.reader, events))
     }
 

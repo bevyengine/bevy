@@ -9,9 +9,9 @@
     @group(0) @binding(4)
     var dt_lut_sampler: sampler;
 #else
-    @group(0) @binding(14)
-    var dt_lut_texture: texture_3d<f32>;
     @group(0) @binding(15)
+    var dt_lut_texture: texture_3d<f32>;
+    @group(0) @binding(16)
     var dt_lut_sampler: sampler;
 #endif
 
