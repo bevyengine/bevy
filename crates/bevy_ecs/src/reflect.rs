@@ -542,13 +542,13 @@ pub trait EntityCommandsReflectExtension {
     ) -> &mut Self;
 
     /// Removes the component of the same type as the supplied boxed reflect component from the entity
-    /// using the registration in the supplied [`TypeRegistry`]. Does nothing if the entity does not 
-    /// have a component of the same type, if the [`TypeRegistry`] does not contain the reflection data 
+    /// using the registration in the supplied [`TypeRegistry`]. Does nothing if the entity does not
+    /// have a component of the same type, if the [`TypeRegistry`] does not contain the reflection data
     /// for the given component, or if the entity does not exist.
-    /// 
+    ///
     /// # Note
     /// Prefer to use the typed [`EntityCommands::remove`] unless you have good reason to use reflection.
-    /// 
+    ///
     /// # Example
     ///
     /// ```rust
