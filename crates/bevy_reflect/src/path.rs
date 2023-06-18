@@ -412,32 +412,33 @@ impl ParsedPath {
     }
 }
 
+impl fmt::Display for Access {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Access::Field(field) => {
+                Token::DOT.fmt(f)?;
+                f.write_str(field.as_ref())
+            }
+            Access::FieldIndex(index) => {
+                Token::CROSSHATCH.fmt(f)?;
+                index.fmt(f)
+            }
+            Access::TupleIndex(index) => {
+                Token::DOT.fmt(f)?;
+                index.fmt(f)
+            }
+            Access::ListIndex(index) => {
+                Token::OPEN_BRACKET.fmt(f)?;
+                index.fmt(f)?;
+                Token::CLOSE_BRACKET.fmt(f)
+            }
+        }
+    }
+}
 impl fmt::Display for ParsedPath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (idx, (access, _)) in self.0.iter().enumerate() {
-            match access {
-                Access::Field(field) => {
-                    if idx != 0 {
-                        Token::DOT.fmt(f)?;
-                    }
-                    f.write_str(field.as_str())?;
-                }
-                Access::FieldIndex(index) => {
-                    Token::CROSSHATCH.fmt(f)?;
-                    index.fmt(f)?;
-                }
-                Access::TupleIndex(index) => {
-                    if idx != 0 {
-                        Token::DOT.fmt(f)?;
-                    }
-                    index.fmt(f)?;
-                }
-                Access::ListIndex(index) => {
-                    Token::OPEN_BRACKET.fmt(f)?;
-                    index.fmt(f)?;
-                    Token::CLOSE_BRACKET.fmt(f)?;
-                }
-            }
+        for (access, _) in self.0.iter() {
+            write!(f, "{access}")?;
         }
         Ok(())
     }
