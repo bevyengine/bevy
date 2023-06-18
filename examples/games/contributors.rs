@@ -334,7 +334,7 @@ fn contributors() -> Result<Contributors, LoadContributorsError> {
 
     let contributors = BufReader::new(stdout)
         .lines()
-        .filter_map(|x| x.ok())
+        .map_while(|x| x.ok())
         .collect();
 
     Ok(contributors)

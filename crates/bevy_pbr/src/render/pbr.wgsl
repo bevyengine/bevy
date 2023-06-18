@@ -133,7 +133,7 @@ fn fragment(
 
     // fog
     if (fog.mode != FOG_MODE_OFF && (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
-        output_color = pbr_functions::apply_fog(output_color, in.world_position.xyz, view.world_position.xyz);
+        output_color = pbr_functions::apply_fog(fog, output_color, in.world_position.xyz, view.world_position.xyz);
     }
 
 #ifdef TONEMAP_IN_SHADER

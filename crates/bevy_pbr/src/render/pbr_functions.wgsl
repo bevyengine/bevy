@@ -26,16 +26,20 @@ fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>)
     if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
-    } else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+    }
+
+#ifdef MAY_DISCARD
+    else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
         if color.a >= material.alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
         } else {
-            // NOTE: output_color.a < in.material.alpha_cutoff should not is not rendered
-            // NOTE: This and any other discards mean that early-z testing cannot be done!
+            // NOTE: output_color.a < in.material.alpha_cutoff should not be rendered
             discard;
         }
     }
+#endif
+
     return color;
 }
 
@@ -284,7 +288,7 @@ fn pbr(
 #endif // PREPASS_FRAGMENT
 
 #ifndef PREPASS_FRAGMENT
-fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
+fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
     let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
 
     // `length()` is used here instead of just `view_to_world.z` since that produces more
@@ -294,7 +298,7 @@ fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_wo
     let distance = length(view_to_world);
 
     var scattering = vec3<f32>(0.0);
-    if view_bindings::fog.directional_light_color.a > 0.0 {
+    if fog_params.directional_light_color.a > 0.0 {
         let view_to_world_normalized = view_to_world / distance;
         let n_directional_lights = view_bindings::lights.n_directional_lights;
         for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
@@ -304,19 +308,19 @@ fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_wo
                     dot(view_to_world_normalized, light.direction_to_light),
                     0.0
                 ),
-                view_bindings::fog.directional_light_exponent
+                fog_params.directional_light_exponent
             ) * light.color.rgb;
         }
     }
 
-    if view_bindings::fog.mode == mesh_view_types::FOG_MODE_LINEAR {
-        return fog::linear_fog(input_color, distance, scattering);
-    } else if view_bindings::fog.mode == mesh_view_types::FOG_MODE_EXPONENTIAL {
-        return fog::exponential_fog(input_color, distance, scattering);
-    } else if view_bindings::fog.mode == mesh_view_types::FOG_MODE_EXPONENTIAL_SQUARED {
-        return fog::exponential_squared_fog(input_color, distance, scattering);
-    } else if view_bindings::fog.mode == mesh_view_types::FOG_MODE_ATMOSPHERIC {
-        return fog::atmospheric_fog(input_color, distance, scattering);
+    if fog_params.mode == mesh_view_types::FOG_MODE_LINEAR {
+        return fog::linear_fog(fog_params, input_color, distance, scattering);
+    } else if fog_params.mode == mesh_view_types::FOG_MODE_EXPONENTIAL {
+        return fog::exponential_fog(fog_params, input_color, distance, scattering);
+    } else if fog_params.mode == mesh_view_types::FOG_MODE_EXPONENTIAL_SQUARED {
+        return fog::exponential_squared_fog(fog_params, input_color, distance, scattering);
+    } else if fog_params.mode == mesh_view_types::FOG_MODE_ATMOSPHERIC {
+        return fog::atmospheric_fog(fog_params, input_color, distance, scattering);
     } else {
         return input_color;
     }

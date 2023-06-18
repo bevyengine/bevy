@@ -78,7 +78,6 @@ impl Plugin for SpritePlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ImageBindGroups>()
-                .init_resource::<SpritePipeline>()
                 .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
                 .init_resource::<SpriteMeta>()
                 .init_resource::<ExtractedSprites>()
@@ -98,6 +97,12 @@ impl Plugin for SpritePlugin {
                         .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
                 );
         };
+    }
+
+    fn finish(&self, app: &mut App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<SpritePipeline>();
+        }
     }
 }
 

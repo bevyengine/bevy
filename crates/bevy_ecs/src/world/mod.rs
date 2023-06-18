@@ -1472,7 +1472,7 @@ impl World {
         }
     }
 
-    /// Increments the world's current change tick, and returns the old value.
+    /// Increments the world's current change tick and returns the old value.
     #[inline]
     pub fn increment_change_tick(&self) -> Tick {
         let prev_tick = self.change_tick.fetch_add(1, Ordering::AcqRel);
@@ -1499,6 +1499,12 @@ impl World {
         Tick::new(tick)
     }
 
+    /// When called from within an exclusive system (a [`System`] that takes `&mut World` as its first
+    /// parameter), this method returns the [`Tick`] indicating the last time the exclusive system was run.
+    ///
+    /// Otherwise, this returns the `Tick` indicating the last time that [`World::clear_trackers`] was called.
+    ///
+    /// [`System`]: crate::system::System
     #[inline]
     pub fn last_change_tick(&self) -> Tick {
         self.last_change_tick

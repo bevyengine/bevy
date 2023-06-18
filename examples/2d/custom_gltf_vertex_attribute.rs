@@ -2,7 +2,7 @@
 
 use bevy::gltf::GltfPlugin;
 use bevy::prelude::*;
-use bevy::reflect::TypeUuid;
+use bevy::reflect::{TypePath, TypeUuid};
 use bevy::render::mesh::{MeshVertexAttribute, MeshVertexBufferLayout};
 use bevy::render::render_resource::*;
 use bevy::sprite::{
@@ -55,7 +55,7 @@ fn setup(
 /// This custom material uses barycentric coordinates from
 /// `ATTRIBUTE_BARYCENTRIC` to shade a white border around each triangle. The
 /// thickness of the border is animated using the global time shader uniform.
-#[derive(AsBindGroup, TypeUuid, Debug, Clone)]
+#[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
 #[uuid = "50ffce9e-1582-42e9-87cb-2233724426c0"]
 struct CustomMaterial {}
 

@@ -26,7 +26,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 /// Use the CSS Grid algorithm for laying out this node
                 display: Display::Grid,
                 /// Make node fill the entirety it's parent (in this case the window)
-                size: Size::all(Val::Percent(100.)),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 /// Set the grid to have 2 columns with sizes [min-content, minmax(0, 1fr)]
                 ///   - The first column will size to the size of it's contents
                 ///   - The second column will take up the remaining available space
@@ -67,7 +68,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(NodeBundle {
                     style: Style {
                         /// Make the height of the node fill its parent
-                        size: Size::height(Val::Percent(100.0)),
+                        height: Val::Percent(100.0),
                         /// Make the grid have a 1:1 aspect ratio meaning it will scale as an exact square
                         /// As the height is set explicitly, this means the width will adjust to match the height
                         aspect_ratio: Some(1.0),
@@ -82,7 +83,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         /// This creates 4 exactly evenly sized rows
                         grid_template_rows: RepeatedGridTrack::flex(4, 1.0),
                         /// Set a 12px gap/gutter between rows and columns
-                        gap: Size::all(Val::Px(12.0)),
+                        row_gap: Val::Px(12.0),
+                        column_gap: Val::Px(12.0),
                         ..default()
                     },
                     background_color: BackgroundColor(Color::DARK_GRAY),
@@ -130,7 +132,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         // can be top-aligned. Normally you'd use flexbox for this, but this is the CSS Grid example so we're using grid.
                         grid_template_rows: vec![GridTrack::auto(), GridTrack::auto(), GridTrack::fr(1.0)],
                         // Add a 10px gap between rows
-                        gap: Size::height(Val::Px(10.)),
+                        row_gap: Val::Px(10.),
                         ..default()
                     },
                     background_color: BackgroundColor(Color::BLACK),

@@ -1,4 +1,8 @@
-use crate::{utility::reflect_hasher, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
+use crate::{
+    self as bevy_reflect, utility::reflect_hasher, Reflect, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo,
+};
+use bevy_reflect_derive::impl_type_path;
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
@@ -335,6 +339,7 @@ impl Array for DynamicArray {
     }
 }
 
+impl_type_path!((in bevy_reflect) DynamicArray);
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {
     array: &'a dyn Array,

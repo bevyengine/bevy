@@ -108,10 +108,17 @@ where
                 Render,
                 queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
             )
-            .init_resource::<PrepassPipeline<M>>()
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .init_resource::<PreviousViewProjectionUniforms>();
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.init_resource::<PrepassPipeline<M>>();
     }
 }
 
@@ -158,7 +165,7 @@ where
                         prepare_previous_view_projection_uniforms
                             .in_set(RenderSet::Prepare)
                             .after(PrepassLightsViewFlush),
-                        apply_system_buffers
+                        apply_deferred
                             .in_set(RenderSet::Prepare)
                             .in_set(PrepassLightsViewFlush)
                             .after(prepare_lights),
@@ -357,8 +364,8 @@ where
             shader_defs.push("DEPTH_PREPASS".into());
         }
 
-        if key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK) {
-            shader_defs.push("ALPHA_MASK".into());
+        if key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD) {
+            shader_defs.push("MAY_DISCARD".into());
         }
 
         let blend_key = key
@@ -369,16 +376,6 @@ where
         }
         if blend_key == MeshPipelineKey::BLEND_ALPHA {
             shader_defs.push("BLEND_ALPHA".into());
-        }
-
-        // if we don't use any of ALPHA_MASK, BLEND_ALPHA or BLEND_PREMULTIPLIED_ALPHA
-        // then we can skip the prepass alpha discard stage
-        // TODO - move into shader once we can use something like `#ifndef X || Y`
-        if !key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
-            && blend_key != MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
-            && blend_key != MeshPipelineKey::BLEND_ALPHA
-        {
-            shader_defs.push("EMPTY_PREPASS_ALPHA_DISCARD".into());
         }
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
@@ -462,9 +459,7 @@ where
         // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
         // prepass shader
         let fragment_required = !targets.is_empty()
-            || ((key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
-                || blend_key == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
-                || blend_key == MeshPipelineKey::BLEND_ALPHA)
+            || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && self.material_fragment_shader.is_some());
 
         let fragment = fragment_required.then(|| {
@@ -962,7 +957,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
                 AlphaMode::Opaque => {}
-                AlphaMode::Mask(_) => mesh_key |= MeshPipelineKey::ALPHA_MASK,
+                AlphaMode::Mask(_) => mesh_key |= MeshPipelineKey::MAY_DISCARD,
                 AlphaMode::Blend
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add

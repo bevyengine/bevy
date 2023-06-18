@@ -46,9 +46,14 @@ impl Plugin for WireframePlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
-                .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
                 .add_systems(Render, queue_wireframes.in_set(RenderSet::Queue));
+        }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<WireframePipeline>();
         }
     }
 }

@@ -22,13 +22,13 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
 /// Implements `FromReflect` for the given value type
 pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
-    let type_name = meta.type_name();
+    let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
-    let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
+        impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
-                #FQOption::Some(#FQClone::clone(<dyn #FQAny>::downcast_ref::<#type_name #ty_generics>(<dyn #bevy_reflect_path::Reflect>::as_any(reflect))?))
+                #FQOption::Some(#FQClone::clone(<dyn #FQAny>::downcast_ref::<#type_path #ty_generics>(<dyn #bevy_reflect_path::Reflect>::as_any(reflect))?))
             }
         }
     })
@@ -38,7 +38,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let fqoption = FQOption.into_token_stream();
 
-    let type_name = reflect_enum.meta().type_name();
+    let enum_path = reflect_enum.meta().type_path();
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
 
     let ref_value = Ident::new("__param0", Span::call_site());
@@ -47,8 +47,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         variant_constructors,
     } = get_variant_constructors(reflect_enum, &ref_value, false);
 
-    let (impl_generics, ty_generics, where_clause) =
-        reflect_enum.meta().generics().split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = enum_path.generics().split_for_impl();
 
     // Add FromReflect bound for each active field
     let where_from_reflect_clause = extend_where_clause(
@@ -58,11 +57,12 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             ignored_types: reflect_enum.ignored_types().into_boxed_slice(),
             active_trait_bounds: quote!(#bevy_reflect_path::FromReflect),
             ignored_trait_bounds: quote!(#FQDefault),
+            ..WhereClauseOptions::type_path_bounds(reflect_enum.meta())
         },
     );
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_from_reflect_clause  {
+        impl #impl_generics #bevy_reflect_path::FromReflect for #enum_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(#ref_value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
                     match #bevy_reflect_path::Enum::variant_name(#ref_value) {
@@ -90,8 +90,7 @@ impl MemberValuePair {
 fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> TokenStream {
     let fqoption = FQOption.into_token_stream();
 
-    let struct_name = reflect_struct.meta().type_name();
-    let generics = reflect_struct.meta().generics();
+    let struct_path = reflect_struct.meta().type_path();
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
 
     let ref_struct = Ident::new("__ref_struct", Span::call_site());
@@ -129,7 +128,11 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
         )
     };
 
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = reflect_struct
+        .meta()
+        .type_path()
+        .generics()
+        .split_for_impl();
 
     // Add FromReflect bound for each active field
     let where_from_reflect_clause = extend_where_clause(
@@ -143,11 +146,12 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
             } else {
                 quote!(#FQDefault)
             },
+            ..WhereClauseOptions::type_path_bounds(reflect_struct.meta())
         },
     );
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_reflect_path::FromReflect for #struct_name #ty_generics #where_from_reflect_clause
+        impl #impl_generics #bevy_reflect_path::FromReflect for #struct_path #ty_generics #where_from_reflect_clause
         {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
                 if let #bevy_reflect_path::ReflectRef::#ref_struct_type(#ref_struct) = #bevy_reflect_path::Reflect::reflect_ref(reflect) {

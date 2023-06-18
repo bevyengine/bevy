@@ -5,14 +5,15 @@
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_tasks::{IoTaskPool, TaskPoolBuilder};
-use bevy_utils::HashMap;
+use bevy_utils::{Duration, HashMap};
 use std::{
     ops::{Deref, DerefMut},
     path::Path,
 };
 
 use crate::{
-    Asset, AssetEvent, AssetPlugin, AssetServer, Assets, FileAssetIo, Handle, HandleUntyped,
+    Asset, AssetEvent, AssetPlugin, AssetServer, Assets, ChangeWatcher, FileAssetIo, Handle,
+    HandleUntyped,
 };
 
 /// A helper [`App`] used for hot reloading internal assets, which are compiled-in to Bevy plugins.
@@ -72,7 +73,7 @@ impl Plugin for DebugAssetServerPlugin {
         let mut debug_asset_app = App::new();
         debug_asset_app.add_plugin(AssetPlugin {
             asset_folder: "crates".to_string(),
-            watch_for_changes: true,
+            watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
         });
         app.insert_non_send_resource(DebugAssetApp(debug_asset_app));
         app.add_systems(Update, run_debug_asset_app);

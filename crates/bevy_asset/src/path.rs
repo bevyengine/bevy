@@ -1,14 +1,17 @@
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_utils::AHasher;
+use bevy_reflect::{
+    FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
+};
+use bevy_utils::{AHasher, RandomState};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
-    hash::{Hash, Hasher},
+    hash::{BuildHasher, Hash, Hasher},
     path::{Path, PathBuf},
 };
 
 /// Represents a path to an asset in the file system.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq, Hash, Serialize, Deserialize, FromReflect)]
 pub struct AssetPath<'a> {
     path: Cow<'a, Path>,
     label: Option<Cow<'a, str>>,
@@ -127,7 +130,7 @@ impl AssetPathId {
 
 /// this hasher provides consistent results across runs
 pub(crate) fn get_hasher() -> AHasher {
-    AHasher::new_with_keys(42, 23)
+    RandomState::with_seeds(42, 23, 13, 8).build_hasher()
 }
 
 impl<'a, T> From<T> for AssetPathId

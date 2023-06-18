@@ -1,5 +1,5 @@
 use bevy_ecs::{
-    entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
+    entity::{Entity, EntityMapper, MapEntities},
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{DVec2, IVec2, Vec2};
@@ -55,14 +55,13 @@ impl WindowRef {
 }
 
 impl MapEntities for WindowRef {
-    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
+    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
         match self {
             Self::Entity(entity) => {
-                *entity = entity_map.get(*entity)?;
-                Ok(())
+                *entity = entity_mapper.get_or_reserve(*entity);
             }
-            Self::Primary => Ok(()),
-        }
+            Self::Primary => {}
+        };
     }
 }
 
@@ -145,7 +144,7 @@ pub struct Window {
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
+    /// rather than creating a new one.
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.
@@ -185,6 +184,14 @@ pub struct Window {
     ///
     /// - iOS / Android / Web: Unsupported.
     pub ime_position: Vec2,
+    /// Sets a specific theme for the window.
+    ///
+    /// If `None` is provided, the window will use the system theme.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - iOS / Android / Web: Unsupported.
+    pub window_theme: Option<WindowTheme>,
 }
 
 impl Default for Window {
@@ -209,6 +216,7 @@ impl Default for Window {
             fit_canvas_to_parent: false,
             prevent_default_event_handling: true,
             canvas: None,
+            window_theme: None,
         }
     }
 }
@@ -832,4 +840,20 @@ pub enum WindowLevel {
     Normal,
     /// The window will always be on top of normal windows.
     AlwaysOnTop,
+}
+
+/// The window theme variant to use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
+pub enum WindowTheme {
+    /// Use the light variant.
+    Light,
+
+    /// Use the dark variant.
+    Dark,
 }

@@ -11,8 +11,7 @@ var texture_sampler: sampler;
 fn fragment(
     mesh: MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
-    let view = view;
-    let uv = coords_to_viewport_uv(mesh.clip_position.xy, view.viewport);
-    let color = textureSample(texture, texture_sampler, uv);
+    let viewport_uv = coords_to_viewport_uv(mesh.clip_position.xy, view.viewport);
+    let color = textureSample(texture, texture_sampler, viewport_uv);
     return color;
 }

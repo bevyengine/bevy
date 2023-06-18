@@ -74,7 +74,7 @@ pub trait BuildChildrenTransformExt {
     ///
     /// Note that both the hierarchy and transform updates will only execute
     /// the next time commands are applied
-    /// (during [`apply_system_buffers`](bevy_ecs::schedule::apply_system_buffers)).
+    /// (during [`apply_deferred`](bevy_ecs::schedule::apply_deferred)).
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self;
 
     /// Make this entity parentless while preserving this entity's [`GlobalTransform`]
@@ -85,7 +85,7 @@ pub trait BuildChildrenTransformExt {
     ///
     /// Note that both the hierarchy and transform updates will only execute
     /// the next time commands are applied
-    /// (during [`apply_system_buffers`](bevy_ecs::schedule::apply_system_buffers)).
+    /// (during [`apply_deferred`](bevy_ecs::schedule::apply_deferred)).
     fn remove_parent_in_place(&mut self) -> &mut Self;
 }
 impl<'w, 's, 'a> BuildChildrenTransformExt for EntityCommands<'w, 's, 'a> {

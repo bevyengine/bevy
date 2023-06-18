@@ -15,9 +15,14 @@ var<uniform> settings: ShowPrepassSettings;
 
 @fragment
 fn fragment(
+#ifdef MULTISAMPLED
     @builtin(sample_index) sample_index: u32,
+#endif
     mesh: MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
+#ifndef MULTISAMPLED
+    let sample_index = 0u;
+#endif
     if settings.show_depth == 1u {
         let depth = bevy_pbr::prepass_utils::prepass_depth(mesh.clip_position, sample_index);
         return vec4(depth, depth, depth, 1.0);
