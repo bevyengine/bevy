@@ -532,7 +532,7 @@ pub trait EntityCommandsReflectExtension {
     ///     special_component_holder.component = boxed_reflect_component_a;
     ///     special_component_holder.component = boxed_reflect_component_b;
     ///     
-    ///     // No matter which component is in the resource and without knowing the exact type, you can 
+    ///     // No matter which component is in the resource and without knowing the exact type, you can
     ///     // use the insert_reflected entity command to insert that component into an entity.
     ///     commands
     ///         .spawn_empty()
