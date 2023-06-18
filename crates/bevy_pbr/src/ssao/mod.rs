@@ -613,7 +613,7 @@ fn extract_ssao_settings(
     for (entity, camera, ssao_settings) in &cameras {
         if **msaa != Msaa::Off {
             error!(
-                "SSAO is being used which requires Msaa::Off, but Msaa is currently set to {:?}",
+                "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaa::{:?}",
                 **msaa
             );
             return;
