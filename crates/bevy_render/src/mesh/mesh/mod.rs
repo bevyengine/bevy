@@ -49,8 +49,20 @@ pub struct Mesh {
 /// # use bevy_render::render_resource::PrimitiveTopology;
 /// fn create_triangle() -> Mesh {
 ///     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-///     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]);
-///     mesh.set_indices(Some(Indices::U32(vec![0,1,2])));
+///     mesh.insert_attribute(
+///         Mesh::ATTRIBUTE_POSITION,
+///         vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [0.0, 0.0, 0.0]]
+///     );
+///     // We have created 4 vertices, each with it's own position attribute.
+///     mesh.insert_attribute(
+///         Mesh::ATTRIBUTE_UV_0,
+///         vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
+///     );
+///     // We have assigned a UV coordinate for each of the 4 vertices we created.
+///     // NOTE: Multiple vertices can have the same attribute, but multiple attributes cannot be
+///     // of the same vertex.
+///     // We define the triangles using the defined vertices' indices.
+///     mesh.set_indices(Some(Indices::U32(vec![0,1,2 , 0,1,3])));
 ///     mesh
 /// }
 /// ```
