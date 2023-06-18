@@ -16,6 +16,13 @@
 @group(0) @binding(7) var nearest_sampler: sampler;
 @group(0) @binding(8) var linear_sampler: sampler;
 
+// Settings for FXAA EXTREME 
+const EDGE_THRESHOLD_MIN: f32 = 0.0078;
+const EDGE_THRESHOLD_MAX: f32 = 0.031;
+const FXAA_ITERATIONS: i32 = 12; //default is 12
+const FXAA_SUBPIXEL_QUALITY: f32 = 0.75;
+#import bevy_core_pipeline::fxaa_functions
+
 struct Output {
     @location(0) view_target: vec4<f32>,
     @location(1) history: vec4<f32>,
@@ -196,6 +203,11 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
         // Use more of the history when the accumulation is stable (high accumulated_samples) (reduces noise)
         // https://hhoppe.com/supersample.pdf, section 4.1
         current_color = mix(history_color, current_color, 1.0 / accumulated_samples);
+    } else {
+        current_color = fxaa(uv, texel_size).rgb;
+#ifdef TONEMAP
+        current_color = tonemap(current_color);
+#endif
     }
 #endif // #ifndef RESET
 
