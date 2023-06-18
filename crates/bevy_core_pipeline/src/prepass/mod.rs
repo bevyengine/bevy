@@ -43,38 +43,21 @@ pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
 
 /// If added to a [`crate::prelude::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
-#[derive(Component, Reflect, Clone, Copy)]
+#[derive(Component, Default, Reflect, Clone, Copy)]
 pub struct DepthPrepass {
     /// Make the previous frame's depth texture available to the main pass
     /// in addition to the current frame's depth texture.
     pub keep_last_frame_depth: bool,
 }
 
-impl Default for DepthPrepass {
-    fn default() -> Self {
-        Self {
-            keep_last_frame_depth: false,
-        }
-    }
-}
-
 /// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
 /// Normals will have normal map textures already applied.
-#[derive(Component, Reflect, Clone, Copy)]
+#[derive(Component, Default, Reflect, Clone, Copy)]
 pub struct NormalPrepass {
     /// Make the previous frame's normal texture available to the main pass
     /// in addition to the current frame's normal texture.
     pub keep_last_frame_normal: bool,
 }
-
-impl Default for NormalPrepass {
-    fn default() -> Self {
-        Self {
-            keep_last_frame_normal: false,
-        }
-    }
-}
-
 /// If added to a [`crate::prelude::Camera3d`] then screen space motion vectors will be copied to a separate texture available to the main pass.
 #[derive(Component, Default, Reflect)]
 pub struct MotionVectorPrepass;
