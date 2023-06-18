@@ -160,7 +160,12 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 /// Doing so greatly reduces SSAO noise.
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Hash, Clone, Default)]
 #[reflect(Component)]
-pub enum ScreenSpaceAmbientOcclusionSettings {
+pub struct ScreenSpaceAmbientOcclusionSettings {
+    pub quality_level: ScreenSpaceAmbientOcclusionQualityLevel,
+}
+
+#[derive(Reflect, PartialEq, Eq, Hash, Clone, Default)]
+pub enum ScreenSpaceAmbientOcclusionQualityLevel {
     Low,
     Medium,
     #[default]
@@ -174,14 +179,14 @@ pub enum ScreenSpaceAmbientOcclusionSettings {
     },
 }
 
-impl ScreenSpaceAmbientOcclusionSettings {
+impl ScreenSpaceAmbientOcclusionQualityLevel {
     fn sample_counts(&self) -> (u32, u32) {
         match self {
-            ScreenSpaceAmbientOcclusionSettings::Low => (1, 2), // 4 spp (1 * (2 * 2)), plus optional temporal samples
-            ScreenSpaceAmbientOcclusionSettings::Medium => (2, 2), // 8 spp (2 * (2 * 2)), plus optional temporal samples
-            ScreenSpaceAmbientOcclusionSettings::High => (3, 3), // 18 spp (3 * (3 * 2)), plus optional temporal samples
-            ScreenSpaceAmbientOcclusionSettings::Ultra => (9, 3), // 54 spp (9 * (3 * 2)), plus optional temporal samples
-            ScreenSpaceAmbientOcclusionSettings::Custom {
+            Self::Low => (1, 2),    // 4 spp (1 * (2 * 2)), plus optional temporal samples
+            Self::Medium => (2, 2), // 8 spp (2 * (2 * 2)), plus optional temporal samples
+            Self::High => (3, 3),   // 18 spp (3 * (3 * 2)), plus optional temporal samples
+            Self::Ultra => (9, 3),  // 54 spp (9 * (3 * 2)), plus optional temporal samples
+            Self::Custom {
                 slice_count: slices,
                 samples_per_slice_side,
             } => (*slices, *samples_per_slice_side),
@@ -557,7 +562,7 @@ impl FromWorld for SsaoPipelines {
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct SsaoPipelineKey {
-    ssao_quality: ScreenSpaceAmbientOcclusionSettings,
+    ssao_settings: ScreenSpaceAmbientOcclusionSettings,
     temporal_noise: bool,
 }
 
@@ -565,7 +570,7 @@ impl SpecializedComputePipeline for SsaoPipelines {
     type Key = SsaoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
-        let (slice_count, samples_per_slice_side) = key.ssao_quality.sample_counts();
+        let (slice_count, samples_per_slice_side) = key.ssao_settings.quality_level.sample_counts();
 
         let mut shader_defs = vec![
             ShaderDefVal::Int("SLICE_COUNT".to_string(), slice_count as i32),
@@ -726,7 +731,7 @@ fn prepare_ssao_pipelines(
             &pipeline_cache,
             &pipeline,
             SsaoPipelineKey {
-                ssao_quality: ssao_settings.clone(),
+                ssao_settings: ssao_settings.clone(),
                 temporal_noise: temporal_jitter.is_some(),
             },
         );
