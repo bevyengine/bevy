@@ -634,8 +634,8 @@ impl<C: EntityCommand> Command for WithEntity<C> {
 
 /// A list of commands that will be run to modify an [entity](crate::entity).
 pub struct EntityCommands<'w, 's, 'a> {
-    entity: Entity,
-    commands: &'a mut Commands<'w, 's>,
+    pub(crate) entity: Entity,
+    pub(crate) commands: &'a mut Commands<'w, 's>,
 }
 
 impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
