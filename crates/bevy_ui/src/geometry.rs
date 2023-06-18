@@ -131,7 +131,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.right, Val::Px(20.));
     /// assert_eq!(ui_rect.top, Val::Px(30.));
     /// assert_eq!(ui_rect.bottom, Val::Px(40.));
-    /// ``
+    /// ```
     pub const fn px(left: f32, right: f32, top: f32, bottom: f32) -> Self {
         UiRect {
             left: Val::Px(left),
@@ -155,7 +155,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.right, Val::Percent(10.));
     /// assert_eq!(ui_rect.top, Val::Percent(2.));
     /// assert_eq!(ui_rect.bottom, Val::Percent(1.));
-    /// ``
+    /// ```
     pub const fn percent(left: f32, right: f32, top: f32, bottom: f32) -> Self {
         UiRect {
             left: Val::Percent(left),
