@@ -1782,6 +1782,17 @@ description = "Illustrates creating and updating a button"
 category = "UI (User Interface)"
 wasm = true
 
+
+[[example]]
+name = "keyboard_navigation"
+path = "examples/ui/keyboard_navigation.rs"
+
+[package.metadata.example.counter]
+name = "Keyboard Navigation"
+description = "A simple UI containing several buttons that modify a counter, to demonstrate keyboard navigation"
+category = "UI (User Interface)"
+wasm = true
+
 [[example]]
 name = "window_fallthrough"
 path = "examples/ui/window_fallthrough.rs"

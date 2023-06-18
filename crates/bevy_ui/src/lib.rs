@@ -6,6 +6,7 @@
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 mod focus;
 mod geometry;
+mod keyboard_navigation;
 mod layout;
 mod render;
 mod stack;
@@ -24,6 +25,7 @@ use bevy_render::camera::CameraUpdateSystem;
 use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
 pub use focus::*;
 pub use geometry::*;
+pub use keyboard_navigation::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
@@ -57,8 +59,10 @@ pub struct UiPlugin;
 pub enum UiSystem {
     /// After this label, the ui layout state has been updated
     Layout,
-    /// After this label, input interactions with UI entities have been updated for this frame
+    /// After this label, the focused entity has been updated
     Focus,
+    /// After this label, the input interactions with UI entities have been updated for this frame
+    Interactions,
     /// After this label, the [`UiStack`] resource has been updated
     Stack,
 }
@@ -85,6 +89,7 @@ impl Plugin for UiPlugin {
             .init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .init_resource::<Focused>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
@@ -100,6 +105,7 @@ impl Plugin for UiPlugin {
             .register_type::<GridPlacement>()
             .register_type::<GridTrack>()
             .register_type::<Interaction>()
+            .register_type::<FocusedState>()
             .register_type::<JustifyContent>()
             .register_type::<JustifyItems>()
             .register_type::<JustifySelf>()
@@ -123,6 +129,34 @@ impl Plugin for UiPlugin {
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+            )
+            .add_systems(
+                PreUpdate,
+                keyboard_navigation_system
+                    .in_set(UiSystem::Focus)
+                    .run_if(tab_pressed)
+                    .after(InputSystem),
+            )
+            .add_systems(
+                PreUpdate,
+                update_focused_state
+                    .in_set(UiSystem::Interactions)
+                    .after(UiSystem::Focus)
+                    .run_if(resource_changed::<Focused>()),
+            )
+            .add_systems(
+                PreUpdate,
+                keyboard_click
+                    .after(UiSystem::Focus)
+                    .in_set(UiSystem::Interactions)
+                    .run_if(trigger_click),
+            )
+            .add_systems(
+                PreUpdate,
+                end_keyboard_click
+                    .after(UiSystem::Focus)
+                    .in_set(UiSystem::Interactions)
+                    .run_if(trigger_click_end),
             );
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
