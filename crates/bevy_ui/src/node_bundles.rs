@@ -1,8 +1,9 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::{Button, TextFlags, UiImageSize},
-    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
+    widget::{Button, TextFlags, TextOptions, UiImageSize},
+    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
+    ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -25,6 +26,8 @@ pub struct NodeBundle {
     pub style: Style,
     /// The background color, which serves as a "fill" for this node
     pub background_color: BackgroundColor,
+    /// The color of the Node's border
+    pub border_color: BorderColor,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -50,6 +53,7 @@ impl Default for NodeBundle {
         NodeBundle {
             // Transparent background
             background_color: Color::NONE.into(),
+            border_color: Color::NONE.into(),
             node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
@@ -142,6 +146,8 @@ pub struct TextBundle {
     pub z_index: ZIndex,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
+    /// UI specific text options
+    pub text_options: TextOptions,
 }
 
 #[cfg(feature = "bevy_text")]
@@ -162,6 +168,7 @@ impl Default for TextBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
+            text_options: Default::default(),
         }
     }
 }
@@ -225,6 +232,8 @@ pub struct ButtonBundle {
     ///
     /// When combined with `UiImage`, tints the provided image.
     pub background_color: BackgroundColor,
+    /// The color of the Node's border
+    pub border_color: BorderColor,
     /// The image of the node
     pub image: UiImage,
     /// The transform of the node
@@ -252,6 +261,7 @@ impl Default for ButtonBundle {
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
+            border_color: BorderColor(Color::NONE),
             interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),

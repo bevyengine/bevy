@@ -28,7 +28,7 @@ pub trait Measure: Send + Sync + 'static {
 /// always returns the same size.
 #[derive(Default, Clone)]
 pub struct FixedMeasure {
-    size: Vec2,
+    pub size: Vec2,
 }
 
 impl Measure for FixedMeasure {
