@@ -13,7 +13,7 @@ use std::borrow::Cow;
 /// Systems are functions with all arguments implementing
 /// [`SystemParam`](crate::system::SystemParam).
 ///
-/// Systems are added to an application using `App::add_system(my_system)`
+/// Systems are added to an application using `App::add_systems(Update, my_system)`
 /// or similar methods, and will generally run once per pass of the main loop.
 ///
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
