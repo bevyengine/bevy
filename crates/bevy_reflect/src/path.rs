@@ -1,8 +1,12 @@
+mod valid;
+
 use std::fmt;
 use std::num::ParseIntError;
 
-use crate::{Reflect, ReflectMut, ReflectRef, VariantType};
+use crate::{Reflect, ReflectMut, ReflectRef, TypeRegistry, Typed, VariantType};
 use thiserror::Error;
+
+pub use valid::{InvalidPath, ValidPath};
 
 /// An error returned from a failed path string query.
 #[derive(Debug, PartialEq, Eq, Error)]
@@ -410,34 +414,48 @@ impl ParsedPath {
                 .ok_or(ReflectPathError::InvalidDowncast)
         })
     }
+
+    /// Check that this `ParsedPath` can read a `Src` and access a `Trgt` element,
+    /// returning a [`ValidPath`].
+    ///
+    /// # Errors
+    ///
+    /// See [`ValidPath::new`] documentation for details.
+    pub fn validated<Src: Typed + Reflect, Trgt: Reflect>(
+        self,
+        registry: &TypeRegistry,
+    ) -> Result<ValidPath<Src, Trgt>, InvalidPath> {
+        ValidPath::new(registry, self)
+    }
 }
 
+impl fmt::Display for Access {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Access::Field(field) => {
+                Token::DOT.fmt(f)?;
+                f.write_str(field.as_str())
+            }
+            Access::FieldIndex(index) => {
+                Token::CROSSHATCH.fmt(f)?;
+                index.fmt(f)
+            }
+            Access::TupleIndex(index) => {
+                Token::DOT.fmt(f)?;
+                index.fmt(f)
+            }
+            Access::ListIndex(index) => {
+                Token::OPEN_BRACKET.fmt(f)?;
+                index.fmt(f)?;
+                Token::CLOSE_BRACKET.fmt(f)
+            }
+        }
+    }
+}
 impl fmt::Display for ParsedPath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (idx, (access, _)) in self.0.iter().enumerate() {
-            match access {
-                Access::Field(field) => {
-                    if idx != 0 {
-                        Token::DOT.fmt(f)?;
-                    }
-                    f.write_str(field.as_str())?;
-                }
-                Access::FieldIndex(index) => {
-                    Token::CROSSHATCH.fmt(f)?;
-                    index.fmt(f)?;
-                }
-                Access::TupleIndex(index) => {
-                    if idx != 0 {
-                        Token::DOT.fmt(f)?;
-                    }
-                    index.fmt(f)?;
-                }
-                Access::ListIndex(index) => {
-                    Token::OPEN_BRACKET.fmt(f)?;
-                    index.fmt(f)?;
-                    Token::CLOSE_BRACKET.fmt(f)?;
-                }
-            }
+        for (access, _) in self.0.iter() {
+            write!(f, "{access}")?;
         }
         Ok(())
     }
@@ -856,6 +874,23 @@ mod tests {
         Struct { value: char },
     }
 
+    fn a_sample() -> A {
+        A {
+            w: 1,
+            x: B {
+                foo: 10,
+                bar: C { baz: 3.14 },
+            },
+            y: vec![C { baz: 1.0 }, C { baz: 2.0 }],
+            z: D(E(10.0, 42)),
+            unit_variant: F::Unit,
+            tuple_variant: F::Tuple(123, 321),
+            struct_variant: F::Struct { value: 'm' },
+            array: [86, 75, 309],
+            tuple: (true, 1.23),
+        }
+    }
+
     #[test]
     fn parsed_path_parse() {
         assert_eq!(
@@ -912,20 +947,7 @@ mod tests {
 
     #[test]
     fn parsed_path_get_field() {
-        let a = A {
-            w: 1,
-            x: B {
-                foo: 10,
-                bar: C { baz: 3.14 },
-            },
-            y: vec![C { baz: 1.0 }, C { baz: 2.0 }],
-            z: D(E(10.0, 42)),
-            unit_variant: F::Unit,
-            tuple_variant: F::Tuple(123, 321),
-            struct_variant: F::Struct { value: 'm' },
-            array: [86, 75, 309],
-            tuple: (true, 1.23),
-        };
+        let a = a_sample();
 
         let b = ParsedPath::parse("w").unwrap();
         let c = ParsedPath::parse("x.foo").unwrap();
@@ -1002,20 +1024,7 @@ mod tests {
 
     #[test]
     fn reflect_path() {
-        let mut a = A {
-            w: 1,
-            x: B {
-                foo: 10,
-                bar: C { baz: 3.14 },
-            },
-            y: vec![C { baz: 1.0 }, C { baz: 2.0 }],
-            z: D(E(10.0, 42)),
-            unit_variant: F::Unit,
-            tuple_variant: F::Tuple(123, 321),
-            struct_variant: F::Struct { value: 'm' },
-            array: [86, 75, 309],
-            tuple: (true, 1.23),
-        };
+        let mut a = a_sample();
 
         assert_eq!(*a.path::<usize>("w").unwrap(), 1);
         assert_eq!(*a.path::<usize>("x.foo").unwrap(), 10);
@@ -1074,5 +1083,88 @@ mod tests {
             a.reflect_path("y[badindex]"),
             Err(ReflectPathError::IndexParseError(_))
         ));
+    }
+    #[test]
+    fn accept_leading_tokens() {
+        assert_eq!(
+            &*ParsedPath::parse(".w").unwrap().0,
+            &[(Access::Field("w".to_string()), 1)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("#0.foo").unwrap().0,
+            &[
+                (Access::FieldIndex(0), 1),
+                (Access::Field("foo".to_string()), 3)
+            ]
+        );
+        assert_eq!(
+            &*ParsedPath::parse(".5").unwrap().0,
+            &[(Access::TupleIndex(5), 1)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("[0].bar").unwrap().0,
+            &[
+                (Access::ListIndex(0), 1),
+                (Access::Field("bar".to_string()), 4),
+            ]
+        );
+    }
+    fn with_registered_types() -> TypeRegistry {
+        let mut registry = TypeRegistry::new();
+        registry.register::<[i32; 3]>();
+        registry.register::<A>();
+        registry.register::<B>();
+        registry.register::<C>();
+        registry.register::<Vec<C>>();
+        registry.register::<D>();
+        registry.register::<E>();
+        registry.register::<F>();
+        registry
+    }
+    #[test]
+    fn validated_happy() {
+        let registry = with_registered_types();
+        let a = a_sample();
+
+        let path = ParsedPath::parse("#1.bar.baz").unwrap();
+        let valid = path.validated::<A, f32>(&registry).unwrap();
+        assert_eq!(valid.element(&a), &3.14);
+
+        let path = ParsedPath::parse(".z.0.1").unwrap();
+        let valid = path.validated::<A, usize>(&registry).unwrap();
+        assert_eq!(valid.element(&a), &42);
+
+        let path = ParsedPath::parse(".array[2]").unwrap();
+        let valid = path.validated::<A, i32>(&registry).unwrap();
+        assert_eq!(valid.element(&a), &309);
+    }
+    #[test]
+    fn validated_unhappy() {
+        let registry = with_registered_types();
+
+        // list
+        let path = ParsedPath::parse(".y[0]").unwrap();
+        let invalid = path.validated::<A, C>(&registry);
+        assert!(invalid.is_err());
+
+        // enum variant
+        let path = ParsedPath::parse(".struct_variant.value").unwrap();
+        let invalid = path.validated::<A, char>(&registry);
+        assert!(invalid.is_err());
+
+        // out of bound
+        let path = ParsedPath::parse(".array[3]").unwrap();
+        let invalid = path.validated::<A, i32>(&registry);
+        assert!(invalid.is_err());
+
+        // bad target type
+        let path = ParsedPath::parse(".array[0]").unwrap();
+        let invalid = path.validated::<A, u32>(&registry);
+        assert!(invalid.is_err());
+
+        // bad target type
+        let path = ParsedPath::parse("#1.bar").unwrap();
+        let invalid = path.validated::<A, B>(&registry);
+        assert!(invalid.is_err());
     }
 }
