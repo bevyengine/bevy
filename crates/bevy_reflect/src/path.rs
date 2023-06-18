@@ -451,7 +451,7 @@ impl fmt::Display for ParsedPath {
 /// A path is composed of multiple accesses in sequence.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Access {
-    Field(String),
+    Field(Box<str>),
     FieldIndex(usize),
     TupleIndex(usize),
     ListIndex(usize),
@@ -485,7 +485,7 @@ enum AccessRef<'a> {
 impl<'a> AccessRef<'a> {
     fn to_owned(&self) -> Access {
         match self {
-            Self::Field(value) => Access::Field(value.to_string()),
+            Self::Field(value) => Access::Field(value.to_string().into_boxed_str()),
             Self::FieldIndex(value) => Access::FieldIndex(*value),
             Self::TupleIndex(value) => Access::TupleIndex(*value),
             Self::ListIndex(value) => Access::ListIndex(*value),
@@ -875,7 +875,7 @@ mod tests {
     }
 
     fn access_field(field: &'static str) -> Access {
-        Access::Field(field.to_string())
+        Access::Field(field.to_string().into_boxed_str())
     }
 
     #[test]
