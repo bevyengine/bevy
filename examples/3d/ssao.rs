@@ -2,7 +2,10 @@
 
 use bevy::{
     core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
-    pbr::{ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings},
+    pbr::{
+        ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionQualityLevel,
+        ScreenSpaceAmbientOcclusionSettings,
+    },
     prelude::*,
     render::camera::TemporalJitter,
 };
@@ -138,16 +141,24 @@ fn update(
         commands.remove::<ScreenSpaceAmbientOcclusionSettings>();
     }
     if keycode.just_pressed(KeyCode::Key2) {
-        commands.insert(ScreenSpaceAmbientOcclusionSettings::Low);
+        commands.insert(ScreenSpaceAmbientOcclusionSettings {
+            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
+        });
     }
     if keycode.just_pressed(KeyCode::Key3) {
-        commands.insert(ScreenSpaceAmbientOcclusionSettings::Medium);
+        commands.insert(ScreenSpaceAmbientOcclusionSettings {
+            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Medium,
+        });
     }
     if keycode.just_pressed(KeyCode::Key4) {
-        commands.insert(ScreenSpaceAmbientOcclusionSettings::High);
+        commands.insert(ScreenSpaceAmbientOcclusionSettings {
+            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::High,
+        });
     }
     if keycode.just_pressed(KeyCode::Key5) {
-        commands.insert(ScreenSpaceAmbientOcclusionSettings::Ultra);
+        commands.insert(ScreenSpaceAmbientOcclusionSettings {
+            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
+        });
     }
     if keycode.just_pressed(KeyCode::Space) {
         if temporal_jitter.is_some() {
@@ -161,12 +172,12 @@ fn update(
     let text = &mut text.sections[0].value;
     text.clear();
 
-    let (o, l, m, h, u) = match ssao_settings {
+    let (o, l, m, h, u) = match ssao_settings.map(|s| s.quality_level) {
         None => ("*", "", "", "", ""),
-        Some(ScreenSpaceAmbientOcclusionSettings::Low) => ("", "*", "", "", ""),
-        Some(ScreenSpaceAmbientOcclusionSettings::Medium) => ("", "", "*", "", ""),
-        Some(ScreenSpaceAmbientOcclusionSettings::High) => ("", "", "", "*", ""),
-        Some(ScreenSpaceAmbientOcclusionSettings::Ultra) => ("", "", "", "", "*"),
+        Some(ScreenSpaceAmbientOcclusionQualityLevel::Low) => ("", "*", "", "", ""),
+        Some(ScreenSpaceAmbientOcclusionQualityLevel::Medium) => ("", "", "*", "", ""),
+        Some(ScreenSpaceAmbientOcclusionQualityLevel::High) => ("", "", "", "*", ""),
+        Some(ScreenSpaceAmbientOcclusionQualityLevel::Ultra) => ("", "", "", "", "*"),
         _ => unreachable!(),
     };
 

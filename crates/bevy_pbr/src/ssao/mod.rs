@@ -164,7 +164,7 @@ pub struct ScreenSpaceAmbientOcclusionSettings {
     pub quality_level: ScreenSpaceAmbientOcclusionQualityLevel,
 }
 
-#[derive(Reflect, PartialEq, Eq, Hash, Clone, Default)]
+#[derive(Reflect, PartialEq, Eq, Hash, Clone, Copy, Default)]
 pub enum ScreenSpaceAmbientOcclusionQualityLevel {
     Low,
     Medium,
