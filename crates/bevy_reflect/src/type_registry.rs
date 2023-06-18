@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
+use crate::{serde::Serializable, Reflect, TypeInfo, TypeUuidDynamic, Typed};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
@@ -18,6 +18,7 @@ use std::{any::TypeId, fmt::Debug, sync::Arc};
 /// [reflected]: crate
 /// [Registering]: TypeRegistry::register
 /// [crate-level documentation]: crate
+#[derive(Clone)]
 pub struct TypeRegistry {
     registrations: HashMap<TypeId, TypeRegistration>,
     short_name_to_id: HashMap<String, TypeId>,
