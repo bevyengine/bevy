@@ -14,8 +14,9 @@ use bevy_a11y::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::{DetectChanges, Entity, EventReader, EventWriter},
+    prelude::{resource_changed, DetectChanges, Entity, EventReader, EventWriter},
     query::With,
+    schedule::IntoSystemConfigs,
     system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
@@ -49,7 +50,7 @@ fn handle_window_focus(
     for event in focused.iter() {
         if let Some(adapter) = adapters.get(&event.window) {
             adapter.update_if_active(|| {
-                let focus_id = (*focus).unwrap_or_else(|| event.window);
+                let focus_id = focus.entity.unwrap_or_else(|| event.window);
                 TreeUpdate {
                     focus: if event.focused {
                         Some(focus_id.to_node_id())
@@ -60,6 +61,25 @@ fn handle_window_focus(
                 }
             });
         }
+    }
+}
+
+fn handle_focus_change(
+    focus: Res<Focus>,
+    adapters: NonSend<AccessKitAdapters>,
+    windows: Query<(Entity, &Window)>,
+) {
+    let Some((window_entity, _window)) = windows.iter().find(|(_, window)| window.focused) else {
+        return;
+    };
+    if let Some(adapter) = adapters.get(&window_entity) {
+        adapter.update_if_active(|| {
+            let focus_id = focus.entity.unwrap_or(window_entity);
+            TreeUpdate {
+                focus: Some(focus_id.to_node_id()),
+                ..default()
+            }
+        });
     }
 }
 
@@ -116,7 +136,7 @@ fn update_accessibility_nodes(
                         name = Some(title.into_boxed_str());
                     }
                     let focus_id = if has_focus {
-                        (*focus).or_else(|| Some(primary_window_id))
+                        focus.entity.or_else(|| Some(primary_window_id))
                     } else {
                         None
                     };
@@ -173,6 +193,7 @@ impl Plugin for AccessibilityPlugin {
                 PostUpdate,
                 (
                     handle_window_focus,
+                    handle_focus_change.run_if(resource_changed::<Focus>()),
                     window_closed,
                     poll_receivers,
                     update_accessibility_nodes,

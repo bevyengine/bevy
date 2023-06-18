@@ -1,15 +1,18 @@
 //! A simple UI containing several buttons that modify a counter, to demonstrate keyboard navigation
 
+use bevy::ui::FocusedState;
 use bevy::{prelude::*, winit::WinitSettings};
-use bevy_internal::ui::FocusedState;
 
-fn main() {p
+fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_button_style, update_focus_style, button_trigger))
+        .add_systems(
+            Update,
+            (update_button_style, update_focus_style, button_trigger),
+        )
         .run();
 }
 

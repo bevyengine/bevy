@@ -1,5 +1,6 @@
 use crate::{FocusPolicy, Interaction, UiStack};
-use bevy_ecs::prelude::{Component, Resource};
+use bevy_a11y::Focus;
+use bevy_ecs::prelude::Component;
 use bevy_ecs::system::{Local, Query, Res, ResMut};
 use bevy_ecs::{change_detection::DetectChangesMut, entity::Entity, query::WorldQuery};
 use bevy_input::{prelude::KeyCode, Input};
@@ -17,13 +18,6 @@ pub enum FocusedState {
         /// This is similar to the `:focus-visible` pseudo-class in css.
         focus_visible: bool,
     },
-}
-
-/// A resource representing the currently focused entity and the focus visible status.
-#[derive(PartialEq, Eq, Debug, Resource, Default)]
-pub struct Focused {
-    pub entity: Option<Entity>,
-    pub focus_visible: bool,
 }
 
 /// Should the [`keyboard_navigation_system`] run?
@@ -44,7 +38,7 @@ pub(crate) struct KeyboardQuery {
 ///
 /// Entities can be focused [`ComputedVisibility`] is visible and [`FocusPolicy`] is block.
 pub(crate) fn keyboard_navigation_system(
-    mut focused_entity: ResMut<Focused>,
+    mut focus: ResMut<Focus>,
     mut node_query: Query<KeyboardQuery>,
     keyboard_input: Res<Input<KeyCode>>,
     ui_stack: Res<UiStack>,
@@ -73,7 +67,7 @@ pub(crate) fn keyboard_navigation_system(
     // Current index of the focused entity within the ui nodes list.
     let current_index = ui_nodes
         .iter()
-        .position(|&ui_node| Some(ui_node) == focused_entity.entity);
+        .position(|&ui_node| Some(ui_node) == focus.entity);
 
     let new_focus = if reverse_order {
         // Start with the entity before the current focused or at the end of the list
@@ -99,8 +93,8 @@ pub(crate) fn keyboard_navigation_system(
     };
 
     // Reset the clicked state
-    if new_focus != focused_entity.entity {
-        if let Some(node) = focused_entity
+    if new_focus != focus.entity {
+        if let Some(node) = focus
             .entity
             .and_then(|entity| node_query.get_mut(entity).ok())
         {
@@ -112,7 +106,7 @@ pub(crate) fn keyboard_navigation_system(
         }
     }
 
-    focused_entity.set_if_neq(Focused {
+    focus.set_if_neq(Focus {
         entity: new_focus,
         focus_visible: true,
     });
@@ -131,17 +125,17 @@ fn set_focus_state<'a>(
 
 pub(crate) fn update_focused_state(
     mut focus_state: Query<&mut FocusedState>,
-    focused_entity: Res<Focused>,
+    focus: Res<Focus>,
     mut old_focused_entity: Local<Option<Entity>>,
 ) {
-    let new_focused_entity = focused_entity.entity;
+    let new_focused_entity = focus.entity;
 
     // Remove the interaction from the last focused entity
     if *old_focused_entity != new_focused_entity {
         set_focus_state(*old_focused_entity, &mut focus_state, FocusedState::None);
     }
 
-    let focus_visible = focused_entity.focus_visible;
+    let focus_visible = focus.focus_visible;
     let new_state = FocusedState::Focus { focus_visible };
     // Set the focused interaction on the newly focused entity
     set_focus_state(new_focused_entity, &mut focus_state, new_state);
@@ -155,7 +149,7 @@ pub(crate) fn trigger_click(keyboard_input: Res<Input<KeyCode>>) -> bool {
 }
 
 /// Trigger the [`Focused`] entity to be clicked.
-pub(crate) fn keyboard_click(mut interactions: Query<&mut Interaction>, focus: Res<Focused>) {
+pub(crate) fn keyboard_click(mut interactions: Query<&mut Interaction>, focus: Res<Focus>) {
     if let Some(mut interaction) = focus
         .entity
         .and_then(|entity| interactions.get_mut(entity).ok())

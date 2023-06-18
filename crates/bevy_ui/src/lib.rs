@@ -20,6 +20,7 @@ pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
+use bevy_a11y::Focus;
 #[cfg(feature = "bevy_text")]
 use bevy_render::camera::CameraUpdateSystem;
 use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
@@ -89,7 +90,6 @@ impl Plugin for UiPlugin {
             .init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
-            .init_resource::<Focused>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
@@ -142,7 +142,7 @@ impl Plugin for UiPlugin {
                 update_focused_state
                     .in_set(UiSystem::Interactions)
                     .after(UiSystem::Focus)
-                    .run_if(resource_changed::<Focused>()),
+                    .run_if(resource_changed::<Focus>()),
             )
             .add_systems(
                 PreUpdate,

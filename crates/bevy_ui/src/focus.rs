@@ -1,4 +1,5 @@
-use crate::{camera_config::UiCameraConfig, CalculatedClip, Focused, Node, UiStack};
+use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiStack};
+use bevy_a11y::Focus;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -146,7 +147,7 @@ pub fn ui_focus_system(
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
-    mut focused: ResMut<Focused>,
+    mut focus: ResMut<Focus>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -269,7 +270,7 @@ pub fn ui_focus_system(
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
-                focused.set_if_neq(Focused {
+                focus.set_if_neq(Focus {
                     entity: Some(node.entity),
                     focus_visible: false,
                 });
