@@ -159,7 +159,7 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 /// TAA ([`bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings`]).
 /// Doing so greatly reduces SSAO noise.
 ///
-/// SSAO is not supported on WebGL2, and is not currently supported on WebGPU or DirectX12.
+/// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU` or `DirectX12`.
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Hash, Clone, Default)]
 #[reflect(Component)]
 pub struct ScreenSpaceAmbientOcclusionSettings {
