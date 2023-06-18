@@ -610,15 +610,15 @@ fn extract_ssao_settings(
     >,
     msaa: Extract<Res<Msaa>>,
 ) {
-    if **msaa != Msaa::Off {
-        error!(
-            "SSAO is being used which requires Msaa::Off, but Msaa is currently set to {:?}",
-            *msaa
-        );
-        return;
-    }
-
     for (entity, camera, ssao_settings) in &cameras {
+        if **msaa != Msaa::Off {
+            error!(
+                "SSAO is being used which requires Msaa::Off, but Msaa is currently set to {:?}",
+                **msaa
+            );
+            return;
+        }
+
         if camera.is_active {
             commands.get_or_spawn(entity).insert(ssao_settings.clone());
         }
