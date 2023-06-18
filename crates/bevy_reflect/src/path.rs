@@ -857,63 +857,8 @@ mod tests {
         Struct { value: char },
     }
 
-    #[test]
-    fn parsed_path_parse() {
-        assert_eq!(
-            &*ParsedPath::parse("w").unwrap().0,
-            &[(Access::Field("w".to_string()), 1)]
-        );
-        assert_eq!(
-            &*ParsedPath::parse("x.foo").unwrap().0,
-            &[
-                (Access::Field("x".to_string()), 1),
-                (Access::Field("foo".to_string()), 2)
-            ]
-        );
-        assert_eq!(
-            &*ParsedPath::parse("x.bar.baz").unwrap().0,
-            &[
-                (Access::Field("x".to_string()), 1),
-                (Access::Field("bar".to_string()), 2),
-                (Access::Field("baz".to_string()), 6)
-            ]
-        );
-        assert_eq!(
-            &*ParsedPath::parse("y[1].baz").unwrap().0,
-            &[
-                (Access::Field("y".to_string()), 1),
-                (Access::ListIndex(1), 2),
-                (Access::Field("baz".to_string()), 5)
-            ]
-        );
-        assert_eq!(
-            &*ParsedPath::parse("z.0.1").unwrap().0,
-            &[
-                (Access::Field("z".to_string()), 1),
-                (Access::TupleIndex(0), 2),
-                (Access::TupleIndex(1), 4),
-            ]
-        );
-        assert_eq!(
-            &*ParsedPath::parse("x#0").unwrap().0,
-            &[
-                (Access::Field("x".to_string()), 1),
-                (Access::FieldIndex(0), 2),
-            ]
-        );
-        assert_eq!(
-            &*ParsedPath::parse("x#0#1").unwrap().0,
-            &[
-                (Access::Field("x".to_string()), 1),
-                (Access::FieldIndex(0), 2),
-                (Access::FieldIndex(1), 4)
-            ]
-        );
-    }
-
-    #[test]
-    fn parsed_path_get_field() {
-        let a = A {
+    fn a_sample() -> A {
+        A {
             w: 1,
             x: B {
                 foo: 10,
@@ -926,7 +871,64 @@ mod tests {
             struct_variant: F::Struct { value: 'm' },
             array: [86, 75, 309],
             tuple: (true, 1.23),
-        };
+        }
+    }
+
+    fn access_field(field: &'static str) -> Access {
+        Access::Field(field.to_string())
+    }
+
+    #[test]
+    fn parsed_path_parse() {
+        assert_eq!(
+            &*ParsedPath::parse("w").unwrap().0,
+            &[(access_field("w"), 1)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("x.foo").unwrap().0,
+            &[(access_field("x"), 1), (access_field("foo"), 2)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("x.bar.baz").unwrap().0,
+            &[
+                (access_field("x"), 1),
+                (access_field("bar"), 2),
+                (access_field("baz"), 6)
+            ]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("y[1].baz").unwrap().0,
+            &[
+                (access_field("y"), 1),
+                (Access::ListIndex(1), 2),
+                (access_field("baz"), 5)
+            ]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("z.0.1").unwrap().0,
+            &[
+                (access_field("z"), 1),
+                (Access::TupleIndex(0), 2),
+                (Access::TupleIndex(1), 4),
+            ]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("x#0").unwrap().0,
+            &[(access_field("x"), 1), (Access::FieldIndex(0), 2)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("x#0#1").unwrap().0,
+            &[
+                (access_field("x"), 1),
+                (Access::FieldIndex(0), 2),
+                (Access::FieldIndex(1), 4)
+            ]
+        );
+    }
+
+    #[test]
+    fn parsed_path_get_field() {
+        let a = a_sample();
 
         let b = ParsedPath::parse("w").unwrap();
         let c = ParsedPath::parse("x.foo").unwrap();
@@ -1003,20 +1005,7 @@ mod tests {
 
     #[test]
     fn reflect_path() {
-        let mut a = A {
-            w: 1,
-            x: B {
-                foo: 10,
-                bar: C { baz: 3.14 },
-            },
-            y: vec![C { baz: 1.0 }, C { baz: 2.0 }],
-            z: D(E(10.0, 42)),
-            unit_variant: F::Unit,
-            tuple_variant: F::Tuple(123, 321),
-            struct_variant: F::Struct { value: 'm' },
-            array: [86, 75, 309],
-            tuple: (true, 1.23),
-        };
+        let mut a = a_sample();
 
         assert_eq!(*a.path::<usize>("w").unwrap(), 1);
         assert_eq!(*a.path::<usize>("x.foo").unwrap(), 10);
@@ -1075,5 +1064,25 @@ mod tests {
             a.reflect_path("y[badindex]"),
             Err(ReflectPathError::IndexParseError(_))
         ));
+    }
+
+    #[test]
+    fn accept_leading_tokens() {
+        assert_eq!(
+            &*ParsedPath::parse(".w").unwrap().0,
+            &[(access_field("w"), 1)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("#0.foo").unwrap().0,
+            &[(Access::FieldIndex(0), 1), (access_field("foo"), 3)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse(".5").unwrap().0,
+            &[(Access::TupleIndex(5), 1)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("[0].bar").unwrap().0,
+            &[(Access::ListIndex(0), 1), (access_field("bar"), 4)]
+        );
     }
 }
