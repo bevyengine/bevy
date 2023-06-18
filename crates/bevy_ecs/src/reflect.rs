@@ -473,9 +473,9 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
 
 /// An extension trait for [`EntityCommands`] for reflection related functions
 pub trait EntityCommandsReflectExtension {
-    /// Inserts the given boxed reflect component to the entity using the registration in the supplied
+    /// Inserts the given boxed reflect component to the entity using the reflection data in the supplied
     /// [`TypeRegistry`]. This will overwrite any previous component of the same type.
-    /// Panics if the entity doesn't exist or if the TypeRegistry doesn't have the reflection data
+    /// Panics if the entity doesn't exist or if the [`TypeRegistry`] doesn't have the reflection data
     /// for the given [`Component`].
     ///
     /// # Note
@@ -495,7 +495,7 @@ pub trait EntityCommandsReflectExtension {
     /// # }
     /// // A resource that can hold any component that implements reflect as a boxed reflect component
     /// #[derive(Resource)]
-    /// struct SpecialStateComponent{
+    /// struct SpecialComponentHolder{
     ///     component: Box<dyn Reflect>,
     /// }
     /// #[derive(Component, Reflect, FromReflect, Default)]
@@ -508,7 +508,7 @@ pub trait EntityCommandsReflectExtension {
     /// fn insert_reflected_component(
     ///     mut commands: Commands,
     ///     mut type_registry: ResMut<TypeRegistryResource>,
-    ///     mut special_state_component_res: ResMut<SpecialStateComponent>
+    ///     mut special_component_holder: ResMut<SpecialComponentHolder>
     ///     ) {
     ///     #
     ///     # type_registry.type_registry.register::<ComponentA>();
@@ -517,20 +517,26 @@ pub trait EntityCommandsReflectExtension {
     ///     #     .get_mut(std::any::TypeId::of::<ComponentA>())
     ///     #     .unwrap();
     ///     # registration.insert(<ReflectComponent as FromType<ComponentA>>::from_type());
-    ///     
+    ///     #
+    ///     # type_registry.type_registry.register::<ComponentB>();
+    ///     # let mut registration = type_registry
+    ///     #     .type_registry
+    ///     #     .get_mut(std::any::TypeId::of::<ComponentB>())
+    ///     #     .unwrap();
+    ///     # registration.insert(<ReflectComponent as FromType<ComponentB>>::from_type());
     ///     // Create a set of new boxed reflect components to use
     ///     let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn Reflect>;
     ///     let boxed_reflect_component_b = Box::new(ComponentB("NineSixteen".to_string())) as Box<dyn Reflect>;
     ///
     ///     // You can overwrite the component in the resource with either ComponentA or ComponentB
-    ///     special_state_component_res.component = boxed_reflect_component_a;
-    ///     special_state_component_res.component = boxed_reflect_component_b;
+    ///     special_component_holder.component = boxed_reflect_component_a;
+    ///     special_component_holder.component = boxed_reflect_component_b;
     ///     
-    ///     // No matter which component is in the resource, you can use insert_reflected entity command
-    ///     // to insert it into an entity.
+    ///     // No matter which component is in the resource and without knowing the exact type, you can 
+    ///     // use the insert_reflected entity command to insert that component into an entity.
     ///     commands
     ///         .spawn_empty()
-    ///         .insert_reflected(special_state_component_res.component.clone_value(), type_registry.type_registry.clone());
+    ///         .insert_reflected(special_component_holder.component.clone_value(), type_registry.type_registry.clone());
     /// }
     ///
     /// ```
@@ -541,7 +547,7 @@ pub trait EntityCommandsReflectExtension {
     ) -> &mut Self;
 
     /// Removes the component of the same type as the supplied boxed reflect component from the entity
-    /// using the registration in the supplied [`TypeRegistry`]. Does nothing if the entity does not
+    /// using the reflection data in the supplied [`TypeRegistry`]. Does nothing if the entity does not
     /// have a component of the same type, if the [`TypeRegistry`] does not contain the reflection data
     /// for the given component, or if the entity does not exist.
     ///
@@ -556,12 +562,11 @@ pub trait EntityCommandsReflectExtension {
     /// # use bevy_ecs::reflect::EntityCommandsReflectExtension;
     /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
     ///
-    /// // A resource to hold a custom TypeRegistry
-    /// #[derive(Resource)]
-    /// struct TypeRegistryResource{
-    ///     type_registry: TypeRegistry,
-    /// }
-    /// // A resource to hold a special boxed reflect component that we can insert/remove/clone.
+    /// # #[derive(Resource)]
+    /// # struct TypeRegistryResource{
+    /// #     type_registry: TypeRegistry,
+    /// # }
+    /// // A resource that can hold any component that implements reflect as a boxed reflect component
     /// #[derive(Resource)]
     /// struct SpecialComponentHolder{
     ///     entity: Entity,
@@ -586,10 +591,16 @@ pub trait EntityCommandsReflectExtension {
     ///     #     .get_mut(std::any::TypeId::of::<ComponentA>())
     ///     #     .unwrap();
     ///     # registration.insert(<ReflectComponent as FromType<ComponentA>>::from_type());
-    ///
+    ///     #
+    ///     # type_registry.type_registry.register::<ComponentB>();
+    ///     # let mut registration = type_registry
+    ///     #     .type_registry
+    ///     #     .get_mut(std::any::TypeId::of::<ComponentB>())
+    ///     #     .unwrap();
+    ///     # registration.insert(<ReflectComponent as FromType<ComponentB>>::from_type());
     ///     // SpecialComponentHolder can hold any boxed reflect component. In this case either
     ///     // ComponentA or ComponentB. No matter which component is in the resource though,
-    ///     // we can attempt to remove any resource of that same type from an entity
+    ///     // we can attempt to remove any component of that same type from an entity.
     ///     commands.entity(special_component_holder.entity)
     ///         .remove_reflected(special_component_holder.component.clone_value(), type_registry.type_registry.clone());
     /// }
