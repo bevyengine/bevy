@@ -20,9 +20,12 @@ struct Vertex {
 #ifdef VERTEX_COLORS
     @location(4) color: vec4<f32>,
 #endif
+#ifdef VERTEX_OCCLUSION
+    @location(5) occlusion: f32,
+#endif
 #ifdef SKINNED
-    @location(5) joint_indices: vec4<u32>,
-    @location(6) joint_weights: vec4<f32>,
+    @location(6) joint_indices: vec4<u32>,
+    @location(7) joint_weights: vec4<f32>,
 #endif
 };
 
@@ -64,6 +67,10 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
 #ifdef VERTEX_COLORS
     out.color = vertex.color;
+#endif
+
+#ifdef VERTEX_OCCLUSION
+    out.occlusion = vertex.occlusion;
 #endif
 
     return out;

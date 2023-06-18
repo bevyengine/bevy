@@ -1,4 +1,4 @@
-//! Illustrates the use of vertex colors.
+//! Illustrates the use of vertex colors and ambient occlusion factors.
 
 use bevy::{prelude::*, render::mesh::VertexAttributeValues};
 
@@ -31,7 +31,9 @@ fn setup(
             .iter()
             .map(|[r, g, b]| [(1. - *r) / 2., (1. - *g) / 2., (1. - *b) / 2., 1.])
             .collect();
+        let occlusions: Vec<f32> = positions.iter().map(|[_, y, _]| y + 0.5).collect();
         colorful_cube.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+        colorful_cube.insert_attribute(Mesh::ATTRIBUTE_OCCLUSION, occlusions);
     }
     commands.spawn(PbrBundle {
         mesh: meshes.add(colorful_cube),

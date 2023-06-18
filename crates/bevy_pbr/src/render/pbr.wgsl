@@ -89,9 +89,12 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
         var occlusion: f32 = 1.0;
+#ifdef VERTEX_OCCLUSION
+        occlusion = in.occlusion;
+#endif
 #ifdef VERTEX_UVS
         if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
-            occlusion = textureSample(occlusion_texture, occlusion_sampler, uv).r;
+            occlusion = occlusion * textureSample(occlusion_texture, occlusion_sampler, uv).r;
         }
 #endif
         pbr_input.frag_coord = in.frag_coord;

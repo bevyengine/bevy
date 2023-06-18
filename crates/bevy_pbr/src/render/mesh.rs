@@ -708,6 +708,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
+        if layout.contains(Mesh::ATTRIBUTE_OCCLUSION) {
+            shader_defs.push("VERTEX_OCCLUSION".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_OCCLUSION.at_shader_location(5));
+        }
+
         let mut bind_group_layout = match key.msaa_samples() {
             1 => vec![self.view_layout.clone()],
             _ => {
@@ -720,8 +725,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
             shader_defs.push("SKINNED".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(5));
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(6));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(6));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(7));
             bind_group_layout.push(self.skinned_mesh_layout.clone());
         } else {
             bind_group_layout.push(self.mesh_layout.clone());

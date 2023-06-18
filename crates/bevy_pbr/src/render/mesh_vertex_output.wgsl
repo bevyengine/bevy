@@ -11,3 +11,6 @@
 #ifdef VERTEX_COLORS
 @location(4) color: vec4<f32>,
 #endif
+#ifdef VERTEX_OCCLUSION
+@location(5) occlusion: f32,
+#endif
