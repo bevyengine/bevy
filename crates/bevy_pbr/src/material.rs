@@ -1,7 +1,7 @@
 use crate::{
     render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems, SetMeshBindGroup,
-    SetMeshViewBindGroup, Shadow,
+    MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems,
+    ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -387,6 +387,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Tonemapping>,
         Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
+        Option<&ScreenSpaceAmbientOcclusionSettings>,
         Option<&NormalPrepass>,
         Option<&TemporalAntiAliasSettings>,
         &mut RenderPhase<Opaque3d>,
@@ -402,6 +403,7 @@ pub fn queue_material_meshes<M: Material>(
         tonemapping,
         dither,
         environment_map,
+        ssao,
         normal_prepass,
         taa_settings,
         mut opaque_phase,
@@ -453,6 +455,10 @@ pub fn queue_material_meshes<M: Material>(
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
+        }
+
+        if ssao.is_some() {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 
         let rangefinder = view.rangefinder3d();
