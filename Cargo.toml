@@ -1787,7 +1787,7 @@ wasm = true
 name = "keyboard_navigation"
 path = "examples/ui/keyboard_navigation.rs"
 
-[package.metadata.example.counter]
+[package.metadata.example.keyboard_navigation]
 name = "Keyboard Navigation"
 description = "A simple UI containing several buttons that modify a counter, to demonstrate keyboard navigation"
 category = "UI (User Interface)"
