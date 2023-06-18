@@ -746,7 +746,7 @@ impl TemporalJitter {
     }
 }
 
-/// Camera component specifiying a mip bias to apply when sampling from material textures.
+/// Camera component specifying a mip bias to apply when sampling from material textures.
 ///
 /// Often used in conjunction with antialiasing post-process effects to reduce textures blurriness.
 #[derive(Component)]
