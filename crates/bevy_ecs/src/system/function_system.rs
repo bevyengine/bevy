@@ -35,37 +35,43 @@ impl SystemMeta {
         }
     }
 
-    /// Returns the system's name
+    /// Returns the system's name.
     #[inline]
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Returns the system's component access set.
+    /// Returns a reference to the system's component access set.
     #[inline]
-    pub fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+    pub const fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
         &self.component_access_set
     }
 
-    /// Returns a mutable reference to the system's component access set.
+    /// Returns an unsafe mutable reference to the system's component access set.
     ///
     /// # Safety
-    /// This allows unsafe modifications to the component access set that can violate Bevy's scheduling soundness.
+    ///
+    /// *All* of the system's [`World`] accesses must be correctly recorded in its component access
+    /// set. Additionally, archetype component accesses must be recorded with
+    /// [`Self::archetype_component_access_mut`].
     #[inline]
     pub unsafe fn component_access_set_mut(&mut self) -> &mut FilteredAccessSet<ComponentId> {
         &mut self.component_access_set
     }
 
-    /// Returns the system's archetype component access set.
+    /// Returns a reference to the system's archetype component access set.
     #[inline]
-    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+    pub const fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         &self.archetype_component_access
     }
 
-    /// Returns a mutable reference to this system's archetype component access set.
+    /// Returns an unsafe mutable reference to the system's archetype component access set.
     ///
     /// # Safety
-    /// This allows unsafe modifications to the archetype component access set that can violate Bevy's scheduling soundness.
+    ///
+    /// *All* of the system's [`World`] accesses must be correctly recorded in its archetype
+    /// component access set. Additionally, component accesses must be recorded with
+    /// [`Self::component_access_set_mut`].
     #[inline]
     pub unsafe fn archetype_component_access_mut(&mut self) -> &mut Access<ArchetypeComponentId> {
         &mut self.archetype_component_access
@@ -73,7 +79,7 @@ impl SystemMeta {
 
     /// Returns true if the system is [`Send`].
     #[inline]
-    pub fn is_send(&self) -> bool {
+    pub const fn is_send(&self) -> bool {
         self.is_send
     }
 
@@ -85,13 +91,20 @@ impl SystemMeta {
         self.is_send = false;
     }
 
-    /// Returns this system's last change tick.
+    /// Returns the system's last change tick (used in reliable change detection).
+    /// 
+    /// See [`crate::system::SystemChangeTick`] and [`crate::change_detection`].
     #[inline]
-    pub fn last_change_tick(&self) -> u32 {
+    pub const fn last_change_tick(&self) -> u32 {
         self.last_change_tick
     }
 
-    /// Set this system's last change tick.
+    /// Set the system's last change tick (used in reliable change detection). Note that component
+    /// changes are detected when the system's `last_change_tick` is older than their component
+    /// change ticks, so this value should be updated after each run to be
+    /// [`World::read_change_tick`].
+    /// 
+    /// See [`crate::system::SystemChangeTick`] and [`crate::change_detection`].
     #[inline]
     pub fn set_last_change_tick(&mut self, last_change_tick: u32) {
         self.last_change_tick = last_change_tick;
