@@ -105,7 +105,7 @@ impl Plugin for UiPlugin {
             .register_type::<GridPlacement>()
             .register_type::<GridTrack>()
             .register_type::<Interaction>()
-            .register_type::<FocusedState>()
+            .register_type::<Focusable>()
             .register_type::<JustifyContent>()
             .register_type::<JustifyItems>()
             .register_type::<JustifySelf>()

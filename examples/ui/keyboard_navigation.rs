@@ -1,6 +1,6 @@
 //! A simple UI containing several buttons that modify a counter, to demonstrate keyboard navigation
 
-use bevy::ui::FocusedState;
+use bevy::ui::Focusable;
 use bevy::{prelude::*, winit::WinitSettings};
 
 fn main() {
@@ -50,15 +50,14 @@ fn update_button_style(
 }
 
 fn update_focus_style(
-    mut interaction_query: Query<(&FocusedState, &mut BorderColor), Changed<FocusedState>>,
+    mut focusable_query: Query<(&Focusable, &mut BorderColor), Changed<Focusable>>,
 ) {
-    for (focus_state, mut color) in &mut interaction_query {
-        info!("Update focus state {focus_state:?}");
-        *color = match *focus_state {
-            FocusedState::Focus {
-                focus_visible: true,
-            } => FOCUS_BORDER,
-            _ => NORMAL_BORDER,
+    for (focusable, mut color) in &mut focusable_query {
+        info!("Update focus {focusable:?}");
+        *color = if focusable.is_focus_visible() {
+            FOCUS_BORDER
+        } else {
+            NORMAL_BORDER
         }
         .into();
     }
