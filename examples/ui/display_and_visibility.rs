@@ -3,8 +3,8 @@
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 use bevy_internal::text::TextLayoutInfo;
-use bevy_internal::ui::ContentSize;
 use bevy_internal::ui::widget::TextFlags;
+use bevy_internal::ui::ContentSize;
 
 const PALETTE: [&str; 4] = ["4059AD", "6B9AC4", "A5C8E1", "F4B942"];
 
@@ -14,11 +14,14 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_systems(Update, (
-            buttons_handler::<Display>,
-            buttons_handler::<Visibility>,
-            text_hover,
-        ))
+        .add_systems(
+            Update,
+            (
+                buttons_handler::<Display>,
+                buttons_handler::<Visibility>,
+                text_hover,
+            ),
+        )
         .run();
 }
 
@@ -50,7 +53,7 @@ impl TargetUpdate for Target<Display> {
         style.display = match style.display {
             Display::Flex => Display::None,
             Display::None => Display::Flex,
-            Display::Grid => unreachable!()
+            Display::Grid => unreachable!(),
         };
         format!("{}::{:?} ", Self::NAME, style.display)
     }
@@ -171,7 +174,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                         .with_children(|parent| {
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    width: Val::Px(100.), 
+                                    width: Val::Px(100.),
                                     height: Val::Px(500.),
                                     ..Default::default()
                                 },
@@ -213,7 +216,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                         .with_children(|parent| {
                                             parent.spawn(NodeBundle {
                                                 style: Style {
-                                                    width: Val::Px(100.), 
+                                                    width: Val::Px(100.),
                                                     height: Val::Px(300.),
                                                     ..Default::default()
                                                 },
@@ -370,39 +373,46 @@ where
     T: Default + std::fmt::Debug + Send + Sync + 'static,
     Target<T>: TargetUpdate,
 {
-    parent.spawn((
-        ButtonBundle {
-            style: Style {
-                height: Val::Px(24.),
-                align_self: AlignSelf::FlexStart,
+    parent
+        .spawn((
+            ButtonBundle {
+                style: Style {
+                    height: Val::Px(24.),
+                    align_self: AlignSelf::FlexStart,
+                    ..Default::default()
+                },
+                background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
-            ..Default::default()
-        },
-        Target::<T>::new(target),
-        Text::from_section(
-            format!("{}::{:?}", Target::<T>::NAME, T::default()),
-            text_style,
-        )
-        .with_alignment(TextAlignment::Center),
-        ContentSize::default(), 
-        TextFlags::default(),
-        TextLayoutInfo::default(),
-    ));
+            Target::<T>::new(target),
+        ))
+        .with_children(|builder| {
+            builder.spawn(
+                TextBundle::from_section(
+                    format!("{}::{:?}", Target::<T>::NAME, T::default()),
+                    text_style,
+                )
+                .with_text_alignment(TextAlignment::Center),
+            );
+        });
 }
 
 fn buttons_handler<T>(
     mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
-    mut visibility_button_query: Query<(&mut Text, &Target<T>, &Interaction), Changed<Interaction>>,
+    mut visibility_button_query: Query<(&Target<T>, &Interaction, &Children), Changed<Interaction>>,
+    mut text_query: Query<&mut Text>,
 ) where
     T: Send + Sync,
     Target<T>: TargetUpdate + Component,
 {
-    for (mut text, target, interaction) in visibility_button_query.iter_mut() {
+    for (target, interaction, children) in visibility_button_query.iter_mut() {
         if matches!(interaction, Interaction::Clicked) {
             let mut target_value = left_panel_query.get_mut(target.id).unwrap();
-            text.sections[0].value = target.update_target(target_value.as_mut());
+            for &child in children {
+                if let Ok(mut text) = text_query.get_mut(child) {
+                    text.sections[0].value = target.update_target(target_value.as_mut());
+                }
+            }
         }
     }
 }
