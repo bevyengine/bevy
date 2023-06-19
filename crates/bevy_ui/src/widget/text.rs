@@ -8,32 +8,15 @@ use bevy_ecs::{
     world::{Mut, Ref},
 };
 use bevy_math::Vec2;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextSettings, YAxisOrientation,
+    BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo,
+    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
-
-/// Alternative text wrapping behaviours for `TextBundle`.
-#[derive(Copy, Debug, Clone, Reflect, FromReflect)]
-pub enum TextWrapOverride {
-    /// Text will breaklines at every possible break point as specified by `linebreak_behaviour`.
-    MinWidth,
-    /// Text will never break lines, regardless of the `linebreak_behaviour` setting.
-    MaxWidth,
-}
-
-/// Extra text options for `TextBundle` that aren't needed for `Text2dBundle`.
-#[derive(Component, Debug, Default, Clone, Reflect, FromReflect)]
-#[reflect(Component, Default)]
-pub struct TextOptions {
-    /// Alternative text wrapping behaviours.
-    pub text_wrap_override: Option<TextWrapOverride>,
-}
 
 /// Text system flags
 ///
@@ -99,7 +82,6 @@ fn create_text_measure(
     text: Ref<Text>,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
-    text_options: &TextOptions,
 ) {
     match text_pipeline.create_text_measure(
         fonts,
@@ -109,14 +91,12 @@ fn create_text_measure(
         text.linebreak_behavior,
     ) {
         Ok(measure) => {
-            match text_options.text_wrap_override {
-                Some(TextWrapOverride::MinWidth) => content_size.set(FixedMeasure {
-                    size: measure.min_width_content_size,
-                }),
-                Some(TextWrapOverride::MaxWidth) => content_size.set(FixedMeasure {
-                    size: measure.min_width_content_size,
-                }),
-                None => content_size.set(TextMeasure { info: measure }),
+            if matches!(text.linebreak_behavior, BreakLineOn::NeverBreak) {
+                content_size.set(FixedMeasure {
+                    size: measure.max_width_content_size,
+                })
+            } else {
+                content_size.set(TextMeasure { info: measure })
             }
 
             // Text measure func created succesfully, so set `TextFlags` to schedule a recompute
@@ -141,15 +121,7 @@ pub fn measure_text_system(
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<
-        (
-            Ref<Text>,
-            &mut ContentSize,
-            &mut TextFlags,
-            Ref<TextOptions>,
-        ),
-        With<Node>,
-    >,
+    mut text_query: Query<(Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
 ) {
     let window_scale_factor = windows
         .get_single()
@@ -161,8 +133,8 @@ pub fn measure_text_system(
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measure funcs for modified text
-        for (text, content_size, text_flags, text_options) in text_query.iter_mut() {
-            if text.is_changed() || text_options.is_changed() || text_flags.needs_new_measure_func {
+        for (text, content_size, text_flags) in text_query.iter_mut() {
+            if text.is_changed() || text_flags.needs_new_measure_func {
                 create_text_measure(
                     &fonts,
                     &mut text_pipeline,
@@ -170,7 +142,6 @@ pub fn measure_text_system(
                     text,
                     content_size,
                     text_flags,
-                    &text_options,
                 );
             }
         }
@@ -178,7 +149,7 @@ pub fn measure_text_system(
         // scale factor changed, create new measure funcs for all text
         *last_scale_factor = scale_factor;
 
-        for (text, content_size, text_flags, text_options) in text_query.iter_mut() {
+        for (text, content_size, text_flags) in text_query.iter_mut() {
             create_text_measure(
                 &fonts,
                 &mut text_pipeline,
@@ -186,7 +157,6 @@ pub fn measure_text_system(
                 text,
                 content_size,
                 text_flags,
-                &text_options,
             );
         }
     }
@@ -210,7 +180,12 @@ fn queue_text(
 ) {
     // Skip the text node if it is waiting for a new measure func
     if !text_flags.needs_new_measure_func {
-        let physical_node_size = node.physical_size(scale_factor);
+        let physical_node_size = if text.linebreak_behavior == BreakLineOn::NeverBreak {
+            // With `NeverBreak` set, no constraints are placed on the width of the text.
+            Vec2::splat(f32::INFINITY)
+        } else {
+            node.physical_size(scale_factor)
+        };
 
         match text_pipeline.queue_text(
             fonts,

@@ -1,7 +1,7 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::{Button, TextFlags, TextOptions, UiImageSize},
+    widget::{Button, TextFlags, UiImageSize},
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
     ZIndex,
 };
@@ -146,8 +146,6 @@ pub struct TextBundle {
     pub z_index: ZIndex,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
-    /// UI specific text options
-    pub text_options: TextOptions,
 }
 
 #[cfg(feature = "bevy_text")]
@@ -168,7 +166,6 @@ impl Default for TextBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
-            text_options: Default::default(),
         }
     }
 }

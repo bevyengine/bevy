@@ -186,6 +186,8 @@ pub enum BreakLineOn {
     /// This is closer to the behavior one might expect from text in a terminal.
     /// However it may lead to words being broken up across linebreaks.
     AnyCharacter,
+    /// Lines will never be broken up.
+    NeverBreak,
 }
 
 impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
@@ -193,6 +195,8 @@ impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
         match val {
             BreakLineOn::WordBoundary => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
             BreakLineOn::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
+            // If `NeverBreak` is set the text is given unbounded width and won't ever break lines, so this `BuiltInLineBreaker` won't be used.
+            BreakLineOn::NeverBreak => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
         }
     }
 }
