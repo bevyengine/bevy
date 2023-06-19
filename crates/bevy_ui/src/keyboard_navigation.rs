@@ -166,6 +166,7 @@ pub(crate) fn trigger_click_end(keyboard_input: Res<Input<KeyCode>>) -> bool {
 pub(crate) fn end_keyboard_click(mut interactions: Query<&mut Interaction>) {
     interactions.for_each_mut(|mut interaction| {
         if *interaction == Interaction::Clicked {
+            // The click was triggered by the keyboard, so it doesn't make sense to go to `Interaction::Hovered`.
             *interaction = Interaction::None;
         }
     });
