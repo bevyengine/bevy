@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
+const HIDDEN_COLOR: Color = Color::rgb(1.0, 0.7, 0.7);
 
 fn main() {
     App::new()
@@ -96,11 +97,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 text_style.clone(),
             ).with_alignment(TextAlignment::Center),
             style: Style {
-                margin: UiRect::vertical(Val::Px(10.)),
+                margin: UiRect::bottom(Val::Px(10.)),
                 ..Default::default()
             },
             ..Default::default()
         });
+
         parent
             .spawn(NodeBundle {
                 style: Style {
@@ -133,6 +135,42 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 }).with_children(|parent| {
                     spawn_right_panel(parent, text_style, &palette, target_ids);
                 });
+            });
+
+            parent.spawn(NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Start,
+                    justify_content: JustifyContent::Start,
+                    column_gap: Val::Px(10.),
+                    ..Default::default()
+                },
+                ..default() })
+            .with_children(|builder| {
+                let text_style = TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 20.0,
+                    color: Color::WHITE,
+                };
+
+                builder.spawn(TextBundle {
+                    text: Text::from_section(
+                        "Display::None\nVisibility::Hidden\nVisbility::Inherited",
+                        TextStyle { color: HIDDEN_COLOR, ..text_style.clone() }
+                        ).with_alignment(TextAlignment::Center),
+                    ..Default::default()
+                    });
+                    builder.spawn(TextBundle {
+                        text: Text::from_section(
+                            "-\n-\n-",
+                            TextStyle { color: Color::DARK_GRAY, ..text_style.clone() }
+                            ).with_alignment(TextAlignment::Center),
+                        ..Default::default()
+                        });
+                    builder.spawn(TextBundle::from_section(
+                        "The UI Node and its descendants will not be visible and will not be alloted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible.",
+                        text_style
+                    ));
             });
     });
 }
@@ -445,7 +483,7 @@ fn text_hover(
                             if text.sections[0].value.contains("None")
                                 || text.sections[0].value.contains("Hidden")
                             {
-                                Color::rgb(1.0, 0.7, 0.7)
+                                HIDDEN_COLOR
                             } else {
                                 Color::WHITE
                             };
