@@ -45,7 +45,7 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
 use crate::{
-    prepare_lights, setup_moprh_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
+    prepare_lights, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
     MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials,
     SetMaterialBindGroup, SetMeshBindGroup, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
@@ -414,7 +414,7 @@ where
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
 
-        let bind_group = setup_moprh_and_skinning_defs(
+        let bind_group = setup_morph_and_skinning_defs(
             &self.mesh_layouts,
             layout,
             4,

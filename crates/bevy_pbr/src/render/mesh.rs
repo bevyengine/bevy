@@ -653,7 +653,7 @@ impl MeshPipelineKey {
 fn is_skinned(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
     layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX) && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
 }
-pub fn setup_moprh_and_skinning_defs(
+pub fn setup_morph_and_skinning_defs(
     mesh_layouts: &MeshLayouts,
     layout: &Hashed<InnerMeshVertexBufferLayout>,
     offset: u32,
@@ -742,7 +742,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         };
 
-        bind_group_layout.push(setup_moprh_and_skinning_defs(
+        bind_group_layout.push(setup_morph_and_skinning_defs(
             &self.mesh_layouts,
             layout,
             5,
