@@ -122,6 +122,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE || alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
         pbr_input.N = prepass_normal(in.frag_coord, 0u);
     } else {
+#endif
         pbr_input.N = apply_normal_mapping(
             material.flags,
             pbr_input.world_normal,
@@ -134,22 +135,9 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             uv,
 #endif
         );
+#ifdef LOAD_PREPASS_NORMALS
     }
-#else LOAD_PREPASS_NORMALS
-        pbr_input.N = apply_normal_mapping(
-            material.flags,
-            pbr_input.world_normal,
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-            in.world_tangent,
 #endif
-#endif
-#ifdef VERTEX_UVS
-            uv,
-#endif
-        );
-#endif // LOAD_PREPASS_NORMALS
-
 
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
