@@ -111,9 +111,10 @@ The [`resources.rs`](examples/resources.rs) example illustrates how to read and 
 
 ### Schedules
 
-Schedules consist of zero or more Stages, which run a set of Systems according to some execution strategy. Bevy ECS provides a few built in Stage implementations (ex: parallel, serial), but you can also implement your own! Schedules run Stages one-by-one in an order defined by the user.
+Schedules run a set of Systems according to some execution strategy.
+Systems can be added to any number of System Sets, which are used to control their scheduling metadata.
 
-The built in "parallel stage" considers dependencies between systems and (by default) run as many of them in parallel as possible. This maximizes performance, while keeping the system execution safe. You can also define explicit dependencies between systems.
+The built in "parallel executor" considers dependencies between systems and (by default) run as many of them in parallel as possible. This maximizes performance, while keeping the system execution safe. To control the system ordering, define explicit dependencies between systems and their sets.
 
 ## Using Bevy ECS
 
@@ -148,15 +149,8 @@ fn main() {
     // Create a new Schedule, which defines an execution strategy for Systems
     let mut schedule = Schedule::default();
 
-    // Define a unique public name for a new Stage.
-    #[derive(StageLabel)]
-    pub struct UpdateLabel;
-
-    // Add a Stage to our schedule. Each Stage in a schedule runs all of its systems
-    // before moving on to the next Stage
-    schedule.add_stage(UpdateLabel, SystemStage::parallel()
-        .with_system(movement)
-    );
+    // Add our system to the schedule
+    schedule.add_systems(movement);
 
     // Run the schedule once. If your app has a "loop", you would run this once per loop
     schedule.run(&mut world);
@@ -292,6 +286,7 @@ Events offer a communication channel between one or more systems. Events can be 
 ```rust
 use bevy_ecs::prelude::*;
 
+#[derive(Event)]
 struct MyEvent {
     message: String,
 }

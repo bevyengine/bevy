@@ -1,16 +1,7 @@
 #define_import_path bevy_pbr::mesh_view_types
 
-struct View {
-    view_proj: mat4x4<f32>,
-    inverse_view_proj: mat4x4<f32>,
-    view: mat4x4<f32>,
-    inverse_view: mat4x4<f32>,
-    projection: mat4x4<f32>,
-    inverse_projection: mat4x4<f32>,
-    world_position: vec3<f32>,
-    // viewport(x_origin, y_origin, width, height)
-    viewport: vec4<f32>,
-};
+#import bevy_render::view
+#import bevy_render::globals
 
 struct PointLight {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
@@ -25,20 +16,29 @@ struct PointLight {
     spot_light_tan_angle: f32,
 };
 
-let POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
-let POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
+const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
+const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
+
+struct DirectionalCascade {
+    view_projection: mat4x4<f32>,
+    texel_size: f32,
+    far_bound: f32,
+}
 
 struct DirectionalLight {
-    view_projection: mat4x4<f32>,
+    cascades: array<DirectionalCascade, #{MAX_CASCADES_PER_LIGHT}>,
     color: vec4<f32>,
     direction_to_light: vec3<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
+    num_cascades: u32,
+    cascades_overlap_proportion: f32,
+    depth_texture_base_index: u32,
 };
 
-let DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
+const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
 
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
@@ -59,7 +59,33 @@ struct Lights {
     cluster_factors: vec4<f32>,
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
+    environment_map_smallest_specular_mip_level: u32,
 };
+
+struct Fog {
+    base_color: vec4<f32>,
+    directional_light_color: vec4<f32>,
+    // `be` and `bi` are allocated differently depending on the fog mode
+    //
+    // For Linear Fog:
+    //     be.x = start, be.y = end
+    // For Exponential and ExponentialSquared Fog:
+    //     be.x = density
+    // For Atmospheric Fog:
+    //     be = per-channel extinction density
+    //     bi = per-channel inscattering density
+    be: vec3<f32>,
+    directional_light_exponent: f32,
+    bi: vec3<f32>,
+    mode: u32,
+}
+
+// Important: These must be kept in sync with `fog.rs`
+const FOG_MODE_OFF: u32                   = 0u;
+const FOG_MODE_LINEAR: u32                = 1u;
+const FOG_MODE_EXPONENTIAL: u32           = 2u;
+const FOG_MODE_EXPONENTIAL_SQUARED: u32   = 3u;
+const FOG_MODE_ATMOSPHERIC: u32           = 4u;
 
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 struct PointLights {
@@ -85,18 +111,3 @@ struct ClusterOffsetsAndCounts {
     data: array<vec4<u32>, 1024u>,
 };
 #endif
-
-struct Globals {
-    // The time since startup in seconds
-    // Wraps to 0 after 1 hour.
-    time: f32,
-    // The delta time since the previous frame in seconds
-    delta_time: f32,
-    // Frame count since the start of the app.
-    // It wraps to zero when it reaches the maximum value of a u32.
-    frame_count: u32,
-#ifdef SIXTEEN_BYTE_ALIGNMENT
-    // WebGL2 structs must be 16 byte aligned.
-    _wasm_padding: f32
-#endif
-}

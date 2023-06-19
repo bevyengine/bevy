@@ -6,6 +6,7 @@ struct Enemy {
     score_value: u32,
 }
 
+#[derive(Event)]
 struct EnemyDied(u32);
 
 #[derive(Resource)]
@@ -57,8 +58,7 @@ fn did_hurt_enemy() {
     app.add_event::<EnemyDied>();
 
     // Add our two systems
-    app.add_system(hurt_enemies.before(despawn_dead_enemies));
-    app.add_system(despawn_dead_enemies);
+    app.add_systems(Update, (hurt_enemies, despawn_dead_enemies).chain());
 
     // Setup test entities
     let enemy_id = app
@@ -89,8 +89,7 @@ fn did_despawn_enemy() {
     app.add_event::<EnemyDied>();
 
     // Add our two systems
-    app.add_system(hurt_enemies.before(despawn_dead_enemies));
-    app.add_system(despawn_dead_enemies);
+    app.add_systems(Update, (hurt_enemies, despawn_dead_enemies).chain());
 
     // Setup test entities
     let enemy_id = app
@@ -122,7 +121,7 @@ fn spawn_enemy_using_input_resource() {
     let mut app = App::new();
 
     // Add our systems
-    app.add_system(spawn_enemy);
+    app.add_systems(Update, spawn_enemy);
 
     // Setup test resource
     let mut input = Input::<KeyCode>::default();
@@ -157,7 +156,7 @@ fn update_score_on_event() {
     app.add_event::<EnemyDied>();
 
     // Add our systems
-    app.add_system(update_score);
+    app.add_systems(Update, update_score);
 
     // Send an `EnemyDied` event
     app.world

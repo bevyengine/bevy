@@ -1,0 +1,22 @@
+--- Process for recreating AgX-default_contrast.ktx2 ---
+Download: 
+https://github.com/MrLixm/AgXc/blob/898198e0490b0551ed81412a0c22e0b72fffb7cd/obs/obs-script/AgX-default_contrast.lut.png
+Convert to vertical strip exr with: 
+https://gist.github.com/DGriffin91/fc8e0cfd55aaa175ac10199403bc19b8
+Convert exr to 3D ktx2 with:
+https://gist.github.com/DGriffin91/49401c43378b58bce32059291097d4ca
+
+--- Process for recreating tony_mc_mapface.ktx2 ---
+Download: 
+https://github.com/h3r2tic/tony-mc-mapface/blob/909e51c8a74251fd828770248476cb084081e08c/tony_mc_mapface.dds
+Convert dds to 3D ktx2 with:
+https://gist.github.com/DGriffin91/49401c43378b58bce32059291097d4ca
+
+--- Process for recreating Blender_-11_12.ktx2 ---
+Create LUT stimulus with:
+https://gist.github.com/DGriffin91/e119bf32b520e219f6e102a6eba4a0cf
+Open LUT image in Blender's image editor and make sure color space is set to linear.
+Export from Blender as 32bit EXR, override color space to Filmic sRGB.
+Import EXR back into blender set color space to sRGB, then export as 32bit EXR override color space to linear.
+Convert exr to 3D ktx2 with:
+https://gist.github.com/DGriffin91/49401c43378b58bce32059291097d4ca

@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod diagnostic;
 mod entity_count_diagnostics_plugin;
 mod frame_time_diagnostics_plugin;
@@ -17,8 +19,10 @@ pub struct DiagnosticsPlugin;
 
 impl Plugin for DiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Diagnostics>()
-            .add_startup_system(system_information_diagnostics_plugin::internal::log_system_info);
+        app.init_resource::<DiagnosticsStore>().add_systems(
+            Startup,
+            system_information_diagnostics_plugin::internal::log_system_info,
+        );
     }
 }
 

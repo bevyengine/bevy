@@ -5,8 +5,9 @@ use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::Extract;
+use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypeUuid};
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy_render::Render;
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -17,7 +18,7 @@ use bevy_render::{
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     view::{ExtractedView, Msaa, VisibleEntities},
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 use bevy_utils::tracing::error;
 
@@ -39,38 +40,37 @@ impl Plugin for WireframePlugin {
         app.register_type::<Wireframe>()
             .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
-            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
+            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default())
+            .add_plugin(ExtractComponentPlugin::<Wireframe>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
-                .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .add_system_to_stage(RenderStage::Extract, extract_wireframes)
-                .add_system_to_stage(RenderStage::Queue, queue_wireframes);
+                .add_systems(Render, queue_wireframes.in_set(RenderSet::Queue));
+        }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<WireframePipeline>();
         }
     }
 }
 
-fn extract_wireframes(mut commands: Commands, query: Extract<Query<Entity, With<Wireframe>>>) {
-    for entity in &query {
-        commands.get_or_spawn(entity).insert(Wireframe);
-    }
-}
-
 /// Controls whether an entity should rendered in wireframe-mode if the [`WireframePlugin`] is enabled
-#[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Clone, Default, ExtractComponent, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct Wireframe;
 
-#[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
-#[reflect(Resource)]
+#[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect, FromReflect)]
+#[reflect(Resource, FromReflect)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes. If `false`, only meshes with a [Wireframe] component will be rendered.
     pub global: bool,
 }
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct WireframePipeline {
     mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,
@@ -108,7 +108,7 @@ fn queue_wireframes(
     wireframe_config: Res<WireframeConfig>,
     wireframe_pipeline: Res<WireframePipeline>,
     mut pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     mut material_meshes: ParamSet<(
         Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
@@ -117,7 +117,7 @@ fn queue_wireframes(
     mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
 ) {
     let draw_custom = opaque_3d_draw_functions.read().id::<DrawWireframes>();
-    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
     for (view, visible_entities, mut opaque_phase) in &mut views {
         let rangefinder = view.rangefinder3d();
 
@@ -128,7 +128,7 @@ fn queue_wireframes(
                     let key = view_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                     let pipeline_id = pipelines.specialize(
-                        &mut pipeline_cache,
+                        &pipeline_cache,
                         &wireframe_pipeline,
                         key,
                         &mesh.layout,

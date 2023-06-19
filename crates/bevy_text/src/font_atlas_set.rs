@@ -2,6 +2,7 @@ use crate::{error::TextError, Font, FontAtlas};
 use ab_glyph::{GlyphId, OutlinedGlyph, Point};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
+use bevy_reflect::TypePath;
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
@@ -10,13 +11,10 @@ use bevy_utils::HashMap;
 
 type FontSizeKey = FloatOrd;
 
-#[derive(TypeUuid)]
+#[derive(TypeUuid, TypePath)]
 #[uuid = "73ba778b-b6b5-4f45-982d-d21b6b86ace2"]
 pub struct FontAtlasSet {
     font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
-    // TODO unused, remove
-    #[allow(dead_code)]
-    queue: Vec<FontSizeKey>,
 }
 
 #[derive(Debug, Clone)]
@@ -29,7 +27,6 @@ impl Default for FontAtlasSet {
     fn default() -> Self {
         FontAtlasSet {
             font_atlases: HashMap::with_capacity_and_hasher(1, Default::default()),
-            queue: Vec::new(),
         }
     }
 }
@@ -87,7 +84,7 @@ impl FontAtlasSet {
                 .size
                 .height
                 .max(glyph_texture.texture_descriptor.size.width);
-            // Pick the higher  of 512 or the smallest power of 2 greater than glyph_max_size
+            // Pick the higher of 512 or the smallest power of 2 greater than glyph_max_size
             let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512) as f32;
             font_atlases.push(FontAtlas::new(
                 textures,

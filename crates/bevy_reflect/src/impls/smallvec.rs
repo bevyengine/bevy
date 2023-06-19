@@ -1,13 +1,15 @@
+use bevy_reflect_derive::impl_type_path;
 use smallvec::SmallVec;
 use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Reflect,
-    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed,
+    self as bevy_reflect, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter,
+    Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    TypeRegistration, Typed,
 };
 
-impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
+impl<T: smallvec::Array + TypePath + Send + Sync> List for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -27,28 +29,22 @@ where
         }
     }
 
-    fn len(&self) -> usize {
-        <SmallVec<T>>::len(self)
+    fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
+        let value = value.take::<T::Item>().unwrap_or_else(|value| {
+            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+                panic!(
+                    "Attempted to insert invalid value of type {}.",
+                    value.type_name()
+                )
+            })
+        });
+        SmallVec::insert(self, index, value);
     }
 
-    fn iter(&self) -> ArrayIter {
-        ArrayIter {
-            array: self,
-            index: 0,
-        }
+    fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
+        Box::new(self.remove(index))
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-        self.into_iter()
-            .map(|value| Box::new(value) as Box<dyn Reflect>)
-            .collect()
-    }
-}
-
-impl<T: smallvec::Array + Send + Sync + 'static> List for SmallVec<T>
-where
-    T::Item: FromReflect,
-{
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
             <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
@@ -64,9 +60,23 @@ where
     fn pop(&mut self) -> Option<Box<dyn Reflect>> {
         self.pop().map(|value| Box::new(value) as Box<dyn Reflect>)
     }
+
+    fn len(&self) -> usize {
+        <SmallVec<T>>::len(self)
+    }
+
+    fn iter(&self) -> ListIter {
+        ListIter::new(self)
+    }
+
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
+    }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
+impl<T: smallvec::Array + TypePath + Send + Sync> Reflect for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -74,8 +84,8 @@ where
         std::any::type_name::<Self>()
     }
 
-    fn get_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
     }
 
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
@@ -124,7 +134,7 @@ where
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(List::clone_dynamic(self))
+        Box::new(self.clone_dynamic())
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -132,7 +142,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> Typed for SmallVec<T>
+impl<T: smallvec::Array + TypePath + Send + Sync + 'static> Typed for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -142,7 +152,9 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> FromReflect for SmallVec<T>
+impl_type_path!(::smallvec::SmallVec<T: smallvec::Array + TypePath + Send + Sync>);
+
+impl<T: smallvec::Array + TypePath + Send + Sync> FromReflect for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -159,7 +171,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> GetTypeRegistration for SmallVec<T>
+impl<T: smallvec::Array + TypePath + Send + Sync> GetTypeRegistration for SmallVec<T>
 where
     T::Item: FromReflect,
 {

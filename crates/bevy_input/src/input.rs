@@ -1,5 +1,5 @@
 use bevy_ecs::system::Resource;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 use bevy_utils::HashSet;
 use std::hash::Hash;
 
@@ -36,13 +36,13 @@ use bevy_ecs::schedule::State;
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
 ///
 /// Note: Calling `clear` from a [`ResMut`] will trigger change detection.
-/// It may be preferable to use [`DetectChanges::bypass_change_detection`]
+/// It may be preferable to use [`DetectChangesMut::bypass_change_detection`]
 /// to avoid causing the resource to always be marked as changed.
 ///
 ///[`ResMut`]: bevy_ecs::system::ResMut
-///[`DetectChanges::bypass_change_detection`]: bevy_ecs::change_detection::DetectChanges::bypass_change_detection
-#[derive(Debug, Clone, Resource, Reflect)]
-#[reflect(Default)]
+///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
+#[derive(Debug, Clone, Resource, Reflect, FromReflect)]
+#[reflect(Default, FromReflect)]
 pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
@@ -174,10 +174,12 @@ where
 
 #[cfg(test)]
 mod test {
+    use bevy_reflect::TypePath;
+
     use crate::Input;
 
     /// Used for testing the functionality of [`Input`].
-    #[derive(Copy, Clone, Eq, PartialEq, Hash)]
+    #[derive(TypePath, Copy, Clone, Eq, PartialEq, Hash)]
     enum DummyInput {
         Input1,
         Input2,

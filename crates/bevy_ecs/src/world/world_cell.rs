@@ -14,10 +14,12 @@ use std::{
     rc::Rc,
 };
 
+use super::unsafe_world_cell::UnsafeWorldCell;
+
 /// Exposes safe mutable access to multiple resources at a time in a World. Attempting to access
 /// World in a way that violates Rust's mutability rules will panic thanks to runtime checks.
 pub struct WorldCell<'w> {
-    pub(crate) world: &'w mut World,
+    pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) access: Rc<RefCell<ArchetypeComponentAccess>>,
 }
 
@@ -76,11 +78,21 @@ impl ArchetypeComponentAccess {
 impl<'w> Drop for WorldCell<'w> {
     fn drop(&mut self) {
         let mut access = self.access.borrow_mut();
-        // give world ArchetypeComponentAccess back to reuse allocations
-        std::mem::swap(&mut self.world.archetype_component_access, &mut *access);
+
+        {
+            // SAFETY: `WorldCell` does not hand out `UnsafeWorldCell` to anywhere else so this is the only
+            // `UnsafeWorldCell` and we have exclusive access to it.
+            let world = unsafe { self.world.world_mut() };
+            let world_cached_access = &mut world.archetype_component_access;
+
+            // give world ArchetypeComponentAccess back to reuse allocations
+            std::mem::swap(world_cached_access, &mut *access);
+        }
     }
 }
 
+/// A read-only borrow of some data stored in a [`World`]. This type is returned by [`WorldCell`],
+/// which uses run-time checks to ensure that the borrow does not violate Rust's aliasing rules.
 pub struct WorldBorrow<'w, T> {
     value: &'w T,
     archetype_component_id: ArchetypeComponentId,
@@ -123,6 +135,8 @@ impl<'w, T> Drop for WorldBorrow<'w, T> {
     }
 }
 
+/// A mutable borrow of some data stored in a [`World`]. This type is returned by [`WorldCell`],
+/// which uses run-time checks to ensure that the borrow does not violate Rust's aliasing rules.
 pub struct WorldBorrowMut<'w, T> {
     value: Mut<'w, T>,
     archetype_component_id: ArchetypeComponentId,
@@ -180,20 +194,22 @@ impl<'w> WorldCell<'w> {
         );
         // world's ArchetypeComponentAccess is recycled to cut down on allocations
         Self {
-            world,
+            world: world.as_unsafe_world_cell(),
             access: Rc::new(RefCell::new(access)),
         }
     }
 
     /// Gets a reference to the resource of the given type
     pub fn get_resource<T: Resource>(&self) -> Option<WorldBorrow<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_resource_id(TypeId::of::<T>())?;
+
         let archetype_component_id = self
             .world
             .get_resource_archetype_component_id(component_id)?;
+
         WorldBorrow::try_new(
-            // SAFETY: ComponentId matches TypeId
-            || unsafe { self.world.get_resource_with_id(component_id) },
+            // SAFETY: access is checked by WorldBorrow
+            || unsafe { self.world.get_resource::<T>() },
             archetype_component_id,
             self.access.clone(),
         )
@@ -220,13 +236,14 @@ impl<'w> WorldCell<'w> {
 
     /// Gets a mutable reference to the resource of the given type
     pub fn get_resource_mut<T: Resource>(&self) -> Option<WorldBorrowMut<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_resource_id(TypeId::of::<T>())?;
+
         let archetype_component_id = self
             .world
             .get_resource_archetype_component_id(component_id)?;
         WorldBorrowMut::try_new(
-            // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
-            || unsafe { self.world.get_resource_unchecked_mut_with_id(component_id) },
+            // SAFETY: access is checked by WorldBorrowMut
+            || unsafe { self.world.get_resource_mut::<T>() },
             archetype_component_id,
             self.access.clone(),
         )
@@ -253,13 +270,14 @@ impl<'w> WorldCell<'w> {
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
     pub fn get_non_send_resource<T: 'static>(&self) -> Option<WorldBorrow<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_resource_id(TypeId::of::<T>())?;
+
         let archetype_component_id = self
             .world
-            .get_resource_archetype_component_id(component_id)?;
+            .get_non_send_archetype_component_id(component_id)?;
         WorldBorrow::try_new(
-            // SAFETY: ComponentId matches TypeId
-            || unsafe { self.world.get_non_send_with_id(component_id) },
+            // SAFETY: access is checked by WorldBorrowMut
+            || unsafe { self.world.get_non_send_resource::<T>() },
             archetype_component_id,
             self.access.clone(),
         )
@@ -286,13 +304,14 @@ impl<'w> WorldCell<'w> {
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
     pub fn get_non_send_resource_mut<T: 'static>(&self) -> Option<WorldBorrowMut<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_resource_id(TypeId::of::<T>())?;
+
         let archetype_component_id = self
             .world
-            .get_resource_archetype_component_id(component_id)?;
+            .get_non_send_archetype_component_id(component_id)?;
         WorldBorrowMut::try_new(
-            // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
-            || unsafe { self.world.get_non_send_unchecked_mut_with_id(component_id) },
+            // SAFETY: access is checked by WorldBorrowMut
+            || unsafe { self.world.get_non_send_resource_mut::<T>() },
             archetype_component_id,
             self.access.clone(),
         )
