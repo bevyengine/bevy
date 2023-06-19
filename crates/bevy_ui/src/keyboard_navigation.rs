@@ -46,7 +46,7 @@ pub(crate) fn tab_pressed(keyboard_input: Res<Input<KeyCode>>) -> bool {
     keyboard_input.just_pressed(KeyCode::Tab)
 }
 
-/// The system updates the [`Focused`] resource when the user uses keyboard navigation with <kbd>tab</kbd> or <kbd>shift</kbd> + <kbd>tab</kbd>.
+/// The system updates the [`Focus`] resource when the user uses keyboard navigation with <kbd>tab</kbd> or <kbd>shift</kbd> + <kbd>tab</kbd>.
 ///
 /// Entities can be focused [`ComputedVisibility`] is visible and they have the [`Focusable`] component.
 pub(crate) fn keyboard_navigation_system(
@@ -147,7 +147,7 @@ pub(crate) fn trigger_click(keyboard_input: Res<Input<KeyCode>>) -> bool {
     keyboard_input.just_pressed(KeyCode::Space) || keyboard_input.just_pressed(KeyCode::Return)
 }
 
-/// Trigger the [`Focused`] entity to be clicked.
+/// Trigger the [`Focus`] entity to be clicked.
 pub(crate) fn keyboard_click(mut interactions: Query<&mut Interaction>, focus: Res<Focus>) {
     if let Some(mut interaction) = focus
         .entity
