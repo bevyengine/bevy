@@ -81,7 +81,7 @@ impl Default for Node {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(FromReflect, PartialEq, Serialize, Deserialize)]
 pub enum Val {
-    /// Automatically determine the value based on the context and other `Style` properties.
+    /// Automatically determine the value based on the context and other [`Style`] properties.
     Auto,
     /// Set this value in logical pixels.
     Px(f32),
