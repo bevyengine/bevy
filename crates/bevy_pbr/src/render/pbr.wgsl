@@ -109,18 +109,19 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.frag_coord = in.frag_coord;
         pbr_input.world_position = in.world_position;
 
-#ifdef LOAD_PREPASS_NORMALS
-        pbr_input.world_normal = prepass_normal(in.frag_coord, 0u);
-#else // LOAD_PREPASS_NORMALS
         pbr_input.world_normal = prepare_world_normal(
             in.world_normal,
             (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
             in.is_front,
         );
-#endif // LOAD_PREPASS_NORMALS
 
         pbr_input.is_orthographic = is_orthographic;
 
+#ifdef LOAD_PREPASS_NORMALS
+    let alpha_mode = material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE || alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+        pbr_input.N = prepass_normal(in.frag_coord, 0u);
+    } else {
         pbr_input.N = apply_normal_mapping(
             material.flags,
             pbr_input.world_normal,
@@ -133,12 +134,30 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             uv,
 #endif
         );
+    }
+#else LOAD_PREPASS_NORMALS
+        pbr_input.N = apply_normal_mapping(
+            material.flags,
+            pbr_input.world_normal,
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+            in.world_tangent,
+#endif
+#endif
+#ifdef VERTEX_UVS
+            uv,
+#endif
+        );
+#endif // LOAD_PREPASS_NORMALS
+
+
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
 
         pbr_input.flags = mesh.flags;
 
         output_color = pbr(pbr_input);
+        // return vec4(pbr_input.N, 1.0);
     } else {
         output_color = alpha_discard(material, output_color);
     }
