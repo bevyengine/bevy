@@ -2,11 +2,8 @@
 
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
-use bevy_internal::text::TextLayoutInfo;
-use bevy_internal::ui::widget::TextFlags;
-use bevy_internal::ui::ContentSize;
 
-const PALETTE: [&str; 4] = ["4059AD", "6B9AC4", "A5C8E1", "F4B942"];
+const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
 
 fn main() {
     App::new()
@@ -377,8 +374,9 @@ where
         .spawn((
             ButtonBundle {
                 style: Style {
-                    height: Val::Px(24.),
+                    //height: Val::Px(24.),
                     align_self: AlignSelf::FlexStart,
+                    padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
                     ..Default::default()
                 },
                 background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
@@ -411,6 +409,13 @@ fn buttons_handler<T>(
             for &child in children {
                 if let Ok(mut text) = text_query.get_mut(child) {
                     text.sections[0].value = target.update_target(target_value.as_mut());
+                    text.sections[0].style.color = if text.sections[0].value.contains("None")
+                        || text.sections[0].value.contains("Hidden")
+                    {
+                        Color::rgb(1.0, 0.7, 0.7)
+                    } else {
+                        Color::WHITE
+                    };
                 }
             }
         }
@@ -436,7 +441,14 @@ fn text_hover(
                 *background_color = BackgroundColor(Color::BLACK.with_a(0.5));
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
-                        text.bypass_change_detection().sections[0].style.color = Color::WHITE;
+                        text.bypass_change_detection().sections[0].style.color =
+                            if text.sections[0].value.contains("None")
+                                || text.sections[0].value.contains("Hidden")
+                            {
+                                Color::rgb(1.0, 0.7, 0.7)
+                            } else {
+                                Color::WHITE
+                            };
                     }
                 }
             }
