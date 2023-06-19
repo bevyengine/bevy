@@ -2052,6 +2052,13 @@ hidden = true
 name = "window_resizing"
 path = "examples/window/window_resizing.rs"
 
+[[example]]
+name = "fallback_image"
+path = "examples/shader/fallback_image.rs"
+
+[package.metadata.example.fallback_image]
+hidden = true
+
 [package.metadata.example.window_resizing]
 name = "Window Resizing"
 description = "Demonstrates resizing and responding to resizing a window"
