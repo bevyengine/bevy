@@ -1944,6 +1944,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_texture_atlas"
+path = "examples/ui/ui_texture_atlas.rs"
+
+[package.metadata.example.ui_texture_atlas]
+name = "UI Texture Atlas"
+description = "Illustrates how to use TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 

@@ -9,6 +9,7 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
+use crate::UiTextureAtlasImage;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
 };
@@ -82,6 +83,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
+                extract_atlas_uinodes.after(RenderUiSystem::ExtractNode),
                 extract_uinode_borders.after(RenderUiSystem::ExtractNode),
                 #[cfg(feature = "bevy_text")]
                 extract_text_uinodes.after(RenderUiSystem::ExtractNode),
@@ -164,6 +166,83 @@ pub struct ExtractedUiNode {
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
+}
+
+pub fn extract_atlas_uinodes(
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    images: Extract<Res<Assets<Image>>>,
+    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+
+    ui_stack: Extract<Res<UiStack>>,
+    uinode_query: Extract<
+        Query<
+            (
+                &Node,
+                &GlobalTransform,
+                &BackgroundColor,
+                &ComputedVisibility,
+                Option<&CalculatedClip>,
+                &Handle<TextureAtlas>,
+                &UiTextureAtlasImage,
+            ),
+            Without<UiImage>,
+        >,
+    >,
+) {
+    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok((uinode, transform, color, visibility, clip, texture_atlas_handle, atlas_image)) =
+            uinode_query.get(*entity)
+        {
+            // Skip invisible and completely transparent nodes
+            if !visibility.is_visible() || color.0.a() == 0.0 {
+                continue;
+            }
+
+            let (mut atlas_rect, mut atlas_size, image) =
+                if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
+                    let atlas_rect = *texture_atlas
+                        .textures
+                        .get(atlas_image.index)
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Atlas index {:?} does not exist for texture atlas handle {:?}.",
+                                atlas_image.index,
+                                texture_atlas_handle.id(),
+                            )
+                        });
+                    (
+                        atlas_rect,
+                        texture_atlas.size,
+                        texture_atlas.texture.clone(),
+                    )
+                } else {
+                    // Atlas not present in assets resource (should this warn the user?)
+                    continue;
+                };
+
+            // Skip loading images
+            if !images.contains(&image) {
+                continue;
+            }
+
+            let scale = uinode.size() / atlas_rect.size();
+            atlas_rect.min *= scale;
+            atlas_rect.max *= scale;
+            atlas_size *= scale;
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                stack_index,
+                transform: transform.compute_matrix(),
+                color: color.0,
+                rect: atlas_rect,
+                clip: clip.map(|clip| clip.clip),
+                image,
+                atlas_size: Some(atlas_size),
+                flip_x: atlas_image.flip_x,
+                flip_y: atlas_image.flip_y,
+            });
+        }
+    }
 }
 
 fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
@@ -288,14 +367,17 @@ pub fn extract_uinodes(
     images: Extract<Res<Assets<Image>>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
-        Query<(
-            &Node,
-            &GlobalTransform,
-            &BackgroundColor,
-            Option<&UiImage>,
-            &ComputedVisibility,
-            Option<&CalculatedClip>,
-        )>,
+        Query<
+            (
+                &Node,
+                &GlobalTransform,
+                &BackgroundColor,
+                Option<&UiImage>,
+                &ComputedVisibility,
+                Option<&CalculatedClip>,
+            ),
+            Without<UiTextureAtlasImage>,
+        >,
     >,
 ) {
     extracted_uinodes.uinodes.clear();
@@ -327,13 +409,13 @@ pub fn extract_uinodes(
                     min: Vec2::ZERO,
                     max: uinode.calculated_size,
                 },
+                clip: clip.map(|clip| clip.clip),
                 image,
                 atlas_size: None,
-                clip: clip.map(|clip| clip.clip),
                 flip_x,
                 flip_y,
             });
-        }
+        };
     }
 }
 

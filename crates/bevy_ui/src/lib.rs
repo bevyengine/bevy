@@ -157,8 +157,12 @@ impl Plugin for UiPlugin {
                 .ambiguous_with(widget::text_system);
 
             system
-        })
-        .add_systems(
+        });
+        app.add_systems(
+            PostUpdate,
+            widget::update_atlas_content_size_system.before(UiSystem::Layout),
+        );
+        app.add_systems(
             PostUpdate,
             (
                 ui_layout_system
