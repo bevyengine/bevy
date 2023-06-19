@@ -413,7 +413,7 @@ pub fn prepare_uinodes(
     for extracted_uinode in &extracted_uinodes.uinodes {
         let mode = if is_textured(&extracted_uinode.image) {
             if current_batch_image.id() != extracted_uinode.image.id() {
-                if is_textured(&current_batch_image) {
+                if is_textured(&current_batch_image) && start != end {
                     commands.spawn(UiBatch {
                         range: start..end,
                         image: current_batch_image,
