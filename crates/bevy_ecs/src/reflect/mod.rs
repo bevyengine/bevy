@@ -6,10 +6,12 @@ use bevy_reflect::{
 };
 
 mod component;
+mod entity_commands;
 mod map_entities;
 mod resource;
 
 pub use component::{ReflectComponent, ReflectComponentFns};
+pub use entity_commands::EntityCommandsReflectExtension;
 pub use map_entities::ReflectMapEntities;
 pub use resource::{ReflectResource, ReflectResourceFns};
 
