@@ -61,10 +61,7 @@ fn increment_atlas_index(
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         for mut atlas_image in &mut atlas_images {
-            atlas_image.index += 1;
-            if atlas_image.index > 6 {
-                atlas_image.index = 0;
-            }
+            atlas_image.index = (atlas_image.index + 1) % 6;
         }
     }
 }
