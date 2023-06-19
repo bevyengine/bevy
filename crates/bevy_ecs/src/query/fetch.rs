@@ -455,14 +455,17 @@ pub unsafe trait WorldQuery {
 /// This must only be implemented for read-only [`WorldQuery`]'s.
 pub unsafe trait ReadOnlyWorldQuery: WorldQuery<ReadOnly = Self> {}
 
-/// The `Fetch` of a [`WorldQuery`], which is used to store state for each archetype/table.
-pub type QueryFetch<'w, Q> = <Q as WorldQuery>::Fetch<'w>;
 /// The item type returned when a [`WorldQuery`] is iterated over
 pub type QueryItem<'w, Q> = <Q as WorldQuery>::Item<'w>;
-/// The read-only `Fetch` of a [`WorldQuery`], which is used to store state for each archetype/table.
-pub type ROQueryFetch<'w, Q> = QueryFetch<'w, <Q as WorldQuery>::ReadOnly>;
 /// The read-only variant of the item type returned when a [`WorldQuery`] is iterated over immutably
 pub type ROQueryItem<'w, Q> = QueryItem<'w, <Q as WorldQuery>::ReadOnly>;
+
+/// The `Fetch` of a [`WorldQuery`], which is used to store state for each archetype/table.
+#[deprecated = "use <Q as WorldQuery>::Fetch<'w> instead"]
+pub type QueryFetch<'w, Q> = <Q as WorldQuery>::Fetch<'w>;
+/// The read-only `Fetch` of a [`WorldQuery`], which is used to store state for each archetype/table.
+#[deprecated = "use <<Q as WorldQuery>::ReadOnly as WorldQuery>::Fetch<'w> instead"]
+pub type ROQueryFetch<'w, Q> = <<Q as WorldQuery>::ReadOnly as WorldQuery>::Fetch<'w>;
 
 /// SAFETY: no component or archetype access
 unsafe impl WorldQuery for Entity {
