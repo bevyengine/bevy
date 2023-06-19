@@ -24,7 +24,11 @@ fn fragment(
     let sample_index = 0u;
 #endif
     if settings.show_depth == 1u {
+#ifdef PREPASS_DEPTH_SUPPORTED
         let depth = prepass_depth(frag_coord, sample_index);
+#else
+        let depth = 0.0;
+#endif
         return vec4(depth, depth, depth, 1.0);
     } else if settings.show_normals == 1u {
         let normal = prepass_normal(frag_coord, sample_index);

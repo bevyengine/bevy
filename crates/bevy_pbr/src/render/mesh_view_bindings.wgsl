@@ -58,10 +58,11 @@ var dt_lut_texture: texture_3d<f32>;
 @group(0) @binding(15)
 var dt_lut_sampler: sampler;
 
-#ifdef PREPASS_TEXTURES
 #ifdef MULTISAMPLED
+#ifdef DEPTH_TEXTURE_MULTISAMPLED_SUPPORTED
 @group(0) @binding(16)
 var depth_prepass_texture: texture_depth_multisampled_2d;
+#endif // DEPTH_TEXTURE_MULTISAMPLED_SUPPORTED
 @group(0) @binding(17)
 var normal_prepass_texture: texture_multisampled_2d<f32>;
 @group(0) @binding(18)
@@ -74,7 +75,6 @@ var normal_prepass_texture: texture_2d<f32>;
 @group(0) @binding(18)
 var motion_vector_prepass_texture: texture_2d<f32>;
 #endif // MULTISAMPLED
-#endif // PREPASS_TEXTURES
 
 @group(0) @binding(19)
 var view_transmission_texture: texture_2d<f32>;

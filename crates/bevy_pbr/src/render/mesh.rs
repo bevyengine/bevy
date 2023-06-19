@@ -742,10 +742,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
-        if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
-            || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && key.msaa_samples() == 1)
-        {
-            shader_defs.push("PREPASS_TEXTURES".into());
+        if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) {
+            shader_defs.push("DEPTH_TEXTURE_LOAD_SUPPORTED".into());
+            shader_defs.push("DEPTH_TEXTURE_MULTISAMPLED_SUPPORTED".into());
         }
 
         let mut bind_group_layout = match key.msaa_samples() {
