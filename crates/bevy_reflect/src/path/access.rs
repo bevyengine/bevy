@@ -4,10 +4,10 @@ use super::ReflectPathError;
 use crate::{Reflect, ReflectMut, ReflectRef, VariantType};
 use thiserror::Error;
 
-type InnerResult<T> = Result<Option<T>, AccessError<'static>>;
+type InnerResult<T> = Result<Option<T>, Error<'static>>;
 
 #[derive(Debug, PartialEq, Eq, Error)]
-pub enum AccessError<'a> {
+pub(super) enum Error<'a> {
     #[error(
         "the current {ty} doesn't have the {} {}",
         access.kind(),
@@ -22,20 +22,20 @@ pub enum AccessError<'a> {
     Enum { expected: Type, actual: Type },
 }
 
-impl<'a> AccessError<'a> {
+impl<'a> Error<'a> {
     fn with_offset(self, offset: usize) -> ReflectPathError<'a> {
-        let error = self;
+        let error = super::AccessError(self);
         ReflectPathError::InvalidAccess { offset, error }
     }
 }
-impl AccessError<'static> {
+impl Error<'static> {
     fn bad_enum(expected: Type, actual: impl Into<Type>) -> Self {
         let actual = actual.into();
-        AccessError::Enum { expected, actual }
+        Error::Enum { expected, actual }
     }
     fn bad_type(expected: Type, actual: impl Into<Type>) -> Self {
         let actual = actual.into();
-        AccessError::Type { expected, actual }
+        Error::Type { expected, actual }
     }
 }
 
@@ -123,7 +123,7 @@ impl fmt::Display for Access {
 /// Does not own the backing store it's sourced from.
 /// For an owned version, you can convert one to an [`Access`] with [`AccessRef::to_owned`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AccessRef<'a> {
+pub(super) enum AccessRef<'a> {
     Field(&'a str),
     FieldIndex(usize),
     TupleIndex(usize),
@@ -172,7 +172,7 @@ impl<'a> AccessRef<'a> {
     ) -> Result<&dyn Reflect, ReflectPathError<'a>> {
         let ty = base.reflect_ref().into();
         self.element_inner(base)
-            .and_then(|maybe| maybe.ok_or(AccessError::Access { ty, access: self }))
+            .and_then(|maybe| maybe.ok_or(Error::Access { ty, access: self }))
             .map_err(|err| err.with_offset(offset))
     }
     fn element_inner(self, base: &dyn Reflect) -> InnerResult<&dyn Reflect> {
@@ -181,23 +181,23 @@ impl<'a> AccessRef<'a> {
             (Self::Field(field), Struct(struct_ref)) => Ok(struct_ref.field(field)),
             (Self::Field(field), Enum(enum_ref)) => match enum_ref.variant_type() {
                 VariantType::Struct => Ok(enum_ref.field(field)),
-                actual => Err(AccessError::bad_enum(Type::Struct, actual)),
+                actual => Err(Error::bad_enum(Type::Struct, actual)),
             },
             (Self::FieldIndex(index), Struct(struct_ref)) => Ok(struct_ref.field_at(index)),
             (Self::FieldIndex(index), Enum(enum_ref)) => match enum_ref.variant_type() {
                 VariantType::Struct => Ok(enum_ref.field_at(index)),
-                actual => Err(AccessError::bad_enum(Type::Struct, actual)),
+                actual => Err(Error::bad_enum(Type::Struct, actual)),
             },
             (Self::TupleIndex(index), TupleStruct(tuple)) => Ok(tuple.field(index)),
             (Self::TupleIndex(index), Tuple(tuple)) => Ok(tuple.field(index)),
             (Self::TupleIndex(index), Enum(enum_ref)) => match enum_ref.variant_type() {
                 VariantType::Tuple => Ok(enum_ref.field_at(index)),
-                actual => Err(AccessError::bad_enum(Type::Tuple, actual)),
+                actual => Err(Error::bad_enum(Type::Tuple, actual)),
             },
             (Self::ListIndex(index), List(list)) => Ok(list.get(index)),
             (Self::ListIndex(index), Array(list)) => Ok(list.get(index)),
-            (Self::ListIndex(_), actual) => Err(AccessError::bad_type(Type::List, actual)),
-            (_, actual) => Err(AccessError::bad_type(Type::Struct, actual)),
+            (Self::ListIndex(_), actual) => Err(Error::bad_type(Type::List, actual)),
+            (_, actual) => Err(Error::bad_type(Type::Struct, actual)),
         }
     }
 
@@ -208,7 +208,7 @@ impl<'a> AccessRef<'a> {
     ) -> Result<&mut dyn Reflect, ReflectPathError<'a>> {
         let ty = base.reflect_ref().into();
         self.element_inner_mut(base)
-            .and_then(|maybe| maybe.ok_or(AccessError::Access { ty, access: self }))
+            .and_then(|maybe| maybe.ok_or(Error::Access { ty, access: self }))
             .map_err(|err| err.with_offset(offset))
     }
     fn element_inner_mut(self, base: &mut dyn Reflect) -> InnerResult<&mut dyn Reflect> {
@@ -218,23 +218,23 @@ impl<'a> AccessRef<'a> {
             (Self::Field(field), Struct(struct_mut)) => Ok(struct_mut.field_mut(field)),
             (Self::Field(field), Enum(enum_mut)) => match enum_mut.variant_type() {
                 VariantType::Struct => Ok(enum_mut.field_mut(field)),
-                actual => Err(AccessError::bad_enum(Type::Struct, actual)),
+                actual => Err(Error::bad_enum(Type::Struct, actual)),
             },
             (Self::FieldIndex(index), Struct(struct_mut)) => Ok(struct_mut.field_at_mut(index)),
             (Self::FieldIndex(index), Enum(enum_mut)) => match enum_mut.variant_type() {
                 VariantType::Struct => Ok(enum_mut.field_at_mut(index)),
-                actual => Err(AccessError::bad_enum(Type::Struct, actual)),
+                actual => Err(Error::bad_enum(Type::Struct, actual)),
             },
             (Self::TupleIndex(index), TupleStruct(tuple)) => Ok(tuple.field_mut(index)),
             (Self::TupleIndex(index), Tuple(tuple)) => Ok(tuple.field_mut(index)),
             (Self::TupleIndex(index), Enum(enum_mut)) => match enum_mut.variant_type() {
                 VariantType::Tuple => Ok(enum_mut.field_at_mut(index)),
-                actual => Err(AccessError::bad_enum(Type::Tuple, actual)),
+                actual => Err(Error::bad_enum(Type::Tuple, actual)),
             },
             (Self::ListIndex(index), List(list)) => Ok(list.get_mut(index)),
             (Self::ListIndex(index), Array(list)) => Ok(list.get_mut(index)),
-            (Self::ListIndex(_), _) => Err(AccessError::bad_type(Type::List, base_kind)),
-            (_, _) => Err(AccessError::bad_type(Type::Struct, base_kind)),
+            (Self::ListIndex(_), _) => Err(Error::bad_type(Type::List, base_kind)),
+            (_, _) => Err(Error::bad_type(Type::Struct, base_kind)),
         }
     }
 }

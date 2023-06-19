@@ -4,11 +4,15 @@ use std::fmt;
 use std::num::ParseIntError;
 
 use crate::Reflect;
-pub use access::AccessError;
 use access::{Access, AccessRef};
 use thiserror::Error;
 
 type ParseResult<T> = Result<T, ReflectPathParseError>;
+
+/// An error specific to accessing a field/index on a `Reflect`.
+#[derive(Debug, PartialEq, Eq, Error)]
+#[error(transparent)]
+pub struct AccessError<'a>(access::Error<'a>);
 
 /// A parse error for a path string query.
 #[derive(Debug, PartialEq, Eq, Error)]
@@ -771,10 +775,10 @@ mod tests {
             a.reflect_path("x.notreal").err().unwrap(),
             ReflectPathError::InvalidAccess {
                 offset: 2,
-                error: AccessError::Access {
+                error: AccessError(access::Error::Access {
                     ty: Type::Struct,
                     access: AccessRef::Field("notreal"),
-                },
+                }),
             }
         );
 
@@ -782,10 +786,10 @@ mod tests {
             a.reflect_path("unit_variant.0").err().unwrap(),
             ReflectPathError::InvalidAccess {
                 offset: 13,
-                error: AccessError::Enum {
+                error: AccessError(access::Error::Enum {
                     actual: Type::Unit,
                     expected: Type::Tuple
-                },
+                }),
             }
         );
 
@@ -798,10 +802,10 @@ mod tests {
             a.reflect_path("x[0]").err().unwrap(),
             ReflectPathError::InvalidAccess {
                 offset: 2,
-                error: AccessError::Type {
+                error: AccessError(access::Error::Type {
                     actual: Type::Struct,
                     expected: Type::List
-                },
+                }),
             }
         );
 
@@ -809,10 +813,10 @@ mod tests {
             a.reflect_path("y.x").err().unwrap(),
             ReflectPathError::InvalidAccess {
                 offset: 2,
-                error: AccessError::Type {
+                error: AccessError(access::Error::Type {
                     actual: Type::List,
                     expected: Type::Struct
-                },
+                }),
             }
         );
 
