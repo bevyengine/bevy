@@ -9,7 +9,7 @@ if ! nvidia-smi --lock-gpu-clocks=$graphics; then
 fi
 nvidia-smi --lock-memory-clocks=$memory
 
-function reset {
+reset() {
     nvidia-smi --reset-gpu-clocks
     nvidia-smi --reset-memory-clocks
 }
