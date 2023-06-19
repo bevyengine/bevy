@@ -1,5 +1,10 @@
 //! This example tests that all texture dimensions are supported by
 //! `FallbackImage`.
+//!
+//! When running this example, you should expect to see a window that only draws
+//! the clear color. The test material does not shade any geometry; this example
+//! only tests that the images are initialized and bound so that the app does
+//! not panic.
 use bevy::{
     prelude::*,
     reflect::{TypePath, TypeUuid},
