@@ -1,4 +1,7 @@
-use crate::{NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
+use crate::{
+    self as bevy_reflect, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+};
+use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
 use std::{
@@ -484,6 +487,8 @@ impl Reflect for DynamicStruct {
         true
     }
 }
+
+impl_type_path!((in bevy_reflect) DynamicStruct);
 
 impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

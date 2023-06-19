@@ -70,6 +70,9 @@ git checkout v0.4.0
   - [WASM](#wasm)
     - [Setup](#setup-2)
     - [Build & Run](#build--run-2)
+    - [WebGL2 and WebGPU](#webgl2-and-webgpu)
+    - [Audio in the browsers](#audio-in-the-browsers)
+    - [Optimizing](#optimizing)
     - [Loading Assets](#loading-assets)
 
 # The Bare Minimum
@@ -125,6 +128,7 @@ Example | Description
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
+[Screen Space Ambient Occlusion](../examples/3d/ssao.rs) | A scene showcasing screen space ambient occlusion
 [Shadow Biases](../examples/3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 [Shadow Caster and Receiver](../examples/3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 [Skybox](../examples/3d/skybox.rs) | Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats.
@@ -203,7 +207,7 @@ Example | Description
 
 Example | Description
 --- | ---
-[Apply System Buffers](../examples/ecs/apply_system_buffers.rs) | Show how to use `apply_system_buffers` system
+[Apply System Buffers](../examples/ecs/apply_deferred.rs) | Show how to use `apply_deferred` system
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
@@ -332,6 +336,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Borders](../examples/ui/borders.rs) | Demonstrates how to create a node with a border
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
@@ -347,6 +352,7 @@ Example | Description
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
+[Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
 
 ## Window
@@ -496,7 +502,7 @@ Following is an example for `lighting`. For other examples, change the `lighting
 following commands.
 
 ```sh
-cargo build --release --example lighting --target wasm32-unknown-unknown
+cargo build --release --example lighting --target wasm32-unknown-unknown --features webgl
 wasm-bindgen --out-name wasm_example \
   --out-dir examples/wasm/target \
   --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
@@ -519,6 +525,25 @@ python3 -m http.server --directory examples/wasm
 # with ruby
 ruby -run -ehttpd examples/wasm
 ```
+
+#### WebGL2 and WebGPU
+
+Bevy support for WebGPU is being worked on, but is currently experimental.
+
+To build for WebGPU, you'll need to disable default features and add all those you need, making sure to omit the `webgl2` feature.
+
+Bevy has an helper to build its examples:
+
+- Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
+- Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
+
+This helper will log the command used to build the examples.
+
+### Audio in the browsers
+
+For the moment, everything is single threaded, this can lead to stuttering when playing audio in browsers. Not all browsers react the same way for all games, you will have to experiment for your game.
+
+In browsers, audio is not authorized to start without being triggered by an user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interact with your game.
 
 ### Optimizing
 

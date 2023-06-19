@@ -55,7 +55,7 @@ fn despawn_children_recursive(world: &mut World, entity: Entity) {
 }
 
 impl Command for DespawnRecursive {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!(
             "command",
@@ -68,7 +68,7 @@ impl Command for DespawnRecursive {
 }
 
 impl Command for DespawnChildrenRecursive {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!(
             "command",

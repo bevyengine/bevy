@@ -13,6 +13,7 @@ use std::fmt::Debug;
 ///
 /// Events sent via the [`Assets`] struct will always be sent with a _Weak_ handle, because the
 /// asset may not exist by the time the event is handled.
+#[derive(Event)]
 pub enum AssetEvent<T: Asset> {
     #[allow(missing_docs)]
     Created { handle: Handle<T> },
@@ -133,12 +134,12 @@ impl<T: Asset> Assets<T> {
     /// This is the main method for accessing asset data from an [Assets] collection. If you need
     /// mutable access to the asset, use [`get_mut`](Assets::get_mut).
     pub fn get(&self, handle: &Handle<T>) -> Option<&T> {
-        self.assets.get(&handle.into())
+        self.assets.get::<HandleId>(&handle.into())
     }
 
     /// Checks if an asset exists for the given handle
     pub fn contains(&self, handle: &Handle<T>) -> bool {
-        self.assets.contains_key(&handle.into())
+        self.assets.contains_key::<HandleId>(&handle.into())
     }
 
     /// Get mutable access to the asset for the given handle.
@@ -488,7 +489,7 @@ mod tests {
 
     #[test]
     fn asset_overwriting() {
-        #[derive(bevy_reflect::TypeUuid)]
+        #[derive(bevy_reflect::TypeUuid, bevy_reflect::TypePath)]
         #[uuid = "44115972-f31b-46e5-be5c-2b9aece6a52f"]
         struct MyAsset;
         let mut app = App::new();

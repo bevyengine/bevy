@@ -53,7 +53,7 @@ fn setup_menu(mut commands: Commands) {
         .spawn(NodeBundle {
             style: Style {
                 // center button
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                width: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
@@ -64,7 +64,8 @@ fn setup_menu(mut commands: Commands) {
             parent
                 .spawn(ButtonBundle {
                     style: Style {
-                        size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                        width: Val::Px(150.),
+                        height: Val::Px(65.),
                         // horizontally center child text
                         justify_content: JustifyContent::Center,
                         // vertically center child text

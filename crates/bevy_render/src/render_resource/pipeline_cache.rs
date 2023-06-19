@@ -162,6 +162,7 @@ impl ShaderDefVal {
 }
 
 impl ShaderCache {
+    #[allow(clippy::result_large_err)]
     fn get(
         &mut self,
         render_device: &RenderDevice,
@@ -194,7 +195,7 @@ impl ShaderCache {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 let mut shader_defs = shader_defs.to_vec();
-                #[cfg(feature = "webgl")]
+                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                 {
                     shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
