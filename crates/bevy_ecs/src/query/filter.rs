@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
-    query::{Access, DebugCheckedUnwrap, FilteredAccess, Has, WorldQuery},
+    query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -641,7 +641,7 @@ impl_tick_filter!(
 /// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
 ///
 /// The trait must only be implement for filters where its corresponding [`WorldQuery::IS_ARCHETYPAL`](crate::query::WorldQuery::IS_ARCHETYPAL)
-/// is [`prim@true`]. As such, only the [`With`], [`Without`], and [`Has`] filters can implement the trait.
+/// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.
 /// [Tuples](prim@tuple) and [`Or`] filters are automatically implemented with the trait only if its containing types
 /// also implement the same trait.
 ///
@@ -651,7 +651,6 @@ pub trait ArchetypeFilter {}
 
 impl<T> ArchetypeFilter for With<T> {}
 impl<T> ArchetypeFilter for Without<T> {}
-impl<T> ArchetypeFilter for Has<T> {}
 
 macro_rules! impl_archetype_filter_tuple {
     ($($filter: ident),*) => {
