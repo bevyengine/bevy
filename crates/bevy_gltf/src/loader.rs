@@ -218,11 +218,10 @@ async fn load_gltf<'a, 'b>(
 
     let mut meshes = vec![];
     let mut named_meshes = HashMap::default();
-    for mesh in gltf.meshes() {
+    for gltf_mesh in gltf.meshes() {
         let mut primitives = vec![];
-        for primitive in mesh.primitives() {
-            let primitive_label = primitive_label(&mesh, &primitive);
-            let morph_targets_label = morph_targets_label(&mesh, &primitive);
+        for primitive in gltf_mesh.primitives() {
+            let primitive_label = primitive_label(&gltf_mesh, &primitive);
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
             let mut mesh = Mesh::new(primitive_topology);
@@ -253,6 +252,7 @@ async fn load_gltf<'a, 'b>(
             {
                 let morph_target_reader = reader.read_morph_targets();
                 if morph_target_reader.len() != 0 {
+                    let morph_targets_label = morph_targets_label(&gltf_mesh, &primitive);
                     let morph_target_image = MorphTargetImage::new(
                         morph_target_reader.map(PrimitiveMorphAttributesIter),
                         mesh.count_vertices(),
@@ -314,13 +314,13 @@ async fn load_gltf<'a, 'b>(
         }
 
         let handle = load_context.set_labeled_asset(
-            &mesh_label(&mesh),
+            &mesh_label(&gltf_mesh),
             LoadedAsset::new(super::GltfMesh {
                 primitives,
-                extras: get_gltf_extras(mesh.extras()),
+                extras: get_gltf_extras(gltf_mesh.extras()),
             }),
         );
-        if let Some(name) = mesh.name() {
+        if let Some(name) = gltf_mesh.name() {
             named_meshes.insert(name.to_string(), handle.clone());
         }
         meshes.push(handle);
