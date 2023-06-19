@@ -52,6 +52,11 @@ fn setup(
                 texture_atlas_image: UiTextureAtlasImage::default(),
                 ..default()
             },));
+            parent.spawn(TextBundle::from_sections([
+                TextSection::new("press ".to_string(), text_style.clone()),
+                TextSection::new("space".to_string(), TextStyle { color: Color::YELLOW, ..text_style.clone() }),
+                TextSection::new(" to advance frames".to_string(), text_style),
+            ]));
         });
 }
 
