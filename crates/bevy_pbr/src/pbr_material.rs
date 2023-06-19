@@ -4,7 +4,9 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_math::Vec4;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, TypeUuid};
+use bevy_reflect::{
+    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypeUuid,
+};
 use bevy_render::{
     color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
     texture::Image,
@@ -19,7 +21,7 @@ use bevy_render::{
 #[uuid = "7494888b-c082-457b-aacf-517228cc0c22"]
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, FromReflect)]
 pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
     ///
