@@ -91,23 +91,24 @@ impl SystemMeta {
         self.is_send = false;
     }
 
-    /// Returns the system's last change tick (used in reliable change detection).
-    /// 
+    /// Returns the system's last tick, which is used for reliable change detection.
+    ///
     /// See [`crate::system::SystemChangeTick`] and [`crate::change_detection`].
     #[inline]
-    pub const fn last_change_tick(&self) -> u32 {
-        self.last_change_tick
+    pub const fn last_run(&self) -> Tick {
+        self.last_run
     }
 
-    /// Set the system's last change tick (used in reliable change detection). Note that component
-    /// changes are detected when the system's `last_change_tick` is older than their component
-    /// change ticks, so this value should be updated after each run to be
+    /// Set the system's last tick, which is used for reliable change detection.
+    /// 
+    /// Note that component changes are detected when the system's `last_run` tick is older
+    /// than their component change ticks, so this value is updated after each run to be
     /// [`World::read_change_tick`].
     /// 
     /// See [`crate::system::SystemChangeTick`] and [`crate::change_detection`].
     #[inline]
-    pub fn set_last_change_tick(&mut self, last_change_tick: u32) {
-        self.last_change_tick = last_change_tick;
+    pub fn last_run_mut(&mut self) -> &mut Tick {
+        &mut self.last_run
     }
 }
 
