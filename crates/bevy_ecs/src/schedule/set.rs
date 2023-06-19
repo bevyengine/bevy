@@ -1,38 +1,35 @@
+use std::any::TypeId;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::define_boxed_label;
 use bevy_utils::label::DynHash;
 
 use crate::system::{
-    ExclusiveSystemParam, ExclusiveSystemParamFunction, IsExclusiveFunctionSystem,
-    IsFunctionSystem, SystemParam, SystemParamFunction,
+    ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
 };
 
 define_boxed_label!(ScheduleLabel);
 
+/// A shorthand for `Box<dyn SystemSet>`.
 pub type BoxedSystemSet = Box<dyn SystemSet>;
+/// A shorthand for `Box<dyn ScheduleLabel>`.
 pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
 
 /// Types that identify logical groups of systems.
 pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
-    /// Returns `true` if this system set is a [`SystemTypeSet`].
-    fn is_system_type(&self) -> bool {
-        false
+    /// Returns `Some` if this system set is a [`SystemTypeSet`].
+    fn system_type(&self) -> Option<TypeId> {
+        None
     }
 
-    /// Returns `true` if this set is a "base system set". Systems
-    /// can only belong to one base set at a time. Systems and Sets
-    /// can only be added to base sets using specialized `in_base_set`
-    /// APIs. This enables "mutually exclusive" behaviors. It also
-    /// enables schedules to have a "default base set", which can be used
-    /// to apply default configuration to systems.
-    fn is_base(&self) -> bool {
+    /// Returns `true` if this system set is an [`AnonymousSet`].
+    fn is_anonymous(&self) -> bool {
         false
     }
-
     /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 }
@@ -103,7 +100,30 @@ impl<T> PartialEq for SystemTypeSet<T> {
 impl<T> Eq for SystemTypeSet<T> {}
 
 impl<T> SystemSet for SystemTypeSet<T> {
-    fn is_system_type(&self) -> bool {
+    fn system_type(&self) -> Option<TypeId> {
+        Some(TypeId::of::<T>())
+    }
+
+    fn dyn_clone(&self) -> Box<dyn SystemSet> {
+        Box::new(*self)
+    }
+}
+
+/// A [`SystemSet`] implicitly created when using
+/// [`Schedule::add_systems`](super::Schedule::add_systems).
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct AnonymousSet(usize);
+
+static NEXT_ANONYMOUS_SET_ID: AtomicUsize = AtomicUsize::new(0);
+
+impl AnonymousSet {
+    pub(crate) fn new() -> Self {
+        Self(NEXT_ANONYMOUS_SET_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
+impl SystemSet for AnonymousSet {
+    fn is_anonymous(&self) -> bool {
         true
     }
 
@@ -114,8 +134,10 @@ impl<T> SystemSet for SystemTypeSet<T> {
 
 /// Types that can be converted into a [`SystemSet`].
 pub trait IntoSystemSet<Marker>: Sized {
+    /// The type of [`SystemSet`] this instance converts into.
     type Set: SystemSet;
 
+    /// Converts this instance to its associated [`SystemSet`] type.
     fn into_system_set(self) -> Self::Set;
 }
 
@@ -130,10 +152,9 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 }
 
 // systems
-impl<In, Out, Param, Marker, F> IntoSystemSet<(IsFunctionSystem, In, Out, Param, Marker)> for F
+impl<Marker, F> IntoSystemSet<(IsFunctionSystem, Marker)> for F
 where
-    Param: SystemParam,
-    F: SystemParamFunction<In, Out, Param, Marker>,
+    F: SystemParamFunction<Marker>,
 {
     type Set = SystemTypeSet<Self>;
 
@@ -144,16 +165,51 @@ where
 }
 
 // exclusive systems
-impl<In, Out, Param, Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, In, Out, Param, Marker)>
-    for F
+impl<Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, Marker)> for F
 where
-    Param: ExclusiveSystemParam,
-    F: ExclusiveSystemParamFunction<In, Out, Param, Marker>,
+    F: ExclusiveSystemParamFunction<Marker>,
 {
     type Set = SystemTypeSet<Self>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
         SystemTypeSet::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        schedule::{tests::ResMut, Schedule},
+        system::Resource,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_boxed_label() {
+        use crate::{self as bevy_ecs, world::World};
+
+        #[derive(Resource)]
+        struct Flag(bool);
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct A;
+
+        let mut world = World::new();
+
+        let mut schedule = Schedule::new();
+        schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
+        world.add_schedule(schedule, A);
+
+        let boxed: Box<dyn ScheduleLabel> = Box::new(A);
+
+        world.insert_resource(Flag(false));
+        world.run_schedule(&boxed);
+        assert!(world.resource::<Flag>().0);
+
+        world.insert_resource(Flag(false));
+        world.run_schedule(boxed);
+        assert!(world.resource::<Flag>().0);
     }
 }

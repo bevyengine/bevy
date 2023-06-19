@@ -20,7 +20,9 @@ use bevy_utils::{
 use parking_lot::Mutex;
 use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref};
 use thiserror::Error;
-use wgpu::{PipelineLayoutDescriptor, VertexBufferLayout as RawVertexBufferLayout};
+use wgpu::{
+    PipelineLayoutDescriptor, PushConstantRange, VertexBufferLayout as RawVertexBufferLayout,
+};
 
 use crate::render_resource::resource_macros::*;
 
@@ -54,6 +56,11 @@ pub struct CachedRenderPipelineId(CachedPipelineId);
 impl CachedRenderPipelineId {
     /// An invalid cached render pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
+
+    #[inline]
+    pub fn id(&self) -> usize {
+        self.0
+    }
 }
 
 /// Index of a cached compute pipeline in a [`PipelineCache`].
@@ -63,6 +70,11 @@ pub struct CachedComputePipelineId(CachedPipelineId);
 impl CachedComputePipelineId {
     /// An invalid cached compute pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
+
+    #[inline]
+    pub fn id(&self) -> usize {
+        self.0
+    }
 }
 
 pub struct CachedPipeline {
@@ -150,6 +162,7 @@ impl ShaderDefVal {
 }
 
 impl ShaderCache {
+    #[allow(clippy::result_large_err)]
     fn get(
         &mut self,
         render_device: &RenderDevice,
@@ -182,7 +195,7 @@ impl ShaderCache {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 let mut shader_defs = shader_defs.to_vec();
-                #[cfg(feature = "webgl")]
+                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                 {
                     shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
@@ -298,9 +311,10 @@ impl ShaderCache {
     }
 }
 
+type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<Vec<BindGroupLayoutId>, ErasedPipelineLayout>,
+    layouts: HashMap<LayoutCacheKey, ErasedPipelineLayout>,
 }
 
 impl LayoutCache {
@@ -308,20 +322,24 @@ impl LayoutCache {
         &mut self,
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
+        push_constant_ranges: Vec<PushConstantRange>,
     ) -> &wgpu::PipelineLayout {
-        let key = bind_group_layouts.iter().map(|l| l.id()).collect();
-        self.layouts.entry(key).or_insert_with(|| {
-            let bind_group_layouts = bind_group_layouts
-                .iter()
-                .map(|l| l.value())
-                .collect::<Vec<_>>();
-            ErasedPipelineLayout::new(render_device.create_pipeline_layout(
-                &PipelineLayoutDescriptor {
-                    bind_group_layouts: &bind_group_layouts,
-                    ..default()
-                },
-            ))
-        })
+        let bind_group_ids = bind_group_layouts.iter().map(|l| l.id()).collect();
+        self.layouts
+            .entry((bind_group_ids, push_constant_ranges))
+            .or_insert_with_key(|(_, push_constant_ranges)| {
+                let bind_group_layouts = bind_group_layouts
+                    .iter()
+                    .map(|l| l.value())
+                    .collect::<Vec<_>>();
+                ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+                    &PipelineLayoutDescriptor {
+                        bind_group_layouts: &bind_group_layouts,
+                        push_constant_ranges,
+                        ..default()
+                    },
+                ))
+            })
     }
 }
 
@@ -561,10 +579,14 @@ impl PipelineCache {
             })
             .collect::<Vec<_>>();
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
             None
+        } else {
+            Some(self.layout_cache.get(
+                &self.device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
         };
 
         let descriptor = RawRenderPipelineDescriptor {
@@ -610,10 +632,14 @@ impl PipelineCache {
             }
         };
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
             None
+        } else {
+            Some(self.layout_cache.get(
+                &self.device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
         };
 
         let descriptor = RawComputePipelineDescriptor {
@@ -727,6 +753,7 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
                 let msg = error.emit_to_string(source);
                 error!("failed to process shader:\n{}", msg);
             }
+            #[cfg(feature = "shader_format_glsl")]
             ShaderReflectError::GlslParse(errors) => {
                 let source = source
                     .get_glsl_source()
@@ -751,6 +778,7 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
 
                 error!("failed to process shader: \n{}", msg);
             }
+            #[cfg(feature = "shader_format_spirv")]
             ShaderReflectError::SpirVParse(error) => {
                 error!("failed to process shader:\n{}", error);
             }
@@ -793,9 +821,11 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
                 error!("failed to process shader: \n{}", msg);
             }
         },
+        #[cfg(feature = "shader_format_glsl")]
         AsModuleDescriptorError::WgslConversion(error) => {
             error!("failed to convert shader to wgsl: \n{}", error);
         }
+        #[cfg(feature = "shader_format_spirv")]
         AsModuleDescriptorError::SpirVConversion(error) => {
             error!("failed to convert shader to spirv: \n{}", error);
         }

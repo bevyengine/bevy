@@ -1,9 +1,10 @@
 use crate::{
     archetype::{ArchetypeEntity, ArchetypeId, Archetypes},
+    component::Tick,
     entity::{Entities, Entity},
-    prelude::World,
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, WorldQuery},
     storage::{TableId, TableRow, Tables},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
 
@@ -22,21 +23,20 @@ pub struct QueryIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     /// # Safety
-    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
-    /// have unique access to the components they query.
-    /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a `world`
-    /// with a mismatched [`WorldId`](crate::world::WorldId) is unsound.
+    /// - `world` must have permission to access any of the components registered in `query_state`.
+    /// - `world` must be the same one used to initialize `query_state`.
     pub(crate) unsafe fn new(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
         QueryIter {
             query_state,
-            tables: &world.storages().tables,
-            archetypes: &world.archetypes,
-            cursor: QueryIterationCursor::init(world, query_state, last_change_tick, change_tick),
+            // SAFETY: We only access table data that has been registered in `query_state`.
+            tables: &world.unsafe_world().storages().tables,
+            archetypes: world.archetypes(),
+            cursor: QueryIterationCursor::init(world, query_state, last_run, this_run),
         }
     }
 }
@@ -90,34 +90,24 @@ where
     I::Item: Borrow<Entity>,
 {
     /// # Safety
-    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
-    /// have unique access to the components they query.
-    /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a `world`
-    /// with a mismatched [`WorldId`](crate::world::WorldId) is unsound.
+    /// - `world` must have permission to access any of the components registered in `query_state`.
+    /// - `world` must be the same one used to initialize `query_state`.
     pub(crate) unsafe fn new<EntityList: IntoIterator<IntoIter = I>>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         query_state: &'s QueryState<Q, F>,
         entity_list: EntityList,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> QueryManyIter<'w, 's, Q, F, I> {
-        let fetch = Q::init_fetch(
-            world,
-            &query_state.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let filter = F::init_fetch(
-            world,
-            &query_state.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let fetch = Q::init_fetch(world, &query_state.fetch_state, last_run, this_run);
+        let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         QueryManyIter {
             query_state,
-            entities: &world.entities,
-            archetypes: &world.archetypes,
-            tables: &world.storages.tables,
+            entities: world.entities(),
+            archetypes: world.archetypes(),
+            // SAFETY: We only access table data that has been registered in `query_state`.
+            // This means `world` has permission to access the data we use.
+            tables: &world.unsafe_world().storages.tables,
             fetch,
             filter,
             entity_iter: entity_list.into_iter(),
@@ -291,15 +281,13 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
     QueryCombinationIter<'w, 's, Q, F, K>
 {
     /// # Safety
-    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
-    /// have unique access to the components they query.
-    /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a
-    /// `world` with a mismatched [`WorldId`](crate::world::WorldId) is unsound.
+    /// - `world` must have permission to access any of the components registered in `query_state`.
+    /// - `world` must be the same one used to initialize `query_state`.
     pub(crate) unsafe fn new(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
         // Initialize array with cursors.
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
@@ -312,23 +300,24 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
             ptr.write(QueryIterationCursor::init(
                 world,
                 query_state,
-                last_change_tick,
-                change_tick,
+                last_run,
+                this_run,
             ));
         }
         for slot in (1..K).map(|offset| ptr.add(offset)) {
             slot.write(QueryIterationCursor::init_empty(
                 world,
                 query_state,
-                last_change_tick,
-                change_tick,
+                last_run,
+                this_run,
             ));
         }
 
         QueryCombinationIter {
             query_state,
-            tables: &world.storages().tables,
-            archetypes: &world.archetypes,
+            // SAFETY: We only access table data that has been registered in `query_state`.
+            tables: &world.unsafe_world().storages().tables,
+            archetypes: world.archetypes(),
             cursors: array.assume_init(),
         }
     }
@@ -393,7 +382,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
 }
 
 // Iterator type is intentionally implemented only for read-only access.
-// Doing so for mutable references would be unsound, because  calling `next`
+// Doing so for mutable references would be unsound, because calling `next`
 // multiple times would allow multiple owned references to the same data to exist.
 impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, F, K>
@@ -494,36 +483,29 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     const IS_DENSE: bool = Q::IS_DENSE && F::IS_DENSE;
 
     unsafe fn init_empty(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
         QueryIterationCursor {
             table_id_iter: [].iter(),
             archetype_id_iter: [].iter(),
-            ..Self::init(world, query_state, last_change_tick, change_tick)
+            ..Self::init(world, query_state, last_run, this_run)
         }
     }
 
+    /// # Safety
+    /// - `world` must have permission to access any of the components registered in `query_state`.
+    /// - `world` must be the same one used to initialize `query_state`.
     unsafe fn init(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
-        let fetch = Q::init_fetch(
-            world,
-            &query_state.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let filter = F::init_fetch(
-            world,
-            &query_state.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let fetch = Q::init_fetch(world, &query_state.fetch_state, last_run, this_run);
+        let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         QueryIterationCursor {
             fetch,
             filter,

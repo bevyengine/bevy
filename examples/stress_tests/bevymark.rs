@@ -3,11 +3,11 @@
 //! Usage: spawn more entities by clicking on the screen.
 
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
 };
-use rand::{thread_rng, Rng};
+use rand::{rngs::StdRng, thread_rng, Rng, SeedableRng};
 
 const BIRDS_PER_SECOND: u32 = 10000;
 const GRAVITY: f32 = -9.8 * 100.0;
@@ -37,18 +37,23 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(LogDiagnosticsPlugin::default())
         .insert_resource(BevyCounter {
             count: 0,
             color: Color::WHITE,
         })
-        .add_startup_system(setup)
-        .add_system(mouse_handler)
-        .add_system(movement_system)
-        .add_system(collision_system)
-        .add_system(counter_system)
-        .add_system_to_schedule(CoreSchedule::FixedUpdate, scheduled_spawner)
+        .add_systems(Startup, setup)
+        .add_systems(FixedUpdate, scheduled_spawner)
+        .add_systems(
+            Update,
+            (
+                mouse_handler,
+                movement_system,
+                collision_system,
+                counter_system,
+            ),
+        )
         .insert_resource(FixedTime::new_from_secs(0.2))
         .run();
 }
@@ -98,9 +103,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TextSection::new(
             value,
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
                 color,
+                ..default()
             },
         )
     };
@@ -119,11 +124,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
-                ..default()
-            },
+            top: Val::Px(5.0),
+            left: Val::Px(5.0),
             ..default()
         }),
         StatsText,
@@ -178,11 +180,16 @@ fn spawn_birds(
 ) {
     let bird_x = (primary_window_resolution.width() / -2.) + HALF_BIRD_SIZE;
     let bird_y = (primary_window_resolution.height() / 2.) - HALF_BIRD_SIZE;
-    let mut rng = thread_rng();
 
-    for count in 0..spawn_count {
-        let bird_z = (counter.count + count) as f32 * 0.00001;
-        commands.spawn((
+    let mut rng = StdRng::from_entropy();
+
+    let color = counter.color;
+    let current_count = counter.count;
+
+    commands.spawn_batch((0..spawn_count).map(move |count| {
+        let velocity_x = rng.gen::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5);
+        let bird_z = (current_count + count) as f32 * 0.00001;
+        (
             SpriteBundle {
                 texture: texture.clone(),
                 transform: Transform {
@@ -190,21 +197,15 @@ fn spawn_birds(
                     scale: Vec3::splat(BIRD_SCALE),
                     ..default()
                 },
-                sprite: Sprite {
-                    color: counter.color,
-                    ..default()
-                },
+                sprite: Sprite { color, ..default() },
                 ..default()
             },
             Bird {
-                velocity: Vec3::new(
-                    rng.gen::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5),
-                    0.,
-                    0.,
-                ),
+                velocity: Vec3::new(velocity_x, 0., 0.),
             },
-        ));
-    }
+        )
+    }));
+
     counter.count += spawn_count;
 }
 
@@ -243,7 +244,7 @@ fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &
 }
 
 fn counter_system(
-    diagnostics: Res<Diagnostics>,
+    diagnostics: Res<DiagnosticsStore>,
     counter: Res<BevyCounter>,
     mut query: Query<&mut Text, With<StatsText>>,
 ) {

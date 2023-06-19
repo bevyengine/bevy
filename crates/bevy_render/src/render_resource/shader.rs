@@ -1,14 +1,18 @@
 use super::ShaderDefVal;
 use crate::define_atomic_id;
 use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
-use naga::{back::wgsl::WriterFlags, valid::Capabilities, valid::ModuleInfo, Module};
+#[cfg(feature = "shader_format_glsl")]
+use naga::back::wgsl::WriterFlags;
+use naga::{valid::Capabilities, valid::ModuleInfo, Module};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{borrow::Cow, marker::Copy, ops::Deref, path::PathBuf, str::FromStr};
 use thiserror::Error;
-use wgpu::{util::make_spirv, Features, ShaderModuleDescriptor, ShaderSource};
+#[cfg(feature = "shader_format_spirv")]
+use wgpu::util::make_spirv;
+use wgpu::{Features, ShaderModuleDescriptor, ShaderSource};
 
 define_atomic_id!(ShaderId);
 
@@ -16,8 +20,10 @@ define_atomic_id!(ShaderId);
 pub enum ShaderReflectError {
     #[error(transparent)]
     WgslParse(#[from] naga::front::wgsl::ParseError),
+    #[cfg(feature = "shader_format_glsl")]
     #[error("GLSL Parse Error: {0:?}")]
     GlslParse(Vec<naga::front::glsl::Error>),
+    #[cfg(feature = "shader_format_spirv")]
     #[error(transparent)]
     SpirVParse(#[from] naga::front::spv::Error),
     #[error(transparent)]
@@ -25,7 +31,7 @@ pub enum ShaderReflectError {
 }
 /// A shader, as defined by its [`ShaderSource`] and [`ShaderStage`](naga::ShaderStage)
 /// This is an "unprocessed" shader. It can contain preprocessor directives.
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "d95bc916-6c55-4de3-9622-37e7b6969fda"]
 pub struct Shader {
     source: Source,
@@ -120,12 +126,18 @@ impl ProcessedShader {
         let module = match &self {
             // TODO: process macros here
             ProcessedShader::Wgsl(source) => naga::front::wgsl::parse_str(source)?,
+            #[cfg(feature = "shader_format_glsl")]
             ProcessedShader::Glsl(source, shader_stage) => {
-                let mut parser = naga::front::glsl::Parser::default();
+                let mut parser = naga::front::glsl::Frontend::default();
                 parser
                     .parse(&naga::front::glsl::Options::from(*shader_stage), source)
                     .map_err(ShaderReflectError::GlslParse)?
             }
+            #[cfg(not(feature = "shader_format_glsl"))]
+            ProcessedShader::Glsl(_source, _shader_stage) => {
+                unimplemented!("Enable feature \"shader_format_glsl\" to use GLSL shaders")
+            }
+            #[cfg(feature = "shader_format_spirv")]
             ProcessedShader::SpirV(source) => naga::front::spv::parse_u8_slice(
                 source,
                 &naga::front::spv::Options {
@@ -133,10 +145,14 @@ impl ProcessedShader {
                     ..naga::front::spv::Options::default()
                 },
             )?,
+            #[cfg(not(feature = "shader_format_spirv"))]
+            ProcessedShader::SpirV(_source) => {
+                unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
+            }
         };
         const CAPABILITIES: &[(Features, Capabilities)] = &[
             (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
-            (Features::SHADER_FLOAT64, Capabilities::FLOAT64),
+            (Features::SHADER_F64, Capabilities::FLOAT64),
             (
                 Features::SHADER_PRIMITIVE_INDEX,
                 Capabilities::PRIMITIVE_INDEX,
@@ -172,7 +188,7 @@ impl ProcessedShader {
 
     pub fn get_module_descriptor(
         &self,
-        features: Features,
+        _features: Features,
     ) -> Result<ShaderModuleDescriptor, AsModuleDescriptorError> {
         Ok(ShaderModuleDescriptor {
             label: None,
@@ -182,18 +198,28 @@ impl ProcessedShader {
                     // Parse and validate the shader early, so that (e.g. while hot reloading) we can
                     // display nicely formatted error messages instead of relying on just displaying the error string
                     // returned by wgpu upon creating the shader module.
-                    let _ = self.reflect(features)?;
+                    let _ = self.reflect(_features)?;
 
                     ShaderSource::Wgsl(source.clone())
                 }
+                #[cfg(feature = "shader_format_glsl")]
                 ProcessedShader::Glsl(_source, _stage) => {
-                    let reflection = self.reflect(features)?;
+                    let reflection = self.reflect(_features)?;
                     // TODO: it probably makes more sense to convert this to spirv, but as of writing
                     // this comment, naga's spirv conversion is broken
                     let wgsl = reflection.get_wgsl()?;
                     ShaderSource::Wgsl(wgsl.into())
                 }
+                #[cfg(not(feature = "shader_format_glsl"))]
+                ProcessedShader::Glsl(_source, _stage) => {
+                    unimplemented!("Enable feature \"shader_format_glsl\" to use GLSL shaders")
+                }
+                #[cfg(feature = "shader_format_spirv")]
                 ProcessedShader::SpirV(source) => make_spirv(source),
+                #[cfg(not(feature = "shader_format_spirv"))]
+                ProcessedShader::SpirV(_source) => {
+                    unimplemented!()
+                }
             },
         })
     }
@@ -203,8 +229,10 @@ impl ProcessedShader {
 pub enum AsModuleDescriptorError {
     #[error(transparent)]
     ShaderReflectError(#[from] ShaderReflectError),
+    #[cfg(feature = "shader_format_glsl")]
     #[error(transparent)]
     WgslConversion(#[from] naga::back::wgsl::Error),
+    #[cfg(feature = "shader_format_spirv")]
     #[error(transparent)]
     SpirVConversion(#[from] naga::back::spv::Error),
 }
@@ -215,6 +243,7 @@ pub struct ShaderReflection {
 }
 
 impl ShaderReflection {
+    #[cfg(feature = "shader_format_spirv")]
     pub fn get_spirv(&self) -> Result<Vec<u32>, naga::back::spv::Error> {
         naga::back::spv::write_vec(
             &self.module,
@@ -227,6 +256,7 @@ impl ShaderReflection {
         )
     }
 
+    #[cfg(feature = "shader_format_glsl")]
     pub fn get_wgsl(&self) -> Result<String, naga::back::wgsl::Error> {
         naga::back::wgsl::write_string(&self.module, &self.module_info, WriterFlags::EXPLICIT_TYPES)
     }
@@ -296,8 +326,6 @@ pub enum ProcessShaderError {
         "Not enough '# endif' lines. Each if statement should be followed by an endif statement."
     )]
     NotEnoughEndIfs,
-    #[error("This Shader's format does not support processing shader defs.")]
-    ShaderFormatDoesNotSupportShaderDefs,
     #[error("This Shader's format does not support imports.")]
     ShaderFormatDoesNotSupportImports,
     #[error("Unresolved import: {0:?}.")]
@@ -314,6 +342,11 @@ pub enum ProcessShaderError {
     InvalidShaderDefComparisonValue {
         shader_def_name: String,
         expected: String,
+        value: String,
+    },
+    #[error("Invalid shader def definition for '{shader_def_name}': {value}")]
+    InvalidShaderDefDefinitionValue {
+        shader_def_name: String,
         value: String,
     },
 }
@@ -388,6 +421,7 @@ pub struct ShaderProcessor {
     else_ifdef_regex: Regex,
     else_regex: Regex,
     endif_regex: Regex,
+    define_regex: Regex,
     def_regex: Regex,
     def_regex_delimited: Regex,
 }
@@ -397,10 +431,11 @@ impl Default for ShaderProcessor {
         Self {
             ifdef_regex: Regex::new(r"^\s*#\s*ifdef\s*([\w|\d|_]+)").unwrap(),
             ifndef_regex: Regex::new(r"^\s*#\s*ifndef\s*([\w|\d|_]+)").unwrap(),
-            ifop_regex: Regex::new(r"^\s*#\s*if\s*([\w|\d|_]+)\s*([^\s]*)\s*([\w|\d]+)").unwrap(),
+            ifop_regex: Regex::new(r"^\s*#\s*if\s*([\w|\d|_]+)\s*([^\s]*)\s*([-\w|\d]+)").unwrap(),
             else_ifdef_regex: Regex::new(r"^\s*#\s*else\s+ifdef\s*([\w|\d|_]+)").unwrap(),
             else_regex: Regex::new(r"^\s*#\s*else").unwrap(),
             endif_regex: Regex::new(r"^\s*#\s*endif").unwrap(),
+            define_regex: Regex::new(r"^\s*#\s*define\s+([\w|\d|_]+)\s*([-\w|\d]+)?").unwrap(),
             def_regex: Regex::new(r"#\s*([\w|\d|_]+)").unwrap(),
             def_regex_delimited: Regex::new(r"#\s*\{([\w|\d|_]+)\}").unwrap(),
         }
@@ -450,23 +485,30 @@ impl ShaderProcessor {
         shaders: &HashMap<Handle<Shader>, Shader>,
         import_handles: &HashMap<ShaderImport, Handle<Shader>>,
     ) -> Result<ProcessedShader, ProcessShaderError> {
-        let shader_str = match &shader.source {
-            Source::Wgsl(source) => source.deref(),
-            Source::Glsl(source, _stage) => source.deref(),
-            Source::SpirV(source) => {
-                if shader_defs.is_empty() {
-                    return Ok(ProcessedShader::SpirV(source.clone()));
-                }
-                return Err(ProcessShaderError::ShaderFormatDoesNotSupportShaderDefs);
-            }
-        };
-
-        let shader_defs_unique =
+        let mut shader_defs_unique =
             HashMap::<String, ShaderDefVal>::from_iter(shader_defs.iter().map(|v| match v {
                 ShaderDefVal::Bool(k, _) | ShaderDefVal::Int(k, _) | ShaderDefVal::UInt(k, _) => {
                     (k.clone(), v.clone())
                 }
             }));
+        self.process_inner(shader, &mut shader_defs_unique, shaders, import_handles)
+    }
+
+    fn process_inner(
+        &self,
+        shader: &Shader,
+        shader_defs_unique: &mut HashMap<String, ShaderDefVal>,
+        shaders: &HashMap<Handle<Shader>, Shader>,
+        import_handles: &HashMap<ShaderImport, Handle<Shader>>,
+    ) -> Result<ProcessedShader, ProcessShaderError> {
+        let shader_str = match &shader.source {
+            Source::Wgsl(source) => source.deref(),
+            Source::Glsl(source, _stage) => source.deref(),
+            Source::SpirV(source) => {
+                return Ok(ProcessedShader::SpirV(source.clone()));
+            }
+        };
+
         let mut scopes = vec![Scope::new(true)];
         let mut final_string = String::new();
         for line in shader_str.lines() {
@@ -627,7 +669,7 @@ impl ShaderProcessor {
                         shaders,
                         &import,
                         shader,
-                        shader_defs,
+                        shader_defs_unique,
                         &mut final_string,
                     )?;
                 } else if let Some(cap) = SHADER_IMPORT_PROCESSOR
@@ -640,7 +682,7 @@ impl ShaderProcessor {
                         shaders,
                         &import,
                         shader,
-                        shader_defs,
+                        shader_defs_unique,
                         &mut final_string,
                     )?;
                 } else if SHADER_IMPORT_PROCESSOR
@@ -648,6 +690,26 @@ impl ShaderProcessor {
                     .is_match(line)
                 {
                     // ignore import path lines
+                } else if let Some(cap) = self.define_regex.captures(line) {
+                    let def = cap.get(1).unwrap();
+                    let name = def.as_str().to_string();
+
+                    if let Some(val) = cap.get(2) {
+                        if let Ok(val) = val.as_str().parse::<u32>() {
+                            shader_defs_unique.insert(name.clone(), ShaderDefVal::UInt(name, val));
+                        } else if let Ok(val) = val.as_str().parse::<i32>() {
+                            shader_defs_unique.insert(name.clone(), ShaderDefVal::Int(name, val));
+                        } else if let Ok(val) = val.as_str().parse::<bool>() {
+                            shader_defs_unique.insert(name.clone(), ShaderDefVal::Bool(name, val));
+                        } else {
+                            return Err(ProcessShaderError::InvalidShaderDefDefinitionValue {
+                                shader_def_name: name,
+                                value: val.as_str().to_string(),
+                            });
+                        }
+                    } else {
+                        shader_defs_unique.insert(name.clone(), ShaderDefVal::Bool(name, true));
+                    }
                 } else {
                     let mut line_with_defs = line.to_string();
                     for capture in self.def_regex.captures_iter(line) {
@@ -695,7 +757,7 @@ impl ShaderProcessor {
         shaders: &HashMap<Handle<Shader>, Shader>,
         import: &ShaderImport,
         shader: &Shader,
-        shader_defs: &[ShaderDefVal],
+        shader_defs_unique: &mut HashMap<String, ShaderDefVal>,
         final_string: &mut String,
     ) -> Result<(), ProcessShaderError> {
         let imported_shader = import_handles
@@ -703,7 +765,7 @@ impl ShaderProcessor {
             .and_then(|handle| shaders.get(handle))
             .ok_or_else(|| ProcessShaderError::UnresolvedImport(import.clone()))?;
         let imported_processed =
-            self.process(imported_shader, shader_defs, shaders, import_handles)?;
+            self.process_inner(imported_shader, shader_defs_unique, shaders, import_handles)?;
 
         match &shader.source {
             Source::Wgsl(_) => {
@@ -2440,5 +2502,143 @@ fn vertex(
             )
             .unwrap();
         assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED_REPLACED);
+    }
+
+    #[test]
+    fn process_shader_define_in_shader() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+#ifdef NOW_DEFINED
+defined at start
+#endif
+#define NOW_DEFINED
+#ifdef NOW_DEFINED
+defined at end
+#endif
+";
+
+        #[rustfmt::skip]
+        const EXPECTED: &str = r"
+defined at end
+";
+        let processor = ShaderProcessor::default();
+        let result = processor
+            .process(
+                &Shader::from_wgsl(WGSL),
+                &[],
+                &HashMap::default(),
+                &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED);
+    }
+
+    #[test]
+    fn process_shader_define_only_in_accepting_scopes() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+#define GUARD
+#ifndef GUARD
+#define GUARDED
+#endif
+#ifdef GUARDED
+This should not be part of the result
+#endif
+";
+
+        #[rustfmt::skip]
+        const EXPECTED: &str = r"
+";
+        let processor = ShaderProcessor::default();
+        let result = processor
+            .process(
+                &Shader::from_wgsl(WGSL),
+                &[],
+                &HashMap::default(),
+                &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED);
+    }
+
+    #[test]
+    fn process_shader_define_in_shader_with_value() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+#define DEFUINT 1
+#define DEFINT -1
+#define DEFBOOL false
+#if DEFUINT == 1
+uint: #DEFUINT
+#endif
+#if DEFINT == -1
+int: #DEFINT
+#endif
+#if DEFBOOL == false
+bool: #DEFBOOL
+#endif
+";
+
+        #[rustfmt::skip]
+        const EXPECTED: &str = r"
+uint: 1
+int: -1
+bool: false
+";
+        let processor = ShaderProcessor::default();
+        let result = processor
+            .process(
+                &Shader::from_wgsl(WGSL),
+                &[],
+                &HashMap::default(),
+                &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED);
+    }
+
+    #[test]
+    fn process_shader_define_across_imports() {
+        #[rustfmt::skip]
+        const FOO: &str = r"
+#define IMPORTED
+";
+        const BAR: &str = r"
+#IMPORTED
+";
+        #[rustfmt::skip]
+        const INPUT: &str = r"
+#import FOO
+#import BAR
+";
+        #[rustfmt::skip]
+        const EXPECTED: &str = r"
+
+
+true
+";
+        let processor = ShaderProcessor::default();
+        let mut shaders = HashMap::default();
+        let mut import_handles = HashMap::default();
+        {
+            let foo_handle = HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 0).typed();
+            shaders.insert(foo_handle.clone_weak(), Shader::from_wgsl(FOO));
+            import_handles.insert(
+                ShaderImport::Custom("FOO".to_string()),
+                foo_handle.clone_weak(),
+            );
+        }
+        {
+            let bar_handle = HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1).typed();
+            shaders.insert(bar_handle.clone_weak(), Shader::from_wgsl(BAR));
+            import_handles.insert(
+                ShaderImport::Custom("BAR".to_string()),
+                bar_handle.clone_weak(),
+            );
+        }
+        let result = processor
+            .process(&Shader::from_wgsl(INPUT), &[], &shaders, &import_handles)
+            .unwrap();
+        assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED);
     }
 }

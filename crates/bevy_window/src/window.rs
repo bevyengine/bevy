@@ -1,9 +1,9 @@
 use bevy_ecs::{
-    entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
+    entity::{Entity, EntityMapper, MapEntities},
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{DVec2, IVec2, Vec2};
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -15,8 +15,10 @@ use crate::CursorIcon;
 /// Marker component for the window considered the primary window.
 ///
 /// Currently this is assumed to only exist on 1 entity at a time.
-#[derive(Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect)]
-#[reflect(Component)]
+#[derive(
+    Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect, FromReflect,
+)]
+#[reflect(Component, FromReflect)]
 pub struct PrimaryWindow;
 
 /// Reference to a window, whether it be a direct link to a specific entity or
@@ -55,14 +57,13 @@ impl WindowRef {
 }
 
 impl MapEntities for WindowRef {
-    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
+    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
         match self {
             Self::Entity(entity) => {
-                *entity = entity_map.get(*entity)?;
-                Ok(())
+                *entity = entity_mapper.get_or_reserve(*entity);
             }
-            Self::Primary => Ok(()),
-        }
+            Self::Primary => {}
+        };
     }
 }
 
@@ -92,7 +93,7 @@ impl NormalizedWindowRef {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, FromReflect)]
 pub struct Window {
     /// The cursor of this window.
     pub cursor: Cursor,
@@ -130,9 +131,9 @@ pub struct Window {
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
     /// - macOS X: Not working as expected.
-    /// - Windows 11: Not working as expected
-    /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
-    /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
+    ///
+    /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>.
+    /// You should also set the window `composite_alpha_mode` to `CompositeAlphaMode::PostMultiplied`.
     pub transparent: bool,
     /// Should the window start focused?
     pub focused: bool,
@@ -145,7 +146,7 @@ pub struct Window {
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
+    /// rather than creating a new one.
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.
@@ -185,6 +186,14 @@ pub struct Window {
     ///
     /// - iOS / Android / Web: Unsupported.
     pub ime_position: Vec2,
+    /// Sets a specific theme for the window.
+    ///
+    /// If `None` is provided, the window will use the system theme.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - iOS / Android / Web: Unsupported.
+    pub window_theme: Option<WindowTheme>,
 }
 
 impl Default for Window {
@@ -209,6 +218,7 @@ impl Default for Window {
             fit_canvas_to_parent: false,
             prevent_default_event_handling: true,
             canvas: None,
+            window_theme: None,
         }
     }
 }
@@ -261,27 +271,28 @@ impl Window {
     /// The cursor position in this window
     #[inline]
     pub fn cursor_position(&self) -> Option<Vec2> {
-        self.cursor
-            .physical_position
+        self.internal
+            .physical_cursor_position
             .map(|position| (position / self.scale_factor()).as_vec2())
     }
 
     /// The physical cursor position in this window
     #[inline]
     pub fn physical_cursor_position(&self) -> Option<Vec2> {
-        self.cursor
-            .physical_position
+        self.internal
+            .physical_cursor_position
             .map(|position| position.as_vec2())
     }
 
     /// Set the cursor position in this window
     pub fn set_cursor_position(&mut self, position: Option<Vec2>) {
-        self.cursor.physical_position = position.map(|p| p.as_dvec2() * self.scale_factor());
+        self.internal.physical_cursor_position =
+            position.map(|p| p.as_dvec2() * self.scale_factor());
     }
 
     /// Set the physical cursor position in this window
     pub fn set_physical_cursor_position(&mut self, position: Option<DVec2>) {
-        self.cursor.physical_position = position;
+        self.internal.physical_cursor_position = position;
     }
 }
 
@@ -298,7 +309,7 @@ impl Window {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default)]
+#[reflect(Debug, PartialEq, Default, FromReflect)]
 pub struct WindowResizeConstraints {
     /// The minimum width the window can have.
     pub min_width: f32,
@@ -365,7 +376,7 @@ impl WindowResizeConstraints {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, Default)]
+#[reflect(Debug, Default, FromReflect)]
 pub struct Cursor {
     /// Get the current [`CursorIcon`] while inside the window.
     pub icon: CursorIcon,
@@ -397,9 +408,6 @@ pub struct Cursor {
     ///
     /// - iOS / Android / Web / X11: Unsupported.
     pub hit_test: bool,
-
-    /// The position of this window's cursor.
-    physical_position: Option<DVec2>,
 }
 
 impl Default for Cursor {
@@ -409,7 +417,6 @@ impl Default for Cursor {
             visible: true,
             grab_mode: CursorGrabMode::None,
             hit_test: true,
-            physical_position: None,
         }
     }
 }
@@ -421,7 +428,7 @@ impl Default for Cursor {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, PartialEq, FromReflect)]
 pub enum WindowPosition {
     /// Position will be set by the window manager
     #[default]
@@ -472,7 +479,7 @@ impl WindowPosition {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default)]
+#[reflect(Debug, PartialEq, Default, FromReflect)]
 pub struct WindowResolution {
     physical_width: u32,
     physical_height: u32,
@@ -636,7 +643,7 @@ impl From<bevy_math::DVec2> for WindowResolution {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default)]
+#[reflect(Debug, PartialEq, Default, FromReflect)]
 pub enum CursorGrabMode {
     /// The cursor can freely leave the window.
     #[default]
@@ -648,18 +655,20 @@ pub enum CursorGrabMode {
 }
 
 /// Stores internal state that isn't directly accessible.
-#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default)]
+#[reflect(Debug, PartialEq, Default, FromReflect)]
 pub struct InternalWindowState {
     /// If this is true then next frame we will ask to minimize the window.
     minimize_request: Option<bool>,
     /// If this is true then next frame we will ask to maximize/un-maximize the window depending on `maximized`.
     maximize_request: Option<bool>,
+    /// Unscaled cursor position.
+    physical_cursor_position: Option<DVec2>,
 }
 
 impl InternalWindowState {
@@ -681,7 +690,7 @@ impl InternalWindowState {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, PartialEq, FromReflect)]
 pub enum MonitorSelection {
     /// Uses current monitor of the window.
     ///
@@ -695,16 +704,23 @@ pub enum MonitorSelection {
 
 /// Presentation mode for a window.
 ///
-/// The presentation mode specifies when a frame is presented to the window. The `Fifo`
+/// The presentation mode specifies when a frame is presented to the window. The [`Fifo`]
 /// option corresponds to a traditional `VSync`, where the framerate is capped by the
-/// display refresh rate. Both `Immediate` and `Mailbox` are low-latency and are not
+/// display refresh rate. Both [`Immediate`] and [`Mailbox`] are low-latency and are not
 /// capped by the refresh rate, but may not be available on all platforms. Tearing
-/// may be observed with `Immediate` mode, but will not be observed with `Mailbox` or
-/// `Fifo`.
+/// may be observed with [`Immediate`] mode, but will not be observed with [`Mailbox`] or
+/// [`Fifo`].
 ///
-/// `AutoVsync` or `AutoNoVsync` will gracefully fallback to `Fifo` when unavailable.
+/// [`AutoVsync`] or [`AutoNoVsync`] will gracefully fallback to [`Fifo`] when unavailable.
 ///
-/// `Immediate` or `Mailbox` will panic if not supported by the platform.
+/// [`Immediate`] or [`Mailbox`] will panic if not supported by the platform.
+///
+/// [`Fifo`]: PresentMode::Fifo
+/// [`Immediate`]: PresentMode::Immediate
+/// [`Mailbox`]: PresentMode::Mailbox
+/// [`AutoVsync`]: PresentMode::AutoVsync
+/// [`AutoNoVsync`]: PresentMode::AutoNoVsync
+///
 #[repr(C)]
 #[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[cfg_attr(
@@ -712,7 +728,7 @@ pub enum MonitorSelection {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Hash)]
+#[reflect(Debug, PartialEq, Hash, FromReflect)]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
     /// Chooses FifoRelaxed -> Fifo based on availability.
@@ -752,10 +768,10 @@ pub enum PresentMode {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Hash)]
+#[reflect(Debug, PartialEq, Hash, FromReflect)]
 pub enum CompositeAlphaMode {
-    /// Chooses either `Opaque` or `Inherit` automatically, depending on the
-    /// `alpha_mode` that the current surface can support.
+    /// Chooses either [`Opaque`](CompositeAlphaMode::Opaque) or [`Inherit`](CompositeAlphaMode::Inherit)
+    /// automatically, depending on the `alpha_mode` that the current surface can support.
     #[default]
     Auto = 0,
     /// The alpha channel, if it exists, of the textures is ignored in the
@@ -787,7 +803,7 @@ pub enum CompositeAlphaMode {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, PartialEq, FromReflect)]
 pub enum WindowMode {
     /// Creates a window that uses the given size.
     #[default]
@@ -815,7 +831,7 @@ pub enum WindowMode {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, PartialEq, FromReflect)]
 pub enum WindowLevel {
     /// The window will always be below normal windows.
     ///
@@ -826,4 +842,20 @@ pub enum WindowLevel {
     Normal,
     /// The window will always be on top of normal windows.
     AlwaysOnTop,
+}
+
+/// The window theme variant to use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, FromReflect)]
+pub enum WindowTheme {
+    /// Use the light variant.
+    Light,
+
+    /// Use the dark variant.
+    Dark,
 }

@@ -1,7 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
-    ValueInfo,
+    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
+    TypeInfo, Typed, ValueInfo,
 };
 use std::{
     any::{self, Any, TypeId},
@@ -9,7 +9,6 @@ use std::{
 };
 
 use crate::utility::NonGenericTypeInfoCell;
-pub use bevy_utils::AHasher as ReflectHasher;
 
 /// An immutable enumeration of "kinds" of reflected type.
 ///
@@ -62,26 +61,37 @@ pub enum ReflectOwned {
     Value(Box<dyn Reflect>),
 }
 
-/// A reflected Rust type.
+/// The core trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
 ///
-/// Methods for working with particular kinds of Rust type are available using the [`Array`], [`List`],
-/// [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits.
+/// It's recommended to use the [derive macro] rather than manually implementing this trait.
+/// Doing so will automatically implement many other useful traits for reflection,
+/// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
 ///
-/// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
-/// type (`Struct`, `TupleStruct` or `Enum`) is derived automatically.
-pub trait Reflect: Any + Send + Sync {
+/// See the [crate-level documentation] to see how this trait and its subtraits can be used.
+///
+/// [`bevy_reflect`]: crate
+/// [derive macro]: bevy_reflect_derive::Reflect
+/// [crate-level documentation]: crate
+pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
 
-    /// Returns the [`TypeInfo`] of the underlying type.
+    /// Returns the [`TypeInfo`] of the type _represented_ by this value.
+    ///
+    /// For most types, this will simply return their own `TypeInfo`.
+    /// However, for dynamic types, such as [`DynamicStruct`] or [`DynamicList`],
+    /// this will return the type they represent
+    /// (or `None` if they don't represent any particular type).
     ///
     /// This method is great if you have an instance of a type or a `dyn Reflect`,
     /// and want to access its [`TypeInfo`]. However, if this method is to be called
     /// frequently, consider using [`TypeRegistry::get_type_info`] as it can be more
     /// performant for such use cases.
     ///
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicList`]: crate::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
-    fn get_type_info(&self) -> &'static TypeInfo;
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
@@ -212,6 +222,22 @@ pub trait Reflect: Any + Send + Sync {
     /// If the underlying type does not support serialization, returns `None`.
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+
+    /// Indicates whether or not this type is a _dynamic_ type.
+    ///
+    /// Dynamic types include the ones built-in to this [crate],
+    /// such as [`DynamicStruct`], [`DynamicList`], and [`DynamicTuple`].
+    /// However, they may be custom types used as proxies for other types
+    /// or to facilitate scripting capabilities.
+    ///
+    /// By default, this method will return `false`.
+    ///
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicList`]: crate::DynamicList
+    /// [`DynamicTuple`]: crate::DynamicTuple
+    fn is_dynamic(&self) -> bool {
+        false
     }
 }
 

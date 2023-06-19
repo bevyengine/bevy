@@ -1,11 +1,11 @@
 use anyhow::Result;
 use bevy_asset::{Asset, AssetLoader, LoadContext, LoadedAsset};
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_utils::BoxedFuture;
 use std::{io::Cursor, sync::Arc};
 
 /// A source of audio data
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "7a14806a-672b-443b-8d16-4f18afefa463"]
 pub struct AudioSource {
     /// Raw data of the audio source.
@@ -104,5 +104,6 @@ pub trait AddAudioSource {
     /// the [audio][super::AudioPlugin] and [asset][bevy_asset::AssetPlugin] plugins must be added first.    
     fn add_audio_source<T>(&mut self) -> &mut Self
     where
-        T: Decodable + Asset;
+        T: Decodable + Asset,
+        f32: rodio::cpal::FromSample<T::DecoderItem>;
 }

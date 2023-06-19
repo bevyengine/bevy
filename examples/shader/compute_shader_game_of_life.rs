@@ -11,7 +11,7 @@ use bevy::{
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
-        RenderApp, RenderSet,
+        Render, RenderApp, RenderSet,
     },
     window::WindowPlugin,
 };
@@ -32,7 +32,7 @@ fn main() {
             ..default()
         }))
         .add_plugin(GameOfLifeComputePlugin)
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -72,9 +72,7 @@ impl Plugin for GameOfLifeComputePlugin {
         // for operation on by the compute shader and display on the sprite.
         app.add_plugin(ExtractResourcePlugin::<GameOfLifeImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
-        render_app
-            .init_resource::<GameOfLifePipeline>()
-            .add_system(queue_bind_group.in_set(RenderSet::Queue));
+        render_app.add_systems(Render, queue_bind_group.in_set(RenderSet::Queue));
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("game_of_life", GameOfLifeNode::default());
@@ -82,6 +80,11 @@ impl Plugin for GameOfLifeComputePlugin {
             "game_of_life",
             bevy::render::main_graph::node::CAMERA_DRIVER,
         );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+        render_app.init_resource::<GameOfLifePipeline>();
     }
 }
 
@@ -141,14 +144,16 @@ impl FromWorld for GameOfLifePipeline {
         let pipeline_cache = world.resource::<PipelineCache>();
         let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: None,
-            layout: Some(vec![texture_bind_group_layout.clone()]),
+            layout: vec![texture_bind_group_layout.clone()],
+            push_constant_ranges: Vec::new(),
             shader: shader.clone(),
             shader_defs: vec![],
             entry_point: Cow::from("init"),
         });
         let update_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: None,
-            layout: Some(vec![texture_bind_group_layout.clone()]),
+            layout: vec![texture_bind_group_layout.clone()],
+            push_constant_ranges: Vec::new(),
             shader,
             shader_defs: vec![],
             entry_point: Cow::from("update"),

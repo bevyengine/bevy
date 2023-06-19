@@ -14,16 +14,20 @@ fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f3
     if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
-    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+    }
+
+#ifdef MAY_DISCARD
+    else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
         if color.a >= material.alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
         } else {
-            // NOTE: output_color.a < in.material.alpha_cutoff should not is not rendered
-            // NOTE: This and any other discards mean that early-z testing cannot be done!
+            // NOTE: output_color.a < in.material.alpha_cutoff should not be rendered
             discard;
         }
     }
+#endif
+
     return color;
 }
 
@@ -122,7 +126,7 @@ fn calculate_view(
 
 struct PbrInput {
     material: StandardMaterial,
-    occlusion: f32,
+    occlusion: vec3<f32>,
     frag_coord: vec4<f32>,
     world_position: vec4<f32>,
     // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
@@ -134,6 +138,7 @@ struct PbrInput {
     // view world position
     V: vec3<f32>,
     is_orthographic: bool,
+    flags: u32,
 };
 
 // Creates a PbrInput with default values
@@ -141,7 +146,7 @@ fn pbr_input_new() -> PbrInput {
     var pbr_input: PbrInput;
 
     pbr_input.material = standard_material_new();
-    pbr_input.occlusion = 1.0;
+    pbr_input.occlusion = vec3<f32>(1.0);
 
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
@@ -152,10 +157,12 @@ fn pbr_input_new() -> PbrInput {
     pbr_input.N = vec3<f32>(0.0, 0.0, 1.0);
     pbr_input.V = vec3<f32>(1.0, 0.0, 0.0);
 
+    pbr_input.flags = 0u;
+
     return pbr_input;
 }
 
-#ifndef NORMAL_PREPASS
+#ifndef PREPASS_FRAGMENT
 fn pbr(
     in: PbrInput,
 ) -> vec4<f32> {
@@ -203,7 +210,7 @@ fn pbr(
     for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
         let light_id = get_light_id(i);
         var shadow: f32 = 1.0;
-        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
@@ -215,7 +222,7 @@ fn pbr(
     for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
         let light_id = get_light_id(i);
         var shadow: f32 = 1.0;
-        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
@@ -227,7 +234,7 @@ fn pbr(
     let n_directional_lights = lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
         var shadow: f32 = 1.0;
-        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (lights.directional_lights[i].flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
         }
@@ -265,27 +272,10 @@ fn pbr(
 
     return output_color;
 }
-#endif // NORMAL_PREPASS
+#endif // PREPASS_FRAGMENT
 
-#ifdef TONEMAP_IN_SHADER
-fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
-    // tone_mapping
-    return vec4<f32>(reinhard_luminance(in.rgb), in.a);
-
-    // Gamma correction.
-    // Not needed with sRGB buffer
-    // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
-}
-#endif // TONEMAP_IN_SHADER
-
-#ifdef DEBAND_DITHER
-fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
-    return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
-}
-#endif // DEBAND_DITHER
-
-#ifndef NORMAL_PREPASS
-fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
+#ifndef PREPASS_FRAGMENT
+fn apply_fog(fog_params: Fog, input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
     let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
 
     // `length()` is used here instead of just `view_to_world.z` since that produces more
@@ -295,7 +285,7 @@ fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_wo
     let distance = length(view_to_world);
 
     var scattering = vec3<f32>(0.0);
-    if fog.directional_light_color.a > 0.0 {
+    if fog_params.directional_light_color.a > 0.0 {
         let view_to_world_normalized = view_to_world / distance;
         let n_directional_lights = lights.n_directional_lights;
         for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
@@ -305,24 +295,24 @@ fn apply_fog(input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_wo
                     dot(view_to_world_normalized, light.direction_to_light),
                     0.0
                 ),
-                fog.directional_light_exponent
+                fog_params.directional_light_exponent
             ) * light.color.rgb;
         }
     }
 
-    if fog.mode == FOG_MODE_LINEAR {
-        return linear_fog(input_color, distance, scattering);
-    } else if fog.mode == FOG_MODE_EXPONENTIAL {
-        return exponential_fog(input_color, distance, scattering);
-    } else if fog.mode == FOG_MODE_EXPONENTIAL_SQUARED {
-        return exponential_squared_fog(input_color, distance, scattering);
-    } else if fog.mode == FOG_MODE_ATMOSPHERIC {
-        return atmospheric_fog(input_color, distance, scattering);
+    if fog_params.mode == FOG_MODE_LINEAR {
+        return linear_fog(fog_params, input_color, distance, scattering);
+    } else if fog_params.mode == FOG_MODE_EXPONENTIAL {
+        return exponential_fog(fog_params, input_color, distance, scattering);
+    } else if fog_params.mode == FOG_MODE_EXPONENTIAL_SQUARED {
+        return exponential_squared_fog(fog_params, input_color, distance, scattering);
+    } else if fog_params.mode == FOG_MODE_ATMOSPHERIC {
+        return atmospheric_fog(fog_params, input_color, distance, scattering);
     } else {
         return input_color;
     }
 }
-#endif
+#endif // PREPASS_FRAGMENT
 
 #ifdef PREMULTIPLY_ALPHA
 fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32> {
@@ -335,19 +325,7 @@ fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32
     //
     //     result = 1 * src_color + (1 - src_alpha) * dst_color
     let alpha_mode = standard_material_flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND {
-        // Here, we premultiply `src_color` by `src_alpha` (ahead of time, here in the shader)
-        //
-        //     src_color *= src_alpha
-        //
-        // We end up with:
-        //
-        //     result = 1 * (src_alpha * src_color) + (1 - src_alpha) * dst_color
-        //     result = src_alpha * src_color + (1 - src_alpha) * dst_color
-        //
-        // Which is the blend operation for regular alpha blending `BlendState::ALPHA_BLENDING`
-        return vec4<f32>(color.rgb * color.a, color.a);
-    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD {
+    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD {
         // Here, we premultiply `src_color` by `src_alpha`, and replace `src_alpha` with 0.0:
         //
         //     src_color *= src_alpha

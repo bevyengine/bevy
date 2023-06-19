@@ -21,7 +21,7 @@ use bevy::{
         },
         texture::BevyDefault,
         view::{ExtractedView, ViewTarget, VisibleEntities},
-        Extract, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSet,
     },
     sprite::{
         DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform,
@@ -34,7 +34,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(ColoredMesh2dPlugin)
-        .add_startup_system(star)
+        .add_systems(Startup, star)
         .run();
 }
 
@@ -99,7 +99,7 @@ fn star(
     // We can now spawn the entities for the star and the camera
     commands.spawn((
         // We use a marker component to identify the custom colored meshes
-        ColoredMesh2d::default(),
+        ColoredMesh2d,
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
         Mesh2dHandle(meshes.add(star)),
         // This bundle's components are needed for something to be rendered
@@ -172,12 +172,13 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 })],
             }),
             // Use the two standard uniforms for 2d meshes
-            layout: Some(vec![
+            layout: vec![
                 // Bind group 0 is the view uniform
                 self.mesh2d_pipeline.view_layout.clone(),
                 // Bind group 1 is the mesh uniform
                 self.mesh2d_pipeline.mesh_layout.clone(),
-            ]),
+            ],
+            push_constant_ranges: Vec::new(),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
@@ -276,14 +277,20 @@ impl Plugin for ColoredMesh2dPlugin {
             Shader::from_wgsl(COLORED_MESH2D_SHADER),
         );
 
-        // Register our custom draw function and pipeline, and add our render systems
+        // Register our custom draw function, and add our render systems
         app.get_sub_app_mut(RenderApp)
             .unwrap()
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
-            .init_resource::<ColoredMesh2dPipeline>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
-            .add_system_to_schedule(ExtractSchedule, extract_colored_mesh2d)
-            .add_system(queue_colored_mesh2d.in_set(RenderSet::Queue));
+            .add_systems(ExtractSchedule, extract_colored_mesh2d)
+            .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::Queue));
+    }
+
+    fn finish(&self, app: &mut App) {
+        // Register our custom pipeline
+        app.get_sub_app_mut(RenderApp)
+            .unwrap()
+            .init_resource::<ColoredMesh2dPipeline>();
     }
 }
 

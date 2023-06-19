@@ -1,5 +1,3 @@
-use std::num::NonZeroU32;
-
 use crate::{render_resource::*, texture::DefaultImageSampler};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -19,9 +17,20 @@ use crate::{
 /// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
 /// which can be used in situations where an image was not explicitly defined. The most common
 /// use case is [`AsBindGroup`] implementations (such as materials) that support optional textures.
-/// [`FallbackImage`] defaults to a 1x1 fully white texture, making blending colors with it a no-op.
+///
+/// Defaults to a 1x1 fully opaque white texture, (1.0, 1.0, 1.0, 1.0) which makes multiplying
+/// it with other colors a no-op.
 #[derive(Resource, Deref)]
 pub struct FallbackImage(GpuImage);
+
+/// A [`RenderApp`](crate::RenderApp) resource that contains a _zero-filled_ "fallback image",
+/// which can be used in place of [`FallbackImage`], when a fully transparent or black fallback
+/// is required instead of fully opaque white.
+///
+/// Defaults to a 1x1 fully transparent black texture, (0.0, 0.0, 0.0, 0.0) which makes adding
+/// or alpha-blending it to other colors a no-op.
+#[derive(Resource, Deref)]
+pub struct FallbackImageZero(GpuImage);
 
 /// A [`RenderApp`](crate::RenderApp) resource that contains a "cubemap fallback image",
 /// which can be used in situations where an image was not explicitly defined. The most common
@@ -36,9 +45,10 @@ fn fallback_image_new(
     format: TextureFormat,
     dimension: TextureViewDimension,
     samples: u32,
+    value: u8,
 ) -> GpuImage {
-    // TODO make this configurable
-    let data = vec![255; format.pixel_size()];
+    // TODO make this configurable per channel
+    let data = vec![value; format.pixel_size()];
 
     let extents = Extent3d {
         width: 1,
@@ -54,7 +64,7 @@ fn fallback_image_new(
     image.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
 
     // We can't create textures with data when it's a depth texture or when using multiple samples
-    let texture = if format.describe().sample_type == TextureSampleType::Depth || samples > 1 {
+    let texture = if format.is_depth_stencil_format() || samples > 1 {
         render_device.create_texture(&image.texture_descriptor)
     } else {
         render_device.create_texture_with_data(render_queue, &image.texture_descriptor, &image.data)
@@ -62,7 +72,7 @@ fn fallback_image_new(
 
     let texture_view = texture.create_view(&TextureViewDescriptor {
         dimension: Some(dimension),
-        array_layer_count: NonZeroU32::new(extents.depth_or_array_layers),
+        array_layer_count: Some(extents.depth_or_array_layers),
         ..TextureViewDescriptor::default()
     });
     let sampler = match image.sampler_descriptor {
@@ -78,6 +88,7 @@ fn fallback_image_new(
             image.texture_descriptor.size.width as f32,
             image.texture_descriptor.size.height as f32,
         ),
+        mip_level_count: image.texture_descriptor.mip_level_count,
     }
 }
 
@@ -93,6 +104,24 @@ impl FromWorld for FallbackImage {
             TextureFormat::bevy_default(),
             TextureViewDimension::D2,
             1,
+            255,
+        ))
+    }
+}
+
+impl FromWorld for FallbackImageZero {
+    fn from_world(world: &mut bevy_ecs::prelude::World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        let render_queue = world.resource::<RenderQueue>();
+        let default_sampler = world.resource::<DefaultImageSampler>();
+        Self(fallback_image_new(
+            render_device,
+            render_queue,
+            default_sampler,
+            TextureFormat::bevy_default(),
+            TextureViewDimension::D2,
+            1,
+            0,
         ))
     }
 }
@@ -109,6 +138,7 @@ impl FromWorld for FallbackImageCubemap {
             TextureFormat::bevy_default(),
             TextureViewDimension::Cube,
             1,
+            255,
         ))
     }
 }
@@ -126,7 +156,7 @@ pub struct FallbackImageMsaaCache(HashMap<u32, GpuImage>);
 /// A Cache of fallback depth textures that uses the sample count as a key
 ///
 /// # WARNING
-/// Detph images are never initialized with data, therefore,
+/// Depth images are never initialized with data, therefore,
 /// you shouldn't sample them before writing data to them first.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct FallbackImageDepthCache(HashMap<u32, GpuImage>);
@@ -149,6 +179,7 @@ impl<'w> FallbackImagesMsaa<'w> {
                 TextureFormat::bevy_default(),
                 TextureViewDimension::D2,
                 sample_count,
+                255,
             )
         })
     }
@@ -172,6 +203,7 @@ impl<'w> FallbackImagesDepth<'w> {
                 TextureFormat::Depth32Float,
                 TextureViewDimension::D2,
                 sample_count,
+                255,
             )
         })
     }

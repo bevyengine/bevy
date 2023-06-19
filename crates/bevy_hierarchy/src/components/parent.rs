@@ -1,10 +1,10 @@
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
+    entity::{Entity, EntityMapper, MapEntities},
     reflect::{ReflectComponent, ReflectMapEntities},
     world::{FromWorld, World},
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
 use std::ops::Deref;
 
 /// Holds a reference to the parent entity of this entity.
@@ -14,8 +14,8 @@ use std::ops::Deref;
 ///
 /// [`HierarchyQueryExt`]: crate::query_extension::HierarchyQueryExt
 /// [`Query`]: bevy_ecs::system::Query
-#[derive(Component, Debug, Eq, PartialEq, Reflect)]
-#[reflect(Component, MapEntities, PartialEq)]
+#[derive(Component, Debug, Eq, PartialEq, Reflect, FromReflect)]
+#[reflect(Component, MapEntities, PartialEq, FromReflect)]
 pub struct Parent(pub(crate) Entity);
 
 impl Parent {
@@ -36,13 +36,8 @@ impl FromWorld for Parent {
 }
 
 impl MapEntities for Parent {
-    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
-        // Parent of an entity in the new world can be in outside world, in which case it
-        // should not be mapped.
-        if let Ok(mapped_entity) = entity_map.get(self.0) {
-            self.0 = mapped_entity;
-        }
-        Ok(())
+    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
+        self.0 = entity_mapper.get_or_reserve(self.0);
     }
 }
 

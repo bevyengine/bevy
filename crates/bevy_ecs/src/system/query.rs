@@ -1,11 +1,11 @@
 use crate::{
-    component::Component,
+    component::{Component, Tick},
     entity::Entity,
     query::{
         BatchingStrategy, QueryCombinationIter, QueryEntityError, QueryIter, QueryManyIter,
         QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery,
     },
-    world::{Mut, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, Mut},
 };
 use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 
@@ -23,6 +23,8 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// - **`F` (query filter).**
 ///   A set of conditions that determines whether query items should be kept or discarded.
 ///   This type parameter is optional.
+///
+/// [`World`]: crate::world::World
 ///
 /// # System parameter declaration
 ///
@@ -274,10 +276,11 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// [`With`]: crate::query::With
 /// [`Without`]: crate::query::Without
 pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
-    world: &'world World,
+    // SAFETY: Must have access to the components registered in `state`.
+    world: UnsafeWorldCell<'world>,
     state: &'state QueryState<Q, F>,
-    last_change_tick: u32,
-    change_tick: u32,
+    last_run: Tick,
+    this_run: Tick,
     // SAFETY: This is used to ensure that `get_component_mut::<C>` properly fails when a Query writes C
     // and gets converted to a read-only query using `to_readonly`. Without checking this, `get_component_mut` relies on
     // QueryState's archetype_component_access, which will continue allowing write access to C after being cast to
@@ -288,7 +291,12 @@ pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'w, 's, Q, F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Query {{ matched entities: {}, world: {:?}, state: {:?}, last_change_tick: {}, change_tick: {} }}", self.iter().count(), self.world, self.state, self.last_change_tick, self.change_tick)
+        write!(
+            f, "Query {{ matched entities: {}, world: {:?}, state: {:?}, last_run: {:?}, this_run: {:?} }}",
+            self.iter().count(),
+            // SAFETY: World's Debug implementation only accesses metadata.
+            unsafe { self.world.world_metadata() },
+            self.state, self.last_run, self.this_run)
     }
 }
 
@@ -305,20 +313,20 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// called in ways that ensure the queries have unique mutable access.
     #[inline]
     pub(crate) unsafe fn new(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_run: Tick,
+        this_run: Tick,
         force_read_only_component_access: bool,
     ) -> Self {
-        state.validate_world(world);
+        state.validate_world(world.id());
 
         Self {
             force_read_only_component_access,
             world,
             state,
-            last_change_tick,
-            change_tick,
+            last_run,
+            this_run,
         }
     }
 
@@ -334,8 +342,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
             Query::new(
                 self.world,
                 new_state,
-                self.last_change_tick,
-                self.change_tick,
+                self.last_run,
+                self.this_run,
                 // SAFETY: this must be set to true or `get_component_mut` will be unsound. See the comments
                 // on this field for more details
                 true,
@@ -369,14 +377,13 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`for_each`](Self::for_each) for the closure based alternative.
     #[inline]
     pub fn iter(&self) -> QueryIter<'_, 's, Q::ReadOnly, F::ReadOnly> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The query is read-only, so it can be aliased even if it was originaly mutable.
         unsafe {
-            self.state.as_readonly().iter_unchecked_manual(
-                self.world,
-                self.last_change_tick,
-                self.change_tick,
-            )
+            self.state
+                .as_readonly()
+                .iter_unchecked_manual(self.world, self.last_run, self.this_run)
         }
     }
 
@@ -406,11 +413,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`for_each_mut`](Self::for_each_mut) for the closure based alternative.
     #[inline]
     pub fn iter_mut(&mut self) -> QueryIter<'_, 's, Q, F> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: `self.world` has permission to access the required components.
         unsafe {
             self.state
-                .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+                .iter_unchecked_manual(self.world, self.last_run, self.this_run)
         }
     }
 
@@ -437,13 +443,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn iter_combinations<const K: usize>(
         &self,
     ) -> QueryCombinationIter<'_, 's, Q::ReadOnly, F::ReadOnly, K> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The query is read-only, so it can be aliased even if it was originaly mutable.
         unsafe {
             self.state.as_readonly().iter_combinations_unchecked_manual(
                 self.world,
-                self.last_change_tick,
-                self.change_tick,
+                self.last_run,
+                self.this_run,
             )
         }
     }
@@ -471,14 +478,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn iter_combinations_mut<const K: usize>(
         &mut self,
     ) -> QueryCombinationIter<'_, 's, Q, F, K> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: `self.world` has permission to access the required components.
         unsafe {
-            self.state.iter_combinations_unchecked_manual(
-                self.world,
-                self.last_change_tick,
-                self.change_tick,
-            )
+            self.state
+                .iter_combinations_unchecked_manual(self.world, self.last_run, self.this_run)
         }
     }
 
@@ -526,14 +529,15 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     where
         EntityList::Item: Borrow<Entity>,
     {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The query is read-only, so it can be aliased even if it was originaly mutable.
         unsafe {
             self.state.as_readonly().iter_many_unchecked_manual(
                 entities,
                 self.world,
-                self.last_change_tick,
-                self.change_tick,
+                self.last_run,
+                self.this_run,
             )
         }
     }
@@ -579,14 +583,13 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     where
         EntityList::Item: Borrow<Entity>,
     {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: `self.world` has permission to access the required components.
         unsafe {
             self.state.iter_many_unchecked_manual(
                 entities,
                 self.world,
-                self.last_change_tick,
-                self.change_tick,
+                self.last_run,
+                self.this_run,
             )
         }
     }
@@ -603,10 +606,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`iter`](Self::iter) and [`iter_mut`](Self::iter_mut) for the safe versions.
     #[inline]
     pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, 's, Q, F> {
-        // SEMI-SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The caller ensures that this operation will not result in any aliased mutable accesses.
         self.state
-            .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+            .iter_unchecked_manual(self.world, self.last_run, self.this_run)
     }
 
     /// Iterates over all possible combinations of `K` query items without repetition.
@@ -623,13 +627,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub unsafe fn iter_combinations_unsafe<const K: usize>(
         &self,
     ) -> QueryCombinationIter<'_, 's, Q, F, K> {
-        // SEMI-SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
-        self.state.iter_combinations_unchecked_manual(
-            self.world,
-            self.last_change_tick,
-            self.change_tick,
-        )
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The caller ensures that this operation will not result in any aliased mutable accesses.
+        self.state
+            .iter_combinations_unchecked_manual(self.world, self.last_run, self.this_run)
     }
 
     /// Returns an [`Iterator`] over the query items generated from an [`Entity`] list.
@@ -650,12 +652,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     where
         EntityList::Item: Borrow<Entity>,
     {
-        self.state.iter_many_unchecked_manual(
-            entities,
-            self.world,
-            self.last_change_tick,
-            self.change_tick,
-        )
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The caller ensures that this operation will not result in any aliased mutable accesses.
+        self.state
+            .iter_many_unchecked_manual(entities, self.world, self.last_run, self.this_run)
     }
 
     /// Runs `f` on each read-only query item.
@@ -684,14 +685,15 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`iter`](Self::iter) for the iterator based alternative.
     #[inline]
     pub fn for_each<'this>(&'this self, f: impl FnMut(ROQueryItem<'this, Q>)) {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The query is read-only, so it can be aliased even if it was originaly mutable.
         unsafe {
             self.state.as_readonly().for_each_unchecked_manual(
                 self.world,
                 f,
-                self.last_change_tick,
-                self.change_tick,
+                self.last_run,
+                self.this_run,
             );
         };
     }
@@ -722,15 +724,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`iter_mut`](Self::iter_mut) for the iterator based alternative.
     #[inline]
     pub fn for_each_mut<'a>(&'a mut self, f: impl FnMut(Q::Item<'a>)) {
-        // SAFETY: system runs without conflicts with other systems. same-system queries have runtime
-        // borrow checks when they conflict
+        // SAFETY: `self.world` has permission to access the required components.
         unsafe {
-            self.state.for_each_unchecked_manual(
-                self.world,
-                f,
-                self.last_change_tick,
-                self.change_tick,
-            );
+            self.state
+                .for_each_unchecked_manual(self.world, f, self.last_run, self.this_run);
         };
     }
 
@@ -739,11 +736,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
     ///
     /// [`par_iter_mut`]: Self::par_iter_mut
+    /// [`World`]: crate::world::World
     #[inline]
-    pub fn par_iter(&mut self) -> QueryParIter<'_, '_, Q::ReadOnly, F::ReadOnly> {
+    pub fn par_iter(&self) -> QueryParIter<'_, '_, Q::ReadOnly, F::ReadOnly> {
         QueryParIter {
             world: self.world,
             state: self.state.as_readonly(),
+            last_run: self.last_run,
+            this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
         }
     }
@@ -753,11 +753,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// This can only be called for mutable queries, see [`par_iter`] for read-only-queries.
     ///
     /// [`par_iter`]: Self::par_iter
+    /// [`World`]: crate::world::World
     #[inline]
     pub fn par_iter_mut(&mut self) -> QueryParIter<'_, '_, Q, F> {
         QueryParIter {
             world: self.world,
             state: self.state,
+            last_run: self.last_run,
+            this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
         }
     }
@@ -801,14 +804,15 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
             self.state.as_readonly().get_unchecked_manual(
                 self.world,
                 entity,
-                self.last_change_tick,
-                self.change_tick,
+                self.last_run,
+                self.this_run,
             )
         }
     }
 
     /// Returns the read-only query items for the given array of [`Entity`].
     ///
+    /// The returned query items are in the same order as the input.
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     /// The elements of the array do not need to be unique, unlike `get_many_mut`.
     ///
@@ -824,10 +828,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // SAFETY: it is the scheduler's responsibility to ensure that `Query` is never handed out on the wrong `World`.
         unsafe {
             self.state.get_many_read_only_manual(
-                self.world,
+                self.world.unsafe_world(),
                 entities,
-                self.last_change_tick,
-                self.change_tick,
+                self.last_run,
+                self.this_run,
             )
         }
     }
@@ -910,17 +914,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.get_unchecked_manual(
-                self.world,
-                entity,
-                self.last_change_tick,
-                self.change_tick,
-            )
+            self.state
+                .get_unchecked_manual(self.world, entity, self.last_run, self.this_run)
         }
     }
 
     /// Returns the query items for the given array of [`Entity`].
     ///
+    /// The returned query items are in the same order as the input.
     /// In case of a nonexisting entity, duplicate entities or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
     /// # See also
@@ -934,12 +935,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ) -> Result<[Q::Item<'_>; N], QueryEntityError> {
         // SAFETY: scheduler ensures safe Query world access
         unsafe {
-            self.state.get_many_unchecked_manual(
-                self.world,
-                entities,
-                self.last_change_tick,
-                self.change_tick,
-            )
+            self.state
+                .get_many_unchecked_manual(self.world, entities, self.last_run, self.this_run)
         }
     }
 
@@ -1013,7 +1010,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // SEMI-SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         self.state
-            .get_unchecked_manual(self.world, entity, self.last_change_tick, self.change_tick)
+            .get_unchecked_manual(self.world, entity, self.last_run, self.this_run)
     }
 
     /// Returns a shared reference to the component `T` of the given [`Entity`].
@@ -1066,9 +1063,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
             .archetype_component_access
             .has_read(archetype_component)
         {
-            entity_ref
-                .get::<T>()
-                .ok_or(QueryComponentError::MissingComponent)
+            // SAFETY: `self.world` must have access to the component `T` for this entity,
+            // since it was registered in `self.state`'s archetype component access set.
+            unsafe { entity_ref.get::<T>() }.ok_or(QueryComponentError::MissingComponent)
         } else {
             Err(QueryComponentError::MissingReadAccess)
         }
@@ -1076,7 +1073,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns a mutable reference to the component `T` of the given entity.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryComponentError`] is returned instead.
     ///
     /// # Example
     ///
@@ -1112,7 +1109,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns a mutable reference to the component `T` of the given entity.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryComponentError`] is returned instead.
     ///
     /// # Safety
     ///
@@ -1134,7 +1131,6 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         }
         let world = self.world;
         let entity_ref = world
-            .as_unsafe_world_cell_migration_internal()
             .get_entity(entity)
             .ok_or(QueryComponentError::NoSuchEntity)?;
         let component_id = world
@@ -1151,7 +1147,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
             .has_write(archetype_component)
         {
             entity_ref
-                .get_mut_using_ticks::<T>(self.last_change_tick, self.change_tick)
+                .get_mut_using_ticks::<T>(self.last_run, self.this_run)
                 .ok_or(QueryComponentError::MissingComponent)
         } else {
             Err(QueryComponentError::MissingWriteAccess)
@@ -1227,8 +1223,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         unsafe {
             self.state.as_readonly().get_single_unchecked_manual(
                 self.world,
-                self.last_change_tick,
-                self.change_tick,
+                self.last_run,
+                self.this_run,
             )
         }
     }
@@ -1296,11 +1292,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // the query ensures mutable access to the components it accesses, and the query
         // is uniquely borrowed
         unsafe {
-            self.state.get_single_unchecked_manual(
-                self.world,
-                self.last_change_tick,
-                self.change_tick,
-            )
+            self.state
+                .get_single_unchecked_manual(self.world, self.last_run, self.this_run)
         }
     }
 
@@ -1326,8 +1319,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.state
-            .is_empty(self.world, self.last_change_tick, self.change_tick)
+        self.state.is_empty(
+            // SAFETY: `QueryState::is_empty` does not access world data.
+            unsafe { self.world.unsafe_world() },
+            self.last_run,
+            self.this_run,
+        )
     }
 
     /// Returns `true` if the given [`Entity`] matches the query.
@@ -1358,7 +1355,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         unsafe {
             self.state
                 .as_nop()
-                .get_unchecked_manual(self.world, entity, self.last_change_tick, self.change_tick)
+                .get_unchecked_manual(self.world, entity, self.last_run, self.this_run)
                 .is_ok()
         }
     }
@@ -1382,12 +1379,69 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w mut Quer
     }
 }
 
-/// An error that occurs when retrieving a specific [`Entity`]'s component from a [`Query`]
+/// An error that occurs when retrieving a specific [`Entity`]'s component from a [`Query`].
 #[derive(Debug, PartialEq, Eq)]
 pub enum QueryComponentError {
+    /// The [`Query`] does not have read access to the requested component.
+    ///
+    /// This error occurs when the requested component is not included in the original query.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, system::QueryComponentError};
+    /// #
+    /// # #[derive(Component)]
+    /// # struct OtherComponent;
+    /// #
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # struct RequestedComponent;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct SpecificEntity {
+    /// #     entity: Entity,
+    /// # }
+    /// #
+    /// fn get_missing_read_access_error(query: Query<&OtherComponent>, res: Res<SpecificEntity>) {
+    ///     assert_eq!(
+    ///         query.get_component::<RequestedComponent>(res.entity),
+    ///         Err(QueryComponentError::MissingReadAccess),
+    ///     );
+    ///     println!("query doesn't have read access to RequestedComponent because it does not appear in Query<&OtherComponent>");
+    /// }
+    /// # bevy_ecs::system::assert_is_system(get_missing_read_access_error);
+    /// ```
     MissingReadAccess,
+    /// The [`Query`] does not have write access to the requested component.
+    ///
+    /// This error occurs when the requested component is not included in the original query, or the mutability of the requested component is mismatched with the original query.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, system::QueryComponentError};
+    /// #
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # struct RequestedComponent;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct SpecificEntity {
+    /// #     entity: Entity,
+    /// # }
+    /// #
+    /// fn get_missing_write_access_error(mut query: Query<&RequestedComponent>, res: Res<SpecificEntity>) {
+    ///     assert_eq!(
+    ///         query.get_component::<RequestedComponent>(res.entity),
+    ///         Err(QueryComponentError::MissingWriteAccess),
+    ///     );
+    ///     println!("query doesn't have write access to RequestedComponent because it doesn't have &mut in Query<&RequestedComponent>");
+    /// }
+    /// # bevy_ecs::system::assert_is_system(get_missing_write_access_error);
+    /// ```
     MissingWriteAccess,
+    /// The given [`Entity`] does not have the requested component.
     MissingComponent,
+    /// The requested [`Entity`] does not exist.
     NoSuchEntity,
 }
 
@@ -1459,8 +1513,8 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
             self.state.as_readonly().get_unchecked_manual(
                 self.world,
                 entity,
-                self.last_change_tick,
-                self.change_tick,
+                self.last_run,
+                self.this_run,
             )
         }
     }
@@ -1493,11 +1547,9 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.as_readonly().iter_unchecked_manual(
-                self.world,
-                self.last_change_tick,
-                self.change_tick,
-            )
+            self.state
+                .as_readonly()
+                .iter_unchecked_manual(self.world, self.last_run, self.this_run)
         }
     }
 }

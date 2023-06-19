@@ -1,6 +1,6 @@
 use async_channel::{Receiver, Sender};
 
-use bevy_app::{App, AppLabel, CoreSchedule, Plugin, SubApp};
+use bevy_app::{App, AppLabel, Main, Plugin, SubApp};
 use bevy_ecs::{
     schedule::MainThreadExecutor,
     system::Resource,
@@ -72,13 +72,12 @@ impl Plugin for PipelinedRenderingPlugin {
         app.insert_resource(MainThreadExecutor::new());
 
         let mut sub_app = App::empty();
-        sub_app.add_simple_outer_schedule();
-        sub_app.init_schedule(CoreSchedule::Main);
+        sub_app.init_schedule(Main);
         app.insert_sub_app(RenderExtractApp, SubApp::new(sub_app, update_rendering));
     }
 
     // Sets up the render thread and inserts resources into the main app used for controlling the render thread.
-    fn setup(&self, app: &mut App) {
+    fn cleanup(&self, app: &mut App) {
         // skip setting up when headless
         if app.get_sub_app(RenderExtractApp).is_err() {
             return;

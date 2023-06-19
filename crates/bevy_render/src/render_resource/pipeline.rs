@@ -7,7 +7,7 @@ use bevy_asset::Handle;
 use std::{borrow::Cow, ops::Deref};
 use wgpu::{
     BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
-    VertexAttribute, VertexFormat, VertexStepMode,
+    PushConstantRange, VertexAttribute, VertexFormat, VertexStepMode,
 };
 
 define_atomic_id!(RenderPipelineId);
@@ -93,7 +93,10 @@ pub struct RenderPipelineDescriptor {
     /// Debug label of the pipeline. This will show up in graphics debuggers for easy identification.
     pub label: Option<Cow<'static, str>>,
     /// The layout of bind groups for this pipeline.
-    pub layout: Option<Vec<BindGroupLayout>>,
+    pub layout: Vec<BindGroupLayout>,
+    /// The push constant ranges for this pipeline.
+    /// Supply an empty vector if the pipeline doesn't use push constants.
+    pub push_constant_ranges: Vec<PushConstantRange>,
     /// The compiled vertex stage, its entry point, and the input buffers layout.
     pub vertex: VertexState,
     /// The properties of the pipeline at the primitive assembly and rasterization level.
@@ -174,7 +177,8 @@ pub struct FragmentState {
 #[derive(Clone, Debug)]
 pub struct ComputePipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
-    pub layout: Option<Vec<BindGroupLayout>>,
+    pub layout: Vec<BindGroupLayout>,
+    pub push_constant_ranges: Vec<PushConstantRange>,
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
     pub shader_defs: Vec<ShaderDefVal>,

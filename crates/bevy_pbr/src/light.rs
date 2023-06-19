@@ -1,14 +1,14 @@
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::Camera,
     color::Color,
     extract_resource::ExtractResource,
     prelude::Projection,
-    primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Plane, Sphere},
+    primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, VisibleEntities},
@@ -40,8 +40,8 @@ use crate::{
 /// | 4000 | 300 |    | 75-100 | 40.5  |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Clone, Copy, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct PointLight {
     pub color: Color,
     pub intensity: f32,
@@ -75,8 +75,8 @@ impl PointLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource)]
+#[derive(Resource, Clone, Debug, Reflect, FromReflect)]
+#[reflect(Resource, FromReflect)]
 pub struct PointLightShadowMap {
     pub size: usize,
 }
@@ -91,8 +91,8 @@ impl Default for PointLightShadowMap {
 /// Behaves like a point light in a perfectly absorbent housing that
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](bevy_transform::components::Transform::looking_at).
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Clone, Copy, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct SpotLight {
     pub color: Color,
     pub intensity: f32,
@@ -124,7 +124,7 @@ impl SpotLight {
 
 impl Default for SpotLight {
     fn default() -> Self {
-        // a quarter arc attenuating from the centre
+        // a quarter arc attenuating from the center
         Self {
             color: Color::rgb(1.0, 1.0, 1.0),
             /// Luminous power in lumens
@@ -187,8 +187,8 @@ impl Default for SpotLight {
 /// App::new()
 ///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
 /// ```
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct DirectionalLight {
     pub color: Color,
     /// Illuminance in lux
@@ -218,8 +218,8 @@ impl DirectionalLight {
 }
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
-#[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource)]
+#[derive(Resource, Clone, Debug, Reflect, FromReflect)]
+#[reflect(Resource, FromReflect)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
 }
@@ -243,8 +243,8 @@ impl Default for DirectionalLightShadowMap {
 ///   ..default()
 /// }.into();
 /// ```
-#[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Clone, Debug, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
 pub struct CascadeShadowConfig {
     /// The (positive) distance to the far boundary of each cascade.
     pub bounds: Vec<f32>,
@@ -277,7 +277,7 @@ fn calculate_cascade_bounds(
 /// Builder for [`CascadeShadowConfig`].
 pub struct CascadeShadowConfigBuilder {
     /// The number of shadow cascades.
-    /// More cascades increases shadow quality by mitigating perspective aliasing - a phenomenom where areas
+    /// More cascades increases shadow quality by mitigating perspective aliasing - a phenomenon where areas
     /// nearer the camera are covered by fewer shadow map texels than areas further from the camera, causing
     /// blocky looking shadows.
     ///
@@ -353,7 +353,7 @@ impl CascadeShadowConfigBuilder {
 
 impl Default for CascadeShadowConfigBuilder {
     fn default() -> Self {
-        if cfg!(feature = "webgl") {
+        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
             // Currently only support one cascade in webgl.
             Self {
                 num_cascades: 1,
@@ -380,20 +380,21 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
     }
 }
 
-#[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Clone, Debug, Default, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
     pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
 }
 
 #[derive(Clone, Debug, Default, Reflect, FromReflect)]
+#[reflect(FromReflect)]
 pub struct Cascade {
     /// The transform of the light, i.e. the view to world matrix.
     pub(crate) view_transform: Mat4,
     /// The orthographic projection for this cascade.
     pub(crate) projection: Mat4,
-    /// The view-projection matrix for this cacade, converting world space into light clip space.
+    /// The view-projection matrix for this cascade, converting world space into light clip space.
     /// Importantly, this is derived and stored separately from `view_transform` and `projection` to
     /// ensure shadow stability.
     pub(crate) view_projection: Mat4,
@@ -413,19 +414,12 @@ pub fn update_directional_light_cascades(
 ) {
     let views = views
         .iter()
-        .filter_map(|view| match view {
-            // TODO: orthographic camera projection support.
-            (entity, transform, Projection::Perspective(projection), camera)
-                if camera.is_active =>
-            {
-                Some((
-                    entity,
-                    projection.aspect_ratio,
-                    (0.5 * projection.fov).tan(),
-                    transform.compute_matrix(),
-                ))
+        .filter_map(|(entity, transform, projection, camera)| {
+            if camera.is_active {
+                Some((entity, projection, transform.compute_matrix()))
+            } else {
+                None
             }
-            _ => None,
         })
         .collect::<Vec<_>>();
 
@@ -444,27 +438,38 @@ pub fn update_directional_light_cascades(
         let light_to_world_inverse = light_to_world.inverse();
 
         cascades.cascades.clear();
-        for (view_entity, aspect_ratio, tan_half_fov, view_to_world) in views.iter().copied() {
+        for (view_entity, projection, view_to_world) in views.iter().copied() {
             let camera_to_light_view = light_to_world_inverse * view_to_world;
             let view_cascades = cascades_config
                 .bounds
                 .iter()
                 .enumerate()
                 .map(|(idx, far_bound)| {
+                    // Negate bounds as -z is camera forward direction.
+                    let z_near = if idx > 0 {
+                        (1.0 - cascades_config.overlap_proportion)
+                            * -cascades_config.bounds[idx - 1]
+                    } else {
+                        -cascades_config.minimum_distance
+                    };
+                    let z_far = -far_bound;
+
+                    let corners = match projection {
+                        Projection::Perspective(projection) => frustum_corners(
+                            projection.aspect_ratio,
+                            (projection.fov / 2.).tan(),
+                            z_near,
+                            z_far,
+                        ),
+                        Projection::Orthographic(projection) => {
+                            frustum_corners_ortho(projection.area, z_near, z_far)
+                        }
+                    };
                     calculate_cascade(
-                        aspect_ratio,
-                        tan_half_fov,
+                        corners,
                         directional_light_shadow_map.size as f32,
                         light_to_world,
                         camera_to_light_view,
-                        // Negate bounds as -z is camera forward direction.
-                        if idx > 0 {
-                            (1.0 - cascades_config.overlap_proportion)
-                                * -cascades_config.bounds[idx - 1]
-                        } else {
-                            -cascades_config.minimum_distance
-                        },
-                        -far_bound,
                     )
                 })
                 .collect();
@@ -473,37 +478,45 @@ pub fn update_directional_light_cascades(
     }
 }
 
+fn frustum_corners_ortho(area: Rect, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+    // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
+    [
+        Vec3A::new(area.max.x, area.min.y, z_near), // bottom right
+        Vec3A::new(area.max.x, area.max.y, z_near), // top right
+        Vec3A::new(area.min.x, area.max.y, z_near), // top left
+        Vec3A::new(area.min.x, area.min.y, z_near), // bottom left
+        Vec3A::new(area.max.x, area.min.y, z_far),  // bottom right
+        Vec3A::new(area.max.x, area.max.y, z_far),  // top right
+        Vec3A::new(area.min.x, area.max.y, z_far),  // top left
+        Vec3A::new(area.min.x, area.min.y, z_far),  // bottom left
+    ]
+}
+
+fn frustum_corners(aspect_ratio: f32, tan_half_fov: f32, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+    let a = z_near.abs() * tan_half_fov;
+    let b = z_far.abs() * tan_half_fov;
+    // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
+    [
+        Vec3A::new(a * aspect_ratio, -a, z_near),  // bottom right
+        Vec3A::new(a * aspect_ratio, a, z_near),   // top right
+        Vec3A::new(-a * aspect_ratio, a, z_near),  // top left
+        Vec3A::new(-a * aspect_ratio, -a, z_near), // bottom left
+        Vec3A::new(b * aspect_ratio, -b, z_far),   // bottom right
+        Vec3A::new(b * aspect_ratio, b, z_far),    // top right
+        Vec3A::new(-b * aspect_ratio, b, z_far),   // top left
+        Vec3A::new(-b * aspect_ratio, -b, z_far),  // bottom left
+    ]
+}
+
+/// Returns a [`Cascade`] for the frustum defined by `frustum_corners`.
+/// The corner vertices should be specified in the following order:
+/// first the bottom right, top right, top left, bottom left for the near plane, then similar for the far plane.
 fn calculate_cascade(
-    aspect_ratio: f32,
-    tan_half_fov: f32,
+    frustum_corners: [Vec3A; 8],
     cascade_texture_size: f32,
     light_to_world: Mat4,
     camera_to_light: Mat4,
-    z_near: f32,
-    z_far: f32,
 ) -> Cascade {
-    debug_assert!(z_near <= 0.0, "z_near {z_near} must be <= 0.0");
-    debug_assert!(z_far <= 0.0, "z_far {z_far} must be <= 0.0");
-    // NOTE: This whole function is very sensitive to floating point precision and instability and
-    // has followed instructions to avoid view dependence from the section on cascade shadow maps in
-    // Eric Lengyel's Foundations of Game Engine Development 2: Rendering. Be very careful when
-    // modifying this code!
-
-    let a = z_near.abs() * tan_half_fov;
-    let b = z_far.abs() * tan_half_fov;
-    // NOTE: These vertices are in a specific order: bottom right, top right, top left, bottom left
-    //                                               for near then for far
-    let frustum_corners = [
-        Vec3A::new(a * aspect_ratio, -a, z_near),
-        Vec3A::new(a * aspect_ratio, a, z_near),
-        Vec3A::new(-a * aspect_ratio, a, z_near),
-        Vec3A::new(-a * aspect_ratio, -a, z_near),
-        Vec3A::new(b * aspect_ratio, -b, z_far),
-        Vec3A::new(b * aspect_ratio, b, z_far),
-        Vec3A::new(-b * aspect_ratio, b, z_far),
-        Vec3A::new(-b * aspect_ratio, -b, z_far),
-    ];
-
     let mut min = Vec3A::splat(f32::MAX);
     let mut max = Vec3A::splat(f32::MIN);
     for corner_camera_view in frustum_corners {
@@ -568,8 +581,8 @@ fn calculate_cascade(
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
-#[reflect(Resource)]
+#[derive(Resource, Clone, Debug, ExtractResource, Reflect, FromReflect)]
+#[reflect(Resource, FromReflect)]
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.
@@ -586,12 +599,12 @@ impl Default for AmbientLight {
 }
 
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.
-#[derive(Component, Reflect, Default)]
-#[reflect(Component, Default)]
+#[derive(Component, Reflect, FromReflect, Default)]
+#[reflect(Component, Default, FromReflect)]
 pub struct NotShadowCaster;
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows.
-#[derive(Component, Reflect, Default)]
-#[reflect(Component, Default)]
+#[derive(Component, Reflect, FromReflect, Default)]
+#[reflect(Component, Default, FromReflect)]
 pub struct NotShadowReceiver;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -628,7 +641,7 @@ pub enum ClusterFarZMode {
 
 /// Configure the depth-slicing strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Reflect, FromReflect)]
-#[reflect(Default)]
+#[reflect(Default, FromReflect)]
 pub struct ClusterZConfig {
     /// Far `Z` plane of the first depth slice
     pub first_slice_depth: f32,
@@ -646,8 +659,8 @@ impl Default for ClusterZConfig {
 }
 
 /// Configuration of the clustering strategy for clustered forward rendering
-#[derive(Debug, Copy, Clone, Component, Reflect)]
-#[reflect(Component)]
+#[derive(Debug, Copy, Clone, Component, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
 pub enum ClusterConfig {
     /// Disable light cluster calculations for this view
     None,
@@ -1445,7 +1458,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let view_x = clip_to_view(inverse_projection, Vec4::new(x_pos, 0.0, 1.0, 1.0)).x;
                 let normal = Vec3::X;
                 let d = view_x * normal.x;
-                x_planes.push(Plane::new(normal.extend(d)));
+                x_planes.push(HalfSpace::new(normal.extend(d)));
             }
 
             let y_slices = clusters.dimensions.y as f32;
@@ -1455,7 +1468,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let view_y = clip_to_view(inverse_projection, Vec4::new(0.0, y_pos, 1.0, 1.0)).y;
                 let normal = Vec3::Y;
                 let d = view_y * normal.y;
-                y_planes.push(Plane::new(normal.extend(d)));
+                y_planes.push(HalfSpace::new(normal.extend(d)));
             }
         } else {
             let x_slices = clusters.dimensions.x as f32;
@@ -1466,7 +1479,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let nt = clip_to_view(inverse_projection, Vec4::new(x_pos, 1.0, 1.0, 1.0)).xyz();
                 let normal = nb.cross(nt);
                 let d = nb.dot(normal);
-                x_planes.push(Plane::new(normal.extend(d)));
+                x_planes.push(HalfSpace::new(normal.extend(d)));
             }
 
             let y_slices = clusters.dimensions.y as f32;
@@ -1477,7 +1490,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let nr = clip_to_view(inverse_projection, Vec4::new(1.0, y_pos, 1.0, 1.0)).xyz();
                 let normal = nr.cross(nl);
                 let d = nr.dot(normal);
-                y_planes.push(Plane::new(normal.extend(d)));
+                y_planes.push(HalfSpace::new(normal.extend(d)));
             }
         }
 
@@ -1486,7 +1499,7 @@ pub(crate) fn assign_lights_to_clusters(
             let view_z = z_slice_to_view_z(first_slice_depth, far_z, z_slices, z, is_orthographic);
             let normal = -Vec3::Z;
             let d = view_z * normal.z;
-            z_planes.push(Plane::new(normal.extend(d)));
+            z_planes.push(HalfSpace::new(normal.extend(d)));
         }
 
         let mut update_from_light_intersections = |visible_lights: &mut Vec<Entity>| {
@@ -1725,7 +1738,7 @@ pub(crate) fn assign_lights_to_clusters(
 }
 
 // NOTE: This exploits the fact that a x-plane normal has only x and z components
-fn get_distance_x(plane: Plane, point: Vec3A, is_orthographic: bool) -> f32 {
+fn get_distance_x(plane: HalfSpace, point: Vec3A, is_orthographic: bool) -> f32 {
     if is_orthographic {
         point.x - plane.d()
     } else {
@@ -1738,7 +1751,7 @@ fn get_distance_x(plane: Plane, point: Vec3A, is_orthographic: bool) -> f32 {
 }
 
 // NOTE: This exploits the fact that a z-plane normal has only a z component
-fn project_to_plane_z(z_light: Sphere, z_plane: Plane) -> Option<Sphere> {
+fn project_to_plane_z(z_light: Sphere, z_plane: HalfSpace) -> Option<Sphere> {
     // p = sphere center
     // n = plane normal
     // d = n.p if p is in the plane
@@ -1760,7 +1773,11 @@ fn project_to_plane_z(z_light: Sphere, z_plane: Plane) -> Option<Sphere> {
 }
 
 // NOTE: This exploits the fact that a y-plane normal has only y and z components
-fn project_to_plane_y(y_light: Sphere, y_plane: Plane, is_orthographic: bool) -> Option<Sphere> {
+fn project_to_plane_y(
+    y_light: Sphere,
+    y_plane: HalfSpace,
+    is_orthographic: bool,
+) -> Option<Sphere> {
     let distance_to_plane = if is_orthographic {
         y_plane.d() - y_light.center.y
     } else {
@@ -2017,6 +2034,18 @@ pub fn check_light_mesh_visibility(
                         frustum_visible_entities.entities.push(entity);
                     }
                 }
+            } else {
+                computed_visibility.set_visible_in_view();
+                for view in frusta.frusta.keys() {
+                    let view_visible_entities = visible_entities
+                        .entities
+                        .get_mut(view)
+                        .expect("Per-view visible entities should have been inserted already");
+
+                    for frustum_visible_entities in view_visible_entities {
+                        frustum_visible_entities.entities.push(entity);
+                    }
+                }
             }
         }
 
@@ -2173,7 +2202,7 @@ mod test {
         // check a smaller number of clusters would not cover the screen
         assert!(clusters.tile_size.x * (clusters.dimensions.x - 1) < screen_size.x);
         assert!(clusters.tile_size.y * (clusters.dimensions.y - 1) < screen_size.y);
-        // check a smaller tilesize would not cover the screen
+        // check a smaller tile size would not cover the screen
         assert!((clusters.tile_size.x - 1) * clusters.dimensions.x < screen_size.x);
         assert!((clusters.tile_size.y - 1) * clusters.dimensions.y < screen_size.y);
         // check we don't have more clusters than pixels

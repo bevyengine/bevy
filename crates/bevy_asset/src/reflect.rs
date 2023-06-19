@@ -7,7 +7,8 @@ use crate::{Asset, Assets, Handle, HandleId, HandleUntyped};
 
 /// Type data for the [`TypeRegistry`](bevy_reflect::TypeRegistry) used to operate on reflected [`Asset`]s.
 ///
-/// This type provides similar methods to [`Assets<T>`] like `get`, `add` and `remove`, but can be used in situations where you don't know which asset type `T` you want
+/// This type provides similar methods to [`Assets<T>`] like [`get`](ReflectAsset::get),
+/// [`add`](ReflectAsset::add) and [`remove`](ReflectAsset::remove), but can be used in situations where you don't know which asset type `T` you want
 /// until runtime.
 ///
 /// [`ReflectAsset`] can be obtained via [`TypeRegistration::data`](bevy_reflect::TypeRegistration::data) if the asset was registered using [`register_asset_reflect`](crate::AddAsset::register_asset_reflect).
@@ -19,7 +20,7 @@ pub struct ReflectAsset {
 
     get: fn(&World, HandleUntyped) -> Option<&dyn Reflect>,
     // SAFETY:
-    // - may only be called with a [`IteriorMutableWorld`] which can be used to access the corresponding `Assets<T>` resource mutably
+    // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
     get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, HandleUntyped) -> Option<&mut dyn Reflect>,
     add: fn(&mut World, &dyn Reflect) -> HandleUntyped,
@@ -144,7 +145,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 asset.map(|asset| asset as &dyn Reflect)
             },
             get_unchecked_mut: |world, handle| {
-                // SAFETY: `get_unchecked_mut` must be callied with `UnsafeWorldCell` having access to `Assets<A>`,
+                // SAFETY: `get_unchecked_mut` must be called with `UnsafeWorldCell` having access to `Assets<A>`,
                 // and must ensure to only have at most one reference to it live at all times.
                 let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
                 let asset = assets.get_mut(&handle.typed());
