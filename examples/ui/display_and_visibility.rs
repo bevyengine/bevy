@@ -2,6 +2,9 @@
 
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
+use bevy_internal::text::TextLayoutInfo;
+use bevy_internal::ui::ContentSize;
+use bevy_internal::ui::widget::TextFlags;
 
 const PALETTE: [&str; 4] = ["4059AD", "6B9AC4", "A5C8E1", "F4B942"];
 
@@ -10,10 +13,12 @@ fn main() {
         .add_plugins(DefaultPlugins)
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
-        .add_startup_system(setup)
-        .add_system(buttons_handler::<Display>)
-        .add_system(buttons_handler::<Visibility>)
-        .add_system(text_hover)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (
+            buttons_handler::<Display>,
+            buttons_handler::<Visibility>,
+            text_hover,
+        ))
         .run();
 }
 
@@ -45,8 +50,9 @@ impl TargetUpdate for Target<Display> {
         style.display = match style.display {
             Display::Flex => Display::None,
             Display::None => Display::Flex,
+            Display::Grid => unreachable!()
         };
-        format!(" {}::{:?} ", Self::NAME, style.display)
+        format!("{}::{:?} ", Self::NAME, style.display)
     }
 }
 
@@ -59,7 +65,7 @@ impl TargetUpdate for Target<Visibility> {
             Visibility::Visible => Visibility::Hidden,
             Visibility::Hidden => Visibility::Inherited,
         };
-        format!(" {}::{visibility:?}", Self::NAME)
+        format!("{}::{visibility:?}", Self::NAME)
     }
 }
 
@@ -98,7 +104,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         parent
             .spawn(NodeBundle {
                 style: Style {
-                    size: Size::width(Val::Percent(100.)),
+                    width: Val::Percent(100.),
                     ..Default::default()
                 },
                 ..Default::default()
@@ -107,7 +113,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 let mut target_ids = vec![];
                 parent.spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(50.), Val::Px(520.)),
+                        width: Val::Percent(50.),
+                        height: Val::Px(520.),
                         justify_content: JustifyContent::Center,
                         ..Default::default()
                     },
@@ -118,7 +125,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                 parent.spawn(NodeBundle {
                     style: Style {
-                        size: Size::width(Val::Percent(50.)),
+                        width: Val::Percent(50.),
                         justify_content: JustifyContent::Center,
                         ..Default::default()
                     },
@@ -164,7 +171,8 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                         .with_children(|parent| {
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::new(Val::Px(100.), Val::Px(500.)),
+                                    width: Val::Px(100.), 
+                                    height: Val::Px(500.),
                                     ..Default::default()
                                 },
                                 ..Default::default()
@@ -173,7 +181,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                             let id = parent
                                 .spawn((NodeBundle {
                                     style: Style {
-                                        size: Size::height(Val::Px(400.)),
+                                        height: Val::Px(400.),
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::FlexEnd,
                                         ..Default::default()
@@ -184,7 +192,8 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                 .with_children(|parent| {
                                     parent.spawn(NodeBundle {
                                         style: Style {
-                                            size: Size::new(Val::Px(100.), Val::Px(400.)),
+                                            width: Val::Px(100.),
+                                            height: Val::Px(400.),
                                             ..Default::default()
                                         },
                                         ..Default::default()
@@ -193,7 +202,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                     let id = parent
                                         .spawn((NodeBundle {
                                             style: Style {
-                                                size: Size::height(Val::Px(300.)),
+                                                height: Val::Px(300.),
                                                 align_items: AlignItems::FlexEnd,
                                                 justify_content: JustifyContent::FlexEnd,
                                                 ..Default::default()
@@ -204,7 +213,8 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                         .with_children(|parent| {
                                             parent.spawn(NodeBundle {
                                                 style: Style {
-                                                    size: Size::new(Val::Px(100.), Val::Px(300.)),
+                                                    width: Val::Px(100.), 
+                                                    height: Val::Px(300.),
                                                     ..Default::default()
                                                 },
                                                 ..Default::default()
@@ -213,7 +223,8 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                             let id = parent
                                                 .spawn((NodeBundle {
                                                     style: Style {
-                                                        size: Size::all(Val::Px(200.)),
+                                                        width: Val::Px(200.),
+                                                        height: Val::Px(200.),
                                                         ..Default::default()
                                                     },
                                                     background_color: BackgroundColor(palette[3]),
@@ -258,7 +269,8 @@ fn spawn_right_panel(
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::all(Val::Px(500.)),
+                        width: Val::Px(500.),
+                        height: Val::Px(500.),
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::FlexEnd,
                         justify_content: JustifyContent::SpaceBetween,
@@ -278,7 +290,8 @@ fn spawn_right_panel(
                     parent
                         .spawn((NodeBundle {
                             style: Style {
-                                size: Size::all(Val::Px(400.)),
+                                width: Val::Px(400.),
+                                height: Val::Px(400.),
                                 flex_direction: FlexDirection::Column,
                                 align_items: AlignItems::FlexEnd,
                                 justify_content: JustifyContent::SpaceBetween,
@@ -298,7 +311,8 @@ fn spawn_right_panel(
                             parent
                                 .spawn((NodeBundle {
                                     style: Style {
-                                        size: Size::all(Val::Px(300.)),
+                                        width: Val::Px(300.),
+                                        height: Val::Px(300.),
                                         flex_direction: FlexDirection::Column,
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::SpaceBetween,
@@ -318,7 +332,8 @@ fn spawn_right_panel(
                                     parent
                                         .spawn((NodeBundle {
                                             style: Style {
-                                                size: Size::all(Val::Px(200.)),
+                                                width: Val::Px(200.),
+                                                height: Val::Px(200.),
                                                 align_items: AlignItems::FlexStart,
                                                 justify_content: JustifyContent::SpaceBetween,
                                                 flex_direction: FlexDirection::Column,
@@ -337,7 +352,8 @@ fn spawn_right_panel(
 
                                             parent.spawn(NodeBundle {
                                                 style: Style {
-                                                    size: Size::all(Val::Px(100.)),
+                                                    width: Val::Px(100.),
+                                                    height: Val::Px(100.),
                                                     ..Default::default()
                                                 },
                                                 ..Default::default()
@@ -357,7 +373,7 @@ where
     parent.spawn((
         ButtonBundle {
             style: Style {
-                size: Size::height(Val::Px(24.)),
+                height: Val::Px(24.),
                 align_self: AlignSelf::FlexStart,
                 ..Default::default()
             },
@@ -370,7 +386,9 @@ where
             text_style,
         )
         .with_alignment(TextAlignment::Center),
-        CalculatedSize::default(),
+        ContentSize::default(), 
+        TextFlags::default(),
+        TextLayoutInfo::default(),
     ));
 }
 
