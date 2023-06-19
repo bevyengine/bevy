@@ -13,6 +13,7 @@ use std::fmt::Debug;
 ///
 /// Events sent via the [`Assets`] struct will always be sent with a _Weak_ handle, because the
 /// asset may not exist by the time the event is handled.
+#[derive(Event)]
 pub enum AssetEvent<T: Asset> {
     #[allow(missing_docs)]
     Created { handle: Handle<T> },
@@ -488,7 +489,7 @@ mod tests {
 
     #[test]
     fn asset_overwriting() {
-        #[derive(bevy_reflect::TypeUuid)]
+        #[derive(bevy_reflect::TypeUuid, bevy_reflect::TypePath)]
         #[uuid = "44115972-f31b-46e5-be5c-2b9aece6a52f"]
         struct MyAsset;
         let mut app = App::new();

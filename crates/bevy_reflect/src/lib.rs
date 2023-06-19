@@ -448,6 +448,7 @@ mod struct_trait;
 mod tuple;
 mod tuple_struct;
 mod type_info;
+mod type_path;
 mod type_registry;
 mod type_uuid;
 mod type_uuid_impl;
@@ -458,6 +459,9 @@ mod impls {
     mod rect;
     #[cfg(feature = "smallvec")]
     mod smallvec;
+    #[cfg(feature = "smol_str")]
+    mod smol_str;
+
     mod std;
 
     #[cfg(feature = "glam")]
@@ -496,11 +500,14 @@ pub use struct_trait::*;
 pub use tuple::*;
 pub use tuple_struct::*;
 pub use type_info::*;
+pub use type_path::*;
 pub use type_registry::*;
 pub use type_uuid::*;
 
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
+
+extern crate alloc;
 
 #[doc(hidden)]
 pub mod __macro_exports {
@@ -543,8 +550,8 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
-    use std::any::TypeId;
     use std::fmt::{Debug, Formatter};
+    use std::{any::TypeId, marker::PhantomData};
 
     use super::prelude::*;
     use super::*;
@@ -1119,6 +1126,98 @@ mod tests {
     }
 
     #[test]
+    fn reflect_type_path() {
+        #[derive(TypePath)]
+        struct Param;
+
+        #[derive(TypePath)]
+        struct Derive;
+
+        #[derive(TypePath)]
+        #[type_path = "my_alias"]
+        struct DerivePath;
+
+        #[derive(TypePath)]
+        #[type_path = "my_alias"]
+        #[type_name = "MyDerivePathName"]
+        struct DerivePathName;
+
+        #[derive(TypePath)]
+        struct DeriveG<T>(PhantomData<T>);
+
+        #[derive(TypePath)]
+        #[type_path = "my_alias"]
+        struct DerivePathG<T, const N: usize>(PhantomData<T>);
+
+        #[derive(TypePath)]
+        #[type_path = "my_alias"]
+        #[type_name = "MyDerivePathNameG"]
+        struct DerivePathNameG<T>(PhantomData<T>);
+
+        struct Macro;
+        impl_type_path!((in my_alias) Macro);
+
+        struct MacroName;
+        impl_type_path!((in my_alias as MyMacroName) MacroName);
+
+        struct MacroG<T, const N: usize>(PhantomData<T>);
+        impl_type_path!((in my_alias) MacroG<T, const N: usize>);
+
+        struct MacroNameG<T>(PhantomData<T>);
+        impl_type_path!((in my_alias as MyMacroNameG) MacroNameG<T>);
+
+        assert_eq!(Derive::type_path(), "bevy_reflect::tests::Derive");
+        assert_eq!(DerivePath::type_path(), "my_alias::DerivePath");
+        assert_eq!(DerivePathName::type_path(), "my_alias::MyDerivePathName");
+
+        assert_eq!(
+            DeriveG::<Param>::type_path(),
+            "bevy_reflect::tests::DeriveG<bevy_reflect::tests::Param>"
+        );
+        assert_eq!(
+            DerivePathG::<Param, 10>::type_path(),
+            "my_alias::DerivePathG<bevy_reflect::tests::Param, 10>"
+        );
+        assert_eq!(
+            DerivePathNameG::<Param>::type_path(),
+            "my_alias::MyDerivePathNameG<bevy_reflect::tests::Param>"
+        );
+
+        assert_eq!(Macro::type_path(), "my_alias::Macro");
+        assert_eq!(MacroName::type_path(), "my_alias::MyMacroName");
+        assert_eq!(
+            MacroG::<Param, 10>::type_path(),
+            "my_alias::MacroG<bevy_reflect::tests::Param, 10>"
+        );
+        assert_eq!(
+            MacroNameG::<Param>::type_path(),
+            "my_alias::MyMacroNameG<bevy_reflect::tests::Param>"
+        );
+
+        assert_eq!(Derive::short_type_path(), "Derive");
+        assert_eq!(DerivePath::short_type_path(), "DerivePath");
+        assert_eq!(DerivePathName::short_type_path(), "MyDerivePathName");
+
+        assert_eq!(DeriveG::<Param>::short_type_path(), "DeriveG<Param>");
+        assert_eq!(
+            DerivePathG::<Param, 10>::short_type_path(),
+            "DerivePathG<Param, 10>"
+        );
+        assert_eq!(
+            DerivePathNameG::<Param>::short_type_path(),
+            "MyDerivePathNameG<Param>"
+        );
+
+        assert_eq!(Macro::short_type_path(), "Macro");
+        assert_eq!(MacroName::short_type_path(), "MyMacroName");
+        assert_eq!(MacroG::<Param, 10>::short_type_path(), "MacroG<Param, 10>");
+        assert_eq!(
+            MacroNameG::<Param>::short_type_path(),
+            "MyMacroNameG<Param>"
+        );
+    }
+
+    #[test]
     fn reflect_type_info() {
         // TypeInfo
         let info = i32::type_info();
@@ -1171,7 +1270,7 @@ mod tests {
 
         // Struct (generic)
         #[derive(Reflect)]
-        struct MyGenericStruct<T: Reflect> {
+        struct MyGenericStruct<T: Reflect + TypePath> {
             foo: T,
             bar: usize,
         }
@@ -1331,6 +1430,26 @@ mod tests {
     }
 
     #[test]
+    fn should_permit_higher_ranked_lifetimes() {
+        #[derive(Reflect)]
+        struct TestStruct {
+            #[reflect(ignore)]
+            _hrl: for<'a> fn(&'a str) -> &'a str,
+        }
+
+        impl Default for TestStruct {
+            fn default() -> Self {
+                TestStruct {
+                    _hrl: |input| input,
+                }
+            }
+        }
+
+        fn get_type_registration<T: GetTypeRegistration>() {}
+        get_type_registration::<TestStruct>();
+    }
+
+    #[test]
     fn should_permit_valid_represented_type_for_dynamic() {
         let type_info = <[i32; 2] as Typed>::type_info();
         let mut dynamic_array = [123; 2].clone_dynamic();
@@ -1420,7 +1539,7 @@ mod tests {
             struct SomePrimitive;
             impl_reflect_value!(
                 /// Some primitive for which we have attributed custom documentation.
-                SomePrimitive
+                (in bevy_reflect::tests) SomePrimitive
             );
 
             let info = <SomePrimitive as Typed>::type_info();
