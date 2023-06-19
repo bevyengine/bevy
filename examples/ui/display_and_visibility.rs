@@ -418,17 +418,27 @@ fn buttons_handler<T>(
 }
 
 fn text_hover(
-    mut text_query: Query<(&mut Text, &mut BackgroundColor, &Interaction), Changed<Interaction>>,
+    mut button_query: Query<(&Interaction, &mut BackgroundColor, &Children), Changed<Interaction>>,
+    mut text_query: Query<&mut Text>,
 ) {
-    for (mut text, mut background_color, interaction) in text_query.iter_mut() {
+    for (interaction, mut background_color, children) in button_query.iter_mut() {
         match interaction {
             Interaction::Hovered => {
-                text.sections[0].style.color = Color::YELLOW;
                 *background_color = BackgroundColor(Color::BLACK.with_a(0.6));
+                for &child in children {
+                    if let Ok(mut text) = text_query.get_mut(child) {
+                        // Bypass change detection to avoid recomputation of the text when only changing the color
+                        text.bypass_change_detection().sections[0].style.color = Color::YELLOW;
+                    }
+                }
             }
             _ => {
-                text.sections[0].style.color = Color::WHITE;
                 *background_color = BackgroundColor(Color::BLACK.with_a(0.5));
+                for &child in children {
+                    if let Ok(mut text) = text_query.get_mut(child) {
+                        text.bypass_change_detection().sections[0].style.color = Color::WHITE;
+                    }
+                }
             }
         }
     }
