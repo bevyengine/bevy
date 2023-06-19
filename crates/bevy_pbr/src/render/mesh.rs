@@ -682,7 +682,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
-        if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
