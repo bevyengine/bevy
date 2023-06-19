@@ -2,7 +2,8 @@
 
 use crate::{
     widget::{Button, TextFlags, UiImageSize},
-    BackgroundColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage, UiKey, ZIndex,
+    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage, UiKey,
+    ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -27,6 +28,8 @@ pub struct NodeBundle {
     pub style: Style,
     /// The background color, which serves as a "fill" for this node
     pub background_color: BackgroundColor,
+    /// The color of the Node's border
+    pub border_color: BorderColor,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -53,6 +56,7 @@ impl Default for NodeBundle {
             // Transparent background
             background_color: Color::NONE.into(),
             key: Default::default(),
+            border_color: Color::NONE.into(),
             node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
@@ -235,6 +239,8 @@ pub struct ButtonBundle {
     ///
     /// When combined with `UiImage`, tints the provided image.
     pub background_color: BackgroundColor,
+    /// The color of the Node's border
+    pub border_color: BorderColor,
     /// The image of the node
     pub image: UiImage,
     /// The transform of the node
@@ -263,6 +269,7 @@ impl Default for ButtonBundle {
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
+            border_color: BorderColor(Color::NONE),
             interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),

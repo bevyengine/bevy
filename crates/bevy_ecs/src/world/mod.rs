@@ -122,14 +122,6 @@ impl World {
         UnsafeWorldCell::new_readonly(self)
     }
 
-    /// Creates a new [`UnsafeWorldCell`] with read+write access from a [&World](World).
-    /// This is only a temporary measure until every `&World` that is semantically a [`UnsafeWorldCell`]
-    /// has been replaced.
-    #[inline]
-    pub(crate) fn as_unsafe_world_cell_migration_internal(&self) -> UnsafeWorldCell<'_> {
-        UnsafeWorldCell::new_readonly(self)
-    }
-
     /// Retrieves this world's [Entities] collection
     #[inline]
     pub fn entities(&self) -> &Entities {
