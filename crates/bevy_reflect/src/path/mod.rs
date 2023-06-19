@@ -29,6 +29,7 @@ pub enum ReflectPathParseError {
     #[error("failed to parse a usize")]
     IndexParseError(#[from] ParseIntError),
 }
+
 /// An error returned from a failed path string query.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ReflectPathError<'a> {
