@@ -550,8 +550,12 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
-    use std::fmt::{Debug, Formatter};
-    use std::{any::TypeId, marker::PhantomData};
+    use std::{
+        any::TypeId,
+        borrow::Cow,
+        fmt::{Debug, Formatter},
+        marker::PhantomData,
+    };
 
     use super::prelude::*;
     use super::*;
@@ -1031,6 +1035,8 @@ mod tests {
             b: Bar,
             u: usize,
             t: ([f32; 3], String),
+            v: Cow<'static, str>,
+            w: Cow<'static, [u8]>,
         }
 
         let foo = Foo {
@@ -1039,6 +1045,8 @@ mod tests {
             b: Bar { y: 255 },
             u: 1111111111111,
             t: ([3.0, 2.0, 1.0], "Tuple String".to_string()),
+            v: Cow::Owned("Cow String".to_string()),
+            w: Cow::Owned(vec![1, 2, 3]),
         };
 
         let foo2: Box<dyn Reflect> = Box::new(foo.clone());
@@ -1393,6 +1401,38 @@ mod tests {
         let value: &dyn Reflect = &[1usize, 2usize, 3usize];
         let info = value.get_represented_type_info().unwrap();
         assert!(info.is::<MyArray>());
+
+        // Cow<'static, str>
+        type MyCowStr = Cow<'static, str>;
+
+        let info = MyCowStr::type_info();
+        if let TypeInfo::Value(info) = info {
+            assert!(info.is::<MyCowStr>());
+            assert_eq!(std::any::type_name::<MyCowStr>(), info.type_name());
+        } else {
+            panic!("Expected `TypeInfo::Value`");
+        }
+
+        let value: &dyn Reflect = &Cow::<'static, str>::Owned("Hello!".to_string());
+        let info = value.get_represented_type_info().unwrap();
+        assert!(info.is::<MyCowStr>());
+
+        // Cow<'static, [u8]>
+        type MyCowSlice = Cow<'static, [u8]>;
+
+        let info = MyCowSlice::type_info();
+        if let TypeInfo::List(info) = info {
+            assert!(info.is::<MyCowSlice>());
+            assert!(info.item_is::<u8>());
+            assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_name());
+            assert_eq!(std::any::type_name::<u8>(), info.item_type_name());
+        } else {
+            panic!("Expected `TypeInfo::List`");
+        }
+
+        let value: &dyn Reflect = &Cow::<'static, [u8]>::Owned(vec![0, 1, 2, 3]);
+        let info = value.get_represented_type_info().unwrap();
+        assert!(info.is::<MyCowSlice>());
 
         // Map
         type MyMap = HashMap<usize, f32>;

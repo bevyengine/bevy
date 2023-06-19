@@ -12,7 +12,7 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
-use super::unsafe_world_cell::UnsafeEntityCell;
+use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
 
 /// A read-only reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
@@ -119,6 +119,16 @@ impl<'w> EntityRef<'w> {
     pub fn get<T: Component>(&self) -> Option<&'w T> {
         // SAFETY: &self implies shared access for duration of returned value
         unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
+    }
+
+    /// Gets access to the component of type `T` for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
+        // SAFETY: &self implies shared access for duration of returned value
+        unsafe { self.as_unsafe_world_cell_readonly().get_ref::<T>() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
