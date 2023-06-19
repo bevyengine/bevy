@@ -118,11 +118,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.is_orthographic = is_orthographic;
 
 #ifdef LOAD_PREPASS_NORMALS
-    let alpha_mode = material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE || alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
         pbr_input.N = prepass_normal(in.frag_coord, 0u);
-    } else {
-#endif
+#else
         pbr_input.N = apply_normal_mapping(
             material.flags,
             pbr_input.world_normal,
@@ -135,8 +132,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             uv,
 #endif
         );
-#ifdef LOAD_PREPASS_NORMALS
-    }
 #endif
 
         pbr_input.V = V;
@@ -145,7 +140,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.flags = mesh.flags;
 
         output_color = pbr(pbr_input);
-        // return vec4(pbr_input.N, 1.0);
     } else {
         output_color = alpha_discard(material, output_color);
     }
