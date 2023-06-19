@@ -10,7 +10,7 @@ use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryItem, With},
-    schedule::IntoSystemConfigs,
+    schedule::{apply_deferred, IntoSystemConfigs},
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -65,7 +65,8 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_taa_jitter
+                    (prepare_taa_jitter_and_mip_bias, apply_deferred)
+                        .chain()
                         .before(prepare_view_uniforms)
                         .in_set(RenderSet::Prepare),
                     prepare_taa_history_textures.in_set(RenderSet::Prepare),
@@ -149,11 +150,16 @@ pub struct TemporalAntiAliasSettings {
     /// After setting this to true, it will automatically be toggled
     /// back to false after one frame.
     pub reset: bool,
+    /// Mipmap bias added to texture maps in addition to [`MipBias`].
+    pub additional_mip_bias: f32,
 }
 
 impl Default for TemporalAntiAliasSettings {
     fn default() -> Self {
-        Self { reset: true }
+        Self {
+            reset: true,
+            additional_mip_bias: -1.0,
+        }
     }
 }
 
@@ -429,17 +435,21 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
     {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         if camera.is_active && has_perspective_projection {
-            commands
-                .get_or_spawn(entity)
-                .insert((taa_settings.clone(), MipBias(-1.0)));
+            commands.get_or_spawn(entity).insert(taa_settings.clone());
             taa_settings.reset = false;
         }
     }
 }
 
-fn prepare_taa_jitter(
+fn prepare_taa_jitter_and_mip_bias(
     frame_count: Res<FrameCount>,
-    mut query: Query<&mut TemporalJitter, With<TemporalAntiAliasSettings>>,
+    mut query: Query<(
+        Entity,
+        &mut TemporalJitter,
+        Option<&mut MipBias>,
+        &TemporalAntiAliasSettings,
+    )>,
+    mut commands: Commands,
 ) {
     // Halton sequence (2, 3) - 0.5, skipping i = 0
     let halton_sequence = [
@@ -455,8 +465,17 @@ fn prepare_taa_jitter(
 
     let offset = halton_sequence[frame_count.0 as usize % halton_sequence.len()];
 
-    for mut jitter in &mut query {
+    for (entity, mut jitter, mip_bias, taa_settings) in &mut query {
         jitter.offset = offset;
+
+        match mip_bias {
+            Some(mut mip_bias) => mip_bias.0 += taa_settings.additional_mip_bias,
+            None => {
+                commands
+                    .entity(entity)
+                    .insert(MipBias(taa_settings.additional_mip_bias));
+            }
+        }
     }
 }
 
