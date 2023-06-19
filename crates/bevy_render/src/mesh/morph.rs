@@ -1,14 +1,9 @@
-mod visitors;
-
-use bevy_app::{Plugin, PostUpdate};
-use bevy_hierarchy::Children;
-use thiserror::Error;
-
 use crate::{
-    render_asset::RenderAssets,
-    render_resource::{Extent3d, TextureDimension, TextureFormat, TextureView},
+    mesh::Mesh,
+    render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
+use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Handle;
 use bevy_ecs::{
     component::Component,
@@ -16,12 +11,12 @@ use bevy_ecs::{
     query::{Changed, With, Without},
     system::Query,
 };
+use bevy_hierarchy::Children;
+use bevy_math::Vec3;
 use bevy_reflect::Reflect;
+use bytemuck::{Pod, Zeroable};
 use std::{iter, mem};
-
-pub use visitors::{MorphAttributes, VisitAttributes, VisitMorphTargets};
-
-use super::Mesh;
+use thiserror::Error;
 
 const MAX_TEXTURE_WIDTH: u32 = 2048;
 // NOTE: "component" refers to the element count of math objects,
@@ -30,6 +25,15 @@ const MAX_COMPONENTS: u32 = MAX_TEXTURE_WIDTH * MAX_TEXTURE_WIDTH;
 
 /// Max target count available for [morph targets](MorphWeights).
 pub const MAX_MORPH_WEIGHTS: usize = 64;
+
+/// [Inherit weights](inherit_weights) from glTF mesh parent entity to direct
+/// bevy mesh child entities (ie: glTF primitive).
+pub struct MorphPlugin;
+impl Plugin for MorphPlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+        app.add_systems(PostUpdate, inherit_weights);
+    }
+}
 
 #[derive(Error, Clone, Debug)]
 pub enum MorphBuildError {
@@ -49,18 +53,141 @@ pub enum MorphBuildError {
     )]
     TooManyTargets { target_count: usize },
 }
-pub type Result<T> = std::result::Result<T, MorphBuildError>;
 
-/// Value of [`Mesh`]'s [morph targets]. See also [`Mesh::set_morph_targets`].
+/// An image formatted for use with [`MorphWeights`] for rendering the morph target.
+#[derive(Debug)]
+pub struct MorphTargetImage(pub Image);
+
+impl MorphTargetImage {
+    /// Generate textures for each morph target.
+    ///
+    /// This accepts an "iterator of [`MorphAttributes`] iterators". Each item iterated in the top level
+    /// iterator corresponds "the attributes of a specific morph target".
+    ///
+    /// Each pixel of the texture is a component of morph target animated
+    /// attributes. So a set of 9 pixels is this morph's displacement for
+    /// position, normal and tangents of a single vertex (each taking 3 pixels).
+    pub fn new(
+        targets: impl ExactSizeIterator<Item = impl Iterator<Item = MorphAttributes>>,
+        vertex_count: usize,
+    ) -> Result<Self, MorphBuildError> {
+        let max = MAX_TEXTURE_WIDTH;
+        let target_count = targets.len();
+        if target_count > MAX_MORPH_WEIGHTS {
+            return Err(MorphBuildError::TooManyTargets { target_count });
+        }
+        let component_count = (vertex_count * MorphAttributes::COMPONENT_COUNT) as u32;
+        let Some((Rect(width, height), padding)) = lowest_2d(component_count , max) else {
+            return Err(MorphBuildError::TooManyAttributes { vertex_count, component_count });
+        };
+        let data = targets
+            .flat_map(|mut attributes| {
+                let layer_byte_count = (padding + component_count) as usize * mem::size_of::<f32>();
+                let mut buffer = Vec::with_capacity(layer_byte_count);
+                for _ in 0..vertex_count {
+                    let Some(to_add) = attributes.next() else {
+                        break;
+                    };
+                    buffer.extend_from_slice(bytemuck::bytes_of(&to_add));
+                }
+                // Pad each layer so that they fit width * height
+                buffer.extend(iter::repeat(0).take(padding as usize * mem::size_of::<f32>()));
+                debug_assert_eq!(buffer.len(), layer_byte_count);
+                buffer
+            })
+            .collect();
+        let extents = Extent3d {
+            width,
+            height,
+            depth_or_array_layers: target_count as u32,
+        };
+        let image = Image::new(extents, TextureDimension::D3, data, TextureFormat::R32Float);
+        Ok(MorphTargetImage(image))
+    }
+}
+
+/// Control a [`Mesh`]'s [morph targets].
+///
+/// Add this to an [`Entity`] with a [`Handle<Mesh>`] with a [`MorphAttributes`] set
+/// to control individual weights of each morph target.
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-/// [`Mesh::set_morph_targets`]: super::Mesh::set_morph_targets
-/// [`Mesh`]: super::Mesh
-#[derive(Debug, Clone)]
-pub(crate) struct MorphAttributesImage(pub(crate) Handle<Image>);
-impl MorphAttributesImage {
-    pub(crate) fn binding(&self, images: &RenderAssets<Image>) -> Option<TextureView> {
-        Some(images.get(&self.0)?.texture_view.clone())
+/// [`Entity`]: bevy_ecs::prelude::Entity
+#[derive(Reflect, Default, Debug, Clone, Component)]
+#[reflect(Debug, Component)]
+pub struct MorphWeights {
+    weights: Vec<f32>,
+}
+impl MorphWeights {
+    pub fn new(weights: Vec<f32>) -> Result<Self, MorphBuildError> {
+        if weights.len() > MAX_MORPH_WEIGHTS {
+            let target_count = weights.len();
+            return Err(MorphBuildError::TooManyTargets { target_count });
+        }
+        Ok(MorphWeights { weights })
+    }
+    pub fn weights(&self) -> &[f32] {
+        &self.weights
+    }
+    pub fn weights_mut(&mut self) -> &mut [f32] {
+        &mut self.weights
+    }
+}
+
+/// Bevy meshes are gltf primitives, [`MorphWeights`] on the bevy node entity
+/// should be inherited by children meshes.
+///
+/// Only direct children are updated, to fulfill the expectations of glTF spec.
+pub fn inherit_weights(
+    morph_nodes: Query<(&Children, &MorphWeights), (Without<Handle<Mesh>>, Changed<MorphWeights>)>,
+    mut morph_primitives: Query<&mut MorphWeights, With<Handle<Mesh>>>,
+) {
+    for (children, parent_weights) in &morph_nodes {
+        let mut iter = morph_primitives.iter_many_mut(children);
+        while let Some(mut child_weight) = iter.fetch_next() {
+            child_weight.weights.clear();
+            child_weight.weights.extend(&parent_weights.weights);
+        }
+    }
+}
+
+/// Attributes **differences** used for morph targets.
+///
+/// See [`MorphTargetImage`] for more information.
+#[derive(Copy, Clone, PartialEq, Pod, Zeroable, Default)]
+#[repr(C)]
+pub struct MorphAttributes {
+    /// The vertex position difference between base mesh and this target.
+    pub position: Vec3,
+    /// The vertex normal difference between base mesh and this target.
+    pub normal: Vec3,
+    /// The vertex tangent difference between base mesh and this target.
+    ///
+    /// Note that tangents are a `Vec4`, but only the `xyz` components are
+    /// animated, as the `w` component is the sign and cannot be animated.
+    pub tangent: Vec3,
+}
+impl From<[Vec3; 3]> for MorphAttributes {
+    fn from([position, normal, tangent]: [Vec3; 3]) -> Self {
+        MorphAttributes {
+            position,
+            normal,
+            tangent,
+        }
+    }
+}
+impl MorphAttributes {
+    /// How many components `MorphAttributes` has.
+    ///
+    /// Each `Vec3` has 3 components, we have 3 `Vec3`, for a total of 9.
+    pub const COMPONENT_COUNT: usize = 9;
+
+    pub fn new(position: Vec3, normal: Vec3, tangent: Vec3) -> Self {
+        MorphAttributes {
+            position,
+            normal,
+            tangent,
+        }
     }
 }
 
@@ -96,123 +223,4 @@ fn lowest_2d(min_includes: u32, max_edge: u32) -> Option<(Rect, u32)> {
         })
         .filter_map(|(rect, diff)| (rect.1 <= max_edge).then_some((rect, diff)))
         .min_by_key(|(_, diff)| *diff)
-}
-
-#[derive(Debug)]
-pub(crate) struct MorphTargetImage {
-    /// The image used with [`MorphWeights`] for rendering the morph target.
-    pub(crate) image: Image,
-}
-impl MorphTargetImage {
-    pub(crate) fn new(targets: impl VisitMorphTargets, vertex_count: u32) -> Result<Self> {
-        let total_components = MorphAttributes::COMPONENT_COUNT;
-
-        let target_count = targets.target_count();
-        if target_count > MAX_MORPH_WEIGHTS {
-            return Err(MorphBuildError::TooManyTargets { target_count });
-        }
-        let image = Self::displacements_buffer(
-            targets,
-            vertex_count as usize,
-            target_count,
-            total_components as u32,
-        )?;
-        Ok(MorphTargetImage { image })
-    }
-
-    /// Generate textures for each morph target.
-    ///
-    /// Each pixel of the texture is a component of morph target animated
-    /// attributes. So a set of 9 pixels is this morph's displacement for
-    /// position, normal and tangents of a single vertex (each taking 3 pixels).
-    fn displacements_buffer(
-        mut targets: impl VisitMorphTargets,
-        vertex_count: usize,
-        target_count: usize,
-        total_components: u32,
-    ) -> Result<Image> {
-        let max = MAX_TEXTURE_WIDTH;
-        let component_count = vertex_count as u32 * total_components;
-        let Some((Rect(width, height), padding)) = lowest_2d(component_count, max) else {
-            return Err(MorphBuildError::TooManyAttributes { vertex_count, component_count });
-        };
-        let data = targets
-            .targets()
-            .flat_map(|mut attributes| {
-                let layer_byte_count = (padding + component_count) as usize * mem::size_of::<f32>();
-                let mut buffer = Vec::with_capacity(layer_byte_count);
-                for _ in 0..vertex_count {
-                    let Some(to_add) = attributes.next_attributes() else {
-                        break;
-                    };
-                    buffer.extend_from_slice(bytemuck::bytes_of(&to_add));
-                }
-                // Pad each layer so that they fit width * height
-                buffer.extend(iter::repeat(0).take(padding as usize * mem::size_of::<f32>()));
-                debug_assert_eq!(buffer.len(), layer_byte_count);
-                buffer
-            })
-            .collect();
-        let extents = Extent3d {
-            width,
-            height,
-            depth_or_array_layers: target_count as u32,
-        };
-        let image = Image::new(extents, TextureDimension::D3, data, TextureFormat::R32Float);
-        Ok(image)
-    }
-}
-
-/// Control a [`Mesh`]'s [morph targets].
-///
-/// Add this to an [`Entity`] with a [`Handle<Mesh>`] with a [`MorphAttributes`] set
-/// to control individual weights of each morph target.
-///
-/// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-/// [`Entity`]: bevy_ecs::prelude::Entity
-#[derive(Reflect, Default, Debug, Clone, Component)]
-#[reflect(Debug, Component)]
-pub struct MorphWeights {
-    weights: Vec<f32>,
-}
-impl MorphWeights {
-    pub fn new(weights: Vec<f32>) -> Result<Self> {
-        if weights.len() > MAX_MORPH_WEIGHTS {
-            let target_count = weights.len();
-            return Err(MorphBuildError::TooManyTargets { target_count });
-        }
-        Ok(MorphWeights { weights })
-    }
-    pub fn weights(&self) -> &[f32] {
-        &self.weights
-    }
-    pub fn weights_mut(&mut self) -> &mut [f32] {
-        &mut self.weights
-    }
-}
-
-/// Bevy meshes are gltf primitives, [`MorphWeights`] on the bevy node entity
-/// should be inherited by children meshes.
-///
-/// Only direct children are updated, to fulfill the expectations of glTF spec.
-pub fn inherit_weights(
-    morph_nodes: Query<(&Children, &MorphWeights), (Without<Handle<Mesh>>, Changed<MorphWeights>)>,
-    mut morph_primitives: Query<&mut MorphWeights, With<Handle<Mesh>>>,
-) {
-    for (children, parent_weights) in &morph_nodes {
-        let mut iter = morph_primitives.iter_many_mut(children);
-        while let Some(mut child_weight) = iter.fetch_next() {
-            child_weight.weights.clear();
-            child_weight.weights.extend(&parent_weights.weights);
-        }
-    }
-}
-
-/// [Inherit weights](inherit_weights) from glTF mesh parent entity to direct
-/// bevy mesh child entities (ie: glTF primitive).
-pub struct MorphPlugin;
-impl Plugin for MorphPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
-        app.add_systems(PostUpdate, inherit_weights);
-    }
 }

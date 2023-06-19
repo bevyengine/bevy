@@ -1,5 +1,3 @@
-mod morph;
-
 use anyhow::Result;
 use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
@@ -18,7 +16,7 @@ use bevy_render::{
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
     color::Color,
     mesh::{
-        morph::MorphWeights,
+        morph::{MorphAttributes, MorphTargetImage, MorphWeights},
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         Indices, Mesh, MeshVertexAttribute, VertexAttributeValues,
     },
@@ -34,6 +32,7 @@ use bevy_transform::components::Transform;
 
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
+    accessor::Iter,
     mesh::{util::ReadIndices, Mode},
     texture::{MagFilter, MinFilter, WrappingMode},
     Material, Node, Primitive,
@@ -251,13 +250,19 @@ async fn load_gltf<'a, 'b>(
                 }));
             };
 
-            let target_count = reader.read_morph_targets().len();
-            if target_count != 0 {
-                let walker = morph::PrimitiveMorphTargets::new(&reader);
-                let store = |image| {
-                    load_context.set_labeled_asset(&morph_targets_label, LoadedAsset::new(image))
-                };
-                mesh.set_morph_targets(walker, store)?;
+            {
+                let morph_target_reader = reader.read_morph_targets();
+                if morph_target_reader.len() != 0 {
+                    let morph_target_image = MorphTargetImage::new(
+                        morph_target_reader.map(PrimitiveMorphAttributesIter),
+                        mesh.count_vertices(),
+                    )?;
+                    let handle = load_context.set_labeled_asset(
+                        &morph_targets_label,
+                        LoadedAsset::new(morph_target_image.0),
+                    );
+                    mesh.set_morph_targets(handle);
+                }
             }
 
             if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
@@ -1166,6 +1171,32 @@ impl<'a> DataUri<'a> {
         } else {
             Ok(self.data.as_bytes().to_owned())
         }
+    }
+}
+
+pub(super) struct PrimitiveMorphAttributesIter<'s>(
+    pub  (
+        Option<Iter<'s, [f32; 3]>>,
+        Option<Iter<'s, [f32; 3]>>,
+        Option<Iter<'s, [f32; 3]>>,
+    ),
+);
+impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
+    type Item = MorphAttributes;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let position = self.0 .0.as_mut().and_then(|p| p.next());
+        let normal = self.0 .1.as_mut().and_then(|n| n.next());
+        let tangent = self.0 .2.as_mut().and_then(|t| t.next());
+        if position.is_none() && normal.is_none() && tangent.is_none() {
+            return None;
+        }
+
+        Some(MorphAttributes {
+            position: position.map(|p| p.into()).unwrap_or(Vec3::ZERO),
+            normal: normal.map(|n| n.into()).unwrap_or(Vec3::ZERO),
+            tangent: tangent.map(|t| t.into()).unwrap_or(Vec3::ZERO),
+        })
     }
 }
 

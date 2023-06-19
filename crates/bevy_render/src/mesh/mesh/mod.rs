@@ -23,8 +23,6 @@ use wgpu::{
     VertexStepMode,
 };
 
-use super::morph::{MorphAttributesImage, MorphBuildError, MorphTargetImage, VisitMorphTargets};
-
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 
@@ -39,7 +37,7 @@ pub struct Mesh {
     /// which allows easy stable VertexBuffers (i.e. same buffer order)
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
-    morph_targets: Option<MorphAttributesImage>,
+    morph_targets: Option<Handle<Image>>,
 }
 
 /// Contains geometry in the form of a mesh.
@@ -110,19 +108,11 @@ impl Mesh {
         self.morph_targets.is_some()
     }
 
-    /// Set [morph targets] for this mesh using [`VisitMorphTargets`].
+    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::mesh::morph::MorphTargetImage) for info.
     ///
     /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-    pub fn set_morph_targets<Visit: VisitMorphTargets>(
-        &mut self,
-        visitor: Visit,
-        store_image: impl FnOnce(Image) -> Handle<Image>,
-    ) -> Result<(), MorphBuildError> {
-        let vertex_count = self.count_vertices();
-        let image = MorphTargetImage::new(visitor, vertex_count as u32)?;
-        let handle = store_image(image.image);
-        self.morph_targets = Some(MorphAttributesImage(handle));
-        Ok(())
+    pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
+        self.morph_targets = Some(morph_targets);
     }
 
     /// Sets the data for a vertex attribute (position, normal etc.). The name will
@@ -909,7 +899,9 @@ impl RenderAsset for Mesh {
             buffer_info,
             primitive_topology: mesh.primitive_topology(),
             layout: mesh_vertex_buffer_layout,
-            morph_targets: mesh.morph_targets.and_then(|mt| mt.binding(images)),
+            morph_targets: mesh
+                .morph_targets
+                .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
         })
     }
 }
