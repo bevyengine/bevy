@@ -40,7 +40,7 @@ impl Error<'static> {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Type {
+pub(super) enum Type {
     Struct,
     TupleStruct,
     Tuple,
