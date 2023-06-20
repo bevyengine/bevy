@@ -18,16 +18,15 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{
-        bloom::BloomSettings,
-        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
-        prepass::DepthPrepass,
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::{bloom::BloomSettings, prepass::DepthPrepass, tonemapping::Tonemapping},
     pbr::{NotShadowCaster, NotTransmittedShadowReceiver, PointLightShadowMap},
     prelude::*,
     render::view::ColorGrading,
 };
+
+#[cfg(any(not(feature = "webgl2"), not(target_arch = "wasm32")))]
+use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
+
 use rand::random;
 
 fn main() {
@@ -39,12 +38,15 @@ fn main() {
             brightness: 0.0,
             ..default()
         })
-        // *Note:* TAA is not _required_ for specular transmission, but
-        // it _greatly enhances_ the look of the resulting blur effects
-        .insert_resource(Msaa::Off)
-        .add_plugin(TemporalAntiAliasPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, (example_control_system, flicker_system));
+
+    // *Note:* TAA is not _required_ for specular transmission, but
+    // it _greatly enhances_ the look of the resulting blur effects.
+    // Sadly, it's not available under WebGL.
+    #[cfg(any(not(feature = "webgl2"), not(target_arch = "wasm32")))]
+    app.insert_resource(Msaa::Off)
+        .add_plugin(TemporalAntiAliasPlugin);
 
     app.run();
 }
@@ -347,6 +349,7 @@ fn setup(
             tonemapping: Tonemapping::TonyMcMapface,
             ..default()
         },
+        #[cfg(any(not(feature = "webgl2"), not(target_arch = "wasm32")))]
         TemporalAntiAliasBundle::default(),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
@@ -498,6 +501,7 @@ fn example_control_system(
         camera.hdr = !camera.hdr;
     }
 
+    #[cfg(any(not(feature = "webgl2"), not(target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::D) {
         if depth_prepass.is_none() {
             commands.entity(camera_entity).insert(DepthPrepass);
@@ -531,7 +535,11 @@ fn example_control_system(
     display.sections[0].value = format!(
         "HDR: {}\nDepth Prepass+TAA: {}\nDiffuse Transmission: {:.2}\nTransmission: {:.2}\nThickness: {:.2}\nIOR: {:.2}\nPerceptual Roughness: {:.2}\nTransmissive Steps: {}",
         if camera.hdr { "ON " } else { "OFF" },
-        if depth_prepass.is_some() { "ON " } else { "OFF" },
+        if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
+            if depth_prepass.is_some() { "ON " } else { "OFF" }
+        } else {
+            "N/A"
+        },
         state.diffuse_transmission,
         state.transmission,
         state.thickness,
