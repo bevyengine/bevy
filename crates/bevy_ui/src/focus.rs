@@ -194,7 +194,7 @@ pub fn ui_focus_system(
                 .and_then(|window| window.cursor_position())
         })
         .or_else(|| touches_input.first_pressed_position())
-        .map(|cursor_position| cursor_position * ui_scale.scale as f32);
+        .map(|cursor_position| cursor_position / ui_scale.scale as f32);
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
