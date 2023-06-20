@@ -27,10 +27,10 @@ fn main() {
             }),
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
+            LogVisibleLights,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_light_count))
-        .add_plugins(LogVisibleLights)
         .run();
 }
 

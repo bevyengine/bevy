@@ -182,6 +182,10 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
+            .init_resource::<AmbientLight>()
+            .init_resource::<GlobalVisiblePointLights>()
+            .init_resource::<DirectionalLightShadowMap>()
+            .init_resource::<PointLightShadowMap>()
             .add_plugins((
                 MeshRenderPlugin,
                 MaterialPlugin::<StandardMaterial> {
@@ -190,12 +194,9 @@ impl Plugin for PbrPlugin {
                 },
                 ScreenSpaceAmbientOcclusionPlugin,
                 EnvironmentMapPlugin,
+                ExtractResourcePlugin::<AmbientLight>::default(),
+                FogPlugin,
             ))
-            .init_resource::<AmbientLight>()
-            .init_resource::<GlobalVisiblePointLights>()
-            .init_resource::<DirectionalLightShadowMap>()
-            .init_resource::<PointLightShadowMap>()
-            .add_plugins(ExtractResourcePlugin::<AmbientLight>::default())
             .configure_sets(
                 PostUpdate,
                 (
@@ -205,7 +206,6 @@ impl Plugin for PbrPlugin {
                 )
                     .chain(),
             )
-            .add_plugins(FogPlugin)
             .add_systems(
                 PostUpdate,
                 (
