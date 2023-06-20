@@ -279,10 +279,12 @@ pub fn extract_uinode_borders(
 ) {
     let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
 
-    let logical_viewport_size = windows
+    let ui_logical_viewport_size = windows
         .get_single()
         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
         .unwrap_or(Vec2::ZERO)
+        // The logical window resolutin returned by `Window` only takes into account the window scale factor and not `UiScale`,
+        // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.scale as f32;
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
@@ -303,15 +305,21 @@ pub fn extract_uinode_borders(
             let parent_width = parent
                 .and_then(|parent| parent_node_query.get(parent.get()).ok())
                 .map(|parent_node| parent_node.size().x)
-                .unwrap_or(logical_viewport_size.x);
+                .unwrap_or(ui_logical_viewport_size.x);
             let left =
-                resolve_border_thickness(style.border.left, parent_width, logical_viewport_size);
-            let right =
-                resolve_border_thickness(style.border.right, parent_width, logical_viewport_size);
+                resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
+            let right = resolve_border_thickness(
+                style.border.right,
+                parent_width,
+                ui_logical_viewport_size,
+            );
             let top =
-                resolve_border_thickness(style.border.top, parent_width, logical_viewport_size);
-            let bottom =
-                resolve_border_thickness(style.border.bottom, parent_width, logical_viewport_size);
+                resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
+            let bottom = resolve_border_thickness(
+                style.border.bottom,
+                parent_width,
+                ui_logical_viewport_size,
+            );
 
             // Calculate the border rects, ensuring no overlap.
             // The border occupies the space between the node's bounding rect and the node's bounding rect inset in each direction by the node's corresponding border value.
