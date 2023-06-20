@@ -4,10 +4,7 @@ use core::fmt::Debug;
 use crate::component::Tick;
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::{
-    archetype::ArchetypeComponentId,
-    component::ComponentId,
-    query::Access,
-    system::SystemMeta,
+    archetype::ArchetypeComponentId, component::ComponentId, query::Access, system::SystemMeta,
     world::World,
 };
 

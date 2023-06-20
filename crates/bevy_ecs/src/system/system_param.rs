@@ -175,8 +175,7 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
             &state.component_access,
             world,
         );
-        unsafe { system_meta.component_access_set_mut() }
-            .add(state.component_access.clone());
+        unsafe { system_meta.component_access_set_mut() }.add(state.component_access.clone());
         unsafe { system_meta.archetype_component_access_mut() }
             .extend(&state.archetype_component_access);
         state
@@ -421,14 +420,12 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             std::any::type_name::<T>(),
             system_meta.name(),
         );
-        unsafe { system_meta.component_access_set_mut() }
-            .add_unfiltered_read(component_id);
+        unsafe { system_meta.component_access_set_mut() }.add_unfiltered_read(component_id);
 
         let archetype_component_id = world
             .get_resource_archetype_component_id(component_id)
             .unwrap();
-        unsafe { system_meta .archetype_component_access_mut() }
-            .add_read(archetype_component_id);
+        unsafe { system_meta.archetype_component_access_mut() }.add_read(archetype_component_id);
 
         component_id
     }
@@ -512,14 +509,12 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access.",
                 std::any::type_name::<T>(), system_meta.name());
         }
-        unsafe { system_meta.component_access_set_mut() }
-            .add_unfiltered_write(component_id);
+        unsafe { system_meta.component_access_set_mut() }.add_unfiltered_write(component_id);
 
         let archetype_component_id = world
             .get_resource_archetype_component_id(component_id)
             .unwrap();
-        unsafe { system_meta.archetype_component_access_mut() }
-            .add_write(archetype_component_id);
+        unsafe { system_meta.archetype_component_access_mut() }.add_write(archetype_component_id);
 
         component_id
     }
@@ -1001,14 +996,12 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             std::any::type_name::<T>(),
             system_meta.name(),
         );
-        unsafe { system_meta.component_access_set_mut() }
-            .add_unfiltered_read(component_id);
+        unsafe { system_meta.component_access_set_mut() }.add_unfiltered_read(component_id);
 
         let archetype_component_id = world
             .get_non_send_archetype_component_id(component_id)
             .unwrap();
-        unsafe { system_meta.archetype_component_access_mut() }
-            .add_read(archetype_component_id);
+        unsafe { system_meta.archetype_component_access_mut() }.add_read(archetype_component_id);
 
         component_id
     }
@@ -1089,14 +1082,12 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access.",
                 std::any::type_name::<T>(), system_meta.name());
         }
-        unsafe { system_meta.component_access_set_mut() }
-            .add_unfiltered_write(component_id);
+        unsafe { system_meta.component_access_set_mut() }.add_unfiltered_write(component_id);
 
         let archetype_component_id = world
             .get_non_send_archetype_component_id(component_id)
             .unwrap();
-        unsafe { system_meta.archetype_component_access_mut() }
-            .add_write(archetype_component_id);
+        unsafe { system_meta.archetype_component_access_mut() }.add_write(archetype_component_id);
 
         component_id
     }

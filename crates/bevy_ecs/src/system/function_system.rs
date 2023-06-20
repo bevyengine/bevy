@@ -100,11 +100,11 @@ impl SystemMeta {
     }
 
     /// Set the system's last tick, which is used for reliable change detection.
-    /// 
+    ///
     /// Note that component changes are detected when the system's `last_run` tick is older
     /// than their component change ticks, so this value is updated after each run to be
     /// [`World::read_change_tick`].
-    /// 
+    ///
     /// See [`crate::system::SystemChangeTick`] and [`crate::change_detection`].
     #[inline]
     pub fn last_run_mut(&mut self) -> &mut Tick {
