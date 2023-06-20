@@ -47,23 +47,39 @@ pub struct Mesh {
 /// ```
 /// # use bevy_render::mesh::{Mesh, Indices};
 /// # use bevy_render::render_resource::PrimitiveTopology;
-/// fn create_triangle() -> Mesh {
+/// fn create_simple_parallelogram() -> Mesh {
+///     // create a new mesh, add 4 vertices, each with its own position attribute (coordinate in
+///     // 3D space). for each of the points of the parallelogram. for more examples of different
+///     // shapes, see the built in examples in bevy.
 ///     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
 ///     mesh.insert_attribute(
 ///         Mesh::ATTRIBUTE_POSITION,
-///         vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [0.0, 0.0, 0.0]]
+///         vec![[0.0, 0.0, 0.0], [1.0, 2.0, 0.0], [2.0, 2.0, 0.0], [1.0, 0.0, 0.0]]
 ///     );
-///     // We have created 4 vertices, each with it's own position attribute.
+///     // assign a UV coordinate to each vertex.
 ///     mesh.insert_attribute(
 ///         Mesh::ATTRIBUTE_UV_0,
-///         vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
+///         vec![[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]]
 ///     );
-///     // We have assigned a UV coordinate for each of the 4 vertices we created.
-///     // NOTE: Multiple vertices can have the same attribute, but multiple attributes cannot be
-///     // of the same vertex.
-///     // We define the triangles using the defined vertices' indices.
-///     mesh.set_indices(Some(Indices::U32(vec![0,1,2 , 0,1,3])));
+///     // assign normals (everything points outwards)
+///     mesh.insert_attribute(
+///        Mesh::ATTRIBUTE_NORMAL,
+///        vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]
+///     );
+///     // NOTE: for StandardMaterial to work properly with a mesh, it should have
+///     // an ATTRIBUTE_UV_0, and ATTRIBUTE_NORMAL, for proper texture and light processing.
+///     //
+///     // after defining all the vertices and their attributes, build each triangle using the
+///     // indices of the vertices that make it up in a counter-clockwise order. If the
+///     // indices' order would be clock-wise bevy would render the back and not the front.
+///     mesh.set_indices(Some(Indices::U32(vec![0,3,1 , 1,3,2])));
 ///     mesh
+///     // for further visualisation, explanation, and examples see the built-in Bevy examples, and source code
+///     // of the built in shapes (crates/bevy_render/src/mesh/shape/*).
+///     // Common points of confusion:
+///     //      - UV maps in Bevy are "flipped", (0.0, 0.0) = Top-Left (not Bot-Left like OpenGL)
+///     //      - It is normal and common for multiple vertices to have the same position
+///     //        attribute, common technique in 3D modelling for complex UV mapping or other calc.
 /// }
 /// ```
 impl Mesh {
