@@ -15,13 +15,13 @@ use super::{In, IntoSystem, ReadOnlySystem};
 /// The metadata of a [`System`].
 #[derive(Clone)]
 pub struct SystemMeta {
-    pub(crate) name: Cow<'static, str>,
-    pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
-    pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
+    name: Cow<'static, str>,
+    component_access_set: FilteredAccessSet<ComponentId>,
+    archetype_component_access: Access<ArchetypeComponentId>,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
-    pub(crate) last_run: Tick,
+    last_run: Tick,
 }
 
 impl SystemMeta {
@@ -37,7 +37,7 @@ impl SystemMeta {
 
     /// Returns the system's name.
     #[inline]
-    pub fn name(&self) -> &str {
+    pub const fn name(&self) -> &Cow<'static, str> {
         &self.name
     }
 
@@ -558,11 +558,7 @@ where
 
     #[inline]
     fn check_change_tick(&mut self, change_tick: Tick) {
-        check_system_change_tick(
-            &mut self.system_meta.last_run,
-            change_tick,
-            self.system_meta.name.as_ref(),
-        );
+        check_system_change_tick(&mut self.system_meta, change_tick);
     }
 
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {

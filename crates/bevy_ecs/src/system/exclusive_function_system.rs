@@ -61,7 +61,7 @@ where
 
     #[inline]
     fn name(&self) -> Cow<'static, str> {
-        self.system_meta.name.clone()
+        self.system_meta.name().clone()
     }
 
     #[inline]
@@ -71,12 +71,12 @@ where
 
     #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
-        self.system_meta.component_access_set.combined_access()
+        self.system_meta.component_access_set().combined_access()
     }
 
     #[inline]
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.system_meta.archetype_component_access
+        &self.system_meta.archetype_component_access()
     }
 
     #[inline]
@@ -94,7 +94,7 @@ where
 
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         let saved_last_tick = world.last_change_tick;
-        world.last_change_tick = self.system_meta.last_run;
+        world.last_change_tick = self.system_meta.last_run();
 
         let params = F::Param::get_param(
             self.param_state.as_mut().expect(PARAM_MESSAGE),
@@ -103,7 +103,7 @@ where
         let out = self.func.run(world, input, params);
 
         let change_tick = world.change_tick.get_mut();
-        self.system_meta.last_run.set(*change_tick);
+        self.system_meta.last_run_mut().set(*change_tick);
         *change_tick = change_tick.wrapping_add(1);
         world.last_change_tick = saved_last_tick;
 
@@ -116,11 +116,11 @@ where
     }
 
     fn get_last_run(&self) -> Tick {
-        self.system_meta.last_run
+        self.system_meta.last_run()
     }
 
     fn set_last_run(&mut self, last_run: Tick) {
-        self.system_meta.last_run = last_run;
+        *self.system_meta.last_run_mut() = last_run;
     }
 
     #[inline]
@@ -132,7 +132,7 @@ where
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
-        self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
+        *self.system_meta.last_run_mut() = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
 
@@ -140,11 +140,7 @@ where
 
     #[inline]
     fn check_change_tick(&mut self, change_tick: Tick) {
-        check_system_change_tick(
-            &mut self.system_meta.last_run,
-            change_tick,
-            self.system_meta.name.as_ref(),
-        );
+        check_system_change_tick(&mut self.system_meta, change_tick);
     }
 
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {

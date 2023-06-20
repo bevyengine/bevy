@@ -196,18 +196,16 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     #(
                         // Pretend to add each param to the system alone, see if it conflicts
                         let mut #meta = system_meta.clone();
-                        #meta.component_access_set.clear();
-                        #meta.archetype_component_access.clear();
+                        unsafe { #meta.component_access_set_mut() }.clear();
+                        unsafe { #meta.archetype_component_access_mut() }.clear();
                         #param::init_state(world, &mut #meta);
                         let #param = #param::init_state(world, &mut system_meta.clone());
                     )*
                     #(
-                        system_meta
-                            .component_access_set
-                            .extend(#meta.component_access_set);
-                        system_meta
-                            .archetype_component_access
-                            .extend(&#meta.archetype_component_access);
+                        unsafe { system_meta.archetype_component_access_mut() }
+                            .extend(#meta.archetype_component_access());
+                        unsafe { system_meta.component_access_set_mut() }
+                            .extend(#meta.component_access_set().clone());
                     )*
                     (#(#param,)*)
                 }

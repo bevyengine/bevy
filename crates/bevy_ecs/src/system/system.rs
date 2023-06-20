@@ -3,7 +3,13 @@ use core::fmt::Debug;
 
 use crate::component::Tick;
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
-use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
+use crate::{
+    archetype::ArchetypeComponentId,
+    component::ComponentId,
+    query::Access,
+    system::SystemMeta,
+    world::World,
+};
 
 use std::any::TypeId;
 use std::borrow::Cow;
@@ -136,9 +142,10 @@ pub unsafe trait ReadOnlySystem: System {
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
-pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, system_name: &str) {
-    if last_run.check_tick(this_run) {
-        let age = this_run.relative_to(*last_run).get();
+pub(crate) fn check_system_change_tick(system_meta: &mut SystemMeta, this_run: Tick) {
+    if system_meta.last_run_mut().check_tick(this_run) {
+        let age = this_run.relative_to(system_meta.last_run()).get();
+        let system_name = system_meta.name();
         warn!(
             "System '{system_name}' has not run for {age} ticks. \
             Changes older than {} ticks will not be detected.",

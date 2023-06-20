@@ -168,26 +168,23 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new(world);
         assert_component_access_compatibility(
-            &system_meta.name,
+            &system_meta.name(),
             std::any::type_name::<Q>(),
             std::any::type_name::<F>(),
-            &system_meta.component_access_set,
+            &system_meta.component_access_set(),
             &state.component_access,
             world,
         );
-        system_meta
-            .component_access_set
+        unsafe { system_meta.component_access_set_mut() }
             .add(state.component_access.clone());
-        system_meta
-            .archetype_component_access
+        unsafe { system_meta.archetype_component_access_mut() }
             .extend(&state.archetype_component_access);
         state
     }
 
     fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
         state.new_archetype(archetype);
-        system_meta
-            .archetype_component_access
+        unsafe { system_meta.archetype_component_access_mut() }
             .extend(&state.archetype_component_access);
     }
 
@@ -201,7 +198,7 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
-        Query::new(world, state, system_meta.last_run, change_tick, false)
+        Query::new(world, state, system_meta.last_run(), change_tick, false)
     }
 }
 
@@ -417,22 +414,20 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.initialize_resource::<T>();
-        let combined_access = system_meta.component_access_set.combined_access();
+        let combined_access = system_meta.component_access_set().combined_access();
         assert!(
             !combined_access.has_write(component_id),
             "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access.",
             std::any::type_name::<T>(),
-            system_meta.name,
+            system_meta.name(),
         );
-        system_meta
-            .component_access_set
+        unsafe { system_meta.component_access_set_mut() }
             .add_unfiltered_read(component_id);
 
         let archetype_component_id = world
             .get_resource_archetype_component_id(component_id)
             .unwrap();
-        system_meta
-            .archetype_component_access
+        unsafe { system_meta .archetype_component_access_mut() }
             .add_read(archetype_component_id);
 
         component_id
@@ -450,7 +445,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",
-                    system_meta.name,
+                    system_meta.name(),
                     std::any::type_name::<T>()
                 )
             });
@@ -459,7 +454,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             ticks: Ticks {
                 added: ticks.added.deref(),
                 changed: ticks.changed.deref(),
-                last_run: system_meta.last_run,
+                last_run: system_meta.last_run(),
                 this_run: change_tick,
             },
         }
@@ -492,7 +487,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
                 ticks: Ticks {
                     added: ticks.added.deref(),
                     changed: ticks.changed.deref(),
-                    last_run: system_meta.last_run,
+                    last_run: system_meta.last_run(),
                     this_run: change_tick,
                 },
             })
@@ -507,25 +502,23 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.initialize_resource::<T>();
-        let combined_access = system_meta.component_access_set.combined_access();
+        let combined_access = system_meta.component_access_set().combined_access();
         if combined_access.has_write(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access.",
-                std::any::type_name::<T>(), system_meta.name);
+                std::any::type_name::<T>(), system_meta.name());
         } else if combined_access.has_read(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access.",
-                std::any::type_name::<T>(), system_meta.name);
+                std::any::type_name::<T>(), system_meta.name());
         }
-        system_meta
-            .component_access_set
+        unsafe { system_meta.component_access_set_mut() }
             .add_unfiltered_write(component_id);
 
         let archetype_component_id = world
             .get_resource_archetype_component_id(component_id)
             .unwrap();
-        system_meta
-            .archetype_component_access
+        unsafe { system_meta.archetype_component_access_mut() }
             .add_write(archetype_component_id);
 
         component_id
@@ -543,7 +536,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",
-                    system_meta.name,
+                    system_meta.name(),
                     std::any::type_name::<T>()
                 )
             });
@@ -552,7 +545,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             ticks: TicksMut {
                 added: value.ticks.added,
                 changed: value.ticks.changed,
-                last_run: system_meta.last_run,
+                last_run: system_meta.last_run(),
                 this_run: change_tick,
             },
         }
@@ -582,7 +575,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
                 ticks: TicksMut {
                     added: value.ticks.added,
                     changed: value.ticks.changed,
-                    last_run: system_meta.last_run,
+                    last_run: system_meta.last_run(),
                     this_run: change_tick,
                 },
             })
@@ -601,24 +594,24 @@ unsafe impl SystemParam for &'_ World {
         let mut access = Access::default();
         access.read_all();
         if !system_meta
-            .archetype_component_access
+            .archetype_component_access()
             .is_compatible(&access)
         {
             panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
         }
-        system_meta.archetype_component_access.extend(&access);
+        unsafe { system_meta.archetype_component_access_mut() }.extend(&access);
 
         let mut filtered_access = FilteredAccess::default();
 
         filtered_access.read_all();
         if !system_meta
-            .component_access_set
+            .component_access_set()
             .get_conflicts_single(&filtered_access)
             .is_empty()
         {
             panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
         }
-        system_meta.component_access_set.add(filtered_access);
+        unsafe { system_meta.component_access_set_mut() }.add(filtered_access);
     }
 
     unsafe fn get_param<'w, 's>(
@@ -1001,22 +994,20 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         system_meta.set_non_send();
 
         let component_id = world.initialize_non_send_resource::<T>();
-        let combined_access = system_meta.component_access_set.combined_access();
+        let combined_access = system_meta.component_access_set().combined_access();
         assert!(
             !combined_access.has_write(component_id),
             "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access.",
             std::any::type_name::<T>(),
-            system_meta.name,
+            system_meta.name(),
         );
-        system_meta
-            .component_access_set
+        unsafe { system_meta.component_access_set_mut() }
             .add_unfiltered_read(component_id);
 
         let archetype_component_id = world
             .get_non_send_archetype_component_id(component_id)
             .unwrap();
-        system_meta
-            .archetype_component_access
+        unsafe { system_meta.archetype_component_access_mut() }
             .add_read(archetype_component_id);
 
         component_id
@@ -1034,7 +1025,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
-                    system_meta.name,
+                    system_meta.name(),
                     std::any::type_name::<T>()
                 )
             });
@@ -1042,7 +1033,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         NonSend {
             value: ptr.deref(),
             ticks: ticks.read(),
-            last_run: system_meta.last_run,
+            last_run: system_meta.last_run(),
             this_run: change_tick,
         }
     }
@@ -1072,7 +1063,7 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
                 ticks: ticks.read(),
-                last_run: system_meta.last_run,
+                last_run: system_meta.last_run(),
                 this_run: change_tick,
             })
     }
@@ -1088,25 +1079,23 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         system_meta.set_non_send();
 
         let component_id = world.initialize_non_send_resource::<T>();
-        let combined_access = system_meta.component_access_set.combined_access();
+        let combined_access = system_meta.component_access_set().combined_access();
         if combined_access.has_write(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access.",
-                std::any::type_name::<T>(), system_meta.name);
+                std::any::type_name::<T>(), system_meta.name());
         } else if combined_access.has_read(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access.",
-                std::any::type_name::<T>(), system_meta.name);
+                std::any::type_name::<T>(), system_meta.name());
         }
-        system_meta
-            .component_access_set
+        unsafe { system_meta.component_access_set_mut() }
             .add_unfiltered_write(component_id);
 
         let archetype_component_id = world
             .get_non_send_archetype_component_id(component_id)
             .unwrap();
-        system_meta
-            .archetype_component_access
+        unsafe { system_meta.archetype_component_access_mut() }
             .add_write(archetype_component_id);
 
         component_id
@@ -1124,13 +1113,13 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
-                    system_meta.name,
+                    system_meta.name(),
                     std::any::type_name::<T>()
                 )
             });
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
+            ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run(), change_tick),
         }
     }
 }
@@ -1155,7 +1144,7 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
             .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
-                ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
+                ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run(), change_tick),
             })
     }
 }
@@ -1290,7 +1279,7 @@ unsafe impl SystemParam for SystemChangeTick {
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         SystemChangeTick {
-            last_run: system_meta.last_run,
+            last_run: system_meta.last_run(),
             this_run: change_tick,
         }
     }
@@ -1350,7 +1339,7 @@ unsafe impl SystemParam for SystemName<'_> {
     type Item<'w, 's> = SystemName<'s>;
 
     fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.name.clone()
+        system_meta.name().clone()
     }
 
     #[inline]
