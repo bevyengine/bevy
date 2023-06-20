@@ -816,6 +816,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 | AlphaMode::Multiply => continue,
             }
 
+            if material.properties.reads_view_transmission_texture {
+                // No-op: Materials reading from `ViewTransmissionTexture` are not rendered in the `Opaque3d`
+                // phase, and are therefore also excluded from the prepass much like alpha-blended materials.
+                continue;
+            }
+
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &prepass_pipeline,
@@ -837,17 +843,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 rangefinder.distance(&mesh_uniform.transform) + material.properties.depth_bias;
             match alpha_mode {
                 AlphaMode::Opaque => {
-                    if material.properties.reads_view_transmission_texture {
-                        // No-op: Materials reading from `ViewTransmissionTexture` are not rendered in the `Opaque3d`
-                        // phase, and are therefore also excluded from the prepass much like alpha-blended materials.
-                    } else {
-                        opaque_phase.add(Opaque3dPrepass {
-                            entity: *visible_entity,
-                            draw_function: opaque_draw_prepass,
-                            pipeline_id,
-                            distance,
-                        });
-                    }
+                    opaque_phase.add(Opaque3dPrepass {
+                        entity: *visible_entity,
+                        draw_function: opaque_draw_prepass,
+                        pipeline_id,
+                        distance,
+                    });
                 }
                 AlphaMode::Mask(_) => {
                     alpha_mask_phase.add(AlphaMask3dPrepass {
