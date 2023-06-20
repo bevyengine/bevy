@@ -2,10 +2,9 @@ use std::any::TypeId;
 
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use anyhow::Result;
-use bevy_app::AppTypeRegistry;
 use bevy_ecs::{
     entity::{Entity, EntityMap},
-    reflect::{ReflectComponent, ReflectMapEntities},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
 use bevy_reflect::{Reflect, TypePath, TypeRegistryArc, TypeUuid};
@@ -185,8 +184,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::AppTypeRegistry;
-    use bevy_ecs::{entity::EntityMap, system::Command, world::World};
+    use bevy_ecs::{entity::EntityMap, reflect::AppTypeRegistry, system::Command, world::World};
     use bevy_hierarchy::{AddChild, Parent};
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
