@@ -20,7 +20,7 @@ use std::collections::BTreeMap;
 /// # Example
 /// ```
 /// # use bevy_scene::DynamicSceneBuilder;
-/// # use bevy_app::AppTypeRegistry;
+/// # use bevy_ecs::reflect::AppTypeRegistry;
 /// # use bevy_ecs::{
 /// #     component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
 /// # };
@@ -100,7 +100,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Extracting entities can be used to extract entities from a query:
     /// ```
     /// # use bevy_scene::DynamicSceneBuilder;
-    /// # use bevy_app::AppTypeRegistry;
+    /// # use bevy_ecs::reflect::AppTypeRegistry;
     /// # use bevy_ecs::{
     /// #     component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
     /// # };
@@ -161,7 +161,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Re-extracting a resource that was already extracted will have no effect.
     /// ```
     /// # use bevy_scene::DynamicSceneBuilder;
-    /// # use bevy_app::AppTypeRegistry;
+    /// # use bevy_ecs::reflect::AppTypeRegistry;
     /// # use bevy_ecs::prelude::{ReflectResource, Resource, World};
     /// # use bevy_reflect::Reflect;
     /// #[derive(Resource, Default, Reflect)]
