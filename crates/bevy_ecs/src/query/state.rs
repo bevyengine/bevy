@@ -14,7 +14,7 @@ use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
-use std::{borrow::Borrow, fmt, marker::PhantomData, mem::MaybeUninit};
+use std::{borrow::Borrow, fmt, mem::MaybeUninit};
 
 use super::{NopWorldQuery, QueryManyIter, ROQueryItem, ReadOnlyWorldQuery};
 
@@ -929,7 +929,6 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             last_run: world.last_change_tick(),
             this_run: world.read_change_tick(),
             batching_strategy: BatchingStrategy::new(),
-            _marker: PhantomData,
         }
     }
 
@@ -949,7 +948,6 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             last_run,
             this_run,
             batching_strategy: BatchingStrategy::new(),
-            _marker: PhantomData,
         }
     }
 

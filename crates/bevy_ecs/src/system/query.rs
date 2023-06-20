@@ -7,7 +7,7 @@ use crate::{
     },
     world::{unsafe_world_cell::UnsafeWorldCell, Mut},
 };
-use std::{any::TypeId, borrow::Borrow, fmt::Debug, marker::PhantomData};
+use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 
 /// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
@@ -745,7 +745,6 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
             last_run: self.last_run,
             this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
-            _marker: PhantomData,
         }
     }
 
@@ -763,7 +762,6 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
             last_run: self.last_run,
             this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
-            _marker: PhantomData,
         }
     }
 

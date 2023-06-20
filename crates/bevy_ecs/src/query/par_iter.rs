@@ -1,6 +1,6 @@
 use crate::{component::Tick, world::unsafe_world_cell::UnsafeWorldCell};
 use bevy_tasks::ComputeTaskPool;
-use std::{marker::PhantomData, ops::Range};
+use std::ops::Range;
 
 use super::{QueryItem, QueryState, ReadOnlyWorldQuery, WorldQuery};
 
@@ -87,17 +87,6 @@ pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
-
-    // Ensures that this type is !Send and !Sync unless we specifically add impls for it.
-    // SAFETY: This type must only be shareable between threads if `Q` is read-only.
-    pub(crate) _marker: PhantomData<*mut ()>,
-}
-
-/// SAFETY: We only implement Sync for read-only queries.
-/// This ensures that you cannot call `for_each` multiple times at once for mutable queries.
-unsafe impl<Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> std::marker::Sync
-    for QueryParIter<'_, '_, Q, F>
-{
 }
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
@@ -118,15 +107,15 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&self, func: FN) {
+    pub fn for_each<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
         let thread_count = ComputeTaskPool::get().thread_num();
         if thread_count <= 1 {
             // SAFETY:
-            // This type can only be shared between threads if the query is read-only.
-            // This means that if the query is mutable, this method cannot be called anywhere else at the same time.
-            // Since mutable access to the components exists only within the scope of this method, there will be
-            // no conflicting accesses.
-            // If the query *is* read-only, then it's okay for this method to be called multiple times in parallel.
+            // This method can only be called once per instance of QueryParIter,
+            // which ensures that mutable queries cannot be executed multiple times at once.
+            // Mutable instances of QueryParIter can only be created via an exclusive borrow of a
+            // Query or a World, which ensures that multiple aliasing QueryParIters cannot exist
+            // at the same time.
             unsafe {
                 self.state.for_each_unchecked_manual(
                     self.world,
@@ -160,8 +149,13 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     #[deprecated = "use .for_each(...) instead"]
-    pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&mut self, func: FN) {
-        self.for_each(func);
+    pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&mut self, _func: FN) {
+        unimplemented!(
+            "{}{}{}",
+            "The method `QueryParIter::for_each_mut` is no longer supported as of Bevy 0.11, ",
+            "And will be removed in the next release. Use `for_each` instead, which now supports ",
+            "mutable queries in addition to read-only queries."
+        );
     }
 
     fn get_batch_size(&self, thread_count: usize) -> usize {
