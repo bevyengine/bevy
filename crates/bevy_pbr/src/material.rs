@@ -432,10 +432,6 @@ pub fn queue_material_meshes<M: Material>(
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
 
-        if normal_prepass.is_some() {
-            view_key |= MeshPipelineKey::NORMAL_PREPASS;
-        }
-
         if taa_settings.is_some() {
             view_key |= MeshPipelineKey::TAA;
         }
@@ -503,6 +499,14 @@ pub fn queue_material_meshes<M: Material>(
                             mesh_key |= MeshPipelineKey::MAY_DISCARD;
                         }
                         _ => (),
+                    }
+
+                    if normal_prepass.is_some()
+                        && mesh_key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS)
+                            == MeshPipelineKey::BLEND_OPAQUE
+                        && !material.properties.reads_view_transmission_texture
+                    {
+                        mesh_key |= MeshPipelineKey::NORMAL_PREPASS;
                     }
 
                     let pipeline_id = pipelines.specialize(
