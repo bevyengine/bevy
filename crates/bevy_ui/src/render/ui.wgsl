@@ -1,5 +1,7 @@
 #import bevy_render::view
 
+const TEXTURED_QUAD: u32 = 0u;
+
 @group(0) @binding(0)
 var<uniform> view: View;
 
@@ -32,8 +34,9 @@ var sprite_sampler: sampler;
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+    // textureSample can only be called in unform control flow, not inside an if branch.
     var color = textureSample(sprite_texture, sprite_sampler, in.uv);
-    if in.mode == 0u {
+    if in.mode == TEXTURED_QUAD {
         color = in.color * color;
     } else {
         color = in.color;   
