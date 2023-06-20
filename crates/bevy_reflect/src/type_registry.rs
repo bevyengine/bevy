@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, Reflect, TypeInfo, TypeUuidDynamic, Typed};
+use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
