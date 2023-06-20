@@ -48,45 +48,45 @@ pub struct Mesh {
 /// # use bevy_render::mesh::{Mesh, Indices};
 /// # use bevy_render::render_resource::PrimitiveTopology;
 /// fn create_simple_parallelogram() -> Mesh {
-///     // create a new mesh, add 4 vertices, each with its own position attribute (coordinate in
-///     // 3D space). For each of the corners of the parallelogram.
+///     // Create a new mesh, add 4 vertices, each with its own position attribute (coordinate in
+///     // 3D space), for each of the corners of the parallelogram.
 ///     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
 ///     mesh.insert_attribute(
 ///         Mesh::ATTRIBUTE_POSITION,
 ///         vec![[0.0, 0.0, 0.0], [1.0, 2.0, 0.0], [2.0, 2.0, 0.0], [1.0, 0.0, 0.0]]
 ///     );
-///     // assign a UV coordinate to each vertex.
+///     // Assign a UV coordinate to each vertex.
 ///     mesh.insert_attribute(
 ///         Mesh::ATTRIBUTE_UV_0,
 ///         vec![[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]]
 ///     );
-///     // assign normals (everything points outwards)
+///     // Assign normals (everything points outwards)
 ///     mesh.insert_attribute(
 ///        Mesh::ATTRIBUTE_NORMAL,
 ///        vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]
 ///     );
-///     // after defining all the vertices and their attributes, build each triangle using the
+///     // After defining all the vertices and their attributes, build each triangle using the
 ///     // indices of the vertices that make it up in a counter-clockwise order.
 ///     mesh.set_indices(Some(Indices::U32(vec![0,3,1 , 1,3,2])));
 ///     mesh
-///     // for further visualisation, explanation, and examples see the built-in Bevy examples,
-///     // and the implementation of the built in shapes.
+///     // For further visualization, explanation, and examples see the built-in Bevy examples
+///     // and the implementation of the built-in shapes.
 /// }
-/// // Common points of confusion:
-/// //      - UV maps in Bevy are "flipped", (0.0, 0.0) = Top-Left (not Bot-Left like OpenGL)
-/// //      - It is normal and common for multiple vertices to have the same position
-/// //        attribute, common technique in 3D modelling for complex UV mapping or other calc.
-/// //
-/// // To render correctly with StandardMaterial a mesh needs have properly defined:
-/// // UVs - Bevy needs to know how to map a texture onto the mesh.
-/// // Normals - Bevy needs to know how light interacts with your mesh [0.0, 0.0, 1.0] is very
-/// //           common because simple meshes are smooth, they don't require
-/// //           complex light calculations.
-/// // Vertex winding order -
-/// //   the default behavior is with StandardMaterial.cull_mode = Some(Face::Front) which means
-/// //   that by default Bevy would *only* render the front of the each triangle, and the front
-/// //   is the side of the triangle in which the vertices appear in a *counter-clockwise* order.
 /// ```
+/// Common points of confusion:
+/// - UV maps in Bevy are "flipped", (0.0, 0.0) = Top-Left (not Bot-Left like OpenGL)
+/// - It is normal for multiple vertices to have the same position
+///   attribute - it's a common technique in 3D modelling for complex UV mapping or other calculations.
+///
+/// To render correctly with StandardMaterial a mesh needs to have properly defined:
+/// - [`UVs`](Mesh::ATTRIBUTE_UV_0): Bevy needs to know how to map a texture onto the mesh.
+/// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh. ([0.0, 0.0, 1.0] is very
+///              common for simple meshes because simple meshes are smooth, and they don't require complex light calculations.)
+/// - Vertex winding order -
+///              the default behavior is with StandardMaterial.cull_mode = Some([`Face::Front`](crate::render_resource::Face::Front)) which means
+///              that by default Bevy would *only* render the front of each triangle, and the front
+///              is the side of the triangle in which the vertices appear in a *counter-clockwise* order.
+///
 impl Mesh {
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_POSITION: MeshVertexAttribute =
