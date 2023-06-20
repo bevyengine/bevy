@@ -84,10 +84,11 @@ mod sealed {
         fn add_to_app(self, app: &mut App);
     }
 
-    pub struct IsPlugin;
-    pub struct IsPluginGroup;
+    pub struct PluginMarker;
+    pub struct PluginGroupMarker;
+    pub struct PluginsTupleMarker;
 
-    impl<P: Plugin> Plugins<IsPlugin> for P {
+    impl<P: Plugin> Plugins<PluginMarker> for P {
         fn add_to_app(self, app: &mut App) {
             if let Err(AppError::DuplicatePlugin { plugin_name }) =
                 app.add_boxed_plugin(Box::new(self))
@@ -99,7 +100,7 @@ mod sealed {
         }
     }
 
-    impl<P: PluginGroup> Plugins<IsPluginGroup> for P {
+    impl<P: PluginGroup> Plugins<PluginGroupMarker> for P {
         fn add_to_app(self, app: &mut App) {
             self.build().finish(app);
         }
@@ -107,7 +108,7 @@ mod sealed {
 
     macro_rules! impl_plugins_tuples {
         ($(($param: ident, $plugins: ident)),*) => {
-            impl<$($param, $plugins),*> Plugins<($($param,)*)> for ($($plugins,)*)
+            impl<$($param, $plugins),*> Plugins<(PluginsTupleMarker, $($param,)*)> for ($($plugins,)*)
             where
                 $($plugins: Plugins<$param>),*
             {
