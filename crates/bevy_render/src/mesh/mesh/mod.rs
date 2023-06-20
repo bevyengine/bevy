@@ -74,16 +74,16 @@ pub struct Mesh {
 /// }
 /// ```
 /// Common points of confusion:
-/// - UV maps in Bevy are "flipped", (0.0, 0.0) = Top-Left (not Bot-Left like OpenGL)
+/// - UV maps in Bevy are "flipped", (0.0, 0.0) = Top-Left (not Bot-Left like `OpenGL`)
 /// - It is normal for multiple vertices to have the same position
 ///   attribute - it's a common technique in 3D modelling for complex UV mapping or other calculations.
 ///
-/// To render correctly with StandardMaterial a mesh needs to have properly defined:
+/// To render correctly with `StandardMaterial` a mesh needs to have properly defined:
 /// - [`UVs`](Mesh::ATTRIBUTE_UV_0): Bevy needs to know how to map a texture onto the mesh.
 /// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh. ([0.0, 0.0, 1.0] is very
 ///              common for simple meshes because simple meshes are smooth, and they don't require complex light calculations.)
 /// - Vertex winding order -
-///              the default behavior is with StandardMaterial.cull_mode = Some([`Face::Front`](crate::render_resource::Face::Front)) which means
+///              the default behavior is with `StandardMaterial.cull_mode` = Some([`Face::Front`](crate::render_resource::Face::Front)) which means
 ///              that by default Bevy would *only* render the front of each triangle, and the front
 ///              is the side of the triangle in which the vertices appear in a *counter-clockwise* order.
 ///
