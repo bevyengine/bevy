@@ -6,11 +6,11 @@ use bevy_ecs::{
     reflect::ReflectMapEntities,
 };
 use bevy_math::Mat4;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypePath, TypeUuid};
 use std::ops::Deref;
 
-#[derive(Component, Debug, Default, Clone, Reflect)]
-#[reflect(Component, MapEntities)]
+#[derive(Component, Debug, Default, Clone, Reflect, FromReflect)]
+#[reflect(Component, MapEntities, FromReflect)]
 pub struct SkinnedMesh {
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,
     pub joints: Vec<Entity>,
@@ -24,7 +24,7 @@ impl MapEntities for SkinnedMesh {
     }
 }
 
-#[derive(Debug, TypeUuid)]
+#[derive(Debug, TypeUuid, TypePath)]
 #[uuid = "b9f155a9-54ec-4026-988f-e0a03e99a76f"]
 pub struct SkinnedMeshInverseBindposes(Box<[Mat4]>);
 

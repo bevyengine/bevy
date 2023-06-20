@@ -123,7 +123,7 @@ fn calculate_view(
 
 struct PbrInput {
     material: StandardMaterial,
-    occlusion: f32,
+    occlusion: vec3<f32>,
     frag_coord: vec4<f32>,
     world_position: vec4<f32>,
     // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
@@ -143,7 +143,7 @@ fn pbr_input_new() -> PbrInput {
     var pbr_input: PbrInput;
 
     pbr_input.material = standard_material_new();
-    pbr_input.occlusion = 1.0;
+    pbr_input.occlusion = vec3<f32>(1.0);
 
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
@@ -326,7 +326,7 @@ fn pbr(
         // NdotV = 1.0;
         // F0 = vec3<f32>(0.0)
         // occlusion = 1.0
-        transmitted_light += ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, 1.0);
+        transmitted_light += ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
     }
 
     // Environment map light (indirect)

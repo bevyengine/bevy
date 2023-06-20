@@ -1,7 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
-    ValueInfo,
+    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
+    TypeInfo, Typed, ValueInfo,
 };
 use std::{
     any::{self, Any, TypeId},
@@ -72,7 +72,7 @@ pub enum ReflectOwned {
 /// [`bevy_reflect`]: crate
 /// [derive macro]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
-pub trait Reflect: Any + Send + Sync {
+pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
 

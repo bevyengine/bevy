@@ -8,7 +8,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
+use bevy_reflect::{Reflect, TypePath, TypeRegistryArc, TypeUuid};
 use bevy_utils::HashMap;
 
 #[cfg(feature = "serialize")]
@@ -26,7 +26,7 @@ use serde::Serialize;
 /// * adding the [`Handle<DynamicScene>`](bevy_asset::Handle) to an entity (the scene will only be
 /// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
-#[derive(Default, TypeUuid)]
+#[derive(Default, TypeUuid, TypePath)]
 #[uuid = "749479b1-fb8c-4ff8-a775-623aa76014f5"]
 pub struct DynamicScene {
     pub resources: Vec<Box<dyn Reflect>>,
@@ -208,7 +208,7 @@ mod tests {
             parent: original_parent_entity,
             child: original_child_entity,
         }
-        .write(&mut world);
+        .apply(&mut world);
 
         // We then write this relationship to a new scene, and then write that scene back to the
         // world to create another parent and child relationship
@@ -229,7 +229,7 @@ mod tests {
             parent: original_child_entity,
             child: from_scene_parent_entity,
         }
-        .write(&mut world);
+        .apply(&mut world);
 
         // We then reload the scene to make sure that from_scene_parent_entity's parent component
         // isn't updated with the entity map, since this component isn't defined in the scene.

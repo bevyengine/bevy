@@ -141,7 +141,7 @@ pub struct SubApp {
     /// The [`SubApp`]'s instance of [`App`]
     pub app: App,
 
-    /// A function that allows access to both the [`SubApp`] [`World`] and the main [`App`]. This is
+    /// A function that allows access to both the main [`App`] [`World`] and the [`SubApp`]. This is
     /// useful for moving data between the sub app and the main app.
     extract: Box<dyn Fn(&mut World, &mut App) + Send>,
 }
@@ -522,6 +522,7 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Event)]
     /// # struct MyEvent;
     /// # let mut app = App::new();
     /// #
@@ -956,6 +957,13 @@ impl App {
 }
 
 fn run_once(mut app: App) {
+    while !app.ready() {
+        #[cfg(not(target_arch = "wasm32"))]
+        bevy_tasks::tick_global_task_pools_on_main_thread();
+    }
+    app.finish();
+    app.cleanup();
+
     app.update();
 }
 
@@ -969,7 +977,7 @@ fn run_once(mut app: App) {
 /// If you don't require access to other components or resources, consider implementing the [`Drop`]
 /// trait on components/resources for code that runs on exit. That saves you from worrying about
 /// system schedule ordering, and is idiomatic Rust.
-#[derive(Debug, Clone, Default)]
+#[derive(Event, Debug, Clone, Default)]
 pub struct AppExit;
 
 #[cfg(test)]
