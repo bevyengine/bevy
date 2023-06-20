@@ -126,7 +126,7 @@ fn setup_scene(
                         ..default()
                     },
                 )
-                .with_text_alignment(TextAlignment::Center),
+                .with_text_alignment(MultiLineAlignment::Center),
             );
         });
 }
