@@ -179,6 +179,7 @@ pub struct StandardMaterial {
     /// using RGB for the color and A for the intensity, in which case this packing advice doesn't really apply.
     #[texture(17)]
     #[sampler(18)]
+    #[cfg(feature = "pbr_transmission_textures")]
     pub diffuse_transmission_texture: Option<Handle<Image>>,
 
     /// The amount of light transmitted _specularly_ through the material (i.e. via refraction)
@@ -224,6 +225,7 @@ pub struct StandardMaterial {
     /// using RGB for the color and A for the intensity, in which case this packing advice doesn't really apply.
     #[texture(13)]
     #[sampler(14)]
+    #[cfg(feature = "pbr_transmission_textures")]
     pub transmission_texture: Option<Handle<Image>>,
 
     /// Thickness of the volume beneath the material surface.
@@ -260,6 +262,7 @@ pub struct StandardMaterial {
     /// using RGB for the color and A for the intensity, in which case this packing advice doesn't really apply.
     #[texture(15)]
     #[sampler(16)]
+    #[cfg(feature = "pbr_transmission_textures")]
     pub thickness_texture: Option<Handle<Image>>,
 
     /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material.
@@ -511,10 +514,13 @@ impl Default for StandardMaterial {
             // <https://google.github.io/filament/Material%20Properties.pdf>
             reflectance: 0.5,
             diffuse_transmission: 0.0,
+            #[cfg(feature = "pbr_transmission_textures")]
             diffuse_transmission_texture: None,
             transmission: 0.0,
+            #[cfg(feature = "pbr_transmission_textures")]
             transmission_texture: None,
             thickness: 0.0,
+            #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture: None,
             ior: 1.5,
             attenuation_color: Color::WHITE,
@@ -668,14 +674,17 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         if self.depth_map.is_some() {
             flags |= StandardMaterialFlags::DEPTH_MAP;
         }
-        if self.transmission_texture.is_some() {
-            flags |= StandardMaterialFlags::TRANSMISSION_TEXTURE;
-        }
-        if self.thickness_texture.is_some() {
-            flags |= StandardMaterialFlags::THICKNESS_TEXTURE;
-        }
-        if self.diffuse_transmission_texture.is_some() {
-            flags |= StandardMaterialFlags::DIFFUSE_TRANSMISSION_TEXTURE;
+        #[cfg(feature = "pbr_transmission_textures")]
+        {
+            if self.transmission_texture.is_some() {
+                flags |= StandardMaterialFlags::TRANSMISSION_TEXTURE;
+            }
+            if self.thickness_texture.is_some() {
+                flags |= StandardMaterialFlags::THICKNESS_TEXTURE;
+            }
+            if self.diffuse_transmission_texture.is_some() {
+                flags |= StandardMaterialFlags::DIFFUSE_TRANSMISSION_TEXTURE;
+            }
         }
         let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {

@@ -747,6 +747,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("DEPTH_TEXTURE_MULTISAMPLED_SUPPORTED".into());
         }
 
+        if cfg!(feature = "pbr_transmission_textures") {
+            shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
+        }
+
         let mut bind_group_layout = match key.msaa_samples() {
             1 => vec![self.view_layout.clone()],
             _ => {

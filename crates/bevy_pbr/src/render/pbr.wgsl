@@ -92,22 +92,28 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
         var transmission: f32 = material.transmission;
+#ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((material.flags & STANDARD_MATERIAL_FLAGS_TRANSMISSION_TEXTURE_BIT) != 0u) {
             transmission *= textureSample(transmission_texture, transmission_sampler, uv).r;
         }
+#endif
         pbr_input.material.transmission = transmission;
 
         var thickness: f32 = material.thickness;
+#ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((material.flags & STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT) != 0u) {
             thickness *= textureSample(thickness_texture, thickness_sampler, uv).g;
         }
+#endif
         thickness *= (length(mesh.model[0].xyz) + length(mesh.model[1].xyz) + length(mesh.model[2].xyz)) / 3.0;
         pbr_input.material.thickness = thickness;
 
         var diffuse_transmission = material.diffuse_transmission;
+#ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((material.flags & STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT) != 0u) {
             diffuse_transmission *= textureSample(diffuse_transmission_texture, diffuse_transmission_sampler, uv).a;
         }
+#endif
         pbr_input.material.diffuse_transmission = diffuse_transmission;
 
         var occlusion: f32 = 1.0;

@@ -638,6 +638,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
         load_context.get_handle(path)
     });
 
+    #[cfg(feature = "pbr_transmission_textures")]
     let (transmission, transmission_texture) =
         material.transmission().map_or((0.0, None), |transmission| {
             let transmission_texture: Option<Handle<Image>> =
@@ -650,6 +651,12 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             (transmission.transmission_factor(), transmission_texture)
         });
 
+    #[cfg(not(feature = "pbr_transmission_textures"))]
+    let transmission = material
+        .transmission()
+        .map_or(0.0, |transmission| transmission.transmission_factor());
+
+    #[cfg(feature = "pbr_transmission_textures")]
     let (thickness, thickness_texture, attenuation_distance, attenuation_color) = material
         .volume()
         .map_or((0.0, None, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
@@ -666,6 +673,18 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
                 volume.attenuation_color(),
             )
         });
+
+    #[cfg(not(feature = "pbr_transmission_textures"))]
+    let (thickness, attenuation_distance, attenuation_color) =
+        material
+            .volume()
+            .map_or((0.0, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
+                (
+                    volume.thickness_factor(),
+                    volume.attenuation_distance(),
+                    volume.attenuation_color(),
+                )
+            });
 
     let ior = material.ior().unwrap_or(1.5);
 
@@ -688,8 +707,10 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             emissive: Color::rgb_linear(emissive[0], emissive[1], emissive[2]),
             emissive_texture,
             transmission,
+            #[cfg(feature = "pbr_transmission_textures")]
             transmission_texture,
             thickness,
+            #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture,
             ior,
             attenuation_distance,
