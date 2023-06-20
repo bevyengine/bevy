@@ -78,10 +78,15 @@ pub struct App {
     /// This is initially set to [`Main`].
     pub main_schedule_label: BoxedScheduleLabel,
     sub_apps: HashMap<AppLabelId, SubApp>,
-    plugin_registry: Vec<Box<dyn Plugin>>,
+    plugin_registry: Vec<(Box<dyn Plugin>, PluginState)>,
     plugin_name_added: HashSet<String>,
     /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
     building_plugin_depth: usize,
+}
+
+enum PluginState {
+    Built,
+    Finished,
 }
 
 impl Debug for App {
@@ -302,7 +307,7 @@ impl App {
     /// event loop, but can be useful for situations where you want to use [`App::update`]
     pub fn ready(&self) -> bool {
         for plugin in &self.plugin_registry {
-            if !plugin.ready(self) {
+            if matches!(plugin.1, PluginState::Built) && !plugin.0.ready(self) {
                 return false;
             }
         }
@@ -314,9 +319,12 @@ impl App {
     /// [`App::update`].
     pub fn finish(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
-        let plugin_registry = std::mem::take(&mut self.plugin_registry);
-        for plugin in &plugin_registry {
-            plugin.finish(self);
+        let mut plugin_registry = std::mem::take(&mut self.plugin_registry);
+        for plugin in &mut plugin_registry {
+            if matches!(plugin.1, PluginState::Built) {
+                plugin.0.finish(self);
+                plugin.1 = PluginState::Finished;
+            }
         }
         self.plugin_registry = plugin_registry;
     }
@@ -327,7 +335,9 @@ impl App {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
         let plugin_registry = std::mem::take(&mut self.plugin_registry);
         for plugin in &plugin_registry {
-            plugin.cleanup(self);
+            if matches!(plugin.1, PluginState::Finished) {
+                plugin.0.cleanup(self);
+            }
         }
         self.plugin_registry = plugin_registry;
     }
@@ -696,10 +706,89 @@ impl App {
     {
         match self.add_boxed_plugin(Box::new(plugin)) {
             Ok(app) => app,
-            Err(AppError::DuplicatePlugin { plugin_name }) => panic!(
-                "Error adding plugin {plugin_name}: : plugin was already added in application"
-            ),
+            Err(AppError::DuplicatePlugin { plugin_name }) => {
+                panic!("Error adding plugin {plugin_name}: plugin was already added in application")
+            }
         }
+    }
+
+    /// Adds a single [`Plugin`].
+    ///
+    /// Unlike the [`add_plugin`](Self::add_plugin) method, this method will return a future that
+    /// will be complete once the [lifecycle of the plugin](Plugin) is finished, leaving only the
+    /// `cleanup` stage to do.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the plugin was already added to the application.
+    pub async fn add_plugin_async<T: Plugin>(&mut self, plugin: T) -> &mut Self {
+        match self.add_boxed_plugin_async(Box::new(plugin)).await {
+            Ok(app) => app,
+            Err(AppError::DuplicatePlugin { plugin_name }) => {
+                panic!("Error adding plugin {plugin_name}: plugin was already added in application")
+            }
+        }
+    }
+
+    pub(crate) async fn add_boxed_plugin_async(
+        &mut self,
+        plugin: Box<dyn Plugin>,
+    ) -> Result<&mut Self, AppError> {
+        struct FuturePlugin<'a>(&'a mut App, usize);
+        impl<'a> std::future::Future for FuturePlugin<'a> {
+            type Output = ();
+
+            fn poll(
+                mut self: std::pin::Pin<&mut Self>,
+                cx: &mut std::task::Context<'_>,
+            ) -> std::task::Poll<Self::Output> {
+                // wait for the given plugin and all subplugins to be initialized completely
+                for plugin in self.0.plugin_registry.iter().skip(self.1) {
+                    if !plugin.0.ready(self.0) {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            // tick task pools, then wake this future
+                            bevy_tasks::tick_global_task_pools_on_main_thread();
+                            cx.waker().wake_by_ref();
+                        }
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            // wake this future in 10ms, to let other futures a chance to run
+                            let waker = cx.waker().clone();
+                            use gloo_timers::callback::Timeout;
+                            let timeout = Timeout::new(10, move || {
+                                waker.wake();
+                            });
+                            timeout.forget();
+                        }
+                        return std::task::Poll::Pending;
+                    }
+                }
+                // temporarily remove the plugin registry to run each plugin's setup function on app.
+                let mut plugin_registry = std::mem::take(&mut self.0.plugin_registry);
+                for plugin in plugin_registry.iter_mut().skip(self.1) {
+                    if matches!(plugin.1, PluginState::Built) {
+                        plugin.0.finish(self.0);
+                        plugin.1 = PluginState::Finished;
+                    }
+                }
+                self.0.plugin_registry = plugin_registry;
+
+                std::task::Poll::Ready(())
+            }
+        }
+        impl<'b> FuturePlugin<'b> {
+            fn build(app: &'b mut App, plugin: Box<dyn Plugin>) -> Result<Self, AppError> {
+                let current_registry_len = app.plugin_registry.len();
+                app.add_boxed_plugin(plugin)?;
+                Ok(Self(app, current_registry_len))
+            }
+        }
+
+        let future = FuturePlugin::build(self, plugin)?;
+
+        future.await;
+        Ok(self)
     }
 
     /// Boxed variant of [`add_plugin`](App::add_plugin) that can be used from a [`PluginGroup`]
@@ -716,7 +805,8 @@ impl App {
 
         // Reserve that position in the plugin registry. if a plugin adds plugins, they will be correctly ordered
         let plugin_position_in_registry = self.plugin_registry.len();
-        self.plugin_registry.push(Box::new(PlaceholderPlugin));
+        self.plugin_registry
+            .push((Box::new(PlaceholderPlugin), PluginState::Built));
 
         self.building_plugin_depth += 1;
         let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
@@ -724,7 +814,7 @@ impl App {
         if let Err(payload) = result {
             resume_unwind(payload);
         }
-        self.plugin_registry[plugin_position_in_registry] = plugin;
+        self.plugin_registry[plugin_position_in_registry] = (plugin, PluginState::Built);
         Ok(self)
     }
 
@@ -738,7 +828,7 @@ impl App {
     {
         self.plugin_registry
             .iter()
-            .any(|p| p.downcast_ref::<T>().is_some())
+            .any(|p| p.0.downcast_ref::<T>().is_some())
     }
 
     /// Returns a vector of references to any plugins of type `T` that have been added.
@@ -766,7 +856,7 @@ impl App {
     {
         self.plugin_registry
             .iter()
-            .filter_map(|p| p.downcast_ref())
+            .filter_map(|p| p.0.downcast_ref())
             .collect()
     }
 
@@ -795,6 +885,23 @@ impl App {
     pub fn add_plugins<T: PluginGroup>(&mut self, group: T) -> &mut Self {
         let builder = group.build();
         builder.finish(self);
+        self
+    }
+
+    /// Adds a group of [`Plugin`]s.
+    ///
+    /// [`Plugin`]s can be grouped into a set by using a [`PluginGroup`].
+    ///
+    /// Unlike the [`add_plugins`](Self::add_plugins) method, this method will return a future that
+    /// will be complete once the [lifecycle of the plugins](Plugin) is finished, leaving only the
+    /// `cleanup` stage to do.
+    ///
+    /// # Panics
+    ///
+    /// Panics if one of the plugin in the group was already added to the application.
+    pub async fn add_plugins_async<T: PluginGroup>(&mut self, group: T) -> &mut Self {
+        let builder = group.build();
+        builder.finish_async(self).await;
         self
     }
 

@@ -9,21 +9,53 @@ pub fn bevy_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
         "`bevy_main` can only be used on a function called 'main'.",
     );
 
-    TokenStream::from(quote! {
-        #[no_mangle]
-        #[cfg(target_os = "android")]
-        fn android_main(android_app: bevy::winit::AndroidApp) {
-            let _ = bevy::winit::ANDROID_APP.set(android_app);
-            main();
-        }
+    if input.sig.asyncness.is_some() {
+        TokenStream::from(quote! {
+            #[no_mangle]
+            #[cfg(target_os = "android")]
+            fn android_main(android_app: bevy::winit::AndroidApp) {
+                let _ = bevy::winit::ANDROID_APP.set(android_app);
+                futures_lite::future::block_on(main());
+            }
 
-        #[no_mangle]
-        #[cfg(target_os = "ios")]
-        extern "C" fn main_rs() {
-            main();
-        }
+            #[no_mangle]
+            #[cfg(target_os = "ios")]
+            extern "C" fn main_rs() {
+                futures_lite::future::block_on(main());
+            }
 
-        #[allow(unused)]
-        #input
-    })
+            #[cfg(any(target_os = "ios", target_os = "android"))]
+            #[allow(unused)]
+            #input
+
+            #[cfg(all(not(target_os = "ios"), not(target_os = "android")))]
+            fn main() {
+                #input
+
+                #[cfg(target_arch = "wasm32")]
+                wasm_bindgen_futures::spawn_local(async move {main().await;});
+                #[cfg(not(target_arch = "wasm32"))]
+                futures_lite::future::block_on(main());
+
+            }
+        })
+    } else {
+        TokenStream::from(quote! {
+            #[no_mangle]
+            #[cfg(target_os = "android")]
+            fn android_main(android_app: bevy::winit::AndroidApp) {
+                let _ = bevy::winit::ANDROID_APP.set(android_app);
+                main();
+            }
+
+            #[no_mangle]
+            #[cfg(target_os = "ios")]
+            extern "C" fn main_rs() {
+                main();
+            }
+
+            #[allow(unused)]
+            #input
+        })
+    }
 }

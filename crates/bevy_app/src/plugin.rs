@@ -18,7 +18,7 @@ use std::any::Any;
 ///
 /// When adding a plugin to an [`App`]:
 /// * the app calls [`Plugin::build`] immediately, and register the plugin
-/// * once the app started, it will wait for all registered [`Plugin::ready`] to return `true`
+/// * once the app starts, it will wait for all registered [`Plugin::ready`] to return `true`
 /// * it will then call all registered [`Plugin::finish`]
 /// * and call all registered [`Plugin::cleanup`]
 pub trait Plugin: Downcast + Any + Send + Sync {
