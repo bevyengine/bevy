@@ -6,7 +6,7 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, TemporalJitter},
+    camera::{ExtractedCamera, ManualTextureViews, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
@@ -43,6 +43,7 @@ impl Plugin for ViewPlugin {
         app.register_type::<ComputedVisibility>()
             .register_type::<ComputedVisibilityFlags>()
             .register_type::<Msaa>()
+            .register_type::<NoFrustumCulling>()
             .register_type::<RenderLayers>()
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
@@ -86,7 +87,9 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa::default())
 ///     .run();
 /// ```
-#[derive(Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd)]
+#[derive(
+    Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd, Debug,
+)]
 #[reflect(Resource)]
 pub enum Msaa {
     Off = 1,
@@ -411,13 +414,14 @@ fn prepare_view_targets(
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
+    manual_texture_views: Res<ManualTextureViews>,
 ) {
     let mut textures = HashMap::default();
     for (entity, camera, view) in cameras.iter() {
         if let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target) {
             if let (Some(out_texture_view), Some(out_texture_format)) = (
-                target.get_texture_view(&windows, &images),
-                target.get_texture_format(&windows, &images),
+                target.get_texture_view(&windows, &images, &manual_texture_views),
+                target.get_texture_format(&windows, &images, &manual_texture_views),
             ) {
                 let size = Extent3d {
                     width: target_size.x,

@@ -48,6 +48,7 @@ impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
     }
 }
 
+/// Stores configuration for a single system.
 pub struct SystemConfig {
     pub(crate) system: BoxedSystem,
     pub(crate) graph_info: GraphInfo,
@@ -56,9 +57,13 @@ pub struct SystemConfig {
 
 /// A collection of [`SystemConfig`].
 pub enum SystemConfigs {
+    /// Configuration for a single system.
     SystemConfig(SystemConfig),
+    /// Configuration for a tuple of nested `SystemConfigs` instances.
     Configs {
+        /// Configuration for each element of the tuple.
         configs: Vec<SystemConfigs>,
+        /// Run conditions applied to everything in the tuple.
         collective_conditions: Vec<BoxedCondition>,
         /// If `true`, adds `before -> after` ordering constraints between the successive elements.
         chained: bool,
@@ -381,6 +386,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     }
 }
 
+#[doc(hidden)]
 pub struct SystemConfigTupleMarker;
 
 macro_rules! impl_system_collection {

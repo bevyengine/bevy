@@ -12,6 +12,7 @@ mod parallax;
 mod pbr_material;
 mod prepass;
 mod render;
+mod ssao;
 
 pub use alpha::*;
 pub use bundle::*;
@@ -23,6 +24,7 @@ pub use parallax::*;
 pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
+pub use ssao::*;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -38,6 +40,7 @@ pub mod prelude {
         material::{Material, MaterialPlugin},
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
+        ssao::ScreenSpaceAmbientOcclusionPlugin,
     };
 }
 
@@ -174,6 +177,8 @@ impl Plugin for PbrPlugin {
             .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<DirectionalLightShadowMap>()
+            .register_type::<NotShadowCaster>()
+            .register_type::<NotShadowReceiver>()
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
@@ -182,6 +187,7 @@ impl Plugin for PbrPlugin {
                 prepass_enabled: self.prepass_enabled,
                 ..Default::default()
             })
+            .add_plugin(ScreenSpaceAmbientOcclusionPlugin)
             .add_plugin(EnvironmentMapPlugin)
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()

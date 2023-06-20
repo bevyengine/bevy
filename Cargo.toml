@@ -518,6 +518,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "ssao"
+path = "examples/3d/ssao.rs"
+
+[package.metadata.example.ssao]
+name = "Screen Space Ambient Occlusion"
+description = "A scene showcasing screen space ambient occlusion"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "spotlight"
 path = "examples/3d/spotlight.rs"
 
@@ -1763,12 +1773,32 @@ wasm = true
 
 # UI (User Interface)
 [[example]]
+name = "borders"
+path = "examples/ui/borders.rs"
+
+[package.metadata.example.borders]
+name = "Borders"
+description = "Demonstrates how to create a node with a border"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "button"
 path = "examples/ui/button.rs"
 
 [package.metadata.example.button]
 name = "Button"
 description = "Illustrates creating and updating a button"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "display_and_visibility"
+path = "examples/ui/display_and_visibility.rs"
+
+[package.metadata.example.display_and_visibility]
+name = "Display and Visibility"
+description = "Demonstrates how Display and Visibility work in the UI."
 category = "UI (User Interface)"
 wasm = true
 
@@ -1923,6 +1953,26 @@ description = "Illustrates how to scale the UI"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "ui_texture_atlas"
+path = "examples/ui/ui_texture_atlas.rs"
+
+[package.metadata.example.ui_texture_atlas]
+name = "UI Texture Atlas"
+description = "Illustrates how to use TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "viewport_debug"
+path = "examples/ui/viewport_debug.rs"
+
+[package.metadata.example.viewport_debug]
+name = "Viewport Debug"
+description = "An example for debugging viewport coordinates"
+category = "UI (User Interface)"
+wasm = true
+
 # Window
 [[example]]
 name = "clear_color"
@@ -2011,6 +2061,13 @@ hidden = true
 [[example]]
 name = "window_resizing"
 path = "examples/window/window_resizing.rs"
+
+[[example]]
+name = "fallback_image"
+path = "examples/shader/fallback_image.rs"
+
+[package.metadata.example.fallback_image]
+hidden = true
 
 [package.metadata.example.window_resizing]
 name = "Window Resizing"
