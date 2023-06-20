@@ -8,10 +8,11 @@ use bevy_reflect::{
 mod component;
 mod map_entities;
 mod resource;
+mod entity_commands;
 
 pub use component::{ReflectComponent, ReflectComponentFns};
 pub use map_entities::ReflectMapEntities;
 pub use resource::{ReflectResource, ReflectResourceFns};
-
+pub use entity_commands::EntityCommandsReflectExtension;
 impl_reflect_value!((in bevy_ecs) Entity(Hash, PartialEq, Serialize, Deserialize));
 impl_from_reflect_value!(Entity);
