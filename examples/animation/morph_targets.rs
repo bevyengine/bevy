@@ -8,10 +8,7 @@
 //! - How to play morph target animations in [`setup_animations`].
 use std::f32::consts::PI;
 
-use bevy::{
-    gltf::{Gltf, MorphTargetNames},
-    prelude::*,
-};
+use bevy::{gltf::Gltf, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -26,7 +23,7 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, setup)
-        .add_systems(Update, (name_morphs, setup_animations, update_weights))
+        .add_systems(Update, (name_morphs, setup_animations))
         .run();
 }
 
@@ -50,35 +47,17 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     });
 }
 
-/// Marker for weights that are not animated by the animation system.
-#[derive(Component)]
-struct UpdateWeights;
-
-/// To update weights, query for [`MorphWeights`].
-///
-/// Note that direct children with a [`Handle<Mesh>`] component of entities
-/// with a [`MorphWeights`] component will inherit their parent's weights.
-fn update_weights(mut morphs: Query<&mut MorphWeights, With<UpdateWeights>>, time: Res<Time>) {
-    let mut t = time.elapsed_seconds();
-    let offset_per_weight = PI / 4.0;
-    for mut morph in &mut morphs {
-        for weight in morph.weights_mut() {
-            *weight = t.cos().abs();
-            t += offset_per_weight;
-        }
-    }
-}
-
 /// You can get the target names in the `MorphTargetNames` component.
 /// They are in the order of the weights.
-fn name_morphs(query: Query<(&Name, &MorphTargetNames)>, mut has_printed: Local<bool>) {
+fn name_morphs(mut has_printed: Local<bool>, meshes: Res<Assets<Mesh>>) {
     if *has_printed {
         return;
     }
-    for (name, target_names) in &query {
-        info!("Node {name} has the following targets:");
-        for name in &target_names.target_names {
-            info!("\t{name}");
+    for (handle, mesh) in meshes.iter() {
+        let Some(names) = mesh.morph_target_names() else { continue };
+        println!("Morph Targets for {handle:?}:");
+        for name in names {
+            println!("  {name}");
         }
         *has_printed = true;
     }
@@ -89,13 +68,9 @@ fn name_morphs(query: Query<(&Name, &MorphTargetNames)>, mut has_printed: Local<
 /// trying to play them on an [`AnimationPlayer`] controlling a different
 /// entities will result in odd animations.
 fn setup_animations(
-    mut query: Query<
-        (&Name, Entity, Option<&mut AnimationPlayer>),
-        (With<MorphWeights>, Without<Handle<Mesh>>),
-    >,
+    mut query: Query<(&Name, &mut AnimationPlayer), (With<MorphWeights>, Without<Handle<Mesh>>)>,
     gltf: Res<Assets<Gltf>>,
     clips: Res<Assets<AnimationClip>>,
-    mut commands: Commands,
     mut has_setup: Local<bool>,
 ) {
     if *has_setup {
@@ -110,20 +85,13 @@ fn setup_animations(
         let Some(clip) = clips.get(clip) else { return false };
         clip.compatible_with(name)
     };
-    for (name, entity, player) in &mut query {
-        match player {
-            Some(mut player) => {
-                let compatible = gltf
-                    .animations
-                    .iter()
-                    .find(|clip| is_compatible(name, clip))
-                    .unwrap();
-                player.play(compatible.clone_weak()).repeat();
-            }
-            None => {
-                commands.entity(entity).insert(UpdateWeights);
-            }
-        }
+    for (name, mut player) in &mut query {
+        let compatible = gltf
+            .animations
+            .iter()
+            .find(|clip| is_compatible(name, clip))
+            .unwrap();
+        player.play(compatible.clone_weak()).repeat();
         *has_setup = true;
     }
 }

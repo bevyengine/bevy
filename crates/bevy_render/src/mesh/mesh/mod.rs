@@ -38,6 +38,7 @@ pub struct Mesh {
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
+    morph_target_names: Option<Vec<String>>,
 }
 
 /// Contains geometry in the form of a mesh.
@@ -95,24 +96,13 @@ impl Mesh {
             attributes: Default::default(),
             indices: None,
             morph_targets: None,
+            morph_target_names: None,
         }
     }
 
     /// Returns the topology of the mesh.
     pub fn primitive_topology(&self) -> PrimitiveTopology {
         self.primitive_topology
-    }
-
-    /// Whether this mesh has morph targets.
-    pub fn has_morph_targets(&self) -> bool {
-        self.morph_targets.is_some()
-    }
-
-    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::mesh::morph::MorphTargetImage) for info.
-    ///
-    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-    pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
-        self.morph_targets = Some(morph_targets);
     }
 
     /// Sets the data for a vertex attribute (position, normal etc.). The name will
@@ -421,6 +411,28 @@ impl Mesh {
         }
 
         None
+    }
+
+    /// Whether this mesh has morph targets.
+    pub fn has_morph_targets(&self) -> bool {
+        self.morph_targets.is_some()
+    }
+
+    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::mesh::morph::MorphTargetImage) for info.
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
+        self.morph_targets = Some(morph_targets);
+    }
+
+    /// Sets the names of each morph target. This should correspond to the order of the morph targets in `set_morph_targets`.
+    pub fn set_morph_target_names(&mut self, names: Vec<String>) {
+        self.morph_target_names = Some(names);
+    }
+
+    /// Gets a list of all morph target names, if they exist.
+    pub fn morph_target_names(&self) -> Option<&[String]> {
+        self.morph_target_names.as_deref()
     }
 }
 

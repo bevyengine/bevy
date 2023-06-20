@@ -1,3 +1,4 @@
+use crate::{vertex_attributes::*, Gltf, GltfExtras, GltfNode};
 use anyhow::Result;
 use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
@@ -29,7 +30,6 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
     accessor::Iter,
@@ -37,11 +37,9 @@ use gltf::{
     texture::{MagFilter, MinFilter, WrappingMode},
     Material, Node, Primitive,
 };
+use serde::Deserialize;
 use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
-
-use crate::{vertex_attributes::*, MorphTargetNames};
-use crate::{Gltf, GltfExtras, GltfNode};
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -261,7 +259,14 @@ async fn load_gltf<'a, 'b>(
                         &morph_targets_label,
                         LoadedAsset::new(morph_target_image.0),
                     );
+
                     mesh.set_morph_targets(handle);
+                    let extras = gltf_mesh.extras().as_ref();
+                    if let Option::<MorphTargetNames>::Some(names) =
+                        extras.and_then(|extras| serde_json::from_str(extras.get()).ok())
+                    {
+                        mesh.set_morph_target_names(names.target_names);
+                    }
                 }
             }
 
@@ -751,12 +756,6 @@ fn load_node(
     node_index_to_entity_map.insert(gltf_node.index(), node.id());
 
     if let Some(mesh) = gltf_node.mesh() {
-        let extras = mesh.extras().as_ref();
-        let target_names: Option<MorphTargetNames> =
-            extras.and_then(|extras| serde_json::from_str(extras.get()).ok());
-        if let Some(target_names) = target_names {
-            node.insert(target_names);
-        }
         if let Some(weights) = mesh.weights() {
             node.insert(MorphWeights::new(weights.to_vec())?);
         }
@@ -1198,6 +1197,12 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
             tangent: tangent.map(|t| t.into()).unwrap_or(Vec3::ZERO),
         })
     }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MorphTargetNames {
+    pub target_names: Vec<String>,
 }
 
 #[cfg(test)]
