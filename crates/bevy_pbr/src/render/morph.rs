@@ -11,14 +11,14 @@ use bevy_render::{
 use bytemuck::Pod;
 
 #[derive(Component)]
-pub struct Index {
+pub struct MorphIndex {
     pub(super) index: u32,
 }
 #[derive(Resource)]
-pub struct Uniform {
+pub struct MorphUniform {
     pub buffer: BufferVec<f32>,
 }
-impl Default for Uniform {
+impl Default for MorphUniform {
     fn default() -> Self {
         Self {
             buffer: BufferVec::new(BufferUsages::UNIFORM),
@@ -26,7 +26,11 @@ impl Default for Uniform {
     }
 }
 
-pub fn prepare(device: Res<RenderDevice>, queue: Res<RenderQueue>, mut uniform: ResMut<Uniform>) {
+pub fn prepare_morphs(
+    device: Res<RenderDevice>,
+    queue: Res<RenderQueue>,
+    mut uniform: ResMut<MorphUniform>,
+) {
     if uniform.buffer.is_empty() {
         return;
     }
@@ -64,10 +68,10 @@ fn add_to_alignment<T: Pod + Default>(buffer: &mut BufferVec<T>) {
     buffer.extend(iter::repeat_with(T::default).take(ts_to_add));
 }
 
-pub fn extract(
+pub fn extract_morphs(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    mut uniform: ResMut<Uniform>,
+    mut uniform: ResMut<MorphUniform>,
     query: Extract<Query<(Entity, &ComputedVisibility, &MorphWeights)>>,
 ) {
     uniform.buffer.clear();
@@ -85,7 +89,7 @@ pub fn extract(
         add_to_alignment::<f32>(&mut uniform.buffer);
 
         let index = (start * mem::size_of::<f32>()) as u32;
-        values.push((entity, Index { index }));
+        values.push((entity, MorphIndex { index }));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);

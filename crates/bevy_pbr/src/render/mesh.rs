@@ -43,7 +43,10 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap, Hashed};
 
-use crate::render::{morph, MeshLayouts};
+use crate::render::{
+    morph::{extract_morphs, prepare_morphs, MorphIndex, MorphUniform},
+    MeshLayouts,
+};
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
@@ -114,16 +117,16 @@ impl Plugin for MeshRenderPlugin {
             render_app
                 .init_resource::<SkinnedMeshUniform>()
                 .init_resource::<MeshBindGroups>()
-                .init_resource::<morph::Uniform>()
+                .init_resource::<MorphUniform>()
                 .add_systems(
                     ExtractSchedule,
-                    (extract_meshes, extract_skinned_meshes, morph::extract),
+                    (extract_meshes, extract_skinned_meshes, extract_morphs),
                 )
                 .add_systems(
                     Render,
                     (
                         prepare_skinned_meshes.in_set(RenderSet::Prepare),
-                        morph::prepare.in_set(RenderSet::Prepare),
+                        prepare_morphs.in_set(RenderSet::Prepare),
                         queue_mesh_bind_group.in_set(RenderSet::Queue),
                         queue_mesh_view_bind_groups.in_set(RenderSet::Queue),
                     ),
@@ -928,7 +931,7 @@ pub fn queue_mesh_bind_group(
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<ComponentUniforms<MeshUniform>>,
     skinned_mesh_uniform: Res<SkinnedMeshUniform>,
-    weights_uniform: Res<morph::Uniform>,
+    weights_uniform: Res<MorphUniform>,
 ) {
     groups.reset();
     let layouts = &mesh_pipeline.mesh_layouts;
@@ -1194,7 +1197,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         Read<Handle<Mesh>>,
         Read<DynamicUniformIndex<MeshUniform>>,
         Option<Read<SkinnedMeshJoints>>,
-        Option<Read<morph::Index>>,
+        Option<Read<MorphIndex>>,
     );
 
     #[inline]
