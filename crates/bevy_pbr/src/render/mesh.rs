@@ -1,9 +1,9 @@
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
     GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
-    ShadowSamplers, ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset,
-    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
-    MAX_DIRECTIONAL_LIGHTS,
+    ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewFogUniformOffset,
+    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -181,7 +181,7 @@ pub fn extract_meshes(
             flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
         }
         let uniform = MeshUniform {
-            flags: flags.bits,
+            flags: flags.bits(),
             transform,
             previous_transform,
             inverse_transpose_model: transform.inverse().transpose(),
@@ -433,22 +433,33 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
+                // Screen space ambient occlusion texture
+                BindGroupLayoutEntry {
+                    binding: 11,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        sample_type: TextureSampleType::Float { filterable: false },
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
             ];
 
             // EnvironmentMapLight
             let environment_map_entries =
-                environment_map::get_bind_group_layout_entries([11, 12, 13]);
+                environment_map::get_bind_group_layout_entries([12, 13, 14]);
             entries.extend_from_slice(&environment_map_entries);
 
             // Tonemapping
-            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([14, 15]);
+            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([15, 16]);
             entries.extend_from_slice(&tonemapping_lut_entries);
 
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
             {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
-                    [16, 17, 18],
+                    [17, 18, 19],
                     multisampled,
                 ));
             }
@@ -571,6 +582,7 @@ impl MeshPipeline {
 }
 
 bitflags::bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
@@ -582,9 +594,12 @@ bitflags::bitflags! {
         const DEPTH_PREPASS                     = (1 << 3);
         const NORMAL_PREPASS                    = (1 << 4);
         const MOTION_VECTOR_PREPASS             = (1 << 5);
-        const ALPHA_MASK                        = (1 << 6);
+        const MAY_DISCARD                       = (1 << 6); // Guards shader codepaths that may discard, allowing early depth tests in most cases
+                                                            // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
         const ENVIRONMENT_MAP                   = (1 << 7);
-        const DEPTH_CLAMP_ORTHO                 = (1 << 8);
+        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 8);
+        const DEPTH_CLAMP_ORTHO                 = (1 << 9);
+        const TAA                               = (1 << 10);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
@@ -620,7 +635,7 @@ impl MeshPipelineKey {
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        Self::from_bits(msaa_bits).unwrap()
+        Self::from_bits_retain(msaa_bits)
     }
 
     pub fn from_hdr(hdr: bool) -> Self {
@@ -632,19 +647,19 @@ impl MeshPipelineKey {
     }
 
     pub fn msaa_samples(&self) -> u32 {
-        1 << ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
+        1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
     pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits(primitive_topology_bits).unwrap()
+        Self::from_bits_retain(primitive_topology_bits)
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
-        let primitive_topology_bits =
-            (self.bits >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS) & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
+        let primitive_topology_bits = (self.bits() >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
+            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
         match primitive_topology_bits {
             x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
             x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
@@ -724,6 +739,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             bind_group_layout.push(self.mesh_layout.clone());
         };
 
+        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
+            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
+        }
+
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
@@ -795,8 +814,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
+        if key.contains(MeshPipelineKey::MAY_DISCARD) {
+            shader_defs.push("MAY_DISCARD".into());
+        }
+
         if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
             shader_defs.push("ENVIRONMENT_MAP".into());
+        }
+
+        if key.contains(MeshPipelineKey::TAA) {
+            shader_defs.push("TAA".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
@@ -963,6 +990,7 @@ pub fn queue_mesh_view_bind_groups(
         Entity,
         &ViewShadowBindings,
         &ViewClusterBindings,
+        Option<&ScreenSpaceAmbientOcclusionTextures>,
         Option<&ViewPrepassTextures>,
         Option<&EnvironmentMapLight>,
         &Tonemapping,
@@ -992,11 +1020,17 @@ pub fn queue_mesh_view_bind_groups(
             entity,
             view_shadow_bindings,
             view_cluster_bindings,
+            ssao_textures,
             prepass_textures,
             environment_map,
             tonemapping,
         ) in &views
         {
+            let fallback_ssao = fallback_images
+                .image_for_samplecount(1)
+                .texture_view
+                .clone();
+
             let layout = if msaa.samples() > 1 {
                 &mesh_pipeline.view_layout_multisampled
             } else {
@@ -1052,18 +1086,26 @@ pub fn queue_mesh_view_bind_groups(
                     binding: 10,
                     resource: fog_binding.clone(),
                 },
+                BindGroupEntry {
+                    binding: 11,
+                    resource: BindingResource::TextureView(
+                        ssao_textures
+                            .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
+                            .unwrap_or(&fallback_ssao),
+                    ),
+                },
             ];
 
             let env_map = environment_map::get_bindings(
                 environment_map,
                 &images,
                 &fallback_cubemap,
-                [11, 12, 13],
+                [12, 13, 14],
             );
             entries.extend_from_slice(&env_map);
 
             let tonemapping_luts =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
             entries.extend_from_slice(&tonemapping_luts);
 
             // When using WebGL, we can't have a depth texture with multisampling
@@ -1075,7 +1117,7 @@ pub fn queue_mesh_view_bind_groups(
                     &mut fallback_images,
                     &mut fallback_depths,
                     &msaa,
-                    [16, 17, 18],
+                    [17, 18, 19],
                 ));
             }
 

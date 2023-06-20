@@ -19,35 +19,39 @@
 use std::mem;
 
 use bevy_app::{Last, Plugin, Update};
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
+use bevy_core::cast_slice;
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    query::Without,
+    query::{ROQueryItem, Without},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
-    world::{FromWorld, World},
+    system::{
+        lifetimeless::{Read, SRes},
+        Commands, Query, Res, ResMut, Resource, SystemParamItem,
+    },
 };
-use bevy_math::Mat4;
 use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypeUuid,
+    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypePath, TypeUuid,
 };
 use bevy_render::{
     color::Color,
-    mesh::Mesh,
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     primitives::Aabb,
-    render_phase::AddRenderCommand,
-    render_resource::{PrimitiveTopology, Shader, SpecializedMeshPipelines},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_resource::{
+        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferInitDescriptor,
+        BufferUsages, Shader, ShaderStages, ShaderType, VertexAttribute, VertexBufferLayout,
+        VertexFormat, VertexStepMode,
+    },
+    renderer::RenderDevice,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-
-#[cfg(feature = "bevy_pbr")]
-use bevy_pbr::MeshUniform;
-#[cfg(feature = "bevy_sprite")]
-use bevy_sprite::{Mesh2dHandle, Mesh2dUniform};
 
 pub mod gizmos;
 
@@ -74,7 +78,10 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
-        app.init_resource::<MeshHandles>()
+        app.add_plugin(UniformComponentPlugin::<LineGizmoUniform>::default())
+            .add_asset::<LineGizmo>()
+            .add_plugin(RenderAssetPlugin::<LineGizmo>::default())
+            .init_resource::<LineGizmoHandles>()
             .init_resource::<GizmoConfig>()
             .init_resource::<GizmoStorage>()
             .add_systems(Last, update_gizmo_meshes)
@@ -88,47 +95,35 @@ impl Plugin for GizmoPlugin {
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
-        render_app.add_systems(ExtractSchedule, extract_gizmo_data);
+        render_app
+            .add_systems(ExtractSchedule, extract_gizmo_data)
+            .add_systems(Render, queue_line_gizmo_bind_group.in_set(RenderSet::Queue));
 
         #[cfg(feature = "bevy_sprite")]
-        {
-            use bevy_core_pipeline::core_2d::Transparent2d;
-            use pipeline_2d::*;
-
-            render_app
-                .add_render_command::<Transparent2d, DrawGizmoLines>()
-                .init_resource::<SpecializedMeshPipelines<GizmoLinePipeline>>()
-                .add_systems(Render, queue_gizmos_2d.in_set(RenderSet::Queue));
-        }
-
+        app.add_plugin(pipeline_2d::LineGizmo2dPlugin);
         #[cfg(feature = "bevy_pbr")]
-        {
-            use bevy_core_pipeline::core_3d::Opaque3d;
-            use pipeline_3d::*;
-
-            render_app
-                .add_render_command::<Opaque3d, DrawGizmoLines>()
-                .init_resource::<SpecializedMeshPipelines<GizmoPipeline>>()
-                .add_systems(Render, queue_gizmos_3d.in_set(RenderSet::Queue));
-        }
+        app.add_plugin(pipeline_3d::LineGizmo3dPlugin);
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
-        #[cfg(feature = "bevy_sprite")]
-        {
-            use pipeline_2d::*;
+        let render_device = render_app.world.resource::<RenderDevice>();
+        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: Some(LineGizmoUniform::min_size()),
+                },
+                count: None,
+            }],
+            label: Some("LineGizmoUniform layout"),
+        });
 
-            render_app.init_resource::<GizmoLinePipeline>();
-        }
-
-        #[cfg(feature = "bevy_pbr")]
-        {
-            use pipeline_3d::*;
-
-            render_app.init_resource::<GizmoPipeline>();
-        }
+        render_app.insert_resource(LineGizmoUniformBindgroupLayout { layout });
     }
 }
 
@@ -139,12 +134,29 @@ pub struct GizmoConfig {
     ///
     /// Defaults to `true`.
     pub enabled: bool,
-    /// Draw gizmos on top of everything else, ignoring depth.
+    /// Line width specified in pixels.
     ///
-    /// This setting only affects 3D. In 2D, gizmos are always drawn on top.
+    /// If `line_perspective` is `true` then this is the size in pixels at the camera's near plane.
+    ///
+    /// Defaults to `2.0`.
+    pub line_width: f32,
+    /// Apply perspective to gizmo lines.
+    ///
+    /// This setting only affects 3D, non-orhographic cameras.
     ///
     /// Defaults to `false`.
-    pub on_top: bool,
+    pub line_perspective: bool,
+    /// How closer to the camera than real geometry the line should be.
+    ///
+    /// Value between -1 and 1 (inclusive).
+    /// * 0 means that there is no change to the line position when rendering
+    /// * 1 means it is furthest away from camera as possible
+    /// * -1 means that it will always render in front of other things.
+    ///
+    /// This is typically useful if you are drawing wireframes on top of polygons
+    /// and your wireframe is z-fighting (flickering on/off) with your main model.
+    /// You would set this value to a negative number close to 0.0.
+    pub depth_bias: f32,
     /// Configuration for the [`AabbGizmo`].
     pub aabb: AabbGizmoConfig,
 }
@@ -153,7 +165,9 @@ impl Default for GizmoConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            on_top: false,
+            line_width: 2.,
+            line_perspective: false,
+            depth_bias: 0.,
             aabb: Default::default(),
         }
     }
@@ -227,77 +241,59 @@ fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
         )
 }
 
-#[derive(Resource)]
-struct MeshHandles {
-    list: Option<Handle<Mesh>>,
-    strip: Option<Handle<Mesh>>,
+#[derive(Resource, Default)]
+struct LineGizmoHandles {
+    list: Option<Handle<LineGizmo>>,
+    strip: Option<Handle<LineGizmo>>,
 }
-
-impl FromWorld for MeshHandles {
-    fn from_world(_world: &mut World) -> Self {
-        MeshHandles {
-            list: None,
-            strip: None,
-        }
-    }
-}
-
-#[derive(Component)]
-struct GizmoMesh;
 
 fn update_gizmo_meshes(
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut handles: ResMut<MeshHandles>,
+    mut line_gizmos: ResMut<Assets<LineGizmo>>,
+    mut handles: ResMut<LineGizmoHandles>,
     mut storage: ResMut<GizmoStorage>,
 ) {
     if storage.list_positions.is_empty() {
         handles.list = None;
     } else if let Some(handle) = handles.list.as_ref() {
-        let list_mesh = meshes.get_mut(handle).unwrap();
+        let list = line_gizmos.get_mut(handle).unwrap();
 
-        let positions = mem::take(&mut storage.list_positions);
-        list_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-
-        let colors = mem::take(&mut storage.list_colors);
-        list_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+        list.positions = mem::take(&mut storage.list_positions);
+        list.colors = mem::take(&mut storage.list_colors);
     } else {
-        let mut list_mesh = Mesh::new(PrimitiveTopology::LineList);
+        let mut list = LineGizmo {
+            strip: false,
+            ..Default::default()
+        };
 
-        let positions = mem::take(&mut storage.list_positions);
-        list_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        list.positions = mem::take(&mut storage.list_positions);
+        list.colors = mem::take(&mut storage.list_colors);
 
-        let colors = mem::take(&mut storage.list_colors);
-        list_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-
-        handles.list = Some(meshes.add(list_mesh));
+        handles.list = Some(line_gizmos.add(list));
     }
 
     if storage.strip_positions.is_empty() {
         handles.strip = None;
     } else if let Some(handle) = handles.strip.as_ref() {
-        let strip_mesh = meshes.get_mut(handle).unwrap();
+        let strip = line_gizmos.get_mut(handle).unwrap();
 
-        let positions = mem::take(&mut storage.strip_positions);
-        strip_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-
-        let colors = mem::take(&mut storage.strip_colors);
-        strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+        strip.positions = mem::take(&mut storage.strip_positions);
+        strip.colors = mem::take(&mut storage.strip_colors);
     } else {
-        let mut strip_mesh = Mesh::new(PrimitiveTopology::LineStrip);
+        let mut strip = LineGizmo {
+            strip: true,
+            ..Default::default()
+        };
 
-        let positions = mem::take(&mut storage.strip_positions);
-        strip_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        strip.positions = mem::take(&mut storage.strip_positions);
+        strip.colors = mem::take(&mut storage.strip_colors);
 
-        let colors = mem::take(&mut storage.strip_colors);
-        strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-
-        handles.strip = Some(meshes.add(strip_mesh));
+        handles.strip = Some(line_gizmos.add(strip));
     }
 }
 
 fn extract_gizmo_data(
     mut commands: Commands,
-    handles: Extract<Res<MeshHandles>>,
+    handles: Extract<Res<LineGizmoHandles>>,
     config: Extract<Res<GizmoConfig>>,
 ) {
     if config.is_changed() {
@@ -308,35 +304,206 @@ fn extract_gizmo_data(
         return;
     }
 
-    let transform = Mat4::IDENTITY;
-    let inverse_transpose_model = transform.inverse().transpose();
-    commands.spawn_batch(
-        [handles.list.clone(), handles.strip.clone()]
-            .into_iter()
-            .flatten()
-            .map(move |handle| {
-                (
-                    GizmoMesh,
-                    #[cfg(feature = "bevy_pbr")]
-                    (
-                        handle.clone_weak(),
-                        MeshUniform {
-                            flags: 0,
-                            transform,
-                            previous_transform: transform,
-                            inverse_transpose_model,
-                        },
-                    ),
-                    #[cfg(feature = "bevy_sprite")]
-                    (
-                        Mesh2dHandle(handle),
-                        Mesh2dUniform {
-                            flags: 0,
-                            transform,
-                            inverse_transpose_model,
-                        },
-                    ),
-                )
+    for handle in [&handles.list, &handles.strip].into_iter().flatten() {
+        commands.spawn((
+            LineGizmoUniform {
+                line_width: config.line_width,
+                depth_bias: config.depth_bias,
+                #[cfg(feature = "webgl")]
+                _padding: Default::default(),
+            },
+            handle.clone_weak(),
+        ));
+    }
+}
+
+#[derive(Component, ShaderType, Clone, Copy)]
+struct LineGizmoUniform {
+    line_width: f32,
+    depth_bias: f32,
+    /// WebGL2 structs must be 16 byte aligned.
+    #[cfg(feature = "webgl")]
+    _padding: bevy_math::Vec2,
+}
+
+#[derive(Debug, Default, Clone, TypeUuid, TypePath)]
+#[uuid = "02b99cbf-bb26-4713-829a-aee8e08dedc0"]
+struct LineGizmo {
+    positions: Vec<[f32; 3]>,
+    colors: Vec<[f32; 4]>,
+    /// Whether this gizmo's topology is a line-strip or line-list
+    strip: bool,
+}
+
+#[derive(Debug, Clone)]
+struct GpuLineGizmo {
+    position_buffer: Buffer,
+    color_buffer: Buffer,
+    vertex_count: u32,
+    strip: bool,
+}
+
+impl RenderAsset for LineGizmo {
+    type ExtractedAsset = LineGizmo;
+
+    type PreparedAsset = GpuLineGizmo;
+
+    type Param = SRes<RenderDevice>;
+
+    fn extract_asset(&self) -> Self::ExtractedAsset {
+        self.clone()
+    }
+
+    fn prepare_asset(
+        line_gizmo: Self::ExtractedAsset,
+        render_device: &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+        let position_buffer_data = cast_slice(&line_gizmo.positions);
+        let position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            usage: BufferUsages::VERTEX,
+            label: Some("LineGizmo Position Buffer"),
+            contents: position_buffer_data,
+        });
+
+        let color_buffer_data = cast_slice(&line_gizmo.colors);
+        let color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            usage: BufferUsages::VERTEX,
+            label: Some("LineGizmo Color Buffer"),
+            contents: color_buffer_data,
+        });
+
+        Ok(GpuLineGizmo {
+            position_buffer,
+            color_buffer,
+            vertex_count: line_gizmo.positions.len() as u32,
+            strip: line_gizmo.strip,
+        })
+    }
+}
+
+#[derive(Resource)]
+struct LineGizmoUniformBindgroupLayout {
+    layout: BindGroupLayout,
+}
+
+#[derive(Resource)]
+struct LineGizmoUniformBindgroup {
+    bindgroup: BindGroup,
+}
+
+fn queue_line_gizmo_bind_group(
+    mut commands: Commands,
+    line_gizmo_uniform_layout: Res<LineGizmoUniformBindgroupLayout>,
+    render_device: Res<RenderDevice>,
+    line_gizmo_uniforms: Res<ComponentUniforms<LineGizmoUniform>>,
+) {
+    if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
+        commands.insert_resource(LineGizmoUniformBindgroup {
+            bindgroup: render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: binding,
+                }],
+                label: Some("LineGizmoUniform bindgroup"),
+                layout: &line_gizmo_uniform_layout.layout,
             }),
-    );
+        });
+    }
+}
+
+struct SetLineGizmoBindGroup<const I: usize>;
+impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I> {
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<DynamicUniformIndex<LineGizmoUniform>>;
+    type Param = SRes<LineGizmoUniformBindgroup>;
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
+        uniform_index: ROQueryItem<'w, Self::ItemWorldQuery>,
+        bind_group: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        pass.set_bind_group(
+            I,
+            &bind_group.into_inner().bindgroup,
+            &[uniform_index.index()],
+        );
+        RenderCommandResult::Success
+    }
+}
+
+struct DrawLineGizmo;
+impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<Handle<LineGizmo>>;
+    type Param = SRes<RenderAssets<LineGizmo>>;
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
+        handle: ROQueryItem<'w, Self::ItemWorldQuery>,
+        line_gizmos: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
+            return RenderCommandResult::Failure;
+        };
+
+        pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
+        pass.set_vertex_buffer(1, line_gizmo.color_buffer.slice(..));
+
+        let instances = if line_gizmo.strip {
+            u32::max(line_gizmo.vertex_count, 1) - 1
+        } else {
+            line_gizmo.vertex_count / 2
+        };
+
+        pass.draw(0..6, 0..instances);
+
+        RenderCommandResult::Success
+    }
+}
+
+fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
+    let stride_multiplier = if strip { 1 } else { 2 };
+    use VertexFormat::*;
+    vec![
+        // Positions
+        VertexBufferLayout {
+            array_stride: Float32x3.size() * stride_multiplier,
+            step_mode: VertexStepMode::Instance,
+            attributes: vec![
+                VertexAttribute {
+                    format: Float32x3,
+                    offset: 0,
+                    shader_location: 0,
+                },
+                VertexAttribute {
+                    format: Float32x3,
+                    offset: Float32x3.size(),
+                    shader_location: 1,
+                },
+            ],
+        },
+        // Colors
+        VertexBufferLayout {
+            array_stride: Float32x4.size() * stride_multiplier,
+            step_mode: VertexStepMode::Instance,
+            attributes: vec![
+                VertexAttribute {
+                    format: Float32x4,
+                    offset: 0,
+                    shader_location: 2,
+                },
+                VertexAttribute {
+                    format: Float32x4,
+                    offset: Float32x4.size(),
+                    shader_location: 3,
+                },
+            ],
+        },
+    ]
 }

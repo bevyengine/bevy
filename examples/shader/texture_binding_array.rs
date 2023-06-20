@@ -3,7 +3,7 @@
 
 use bevy::{
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::{
         render_asset::RenderAssets,
         render_resource::{AsBindGroupError, PreparedBindGroup, *},
@@ -85,7 +85,7 @@ fn setup(
     });
 }
 
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Debug, Clone, TypePath, TypeUuid)]
 #[uuid = "8dd2b424-45a2-4a53-ac29-7ce356b2d5fe"]
 struct BindlessMaterial {
     textures: Vec<Handle<Image>>,
@@ -109,6 +109,8 @@ impl AsBindGroup for BindlessMaterial {
                 None => return Err(AsBindGroupError::RetryNextUpdate),
             }
         }
+
+        let fallback_image = &fallback_image.d2;
 
         let textures = vec![&fallback_image.texture_view; MAX_TEXTURE_COUNT];
 

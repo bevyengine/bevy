@@ -8,8 +8,6 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.11.0-dev" }

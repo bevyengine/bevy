@@ -1,4 +1,5 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(missing_docs)]
 #![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
 
@@ -39,7 +40,7 @@ pub mod prelude {
         query::{Added, AnyOf, Changed, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_state_transition, apply_system_buffers, common_conditions::*, Condition,
+            apply_deferred, apply_state_transition, common_conditions::*, Condition,
             IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
             OnEnter, OnExit, OnTransition, Schedule, Schedules, State, States, SystemSet,
         },
@@ -47,7 +48,7 @@ pub mod prelude {
             adapter as system_adapter,
             adapter::{dbg, error, ignore, info, unwrap, warn},
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
-            ParamSet, Query, Res, ResMut, Resource, System, SystemParamFunction,
+            ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
         },
         world::{FromWorld, World},
     };

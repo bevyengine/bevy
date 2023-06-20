@@ -31,12 +31,24 @@ impl Node for CameraDriverNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let sorted_cameras = world.resource::<SortedCameras>();
+        let windows = world.resource::<ExtractedWindows>();
         let mut camera_windows = HashSet::new();
         for sorted_camera in &sorted_cameras.0 {
-            if let Ok(camera) = self.cameras.get_manual(world, sorted_camera.entity) {
-                if let Some(NormalizedRenderTarget::Window(window_ref)) = camera.target {
-                    camera_windows.insert(window_ref.entity());
+            let Ok(camera) = self.cameras.get_manual(world, sorted_camera.entity) else {
+                continue;
+            };
+
+            let mut run_graph = true;
+            if let Some(NormalizedRenderTarget::Window(window_ref)) = camera.target {
+                let window_entity = window_ref.entity();
+                if windows.windows.get(&window_entity).is_some() {
+                    camera_windows.insert(window_entity);
+                } else {
+                    // The window doesn't exist anymore so we don't need to run the graph
+                    run_graph = false;
                 }
+            }
+            if run_graph {
                 graph.run_sub_graph(
                     camera.render_graph.clone(),
                     vec![],
