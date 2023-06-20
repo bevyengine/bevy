@@ -931,37 +931,25 @@ pub fn queue_mesh_bind_group(
     weights_uniform: Res<morph::Uniform>,
 ) {
     groups.reset();
-
     let layouts = &mesh_pipeline.mesh_layouts;
+    let Some(model) = mesh_uniforms.buffer() else {
+        return;
+    };
+    groups.model_only = Some(layouts.model_only(&render_device, model));
 
-    for (id, gpu_mesh) in meshes.iter() {
-        let is_skinned = |_: &&Buffer| is_skinned(&gpu_mesh.layout);
-        match (
-            mesh_uniforms.buffer(),
-            // Both GPU mesh has skin and SkinnedMeshUniform exists
-            skinned_mesh_uniform.buffer.buffer().filter(is_skinned),
-            weights_uniform.buffer.buffer(),
-            gpu_mesh.morph_targets.as_ref(),
-        ) {
-            // (1) No model uniform.
-            // (2) No morph uniform, mesh with morph target exists.
-            // Can't do anything sensible in those conditions
-            (None, _, _, _) | (_, _, None, Some(_)) => {}
+    let skin = skinned_mesh_uniform.buffer.buffer();
+    if let Some(skin) = skin {
+        groups.skinned = Some(layouts.skinned(&render_device, model, skin));
+    }
 
-            (Some(model), None, _, None) => {
-                let group = || layouts.model_only(&render_device, model);
-                groups.model_only.get_or_insert_with(group);
-            }
-            (Some(model), None, Some(weights), Some(targets)) => {
-                let group = layouts.morphed(&render_device, model, weights, targets);
-                groups.morph_targets.insert(id.id(), group);
-            }
-            (Some(model), Some(skin), _, None) => {
-                let group = || layouts.skinned(&render_device, model, skin);
-                groups.skinned.get_or_insert_with(group);
-            }
-            (Some(model), Some(skin), Some(weights), Some(targets)) => {
-                let group = layouts.morphed_skinned(&render_device, model, skin, weights, targets);
+    if let Some(weights) = weights_uniform.buffer.buffer() {
+        for (id, gpu_mesh) in meshes.iter() {
+            if let Some(targets) = gpu_mesh.morph_targets.as_ref() {
+                let group = if let Some(skin) = skin.filter(|_| is_skinned(&gpu_mesh.layout)) {
+                    layouts.morphed_skinned(&render_device, model, skin, weights, targets)
+                } else {
+                    layouts.morphed(&render_device, model, weights, targets)
+                };
                 groups.morph_targets.insert(id.id(), group);
             }
         }
