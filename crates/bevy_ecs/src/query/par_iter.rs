@@ -148,7 +148,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    #[deprecated = "use .for_each(...) instead"]
+    #[deprecated = "use `.for_each(...)` instead. `for_each_mut` is no longer functional and will be removed in the next release of Bevy."]
     pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&mut self, _func: FN) {
         unimplemented!(
             "{}{}{}",
