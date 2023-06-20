@@ -18,7 +18,8 @@ use crate::{
     component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, Events},
-    query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
+    prelude::{WorldQueryData, WorldQueryFilter},
+    query::{DebugCheckedUnwrap, QueryState},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -677,7 +678,7 @@ impl World {
         self.last_change_tick = self.increment_change_tick();
     }
 
-    /// Returns [`QueryState`] for the given [`WorldQuery`], which is used to efficiently
+    /// Returns [`QueryState`] for the given [`WorldQueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World};
@@ -740,11 +741,11 @@ impl World {
     /// ]);
     /// ```
     #[inline]
-    pub fn query<Q: WorldQuery>(&mut self) -> QueryState<Q, ()> {
+    pub fn query<Q: WorldQueryData>(&mut self) -> QueryState<Q, ()> {
         self.query_filtered::<Q, ()>()
     }
 
-    /// Returns [`QueryState`] for the given filtered [`WorldQuery`], which is used to efficiently
+    /// Returns [`QueryState`] for the given filtered [`WorldQueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
@@ -763,8 +764,9 @@ impl World {
     ///
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
+    /// [`WorldQueryData`]: crate::query::WorldQueryData
     #[inline]
-    pub fn query_filtered<Q: WorldQuery, F: ReadOnlyWorldQuery>(&mut self) -> QueryState<Q, F> {
+    pub fn query_filtered<Q: WorldQueryData, F: WorldQueryFilter>(&mut self) -> QueryState<Q, F> {
         QueryState::new(self)
     }
 
