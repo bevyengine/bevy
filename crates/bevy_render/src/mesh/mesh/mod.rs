@@ -43,7 +43,7 @@ pub struct Mesh {
 /// [`shape::Cube`](crate::mesh::shape::Cube) or [`shape::Box`](crate::mesh::shape::Box), but you can also construct
 /// one yourself.
 ///
-/// Example of constructing a mesh (to be rendered with a StandardMaterial):
+/// Example of constructing a mesh (to be rendered with a `StandardMaterial`):
 /// ```
 /// # use bevy_render::mesh::{Mesh, Indices};
 /// # use bevy_render::render_resource::PrimitiveTopology;
