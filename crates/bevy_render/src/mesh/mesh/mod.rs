@@ -67,7 +67,12 @@ pub struct Mesh {
 ///     );
 ///     // After defining all the vertices and their attributes, build each triangle using the
 ///     // indices of the vertices that make it up in a counter-clockwise order.
-///     mesh.set_indices(Some(Indices::U32(vec![0,3,1 , 1,3,2])));
+///     mesh.set_indices(Some(Indices::U32(vec![
+///         // First triangle
+///         0, 3, 1,
+///         // Second triangle
+///         1, 3, 2
+///     ])));
 ///     mesh
 ///     // For further visualization, explanation, and examples see the built-in Bevy examples
 ///     // and the implementation of the built-in shapes.
