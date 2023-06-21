@@ -49,7 +49,7 @@ fn setup(
 
     // Camera in 3D space.
     commands.spawn(Camera3dBundle {
-        transform: camera_and_light_transform.clone(),
+        transform: camera_and_light_transform,
         ..default()
     });
 
