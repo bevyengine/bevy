@@ -671,7 +671,7 @@ impl WindowResolution {
     }
 
     /// Set the window's scale factor, this will be used over what the backend decides.
-    /// 
+    ///
     /// This can change the logical and physical sizes if the resulting physical
     /// size is not within the limits.
     #[inline]
@@ -897,13 +897,13 @@ pub enum WindowMode {
     Windowed,
     /// The window should appear fullscreen by being borderless and using the full
     /// size of the screen.
-    /// 
+    ///
     /// When setting this, the window's physical size will be modified to match the size
     /// of the current monitor resolution, and the logical size will follow based
     /// on the scale factor, see [`WindowResolution`].
     BorderlessFullscreen,
     /// The window should be in "true"/"legacy" Fullscreen mode.
-    /// 
+    ///
     /// When setting this, the operating system will be requested to use the
     /// **closest** resolution available for the current monitor to match as
     /// closely as possible the window's physical size.
@@ -912,7 +912,7 @@ pub enum WindowMode {
     /// scale factor, see [`WindowResolution`].
     SizedFullscreen,
     /// The window should be in "true"/"legacy" Fullscreen mode.
-    /// 
+    ///
     /// When setting this, the operating system will be requested to use the
     /// **biggest** resolution available for the current monitor.
     /// After that, the window's physical size will be modified to match
