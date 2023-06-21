@@ -18,7 +18,7 @@ use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
-use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
+use taffy::{prelude::Size, style_helpers::TaffyMaxContent, tree::LayoutTree, Taffy};
 
 pub struct LayoutContext {
     pub scale_factor: f64,
@@ -64,10 +64,12 @@ impl fmt::Debug for UiSurface {
 
 impl Default for UiSurface {
     fn default() -> Self {
+        let mut taffy = Taffy::new();
+        taffy.disable_rounding();
         Self {
             entity_to_taffy: Default::default(),
             window_nodes: Default::default(),
-            taffy: Taffy::new(),
+            taffy,
         }
     }
 }
@@ -175,6 +177,8 @@ without UI components as a child of an entity with UI components, results may be
             self.taffy
                 .compute_layout(*window_node, Size::MAX_CONTENT)
                 .unwrap();
+
+            round_layout(&mut self.taffy, *window_node, 0., 0.);
         }
     }
 
@@ -329,5 +333,31 @@ pub fn ui_layout_system(
         if transform.translation != new_position {
             transform.translation = new_position;
         }
+    }
+}
+
+fn round_half_up(value: f32) -> f32 {
+    if 0. < value {
+        value.round()
+    } else {
+        if value.trunc() - value != 0.5 {
+            value.round()
+        } else {
+            value.ceil()
+        }
+    }
+}
+
+fn round_layout(tree: &mut impl LayoutTree, node: taffy::node::Node, abs_x: f32, abs_y: f32) {
+    let layout = tree.layout_mut(node);
+    layout.location.x = round_half_up(layout.location.x);
+    layout.location.y = round_half_up(layout.location.y);
+    layout.size.width = round_half_up(abs_x + layout.size.width) - round_half_up(abs_x);
+    layout.size.height = round_half_up(abs_y + layout.size.height) - round_half_up(abs_y);
+
+    let child_count = tree.child_count(node);
+    for index in 0..child_count {
+        let child = tree.child(node, index);
+        round_layout(tree, child, abs_x, abs_y);
     }
 }
