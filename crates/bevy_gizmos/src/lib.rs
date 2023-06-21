@@ -479,83 +479,54 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
 
 fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
+    let mut position_layout = VertexBufferLayout {
+        array_stride: Float32x3.size(),
+        step_mode: VertexStepMode::Instance,
+        attributes: vec![VertexAttribute {
+            format: Float32x3,
+            offset: 0,
+            shader_location: 0,
+        }],
+    };
+
+    let mut color_layout = VertexBufferLayout {
+        array_stride: Float32x4.size(),
+        step_mode: VertexStepMode::Instance,
+        attributes: vec![VertexAttribute {
+            format: Float32x4,
+            offset: 0,
+            shader_location: 2,
+        }],
+    };
+
     if strip {
         vec![
-            // Positions
-            VertexBufferLayout {
-                array_stride: Float32x3.size(),
-                step_mode: VertexStepMode::Instance,
-                attributes: vec![VertexAttribute {
-                    format: Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                }],
+            position_layout.clone(),
+            {
+                position_layout.attributes[0].shader_location = 1;
+                position_layout
             },
-            VertexBufferLayout {
-                array_stride: Float32x3.size(),
-                step_mode: VertexStepMode::Instance,
-                attributes: vec![VertexAttribute {
-                    format: Float32x3,
-                    offset: 0,
-                    shader_location: 1,
-                }],
-            },
-            // Colors
-            VertexBufferLayout {
-                array_stride: Float32x4.size(),
-                step_mode: VertexStepMode::Instance,
-                attributes: vec![VertexAttribute {
-                    format: Float32x4,
-                    offset: 0,
-                    shader_location: 2,
-                }],
-            },
-            VertexBufferLayout {
-                array_stride: Float32x4.size(),
-                step_mode: VertexStepMode::Instance,
-                attributes: vec![VertexAttribute {
-                    format: Float32x4,
-                    offset: 0,
-                    shader_location: 3,
-                }],
+            color_layout.clone(),
+            {
+                color_layout.attributes[0].shader_location = 3;
+                color_layout
             },
         ]
     } else {
-        vec![
-            // Positions
-            VertexBufferLayout {
-                array_stride: Float32x3.size() * 2,
-                step_mode: VertexStepMode::Instance,
-                attributes: vec![
-                    VertexAttribute {
-                        format: Float32x3,
-                        offset: 0,
-                        shader_location: 0,
-                    },
-                    VertexAttribute {
-                        format: Float32x3,
-                        offset: Float32x3.size(),
-                        shader_location: 1,
-                    },
-                ],
-            },
-            // Colors
-            VertexBufferLayout {
-                array_stride: Float32x4.size() * 2,
-                step_mode: VertexStepMode::Instance,
-                attributes: vec![
-                    VertexAttribute {
-                        format: Float32x4,
-                        offset: 0,
-                        shader_location: 2,
-                    },
-                    VertexAttribute {
-                        format: Float32x4,
-                        offset: Float32x4.size(),
-                        shader_location: 3,
-                    },
-                ],
-            },
-        ]
+        position_layout.array_stride *= 2;
+        position_layout.attributes.push(VertexAttribute {
+            format: Float32x3,
+            offset: Float32x3.size(),
+            shader_location: 1,
+        });
+
+        color_layout.array_stride *= 2;
+        color_layout.attributes.push(VertexAttribute {
+            format: Float32x4,
+            offset: Float32x4.size(),
+            shader_location: 3,
+        });
+
+        vec![position_layout, color_layout]
     }
 }
