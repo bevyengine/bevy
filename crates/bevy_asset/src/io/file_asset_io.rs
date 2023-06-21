@@ -216,7 +216,7 @@ pub fn filesystem_watcher_system(
         // Unless we wait until we are sure the shader is finished being modified (and that there will be no more events coming),
         // we will sometimes get a crash when trying to reload a partially-modified shader.
         for (to_reload, _) in
-            changed.drain_filter(|_, last_modified| last_modified.elapsed() >= watcher.delay)
+            changed.extract_if(|_, last_modified| last_modified.elapsed() >= watcher.delay)
         {
             let _ = asset_server.load_untracked(to_reload.as_path().into(), true);
         }
