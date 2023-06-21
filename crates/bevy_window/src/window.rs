@@ -520,7 +520,7 @@ impl WindowPosition {
 /// The reason logical size and physical size are separated and can be different
 /// is to account for the cases where:
 /// - several monitors have different pixel densities,
-/// - the user have set up a pixel density preference in its operating system,
+/// - the user has set up a pixel density preference in its operating system,
 /// - the Bevy `App` has specified a specific scale factor between both.
 ///
 /// The factor between physical size and logical size can be retrieved with
