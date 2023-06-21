@@ -2,7 +2,7 @@ use std::{iter, mem};
 
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    mesh::morph::{MorphWeights, MAX_MORPH_WEIGHTS},
+    mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
     render_resource::{BufferUsages, BufferVec},
     renderer::{RenderDevice, RenderQueue},
     view::ComputedVisibility,
@@ -72,7 +72,7 @@ pub fn extract_morphs(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut uniform: ResMut<MorphUniform>,
-    query: Extract<Query<(Entity, &ComputedVisibility, &MorphWeights)>>,
+    query: Extract<Query<(Entity, &ComputedVisibility, &MeshMorphWeights)>>,
 ) {
     uniform.buffer.clear();
 

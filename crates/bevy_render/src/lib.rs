@@ -49,7 +49,7 @@ use wgpu::Instance;
 
 use crate::{
     camera::CameraPlugin,
-    mesh::MeshPlugin,
+    mesh::{morph::MorphPlugin, MeshPlugin},
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::WgpuSettings,
@@ -334,11 +334,11 @@ impl Plugin for RenderPlugin {
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
-            .add_plugin(GlobalsPlugin);
+            .add_plugin(GlobalsPlugin)
+            .add_plugin(MorphPlugin);
 
         app.register_type::<color::Color>()
             .register_type::<primitives::Aabb>()
-            .register_type::<mesh::morph::MorphWeights>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
             .register_type::<primitives::Frustum>();

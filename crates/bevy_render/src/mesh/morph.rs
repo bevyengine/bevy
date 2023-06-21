@@ -1,8 +1,12 @@
 use crate::{
+    mesh::Mesh,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
-use bevy_ecs::{component::Component, prelude::ReflectComponent};
+use bevy_app::{Plugin, PostUpdate};
+use bevy_asset::Handle;
+use bevy_ecs::prelude::*;
+use bevy_hierarchy::Children;
 use bevy_math::Vec3;
 use bevy_reflect::Reflect;
 use bytemuck::{Pod, Zeroable};
@@ -16,6 +20,17 @@ const MAX_COMPONENTS: u32 = MAX_TEXTURE_WIDTH * MAX_TEXTURE_WIDTH;
 
 /// Max target count available for [morph targets](MorphWeights).
 pub const MAX_MORPH_WEIGHTS: usize = 64;
+
+/// [Inherit weights](inherit_weights) from glTF mesh parent entity to direct
+/// bevy mesh child entities (ie: glTF primitive).
+pub struct MorphPlugin;
+impl Plugin for MorphPlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+        app.register_type::<MorphWeights>()
+            .register_type::<MeshMorphWeights>()
+            .add_systems(PostUpdate, inherit_weights);
+    }
+}
 
 #[derive(Error, Clone, Debug)]
 pub enum MorphBuildError {
@@ -88,31 +103,99 @@ impl MorphTargetImage {
     }
 }
 
-/// Control a [`Mesh`]'s [morph targets].
+/// Controls the [morph targets] for all child [`Handle<Mesh>`] entities. In most cases, [`MorphWeights`] should be considered
+/// the "source o[f truth" when writing morph targets for meshes. However you can choose to write child [`MeshMorphWeights`]
+/// if your situation requires more granularity. Just note that if you set [`MorphWeights`], it will overwrite child
+/// [`MeshMorphWeights`] values.
 ///
-/// Add this to an [`Entity`] with a [`Handle<Mesh>`] with a [`MorphAttributes`] set
-/// to control individual weights of each morph target.
+/// This exists because Bevy's [`Mesh`] corresponds to a _single_ surface / material, whereas morph targets
+/// as defined in the GLTF spec exist on "multi-primitive meshes" (where each primitive is its own surface with its own material).
+/// Therefore in Bevy [`MorphWeights`] an a parent entity are the "canonical weights" from a GLTF perspective, which then
+/// synchronized to child [`Handle<Mesh>`] / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).   
+///
+/// Add this to the parent of one or more [`Entities`](`Entity`) with a [`Handle<Mesh>`] with a [`MeshMorphWeights`].
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-/// [`Entity`]: bevy_ecs::prelude::Entity
 #[derive(Reflect, Default, Debug, Clone, Component)]
 #[reflect(Debug, Component)]
 pub struct MorphWeights {
     weights: Vec<f32>,
+    /// The first mesh primitive assigned to these weights
+    first_mesh: Option<Handle<Mesh>>,
 }
 impl MorphWeights {
-    pub fn new(weights: Vec<f32>) -> Result<Self, MorphBuildError> {
+    pub fn new(
+        weights: Vec<f32>,
+        first_mesh: Option<Handle<Mesh>>,
+    ) -> Result<Self, MorphBuildError> {
         if weights.len() > MAX_MORPH_WEIGHTS {
             let target_count = weights.len();
             return Err(MorphBuildError::TooManyTargets { target_count });
         }
-        Ok(MorphWeights { weights })
+        Ok(MorphWeights {
+            weights,
+            first_mesh,
+        })
+    }
+    /// The first child [`Handle<Mesh>`] primitive controlled by these weights.
+    /// This can be used to look up metadata information such as [`Mesh::morph_target_names`].
+    pub fn first_mesh(&self) -> Option<&Handle<Mesh>> {
+        self.first_mesh.as_ref()
     }
     pub fn weights(&self) -> &[f32] {
         &self.weights
     }
     pub fn weights_mut(&mut self) -> &mut [f32] {
         &mut self.weights
+    }
+}
+
+/// Control a specific [`Mesh`] instance's [morph targets]. These control the weights of
+/// specific "mesh primitives" in scene formats like GLTF. They can be set manually, but
+/// in most cases they should "automatically" synced by setting the [`MorphWeights`] component
+/// on a parent entity.
+///
+/// See [`MorphWeights`] for more details on Bevy's morph target implementation.
+///
+/// Add this to an [`Entity`] with a [`Handle<Mesh>`] with a [`MorphAttributes`] set
+/// to control individual weights of each morph target.
+///
+/// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+#[derive(Reflect, Default, Debug, Clone, Component)]
+#[reflect(Debug, Component)]
+pub struct MeshMorphWeights {
+    weights: Vec<f32>,
+}
+impl MeshMorphWeights {
+    pub fn new(weights: Vec<f32>) -> Result<Self, MorphBuildError> {
+        if weights.len() > MAX_MORPH_WEIGHTS {
+            let target_count = weights.len();
+            return Err(MorphBuildError::TooManyTargets { target_count });
+        }
+        Ok(MeshMorphWeights { weights })
+    }
+    pub fn weights(&self) -> &[f32] {
+        &self.weights
+    }
+    pub fn weights_mut(&mut self) -> &mut [f32] {
+        &mut self.weights
+    }
+}
+
+/// Bevy meshes are gltf primitives, [`MorphWeights`] on the bevy node entity
+/// should be inherited by children meshes.
+///
+/// Only direct children are updated, to fulfill the expectations of glTF spec.
+pub fn inherit_weights(
+    morph_nodes: Query<(&Children, &MorphWeights), (Without<Handle<Mesh>>, Changed<MorphWeights>)>,
+    mut morph_primitives: Query<&mut MeshMorphWeights, With<Handle<Mesh>>>,
+) {
+    for (children, parent_weights) in &morph_nodes {
+        let mut iter = morph_primitives.iter_many_mut(children);
+        while let Some(mut child_weight) = iter.fetch_next() {
+            child_weight.weights.clear();
+            child_weight.weights.extend(&parent_weights.weights);
+        }
     }
 }
 

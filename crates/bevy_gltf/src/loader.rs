@@ -1,7 +1,7 @@
 use crate::{vertex_attributes::*, Gltf, GltfExtras, GltfNode};
 use anyhow::Result;
 use bevy_asset::{
-    AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
+    AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, HandleId, LoadContext, LoadedAsset,
 };
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
@@ -17,7 +17,7 @@ use bevy_render::{
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
     color::Color,
     mesh::{
-        morph::{MorphAttributes, MorphTargetImage, MorphWeights},
+        morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         Indices, Mesh, MeshVertexAttribute, VertexAttributeValues,
     },
@@ -186,33 +186,15 @@ async fn load_gltf<'a, 'b>(
 
                 if let Some((root_index, path)) = paths.get(&node.index()) {
                     animation_roots.insert(root_index);
-
-                    if matches!(keyframes, Keyframes::Weights(_)) {
-                        if let Some(mesh) = node.mesh() {
-                            for primitive in mesh.primitives() {
-                                let name = primitive_name(&mesh, &primitive);
-                                let mut path = path.clone();
-                                path.push(Name::new(name));
-                                animation_clip.add_curve_to_path(
-                                    bevy_animation::EntityPath { parts: path },
-                                    bevy_animation::VariableCurve {
-                                        keyframe_timestamps: keyframe_timestamps.clone(),
-                                        keyframes: keyframes.clone(),
-                                    },
-                                );
-                            }
-                        }
-                    } else {
-                        animation_clip.add_curve_to_path(
-                            bevy_animation::EntityPath {
-                                parts: path.clone(),
-                            },
-                            bevy_animation::VariableCurve {
-                                keyframe_timestamps,
-                                keyframes,
-                            },
-                        );
-                    }
+                    animation_clip.add_curve_to_path(
+                        bevy_animation::EntityPath {
+                            parts: path.clone(),
+                        },
+                        bevy_animation::VariableCurve {
+                            keyframe_timestamps,
+                            keyframes,
+                        },
+                    );
                 } else {
                     warn!(
                         "Animation ignored for node {}: part of its hierarchy is missing a name",
@@ -773,6 +755,19 @@ fn load_node(
     // Map node index to entity
     node_index_to_entity_map.insert(gltf_node.index(), node.id());
 
+    if let Some(mesh) = gltf_node.mesh() {
+        if let Some(weights) = mesh.weights() {
+            let first_mesh = if let Some(primitive) = mesh.primitives().next() {
+                let primitive_label = primitive_label(&mesh, &primitive);
+                let path = AssetPath::new_ref(load_context.path(), Some(&primitive_label));
+                Some(Handle::weak(HandleId::from(path)))
+            } else {
+                None
+            };
+            node.insert(MorphWeights::new(weights.to_vec(), first_mesh)?);
+        }
+    };
+
     node.with_children(|parent| {
         if let Some(mesh) = gltf_node.mesh() {
             // append primitives
@@ -805,13 +800,13 @@ fn load_node(
                         Some(weights) => weights.to_vec(),
                         None => vec![0.0; target_count],
                     };
-                    // unwrap: the parent's call to `MorphWeights::new`
+                    // unwrap: the parent's call to `MeshMorphWeights::new`
                     // means this code doesn't run if it returns an `Err`.
                     // According to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#morph-targets
                     // they should all have the same length.
                     // > All morph target accessors MUST have the same count as
                     // > the accessors of the original primitive.
-                    primitive_entity.insert(MorphWeights::new(weights).unwrap());
+                    primitive_entity.insert(MeshMorphWeights::new(weights).unwrap());
                 }
                 primitive_entity.insert(Aabb::from_min_max(
                     Vec3::from_slice(&bounds.min),
