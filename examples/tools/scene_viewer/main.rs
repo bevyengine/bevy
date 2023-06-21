@@ -52,7 +52,7 @@ fn main() {
     .add_systems(PreUpdate, setup_scene_after_load);
 
     #[cfg(feature = "animation")]
-    app.add_plugin(animation_plugin::AnimationManipulationPlugin);
+    app.add_plugins(animation_plugin::AnimationManipulationPlugin);
 
     app.run();
 }
