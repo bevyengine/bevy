@@ -8,7 +8,7 @@ use crate::{
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
-    system::{Query, SystemMeta},
+    system::{Query, SystemMeta, SystemState},
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
@@ -1367,6 +1367,55 @@ unsafe impl SystemParam for SystemName<'_> {
 // SAFETY: Only reads internal system state
 unsafe impl<'s> ReadOnlySystemParam for SystemName<'s> {}
 
+// SAFETY: QueryState only accesses internal state.
+unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
+    for &mut QueryState<Q, F>
+{
+    type State = QueryState<Q, F>;
+    type Item<'world, 'state> = &'state mut QueryState<Q, F>;
+
+    fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        QueryState::new(world)
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        state
+    }
+}
+
+// SAFETY: QueryState only accesses internal state.
+unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> ReadOnlySystemParam
+    for &mut QueryState<Q, F>
+{
+}
+
+// SAFETY: SystemState only accesses internal state.
+unsafe impl<P: SystemParam + 'static> SystemParam for &mut SystemState<P> {
+    type State = SystemState<P>;
+    type Item<'world, 'state> = &'state mut SystemState<P>;
+
+    fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        SystemState::new(world)
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        state
+    }
+}
+
+// SAFETY: SystemState only accesses internal state.
+unsafe impl<P: SystemParam + 'static> ReadOnlySystemParam for &mut SystemState<P> {}
+
 macro_rules! impl_system_param_tuple {
     ($($param: ident),*) => {
         // SAFETY: tuple consists only of ReadOnlySystemParams
@@ -1566,8 +1615,9 @@ mod tests {
     use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
+        prelude::Component,
         query::{ReadOnlyWorldQuery, WorldQuery},
-        system::{assert_is_system, Query},
+        system::{assert_is_read_only_system, assert_is_system, Query},
     };
     use std::marker::PhantomData;
 
@@ -1734,5 +1784,15 @@ mod tests {
 
         fn my_system(_: InvariantParam) {}
         assert_is_system(my_system);
+    }
+
+    // Compile test for [insert link here]
+    #[test]
+    fn system_param_states() {
+        #[derive(Component)]
+        struct T;
+
+        fn my_system(_: &mut QueryState<&mut T>, _: &mut SystemState<ResMut<R<0>>>) {}
+        assert_is_read_only_system(my_system);
     }
 }
