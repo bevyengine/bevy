@@ -76,7 +76,7 @@ where
 
     #[inline]
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.system_meta.archetype_component_access()
+        self.system_meta.archetype_component_access()
     }
 
     #[inline]

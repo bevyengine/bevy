@@ -168,21 +168,29 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new(world);
         assert_component_access_compatibility(
-            &system_meta.name(),
+            system_meta.name(),
             std::any::type_name::<Q>(),
             std::any::type_name::<F>(),
-            &system_meta.component_access_set(),
+            system_meta.component_access_set(),
             &state.component_access,
             world,
         );
-        unsafe { system_meta.component_access_set_mut() }.add(state.component_access.clone());
-        unsafe { system_meta.archetype_component_access_mut() }
-            .extend(&state.archetype_component_access);
+        // SAFETY: Adding Query's ComponentId and ArchetypeComponentId accesses (no accesses
+        // removed).
+        unsafe {
+            system_meta
+                .component_access_set_mut()
+                .add(state.component_access.clone());
+            system_meta
+                .archetype_component_access_mut()
+                .extend(&state.archetype_component_access);
+        }
         state
     }
 
     fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
         state.new_archetype(archetype);
+        // SAFETY: Adding Query's ArchetypeComponentId access (no accesses removed).
         unsafe { system_meta.archetype_component_access_mut() }
             .extend(&state.archetype_component_access);
     }
@@ -420,13 +428,18 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             std::any::type_name::<T>(),
             system_meta.name(),
         );
-        unsafe { system_meta.component_access_set_mut() }.add_unfiltered_read(component_id);
-
-        let archetype_component_id = world
-            .get_resource_archetype_component_id(component_id)
-            .unwrap();
-        unsafe { system_meta.archetype_component_access_mut() }.add_read(archetype_component_id);
-
+        // SAFETY: Adding Res' ComponentId and ArchetypeComponentId accesses (no accesses removed).
+        unsafe {
+            system_meta
+                .component_access_set_mut()
+                .add_unfiltered_read(component_id);
+            let archetype_component_id = world
+                .get_resource_archetype_component_id(component_id)
+                .unwrap();
+            system_meta
+                .archetype_component_access_mut()
+                .add_read(archetype_component_id);
+        }
         component_id
     }
 
@@ -509,13 +522,19 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access.",
                 std::any::type_name::<T>(), system_meta.name());
         }
-        unsafe { system_meta.component_access_set_mut() }.add_unfiltered_write(component_id);
-
-        let archetype_component_id = world
-            .get_resource_archetype_component_id(component_id)
-            .unwrap();
-        unsafe { system_meta.archetype_component_access_mut() }.add_write(archetype_component_id);
-
+        // SAFETY: Adding ResMut's ComponentId and ArchetypeComponentId accesses (no accesses
+        // removed).
+        unsafe {
+            system_meta
+                .component_access_set_mut()
+                .add_unfiltered_write(component_id);
+            let archetype_component_id = world
+                .get_resource_archetype_component_id(component_id)
+                .unwrap();
+            system_meta
+                .archetype_component_access_mut()
+                .add_write(archetype_component_id);
+        }
         component_id
     }
 
@@ -594,6 +613,7 @@ unsafe impl SystemParam for &'_ World {
         {
             panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
         }
+        // SAFETY: Adding all read accesses (no accesses are removed) after panicking on conflicts.
         unsafe { system_meta.archetype_component_access_mut() }.extend(&access);
 
         let mut filtered_access = FilteredAccess::default();
@@ -606,6 +626,7 @@ unsafe impl SystemParam for &'_ World {
         {
             panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
         }
+        // SAFETY: Adding all read accesses (no accesses are removed) after panicking on conflicts.
         unsafe { system_meta.component_access_set_mut() }.add(filtered_access);
     }
 
@@ -996,12 +1017,19 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             std::any::type_name::<T>(),
             system_meta.name(),
         );
-        unsafe { system_meta.component_access_set_mut() }.add_unfiltered_read(component_id);
-
-        let archetype_component_id = world
-            .get_non_send_archetype_component_id(component_id)
-            .unwrap();
-        unsafe { system_meta.archetype_component_access_mut() }.add_read(archetype_component_id);
+        // SAFETY: Adding NonSend's ComponentId and ArchetypeComponentId accesses (no accesses
+        // removed).
+        unsafe {
+            system_meta
+                .component_access_set_mut()
+                .add_unfiltered_read(component_id);
+            let archetype_component_id = world
+                .get_non_send_archetype_component_id(component_id)
+                .unwrap();
+            system_meta
+                .archetype_component_access_mut()
+                .add_read(archetype_component_id);
+        }
 
         component_id
     }
@@ -1082,12 +1110,19 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access.",
                 std::any::type_name::<T>(), system_meta.name());
         }
-        unsafe { system_meta.component_access_set_mut() }.add_unfiltered_write(component_id);
-
-        let archetype_component_id = world
-            .get_non_send_archetype_component_id(component_id)
-            .unwrap();
-        unsafe { system_meta.archetype_component_access_mut() }.add_write(archetype_component_id);
+        // SAFETY: Adding NonSendMut's ComponentId and ArchetypeComponentId accesses (no accesses
+        // removed).
+        unsafe {
+            system_meta
+                .component_access_set_mut()
+                .add_unfiltered_write(component_id);
+            let archetype_component_id = world
+                .get_non_send_archetype_component_id(component_id)
+                .unwrap();
+            system_meta
+                .archetype_component_access_mut()
+                .add_write(archetype_component_id);
+        }
 
         component_id
     }
