@@ -452,12 +452,22 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
             return RenderCommandResult::Failure;
         };
 
-        pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
-        pass.set_vertex_buffer(1, line_gizmo.color_buffer.slice(..));
-
         let instances = if line_gizmo.strip {
+            let item_size = VertexFormat::Float32x3.size();
+            let buffer_size = line_gizmo.position_buffer.size() - item_size;
+            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..buffer_size));
+            pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(item_size..));
+
+            let item_size = VertexFormat::Float32x4.size();
+            let buffer_size = line_gizmo.color_buffer.size() - item_size;
+            pass.set_vertex_buffer(2, line_gizmo.color_buffer.slice(..buffer_size));
+            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(item_size..));
+
             u32::max(line_gizmo.vertex_count, 1) - 1
         } else {
+            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
+            pass.set_vertex_buffer(1, line_gizmo.color_buffer.slice(..));
+
             line_gizmo.vertex_count / 2
         };
 
@@ -468,42 +478,84 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
 }
 
 fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
-    let stride_multiplier = if strip { 1 } else { 2 };
     use VertexFormat::*;
-    vec![
-        // Positions
-        VertexBufferLayout {
-            array_stride: Float32x3.size() * stride_multiplier,
-            step_mode: VertexStepMode::Instance,
-            attributes: vec![
-                VertexAttribute {
+    if strip {
+        vec![
+            // Positions
+            VertexBufferLayout {
+                array_stride: Float32x3.size(),
+                step_mode: VertexStepMode::Instance,
+                attributes: vec![VertexAttribute {
                     format: Float32x3,
                     offset: 0,
                     shader_location: 0,
-                },
-                VertexAttribute {
+                }],
+            },
+            VertexBufferLayout {
+                array_stride: Float32x3.size(),
+                step_mode: VertexStepMode::Instance,
+                attributes: vec![VertexAttribute {
                     format: Float32x3,
-                    offset: Float32x3.size(),
+                    offset: 0,
                     shader_location: 1,
-                },
-            ],
-        },
-        // Colors
-        VertexBufferLayout {
-            array_stride: Float32x4.size() * stride_multiplier,
-            step_mode: VertexStepMode::Instance,
-            attributes: vec![
-                VertexAttribute {
+                }],
+            },
+            // Colors
+            VertexBufferLayout {
+                array_stride: Float32x4.size(),
+                step_mode: VertexStepMode::Instance,
+                attributes: vec![VertexAttribute {
                     format: Float32x4,
                     offset: 0,
                     shader_location: 2,
-                },
-                VertexAttribute {
+                }],
+            },
+            VertexBufferLayout {
+                array_stride: Float32x4.size(),
+                step_mode: VertexStepMode::Instance,
+                attributes: vec![VertexAttribute {
                     format: Float32x4,
-                    offset: Float32x4.size(),
+                    offset: 0,
                     shader_location: 3,
-                },
-            ],
-        },
-    ]
+                }],
+            },
+        ]
+    } else {
+        vec![
+            // Positions
+            VertexBufferLayout {
+                array_stride: Float32x3.size() * 2,
+                step_mode: VertexStepMode::Instance,
+                attributes: vec![
+                    VertexAttribute {
+                        format: Float32x3,
+                        offset: 0,
+                        shader_location: 0,
+                    },
+                    VertexAttribute {
+                        format: Float32x3,
+                        offset: Float32x3.size(),
+                        shader_location: 1,
+                    },
+                ],
+            },
+            // Colors
+            VertexBufferLayout {
+                array_stride: Float32x4.size() * 2,
+                step_mode: VertexStepMode::Instance,
+                attributes: vec![
+                    VertexAttribute {
+                        format: Float32x4,
+                        offset: 0,
+                        shader_location: 2,
+                    },
+                    VertexAttribute {
+                        format: Float32x4,
+                        offset: Float32x4.size(),
+                        shader_location: 3,
+                    },
+                ],
+            },
+        ]
+    }
 }
