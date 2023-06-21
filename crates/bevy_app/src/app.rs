@@ -25,11 +25,6 @@ bevy_utils::define_label!(
     AppLabelId,
 );
 
-/// The [`Resource`] that stores the [`App`]'s [`TypeRegistry`](bevy_reflect::TypeRegistry).
-#[cfg(feature = "bevy_reflect")]
-#[derive(Resource, Clone, bevy_derive::Deref, bevy_derive::DerefMut, Default)]
-pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
-
 pub(crate) enum AppError {
     DuplicatePlugin { plugin_name: String },
 }
