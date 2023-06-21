@@ -120,7 +120,7 @@ pub struct Window {
     pub title: String,
     /// How the alpha channel of textures should be handled while compositing.
     pub composite_alpha_mode: CompositeAlphaMode,
-    /// The limits of the window's physical size
+    /// The limits of the window's logical size
     /// (found in its [`resolution`](WindowResolution)) when resizing.
     pub resize_constraints: WindowResizeConstraints,
     /// Should the window be resizable?
@@ -541,8 +541,10 @@ impl WindowPosition {
 /// is because the corresponding physical size might exceed limits (either the
 /// size limits of the monitor, or limits defined in [`WindowResizeConstraints`]).
 ///
-/// Note: The requested size is not kept in memory, for example changing the scale
-/// factor one way and changing it back after might not get the original size back.
+/// Note: The requested size is not kept in memory, for example requesting a size
+/// too big for the screen, making the logical size different from the requested size,
+/// and then setting a scale factor that makes the previous requested size within
+/// the limits of the screen will not get back that previous requested size.
 
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(
@@ -669,6 +671,9 @@ impl WindowResolution {
     }
 
     /// Set the window's scale factor, this will be used over what the backend decides.
+    /// 
+    /// This can change the logical and physical sizes if the resulting physical
+    /// size is not within the limits.
     #[inline]
     pub fn set_scale_factor_override(&mut self, scale_factor_override: Option<f64>) {
         let (width, height) = (self.width(), self.height());
@@ -878,8 +883,7 @@ pub enum CompositeAlphaMode {
     Inherit = 4,
 }
 
-/// Defines the way a [`Window`] is displayed,
-/// potentially using the physical size in the [`Window`]'s [`resolution`](WindowResolution).
+/// Defines the way a [`Window`] is displayed.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -891,12 +895,29 @@ pub enum WindowMode {
     /// The window should take a portion of the screen, using the window resolution size.
     #[default]
     Windowed,
-    /// The window should be borderless and use the full size of the screen.
+    /// The window should appear fullscreen by being borderless and using the full
+    /// size of the screen.
+    /// 
+    /// When setting this, the window's physical size will be modified to match the size
+    /// of the current monitor resolution, and the logical size will follow based
+    /// on the scale factor, see [`WindowResolution`].
     BorderlessFullscreen,
-    /// The window should be borderless, take the full size of the screen, and render at desktop resolution.
-    /// The app will use the closest supported size from the window resolution size and scale it to fit the screen.
+    /// The window should be in "true"/"legacy" Fullscreen mode.
+    /// 
+    /// When setting this, the operating system will be requested to use the
+    /// **closest** resolution available for the current monitor to match as
+    /// closely as possible the window's physical size.
+    /// After that, the window's physical size will be modified to match
+    /// that monitor resolution, and the logical size will follow based on the
+    /// scale factor, see [`WindowResolution`].
     SizedFullscreen,
-    /// The window should take the full size of the screen by using the maximum supported size.
+    /// The window should be in "true"/"legacy" Fullscreen mode.
+    /// 
+    /// When setting this, the operating system will be requested to use the
+    /// **biggest** resolution available for the current monitor.
+    /// After that, the window's physical size will be modified to match
+    /// that monitor resolution, and the logical size will follow based on the
+    /// scale factor, see [`WindowResolution`].
     Fullscreen,
 }
 
