@@ -1,8 +1,8 @@
 #[cfg(feature = "serialize")]
 use crate::serde::SceneDeserializer;
 use anyhow::{anyhow, Result};
-use bevy_app::AppTypeRegistry;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
+use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::world::{FromWorld, World};
 use bevy_reflect::TypeRegistryArc;
 use bevy_utils::BoxedFuture;

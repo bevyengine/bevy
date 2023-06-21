@@ -11,7 +11,8 @@ use crate::{
 };
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, Reflect, ReflectDeserialize, ReflectSerialize,
+    std_traits::ReflectDefault, FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect,
+    ReflectSerialize,
 };
 use bevy_utils::Uuid;
 use crossbeam_channel::{Receiver, Sender};
@@ -103,7 +104,7 @@ impl HandleId {
 /// collisions no longer being detected for that entity.
 ///
 #[derive(Component, Reflect, FromReflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, FromReflect)]
 pub struct Handle<T>
 where
     T: Asset,

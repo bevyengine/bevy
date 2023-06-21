@@ -2,8 +2,9 @@ use crate::{
     update_asset_storage_system, Asset, AssetEvents, AssetLoader, AssetServer, Handle, HandleId,
     LoadAssets, RefChange, ReflectAsset, ReflectHandle,
 };
-use bevy_app::{App, AppTypeRegistry};
+use bevy_app::App;
 use bevy_ecs::prelude::*;
+use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;

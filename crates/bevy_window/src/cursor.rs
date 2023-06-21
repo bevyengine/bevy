@@ -1,4 +1,4 @@
-use bevy_reflect::{prelude::ReflectDefault, FromReflect, Reflect};
+use bevy_reflect::{prelude::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -14,7 +14,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default)]
+#[reflect(Debug, PartialEq, Default, FromReflect)]
 pub enum CursorIcon {
     /// The platform-dependent default cursor.
     #[default]
