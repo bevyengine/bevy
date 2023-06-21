@@ -332,7 +332,7 @@ impl Window {
 
 /// The size limits on a [`Window`].
 ///
-/// These values are measured in logical pixels, so the user's
+/// These values are measured in logical pixels (see [`WindowResolution`]), so the user's
 /// scale factor does affect the size limits on the window.
 ///
 /// Please note that if the window is resizable, then when the window is
