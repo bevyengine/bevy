@@ -21,9 +21,6 @@ pub use schedule_runner::*;
 
 #[allow(missing_docs)]
 pub mod prelude {
-    #[cfg(feature = "bevy_reflect")]
-    #[doc(hidden)]
-    pub use crate::AppTypeRegistry;
     #[doc(hidden)]
     pub use crate::{
         app::App,

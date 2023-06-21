@@ -256,7 +256,7 @@ fn main() {
         // Plugins are just a grouped set of app builder calls (just like we're doing here).
         // We could easily turn our game into a plugin, but you can check out the plugin example for
         // that :) The plugin below runs our app's "system schedule" once every 5 seconds.
-        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs(5)))
+        .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_secs(5)))
         // `Startup` systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
         .add_systems(Startup, startup_system)

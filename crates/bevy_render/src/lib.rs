@@ -329,13 +329,15 @@ impl Plugin for RenderPlugin {
             }));
         }
 
-        app.add_plugin(ValidParentCheckPlugin::<view::ComputedVisibility>::default())
-            .add_plugin(WindowRenderPlugin)
-            .add_plugin(CameraPlugin)
-            .add_plugin(ViewPlugin)
-            .add_plugin(MeshPlugin)
-            .add_plugin(GlobalsPlugin)
-            .add_plugin(MorphPlugin);
+        app.add_plugins((
+            ValidParentCheckPlugin::<view::ComputedVisibility>::default(),
+            WindowRenderPlugin,
+            CameraPlugin,
+            ViewPlugin,
+            MeshPlugin,
+            GlobalsPlugin,
+            MorphPlugin,
+        ));
 
         app.register_type::<color::Color>()
             .register_type::<primitives::Aabb>()

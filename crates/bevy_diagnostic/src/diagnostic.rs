@@ -299,7 +299,7 @@ impl RegisterDiagnostic for App {
     ///
     /// App::new()
     ///     .register_diagnostic(Diagnostic::new(UNIQUE_DIAG_ID, "example", 10))
-    ///     .add_plugin(DiagnosticsPlugin)
+    ///     .add_plugins(DiagnosticsPlugin)
     ///     .run();
     /// ```
     fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self {

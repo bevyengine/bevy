@@ -17,8 +17,7 @@ fn main() {
             brightness: 5.0,
             ..default()
         })
-        .add_plugins(DefaultPlugins)
-        .add_plugin(TemporalAntiAliasPlugin)
+        .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, update)
         .run();

@@ -142,6 +142,26 @@ impl ReflectResource {
     pub fn new(&self, fns: ReflectResourceFns) -> Self {
         Self(fns)
     }
+
+    /// The underlying function pointers implementing methods on `ReflectResource`.
+    ///
+    /// This is useful when you want to keep track locally of an individual
+    /// function pointer.
+    ///
+    /// Calling [`TypeRegistry::get`] followed by
+    /// [`TypeRegistration::data::<ReflectResource>`] can be costly if done several
+    /// times per frame. Consider cloning [`ReflectResource`] and keeping it
+    /// between frames, cloning a `ReflectResource` is very cheap.
+    ///
+    /// If you only need a subset of the methods on `ReflectResource`,
+    /// use `fn_pointers` to get the underlying [`ReflectResourceFns`]
+    /// and copy the subset of function pointers you care about.
+    ///
+    /// [`TypeRegistration::data::<ReflectResource>`]: bevy_reflect::TypeRegistration::data
+    /// [`TypeRegistry::get`]: bevy_reflect::TypeRegistry::get
+    pub fn fn_pointers(&self) -> &ReflectResourceFns {
+        &self.0
+    }
 }
 
 impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {

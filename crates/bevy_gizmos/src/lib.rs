@@ -78,9 +78,9 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(UniformComponentPlugin::<LineGizmoUniform>::default())
+        app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .add_asset::<LineGizmo>()
-            .add_plugin(RenderAssetPlugin::<LineGizmo>::default())
+            .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
             .init_resource::<GizmoConfig>()
             .init_resource::<GizmoStorage>()
@@ -100,9 +100,9 @@ impl Plugin for GizmoPlugin {
             .add_systems(Render, queue_line_gizmo_bind_group.in_set(RenderSet::Queue));
 
         #[cfg(feature = "bevy_sprite")]
-        app.add_plugin(pipeline_2d::LineGizmo2dPlugin);
+        app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
         #[cfg(feature = "bevy_pbr")]
-        app.add_plugin(pipeline_3d::LineGizmo3dPlugin);
+        app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
     }
 
     fn finish(&self, app: &mut bevy_app::App) {

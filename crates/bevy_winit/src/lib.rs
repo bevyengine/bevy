@@ -59,6 +59,7 @@ use crate::converters::convert_winit_theme;
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
+/// [`AndroidApp`] provides an interface to query the application state as well as monitor events (for example lifecycle and input events)
 #[cfg(target_os = "android")]
 pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::new();
 
@@ -98,10 +99,10 @@ impl Plugin for WinitPlugin {
                 ),
             );
 
-        app.add_plugin(AccessibilityPlugin);
+        app.add_plugins(AccessibilityPlugin);
 
         #[cfg(target_arch = "wasm32")]
-        app.add_plugin(CanvasParentResizePlugin);
+        app.add_plugins(CanvasParentResizePlugin);
 
         #[cfg(not(target_arch = "wasm32"))]
         let mut create_window_system_state: SystemState<(

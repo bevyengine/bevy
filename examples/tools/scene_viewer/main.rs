@@ -30,7 +30,7 @@ fn main() {
         color: Color::WHITE,
         brightness: 1.0 / 5.0f32,
     })
-    .add_plugins(
+    .add_plugins((
         DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window {
@@ -44,10 +44,10 @@ fn main() {
                     .unwrap_or_else(|_| ".".to_string()),
                 watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
             }),
-    )
-    .add_plugin(CameraControllerPlugin)
-    .add_plugin(SceneViewerPlugin)
-    .add_plugin(MorphViewerPlugin)
+        CameraControllerPlugin,
+        SceneViewerPlugin,
+        MorphViewerPlugin,
+    ))
     .add_systems(Startup, setup)
     .add_systems(PreUpdate, setup_scene_after_load);
 
