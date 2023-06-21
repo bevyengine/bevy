@@ -34,6 +34,8 @@ pub struct Time {
     raw_elapsed_wrapped: Duration,
     raw_elapsed_seconds_wrapped: f32,
     raw_elapsed_seconds_wrapped_f64: f64,
+    // maximum delta
+    maximum_delta: Option<Duration>,
 }
 
 impl Default for Time {
@@ -63,6 +65,7 @@ impl Default for Time {
             raw_elapsed_wrapped: Duration::ZERO,
             raw_elapsed_seconds_wrapped: 0.0,
             raw_elapsed_seconds_wrapped_f64: 0.0,
+            maximum_delta: Some(Duration::from_millis(333)), // 0.333 seconds
         }
     }
 }
@@ -139,13 +142,20 @@ impl Time {
     /// ```
     pub fn update_with_instant(&mut self, instant: Instant) {
         let raw_delta = instant - self.last_update.unwrap_or(self.startup);
+        // if time jumps forward significantly, clamp maximum delta added to
+        // elapsed (but not raw_elapsed), before relative speed scaling
+        let clamped_delta = if let Some(maximum_delta) = self.maximum_delta {
+            std::cmp::min(raw_delta, maximum_delta)
+        } else {
+            raw_delta
+        };
         let delta = if self.paused {
             Duration::ZERO
         } else if self.relative_speed != 1.0 {
-            raw_delta.mul_f64(self.relative_speed)
+            clamped_delta.mul_f64(self.relative_speed)
         } else {
             // avoid rounding when at normal speed
-            raw_delta
+            clamped_delta
         };
 
         if self.last_update.is_some() {
@@ -351,6 +361,29 @@ impl Time {
         self.wrap_period = wrap_period;
     }
 
+    /// Returns the maximum time [`elapsed`](#method.elapsed) can be increased
+    /// in a single update.
+    ///
+    /// This is meant to avoid glitches in game logic if the isn't updated in a
+    /// while due to some external reason.
+    ///
+    /// **Note:** The default is 0.333 seconds.
+    #[inline]
+    pub fn maximum_delta(&self) -> Option<Duration> {
+        self.maximum_delta
+    }
+
+    /// Sets the maximum time [`elapsed`](#method.elapsed) can be increased in a
+    /// single update.
+    ///
+    /// Setting `None` will disable the maximum delta limit, which should be
+    /// used with care, as it may provoke undesirable behaviour in systems that
+    /// observe time.
+    #[inline]
+    pub fn set_maximum_delta(&mut self, maximum_delta: Option<Duration>) {
+        self.maximum_delta = maximum_delta;
+    }
+
     /// Returns the speed the clock advances relative to your system clock, as [`f32`].
     /// This is known as "time scaling" or "time dilation" in other engines.
     ///
@@ -463,6 +496,7 @@ mod tests {
         assert_eq!(time.raw_elapsed(), Duration::ZERO);
         assert_eq!(time.raw_elapsed_seconds(), 0.0);
         assert_eq!(time.raw_elapsed_seconds_f64(), 0.0);
+        assert_eq!(time.maximum_delta(), Some(Duration::from_millis(333)));
 
         // Update `time` and check results.
         // The first update to `time` normally happens before other systems have run,
@@ -555,6 +589,7 @@ mod tests {
         let mut time = Time {
             startup: start_instant,
             wrap_period: Duration::from_secs(3),
+            maximum_delta: Some(Duration::from_secs(5)),
             ..Default::default()
         };
 
@@ -632,8 +667,8 @@ mod tests {
         // Make app time advance at 2x the rate of your system clock.
         time.set_relative_speed(2.0);
 
-        // Update `time` again 1 second later.
-        let elapsed = Duration::from_secs(1);
+        // Update `time` again 250 milliseconds later.
+        let elapsed = Duration::from_millis(250);
         let third_update_instant = second_update_instant + elapsed;
         time.update_with_instant(third_update_instant);
 
@@ -724,5 +759,42 @@ mod tests {
             (third_update_instant - second_update_instant) + (first_update_instant - start_instant),
         );
         assert_eq!(time.raw_elapsed(), third_update_instant - start_instant);
+    }
+
+    #[test]
+    fn maximum_delta_test() {
+        let start_instant = Instant::now();
+
+        let mut time = Time::new(start_instant);
+
+        assert_eq!(time.elapsed_seconds(), 0.0);
+
+        time.update_with_instant(start_instant + Duration::from_millis(333));
+        assert_float_eq(time.elapsed_seconds(), 0.333);
+
+        time.update_with_instant(start_instant + Duration::from_millis(1000));
+        assert_float_eq(time.elapsed_seconds(), 0.666);
+
+        time.update_with_instant(start_instant + Duration::from_millis(4999));
+        assert_float_eq(time.elapsed_seconds(), 0.999);
+
+        time.update_with_instant(start_instant + Duration::from_millis(5000));
+        assert_float_eq(time.elapsed_seconds(), 1.0);
+
+        time.set_maximum_delta(Some(Duration::from_secs(10)));
+
+        time.update_with_instant(start_instant + Duration::from_secs(6));
+        assert_float_eq(time.elapsed_seconds(), 2.0);
+
+        time.update_with_instant(start_instant + Duration::from_secs(16));
+        assert_float_eq(time.elapsed_seconds(), 12.0);
+
+        time.update_with_instant(start_instant + Duration::from_secs(30));
+        assert_float_eq(time.elapsed_seconds(), 22.0);
+
+        time.set_maximum_delta(None);
+
+        time.update_with_instant(start_instant + Duration::from_secs(60));
+        assert_float_eq(time.elapsed_seconds(), 52.0);
     }
 }
