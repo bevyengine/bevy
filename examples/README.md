@@ -116,7 +116,7 @@ Example | Description
 [3D Gizmos](../examples/3d/3d_gizmos.rs) | A scene showcasing 3D gizmos
 [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
-[3D custom image](../examples/3d/3d_custom_image.rs) | A scene showcasing a custom texture mapped onto a 3D mesh. 
+[3D custom image](../examples/3d/3d_custom_image.rs) | Simple showcase of how to use a custom image as a texture for a 3D mesh
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
