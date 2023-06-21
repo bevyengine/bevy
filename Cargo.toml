@@ -448,6 +448,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "3d_custom_image"
+path = "examples/3d/3d_custom_image.rs"
+
+[package.metadata.example.3d_custom_image]
+name = "3D custom image"
+description = "Simple showcase of how to use a custom image as a texture for a 3D mesh"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "anti_aliasing"
 path = "examples/3d/anti_aliasing.rs"
 
