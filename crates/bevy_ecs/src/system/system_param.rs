@@ -1786,7 +1786,7 @@ mod tests {
         assert_is_system(my_system);
     }
 
-    // Compile test for [insert link here]
+    // Compile test for https://github.com/bevyengine/bevy/pull/8914.
     #[test]
     fn system_param_states() {
         #[derive(Component)]
