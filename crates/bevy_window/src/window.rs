@@ -499,18 +499,47 @@ impl WindowPosition {
 }
 
 /// Controls the size of a [`Window`]
+/// 
+/// ## Physical, logical and requested sizes
 ///
-/// There are three sizes associated with a window. The physical size which is
-/// the height and width in physical pixels on the monitor. The logical size
-/// which is the physical size scaled by an operating system provided factor to
-/// account for monitors with differing pixel densities or user preference. And
-/// the requested size, measured in logical pixels, which is the value submitted
+/// There are three sizes associated with a window:
+/// - the physical size,
+/// which represents the actual height and width in physical pixels
+/// the window occupies on the monitor,
+/// - the logical size,
+/// which represents the size that should be used to scale elements
+/// inside the window, measured in logical pixels,
+/// - the requested size,
+/// measured in logical pixels, which is the value submitted
 /// to the API when creating the window, or requesting that it be resized.
 ///
-/// The actual size, in logical pixels, of the window may not match the
-/// requested size due to operating system limits on the window size, or the
-/// quantization of the logical size when converting the physical size to the
-/// logical size through the scaling factor.
+/// ## Scale factor
+/// 
+/// The reason logical size and physical size are separated and can be different
+/// is to account for the cases where:
+/// - several monitors have different pixel densities,
+/// - the user have set up a pixel density preference in its operating system,
+/// - the Bevy `App` has specified a specific scale factor between both.
+/// 
+/// The factor between physical size and logical size can be retrieved with
+/// [`WindowResolution::scale_factor`].
+/// For the first two cases, a scale factor is set automatically by the operating
+/// system through the window backend. You can get it with 
+/// [`WindowResolution::base_scale_factor`].
+/// For the third case, you can override this automatic scale factor with
+/// [`WindowResolution::set_scale_factor_override`].
+/// 
+/// ## Requested and obtained sizes
+/// 
+/// The logical size should be equal to the requested size after creating/resizing,
+/// when possible.
+/// The reason the requested size and logical size might be different
+/// is because the corresponding physical size might exceed limits (either the
+/// size limits of the monitor, or limits defined in [`WindowResizeConstraints`]).
+/// 
+/// Note: The requested size is not kept in memory, for example changing the scale
+/// factor one way and changing it back after might not get the original size back.
+
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -523,11 +552,11 @@ pub struct WindowResolution {
     physical_width: u32,
     /// Height of the window in physical pixels.
     physical_height: u32,
-    /// Ratio of physical size to requested size.
+    /// Code-provided ratio of physical size to logical size.
     ///
-    /// Will override `scale_factor`.
+    /// Should be used instead `scale_factor` when set.
     scale_factor_override: Option<f64>,
-    /// Ratio of physical size to logical size.
+    /// OS-provided ratio of physical size to logical size.
     ///
     /// Set automatically depending on the pixel density of the screen.
     scale_factor: f64,
@@ -560,25 +589,25 @@ impl WindowResolution {
         self
     }
 
-    /// The window's client area width in logical pixels.
+    /// The window's area width in logical pixels.
     #[inline]
     pub fn width(&self) -> f32 {
         (self.physical_width() as f64 / self.scale_factor()) as f32
     }
 
-    /// The window's client area width in logical pixels.
+    /// The window's area height in logical pixels.
     #[inline]
     pub fn height(&self) -> f32 {
         (self.physical_height() as f64 / self.scale_factor()) as f32
     }
 
-    /// The window's client area width in physical pixels.
+    /// The window's area width in physical pixels.
     #[inline]
     pub fn physical_width(&self) -> u32 {
         self.physical_width
     }
 
-    /// The window's client area height in physical pixels.
+    /// The window's area height in physical pixels.
     #[inline]
     pub fn physical_height(&self) -> u32 {
         self.physical_height
