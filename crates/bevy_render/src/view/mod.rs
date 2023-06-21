@@ -50,8 +50,7 @@ impl Plugin for ViewPlugin {
             .register_type::<ColorGrading>()
             .init_resource::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized
-            .add_plugin(ExtractResourcePlugin::<Msaa>::default())
-            .add_plugin(VisibilityPlugin);
+            .add_plugins((ExtractResourcePlugin::<Msaa>::default(), VisibilityPlugin));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
