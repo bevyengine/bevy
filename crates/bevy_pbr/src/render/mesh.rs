@@ -682,10 +682,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
-        if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
-            shader_defs.push("LOAD_PREPASS_NORMALS".into());
-        }
-
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
@@ -747,6 +743,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
+        let mut is_opaque = false;
         if pass == MeshPipelineKey::BLEND_ALPHA {
             label = "alpha_blend_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
@@ -783,6 +780,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
+            is_opaque = true;
+        }
+
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque {
+            shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
