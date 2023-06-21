@@ -6,9 +6,10 @@
 //!   See the [`update_weights`] system for details.
 //! - How to read morph target names in [`name_morphs`].
 //! - How to play morph target animations in [`setup_animations`].
+
+use bevy::prelude::*;
 use std::f32::consts::PI;
 
-use bevy::{gltf::Gltf, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -27,7 +28,17 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
+struct MorphData {
+    the_wave: Handle<AnimationClip>,
+    mesh: Handle<Mesh>,
+}
+
 fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
+    commands.insert_resource(MorphData {
+        the_wave: asset_server.load("models/animated/MorphStressTest.gltf#Animation2"),
+        mesh: asset_server.load("models/animated/MorphStressTest.gltf#Mesh0/Primitive0"),
+    });
     commands.spawn(SceneBundle {
         scene: asset_server.load("models/animated/MorphStressTest.gltf#Scene0"),
         ..default()
@@ -47,51 +58,40 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     });
 }
 
-/// You can get the target names in the `MorphTargetNames` component.
-/// They are in the order of the weights.
-fn name_morphs(mut has_printed: Local<bool>, meshes: Res<Assets<Mesh>>) {
-    if *has_printed {
-        return;
-    }
-    for (handle, mesh) in meshes.iter() {
-        let Some(names) = mesh.morph_target_names() else { continue };
-        println!("Morph Targets for {handle:?}:");
-        for name in names {
-            println!("  {name}");
-        }
-        *has_printed = true;
-    }
-}
-
-/// Read [`AnimationClip`]s from the loaded [`Gltf`] and assign them to the
-/// entities they control. [`AnimationClip`]s control specific entities, and
-/// trying to play them on an [`AnimationPlayer`] controlling a different
-/// entities will result in odd animations.
+/// Plays an [`AnimationClip`] from the loaded [`Gltf`] on the [`AnimationPlayer`] created by the spawned scene.
 fn setup_animations(
-    mut query: Query<(&Name, &mut AnimationPlayer), (With<MorphWeights>, Without<Handle<Mesh>>)>,
-    gltf: Res<Assets<Gltf>>,
-    clips: Res<Assets<AnimationClip>>,
     mut has_setup: Local<bool>,
+    mut players: Query<(&Name, &mut AnimationPlayer)>,
+    morph_data: Res<MorphData>,
 ) {
     if *has_setup {
         return;
     }
-    let Some((_, gltf)) = gltf.iter().next() else {
-        return;
-    };
-    // We check compatibility by getting the [`AnimationClip`] out of the
-    // [`Assets<AnimationClip>`] and using `compatible_with(&Name)`
-    let is_compatible = |name, clip| {
-        let Some(clip) = clips.get(clip) else { return false };
-        clip.compatible_with(name)
-    };
-    for (name, mut player) in &mut query {
-        let compatible = gltf
-            .animations
-            .iter()
-            .find(|clip| is_compatible(name, clip))
-            .unwrap();
-        player.play(compatible.clone_weak()).repeat();
+    for (name, mut player) in &mut players {
+        // The name of the entity in the GLTF scene containing the AnimationPlayer for our morph targets is "Main"
+        if name.as_str() != "Main" {
+            continue;
+        }
+        player.play(morph_data.the_wave.clone()).repeat();
         *has_setup = true;
     }
+}
+
+/// You can get the target names in their corresponding [`Mesh`].
+/// They are in the order of the weights.
+fn name_morphs(
+    mut has_printed: Local<bool>,
+    morph_data: Res<MorphData>,
+    meshes: Res<Assets<Mesh>>,
+) {
+    if *has_printed {
+        return;
+    }
+
+    let Some(mesh) = meshes.get(&morph_data.mesh) else { return };
+    let Some(names) = mesh.morph_target_names() else { return };
+    for name in names {
+        println!("  {name}");
+    }
+    *has_printed = true;
 }
