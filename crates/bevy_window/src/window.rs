@@ -501,7 +501,7 @@ impl WindowPosition {
 }
 
 /// Controls the size of a [`Window`]
-/// 
+///
 /// ## Physical, logical and requested sizes
 ///
 /// There are three sizes associated with a window:
@@ -516,29 +516,31 @@ impl WindowPosition {
 /// to the API when creating the window, or requesting that it be resized.
 ///
 /// ## Scale factor
-/// 
+///
 /// The reason logical size and physical size are separated and can be different
 /// is to account for the cases where:
 /// - several monitors have different pixel densities,
 /// - the user have set up a pixel density preference in its operating system,
 /// - the Bevy `App` has specified a specific scale factor between both.
-/// 
+///
 /// The factor between physical size and logical size can be retrieved with
 /// [`WindowResolution::scale_factor`].
+///
 /// For the first two cases, a scale factor is set automatically by the operating
-/// system through the window backend. You can get it with 
+/// system through the window backend. You can get it with
 /// [`WindowResolution::base_scale_factor`].
+///
 /// For the third case, you can override this automatic scale factor with
 /// [`WindowResolution::set_scale_factor_override`].
-/// 
+///
 /// ## Requested and obtained sizes
-/// 
+///
 /// The logical size should be equal to the requested size after creating/resizing,
 /// when possible.
 /// The reason the requested size and logical size might be different
 /// is because the corresponding physical size might exceed limits (either the
 /// size limits of the monitor, or limits defined in [`WindowResizeConstraints`]).
-/// 
+///
 /// Note: The requested size is not kept in memory, for example changing the scale
 /// factor one way and changing it back after might not get the original size back.
 
