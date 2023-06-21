@@ -4,7 +4,6 @@ mod render_pass;
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::{ExtractSchedule, Render};
-#[cfg(feature = "bevy_text")]
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -33,7 +32,6 @@ use bevy_render::{
     Extract, RenderApp, RenderSet,
 };
 use bevy_sprite::SpriteAssetEvents;
-#[cfg(feature = "bevy_text")]
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
