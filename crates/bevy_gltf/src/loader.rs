@@ -186,15 +186,33 @@ async fn load_gltf<'a, 'b>(
 
                 if let Some((root_index, path)) = paths.get(&node.index()) {
                     animation_roots.insert(root_index);
-                    animation_clip.add_curve_to_path(
-                        bevy_animation::EntityPath {
-                            parts: path.clone(),
-                        },
-                        bevy_animation::VariableCurve {
-                            keyframe_timestamps,
-                            keyframes,
-                        },
-                    );
+
+                    if matches!(keyframes, Keyframes::Weights(_)) {
+                        if let Some(mesh) = node.mesh() {
+                            for primitive in mesh.primitives() {
+                                let name = primitive_name(&mesh, &primitive);
+                                let mut path = path.clone();
+                                path.push(Name::new(name));
+                                animation_clip.add_curve_to_path(
+                                    bevy_animation::EntityPath { parts: path },
+                                    bevy_animation::VariableCurve {
+                                        keyframe_timestamps: keyframe_timestamps.clone(),
+                                        keyframes: keyframes.clone(),
+                                    },
+                                );
+                            }
+                        }
+                    } else {
+                        animation_clip.add_curve_to_path(
+                            bevy_animation::EntityPath {
+                                parts: path.clone(),
+                            },
+                            bevy_animation::VariableCurve {
+                                keyframe_timestamps,
+                                keyframes,
+                            },
+                        );
+                    }
                 } else {
                     warn!(
                         "Animation ignored for node {}: part of its hierarchy is missing a name",
@@ -755,11 +773,6 @@ fn load_node(
     // Map node index to entity
     node_index_to_entity_map.insert(gltf_node.index(), node.id());
 
-    if let Some(mesh) = gltf_node.mesh() {
-        if let Some(weights) = mesh.weights() {
-            node.insert(MorphWeights::new(weights.to_vec())?);
-        }
-    };
     node.with_children(|parent| {
         if let Some(mesh) = gltf_node.mesh() {
             // append primitives
@@ -810,9 +823,8 @@ fn load_node(
                         value: extras.get().to_string(),
                     });
                 }
-                if let Some(name) = mesh.name() {
-                    primitive_entity.insert(Name::new(name.to_string()));
-                }
+
+                primitive_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
                 // Mark for adding skinned mesh
                 if let Some(skin) = gltf_node.skin() {
                     entity_to_skin_index_map.insert(primitive_entity.id(), skin.index());
@@ -926,6 +938,15 @@ fn mesh_label(mesh: &gltf::Mesh) -> String {
 /// Returns the label for the `mesh` and `primitive`.
 fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
     format!("Mesh{}/Primitive{}", mesh.index(), primitive.index())
+}
+
+fn primitive_name(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
+    let mesh_name = mesh.name().unwrap_or("Mesh");
+    if mesh.primitives().len() > 1 {
+        format!("{}.{}", mesh_name, primitive.index())
+    } else {
+        mesh_name.to_string()
+    }
 }
 
 /// Returns the label for the morph target of `primitive`.

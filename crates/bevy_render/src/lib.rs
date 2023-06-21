@@ -43,7 +43,6 @@ pub mod prelude {
 
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
-use mesh::morph::MorphPlugin;
 pub use once_cell;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 use wgpu::Instance;
@@ -335,8 +334,7 @@ impl Plugin for RenderPlugin {
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
-            .add_plugin(GlobalsPlugin)
-            .add_plugin(MorphPlugin);
+            .add_plugin(GlobalsPlugin);
 
         app.register_type::<color::Color>()
             .register_type::<primitives::Aabb>()
