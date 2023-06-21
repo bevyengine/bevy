@@ -9,11 +9,12 @@ use crate::{
     renderer::RenderDevice,
 };
 use bevy_core::cast_slice;
+use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::*;
-use bevy_reflect::TypeUuid;
-use bevy_utils::{EnumVariantMeta, Hashed};
-use std::{collections::BTreeMap, hash::Hash};
+use bevy_reflect::{TypePath, TypeUuid};
+use bevy_utils::{tracing::error, Hashed};
+use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
 use wgpu::{
     util::BufferInitDescriptor, BufferUsages, IndexFormat, VertexAttribute, VertexFormat,
@@ -24,7 +25,7 @@ pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
-#[derive(Debug, TypeUuid, Clone)]
+#[derive(Debug, TypeUuid, TypePath, Clone)]
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
@@ -42,17 +43,55 @@ pub struct Mesh {
 /// [`shape::Cube`](crate::mesh::shape::Cube) or [`shape::Box`](crate::mesh::shape::Box), but you can also construct
 /// one yourself.
 ///
-/// Example of constructing a mesh:
+/// Example of constructing a mesh (to be rendered with a `StandardMaterial`):
 /// ```
 /// # use bevy_render::mesh::{Mesh, Indices};
 /// # use bevy_render::render_resource::PrimitiveTopology;
-/// fn create_triangle() -> Mesh {
+/// fn create_simple_parallelogram() -> Mesh {
+///     // Create a new mesh, add 4 vertices, each with its own position attribute (coordinate in
+///     // 3D space), for each of the corners of the parallelogram.
 ///     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-///     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]);
-///     mesh.set_indices(Some(Indices::U32(vec![0,1,2])));
+///     mesh.insert_attribute(
+///         Mesh::ATTRIBUTE_POSITION,
+///         vec![[0.0, 0.0, 0.0], [1.0, 2.0, 0.0], [2.0, 2.0, 0.0], [1.0, 0.0, 0.0]]
+///     );
+///     // Assign a UV coordinate to each vertex.
+///     mesh.insert_attribute(
+///         Mesh::ATTRIBUTE_UV_0,
+///         vec![[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]]
+///     );
+///     // Assign normals (everything points outwards)
+///     mesh.insert_attribute(
+///        Mesh::ATTRIBUTE_NORMAL,
+///        vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]
+///     );
+///     // After defining all the vertices and their attributes, build each triangle using the
+///     // indices of the vertices that make it up in a counter-clockwise order.
+///     mesh.set_indices(Some(Indices::U32(vec![
+///         // First triangle
+///         0, 3, 1,
+///         // Second triangle
+///         1, 3, 2
+///     ])));
 ///     mesh
+///     // For further visualization, explanation, and examples see the built-in Bevy examples
+///     // and the implementation of the built-in shapes.
 /// }
 /// ```
+/// Common points of confusion:
+/// - UV maps in Bevy are "flipped", (0.0, 0.0) = Top-Left (not Bot-Left like `OpenGL`)
+/// - It is normal for multiple vertices to have the same position
+///   attribute - it's a common technique in 3D modelling for complex UV mapping or other calculations.
+///
+/// To render correctly with `StandardMaterial` a mesh needs to have properly defined:
+/// - [`UVs`](Mesh::ATTRIBUTE_UV_0): Bevy needs to know how to map a texture onto the mesh.
+/// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh. ([0.0, 0.0, 1.0] is very
+///              common for simple meshes because simple meshes are smooth, and they don't require complex light calculations.)
+/// - Vertex winding order -
+///              the default behavior is with `StandardMaterial.cull_mode` = Some([`Face::Front`](crate::render_resource::Face::Front)) which means
+///              that by default Bevy would *only* render the front of each triangle, and the front
+///              is the side of the triangle in which the vertices appear in a *counter-clockwise* order.
+///
 impl Mesh {
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_POSITION: MeshVertexAttribute =
@@ -73,7 +112,7 @@ impl Mesh {
 
     /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Uint32);
+        MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Float32x4);
 
     /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
@@ -100,19 +139,47 @@ impl Mesh {
 
     /// Sets the data for a vertex attribute (position, normal etc.). The name will
     /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
+    ///
+    /// # Panics
+    /// Panics when the format of the values does not match the attribute's format.
     #[inline]
     pub fn insert_attribute(
         &mut self,
         attribute: MeshVertexAttribute,
         values: impl Into<VertexAttributeValues>,
     ) {
-        self.attributes.insert(
-            attribute.id,
-            MeshAttributeData {
-                attribute,
-                values: values.into(),
-            },
-        );
+        let mut values = values.into();
+        let values_format = VertexFormat::from(&values);
+        if values_format != attribute.format {
+            panic!(
+                "Failed to insert attribute. Invalid attribute format for {}. Given format is {values_format:?} but expected {:?}",
+                attribute.name, attribute.format
+            );
+        }
+
+        // validate attributes
+        if attribute.id == Self::ATTRIBUTE_JOINT_WEIGHT.id {
+            let VertexAttributeValues::Float32x4(ref mut values) = values else {
+                unreachable!() // we confirmed the format above
+            };
+            for value in values.iter_mut().filter(|v| *v == &[0.0, 0.0, 0.0, 0.0]) {
+                // zero weights are invalid
+                value[0] = 1.0;
+            }
+        }
+
+        self.attributes
+            .insert(attribute.id, MeshAttributeData { attribute, values });
+    }
+
+    /// Removes the data for a vertex attribute
+    pub fn remove_attribute(
+        &mut self,
+        attribute: impl Into<MeshVertexAttributeId>,
+    ) -> Option<VertexAttributeValues> {
+        self.attributes
+            .remove(&attribute.into())
+            .map(|data| data.values)
     }
 
     #[inline]
@@ -138,6 +205,22 @@ impl Mesh {
         self.attributes
             .get_mut(&id.into())
             .map(|data| &mut data.values)
+    }
+
+    /// Returns an iterator that yields references to the data of each vertex attribute.
+    pub fn attributes(
+        &self,
+    ) -> impl Iterator<Item = (MeshVertexAttributeId, &VertexAttributeValues)> {
+        self.attributes.iter().map(|(id, data)| (*id, &data.values))
+    }
+
+    /// Returns an iterator that yields mutable references to the data of each vertex attribute.
+    pub fn attributes_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (MeshVertexAttributeId, &mut VertexAttributeValues)> {
+        self.attributes
+            .iter_mut()
+            .map(|(id, data)| (*id, &mut data.values))
     }
 
     /// Sets the vertex indices of the mesh. They describe how triangles are constructed out of the
@@ -169,9 +252,9 @@ impl Mesh {
         })
     }
 
-    /// For a given `descriptor` returns a [`VertexBufferLayout`] compatible with this mesh. If this
-    /// mesh is not compatible with the given `descriptor` (ex: it is missing vertex attributes), [`None`] will
-    /// be returned.
+    /// Get this `Mesh`'s [`MeshVertexBufferLayout`], used in [`SpecializedMeshPipeline`].
+    ///
+    /// [`SpecializedMeshPipeline`]: crate::render_resource::SpecializedMeshPipeline
     pub fn get_mesh_vertex_buffer_layout(&self) -> MeshVertexBufferLayout {
         let mut attributes = Vec::with_capacity(self.attributes.len());
         let mut attribute_ids = Vec::with_capacity(self.attributes.len());
@@ -202,11 +285,11 @@ impl Mesh {
     /// Panics if the attributes have different vertex counts.
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
-        for (attribute_id, attribute_data) in self.attributes.iter() {
+        for (attribute_id, attribute_data) in &self.attributes {
             let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
                 assert_eq!(previous_vertex_count, attribute_len,
-                        "{:?} has a different vertex count ({}) than other attributes ({}) in this mesh.", attribute_id, attribute_len, previous_vertex_count);
+                        "{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh.");
             }
             vertex_count = Some(attribute_len);
         }
@@ -215,7 +298,7 @@ impl Mesh {
     }
 
     /// Computes and returns the vertex data of the mesh as bytes.
-    /// Therefore the attributes are located in alphabetical order.
+    /// Therefore the attributes are located in the order of their [`MeshVertexAttribute::id`].
     /// This is used to transform the vertex data into a GPU friendly format.
     ///
     /// # Panics
@@ -252,6 +335,7 @@ impl Mesh {
     ///
     /// This can dramatically increase the vertex count, so make sure this is what you want.
     /// Does nothing if no [Indices] are set.
+    #[allow(clippy::match_same_arms)]
     pub fn duplicate_vertices(&mut self) {
         fn duplicate<T: Copy>(values: &[T], indices: impl Iterator<Item = usize>) -> Vec<T> {
             indices.map(|i| values[i]).collect()
@@ -324,6 +408,16 @@ impl Mesh {
             .collect();
 
         self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    }
+
+    /// Generate tangents for the mesh using the `mikktspace` algorithm.
+    ///
+    /// Sets the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
+    /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    pub fn generate_tangents(&mut self) -> Result<(), GenerateTangentsError> {
+        let tangents = generate_tangents_for_mesh(self)?;
+        self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
+        Ok(())
     }
 
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
@@ -418,7 +512,7 @@ impl InnerMeshVertexBufferLayout {
         attribute_descriptors: &[VertexAttributeDescriptor],
     ) -> Result<VertexBufferLayout, MissingVertexAttributeError> {
         let mut attributes = Vec::with_capacity(attribute_descriptors.len());
-        for attribute_descriptor in attribute_descriptors.iter() {
+        for attribute_descriptor in attribute_descriptors {
             if let Some(index) = self
                 .attribute_ids
                 .iter()
@@ -429,7 +523,7 @@ impl InnerMeshVertexBufferLayout {
                     format: layout_attribute.format,
                     offset: layout_attribute.offset,
                     shader_location: attribute_descriptor.shader_location,
-                })
+                });
             } else {
                 return Err(MissingVertexAttributeError {
                     id: attribute_descriptor.id,
@@ -477,8 +571,8 @@ struct MeshAttributeData {
     values: VertexAttributeValues,
 }
 
-const VEC3_MIN: Vec3 = const_vec3!([std::f32::MIN, std::f32::MIN, std::f32::MIN]);
-const VEC3_MAX: Vec3 = const_vec3!([std::f32::MAX, std::f32::MAX, std::f32::MAX]);
+const VEC3_MIN: Vec3 = Vec3::splat(std::f32::MIN);
+const VEC3_MAX: Vec3 = Vec3::splat(std::f32::MAX);
 
 fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
@@ -490,6 +584,7 @@ pub trait VertexFormatSize {
 }
 
 impl VertexFormatSize for wgpu::VertexFormat {
+    #[allow(clippy::match_same_arms)]
     fn get_size(self) -> u64 {
         match self {
             VertexFormat::Uint8x2 => 2,
@@ -567,36 +662,37 @@ pub enum VertexAttributeValues {
 impl VertexAttributeValues {
     /// Returns the number of vertices in this [`VertexAttributeValues`]. For a single
     /// mesh, all of the [`VertexAttributeValues`] must have the same length.
+    #[allow(clippy::match_same_arms)]
     pub fn len(&self) -> usize {
-        match *self {
-            VertexAttributeValues::Float32(ref values) => values.len(),
-            VertexAttributeValues::Sint32(ref values) => values.len(),
-            VertexAttributeValues::Uint32(ref values) => values.len(),
-            VertexAttributeValues::Float32x2(ref values) => values.len(),
-            VertexAttributeValues::Sint32x2(ref values) => values.len(),
-            VertexAttributeValues::Uint32x2(ref values) => values.len(),
-            VertexAttributeValues::Float32x3(ref values) => values.len(),
-            VertexAttributeValues::Sint32x3(ref values) => values.len(),
-            VertexAttributeValues::Uint32x3(ref values) => values.len(),
-            VertexAttributeValues::Float32x4(ref values) => values.len(),
-            VertexAttributeValues::Sint32x4(ref values) => values.len(),
-            VertexAttributeValues::Uint32x4(ref values) => values.len(),
-            VertexAttributeValues::Sint16x2(ref values) => values.len(),
-            VertexAttributeValues::Snorm16x2(ref values) => values.len(),
-            VertexAttributeValues::Uint16x2(ref values) => values.len(),
-            VertexAttributeValues::Unorm16x2(ref values) => values.len(),
-            VertexAttributeValues::Sint16x4(ref values) => values.len(),
-            VertexAttributeValues::Snorm16x4(ref values) => values.len(),
-            VertexAttributeValues::Uint16x4(ref values) => values.len(),
-            VertexAttributeValues::Unorm16x4(ref values) => values.len(),
-            VertexAttributeValues::Sint8x2(ref values) => values.len(),
-            VertexAttributeValues::Snorm8x2(ref values) => values.len(),
-            VertexAttributeValues::Uint8x2(ref values) => values.len(),
-            VertexAttributeValues::Unorm8x2(ref values) => values.len(),
-            VertexAttributeValues::Sint8x4(ref values) => values.len(),
-            VertexAttributeValues::Snorm8x4(ref values) => values.len(),
-            VertexAttributeValues::Uint8x4(ref values) => values.len(),
-            VertexAttributeValues::Unorm8x4(ref values) => values.len(),
+        match self {
+            VertexAttributeValues::Float32(values) => values.len(),
+            VertexAttributeValues::Sint32(values) => values.len(),
+            VertexAttributeValues::Uint32(values) => values.len(),
+            VertexAttributeValues::Float32x2(values) => values.len(),
+            VertexAttributeValues::Sint32x2(values) => values.len(),
+            VertexAttributeValues::Uint32x2(values) => values.len(),
+            VertexAttributeValues::Float32x3(values) => values.len(),
+            VertexAttributeValues::Sint32x3(values) => values.len(),
+            VertexAttributeValues::Uint32x3(values) => values.len(),
+            VertexAttributeValues::Float32x4(values) => values.len(),
+            VertexAttributeValues::Sint32x4(values) => values.len(),
+            VertexAttributeValues::Uint32x4(values) => values.len(),
+            VertexAttributeValues::Sint16x2(values) => values.len(),
+            VertexAttributeValues::Snorm16x2(values) => values.len(),
+            VertexAttributeValues::Uint16x2(values) => values.len(),
+            VertexAttributeValues::Unorm16x2(values) => values.len(),
+            VertexAttributeValues::Sint16x4(values) => values.len(),
+            VertexAttributeValues::Snorm16x4(values) => values.len(),
+            VertexAttributeValues::Uint16x4(values) => values.len(),
+            VertexAttributeValues::Unorm16x4(values) => values.len(),
+            VertexAttributeValues::Sint8x2(values) => values.len(),
+            VertexAttributeValues::Snorm8x2(values) => values.len(),
+            VertexAttributeValues::Uint8x2(values) => values.len(),
+            VertexAttributeValues::Unorm8x2(values) => values.len(),
+            VertexAttributeValues::Sint8x4(values) => values.len(),
+            VertexAttributeValues::Snorm8x4(values) => values.len(),
+            VertexAttributeValues::Uint8x4(values) => values.len(),
+            VertexAttributeValues::Unorm8x4(values) => values.len(),
         }
     }
 
@@ -606,7 +702,7 @@ impl VertexAttributeValues {
     }
 
     /// Returns the values as float triples if possible.
-    fn as_float3(&self) -> Option<&[[f32; 3]]> {
+    pub fn as_float3(&self) -> Option<&[[f32; 3]]> {
         match self {
             VertexAttributeValues::Float32x3(values) => Some(values),
             _ => None,
@@ -616,36 +712,37 @@ impl VertexAttributeValues {
     // TODO: add vertex format as parameter here and perform type conversions
     /// Flattens the [`VertexAttributeValues`] into a sequence of bytes. This is
     /// useful for serialization and sending to the GPU.
+    #[allow(clippy::match_same_arms)]
     pub fn get_bytes(&self) -> &[u8] {
         match self {
-            VertexAttributeValues::Float32(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint32(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint32(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Float32x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint32x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint32x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Float32x3(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint32x3(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint32x3(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Float32x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint32x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint32x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint16x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Snorm16x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint16x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Unorm16x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint16x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Snorm16x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint16x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Unorm16x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint8x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Snorm8x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint8x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Unorm8x2(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Sint8x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Snorm8x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Uint8x4(values) => cast_slice(&values[..]),
-            VertexAttributeValues::Unorm8x4(values) => cast_slice(&values[..]),
+            VertexAttributeValues::Float32(values) => cast_slice(values),
+            VertexAttributeValues::Sint32(values) => cast_slice(values),
+            VertexAttributeValues::Uint32(values) => cast_slice(values),
+            VertexAttributeValues::Float32x2(values) => cast_slice(values),
+            VertexAttributeValues::Sint32x2(values) => cast_slice(values),
+            VertexAttributeValues::Uint32x2(values) => cast_slice(values),
+            VertexAttributeValues::Float32x3(values) => cast_slice(values),
+            VertexAttributeValues::Sint32x3(values) => cast_slice(values),
+            VertexAttributeValues::Uint32x3(values) => cast_slice(values),
+            VertexAttributeValues::Float32x4(values) => cast_slice(values),
+            VertexAttributeValues::Sint32x4(values) => cast_slice(values),
+            VertexAttributeValues::Uint32x4(values) => cast_slice(values),
+            VertexAttributeValues::Sint16x2(values) => cast_slice(values),
+            VertexAttributeValues::Snorm16x2(values) => cast_slice(values),
+            VertexAttributeValues::Uint16x2(values) => cast_slice(values),
+            VertexAttributeValues::Unorm16x2(values) => cast_slice(values),
+            VertexAttributeValues::Sint16x4(values) => cast_slice(values),
+            VertexAttributeValues::Snorm16x4(values) => cast_slice(values),
+            VertexAttributeValues::Uint16x4(values) => cast_slice(values),
+            VertexAttributeValues::Unorm16x4(values) => cast_slice(values),
+            VertexAttributeValues::Sint8x2(values) => cast_slice(values),
+            VertexAttributeValues::Snorm8x2(values) => cast_slice(values),
+            VertexAttributeValues::Uint8x2(values) => cast_slice(values),
+            VertexAttributeValues::Unorm8x2(values) => cast_slice(values),
+            VertexAttributeValues::Sint8x4(values) => cast_slice(values),
+            VertexAttributeValues::Snorm8x4(values) => cast_slice(values),
+            VertexAttributeValues::Uint8x4(values) => cast_slice(values),
+            VertexAttributeValues::Unorm8x4(values) => cast_slice(values),
         }
     }
 }
@@ -695,7 +792,7 @@ pub enum Indices {
 
 impl Indices {
     /// Returns an iterator over the indices.
-    fn iter(&self) -> impl Iterator<Item = usize> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         match self {
             Indices::U16(vec) => IndicesIter::U16(vec.iter()),
             Indices::U32(vec) => IndicesIter::U32(vec.iter()),
@@ -734,7 +831,17 @@ impl Iterator for IndicesIter<'_> {
             IndicesIter::U32(iter) => iter.next().map(|val| *val as usize),
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            IndicesIter::U16(iter) => iter.size_hint(),
+            IndicesIter::U32(iter) => iter.size_hint(),
+        }
+    }
 }
+
+impl<'a> ExactSizeIterator for IndicesIter<'a> {}
+impl<'a> FusedIterator for IndicesIter<'a> {}
 
 impl From<&Indices> for IndexFormat {
     fn from(indices: &Indices) -> Self {
@@ -751,6 +858,7 @@ impl From<&Indices> for IndexFormat {
 pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,
+    pub vertex_count: u32,
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
@@ -765,9 +873,7 @@ pub enum GpuBufferInfo {
         count: u32,
         index_format: IndexFormat,
     },
-    NonIndexed {
-        vertex_count: u32,
-    },
+    NonIndexed,
 }
 
 impl RenderAsset for Mesh {
@@ -792,11 +898,8 @@ impl RenderAsset for Mesh {
             contents: &vertex_buffer_data,
         });
 
-        let buffer_info = mesh.get_index_buffer_bytes().map_or(
-            GpuBufferInfo::NonIndexed {
-                vertex_count: mesh.count_vertices() as u32,
-            },
-            |data| GpuBufferInfo::Indexed {
+        let buffer_info = if let Some(data) = mesh.get_index_buffer_bytes() {
+            GpuBufferInfo::Indexed {
                 buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
                     usage: BufferUsages::INDEX,
                     contents: data,
@@ -804,16 +907,158 @@ impl RenderAsset for Mesh {
                 }),
                 count: mesh.indices().unwrap().len() as u32,
                 index_format: mesh.indices().unwrap().into(),
-            },
-        );
+            }
+        } else {
+            GpuBufferInfo::NonIndexed
+        };
 
         let mesh_vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout();
 
         Ok(GpuMesh {
             vertex_buffer,
+            vertex_count: mesh.count_vertices() as u32,
             buffer_info,
             primitive_topology: mesh.primitive_topology(),
             layout: mesh_vertex_buffer_layout,
         })
+    }
+}
+
+struct MikktspaceGeometryHelper<'a> {
+    indices: &'a Indices,
+    positions: &'a Vec<[f32; 3]>,
+    normals: &'a Vec<[f32; 3]>,
+    uvs: &'a Vec<[f32; 2]>,
+    tangents: Vec<[f32; 4]>,
+}
+
+impl MikktspaceGeometryHelper<'_> {
+    fn index(&self, face: usize, vert: usize) -> usize {
+        let index_index = face * 3 + vert;
+
+        match self.indices {
+            Indices::U16(indices) => indices[index_index] as usize,
+            Indices::U32(indices) => indices[index_index] as usize,
+        }
+    }
+}
+
+impl bevy_mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
+    fn num_faces(&self) -> usize {
+        self.indices.len() / 3
+    }
+
+    fn num_vertices_of_face(&self, _: usize) -> usize {
+        3
+    }
+
+    fn position(&self, face: usize, vert: usize) -> [f32; 3] {
+        self.positions[self.index(face, vert)]
+    }
+
+    fn normal(&self, face: usize, vert: usize) -> [f32; 3] {
+        self.normals[self.index(face, vert)]
+    }
+
+    fn tex_coord(&self, face: usize, vert: usize) -> [f32; 2] {
+        self.uvs[self.index(face, vert)]
+    }
+
+    fn set_tangent_encoded(&mut self, tangent: [f32; 4], face: usize, vert: usize) {
+        let idx = self.index(face, vert);
+        self.tangents[idx] = tangent;
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+/// Failed to generate tangents for the mesh.
+pub enum GenerateTangentsError {
+    #[error("cannot generate tangents for {0:?}")]
+    UnsupportedTopology(PrimitiveTopology),
+    #[error("missing indices")]
+    MissingIndices,
+    #[error("missing vertex attributes '{0}'")]
+    MissingVertexAttribute(&'static str),
+    #[error("the '{0}' vertex attribute should have {1:?} format")]
+    InvalidVertexAttributeFormat(&'static str, VertexFormat),
+    #[error("mesh not suitable for tangent generation")]
+    MikktspaceError,
+}
+
+fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTangentsError> {
+    match mesh.primitive_topology() {
+        PrimitiveTopology::TriangleList => {}
+        other => return Err(GenerateTangentsError::UnsupportedTopology(other)),
+    };
+
+    let positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION).ok_or(
+        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_POSITION.name),
+    )? {
+        VertexAttributeValues::Float32x3(vertices) => vertices,
+        _ => {
+            return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
+                Mesh::ATTRIBUTE_POSITION.name,
+                VertexFormat::Float32x3,
+            ))
+        }
+    };
+    let normals = match mesh.attribute(Mesh::ATTRIBUTE_NORMAL).ok_or(
+        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_NORMAL.name),
+    )? {
+        VertexAttributeValues::Float32x3(vertices) => vertices,
+        _ => {
+            return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
+                Mesh::ATTRIBUTE_NORMAL.name,
+                VertexFormat::Float32x3,
+            ))
+        }
+    };
+    let uvs = match mesh.attribute(Mesh::ATTRIBUTE_UV_0).ok_or(
+        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_UV_0.name),
+    )? {
+        VertexAttributeValues::Float32x2(vertices) => vertices,
+        _ => {
+            return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
+                Mesh::ATTRIBUTE_UV_0.name,
+                VertexFormat::Float32x2,
+            ))
+        }
+    };
+    let indices = mesh
+        .indices()
+        .ok_or(GenerateTangentsError::MissingIndices)?;
+
+    let len = positions.len();
+    let tangents = vec![[0., 0., 0., 0.]; len];
+    let mut mikktspace_mesh = MikktspaceGeometryHelper {
+        indices,
+        positions,
+        normals,
+        uvs,
+        tangents,
+    };
+    let success = bevy_mikktspace::generate_tangents(&mut mikktspace_mesh);
+    if !success {
+        return Err(GenerateTangentsError::MikktspaceError);
+    }
+
+    // mikktspace seems to assume left-handedness so we can flip the sign to correct for this
+    for tangent in &mut mikktspace_mesh.tangents {
+        tangent[3] = -tangent[3];
+    }
+
+    Ok(mikktspace_mesh.tangents)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Mesh;
+    use wgpu::PrimitiveTopology;
+
+    #[test]
+    #[should_panic]
+    fn panic_invalid_format() {
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
     }
 }

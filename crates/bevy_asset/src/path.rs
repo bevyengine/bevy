@@ -1,19 +1,24 @@
-use bevy_reflect::{Reflect, ReflectDeserialize};
-use bevy_utils::AHasher;
+use bevy_reflect::{
+    FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
+};
+use bevy_utils::{AHasher, RandomState};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
-    hash::{Hash, Hasher},
+    hash::{BuildHasher, Hash, Hasher},
     path::{Path, PathBuf},
 };
 
-#[derive(Debug, Hash, Clone, Serialize, Deserialize)]
+/// Represents a path to an asset in the file system.
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq, Hash, Serialize, Deserialize, FromReflect)]
 pub struct AssetPath<'a> {
     path: Cow<'a, Path>,
     label: Option<Cow<'a, str>>,
 }
 
 impl<'a> AssetPath<'a> {
+    /// Creates a new asset path using borrowed information.
     #[inline]
     pub fn new_ref(path: &'a Path, label: Option<&'a str>) -> AssetPath<'a> {
         AssetPath {
@@ -22,6 +27,7 @@ impl<'a> AssetPath<'a> {
         }
     }
 
+    /// Creates a new asset path.
     #[inline]
     pub fn new(path: PathBuf, label: Option<String>) -> AssetPath<'a> {
         AssetPath {
@@ -30,21 +36,25 @@ impl<'a> AssetPath<'a> {
         }
     }
 
+    /// Constructs an identifier from this asset path.
     #[inline]
     pub fn get_id(&self) -> AssetPathId {
         AssetPathId::from(self)
     }
 
+    /// Gets the sub-asset label.
     #[inline]
     pub fn label(&self) -> Option<&str> {
         self.label.as_ref().map(|label| label.as_ref())
     }
 
+    /// Gets the path to the asset in the filesystem.
     #[inline]
     pub fn path(&self) -> &Path {
         &self.path
     }
 
+    /// Converts the borrowed path data to owned.
     #[inline]
     pub fn to_owned(&self) -> AssetPath<'static> {
         AssetPath {
@@ -57,18 +67,43 @@ impl<'a> AssetPath<'a> {
     }
 }
 
+/// An unique identifier to an asset path.
 #[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
+    Debug,
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Serialize,
+    Deserialize,
+    Reflect,
+    FromReflect,
 )]
-#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
+#[reflect_value(PartialEq, Hash, Serialize, Deserialize, FromReflect)]
 pub struct AssetPathId(SourcePathId, LabelId);
 
+/// An unique identifier to the source path of an asset.
 #[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
+    Debug,
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Serialize,
+    Deserialize,
+    Reflect,
+    FromReflect,
 )]
-#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
+#[reflect_value(PartialEq, Hash, Serialize, Deserialize, FromReflect)]
 pub struct SourcePathId(u64);
 
+/// An unique identifier to a sub-asset label.
 #[derive(
     Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
 )]
@@ -104,10 +139,12 @@ impl<'a> From<Option<&'a str>> for LabelId {
 }
 
 impl AssetPathId {
+    /// Gets the id of the source path.
     pub fn source_path_id(&self) -> SourcePathId {
         self.0
     }
 
+    /// Gets the id of the sub-asset label.
     pub fn label_id(&self) -> LabelId {
         self.1
     }
@@ -115,7 +152,7 @@ impl AssetPathId {
 
 /// this hasher provides consistent results across runs
 pub(crate) fn get_hasher() -> AHasher {
-    AHasher::new_with_keys(42, 23)
+    RandomState::with_seeds(42, 23, 13, 8).build_hasher()
 }
 
 impl<'a, T> From<T> for AssetPathId
@@ -142,7 +179,7 @@ impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPathId {
 
 impl<'a> From<&'a str> for AssetPath<'a> {
     fn from(asset_path: &'a str) -> Self {
-        let mut parts = asset_path.split('#');
+        let mut parts = asset_path.splitn(2, '#');
         let path = Path::new(parts.next().expect("Path must be set."));
         let label = parts.next();
         AssetPath {
@@ -172,6 +209,18 @@ impl<'a> From<PathBuf> for AssetPath<'a> {
         AssetPath {
             path: Cow::Owned(path),
             label: None,
+        }
+    }
+}
+
+impl<'a> From<String> for AssetPath<'a> {
+    fn from(asset_path: String) -> Self {
+        let mut parts = asset_path.splitn(2, '#');
+        let path = PathBuf::from(parts.next().expect("Path must be set."));
+        let label = parts.next().map(String::from);
+        AssetPath {
+            path: Cow::Owned(path),
+            label: label.map(Cow::Owned),
         }
     }
 }

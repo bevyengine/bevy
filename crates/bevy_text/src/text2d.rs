@@ -1,205 +1,209 @@
 use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,
+    change_detection::{DetectChanges, Ref},
     component::Component,
     entity::Entity,
-    query::{Changed, With},
+    event::EventReader,
+    prelude::With,
     reflect::ReflectComponent,
-    system::{Local, ParamSet, Query, Res, ResMut},
+    system::{Local, Query, Res, ResMut},
 };
-use bevy_math::{Size, Vec3};
-use bevy_reflect::Reflect;
-use bevy_render::{texture::Image, view::Visibility, RenderWorld};
+use bevy_math::{Vec2, Vec3};
+use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
+use bevy_render::{
+    prelude::Color,
+    texture::Image,
+    view::{ComputedVisibility, Visibility},
+    Extract,
+};
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
-use bevy_window::{WindowId, Windows};
+use bevy_utils::HashSet;
+use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
 use crate::{
-    DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, TextError, VerticalAlign,
+    Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, Text, TextError, TextLayoutInfo,
+    TextPipeline, TextSettings, YAxisOrientation,
 };
-
-/// The calculated size of text drawn in 2D scene.
-#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
-pub struct Text2dSize {
-    pub size: Size,
-}
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
 /// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
-/// specified `TextAlignment`.
+/// specified [`TextAlignment`](crate::text::TextAlignment).
 ///
 /// Note: only characters that are completely out of the bounds will be truncated, so this is not a
 /// reliable limit if it is necessary to contain the text strictly in the bounds. Currently this
 /// component is mainly useful for text wrapping only.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Copy, Clone, Debug, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
 pub struct Text2dBounds {
-    pub size: Size,
+    pub size: Vec2,
 }
 
 impl Default for Text2dBounds {
+    #[inline]
     fn default() -> Self {
-        Self {
-            size: Size::new(f32::MAX, f32::MAX),
-        }
+        Self::UNBOUNDED
     }
 }
 
-/// The bundle of components needed to draw text in a 2D scene via a 2D `OrthographicCameraBundle`.
+impl Text2dBounds {
+    /// Unbounded text will not be truncated or wrapped.
+    pub const UNBOUNDED: Self = Self {
+        size: Vec2::splat(f32::INFINITY),
+    };
+}
+
+/// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct Text2dBundle {
+    /// Contains the text.
     pub text: Text,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub text_2d_size: Text2dSize,
+    /// How the text is positioned relative to its transform.
+    pub text_anchor: Anchor,
+    /// The maximum width and height of the text.
     pub text_2d_bounds: Text2dBounds,
+    /// The transform of the text.
+    pub transform: Transform,
+    /// The global transform of the text.
+    pub global_transform: GlobalTransform,
+    /// The visibility properties of the text.
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
+    pub computed_visibility: ComputedVisibility,
+    /// Contains the size of the text and its glyph's position and scale data. Generated via [`TextPipeline::queue_text`]
+    pub text_layout_info: TextLayoutInfo,
 }
 
 pub fn extract_text2d_sprite(
-    mut render_world: ResMut<RenderWorld>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
-    text_pipeline: Res<DefaultTextPipeline>,
-    windows: Res<Windows>,
-    text2d_query: Query<(Entity, &Visibility, &Text, &GlobalTransform, &Text2dSize)>,
+    mut extracted_sprites: ResMut<ExtractedSprites>,
+    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
+    text2d_query: Extract<
+        Query<(
+            Entity,
+            &ComputedVisibility,
+            &Text,
+            &TextLayoutInfo,
+            &Anchor,
+            &GlobalTransform,
+        )>,
+    >,
 ) {
-    let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
+    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
+    let scale_factor = windows
+        .get_single()
+        .map(|window| window.resolution.scale_factor() as f32)
+        .unwrap_or(1.0);
+    let scaling = GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()));
 
-    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
-
-    for (entity, visibility, text, transform, calculated_size) in text2d_query.iter() {
-        if !visibility.is_visible {
+    for (entity, computed_visibility, text, text_layout_info, anchor, global_transform) in
+        text2d_query.iter()
+    {
+        if !computed_visibility.is_visible() {
             continue;
         }
-        let (width, height) = (calculated_size.size.width, calculated_size.size.height);
 
-        if let Some(text_layout) = text_pipeline.get_glyphs(&entity) {
-            let text_glyphs = &text_layout.glyphs;
-            let alignment_offset = match text.alignment.vertical {
-                VerticalAlign::Top => Vec3::new(0.0, -height, 0.0),
-                VerticalAlign::Center => Vec3::new(0.0, -height * 0.5, 0.0),
-                VerticalAlign::Bottom => Vec3::ZERO,
-            } + match text.alignment.horizontal {
-                HorizontalAlign::Left => Vec3::ZERO,
-                HorizontalAlign::Center => Vec3::new(-width * 0.5, 0.0, 0.0),
-                HorizontalAlign::Right => Vec3::new(-width, 0.0, 0.0),
-            };
-
-            let mut text_transform = *transform;
-            text_transform.scale /= scale_factor;
-
-            for text_glyph in text_glyphs {
-                let color = text.sections[text_glyph.section_index]
-                    .style
-                    .color
-                    .as_rgba_linear();
-                let atlas = texture_atlases
-                    .get(text_glyph.atlas_info.texture_atlas.clone_weak())
-                    .unwrap();
-                let handle = atlas.texture.clone_weak();
-                let index = text_glyph.atlas_info.glyph_index as usize;
-                let rect = Some(atlas.textures[index]);
-
-                let glyph_transform = Transform::from_translation(
-                    alignment_offset * scale_factor + text_glyph.position.extend(0.),
-                );
-
-                let transform = text_transform.mul_transform(glyph_transform);
-
-                extracted_sprites.sprites.push(ExtractedSprite {
-                    transform,
-                    color,
-                    rect,
-                    custom_size: None,
-                    image_handle_id: handle.id,
-                    flip_x: false,
-                    flip_y: false,
-                    anchor: Anchor::Center.as_vec(),
-                });
+        let text_anchor = -(anchor.as_vec() + 0.5);
+        let alignment_translation = text_layout_info.size * text_anchor;
+        let transform = *global_transform
+            * scaling
+            * GlobalTransform::from_translation(alignment_translation.extend(0.));
+        let mut color = Color::WHITE;
+        let mut current_section = usize::MAX;
+        for PositionedGlyph {
+            position,
+            atlas_info,
+            section_index,
+            ..
+        } in &text_layout_info.glyphs
+        {
+            if *section_index != current_section {
+                color = text.sections[*section_index].style.color.as_rgba_linear();
+                current_section = *section_index;
             }
+            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+
+            extracted_sprites.sprites.push(ExtractedSprite {
+                entity,
+                transform: transform * GlobalTransform::from_translation(position.extend(0.)),
+                color,
+                rect: Some(atlas.textures[atlas_info.glyph_index]),
+                custom_size: None,
+                image_handle_id: atlas.texture.id(),
+                flip_x: false,
+                flip_y: false,
+                anchor: Anchor::Center.as_vec(),
+            });
         }
     }
-}
-
-#[derive(Debug, Default)]
-pub struct QueuedText2d {
-    entities: Vec<Entity>,
 }
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn text2d_system(
-    mut queued_text: Local<QueuedText2d>,
+///
+/// ## World Resources
+///
+/// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
+/// It does not modify or observe existing ones.
+#[allow(clippy::too_many_arguments)]
+pub fn update_text2d_layout(
+    // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
+    mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
-    windows: Res<Windows>,
+    text_settings: Res<TextSettings>,
+    mut font_atlas_warning: ResMut<FontAtlasWarning>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
-    mut text_pipeline: ResMut<DefaultTextPipeline>,
-    mut text_queries: ParamSet<(
-        Query<Entity, (With<Text2dSize>, Changed<Text>)>,
-        Query<(&Text, Option<&Text2dBounds>, &mut Text2dSize), With<Text2dSize>>,
-    )>,
+    mut text_pipeline: ResMut<TextPipeline>,
+    mut text_query: Query<(Entity, Ref<Text>, Ref<Text2dBounds>, &mut TextLayoutInfo)>,
 ) {
-    // Adds all entities where the text or the style has changed to the local queue
-    for entity in text_queries.p0().iter_mut() {
-        queued_text.entities.push(entity);
-    }
+    // We need to consume the entire iterator, hence `last`
+    let factor_changed = scale_factor_changed.iter().last().is_some();
 
-    if queued_text.entities.is_empty() {
-        return;
-    }
+    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
+    let scale_factor = windows
+        .get_single()
+        .map(|window| window.resolution.scale_factor())
+        .unwrap_or(1.0);
 
-    let scale_factor = windows.scale_factor(WindowId::primary());
+    for (entity, text, bounds, mut text_layout_info) in &mut text_query {
+        if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
+            let text_bounds = Vec2::new(
+                scale_value(bounds.size.x, scale_factor),
+                scale_value(bounds.size.y, scale_factor),
+            );
 
-    // Computes all text in the local queue
-    let mut new_queue = Vec::new();
-    let mut query = text_queries.p1();
-    for entity in queued_text.entities.drain(..) {
-        if let Ok((text, bounds, mut calculated_size)) = query.get_mut(entity) {
-            let text_bounds = match bounds {
-                Some(bounds) => Size {
-                    width: scale_value(bounds.size.width, scale_factor),
-                    height: scale_value(bounds.size.height, scale_factor),
-                },
-                None => Size::new(f32::MAX, f32::MAX),
-            };
             match text_pipeline.queue_text(
-                entity,
                 &fonts,
                 &text.sections,
                 scale_factor,
                 text.alignment,
+                text.linebreak_behavior,
                 text_bounds,
-                &mut *font_atlas_set_storage,
-                &mut *texture_atlases,
-                &mut *textures,
+                &mut font_atlas_set_storage,
+                &mut texture_atlases,
+                &mut textures,
+                text_settings.as_ref(),
+                &mut font_atlas_warning,
+                YAxisOrientation::BottomToTop,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
                     // queue for further processing
-                    new_queue.push(entity);
+                    queue.insert(entity);
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
-                    panic!("Fatal error when processing text: {}.", e);
+                    panic!("Fatal error when processing text: {e}.");
                 }
-                Ok(()) => {
-                    let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
-                        "Failed to get glyphs from the pipeline that have just been computed",
-                    );
-                    calculated_size.size = Size {
-                        width: scale_value(text_layout_info.size.width, 1. / scale_factor),
-                        height: scale_value(text_layout_info.size.height, 1. / scale_factor),
-                    };
-                }
+                Ok(info) => *text_layout_info = info,
             }
         }
     }
-
-    queued_text.entities = new_queue;
 }
 
 pub fn scale_value(value: f32, factor: f64) -> f32 {

@@ -1,9 +1,11 @@
+//! Prints mouse button events.
+
 use bevy::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_system(mouse_click_system)
+        .add_systems(Update, mouse_click_system)
         .run();
 }
 

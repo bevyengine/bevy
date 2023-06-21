@@ -12,17 +12,9 @@ pub fn bevy_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         #[no_mangle]
         #[cfg(target_os = "android")]
-        unsafe extern "C" fn ANativeActivity_onCreate(
-            activity: *mut std::os::raw::c_void,
-            saved_state: *mut std::os::raw::c_void,
-            saved_state_size: usize,
-        ) {
-            bevy::ndk_glue::init(
-                activity as _,
-                saved_state as _,
-                saved_state_size as _,
-                main,
-            );
+        fn android_main(android_app: bevy::winit::AndroidApp) {
+            let _ = bevy::winit::ANDROID_APP.set(android_app);
+            main();
         }
 
         #[no_mangle]

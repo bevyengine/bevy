@@ -1,17 +1,31 @@
+use bevy_ecs::system::Resource;
 use bevy_utils::Duration;
 
-/// A resource for configuring usage of the `rust_winit` library.
-#[derive(Debug)]
+/// A resource for configuring usage of the [`winit`] library.
+#[derive(Debug, Resource)]
 pub struct WinitSettings {
-    /// Configures the winit library to return control to the main thread after the
-    /// [run](bevy_app::App::run) loop is exited. Winit strongly recommends avoiding this when
-    /// possible. Before using this please read and understand the
-    /// [caveats](winit::platform::run_return::EventLoopExtRunReturn::run_return) in the winit
-    /// documentation.
+    /// Configures `winit` to return control to the caller after exiting the
+    /// event loop, enabling [`App::run()`](bevy_app::App::run()) to return.
     ///
-    /// This feature is only available on desktop `target_os` configurations. Namely `windows`,
-    /// `macos`, `linux`, `dragonfly`, `freebsd`, `netbsd`, and `openbsd`. If set to true on an
-    /// unsupported platform [run](bevy_app::App::run) will panic.
+    /// By default, [`return_from_run`](Self::return_from_run) is `false` and *Bevy*
+    /// will use `winit`'s
+    /// [`EventLoop::run()`](https://docs.rs/winit/latest/winit/event_loop/struct.EventLoop.html#method.run)
+    /// to initiate the event loop.
+    /// [`EventLoop::run()`](https://docs.rs/winit/latest/winit/event_loop/struct.EventLoop.html#method.run)
+    /// will never return but will terminate the process after the event loop exits.
+    ///
+    /// Setting [`return_from_run`](Self::return_from_run) to `true` will cause *Bevy*
+    /// to use `winit`'s
+    /// [`EventLoopExtRunReturn::run_return()`](https://docs.rs/winit/latest/winit/platform/run_return/trait.EventLoopExtRunReturn.html#tymethod.run_return)
+    /// instead which is strongly discouraged by the `winit` authors.
+    ///
+    /// # Supported platforms
+    ///
+    /// This feature is only available on the following desktop `target_os` configurations:
+    /// `windows`, `macos`, `linux`, `dragonfly`, `freebsd`, `netbsd`, and `openbsd`.
+    ///
+    /// Setting [`return_from_run`](Self::return_from_run) to `true` on
+    /// unsupported platforms will cause [`App::run()`](bevy_app::App::run()) to panic!
     pub return_from_run: bool,
     /// Configures how the winit event loop updates while the window is focused.
     pub focused_mode: UpdateMode,
@@ -37,7 +51,7 @@ impl WinitSettings {
         }
     }
 
-    /// Gets the configured `UpdateMode` depending on whether the window is focused or not
+    /// Gets the configured [`UpdateMode`] depending on whether the window is focused or not
     pub fn update_mode(&self, focused: bool) -> &UpdateMode {
         match focused {
             true => &self.focused_mode,
@@ -68,7 +82,12 @@ pub enum UpdateMode {
     /// Once the app has executed all bevy systems and reaches the end of the event loop, there is
     /// no way to force the app to wake and update again, unless a `winit` event (such as user
     /// input, or the window being resized) is received or the time limit is reached.
-    Reactive { max_wait: Duration },
+    Reactive {
+        /// The maximum time to wait before the event loop runs again.
+        ///
+        /// Note that Bevy will wait indefinitely if the duration is too high (such as [`Duration::MAX`]).
+        max_wait: Duration,
+    },
     /// The event loop will only update if there is a winit event from direct interaction with the
     /// window (e.g. mouseover), a redraw is requested, or the maximum wait time has elapsed.
     ///
@@ -85,5 +104,10 @@ pub enum UpdateMode {
     /// window is not focused, to only re-draw your bevy app when the cursor is over the window, but
     /// not when the mouse moves somewhere else on the screen. This helps to significantly reduce
     /// power consumption by only updated the app when absolutely necessary.
-    ReactiveLowPower { max_wait: Duration },
+    ReactiveLowPower {
+        /// The maximum time to wait before the event loop runs again.
+        ///
+        /// Note that Bevy will wait indefinitely if the duration is too high (such as [`Duration::MAX`]).
+        max_wait: Duration,
+    },
 }

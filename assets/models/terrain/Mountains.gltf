@@ -1,0 +1,143 @@
+{
+    "asset" : {
+        "generator" : "Khronos glTF Blender I/O v3.3.17",
+        "version" : "2.0"
+    },
+    "extensionsUsed" : [
+        "KHR_materials_specular",
+        "KHR_materials_ior"
+    ],
+    "scene" : 0,
+    "scenes" : [
+        {
+            "name" : "Scene",
+            "nodes" : [
+                0,
+                1
+            ]
+        }
+    ],
+    "nodes" : [
+        {
+            "mesh" : 0,
+            "name" : "Grid"
+        },
+        {
+            "mesh" : 0,
+            "name" : "Grid.001",
+            "translation" : [
+                0.0018983177142217755,
+                -2.7217100068810396e-05,
+                0.0012765892315655947
+            ]
+        }
+    ],
+    "materials" : [
+        {
+            "doubleSided" : true,
+            "extensions" : {
+                "KHR_materials_specular" : {
+                    "specularColorFactor" : [
+                        0,
+                        0,
+                        0
+                    ]
+                },
+                "KHR_materials_ior" : {
+                    "ior" : 1.4500000476837158
+                }
+            },
+            "name" : "Material.001",
+            "pbrMetallicRoughness" : {
+                "baseColorFactor" : [
+                    0.12338346652686596,
+                    0.35653680562973022,
+                    0.065849664583802223,
+                    1
+                ],
+                "metallicFactor" : 0,
+                "roughnessFactor" : 0.9980237483978271
+            }
+        }
+    ],
+    "meshes" : [
+        {
+            "name" : "Grid",
+            "primitives" : [
+                {
+                    "attributes" : {
+                        "POSITION" : 0,
+                        "NORMAL" : 1,
+                        "TEXCOORD_0" : 2
+                    },
+                    "indices" : 3,
+                    "material" : 0
+                }
+            ]
+        }
+    ],
+    "accessors" : [
+        {
+            "bufferView" : 0,
+            "componentType" : 5126,
+            "count" : 6561,
+            "max" : [
+                1.0000003576278687,
+                0.2493455857038498,
+                1.0051095485687256
+            ],
+            "min" : [
+                -1.0000003576278687,
+                -0.08555418252944946,
+                -1.0000003576278687
+            ],
+            "type" : "VEC3"
+        },
+        {
+            "bufferView" : 1,
+            "componentType" : 5126,
+            "count" : 6561,
+            "type" : "VEC3"
+        },
+        {
+            "bufferView" : 2,
+            "componentType" : 5126,
+            "count" : 6561,
+            "type" : "VEC2"
+        },
+        {
+            "bufferView" : 3,
+            "componentType" : 5123,
+            "count" : 38400,
+            "type" : "SCALAR"
+        }
+    ],
+    "bufferViews" : [
+        {
+            "buffer" : 0,
+            "byteLength" : 78732,
+            "byteOffset" : 0
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 78732,
+            "byteOffset" : 78732
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 52488,
+            "byteOffset" : 157464
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 76800,
+            "byteOffset" : 209952
+        }
+    ],
+    "buffers" : [
+        {
+            "byteLength" : 286752,
+            "uri" : "Mountains.bin"
+        }
+    ]
+}

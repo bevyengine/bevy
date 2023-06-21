@@ -1,29 +1,34 @@
-use bevy_ecs::component::Component;
-use bevy_math::Vec2;
-use bevy_reflect::Reflect;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_math::{Rect, Vec2};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 use bevy_render::color::Color;
 
-#[derive(Component, Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Default, Clone, Reflect, FromReflect)]
+#[reflect(Component, Default)]
 #[repr(C)]
 pub struct Sprite {
     /// The sprite's color tint
     pub color: Color,
-    /// Flip the sprite along the X axis
+    /// Flip the sprite along the `X` axis
     pub flip_x: bool,
-    /// Flip the sprite along the Y axis
+    /// Flip the sprite along the `Y` axis
     pub flip_y: bool,
     /// An optional custom size for the sprite that will be used when rendering, instead of the size
     /// of the sprite's image
     pub custom_size: Option<Vec2>,
+    /// An optional rectangle representing the region of the sprite's image to render, instead of
+    /// rendering the full image. This is an easy one-off alternative to using a texture atlas.
+    pub rect: Option<Rect>,
     /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
 }
 
 /// How a sprite is positioned relative to its [`Transform`](bevy_transform::components::Transform).
 /// It defaults to `Anchor::Center`.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Default, Reflect, FromReflect)]
 #[doc(alias = "pivot")]
 pub enum Anchor {
+    #[default]
     Center,
     BottomLeft,
     BottomCenter,
@@ -36,12 +41,6 @@ pub enum Anchor {
     /// Custom anchor point. Top left is `(-0.5, 0.5)`, center is `(0.0, 0.0)`. The value will
     /// be scaled with the sprite size.
     Custom(Vec2),
-}
-
-impl Default for Anchor {
-    fn default() -> Self {
-        Anchor::Center
-    }
 }
 
 impl Anchor {

@@ -1,10 +1,11 @@
+//! This example illustrates how to load and play an audio file.
+
 use bevy::prelude::*;
 
-/// This example illustrates how to load and play an audio file
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
