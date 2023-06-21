@@ -595,25 +595,25 @@ impl WindowResolution {
         self
     }
 
-    /// The window's area width in logical pixels.
+    /// The window's client area width in logical pixels.
     #[inline]
     pub fn width(&self) -> f32 {
         (self.physical_width() as f64 / self.scale_factor()) as f32
     }
 
-    /// The window's area height in logical pixels.
+    /// The window's client area height in logical pixels.
     #[inline]
     pub fn height(&self) -> f32 {
         (self.physical_height() as f64 / self.scale_factor()) as f32
     }
 
-    /// The window's area width in physical pixels.
+    /// The window's client area width in physical pixels.
     #[inline]
     pub fn physical_width(&self) -> u32 {
         self.physical_width
     }
 
-    /// The window's area height in physical pixels.
+    /// The window's client area height in physical pixels.
     #[inline]
     pub fn physical_height(&self) -> u32 {
         self.physical_height
