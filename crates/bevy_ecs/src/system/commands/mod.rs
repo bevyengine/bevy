@@ -119,7 +119,7 @@ impl SystemBuffer for CommandQueue {
     fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
         #[cfg(feature = "trace")]
         let _system_span =
-            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
+            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name().as_ref())
                 .entered();
         self.apply(world);
     }
