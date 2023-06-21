@@ -10,7 +10,7 @@
 
 use std::fmt;
 
-use bevy::{gltf::MorphTargetNames, prelude::*};
+use bevy::{core::DebugNameItem, prelude::*};
 
 use crate::scene_viewer_plugin::SceneHandle;
 
@@ -105,19 +105,20 @@ impl WeightChange {
 }
 
 struct Target {
-    entity_name: Option<String>,
-    entity: Entity,
-    name: Option<String>,
+    parent_entity: Entity,
+    parent_name: Option<Name>,
+    meshes: Vec<Entity>,
+    target_name: Option<String>,
     index: usize,
     weight: f32,
     change_dir: WeightChange,
 }
 impl fmt::Display for Target {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match (self.name.as_ref(), self.entity_name.as_ref()) {
-            (None, None) => write!(f, "animation{} of {:?}", self.index, self.entity),
+        match (self.target_name.as_ref(), self.parent_name.as_ref()) {
+            (None, None) => write!(f, "animation{} of {:?}", self.index, self.parent_entity),
             (None, Some(entity)) => write!(f, "animation{} of {entity}", self.index),
-            (Some(target), None) => write!(f, "{target} of {:?}", self.entity),
+            (Some(target), None) => write!(f, "{target} of {:?}", self.parent_entity),
             (Some(target), Some(entity)) => write!(f, "{target} of {entity}"),
         }?;
         write!(f, ": {}", self.weight)
@@ -127,27 +128,35 @@ impl Target {
     fn text_section(&self, key: &str, style: TextStyle) -> TextSection {
         TextSection::new(format!("[{key}] {self}\n"), style)
     }
-    fn new(
-        entity_name: Option<&Name>,
-        weights: &[f32],
-        target_names: Option<&MorphTargetNames>,
-        entity: Entity,
-    ) -> Vec<Target> {
-        let get_name = |i| target_names.and_then(|names| names.target_names.get(i));
-        let entity_name = entity_name.map(|n| n.as_str());
-        weights
-            .iter()
-            .enumerate()
-            .map(|(index, weight)| Target {
-                entity_name: entity_name.map(|n| n.to_owned()),
-                entity,
-                name: get_name(index).cloned(),
-                index,
-                weight: *weight,
-                change_dir: WeightChange::Increase,
-            })
-            .collect()
+}
+fn add_targets(
+    targets: &mut Vec<Target>,
+    parent_info: DebugNameItem,
+    entity: Entity,
+    weights: &[f32],
+    target_names: Option<&[String]>,
+) {
+    let mut already_exists = false;
+    for target in targets.iter_mut() {
+        if target.parent_entity == parent_info.entity {
+            already_exists = true;
+            target.meshes.push(entity);
+        }
     }
+    if already_exists {
+        return;
+    }
+    let get_name = |i| target_names.and_then(|names| names.get(i));
+    let new_targets = weights.iter().enumerate().map(|(index, weight)| Target {
+        parent_entity: parent_info.entity,
+        parent_name: parent_info.name.cloned(),
+        meshes: vec![entity],
+        target_name: get_name(index).cloned(),
+        index,
+        weight: *weight,
+        change_dir: WeightChange::Increase,
+    });
+    targets.extend(new_targets);
 }
 
 #[derive(Resource)]
@@ -185,12 +194,9 @@ fn update_text(
 ) {
     let Some(mut controls) = controls else { return; };
     for (i, target) in controls.weights.iter_mut().enumerate() {
-        let Ok(weights) = morphs.get(target.entity) else {
-            continue;
-        };
-        let Some(&actual_weight) = weights.weights().get(target.index) else {
-            continue;
-        };
+        let weights = morphs.get(target.meshes[0]).unwrap();
+        let actual_weight = weights.weights()[target.index];
+
         if actual_weight != target.weight {
             target.weight = actual_weight;
         }
@@ -210,37 +216,33 @@ fn update_morphs(
         if !AVAILABLE_KEYS[i].active(&input) {
             continue;
         }
-        let Ok(mut weights) = morphs.get_mut(target.entity) else {
-            continue;
-        };
-        // To update individual morph target weights, get the `MorphWeights`
-        // component and call `weights_mut` to get access to the weights.
-        let weights_slice = weights.weights_mut();
-        let i = target.index;
-        let change = time.delta_seconds() * WEIGHT_PER_SECOND;
-        let new_weight = target.change_dir.change_weight(weights_slice[i], change);
-        weights_slice[i] = new_weight;
-        target.weight = new_weight;
+        // Note that since bevy meshes do not correspond 1-to-1 with glTF meshes
+        // we need to store a list of entities for each individual morph targets
+        // and update the weight on each mesh individually.
+        let mut iter = morphs.iter_many_mut(&target.meshes);
+        while let Some(mut weights) = iter.fetch_next() {
+            // To update individual morph target weights, get the `MorphWeights`
+            // component and call `weights_mut` to get access to the weights.
+            let weights_slice = weights.weights_mut();
+            let i = target.index;
+            let change = time.delta_seconds() * WEIGHT_PER_SECOND;
+            let new_weight = target.change_dir.change_weight(weights_slice[i], change);
+            weights_slice[i] = new_weight;
+            target.weight = new_weight;
+        }
     }
 }
 
 fn detect_morphs(
-    morphs: Query<
-        (
-            Entity,
-            &MorphWeights,
-            Option<&Name>,
-            Option<&MorphTargetNames>,
-        ),
-        Without<Handle<Mesh>>,
-    >,
+    debug_info: Query<DebugName>,
+    morphs: Query<(Entity, &MorphWeights, &Handle<Mesh>, &Parent)>,
     mut commands: Commands,
     scene_handle: Res<SceneHandle>,
     mut setup: Local<bool>,
     asset_server: Res<AssetServer>,
+    meshes: Res<Assets<Mesh>>,
 ) {
-    let no_morphing = morphs.iter().len() == 0;
-    if no_morphing {
+    if morphs.iter().len() == 0 {
         return;
     }
     if scene_handle.is_loaded && !*setup {
@@ -250,9 +252,14 @@ fn detect_morphs(
     }
     let mut detected = Vec::new();
 
-    for (entity, weights, name, target_names) in &morphs {
-        let targets = Target::new(name, weights.weights(), target_names, entity);
-        detected.extend(targets);
+    for (entity, weights, mesh, parent) in &morphs {
+        add_targets(
+            &mut detected,
+            debug_info.get(parent.get()).unwrap(),
+            entity,
+            weights.weights(),
+            meshes.get(mesh).unwrap().morph_target_names(),
+        );
     }
     detected.truncate(AVAILABLE_KEYS.len());
     let style = TextStyle {
@@ -266,6 +273,7 @@ fn detect_morphs(
     ];
     let target_to_text =
         |(i, target): (usize, &Target)| target.text_section(AVAILABLE_KEYS[i].name, style.clone());
+
     sections.extend(detected.iter().enumerate().map(target_to_text));
     commands.insert_resource(WeightsControl { weights: detected });
     commands.spawn(TextBundle::from_sections(sections).with_style(Style {
