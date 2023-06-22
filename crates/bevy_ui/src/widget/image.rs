@@ -84,10 +84,11 @@ pub fn update_image_content_size_system(
         With<Node>,
     >,
 ) {
-    let window_scale_factor = windows
+    let combined_scale_factor = windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.);
+        .unwrap_or(1.)
+        * ui_scale.scale;
 
     for (mut content_size, image, mut image_size) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
@@ -96,15 +97,15 @@ pub fn update_image_content_size_system(
                 texture.texture_descriptor.size.height as f32,
             );
             // Update only if size or scale factor has changed to avoid needless layout calculations
-            if size != image_size.size || window_scale_factor != *previous_scale_factor || ui_scale.is_changed() {
+            if size != image_size.size || combined_scale_factor != *previous_scale_factor {
                 image_size.size = size;
                 content_size.set(ImageMeasure {
-                    // multiply the image size by the scale factor to get the physical
-                    size: size * (window_scale_factor * ui_scale.scale) as f32,
+                    // multiply the image size by the scale factor to get the physical size
+                    size: size * combined_scale_factor as f32,
                 });
             }
         }
     }
 
-    *previous_scale_factor = window_scale_factor;
+    *previous_scale_factor = combined_scale_factor;
 }
