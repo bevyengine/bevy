@@ -248,4 +248,32 @@ mod tests {
         // The child should be despawned.
         assert!(world.get_entity(child).is_none());
     }
+
+    #[test]
+    fn spawn_children_after_despawn_descendants() {
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+
+        let parent = commands.spawn_empty().id();
+        let child = commands.spawn_empty().id();
+
+        commands
+            .entity(parent)
+            .add_child(child)
+            .despawn_descendants()
+            .with_children(|parent| {
+                parent.spawn_empty();
+                parent.spawn_empty();
+            });
+
+        queue.apply(&mut world);
+
+        // The parent's Children component should still have a two children.
+        let children = world.entity(parent).get::<Children>();
+        assert!(children.is_some());
+        assert!(children.unwrap().len() == 2 as usize);
+        // The original child should be despawned.
+        assert!(world.get_entity(child).is_none());
+    }
 }
