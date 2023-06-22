@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 
 use core::fmt::{self, Formatter, Pointer};
 use core::{
@@ -147,7 +148,7 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
     /// - `inner` must have correct provenance to allow reads of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`Ptr`] will stay valid and nothing
-    ///   can mutate the pointee while this [`Ptr`] is live except through an `UnsafeCell`.
+    ///   can mutate the pointee while this [`Ptr`] is live except through an [`UnsafeCell`].
     #[inline]
     pub unsafe fn new(inner: NonNull<u8>) -> Self {
         Self(inner, PhantomData)
@@ -166,7 +167,7 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`Ptr`].
-    /// - If the type parameter `A` is `Unaligned` then this pointer must be sufficiently aligned
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
@@ -289,7 +290,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
-    /// - If the type parameter `A` is `Unaligned` then this pointer must be sufficiently aligned
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
@@ -300,7 +301,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
-    /// - If the type parameter `A` is `Unaligned` then this pointer must be sufficiently aligned
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
@@ -334,6 +335,15 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
         unsafe { PtrMut::new(self.0) }
     }
 }
+impl<'a> OwningPtr<'a, Unaligned> {
+    /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
+    ///
+    /// # Safety
+    /// - `T` must be the erased pointee type for this [`OwningPtr`].
+    pub unsafe fn read_unaligned<T>(self) -> T {
+        self.as_ptr().cast::<T>().read_unaligned()
+    }
+}
 
 /// Conceptually equivalent to `&'a [T]` but with length information cut out for performance reasons
 pub struct ThinSlicePtr<'a, T> {
@@ -359,12 +369,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
 
 impl<'a, T> Clone for ThinSlicePtr<'a, T> {
     fn clone(&self) -> Self {
-        Self {
-            ptr: self.ptr,
-            #[cfg(debug_assertions)]
-            len: self.len,
-            _marker: PhantomData,
-        }
+        *self
     }
 }
 
@@ -452,13 +457,13 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
     #[track_caller]
     fn debug_ensure_aligned(self) -> Self {
         let align = core::mem::align_of::<T>();
-        // Implemenation shamelessly borrowed from the currently unstable
+        // Implementation shamelessly borrowed from the currently unstable
         // ptr.is_aligned_to.
         //
         // Replace once https://github.com/rust-lang/rust/issues/96284 is stable.
         assert!(
             self as usize & (align - 1) == 0,
-            "pointer is not aligned. Address {:p} does not have alignemnt {} for type {}",
+            "pointer is not aligned. Address {:p} does not have alignment {} for type {}",
             self,
             align,
             core::any::type_name::<T>(),

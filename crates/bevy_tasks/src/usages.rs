@@ -11,12 +11,11 @@
 //! for consumption. (likely via channels)
 
 use super::TaskPool;
-use once_cell::sync::OnceCell;
-use std::ops::Deref;
+use std::{ops::Deref, sync::OnceLock};
 
-static COMPUTE_TASK_POOL: OnceCell<ComputeTaskPool> = OnceCell::new();
-static ASYNC_COMPUTE_TASK_POOL: OnceCell<AsyncComputeTaskPool> = OnceCell::new();
-static IO_TASK_POOL: OnceCell<IoTaskPool> = OnceCell::new();
+static COMPUTE_TASK_POOL: OnceLock<ComputeTaskPool> = OnceLock::new();
+static ASYNC_COMPUTE_TASK_POOL: OnceLock<AsyncComputeTaskPool> = OnceLock::new();
+static IO_TASK_POOL: OnceLock<IoTaskPool> = OnceLock::new();
 
 /// A newtype for a task pool for CPU-intensive work that must be completed to deliver the next
 /// frame
@@ -110,8 +109,12 @@ impl Deref for IoTaskPool {
     }
 }
 
-/// Used by `bevy_core` to tick the global tasks pools on the main thread.
+/// A function used by `bevy_core` to tick the global tasks pools on the main thread.
 /// This will run a maximum of 100 local tasks per executor per call to this function.
+///
+/// # Warning
+///
+/// This function *must* be called on the main thread, or the task pools will not be updated appropriately.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn tick_global_task_pools_on_main_thread() {
     COMPUTE_TASK_POOL

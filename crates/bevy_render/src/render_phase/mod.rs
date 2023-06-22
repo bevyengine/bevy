@@ -4,17 +4,17 @@
 //! In Bevy each view (camera, or shadow-casting light, etc.) has one or multiple [`RenderPhase`]s
 //! (e.g. opaque, transparent, shadow, etc).
 //! They are used to queue entities for rendering.
-//! Multiple phases might be required due to different sorting/batching behaviours
+//! Multiple phases might be required due to different sorting/batching behaviors
 //! (e.g. opaque: front to back, transparent: back to front) or because one phase depends on
 //! the rendered texture of the previous phase (e.g. for screen-space reflections).
 //!
 //! To draw an entity, a corresponding [`PhaseItem`] has to be added to one or multiple of these
 //! render phases for each view that it is visible in.
-//! This must be done in the [`RenderStage::Queue`](crate::RenderStage::Queue).
+//! This must be done in the [`RenderSet::Queue`](crate::RenderSet::Queue).
 //! After that the render phase sorts them in the
-//! [`RenderStage::PhaseSort`](crate::RenderStage::PhaseSort).
+//! [`RenderSet::PhaseSort`](crate::RenderSet::PhaseSort).
 //! Finally the items are rendered using a single [`TrackedRenderPass`], during the
-//! [`RenderStage::Render`](crate::RenderStage::Render).
+//! [`RenderSet::Render`](crate::RenderSet::Render).
 //!
 //! Therefore each phase item is assigned a [`Draw`] function.
 //! These set up the state of the [`TrackedRenderPass`] (i.e. select the
@@ -45,7 +45,7 @@ use std::ops::Range;
 ///
 /// Each view (camera, or shadow-casting light, etc.) can have one or multiple render phases.
 /// They are used to queue entities for rendering.
-/// Multiple phases might be required due to different sorting/batching behaviours
+/// Multiple phases might be required due to different sorting/batching behaviors
 /// (e.g. opaque: front to back, transparent: back to front) or because one phase depends on
 /// the rendered texture of the previous phase (e.g. for screen-space reflections).
 /// All [`PhaseItem`]s are then rendered using a single [`TrackedRenderPass`].
@@ -89,6 +89,29 @@ impl<I: PhaseItem> RenderPhase<I> {
             draw_function.draw(world, render_pass, view, item);
         }
     }
+
+    /// Renders all [`PhaseItem`]s in the provided `range` (based on their index in `self.items`) using their corresponding draw functions.
+    pub fn render_range<'w>(
+        &self,
+        render_pass: &mut TrackedRenderPass<'w>,
+        world: &'w World,
+        view: Entity,
+        range: Range<usize>,
+    ) {
+        let draw_functions = world.resource::<DrawFunctions<I>>();
+        let mut draw_functions = draw_functions.write();
+        draw_functions.prepare(world);
+
+        for item in self
+            .items
+            .get(range)
+            .expect("`Range` provided to `render_range()` is out of bounds")
+            .iter()
+        {
+            let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
+            draw_function.draw(world, render_pass, view, item);
+        }
+    }
 }
 
 impl<I: BatchedPhaseItem> RenderPhase<I> {
@@ -122,13 +145,13 @@ impl<I: BatchedPhaseItem> RenderPhase<I> {
 /// as part of a [`RenderPhase`].
 ///
 /// The data required for rendering an entity is extracted from the main world in the
-/// [`RenderStage::Extract`](crate::RenderStage::Extract).
+/// [`ExtractSchedule`](crate::ExtractSchedule).
 /// Then it has to be queued up for rendering during the
-/// [`RenderStage::Queue`](crate::RenderStage::Queue), by adding a corresponding phase item to
+/// [`RenderSet::Queue`](crate::RenderSet::Queue), by adding a corresponding phase item to
 /// a render phase.
 /// Afterwards it will be sorted and rendered automatically in the
-/// [`RenderStage::PhaseSort`](crate::RenderStage::PhaseSort) and
-/// [`RenderStage::Render`](crate::RenderStage::Render), respectively.
+/// [`RenderSet::PhaseSort`](crate::RenderSet::PhaseSort) and
+/// [`RenderSet::Render`](crate::RenderSet::Render), respectively.
 pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// The type used for ordering the items. The smallest values are drawn first.
     /// This order can be calculated using the [`ViewRangefinder3d`],

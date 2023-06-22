@@ -1,6 +1,8 @@
 #define_import_path bevy_pbr::utils
 
-let PI: f32 = 3.141592653589793;
+const PI: f32 = 3.141592653589793;
+const HALF_PI: f32 = 1.57079632679;
+const E: f32 = 2.718281828459045;
 
 fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {
     let rgb = clamp(
@@ -11,7 +13,7 @@ fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {
         vec3<f32>(1.0)
     );
 
-	return value * mix( vec3<f32>(1.0), rgb, vec3<f32>(saturation));
+    return value * mix(vec3<f32>(1.0), rgb, vec3<f32>(saturation));
 }
 
 fn random1D(s: f32) -> f32 {

@@ -1,24 +1,33 @@
-use std::mem::{ManuallyDrop, MaybeUninit};
+use std::mem::MaybeUninit;
+
+use bevy_ptr::{OwningPtr, Unaligned};
 
 use super::Command;
 use crate::world::World;
 
 struct CommandMeta {
-    offset: usize,
-    func: unsafe fn(value: *mut MaybeUninit<u8>, world: &mut World),
+    /// SAFETY: The `value` must point to a value of type `T: Command`,
+    /// where `T` is some specific type that was used to produce this metadata.
+    ///
+    /// Returns the size of `T` in bytes.
+    apply_command_and_get_size: unsafe fn(value: OwningPtr<Unaligned>, world: &mut World) -> usize,
 }
 
-/// A queue of [`Command`]s
+/// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
 //
-// NOTE: [`CommandQueue`] is implemented via a `Vec<MaybeUninit<u8>>` over a `Vec<Box<dyn Command>>`
+// NOTE: [`CommandQueue`] is implemented via a `Vec<MaybeUninit<u8>>` instead of a `Vec<Box<dyn Command>>`
 // as an optimization. Since commands are used frequently in systems as a way to spawn
 // entities/components/resources, and it's not currently possible to parallelize these
 // due to mutable [`World`] access, maximizing performance for [`CommandQueue`] is
 // preferred to simplicity of implementation.
 #[derive(Default)]
 pub struct CommandQueue {
+    // This buffer densely stores all queued commands.
+    //
+    // For each command, one `CommandMeta` is stored, followed by zero or more bytes
+    // to store the command itself. To interpret these bytes, a pointer must
+    // be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
     bytes: Vec<MaybeUninit<u8>>,
-    metas: Vec<CommandMeta>,
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]
@@ -34,45 +43,50 @@ impl CommandQueue {
     where
         C: Command,
     {
-        /// SAFETY: This function is only every called when the `command` bytes is the associated
-        /// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
-        /// accesses are safe.
-        unsafe fn write_command<T: Command>(command: *mut MaybeUninit<u8>, world: &mut World) {
-            let command = command.cast::<T>().read_unaligned();
-            command.write(world);
+        // Stores a command alongside its metadata.
+        // `repr(C)` prevents the compiler from reordering the fields,
+        // while `repr(packed)` prevents the compiler from inserting padding bytes.
+        #[repr(C, packed)]
+        struct Packed<T: Command> {
+            meta: CommandMeta,
+            command: T,
         }
 
-        let size = std::mem::size_of::<C>();
+        let meta = CommandMeta {
+            apply_command_and_get_size: |command, world| {
+                // SAFETY: According to the invariants of `CommandMeta.apply_command_and_get_size`,
+                // `command` must point to a value of type `C`.
+                let command: C = unsafe { command.read_unaligned() };
+                command.apply(world);
+                std::mem::size_of::<C>()
+            },
+        };
+
         let old_len = self.bytes.len();
 
-        self.metas.push(CommandMeta {
-            offset: old_len,
-            func: write_command::<C>,
-        });
+        // Reserve enough bytes for both the metadata and the command itself.
+        self.bytes.reserve(std::mem::size_of::<Packed<C>>());
 
-        // Use `ManuallyDrop` to forget `command` right away, avoiding
-        // any use of it after the `ptr::copy_nonoverlapping`.
-        let command = ManuallyDrop::new(command);
+        // Pointer to the bytes at the end of the buffer.
+        // SAFETY: We know it is within bounds of the allocation, due to the call to `.reserve()`.
+        let ptr = unsafe { self.bytes.as_mut_ptr().add(old_len) };
 
-        if size > 0 {
-            self.bytes.reserve(size);
+        // Write the metadata into the buffer, followed by the command.
+        // We are using a packed struct to write them both as one operation.
+        // SAFETY: `ptr` must be non-null, since it is within a non-null buffer.
+        // The call to `reserve()` ensures that the buffer has enough space to fit a value of type `C`,
+        // and it is valid to write any bit pattern since the underlying buffer is of type `MaybeUninit<u8>`.
+        unsafe {
+            ptr.cast::<Packed<C>>()
+                .write_unaligned(Packed { meta, command });
+        }
 
-            // SAFETY: The internal `bytes` vector has enough storage for the
-            // command (see the call the `reserve` above), the vector has
-            // its length set appropriately and can contain any kind of bytes.
-            // In case we're writing a ZST and the `Vec` hasn't allocated yet
-            // then `as_mut_ptr` will be a dangling (non null) pointer, and
-            // thus valid for ZST writes.
-            // Also `command` is forgotten so that  when `apply` is called
-            // later, a double `drop` does not occur.
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    &*command as *const C as *const MaybeUninit<u8>,
-                    self.bytes.as_mut_ptr().add(old_len),
-                    size,
-                );
-                self.bytes.set_len(old_len + size);
-            }
+        // Extend the length of the buffer to include the data we just wrote.
+        // SAFETY: The new length is guaranteed to fit in the vector's capacity,
+        // due to the call to `.reserve()` above.
+        unsafe {
+            self.bytes
+                .set_len(old_len + std::mem::size_of::<Packed<C>>());
         }
     }
 
@@ -83,18 +97,43 @@ impl CommandQueue {
         // flush the previously queued entities
         world.flush();
 
-        // SAFETY: In the iteration below, `meta.func` will safely consume and drop each pushed command.
-        // This operation is so that we can reuse the bytes `Vec<u8>`'s internal storage and prevent
-        // unnecessary allocations.
+        // Pointer that will iterate over the entries of the buffer.
+        let mut cursor = self.bytes.as_mut_ptr();
+
+        // The address of the end of the buffer.
+        let end_addr = cursor as usize + self.bytes.len();
+
+        // Reset the buffer, so it can be reused after this function ends.
+        // In the loop below, ownership of each command will be transferred into user code.
+        // SAFETY: `set_len(0)` is always valid.
         unsafe { self.bytes.set_len(0) };
 
-        for meta in self.metas.drain(..) {
-            // SAFETY: The implementation of `write_command` is safe for the according Command type.
-            // It's ok to read from `bytes.as_mut_ptr()` because we just wrote to it in `push`.
-            // The bytes are safely cast to their original type, safely read, and then dropped.
-            unsafe {
-                (meta.func)(self.bytes.as_mut_ptr().add(meta.offset), world);
-            }
+        while (cursor as usize) < end_addr {
+            // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
+            // Since we know that the cursor is in bounds, it must point to the start of a new command.
+            let meta = unsafe { cursor.cast::<CommandMeta>().read_unaligned() };
+            // Advance to the bytes just after `meta`, which represent a type-erased command.
+            // SAFETY: For most types of `Command`, the pointer immediately following the metadata
+            // is guaranteed to be in bounds. If the command is a zero-sized type (ZST), then the cursor
+            // might be 1 byte past the end of the buffer, which is safe.
+            cursor = unsafe { cursor.add(std::mem::size_of::<CommandMeta>()) };
+            // Construct an owned pointer to the command.
+            // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the call to `set_len(0)` above
+            // guarantees that nothing stored in the buffer will get observed after this function ends.
+            // `cmd` points to a valid address of a stored command, so it must be non-null.
+            let cmd = unsafe {
+                OwningPtr::<Unaligned>::new(std::ptr::NonNull::new_unchecked(cursor.cast()))
+            };
+            // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
+            // since they were stored next to each other by `.push()`.
+            // For ZSTs, the type doesn't matter as long as the pointer is non-null.
+            let size = unsafe { (meta.apply_command_and_get_size)(cmd, world) };
+            // Advance the cursor past the command. For ZSTs, the cursor will not move.
+            // At this point, it will either point to the next `CommandMeta`,
+            // or the cursor will be out of bounds and the loop will end.
+            // SAFETY: The address just past the command is either within the buffer,
+            // or 1 byte past the end, so this addition will not overflow the pointer's allocation.
+            cursor = unsafe { cursor.add(size) };
         }
     }
 }
@@ -126,7 +165,7 @@ mod test {
     }
 
     impl Command for DropCheck {
-        fn write(self, _: &mut World) {}
+        fn apply(self, _: &mut World) {}
     }
 
     #[test]
@@ -152,7 +191,7 @@ mod test {
     struct SpawnCommand;
 
     impl Command for SpawnCommand {
-        fn write(self, world: &mut World) {
+        fn apply(self, world: &mut World) {
             world.spawn_empty();
         }
     }
@@ -180,7 +219,7 @@ mod test {
     // some data added to it.
     struct PanicCommand(String);
     impl Command for PanicCommand {
-        fn write(self, _: &mut World) {
+        fn apply(self, _: &mut World) {
             panic!("command is panicking");
         }
     }
@@ -203,7 +242,6 @@ mod test {
         // even though the first command panicking.
         // the `bytes`/`metas` vectors were cleared.
         assert_eq!(queue.bytes.len(), 0);
-        assert_eq!(queue.metas.len(), 0);
 
         // Even though the first command panicked, it's still ok to push
         // more commands.
@@ -229,7 +267,7 @@ mod test {
 
     struct CommandWithPadding(u8, u16);
     impl Command for CommandWithPadding {
-        fn write(self, _: &mut World) {}
+        fn apply(self, _: &mut World) {}
     }
 
     #[cfg(miri)]

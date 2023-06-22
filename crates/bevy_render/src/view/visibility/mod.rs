@@ -2,14 +2,12 @@ mod render_layers;
 
 pub use render_layers::*;
 
-use bevy_app::{CoreStage, Plugin};
+use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_reflect::Reflect;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
-use bevy_transform::components::GlobalTransform;
-use bevy_transform::TransformSystem;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
+use bevy_transform::{components::GlobalTransform, TransformSystem};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -25,12 +23,12 @@ use crate::{
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
 ///
 /// If an entity is hidden in this way, all [`Children`] (and all of their children and so on) who
-/// are set to `Inherited` will also be hidden.
+/// are set to [`Inherited`](Self::Inherited) will also be hidden.
 ///
 /// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
 /// `Visibility` to set the values of each entity's [`ComputedVisibility`] component.
 #[derive(Component, Clone, Copy, Reflect, FromReflect, Debug, PartialEq, Eq, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, FromReflect)]
 pub enum Visibility {
     /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
     ///
@@ -63,12 +61,14 @@ impl std::cmp::PartialEq<&Visibility> for Visibility {
 }
 
 bitflags::bitflags! {
-    #[derive(Reflect)]
+    #[derive(Clone, Debug, Eq, PartialEq)]
     pub(super) struct ComputedVisibilityFlags: u8 {
         const VISIBLE_IN_VIEW = 1 << 0;
         const VISIBLE_IN_HIERARCHY = 1 << 1;
     }
 }
+bevy_reflect::impl_reflect_value!((in bevy_render::view) ComputedVisibilityFlags);
+bevy_reflect::impl_from_reflect_value!(ComputedVisibilityFlags);
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
 #[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
@@ -91,17 +91,16 @@ impl ComputedVisibility {
 
     /// Whether this entity is visible to something this frame. This is true if and only if [`Self::is_visible_in_hierarchy`] and [`Self::is_visible_in_view`]
     /// are true. This is the canonical method to call to determine if an entity should be drawn.
-    /// This value is updated in [`CoreStage::PostUpdate`] during the [`VisibilitySystems::CheckVisibility`] system label. Reading it from the
-    /// [`CoreStage::Update`] stage will yield the value from the previous frame.
+    /// This value is updated in [`PostUpdate`] by the [`VisibilitySystems::CheckVisibility`] system set.
+    /// Reading it during [`Update`](bevy_app::Update) will yield the value from the previous frame.
     #[inline]
     pub fn is_visible(&self) -> bool {
-        self.flags.bits == ComputedVisibilityFlags::all().bits
+        self.flags.bits() == ComputedVisibilityFlags::all().bits()
     }
 
     /// Whether this entity is visible in the entity hierarchy, which is determined by the [`Visibility`] component.
     /// This takes into account "visibility inheritance". If any of this entity's ancestors (see [`Parent`]) are hidden, this entity
-    /// will be hidden as well. This value is updated in the [`CoreStage::PostUpdate`] stage in the
-    /// [`VisibilitySystems::VisibilityPropagate`] system label.
+    /// will be hidden as well. This value is updated in the [`VisibilitySystems::VisibilityPropagate`], which lives in the [`PostUpdate`] schedule.
     #[inline]
     pub fn is_visible_in_hierarchy(&self) -> bool {
         self.flags
@@ -111,9 +110,9 @@ impl ComputedVisibility {
     /// Whether this entity is visible in _any_ view (Cameras, Lights, etc). Each entity type (and view type) should choose how to set this
     /// value. For cameras and drawn entities, this will take into account [`RenderLayers`].
     ///
-    /// This value is reset to `false` every frame in [`VisibilitySystems::VisibilityPropagate`] during [`CoreStage::PostUpdate`].
-    /// Each entity type then chooses how to set this field in the [`CoreStage::PostUpdate`] stage in the
-    /// [`VisibilitySystems::CheckVisibility`] system label. Meshes might use frustum culling to decide if they are visible in a view.
+    /// This value is reset to `false` every frame in [`VisibilitySystems::VisibilityPropagate`] during [`PostUpdate`].
+    /// Each entity type then chooses how to set this field in the [`VisibilitySystems::CheckVisibility`] system set, in [`PostUpdate`].
+    /// Meshes might use frustum culling to decide if they are visible in a view.
     /// Other entities might just set this to `true` every frame.
     #[inline]
     pub fn is_visible_in_view(&self) -> bool {
@@ -156,7 +155,8 @@ pub struct VisibilityBundle {
 }
 
 /// Use this component to opt-out of built-in frustum culling for Mesh entities
-#[derive(Component)]
+#[derive(Component, Default, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct NoFrustumCulling;
 
 /// Collection of entities visible from the current view.
@@ -171,8 +171,8 @@ pub struct NoFrustumCulling;
 ///
 /// Currently this component is ignored by the sprite renderer, so sprite rendering
 /// is not optimized per view.
-#[derive(Clone, Component, Default, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Clone, Component, Default, Debug, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
     pub entities: Vec<Entity>,
@@ -192,9 +192,10 @@ impl VisibleEntities {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
     CalculateBounds,
+    CalculateBoundsFlush,
     UpdateOrthographicFrusta,
     UpdatePerspectiveFrusta,
     UpdateProjectionFrusta,
@@ -210,54 +211,46 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.add_system_to_stage(
-            CoreStage::PostUpdate,
-            calculate_bounds.label(CalculateBounds).before_commands(),
-        )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            update_frusta::<OrthographicProjection>
-                .label(UpdateOrthographicFrusta)
-                .after(camera_system::<OrthographicProjection>)
-                .after(TransformSystem::TransformPropagate)
-                // We assume that no camera will have more than one projection component,
-                // so these systems will run independently of one another.
-                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                .ambiguous_with(update_frusta::<PerspectiveProjection>)
-                .ambiguous_with(update_frusta::<Projection>),
-        )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            update_frusta::<PerspectiveProjection>
-                .label(UpdatePerspectiveFrusta)
-                .after(camera_system::<PerspectiveProjection>)
-                .after(TransformSystem::TransformPropagate)
-                // We assume that no camera will have more than one projection component,
-                // so these systems will run independently of one another.
-                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                .ambiguous_with(update_frusta::<Projection>),
-        )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            update_frusta::<Projection>
-                .label(UpdateProjectionFrusta)
-                .after(camera_system::<Projection>)
-                .after(TransformSystem::TransformPropagate),
-        )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            visibility_propagate_system.label(VisibilityPropagate),
-        )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            check_visibility
-                .label(CheckVisibility)
-                .after(UpdateOrthographicFrusta)
-                .after(UpdatePerspectiveFrusta)
-                .after(UpdateProjectionFrusta)
-                .after(VisibilityPropagate)
-                .after(TransformSystem::TransformPropagate),
-        );
+        app
+            // We add an AABB component in CalculateBounds, which must be ready on the same frame.
+            .add_systems(PostUpdate, apply_deferred.in_set(CalculateBoundsFlush))
+            .configure_set(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
+            .add_systems(
+                PostUpdate,
+                (
+                    calculate_bounds.in_set(CalculateBounds),
+                    update_frusta::<OrthographicProjection>
+                        .in_set(UpdateOrthographicFrusta)
+                        .after(camera_system::<OrthographicProjection>)
+                        .after(TransformSystem::TransformPropagate)
+                        // We assume that no camera will have more than one projection component,
+                        // so these systems will run independently of one another.
+                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                        .ambiguous_with(update_frusta::<PerspectiveProjection>)
+                        .ambiguous_with(update_frusta::<Projection>),
+                    update_frusta::<PerspectiveProjection>
+                        .in_set(UpdatePerspectiveFrusta)
+                        .after(camera_system::<PerspectiveProjection>)
+                        .after(TransformSystem::TransformPropagate)
+                        // We assume that no camera will have more than one projection component,
+                        // so these systems will run independently of one another.
+                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                        .ambiguous_with(update_frusta::<Projection>),
+                    update_frusta::<Projection>
+                        .in_set(UpdateProjectionFrusta)
+                        .after(camera_system::<Projection>)
+                        .after(TransformSystem::TransformPropagate),
+                    visibility_propagate_system.in_set(VisibilityPropagate),
+                    check_visibility
+                        .in_set(CheckVisibility)
+                        .after(CalculateBoundsFlush)
+                        .after(UpdateOrthographicFrusta)
+                        .after(UpdatePerspectiveFrusta)
+                        .after(UpdateProjectionFrusta)
+                        .after(VisibilityPropagate)
+                        .after(TransformSystem::TransformPropagate),
+                ),
+            );
     }
 }
 
@@ -281,7 +274,7 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     for (transform, projection, mut frustum) in &mut views {
         let view_projection =
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        *frustum = Frustum::from_view_projection(
+        *frustum = Frustum::from_view_projection_custom_far(
             &view_projection,
             &transform.translation(),
             &transform.back(),
@@ -350,12 +343,9 @@ fn propagate_recursive(
     Ok(())
 }
 
-// the batch size used for check_visibility, chosen because this number tends to perform well
-const VISIBLE_ENTITIES_QUERY_BATCH_SIZE: usize = 1024;
-
 /// System updating the visibility of entities each frame.
 ///
-/// The system is labelled with [`VisibilitySystems::CheckVisibility`]. Each frame, it updates the
+/// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each frame, it updates the
 /// [`ComputedVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
 /// for that view.
 pub fn check_visibility(
@@ -376,9 +366,9 @@ pub fn check_visibility(
 ) {
     for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
+
         visible_entities.entities.clear();
-        visible_aabb_query.par_for_each_mut(
-            VISIBLE_ENTITIES_QUERY_BATCH_SIZE,
+        visible_aabb_query.par_iter_mut().for_each_mut(
             |(
                 entity,
                 mut computed_visibility,
@@ -410,7 +400,7 @@ pub fn check_visibility(
                         return;
                     }
                     // If we have an aabb, do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &model, false) {
+                    if !frustum.intersects_obb(model_aabb, &model, true, false) {
                         return;
                     }
                 }
@@ -423,8 +413,7 @@ pub fn check_visibility(
             },
         );
 
-        visible_no_aabb_query.par_for_each_mut(
-            VISIBLE_ENTITIES_QUERY_BATCH_SIZE,
+        visible_no_aabb_query.par_iter_mut().for_each_mut(
             |(entity, mut computed_visibility, maybe_entity_mask)| {
                 // skip computing visibility for entities that are configured to be hidden. is_visible_in_view has already been set to false
                 // in visibility_propagate_system
@@ -463,7 +452,7 @@ mod test {
     #[test]
     fn visibility_propagation() {
         let mut app = App::new();
-        app.add_system(visibility_propagate_system);
+        app.add_systems(Update, visibility_propagate_system);
 
         let root1 = app
             .world
@@ -582,7 +571,7 @@ mod test {
     #[test]
     fn visibility_propagation_unconditional_visible() {
         let mut app = App::new();
-        app.add_system(visibility_propagate_system);
+        app.add_systems(Update, visibility_propagate_system);
 
         let root1 = app
             .world

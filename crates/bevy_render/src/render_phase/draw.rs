@@ -1,13 +1,12 @@
 use crate::render_phase::{PhaseItem, TrackedRenderPass};
 use bevy_app::App;
 use bevy_ecs::{
-    all_tuples,
     entity::Entity,
     query::{QueryState, ROQueryItem, ReadOnlyWorldQuery},
     system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
-use bevy_utils::HashMap;
+use bevy_utils::{all_tuples, HashMap};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{any::TypeId, fmt::Debug, hash::Hash};
 
@@ -19,7 +18,7 @@ use std::{any::TypeId, fmt::Debug, hash::Hash};
 /// [`RenderCommand`]s. For more details and an example see the [`RenderCommand`] documentation.
 pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     /// Prepares the draw function to be used. This is called once and only once before the phase
-    /// begins. There may be zero or more `draw` calls following a call to this function.
+    /// begins. There may be zero or more [`draw`](Draw::draw) calls following a call to this function.
     /// Implementing this is optional.
     #[allow(unused_variables)]
     fn prepare(&mut self, world: &'_ World) {}
@@ -159,7 +158,15 @@ impl<P: PhaseItem> DrawFunctions<P> {
 pub trait RenderCommand<P: PhaseItem> {
     /// Specifies the general ECS data (e.g. resources) required by [`RenderCommand::render`].
     ///
+    /// When fetching resources, note that, due to lifetime limitations of the `Deref` trait,
+    /// [`SRes::into_inner`] must be called on each [`SRes`] reference in the
+    /// [`RenderCommand::render`] method, instead of being automatically dereferenced as is the
+    /// case in normal `systems`.
+    ///
     /// All parameters have to be read only.
+    ///
+    /// [`SRes`]: bevy_ecs::system::lifetimeless::SRes
+    /// [`SRes::into_inner`]: bevy_ecs::system::lifetimeless::SRes::into_inner
     type Param: SystemParam + 'static;
     /// Specifies the ECS data of the view entity required by [`RenderCommand::render`].
     ///
@@ -242,7 +249,7 @@ where
     C::Param: ReadOnlySystemParam,
 {
     /// Prepares the render command to be used. This is called once and only once before the phase
-    /// begins. There may be zero or more `draw` calls following a call to this function.
+    /// begins. There may be zero or more [`draw`](RenderCommandState::draw) calls following a call to this function.
     fn prepare(&mut self, world: &'_ World) {
         self.state.update_archetypes(world);
         self.view.update_archetypes(world);

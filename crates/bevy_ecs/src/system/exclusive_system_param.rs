@@ -4,20 +4,29 @@ use crate::{
     system::{Local, SystemMeta, SystemParam, SystemState},
     world::World,
 };
-use bevy_ecs_macros::all_tuples;
+use bevy_utils::all_tuples;
 use bevy_utils::synccell::SyncCell;
 
+/// A parameter that can be used in an exclusive system (a system with an `&mut World` parameter).
+/// Any parameters implementing this trait must come after the `&mut World` parameter.
 pub trait ExclusiveSystemParam: Sized {
+    /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;
+    /// The item type returned when constructing this system param.
+    /// See [`SystemParam::Item`].
     type Item<'s>: ExclusiveSystemParam<State = Self::State>;
 
+    /// Creates a new instance of this param's [`State`](Self::State).
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
-    #[inline]
-    fn apply(_state: &mut Self::State, _world: &mut World) {}
 
+    /// Creates a parameter to be passed into an [`ExclusiveSystemParamFunction`].
+    ///
+    /// [`ExclusiveSystemParamFunction`]: super::ExclusiveSystemParamFunction
     fn get_param<'s>(state: &'s mut Self::State, system_meta: &SystemMeta) -> Self::Item<'s>;
 }
 
+/// Shorthand way of accessing the associated type [`ExclusiveSystemParam::Item`]
+/// for a given [`ExclusiveSystemParam`].
 pub type ExclusiveSystemParamItem<'s, P> = <P as ExclusiveSystemParam>::Item<'s>;
 
 impl<'a, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> ExclusiveSystemParam
@@ -72,12 +81,6 @@ macro_rules! impl_exclusive_system_param_tuple {
             #[inline]
             fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
                 (($($param::init(_world, _system_meta),)*))
-            }
-
-            #[inline]
-            fn apply(state: &mut Self::State, _world: &mut World) {
-                let ($($param,)*) = state;
-                $($param::apply($param, _world);)*
             }
 
             #[inline]

@@ -1,6 +1,7 @@
 #[cfg(any(feature = "flate2", feature = "ruzstd"))]
 use std::io::Read;
 
+use crate::color::SrgbColorSpace;
 #[cfg(feature = "basis-universal")]
 use basis_universal::{
     DecodeFlags, LowLevelUastcTranscoder, SliceParametersUastc, TranscoderBlockFormat,
@@ -60,7 +61,7 @@ pub fn ktx2_buffer_to_image(
                 SupercompressionScheme::Zstandard => {
                     let mut cursor = std::io::Cursor::new(_level_data);
                     let mut decoder = ruzstd::StreamingDecoder::new(&mut cursor)
-                        .map_err(TextureError::SuperDecompressionError)?;
+                        .map_err(|err| TextureError::SuperDecompressionError(err.to_string()))?;
                     let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
@@ -86,6 +87,44 @@ pub fn ktx2_buffer_to_image(
         TextureError::FormatRequiresTranscodingError(transcode_format) => {
             let mut transcoded = vec![Vec::default(); levels.len()];
             let texture_format = match transcode_format {
+                TranscodeFormat::R8UnormSrgb => {
+                    let (mut original_width, mut original_height) = (width, height);
+
+                    for level_data in &levels {
+                        transcoded.push(
+                            level_data
+                                .iter()
+                                .copied()
+                                .map(|v| v.nonlinear_to_linear_srgb())
+                                .collect::<Vec<u8>>(),
+                        );
+
+                        // Next mip dimensions are half the current, minimum 1x1
+                        original_width = (original_width / 2).max(1);
+                        original_height = (original_height / 2).max(1);
+                    }
+
+                    TextureFormat::R8Unorm
+                }
+                TranscodeFormat::Rg8UnormSrgb => {
+                    let (mut original_width, mut original_height) = (width, height);
+
+                    for level_data in &levels {
+                        transcoded.push(
+                            level_data
+                                .iter()
+                                .copied()
+                                .map(|v| v.nonlinear_to_linear_srgb())
+                                .collect::<Vec<u8>>(),
+                        );
+
+                        // Next mip dimensions are half the current, minimum 1x1
+                        original_width = (original_width / 2).max(1);
+                        original_height = (original_height / 2).max(1);
+                    }
+
+                    TextureFormat::Rg8Unorm
+                }
                 TranscodeFormat::Rgb8 => {
                     let mut rgba = vec![255u8; width as usize * height as usize * 4];
                     for (level, level_data) in levels.iter().enumerate() {
@@ -115,12 +154,13 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::Uastc(data_format) => {
                     let (transcode_block_format, texture_format) =
                         get_transcoded_formats(supported_compressed_formats, data_format, is_srgb);
-                    let texture_format_info = texture_format.describe();
+                    let texture_format_info = texture_format;
                     let (block_width_pixels, block_height_pixels) = (
-                        texture_format_info.block_dimensions.0 as u32,
-                        texture_format_info.block_dimensions.1 as u32,
+                        texture_format_info.block_dimensions().0,
+                        texture_format_info.block_dimensions().1,
                     );
-                    let block_bytes = texture_format_info.block_size as u32;
+                    // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
+                    let block_bytes = texture_format_info.block_size(None).unwrap();
 
                     let transcoder = LowLevelUastcTranscoder::new();
                     for (level, level_data) in levels.iter().enumerate() {
@@ -194,24 +234,26 @@ pub fn ktx2_buffer_to_image(
     }
 
     // Reorder data from KTX2 MipXLayerYFaceZ to wgpu LayerYFaceZMipX
-    let texture_format_info = texture_format.describe();
+    let texture_format_info = texture_format;
     let (block_width_pixels, block_height_pixels) = (
-        texture_format_info.block_dimensions.0 as usize,
-        texture_format_info.block_dimensions.1 as usize,
+        texture_format_info.block_dimensions().0 as usize,
+        texture_format_info.block_dimensions().1 as usize,
     );
-    let block_bytes = texture_format_info.block_size as usize;
+    // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
+    let block_bytes = texture_format_info.block_size(None).unwrap() as usize;
 
     let mut wgpu_data = vec![Vec::default(); (layer_count * face_count) as usize];
     for (level, level_data) in levels.iter().enumerate() {
-        let (level_width, level_height) = (
+        let (level_width, level_height, level_depth) = (
             (width as usize >> level).max(1),
             (height as usize >> level).max(1),
+            (depth as usize >> level).max(1),
         );
         let (num_blocks_x, num_blocks_y) = (
             ((level_width + block_width_pixels - 1) / block_width_pixels).max(1),
             ((level_height + block_height_pixels - 1) / block_height_pixels).max(1),
         );
-        let level_bytes = num_blocks_x * num_blocks_y * block_bytes;
+        let level_bytes = num_blocks_x * num_blocks_y * level_depth * block_bytes;
 
         let mut index = 0;
         for _layer in 0..layer_count {
@@ -997,7 +1039,7 @@ pub fn ktx2_dfd_to_texture_format(
             if sample_information[0].lower == 0 {
                 TextureFormat::Bc6hRgbUfloat
             } else {
-                TextureFormat::Bc6hRgbSfloat
+                TextureFormat::Bc6hRgbFloat
             }
         }
         Some(ColorModel::BC7) => {
@@ -1163,9 +1205,9 @@ pub fn ktx2_format_to_texture_format(
     Ok(match ktx2_format {
         ktx2::Format::R8_UNORM | ktx2::Format::R8_SRGB => {
             if is_srgb {
-                return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "{ktx2_format:?}"
-                )));
+                return Err(TextureError::FormatRequiresTranscodingError(
+                    TranscodeFormat::R8UnormSrgb,
+                ));
             }
             TextureFormat::R8Unorm
         }
@@ -1174,15 +1216,20 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::R8_SINT => TextureFormat::R8Sint,
         ktx2::Format::R8G8_UNORM | ktx2::Format::R8G8_SRGB => {
             if is_srgb {
-                return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "{ktx2_format:?}"
-                )));
+                return Err(TextureError::FormatRequiresTranscodingError(
+                    TranscodeFormat::Rg8UnormSrgb,
+                ));
             }
             TextureFormat::Rg8Unorm
         }
         ktx2::Format::R8G8_SNORM => TextureFormat::Rg8Snorm,
         ktx2::Format::R8G8_UINT => TextureFormat::Rg8Uint,
         ktx2::Format::R8G8_SINT => TextureFormat::Rg8Sint,
+        ktx2::Format::R8G8B8_UNORM | ktx2::Format::R8G8B8_SRGB => {
+            return Err(TextureError::FormatRequiresTranscodingError(
+                TranscodeFormat::Rgb8,
+            ));
+        }
         ktx2::Format::R8G8B8A8_UNORM | ktx2::Format::R8G8B8A8_SRGB => {
             if is_srgb {
                 TextureFormat::Rgba8UnormSrgb
@@ -1266,7 +1313,7 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::BC5_UNORM_BLOCK => TextureFormat::Bc5RgUnorm,
         ktx2::Format::BC5_SNORM_BLOCK => TextureFormat::Bc5RgSnorm,
         ktx2::Format::BC6H_UFLOAT_BLOCK => TextureFormat::Bc6hRgbUfloat,
-        ktx2::Format::BC6H_SFLOAT_BLOCK => TextureFormat::Bc6hRgbSfloat,
+        ktx2::Format::BC6H_SFLOAT_BLOCK => TextureFormat::Bc6hRgbFloat,
         ktx2::Format::BC7_UNORM_BLOCK | ktx2::Format::BC7_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Bc7RgbaUnormSrgb

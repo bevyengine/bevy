@@ -1,10 +1,12 @@
 use crate::{Axis, Input};
-use bevy_ecs::event::{EventReader, EventWriter};
+use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     system::{Res, ResMut, Resource},
 };
+use bevy_reflect::ReflectFromReflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_utils::Duration;
 use bevy_utils::{tracing::info, HashMap};
 use thiserror::Error;
 
@@ -72,7 +74,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The `ID` of a gamepad is fixed until the gamepad disconnects or the app is restarted.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Debug, Hash, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -90,9 +92,9 @@ impl Gamepad {
     }
 }
 
-/// Metadata associated with a `Gamepad`.
+/// Metadata associated with a [`Gamepad`].
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -153,7 +155,7 @@ impl Gamepads {
 /// which in turn is used to create the [`Input<GamepadButton>`] or
 /// [`Axis<GamepadButton>`] `bevy` resources.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Debug, Hash, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -218,7 +220,7 @@ pub enum GamepadButtonType {
 ///
 /// The gamepad button resources are updated inside of the [`gamepad_button_event_system`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Debug, Hash, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -260,7 +262,7 @@ impl GamepadButton {
 /// [`GamepadAxisChangedEvent`]. It is also used in the [`GamepadAxis`]
 /// which in turn is used to create the [`Axis<GamepadAxis>`] `bevy` resource.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Debug, Hash, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -296,7 +298,7 @@ pub enum GamepadAxisType {
 ///
 /// The gamepad axes resources are updated inside of the [`gamepad_axis_event_system`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Debug, Hash, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -337,11 +339,11 @@ impl GamepadAxis {
 ///
 /// ## Note
 ///
-/// The [`GamepadSettings`] are used inside of `bevy_gilrs` to determine when raw gamepad events from `girls`,
+/// The [`GamepadSettings`] are used inside of `bevy_gilrs` to determine when raw gamepad events from `gilrs`,
 /// should register as a [`GamepadEvent`]. Events that don't meet the change thresholds defined in [`GamepadSettings`]
 /// will not register. To modify these settings, mutate the corresponding resource.
 #[derive(Resource, Default, Debug, Reflect, FromReflect)]
-#[reflect(Debug, Default)]
+#[reflect(Debug, Default, FromReflect)]
 pub struct GamepadSettings {
     /// The default button settings.
     pub default_button_settings: ButtonSettings,
@@ -424,7 +426,7 @@ impl GamepadSettings {
 ///
 /// Allowed values: `0.0 <= ``release_threshold`` <= ``press_threshold`` <= 1.0`
 #[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(Debug, Default)]
+#[reflect(Debug, Default, FromReflect)]
 pub struct ButtonSettings {
     press_threshold: f32,
     release_threshold: f32,
@@ -584,9 +586,9 @@ impl ButtonSettings {
 ///
 /// The valid range is `[-1.0, 1.0]`.
 #[derive(Debug, Clone, Reflect, FromReflect, PartialEq)]
-#[reflect(Debug, Default)]
+#[reflect(Debug, Default, FromReflect)]
 pub struct AxisSettings {
-    /// Values that are higher than `livezone_upperbound` will be rounded up to -1.0.
+    /// Values that are higher than `livezone_upperbound` will be rounded up to 1.0.
     livezone_upperbound: f32,
     /// Positive values that are less than `deadzone_upperbound` will be rounded down to 0.0.
     deadzone_upperbound: f32,
@@ -629,9 +631,9 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// Returns an `AxisSettingsError` if any restrictions on the zone values are not met.
-    /// If the zone restrictions are met, but the ``threshold`` value restrictions are not met,
-    /// returns `AxisSettingsError::Threshold`.
+    /// Returns an [`AxisSettingsError`] if any restrictions on the zone values are not met.
+    /// If the zone restrictions are met, but the `threshold` value restrictions are not met,
+    /// returns [`AxisSettingsError::Threshold`].
     pub fn new(
         livezone_lowerbound: f32,
         deadzone_lowerbound: f32,
@@ -711,8 +713,9 @@ impl AxisSettings {
     }
 
     /// Try to set the value above which inputs will be rounded up to 1.0.
-    /// If the value is less than `deadzone_upperbound` or greater than 1.0,
+    /// If the value passed is negative or less than `deadzone_upperbound`,
     /// the value will not be changed.
+    ///
     /// Returns the new value of `livezone_upperbound`.
     pub fn set_livezone_upperbound(&mut self, value: f32) -> f32 {
         self.try_set_livezone_upperbound(value).ok();
@@ -757,12 +760,12 @@ impl AxisSettings {
         self.deadzone_upperbound
     }
 
-    /// Get the value above which negative inputs will be rounded up to 0.0.
+    /// Get the value below which negative inputs will be rounded down to -1.0.
     pub fn livezone_lowerbound(&self) -> f32 {
         self.livezone_lowerbound
     }
 
-    /// Try to set the value above which negative inputs will be rounded up to 0.0.
+    /// Try to set the value below which negative inputs will be rounded down to -1.0.
     ///
     /// # Errors
     ///
@@ -785,8 +788,8 @@ impl AxisSettings {
         }
     }
 
-    /// Try to set the value above which negative inputs will be rounded up to 0.0.
-    /// If the value passed is positive or less than `deadzone_lowerbound`,
+    /// Try to set the value below which negative inputs will be rounded down to -1.0.
+    /// If the value passed is positive or greater than `deadzone_lowerbound`,
     /// the value will not be changed.
     ///
     /// Returns the new value of `livezone_lowerbound`.
@@ -795,12 +798,12 @@ impl AxisSettings {
         self.livezone_lowerbound
     }
 
-    /// Get the value below which inputs will be rounded down to -1.0.
+    /// Get the value above which inputs will be rounded up to 0.0.
     pub fn deadzone_lowerbound(&self) -> f32 {
         self.deadzone_lowerbound
     }
 
-    /// Try to set the value below which inputs will be rounded down to -1.0.
+    /// Try to set the value above which inputs will be rounded up to 0.0.
     ///
     /// # Errors
     ///
@@ -823,8 +826,8 @@ impl AxisSettings {
         }
     }
 
-    /// Try to set the value below which inputs will be rounded down to -1.0.
-    /// If the value passed is less than -1.0 or greater than `livezone_lowerbound`,
+    /// Try to set the value above which inputs will be rounded up to 0.0.
+    /// If the value passed is less than -1.0 or less than `livezone_lowerbound`,
     /// the value will not be changed.
     ///
     /// Returns the new value of `deadzone_lowerbound`.
@@ -875,7 +878,7 @@ impl AxisSettings {
     }
 
     /// Determines whether the change from `old_value` to `new_value` should
-    /// be registered as a change, according to the `AxisSettings`.
+    /// be registered as a change, according to the [`AxisSettings`].
     fn should_register_change(&self, new_value: f32, old_value: Option<f32>) -> bool {
         if old_value.is_none() {
             return true;
@@ -915,7 +918,7 @@ impl AxisSettings {
 ///
 /// The current value of a button is received through the [`GamepadButtonChangedEvent`].
 #[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(Debug, Default)]
+#[reflect(Debug, Default, FromReflect)]
 pub struct ButtonAxisSettings {
     /// The high value at which to apply rounding.
     pub high: f32,
@@ -963,7 +966,7 @@ impl ButtonAxisSettings {
         f32::abs(new_value - old_value.unwrap()) > self.threshold
     }
 
-    /// Filters the `new_value` based on the `old_value`, according to the `ButtonAxisSettings`.
+    /// Filters the `new_value` based on the `old_value`, according to the [`ButtonAxisSettings`].
     ///
     /// Returns the clamped `new_value`, according to the [`ButtonAxisSettings`], if the change
     /// exceeds the settings threshold, and `None` otherwise.
@@ -1024,7 +1027,7 @@ pub fn gamepad_connection_system(
 }
 
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1037,8 +1040,8 @@ pub enum GamepadConnection {
 
 /// A Gamepad connection event. Created when a connection to a gamepad
 /// is established and when a gamepad is disconnected.
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1068,8 +1071,8 @@ impl GamepadConnectionEvent {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1093,8 +1096,8 @@ impl GamepadAxisChangedEvent {
 
 /// Gamepad event for when the "value" (amount of pressure) on the button
 /// changes by an amount larger than the threshold defined in [`GamepadSettings`].
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1116,7 +1119,7 @@ impl GamepadButtonChangedEvent {
     }
 }
 
-/// Uses [`GamepadAxisChangedEvent`]s to update the relevant `Input` and `Axis` values.
+/// Uses [`GamepadAxisChangedEvent`]s to update the relevant [`Input`] and [`Axis`] values.
 pub fn gamepad_axis_event_system(
     mut gamepad_axis: ResMut<Axis<GamepadAxis>>,
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
@@ -1127,7 +1130,7 @@ pub fn gamepad_axis_event_system(
     }
 }
 
-/// Uses [`GamepadButtonChangedEvent`]s to update the relevant `Input` and `Axis` values.
+/// Uses [`GamepadButtonChangedEvent`]s to update the relevant [`Input`] and [`Axis`] values.
 pub fn gamepad_button_event_system(
     mut button_events: EventReader<GamepadButtonChangedEvent>,
     mut button_input: ResMut<Input<GamepadButton>>,
@@ -1156,8 +1159,8 @@ pub fn gamepad_button_event_system(
 /// This event type is used over the [`GamepadConnectionEvent`],
 /// [`GamepadButtonChangedEvent`] and [`GamepadAxisChangedEvent`] when
 /// the in-frame relative ordering of events is important.
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1239,6 +1242,127 @@ const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
     GamepadAxisType::RightStickY,
     GamepadAxisType::RightZ,
 ];
+
+/// The intensity at which a gamepad's force-feedback motors may rumble.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GamepadRumbleIntensity {
+    /// The rumble intensity of the strong gamepad motor
+    ///
+    /// Ranges from 0.0 to 1.0
+    ///
+    /// By convention, this is usually a low-frequency motor on the left-hand
+    /// side of the gamepad, though it may vary across platforms and hardware.
+    pub strong_motor: f32,
+    /// The rumble intensity of the weak gamepad motor
+    ///
+    /// Ranges from 0.0 to 1.0
+    ///
+    /// By convention, this is usually a high-frequency motor on the right-hand
+    /// side of the gamepad, though it may vary across platforms and hardware.
+    pub weak_motor: f32,
+}
+
+impl GamepadRumbleIntensity {
+    /// Rumble both gamepad motors at maximum intensity
+    pub const MAX: Self = GamepadRumbleIntensity {
+        strong_motor: 1.0,
+        weak_motor: 1.0,
+    };
+
+    /// Rumble the weak motor at maximum intensity
+    pub const WEAK_MAX: Self = GamepadRumbleIntensity {
+        strong_motor: 0.0,
+        weak_motor: 1.0,
+    };
+
+    /// Rumble the strong motor at maximum intensity
+    pub const STRONG_MAX: Self = GamepadRumbleIntensity {
+        strong_motor: 1.0,
+        weak_motor: 0.0,
+    };
+
+    /// Creates a new rumble intensity with weak motor intensity set to the given value
+    ///
+    /// Clamped within the 0 to 1 range
+    pub const fn weak_motor(intensity: f32) -> Self {
+        Self {
+            weak_motor: intensity,
+            strong_motor: 0.0,
+        }
+    }
+
+    /// Creates a new rumble intensity with strong motor intensity set to the given value
+    ///
+    /// Clamped within the 0 to 1 range
+    pub const fn strong_motor(intensity: f32) -> Self {
+        Self {
+            strong_motor: intensity,
+            weak_motor: 0.0,
+        }
+    }
+}
+
+/// An event that controls force-feedback rumbling of a [`Gamepad`]
+///
+/// # Notes
+///
+/// Does nothing if the gamepad or platform does not support rumble.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_input::gamepad::{Gamepad, Gamepads, GamepadRumbleRequest, GamepadRumbleIntensity};
+/// # use bevy_ecs::prelude::{EventWriter, Res};
+/// # use bevy_utils::Duration;
+/// fn rumble_gamepad_system(
+///     mut rumble_requests: EventWriter<GamepadRumbleRequest>,
+///     gamepads: Res<Gamepads>
+/// ) {
+///     for gamepad in gamepads.iter() {
+///         rumble_requests.send(GamepadRumbleRequest::Add {
+///             gamepad,
+///             intensity: GamepadRumbleIntensity::MAX,
+///             duration: Duration::from_secs_f32(0.5),
+///         });
+///     }
+/// }
+/// ```
+#[doc(alias = "haptic feedback")]
+#[doc(alias = "force feedback")]
+#[doc(alias = "vibration")]
+#[doc(alias = "vibrate")]
+#[derive(Event, Clone)]
+pub enum GamepadRumbleRequest {
+    /// Add a rumble to the given gamepad.
+    ///
+    /// Simultaneous rumble effects add up to the sum of their strengths.
+    ///
+    /// Consequently, if two rumbles at half intensity are added at the same
+    /// time, their intensities will be added up, and the controller will rumble
+    /// at full intensity until one of the rumbles finishes, then the rumble
+    /// will continue at the intensity of the remaining event.
+    ///
+    /// To replace an existing rumble, send a [`GamepadRumbleRequest::Stop`] event first.
+    Add {
+        /// How long the gamepad should rumble
+        duration: Duration,
+        /// How intense the rumble should be
+        intensity: GamepadRumbleIntensity,
+        /// The gamepad to rumble
+        gamepad: Gamepad,
+    },
+    /// Stop all running rumbles on the given [`Gamepad`]
+    Stop { gamepad: Gamepad },
+}
+
+impl GamepadRumbleRequest {
+    /// Get the [`Gamepad`] associated with this request
+    pub fn gamepad(&self) -> Gamepad {
+        match self {
+            Self::Add { gamepad, .. } | Self::Stop { gamepad } => *gamepad,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

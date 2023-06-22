@@ -77,6 +77,8 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x2,
                 // color
                 VertexFormat::Float32x4,
+                // mode
+                VertexFormat::Uint32,
             ],
         );
         let shader_defs = Vec::new();
@@ -102,7 +104,8 @@ impl SpecializedRenderPipeline for UiPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
+            layout: vec![self.view_layout.clone(), self.image_layout.clone()],
+            push_constant_ranges: Vec::new(),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,

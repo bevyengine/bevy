@@ -8,12 +8,14 @@ use bevy::{prelude::*, utils::Duration};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
         // plugins are registered as part of the "app building" process
-        .add_plugin(PrintMessagePlugin {
-            wait_duration: Duration::from_secs(1),
-            message: "This is an example plugin".to_string(),
-        })
+        .add_plugins((
+            DefaultPlugins,
+            PrintMessagePlugin {
+                wait_duration: Duration::from_secs(1),
+                message: "This is an example plugin".to_string(),
+            },
+        ))
         .run();
 }
 
@@ -31,7 +33,8 @@ impl Plugin for PrintMessagePlugin {
             message: self.message.clone(),
             timer: Timer::new(self.wait_duration, TimerMode::Repeating),
         };
-        app.insert_resource(state).add_system(print_message_system);
+        app.insert_resource(state)
+            .add_systems(Update, print_message_system);
     }
 }
 
