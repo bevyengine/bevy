@@ -86,7 +86,7 @@ pub trait DespawnRecursiveExt {
     fn despawn_recursive(self);
 
     /// Despawns all descendants of the given entity.
-    fn despawn_descendants(&mut self);
+    fn despawn_descendants(&mut self) -> &mut Self;
 }
 
 impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
@@ -96,9 +96,10 @@ impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
         self.commands().add(DespawnRecursive { entity });
     }
 
-    fn despawn_descendants(&mut self) {
+    fn despawn_descendants(&mut self) -> &mut Self {
         let entity = self.id();
         self.commands().add(DespawnChildrenRecursive { entity });
+        self
     }
 }
 
@@ -117,7 +118,7 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
         despawn_with_children_recursive(self.into_world_mut(), entity);
     }
 
-    fn despawn_descendants(&mut self) {
+    fn despawn_descendants(&mut self) -> &mut Self {
         let entity = self.id();
 
         #[cfg(feature = "trace")]
@@ -130,6 +131,7 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
         self.world_scope(|world| {
             despawn_children_recursive(world, entity);
         });
+        self
     }
 }
 
