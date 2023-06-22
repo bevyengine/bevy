@@ -207,7 +207,7 @@ fn point_light(
     // Comes after specular since its NoL is used in the lighting equation.
     L = normalize(light_to_frag);
     H = normalize(L + V);
-    NoL = saturate(dot(N, L));
+    NoL = clamp(saturate(dot(N, L)), 0.0, 1.0);
     NoH = saturate(dot(N, H));
     LoH = saturate(dot(L, H));
 
@@ -270,7 +270,7 @@ fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32
     let incident_light = (*light).direction_to_light.xyz;
 
     let half_vector = normalize(incident_light + view);
-    let NoL = saturate(dot(normal, incident_light));
+    let NoL = clamp(saturate(dot(normal, incident_light)), 0.0, 1.0);
     let NoH = saturate(dot(normal, half_vector));
     let LoH = saturate(dot(incident_light, half_vector));
 

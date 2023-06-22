@@ -181,7 +181,7 @@ fn pbr(
     output_color = alpha_discard(in.material, output_color);
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-    let NdotV = max(dot(in.N, in.V), 0.0001);
+    let NdotV = clamp(dot(in.N, in.V), 0.0001, 1.0);
 
     // Remapping [0,1] reflectance to F0
     // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
