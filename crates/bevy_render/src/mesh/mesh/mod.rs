@@ -43,17 +43,55 @@ pub struct Mesh {
 /// [`shape::Cube`](crate::mesh::shape::Cube) or [`shape::Box`](crate::mesh::shape::Box), but you can also construct
 /// one yourself.
 ///
-/// Example of constructing a mesh:
+/// Example of constructing a mesh (to be rendered with a `StandardMaterial`):
 /// ```
 /// # use bevy_render::mesh::{Mesh, Indices};
 /// # use bevy_render::render_resource::PrimitiveTopology;
-/// fn create_triangle() -> Mesh {
+/// fn create_simple_parallelogram() -> Mesh {
+///     // Create a new mesh, add 4 vertices, each with its own position attribute (coordinate in
+///     // 3D space), for each of the corners of the parallelogram.
 ///     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-///     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]);
-///     mesh.set_indices(Some(Indices::U32(vec![0,1,2])));
+///     mesh.insert_attribute(
+///         Mesh::ATTRIBUTE_POSITION,
+///         vec![[0.0, 0.0, 0.0], [1.0, 2.0, 0.0], [2.0, 2.0, 0.0], [1.0, 0.0, 0.0]]
+///     );
+///     // Assign a UV coordinate to each vertex.
+///     mesh.insert_attribute(
+///         Mesh::ATTRIBUTE_UV_0,
+///         vec![[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]]
+///     );
+///     // Assign normals (everything points outwards)
+///     mesh.insert_attribute(
+///        Mesh::ATTRIBUTE_NORMAL,
+///        vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]
+///     );
+///     // After defining all the vertices and their attributes, build each triangle using the
+///     // indices of the vertices that make it up in a counter-clockwise order.
+///     mesh.set_indices(Some(Indices::U32(vec![
+///         // First triangle
+///         0, 3, 1,
+///         // Second triangle
+///         1, 3, 2
+///     ])));
 ///     mesh
+///     // For further visualization, explanation, and examples see the built-in Bevy examples
+///     // and the implementation of the built-in shapes.
 /// }
 /// ```
+/// Common points of confusion:
+/// - UV maps in Bevy are "flipped", (0.0, 0.0) = Top-Left (not Bot-Left like `OpenGL`)
+/// - It is normal for multiple vertices to have the same position
+///   attribute - it's a common technique in 3D modelling for complex UV mapping or other calculations.
+///
+/// To render correctly with `StandardMaterial` a mesh needs to have properly defined:
+/// - [`UVs`](Mesh::ATTRIBUTE_UV_0): Bevy needs to know how to map a texture onto the mesh.
+/// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh. ([0.0, 0.0, 1.0] is very
+///              common for simple meshes because simple meshes are smooth, and they don't require complex light calculations.)
+/// - Vertex winding order -
+///              the default behavior is with `StandardMaterial.cull_mode` = Some([`Face::Front`](crate::render_resource::Face::Front)) which means
+///              that by default Bevy would *only* render the front of each triangle, and the front
+///              is the side of the triangle in which the vertices appear in a *counter-clockwise* order.
+///
 impl Mesh {
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_POSITION: MeshVertexAttribute =

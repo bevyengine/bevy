@@ -95,7 +95,7 @@ bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
 
 # Provides text functionality
-bevy_text = ["bevy_internal/bevy_text"]
+bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
 
 # A custom ECS-driven UI framework
 bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite"]

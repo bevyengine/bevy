@@ -385,6 +385,13 @@ where
         ));
         if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
             shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+            // PERF: This line forces the "prepass fragment shader" to always run in
+            // common scenarios like "directional light calculation". Doing so resolves
+            // a pretty nasty depth clamping bug, but it also feels a bit excessive.
+            // We should try to find a way to resolve this without forcing the fragment
+            // shader to run.
+            // https://github.com/bevyengine/bevy/pull/8877
+            shader_defs.push("PREPASS_FRAGMENT".into());
         }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
@@ -457,8 +464,9 @@ where
 
         // The fragment shader is only used when the normal prepass or motion vectors prepass
         // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
-        // prepass shader
+        // prepass shader or we are clamping the orthographic depth.
         let fragment_required = !targets.is_empty()
+            || key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO)
             || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && self.material_fragment_shader.is_some());
 

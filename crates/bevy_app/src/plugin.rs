@@ -65,3 +65,61 @@ impl_downcast!(Plugin);
 ///
 /// See `bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin`.
 pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
+
+/// Types that represent a set of [`Plugin`]s.
+///
+/// This is implemented for all types which implement [`Plugin`],
+/// [`PluginGroup`](super::PluginGroup), and tuples over [`Plugins`].
+pub trait Plugins<Marker>: sealed::Plugins<Marker> {}
+
+impl<Marker, T> Plugins<Marker> for T where T: sealed::Plugins<Marker> {}
+
+mod sealed {
+
+    use bevy_ecs::all_tuples;
+
+    use crate::{App, AppError, Plugin, PluginGroup};
+
+    pub trait Plugins<Marker> {
+        fn add_to_app(self, app: &mut App);
+    }
+
+    pub struct PluginMarker;
+    pub struct PluginGroupMarker;
+    pub struct PluginsTupleMarker;
+
+    impl<P: Plugin> Plugins<PluginMarker> for P {
+        fn add_to_app(self, app: &mut App) {
+            if let Err(AppError::DuplicatePlugin { plugin_name }) =
+                app.add_boxed_plugin(Box::new(self))
+            {
+                panic!(
+                    "Error adding plugin {plugin_name}: : plugin was already added in application"
+                )
+            }
+        }
+    }
+
+    impl<P: PluginGroup> Plugins<PluginGroupMarker> for P {
+        fn add_to_app(self, app: &mut App) {
+            self.build().finish(app);
+        }
+    }
+
+    macro_rules! impl_plugins_tuples {
+        ($(($param: ident, $plugins: ident)),*) => {
+            impl<$($param, $plugins),*> Plugins<(PluginsTupleMarker, $($param,)*)> for ($($plugins,)*)
+            where
+                $($plugins: Plugins<$param>),*
+            {
+                #[allow(non_snake_case, unused_variables)]
+                fn add_to_app(self, app: &mut App) {
+                    let ($($plugins,)*) = self;
+                    $($plugins.add_to_app(app);)*
+                }
+            }
+        }
+    }
+
+    all_tuples!(impl_plugins_tuples, 0, 15, P, S);
+}

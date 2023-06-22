@@ -99,10 +99,10 @@ impl Plugin for WinitPlugin {
                 ),
             );
 
-        app.add_plugin(AccessibilityPlugin);
+        app.add_plugins(AccessibilityPlugin);
 
         #[cfg(target_arch = "wasm32")]
-        app.add_plugin(CanvasParentResizePlugin);
+        app.add_plugins(CanvasParentResizePlugin);
 
         #[cfg(not(target_arch = "wasm32"))]
         let mut create_window_system_state: SystemState<(
