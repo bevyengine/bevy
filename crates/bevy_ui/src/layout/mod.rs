@@ -166,9 +166,7 @@ without UI components as a child of an entity with UI components, results may be
     ) {
         let taffy_node = self.window_nodes.get(&parent_window).unwrap();
         let child_nodes = children
-            .map(|e| {
-                *self.entity_to_taffy.get(&e).unwrap()
-            })
+            .map(|e| *self.entity_to_taffy.get(&e).unwrap())
             .collect::<Vec<taffy::node::Node>>();
         self.taffy.set_children(*taffy_node, &child_nodes).unwrap();
     }
@@ -354,7 +352,7 @@ pub fn ui_layout_system(
         }
     }
 
-    for entity in root_node_query.iter(){
+    for entity in root_node_query.iter() {
         update_uinode_geometry_recursive(
             entity,
             &ui_surface,
