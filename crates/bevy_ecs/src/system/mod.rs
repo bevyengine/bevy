@@ -125,71 +125,6 @@ pub use system_param::*;
 
 use crate::world::World;
 
-/// Ensure that a given function is a [system](System).
-///
-/// This should be used when writing doc examples,
-/// to confirm that systems used in an example are
-/// valid systems.
-///
-/// # Examples
-///
-/// The following example will panic when run since the
-/// system's parameters mutably access the same component
-/// multiple times.
-///
-/// ```should_panic
-/// # use bevy_ecs::{prelude::*, system::assert_is_system};
-/// #
-/// # #[derive(Component)]
-/// # struct Transform;
-/// #
-/// fn my_system(query1: Query<&mut Transform>, query2: Query<&mut Transform>) {
-///     // ...
-/// }
-///
-/// assert_is_system(my_system);
-/// ```
-pub fn assert_is_system<In: 'static, Out: 'static, Marker>(
-    system: impl IntoSystem<In, Out, Marker>,
-) {
-    let mut system = IntoSystem::into_system(system);
-
-    // Initialize the system, which will panic if the system has access conflicts.
-    let mut world = World::new();
-    system.initialize(&mut world);
-}
-
-/// Ensure that a given function is a [read-only system](ReadOnlySystem).
-///
-/// This should be used when writing doc examples,
-/// to confirm that systems used in an example are
-/// valid systems.
-///
-/// # Examples
-///
-/// The following example will fail to compile
-/// since the system accesses a component mutably.
-///
-/// ```compile_fail
-/// # use bevy_ecs::{prelude::*, system::assert_is_read_only_system};
-/// #
-/// # #[derive(Component)]
-/// # struct Transform;
-/// #
-/// fn my_system(query: Query<&mut Transform>) {
-///     // ...
-/// }
-///
-/// assert_is_read_only_system(my_system);
-/// ```
-pub fn assert_is_read_only_system<In: 'static, Out: 'static, Marker, S>(system: S)
-where
-    S: IntoSystem<In, Out, Marker>,
-    S::System: ReadOnlySystem,
-{
-    assert_is_system(system);
-}
-
 /// Conversion trait to turn something into a [`System`].
 ///
 /// Use this to get a system from a function. Also note that every system implements this trait as
@@ -475,6 +410,83 @@ pub mod adapter {
     /// }
     /// ```
     pub fn ignore<T>(In(_): In<T>) {}
+}
+
+/// Ensure that a given function is a [system](System).
+///
+/// This should be used when writing doc examples,
+/// to confirm that systems used in an example are
+/// valid systems.
+///
+/// # Examples
+///
+/// The following example will panic when run since the
+/// system's parameters mutably access the same component
+/// multiple times.
+///
+/// ```should_panic
+/// # use bevy_ecs::{prelude::*, system::assert_is_system};
+/// #
+/// # #[derive(Component)]
+/// # struct Transform;
+/// #
+/// fn my_system(query1: Query<&mut Transform>, query2: Query<&mut Transform>) {
+///     // ...
+/// }
+///
+/// assert_is_system(my_system);
+/// ```
+pub fn assert_is_system<In: 'static, Out: 'static, Marker>(
+    system: impl IntoSystem<In, Out, Marker>,
+) {
+    let mut system = IntoSystem::into_system(system);
+
+    // Initialize the system, which will panic if the system has access conflicts.
+    let mut world = World::new();
+    system.initialize(&mut world);
+}
+
+/// Ensure that a given function is a [read-only system](ReadOnlySystem).
+///
+/// This should be used when writing doc examples,
+/// to confirm that systems used in an example are
+/// valid systems.
+///
+/// # Examples
+///
+/// The following example will fail to compile
+/// since the system accesses a component mutably.
+///
+/// ```compile_fail
+/// # use bevy_ecs::{prelude::*, system::assert_is_read_only_system};
+/// #
+/// # #[derive(Component)]
+/// # struct Transform;
+/// #
+/// fn my_system(query: Query<&mut Transform>) {
+///     // ...
+/// }
+///
+/// assert_is_read_only_system(my_system);
+/// ```
+pub fn assert_is_read_only_system<In: 'static, Out: 'static, Marker, S>(system: S)
+where
+    S: IntoSystem<In, Out, Marker>,
+    S::System: ReadOnlySystem,
+{
+    assert_is_system(system);
+}
+
+/// Ensures that the provided system doesn't with itself.
+///
+/// This function will  panic if the provided system conflict with itself.
+///
+/// Note: this will run the system on an empty world.
+pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Params>>(sys: S) {
+    let mut world = World::new();
+    let mut system = IntoSystem::into_system(sys);
+    system.initialize(&mut world);
+    system.run((), &mut world);
 }
 
 #[cfg(test)]
@@ -1737,6 +1749,13 @@ mod tests {
             )
         };
         query.iter();
+    }
+
+    #[test]
+    #[should_panic]
+    fn assert_system_does_not_conflict() {
+        fn system(_query: Query<(&mut W<u32>, &mut W<u32>)>) {}
+        super::assert_system_does_not_conflict(system);
     }
 
     #[test]
