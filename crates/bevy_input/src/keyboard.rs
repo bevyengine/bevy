@@ -1,10 +1,11 @@
 use crate::{ButtonState, Input};
+use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     event::{Event, EventReader},
     system::ResMut,
 };
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
 use smol_str::SmolStr;
 
 #[cfg(feature = "serialize")]
@@ -22,7 +23,7 @@ use serde::{Deserialize, Serialize};
 /// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -36,6 +37,8 @@ pub struct KeyboardInput {
 
     /// The press state of the key.
     pub state: ButtonState,
+    /// Window that received the input.
+    pub window: Entity,
 }
 
 /// Updates the [`Input<KeyCode>`] resource with the latest [`KeyboardInput`] events.
@@ -107,10 +110,11 @@ pub enum NativeKeyCode {
 /// create a `Res<Input<ScanCode>>`.
 /// The resource values are mapped to the physical location of a key on the
 /// keyboard and correlate to an [`Key`](Key)
+/// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
 ///
 /// Its values map 1 to 1 to winit's `KeyCode`.
 #[derive(Debug, Hash, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Debug, Hash, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -610,7 +614,8 @@ pub enum NativeKey {
 ///
 /// Its values map 1 to 1 to winit's Key.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Reflect, FromReflect)]
+#[reflect(Debug, Hash, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

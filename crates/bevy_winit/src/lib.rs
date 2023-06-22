@@ -57,6 +57,7 @@ use crate::converters::convert_winit_theme;
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
+/// [`AndroidApp`] provides an interface to query the application state as well as monitor events (for example lifecycle and input events)
 #[cfg(target_os = "android")]
 pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::new();
 
@@ -96,10 +97,10 @@ impl Plugin for WinitPlugin {
                 ),
             );
 
-        app.add_plugin(AccessibilityPlugin);
+        app.add_plugins(AccessibilityPlugin);
 
         #[cfg(target_arch = "wasm32")]
-        app.add_plugin(CanvasParentResizePlugin);
+        app.add_plugins(CanvasParentResizePlugin);
 
         #[cfg(not(target_arch = "wasm32"))]
         let mut create_window_system_state: SystemState<(
@@ -449,7 +450,8 @@ pub fn winit_runner(mut app: App) {
                             });
                     }
                     WindowEvent::KeyboardInput { ref event, .. } => {
-                        let keyboard_event = converters::convert_keyboard_input(event);
+                        let keyboard_event =
+                            converters::convert_keyboard_input(event, window_entity);
                         if let bevy_input::keyboard::Key::Character(c) = &keyboard_event.logical_key
                         {
                             if let Some(first_char) = c.chars().next() {
@@ -488,6 +490,7 @@ pub fn winit_runner(mut app: App) {
                         input_events.mouse_button_input.send(MouseButtonInput {
                             button: converters::convert_mouse_button(button),
                             state: converters::convert_element_state(state),
+                            window: window_entity,
                         });
                     }
                     WindowEvent::TouchpadMagnify { delta, .. } => {
@@ -506,6 +509,7 @@ pub fn winit_runner(mut app: App) {
                                 unit: MouseScrollUnit::Line,
                                 x,
                                 y,
+                                window: window_entity,
                             });
                         }
                         event::MouseScrollDelta::PixelDelta(p) => {
@@ -513,6 +517,7 @@ pub fn winit_runner(mut app: App) {
                                 unit: MouseScrollUnit::Pixel,
                                 x: p.x as f32,
                                 y: p.y as f32,
+                                window: window_entity,
                             });
                         }
                     },

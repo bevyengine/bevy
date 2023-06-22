@@ -1,6 +1,6 @@
 use bevy_ecs::{component::Component, prelude::Entity, reflect::ReflectComponent};
 use bevy_math::{Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
 use bevy_utils::HashMap;
 
 /// An axis-aligned bounding box.
@@ -126,8 +126,8 @@ impl HalfSpace {
 /// A frustum made up of the 6 defining half spaces.
 /// Half spaces are ordered left, right, top, bottom, near, far.
 /// The normal vectors of the half spaces point towards the interior of the frustum.
-#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Clone, Copy, Debug, Default, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
 pub struct Frustum {
     #[reflect(ignore)]
     pub half_spaces: [HalfSpace; 6],
@@ -223,8 +223,8 @@ impl Frustum {
     }
 }
 
-#[derive(Component, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Debug, Default, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
 pub struct CubemapFrusta {
     #[reflect(ignore)]
     pub frusta: [Frustum; 6],
@@ -239,8 +239,8 @@ impl CubemapFrusta {
     }
 }
 
-#[derive(Component, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Debug, Default, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
 pub struct CascadesFrusta {
     #[reflect(ignore)]
     pub frusta: HashMap<Entity, Vec<Frustum>>,

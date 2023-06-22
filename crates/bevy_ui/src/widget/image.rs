@@ -1,5 +1,7 @@
-use crate::{measurement::AvailableSpace, ContentSize, Measure, Node, UiImage};
-use bevy_asset::Assets;
+use crate::{
+    measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiTextureAtlasImage,
+};
+use bevy_asset::{Assets, Handle};
 #[cfg(feature = "bevy_text")]
 use bevy_ecs::query::Without;
 use bevy_ecs::{
@@ -11,6 +13,7 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 use bevy_render::texture::Image;
+use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::Text;
 
@@ -80,6 +83,44 @@ pub fn update_image_content_size_system(
             let size = Vec2::new(
                 texture.texture_descriptor.size.width as f32,
                 texture.texture_descriptor.size.height as f32,
+            );
+            // Update only if size has changed to avoid needless layout calculations
+            if size != image_size.size {
+                image_size.size = size;
+                content_size.set(ImageMeasure { size });
+            }
+        }
+    }
+}
+
+/// Updates content size of the node based on the texture atlas sprite
+pub fn update_atlas_content_size_system(
+    atlases: Res<Assets<TextureAtlas>>,
+    #[cfg(feature = "bevy_text")] mut atlas_query: Query<
+        (
+            &mut ContentSize,
+            &Handle<TextureAtlas>,
+            &UiTextureAtlasImage,
+            &mut UiImageSize,
+        ),
+        (With<Node>, Without<Text>, Without<UiImage>),
+    >,
+    #[cfg(not(feature = "bevy_text"))] mut atlas_query: Query<
+        (
+            &mut ContentSize,
+            &Handle<TextureAtlas>,
+            &UiTextureAtlasImage,
+            &mut UiImageSize,
+        ),
+        (With<Node>, Without<UiImage>),
+    >,
+) {
+    for (mut content_size, atlas, atlas_image, mut image_size) in &mut atlas_query {
+        if let Some(atlas) = atlases.get(atlas) {
+            let texture_rect = atlas.textures[atlas_image.index];
+            let size = Vec2::new(
+                texture_rect.max.x - texture_rect.min.x,
+                texture_rect.max.y - texture_rect.min.y,
             );
             // Update only if size has changed to avoid needless layout calculations
             if size != image_size.size {

@@ -10,15 +10,17 @@ const SYSTEM_COUNT: u32 = 10;
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            title: "Many Debug Lines".to_string(),
-            present_mode: PresentMode::AutoNoVsync,
+    app.add_plugins((
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Many Debug Lines".to_string(),
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            }),
             ..default()
         }),
-        ..default()
-    }))
-    .add_plugin(FrameTimeDiagnosticsPlugin)
+        FrameTimeDiagnosticsPlugin,
+    ))
     .insert_resource(Config {
         line_count: 50_000,
         fancy: false,
