@@ -208,8 +208,8 @@ fn point_light(
     L = normalize(light_to_frag);
     H = normalize(L + V);
     NoL = clamp(saturate(dot(N, L)), 0.0, 1.0);
-    NoH = saturate(dot(N, H));
-    LoH = saturate(dot(L, H));
+    NoH = clamp(saturate(dot(N, H)), 0.0, 1.0);
+    LoH = clamp(saturate(dot(L, H)), 0.0, 1.0);
 
     let diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
 
@@ -271,8 +271,8 @@ fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32
 
     let half_vector = normalize(incident_light + view);
     let NoL = clamp(saturate(dot(normal, incident_light)), 0.0, 1.0);
-    let NoH = saturate(dot(normal, half_vector));
-    let LoH = saturate(dot(incident_light, half_vector));
+    let NoH = clamp(saturate(dot(normal, half_vector)), 0.0, 1.0);
+    let LoH = clamp(saturate(dot(incident_light, half_vector)), 0.0, 1.0);
 
     let diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
     let specularIntensity = 1.0;
