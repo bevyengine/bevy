@@ -168,7 +168,7 @@ fn create_cube_mesh() -> Mesh {
 
     // Create the triangles out of the 24 vertices we created.
     // To construct a square, we need 2 triangles, therfore 12 traingles in total.
-    // To construct a triangle, we need the indices of 3 of its defined vertices, adding them one
+    // To construct a triangle, we need the indices of its 3 defined vertices, adding them one
     // by one, in a counter-clockwise order (relative to the position of the viewer, the order
     // should appear counter-clockwise from the front of the triangle). Read more about how to correctly build a mesh manually
     // in the Bevy documentation, further examples and the implementation of the built-in shapes.
