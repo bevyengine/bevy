@@ -342,7 +342,7 @@ pub fn ui_layout_system(
                         child_uinode,
                         ui_surface,
                         node_transform_query,
-                        &children_query,
+                        children_query,
                         inverse_target_scale_factor,
                         new_size,
                         absolute_location,
