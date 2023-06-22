@@ -191,12 +191,14 @@ impl Time {
         self.last_update = Some(instant);
     }
 
-    fn prepare_fixed(&mut self) {
+    pub fn prepare_fixed(&mut self) {
         assert!(self.stored_delta.is_none());
+        // stash current delta since we don't have it anywhere else, also is used as a marker if we are in fixed time or not
         self.stored_delta = Some(self.delta);
         self.delta = self.fixed_period;
         self.delta_seconds = self.delta.as_secs_f32();
         self.delta_seconds_f64 = self.delta.as_secs_f64();
+        // rewind elapsed to time during last fixed update
         self.elapsed -= self.accumulated;
         self.elapsed_seconds = self.elapsed.as_secs_f32();
         self.elapsed_seconds_f64 = self.elapsed.as_secs_f64();
@@ -205,9 +207,10 @@ impl Time {
         self.elapsed_seconds_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();
     }
 
-    fn expend_fixed(&mut self) -> bool {
+    pub fn expend_fixed(&mut self) -> bool {
         assert!(self.stored_delta.is_some());
         if let Some(new_value) = self.accumulated.checked_sub(self.fixed_period) {
+            // reduce accumulated and increase elapsed by period
             self.accumulated = new_value;
             self.elapsed += self.fixed_period;
             self.elapsed_seconds = self.elapsed.as_secs_f32();
@@ -217,15 +220,18 @@ impl Time {
             self.elapsed_seconds_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();
             true
         } else {
+            // no more periods left in accumulated
             false
         }
     }
 
-    fn finish_fixed(&mut self) {
+    pub fn finish_fixed(&mut self) {
         assert!(self.stored_delta.is_some());
+        // restore delta from stashed delta
         self.delta = self.stored_delta.unwrap();
         self.delta_seconds = self.delta.as_secs_f32();
         self.delta_seconds_f64 = self.delta.as_secs_f64();
+        // add remainder of accumulated back to elapsed for Update stage
         self.elapsed += self.accumulated;
         self.elapsed_seconds = self.elapsed.as_secs_f32();
         self.elapsed_seconds_f64 = self.elapsed.as_secs_f64();

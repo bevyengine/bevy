@@ -105,7 +105,7 @@ pub fn run_fixed_update_schedule(world: &mut World) {
 
     // Run the schedule until we run out of accumulated time
     let _ = world.try_schedule_scope(FixedUpdate, |world, schedule| {
-        while world.resource_mut::<Time>().tick_fixed() {
+        while world.resource_mut::<Time>().expend_fixed() {
             schedule.run(world);
         }
     });
