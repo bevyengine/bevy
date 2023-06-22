@@ -148,7 +148,10 @@ pub fn update_atlas_content_size_system(
             // Update only if size has changed to avoid needless layout calculations
             if size != image_size.size {
                 image_size.size = size;
-                content_size.set(ImageMeasure { size: size * combined_scale_factor as f32 });
+                content_size.set(ImageMeasure { 
+                    // multiply the image size by the scale factor to get the physical size
+                    size: size * combined_scale_factor as f32 
+                });
             }
         }
     }
