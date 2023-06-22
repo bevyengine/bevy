@@ -454,14 +454,6 @@ impl<'a> ReflectStruct<'a> {
             .filter(|field| field.attrs.ignore.is_active())
     }
 
-    /// Get a collection of types which are ignored by the reflection API
-    #[allow(dead_code)]
-    pub fn ignored_types(&self) -> Vec<syn::Type> {
-        self.ignored_fields()
-            .map(|field| field.data.ty.clone())
-            .collect()
-    }
-
     /// Get an iterator of fields which are ignored by the reflection API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields
@@ -506,27 +498,11 @@ impl<'a> ReflectEnum<'a> {
             .flat_map(|variant| variant.active_fields())
     }
 
-    /// Get a collection of types which are exposed to the reflection API
-    #[allow(dead_code)]
-    pub fn active_types(&self) -> Vec<syn::Type> {
-        self.active_fields()
-            .map(|field| field.data.ty.clone())
-            .collect()
-    }
-
     /// Get an iterator of fields which are ignored by the reflection API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.variants()
             .iter()
             .flat_map(|variant| variant.ignored_fields())
-    }
-
-    /// Get a collection of types which are ignored to the reflection API
-    #[allow(dead_code)]
-    pub fn ignored_types(&self) -> Vec<syn::Type> {
-        self.ignored_fields()
-            .map(|field| field.data.ty.clone())
-            .collect()
     }
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
