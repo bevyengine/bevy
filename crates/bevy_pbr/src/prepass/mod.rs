@@ -45,9 +45,9 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
 use crate::{
-    prepare_lights, AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey,
-    MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials, SetMaterialBindGroup,
-    SetMeshBindGroup, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    prepare_lights, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
+    MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials,
+    SetMaterialBindGroup, SetMeshBindGroup, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -219,8 +219,7 @@ pub fn update_mesh_previous_global_transforms(
 pub struct PrepassPipeline<M: Material> {
     pub view_layout_motion_vectors: BindGroupLayout,
     pub view_layout_no_motion_vectors: BindGroupLayout,
-    pub mesh_layout: BindGroupLayout,
-    pub skinned_mesh_layout: BindGroupLayout,
+    pub mesh_layouts: MeshLayouts,
     pub material_layout: BindGroupLayout,
     pub material_vertex_shader: Option<Handle<Shader>>,
     pub material_fragment_shader: Option<Handle<Shader>>,
@@ -307,8 +306,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
         PrepassPipeline {
             view_layout_motion_vectors,
             view_layout_no_motion_vectors,
-            mesh_layout: mesh_pipeline.mesh_layout.clone(),
-            skinned_mesh_layout: mesh_pipeline.skinned_mesh_layout.clone(),
+            mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
             material_vertex_shader: match M::prepass_vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
@@ -423,16 +421,15 @@ where
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
-            && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
-        {
-            shader_defs.push("SKINNED".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
-            bind_group_layouts.insert(2, self.skinned_mesh_layout.clone());
-        } else {
-            bind_group_layouts.insert(2, self.mesh_layout.clone());
-        }
+        let bind_group = setup_morph_and_skinning_defs(
+            &self.mesh_layouts,
+            layout,
+            4,
+            &key.mesh_key,
+            &mut shader_defs,
+            &mut vertex_attributes,
+        );
+        bind_group_layouts.insert(2, bind_group);
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
@@ -814,6 +811,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
 
             let mut mesh_key =
                 MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
+            if mesh.morph_targets.is_some() {
+                mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+            }
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
                 AlphaMode::Opaque => {}

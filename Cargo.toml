@@ -747,6 +747,16 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "morph_targets"
+path = "examples/animation/morph_targets.rs"
+
+[package.metadata.example.morph_targets]
+name = "Morph Targets"
+description = "Plays an animation from a glTF file with meshes with morph targets"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "animated_transform"
 path = "examples/animation/animated_transform.rs"
 
