@@ -140,6 +140,8 @@ pub struct TemporalAntiAliasBundle {
 /// are added using a third party library, the library must either:
 /// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
+///
+/// If no [`MipBias`] component is attached to the camera, TAA will add a MipBias(-1.0) component.
 #[derive(Component, Reflect, Clone)]
 pub struct TemporalAntiAliasSettings {
     /// Set to true to delete the saved temporal history (past frames).
@@ -150,16 +152,11 @@ pub struct TemporalAntiAliasSettings {
     /// After setting this to true, it will automatically be toggled
     /// back to false after one frame.
     pub reset: bool,
-    /// Mipmap bias added to texture maps in addition to [`MipBias`].
-    pub additional_mip_bias: f32,
 }
 
 impl Default for TemporalAntiAliasSettings {
     fn default() -> Self {
-        Self {
-            reset: true,
-            additional_mip_bias: -1.0,
-        }
+        Self { reset: true }
     }
 }
 
@@ -443,12 +440,10 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
 
 fn prepare_taa_jitter_and_mip_bias(
     frame_count: Res<FrameCount>,
-    mut query: Query<(
-        Entity,
-        &mut TemporalJitter,
-        Option<&mut MipBias>,
-        &TemporalAntiAliasSettings,
-    )>,
+    mut query: Query<
+        (Entity, &mut TemporalJitter, Option<&MipBias>),
+        With<TemporalAntiAliasSettings>,
+    >,
     mut commands: Commands,
 ) {
     // Halton sequence (2, 3) - 0.5, skipping i = 0
@@ -465,16 +460,11 @@ fn prepare_taa_jitter_and_mip_bias(
 
     let offset = halton_sequence[frame_count.0 as usize % halton_sequence.len()];
 
-    for (entity, mut jitter, mip_bias, taa_settings) in &mut query {
+    for (entity, mut jitter, mip_bias) in &mut query {
         jitter.offset = offset;
 
-        match mip_bias {
-            Some(mut mip_bias) => mip_bias.0 += taa_settings.additional_mip_bias,
-            None => {
-                commands
-                    .entity(entity)
-                    .insert(MipBias(taa_settings.additional_mip_bias));
-            }
+        if mip_bias.is_none() {
+            commands.entity(entity).insert(MipBias(-1.0));
         }
     }
 }
