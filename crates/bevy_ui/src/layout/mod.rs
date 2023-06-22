@@ -368,12 +368,10 @@ pub fn ui_layout_system(
 #[inline]
 /// Round `value` to the closest whole integer, with ties (values with a fractional part equal to 0.5) rounded towards positive infinity.
 fn round_ties_up(value: f32) -> f32 {
-    if 0. < value {
+    if 0. < value || value.fract() != 0.5 {
         value.round()
-    } else if value.fract() == 0.5 {
-        value.ceil()
     } else {
-        value.round()
+        value.ceil()
     }
 }
 
