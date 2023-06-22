@@ -370,10 +370,10 @@ pub fn ui_layout_system(
 fn round_ties_up(value: f32) -> f32 {
     if 0. < value {
         value.round()
-    } else if value.trunc() - value != 0.5 {
-        value.round()
-    } else {
+    } else if value.fract() == 0.5 {
         value.ceil()
+    } else {
+        value.round()
     }
 }
 
