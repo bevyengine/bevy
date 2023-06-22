@@ -109,18 +109,17 @@ fn fragment(
         pbr_input.frag_coord = in.clip_position;
         pbr_input.world_position = in.world_position;
 
-#ifdef LOAD_PREPASS_NORMALS
-        pbr_input.world_normal = bevy_pbr::prepass_utils::prepass_normal(in.clip_position, 0u);
-#else // LOAD_PREPASS_NORMALS
         pbr_input.world_normal = pbr_functions::prepare_world_normal(
             in.world_normal,
             (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
             is_front,
         );
-#endif // LOAD_PREPASS_NORMALS
 
         pbr_input.is_orthographic = is_orthographic;
 
+#ifdef LOAD_PREPASS_NORMALS
+        pbr_input.N = bevy_pbr::prepass_utils::prepass_normal(in.clip_position, 0u);
+#else
         pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
             pbr_input.world_normal,
@@ -133,6 +132,8 @@ fn fragment(
             uv,
 #endif
         );
+#endif
+
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
 
