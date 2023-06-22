@@ -113,10 +113,10 @@ Example | Description
 Example | Description
 --- | ---
 [3D Bloom](../examples/3d/bloom_3d.rs) | Illustrates bloom configuration using HDR and emissive materials
+[3D Generate Custom Mesh](../examples/3d/3d_generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
 [3D Gizmos](../examples/3d/3d_gizmos.rs) | A scene showcasing 3D gizmos
 [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
-[3D Generate Custom Mesh](../examples/3d/3d_generate_custom_mesh.rs) | Simple showcase of how to use a custom image as a texture for a 3D mesh
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
