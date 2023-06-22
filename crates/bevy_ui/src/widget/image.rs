@@ -21,13 +21,13 @@ use bevy_window::{PrimaryWindow, Window};
 
 /// The size of the image's texture
 ///
-/// This component is updated automatically by `update_image_calculated_size_system`
+/// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect, FromReflect)]
 #[reflect(Component, Default, FromReflect)]
 pub struct UiImageSize {
     /// The size of the image's texture
     ///
-    /// This field is updated automatically by `update_image_calculated_size_system`
+    /// This field is updated automatically by [`update_image_content_size_system`]
     size: Vec2,
 }
 
