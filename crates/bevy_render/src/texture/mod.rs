@@ -93,7 +93,7 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_set(
+        app.add_plugins(RenderAssetPlugin::<Image>::with_prepare_asset_set(
             PrepareAssetSet::PreAssetPrepare,
         ))
         .register_type::<Image>()
@@ -120,6 +120,7 @@ impl Plugin for ImagePlugin {
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))
                 .init_resource::<FallbackImage>()
+                .init_resource::<FallbackImageZero>()
                 .init_resource::<FallbackImageCubemap>()
                 .init_resource::<FallbackImageMsaaCache>()
                 .init_resource::<FallbackImageDepthCache>();

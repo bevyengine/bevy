@@ -13,6 +13,10 @@
 
 #import bevy_pbr::prepass_utils
 
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+#import bevy_pbr::gtao_utils
+#endif
+
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
@@ -88,27 +92,34 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
-        var occlusion: f32 = 1.0;
+        // TODO: Split into diffuse/specular occlusion?
+        var occlusion: vec3<f32> = vec3(1.0);
 #ifdef VERTEX_UVS
         if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
-            occlusion = textureSample(occlusion_texture, occlusion_sampler, uv).r;
+            occlusion = vec3(textureSample(occlusion_texture, occlusion_sampler, in.uv).r);
         }
 #endif
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.frag_coord.xy), 0i).r;
+        let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
+        occlusion = min(occlusion, ssao_multibounce);
+#endif
+        pbr_input.occlusion = occlusion;
+
         pbr_input.frag_coord = in.frag_coord;
         pbr_input.world_position = in.world_position;
 
-#ifdef LOAD_PREPASS_NORMALS
-        pbr_input.world_normal = prepass_normal(in.frag_coord, 0u);
-#else // LOAD_PREPASS_NORMALS
         pbr_input.world_normal = prepare_world_normal(
             in.world_normal,
             (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
             in.is_front,
         );
-#endif // LOAD_PREPASS_NORMALS
 
         pbr_input.is_orthographic = is_orthographic;
 
+#ifdef LOAD_PREPASS_NORMALS
+        pbr_input.N = prepass_normal(in.frag_coord, 0u);
+#else
         pbr_input.N = apply_normal_mapping(
             material.flags,
             pbr_input.world_normal,
@@ -121,6 +132,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             uv,
 #endif
         );
+#endif
+
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
 
@@ -133,7 +146,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 
     // fog
     if (fog.mode != FOG_MODE_OFF && (material.flags & STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
-        output_color = apply_fog(output_color, in.world_position.xyz, view.world_position.xyz);
+        output_color = apply_fog(fog, output_color, in.world_position.xyz, view.world_position.xyz);
     }
 
 #ifdef TONEMAP_IN_SHADER

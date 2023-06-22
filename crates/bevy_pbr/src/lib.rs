@@ -12,6 +12,7 @@ mod parallax;
 mod pbr_material;
 mod prepass;
 mod render;
+mod ssao;
 
 pub use alpha::*;
 pub use bundle::*;
@@ -23,6 +24,7 @@ pub use parallax::*;
 pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
+pub use ssao::*;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -38,6 +40,7 @@ pub mod prelude {
         material::{Material, MaterialPlugin},
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
+        ssao::ScreenSpaceAmbientOcclusionPlugin,
     };
 }
 
@@ -174,20 +177,26 @@ impl Plugin for PbrPlugin {
             .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<DirectionalLightShadowMap>()
+            .register_type::<NotShadowCaster>()
+            .register_type::<NotShadowReceiver>()
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
-            .add_plugin(MeshRenderPlugin)
-            .add_plugin(MaterialPlugin::<StandardMaterial> {
-                prepass_enabled: self.prepass_enabled,
-                ..Default::default()
-            })
-            .add_plugin(EnvironmentMapPlugin)
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
-            .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
+            .add_plugins((
+                MeshRenderPlugin,
+                MaterialPlugin::<StandardMaterial> {
+                    prepass_enabled: self.prepass_enabled,
+                    ..Default::default()
+                },
+                ScreenSpaceAmbientOcclusionPlugin,
+                EnvironmentMapPlugin,
+                ExtractResourcePlugin::<AmbientLight>::default(),
+                FogPlugin,
+            ))
             .configure_sets(
                 PostUpdate,
                 (
@@ -197,12 +206,11 @@ impl Plugin for PbrPlugin {
                 )
                     .chain(),
             )
-            .add_plugin(FogPlugin)
             .add_systems(
                 PostUpdate,
                 (
                     add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    apply_system_buffers.in_set(SimulationLightSystems::AddClustersFlush),
+                    apply_deferred.in_set(SimulationLightSystems::AddClustersFlush),
                     assign_lights_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
@@ -283,7 +291,7 @@ impl Plugin for PbrPlugin {
                         .in_set(RenderLightSystems::PrepareLights),
                     // A sync is needed after prepare_lights, before prepare_view_uniforms,
                     // because prepare_lights creates new views for shadow mapping
-                    apply_system_buffers
+                    apply_deferred
                         .in_set(RenderSet::Prepare)
                         .after(RenderLightSystems::PrepareLights)
                         .before(ViewSet::PrepareUniforms),

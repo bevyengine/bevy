@@ -7,6 +7,7 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::World,
     query::Access,
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 
 use super::{ReadOnlySystem, System};
@@ -112,6 +113,9 @@ pub struct CombinatorSystem<Func, A, B> {
 }
 
 impl<Func, A, B> CombinatorSystem<Func, A, B> {
+    /// Creates a new system that combines two inner systems.
+    ///
+    /// The returned system will only be usable if `Func` implements [`Combine<A, B>`].
     pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
         Self {
             _marker: PhantomData,
@@ -157,7 +161,7 @@ where
         self.a.is_exclusive() || self.b.is_exclusive()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         Func::combine(
             input,
             // SAFETY: The world accesses for both underlying systems have been registered,
@@ -186,9 +190,9 @@ where
         )
     }
 
-    fn apply_buffers(&mut self, world: &mut World) {
-        self.a.apply_buffers(world);
-        self.b.apply_buffers(world);
+    fn apply_deferred(&mut self, world: &mut World) {
+        self.a.apply_deferred(world);
+        self.b.apply_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut World) {
@@ -198,7 +202,7 @@ where
         self.component_access.extend(self.b.component_access());
     }
 
-    fn update_archetype_component_access(&mut self, world: &World) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         self.a.update_archetype_component_access(world);
         self.b.update_archetype_component_access(world);
 
@@ -236,6 +240,17 @@ where
     A: ReadOnlySystem,
     B: ReadOnlySystem,
 {
+}
+
+impl<Func, A, B> Clone for CombinatorSystem<Func, A, B>
+where
+    A: Clone,
+    B: Clone,
+{
+    /// Clone the combined system. The cloned instance must be `.initialize()`d before it can run.
+    fn clone(&self) -> Self {
+        CombinatorSystem::new(self.a.clone(), self.b.clone(), self.name.clone())
+    }
 }
 
 /// A [`System`] created by piping the output of the first system into the input of the second.

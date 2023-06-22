@@ -67,9 +67,10 @@ impl ViewNode for PrepassNode {
                 view: &view_motion_vectors_texture.default_view,
                 resolve_target: None,
                 ops: Operations {
-                    // Blue channel doesn't matter, but set to 1.0 for possible faster clear
+                    // Red and Green channels are X and Y components of the motion vectors
+                    // Blue channel doesn't matter, but set to 0.0 for possible faster clear
                     // https://gpuopen.com/performance/#clears
-                    load: LoadOp::Clear(Color::rgb_linear(1.0, 1.0, 1.0).into()),
+                    load: LoadOp::Clear(Color::rgb_linear(0.0, 0.0, 0.0).into()),
                     store: true,
                 },
             },
@@ -93,7 +94,6 @@ impl ViewNode for PrepassNode {
                     stencil_ops: None,
                 }),
             });
-
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }

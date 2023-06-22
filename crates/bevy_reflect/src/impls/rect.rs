@@ -6,6 +6,7 @@ use bevy_reflect_derive::impl_reflect_struct;
 
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[type_path = "bevy_math"]
     struct Rect {
         min: Vec2,
         max: Vec2,

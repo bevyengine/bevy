@@ -71,7 +71,7 @@ impl Plugin for DebugAssetServerPlugin {
                 .build()
         });
         let mut debug_asset_app = App::new();
-        debug_asset_app.add_plugin(AssetPlugin {
+        debug_asset_app.add_plugins(AssetPlugin {
             asset_folder: "crates".to_string(),
             watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
         });

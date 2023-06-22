@@ -169,7 +169,7 @@ pub struct AddChild {
 }
 
 impl Command for AddChild {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.entity_mut(self.parent).add_child(self.child);
     }
 }
@@ -183,7 +183,7 @@ pub struct InsertChildren {
 }
 
 impl Command for InsertChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world
             .entity_mut(self.parent)
             .insert_children(self.index, &self.children);
@@ -198,7 +198,7 @@ pub struct PushChildren {
 }
 
 impl Command for PushChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.entity_mut(self.parent).push_children(&self.children);
     }
 }
@@ -210,7 +210,7 @@ pub struct RemoveChildren {
 }
 
 impl Command for RemoveChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         remove_children(self.parent, &self.children, world);
     }
 }
@@ -222,7 +222,7 @@ pub struct ClearChildren {
 }
 
 impl Command for ClearChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         clear_children(self.parent, world);
     }
 }
@@ -234,7 +234,7 @@ pub struct ReplaceChildren {
 }
 
 impl Command for ReplaceChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         clear_children(self.parent, world);
         world.entity_mut(self.parent).push_children(&self.children);
     }
@@ -247,7 +247,7 @@ pub struct RemoveParent {
 }
 
 impl Command for RemoveParent {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.entity_mut(self.child).remove_parent();
     }
 }

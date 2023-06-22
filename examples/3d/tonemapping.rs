@@ -5,7 +5,7 @@ use bevy::{
     math::vec2,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::{
         render_resource::{
             AsBindGroup, Extent3d, SamplerDescriptor, ShaderRef, TextureDimension, TextureFormat,
@@ -19,8 +19,10 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<ColorGradientMaterial>::default())
+        .add_plugins((
+            DefaultPlugins,
+            MaterialPlugin::<ColorGradientMaterial>::default(),
+        ))
         .insert_resource(CameraTransform(
             Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ))
@@ -430,7 +432,7 @@ fn update_color_grading_settings(
     mut selected_parameter: ResMut<SelectedParameter>,
 ) {
     let method = tonemapping.single();
-    let mut color_grading = per_method_settings.settings.get_mut(method).unwrap();
+    let color_grading = per_method_settings.settings.get_mut(method).unwrap();
     let mut dt = time.delta_seconds() * 0.25;
     if keys.pressed(KeyCode::Left) {
         dt = -dt;
@@ -689,7 +691,7 @@ impl Material for ColorGradientMaterial {
     }
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "117f64fe-6844-1822-8926-e3ed372291c8"]
 pub struct ColorGradientMaterial {}
 

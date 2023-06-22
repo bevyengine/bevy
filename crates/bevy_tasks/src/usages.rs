@@ -11,12 +11,11 @@
 //! for consumption. (likely via channels)
 
 use super::TaskPool;
-use once_cell::sync::OnceCell;
-use std::ops::Deref;
+use std::{ops::Deref, sync::OnceLock};
 
-static COMPUTE_TASK_POOL: OnceCell<ComputeTaskPool> = OnceCell::new();
-static ASYNC_COMPUTE_TASK_POOL: OnceCell<AsyncComputeTaskPool> = OnceCell::new();
-static IO_TASK_POOL: OnceCell<IoTaskPool> = OnceCell::new();
+static COMPUTE_TASK_POOL: OnceLock<ComputeTaskPool> = OnceLock::new();
+static ASYNC_COMPUTE_TASK_POOL: OnceLock<AsyncComputeTaskPool> = OnceLock::new();
+static IO_TASK_POOL: OnceLock<IoTaskPool> = OnceLock::new();
 
 /// A newtype for a task pool for CPU-intensive work that must be completed to deliver the next
 /// frame

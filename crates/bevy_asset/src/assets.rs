@@ -2,8 +2,9 @@ use crate::{
     update_asset_storage_system, Asset, AssetEvents, AssetLoader, AssetServer, Handle, HandleId,
     LoadAssets, RefChange, ReflectAsset, ReflectHandle,
 };
-use bevy_app::{App, AppTypeRegistry};
+use bevy_app::App;
 use bevy_ecs::prelude::*;
+use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
@@ -13,6 +14,7 @@ use std::fmt::Debug;
 ///
 /// Events sent via the [`Assets`] struct will always be sent with a _Weak_ handle, because the
 /// asset may not exist by the time the event is handled.
+#[derive(Event)]
 pub enum AssetEvent<T: Asset> {
     #[allow(missing_docs)]
     Created { handle: Handle<T> },
@@ -488,13 +490,15 @@ mod tests {
 
     #[test]
     fn asset_overwriting() {
-        #[derive(bevy_reflect::TypeUuid)]
+        #[derive(bevy_reflect::TypeUuid, bevy_reflect::TypePath)]
         #[uuid = "44115972-f31b-46e5-be5c-2b9aece6a52f"]
         struct MyAsset;
         let mut app = App::new();
-        app.add_plugin(bevy_core::TaskPoolPlugin::default())
-            .add_plugin(bevy_core::TypeRegistrationPlugin::default())
-            .add_plugin(crate::AssetPlugin::default());
+        app.add_plugins((
+            bevy_core::TaskPoolPlugin::default(),
+            bevy_core::TypeRegistrationPlugin::default(),
+            crate::AssetPlugin::default(),
+        ));
         app.add_asset::<MyAsset>();
         let mut assets_before = app.world.resource_mut::<Assets<MyAsset>>();
         let handle = assets_before.add(MyAsset);
