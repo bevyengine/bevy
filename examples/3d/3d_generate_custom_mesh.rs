@@ -1,23 +1,42 @@
+// ! This example demonstrates how to create a custom mesh, and assign a custom UV mapping for a
+// ! cusotm texture. And how to change the UV mapping at run-time.
 use bevy::prelude::*;
 use bevy::render::mesh::Indices;
+use bevy::render::mesh::VertexAttributeValues;
 use bevy::render::render_resource::PrimitiveTopology;
 
-// Notice "ImagePlugin::default_nearest()" in main, because our texture is very low res
-// we want it to look pixelated, instead of the default ImagePlugin::default_linear() which will
-// smooth our pixelated texture. However, default_linear is usually better for high res textures.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, rotate)
+        .add_systems(Update, rotate_y)
+        // .add_systems(Update, rotate_x)
+        // .add_systems(Update, rotate_z)
+        .add_systems(Update, input_handler)
         .run();
 }
 
 // Rotate the cube to show off all the sides.
-fn rotate(mut query: Query<&mut Transform, With<Handle<Mesh>>>, time: Res<Time>) {
+#[allow(dead_code)]
+fn rotate_y(mut query: Query<&mut Transform, With<Handle<Mesh>>>, time: Res<Time>) {
+    for mut transform in &mut query {
+        transform.rotate_y(time.delta_seconds() / 1.2);
+    }
+}
+
+// Optional system to rotate around the x axis.
+#[allow(dead_code)]
+fn rotate_x(mut query: Query<&mut Transform, With<Handle<Mesh>>>, time: Res<Time>) {
+    for mut transform in &mut query {
+        transform.rotate_x(time.delta_seconds() / 1.2);
+    }
+}
+
+// Optional system to rotate around the z axis.
+#[allow(dead_code)]
+fn rotate_z(mut query: Query<&mut Transform, With<Handle<Mesh>>>, time: Res<Time>) {
     for mut transform in &mut query {
         transform.rotate_z(time.delta_seconds() / 1.2);
-        transform.rotate_x(time.delta_seconds() / 2.0);
     }
 }
 
@@ -28,8 +47,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     // Importing the custom texture.
-    let custom_texture_handle: Handle<Image> =
-        asset_server.load("textures/custom_image_for_example.png");
+    let custom_texture_handle: Handle<Image> = asset_server.load("textures/array_texture.png");
     // Creating and saving a handle to the mesh.
     let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_mesh());
 
@@ -65,6 +83,20 @@ fn setup(
     });
 }
 
+// System to recieve input from the user, check out examples/input/ for more examples about user
+// input.
+fn input_handler(
+    keyboard_input: Res<Input<KeyCode>>,
+    mesh_query: Query<&Handle<Mesh>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        let mesh_handle = mesh_query.get_single().expect("Query not successful");
+        let mesh = meshes.get_mut(&mesh_handle).unwrap();
+        toggle_texture(mesh);
+    }
+}
+
 fn create_cube_mesh() -> Mesh {
     let mut cube_mesh = Mesh::new(PrimitiveTopology::TriangleList);
 
@@ -77,27 +109,27 @@ fn create_cube_mesh() -> Mesh {
             [1.0, 1.0, 0.0], // vertex wtih index 1
             [1.0, 1.0, 1.0], // etc. until 23
             [0.0, 1.0, 1.0],
-            // bottom  `  `  (-y)
+            // bottom `  `  (-y)
             [0.0, 0.0, 0.0],
             [1.0, 0.0, 0.0],
             [1.0, 0.0, 1.0],
             [0.0, 0.0, 1.0],
-            // forward `  `  (+x)
+            // right  `  `  (+x)
             [1.0, 0.0, 0.0],
             [1.0, 0.0, 1.0],
             [1.0, 1.0, 1.0],
             [1.0, 1.0, 0.0],
-            // back    `  `  (-x)
+            // left   `  `  (-x)
             [0.0, 0.0, 0.0],
             [0.0, 0.0, 1.0],
             [0.0, 1.0, 1.0],
             [0.0, 1.0, 0.0],
-            // right   `  `  (+z)
+            // back   `  `  (+z)
             [0.0, 0.0, 1.0],
             [0.0, 1.0, 1.0],
             [1.0, 1.0, 1.0],
             [1.0, 0.0, 1.0],
-            // left    `  `  (-z)
+            // forward ` `  (-z)
             [0.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
             [1.0, 1.0, 0.0],
@@ -112,18 +144,17 @@ fn create_cube_mesh() -> Mesh {
         Mesh::ATTRIBUTE_UV_0,
         vec![
             // Assigning the UV coords for the top side.
-            [0.5, 0.0], [0.0, 0.0], [0.0, 0.5], [0.5, 0.5],
+            [0.0, 0.2], [0.0, 0.0], [1.0, 0.0], [1.0, 0.25],
             // Assigning the UV coords for the bottom side.
-            [0.5, 0.5], [0.5, 0.0], [1.0, 0.0], [1.0, 0.5],
-            // Assigning the UV coords for the forward side.
-            [0.5, 1.0], [0.5, 0.5], [1.0, 0.5], [1.0, 1.0],
-            // Assigning the UV coords for the back side (same as forward because they have the
-            // same texture)
-            [0.5, 1.0], [0.5, 0.5], [1.0, 0.5], [1.0, 1.0],
+            [0.0, 0.45], [0.0, 0.25], [1.0, 0.25], [1.0, 0.45],
             // Assigning the UV coords for the right side.
-            [0.0, 1.0], [0.0, 0.5], [0.5, 0.5], [0.5, 1.0],
-            // Assigning the UV coords for the left side (same as right).
-            [0.0, 1.0], [0.0, 0.5], [0.5, 0.5], [0.5, 1.0],
+            [1.0, 0.45], [0.0, 0.45], [0.0, 0.2], [1.0, 0.2],
+            // Assigning the UV coords for the left side. 
+            [1.0, 0.45], [0.0, 0.45], [0.0, 0.2], [1.0, 0.2],
+            // Assigning the UV coords for the back side.
+            [0.0, 0.45], [0.0, 0.2], [1.0, 0.2], [1.0, 0.45],
+            // Assigning the UV coords for the forward side.
+            [0.0, 0.45], [0.0, 0.2], [1.0, 0.2], [1.0, 0.45],
         ],
     );
 
@@ -143,22 +174,22 @@ fn create_cube_mesh() -> Mesh {
             [0.0, -1.0, 0.0],
             [0.0, -1.0, 0.0],
             [0.0, -1.0, 0.0],
-            // Normals for the forward side (towards +x)
+            // Normals for the right side (towards +x)
             [1.0, 0.0, 0.0],
             [1.0, 0.0, 0.0],
             [1.0, 0.0, 0.0],
             [1.0, 0.0, 0.0],
-            // Normals for the back side (towards -x)
+            // Normals for the left side (towards -x)
             [-1.0, 0.0, 0.0],
             [-1.0, 0.0, 0.0],
             [-1.0, 0.0, 0.0],
             [-1.0, 0.0, 0.0],
-            // Normals for the right side (towards +z)
+            // Normals for the back side (towards +z)
             [0.0, 0.0, 1.0],
             [0.0, 0.0, 1.0],
             [0.0, 0.0, 1.0],
             [0.0, 0.0, 1.0],
-            // Normals for the left side (towards -z)
+            // Normals for the forward side (towards -z)
             [0.0, 0.0, -1.0],
             [0.0, 0.0, -1.0],
             [0.0, 0.0, -1.0],
@@ -171,16 +202,44 @@ fn create_cube_mesh() -> Mesh {
     // To construct a triangle, we need the indices of its 3 defined vertices, adding them one
     // by one, in a counter-clockwise order (relative to the position of the viewer, the order
     // should appear counter-clockwise from the front of the triangle). Read more about how to correctly build a mesh manually
-    // in the Bevy documentation, further examples and the implementation of the built-in shapes.
+    // in the Bevy documentation of a Mesh, further examples and the implementation of the built-in shapes.
     #[rustfmt::skip]
     cube_mesh.set_indices(Some(Indices::U32(vec![
-        0,3,1 , 1,3,2, // top (+y)
-        4,5,7 , 5,6,7, // bottom (-y)
-        8,11,9 , 9,11,10, // forward (+x)
-        12,13,15 , 13,14,15, // backward (-x)
-        16,19,17 , 17,19,18, // rightward (+z)
-        20,21,23 , 21,22,23, // leftward (-z)
+        0,3,1 , 1,3,2, // triangles making up the top (+y) facing side.
+        4,5,7 , 5,6,7, // bottom (-y) 
+        8,11,9 , 9,11,10, // right (+x)
+        12,13,15 , 13,14,15, // left (-x)
+        16,19,17 , 17,19,18, // back (+z)
+        20,21,23 , 21,22,23, // forward (-z)
     ])));
 
     cube_mesh
+}
+
+// Function that changes the UV mapping of the mesh, to apply the other texture.
+fn toggle_texture(mesh_to_change: &mut Mesh) {
+    // Use .attributes_mut to iterate over all of the attributes of the mesh, and get a mutable
+    // reference to them.
+    for attribute in mesh_to_change.attributes_mut() {
+        // We only want to change the UV attributes.
+        if attribute.0 == Mesh::ATTRIBUTE_UV_0.id {
+            // VertexAttributeValues could have multiple different fromats, because we are dealing
+            // with a UV attribute, we expect the format to be Float32x2 (same format we used to
+            // define in lines 136 - 152).
+            match attribute.1 {
+                VertexAttributeValues::Float32x2(ref mut coordinates) => {
+                    // Iterate all over the UV coordinates, changing them to the coordinate
+                    // corresponding to the other texture.
+                    for uv_coord in coordinates.iter_mut() {
+                        if (uv_coord[1] + 0.5) < 1.0 {
+                            uv_coord[1] += 0.5;
+                        } else {
+                            uv_coord[1] -= 0.5;
+                        }
+                    }
+                }
+                _ => panic!("expected Float32x2 for UV attributes"),
+            }
+        }
+    }
 }

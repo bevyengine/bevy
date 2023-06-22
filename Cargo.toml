@@ -448,12 +448,12 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "3d_custom_image"
-path = "examples/3d/3d_custom_image.rs"
+name = "3d_generate_custom_mesh"
+path = "examples/3d/3d_generate_custom_mesh.rs"
 
-[package.metadata.example.3d_custom_image]
-name = "3D custom image"
-description = "Simple showcase of how to use a custom image as a texture for a 3D mesh"
+[package.metadata.example.3d_generate_custom_mesh]
+name = "3D Generate Custom Mesh"
+description = "Simple showcase of how to generate a custom mesh with a custom texture"
 category = "3D Rendering"
 wasm = true
 
