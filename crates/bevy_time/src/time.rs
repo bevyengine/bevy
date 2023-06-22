@@ -34,6 +34,10 @@ pub struct Time {
     raw_elapsed_wrapped: Duration,
     raw_elapsed_seconds_wrapped: f32,
     raw_elapsed_seconds_wrapped_f64: f64,
+    maximum_delta: Option<Duration>,
+    accumulated: Duration,
+    fixed_period: Duration,
+    stored_delta: Option<Duration>,
 }
 
 impl Default for Time {
@@ -63,6 +67,10 @@ impl Default for Time {
             raw_elapsed_wrapped: Duration::ZERO,
             raw_elapsed_seconds_wrapped: 0.0,
             raw_elapsed_seconds_wrapped_f64: 0.0,
+            maximum_delta: Some(Duration::from_millis(333)),
+            accumulated: Duration::ZERO,
+            fixed_period: Duration::from_secs_f32(1. / 60.), // XXX
+            stored_delta: None,
         }
     }
 }
@@ -138,6 +146,7 @@ impl Time {
     /// }
     /// ```
     pub fn update_with_instant(&mut self, instant: Instant) {
+        assert!(self.stored_delta.is_none());
         let raw_delta = instant - self.last_update.unwrap_or(self.startup);
         let delta = if self.paused {
             Duration::ZERO
@@ -146,6 +155,11 @@ impl Time {
         } else {
             // avoid rounding when at normal speed
             raw_delta
+        };
+        let delta = if let Some(maximum_delta) = self.maximum_delta {
+            std::cmp::min(delta, maximum_delta)
+        } else {
+            delta
         };
 
         if self.last_update.is_some() {
@@ -159,6 +173,7 @@ impl Time {
             self.first_update = Some(instant);
         }
 
+        self.accumulated += delta;
         self.elapsed += delta;
         self.elapsed_seconds = self.elapsed.as_secs_f32();
         self.elapsed_seconds_f64 = self.elapsed.as_secs_f64();
@@ -174,6 +189,50 @@ impl Time {
         self.raw_elapsed_seconds_wrapped_f64 = self.raw_elapsed_wrapped.as_secs_f64();
 
         self.last_update = Some(instant);
+    }
+
+    fn prepare_fixed(&mut self) {
+        assert!(self.stored_delta.is_none());
+        self.stored_delta = Some(self.delta);
+        self.delta = self.fixed_period;
+        self.delta_seconds = self.delta.as_secs_f32();
+        self.delta_seconds_f64 = self.delta.as_secs_f64();
+        self.elapsed -= self.accumulated;
+        self.elapsed_seconds = self.elapsed.as_secs_f32();
+        self.elapsed_seconds_f64 = self.elapsed.as_secs_f64();
+        self.elapsed_wrapped = duration_div_rem(self.elapsed, self.wrap_period).1;
+        self.elapsed_seconds_wrapped = self.elapsed_wrapped.as_secs_f32();
+        self.elapsed_seconds_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();
+    }
+
+    fn expend_fixed(&mut self) -> bool {
+        assert!(self.stored_delta.is_some());
+        if let Some(new_value) = self.accumulated.checked_sub(self.fixed_period) {
+            self.accumulated = new_value;
+            self.elapsed += self.fixed_period;
+            self.elapsed_seconds = self.elapsed.as_secs_f32();
+            self.elapsed_seconds_f64 = self.elapsed.as_secs_f64();
+            self.elapsed_wrapped = duration_div_rem(self.elapsed, self.wrap_period).1;
+            self.elapsed_seconds_wrapped = self.elapsed_wrapped.as_secs_f32();
+            self.elapsed_seconds_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn finish_fixed(&mut self) {
+        assert!(self.stored_delta.is_some());
+        self.delta = self.stored_delta.unwrap();
+        self.delta_seconds = self.delta.as_secs_f32();
+        self.delta_seconds_f64 = self.delta.as_secs_f64();
+        self.elapsed += self.accumulated;
+        self.elapsed_seconds = self.elapsed.as_secs_f32();
+        self.elapsed_seconds_f64 = self.elapsed.as_secs_f64();
+        self.elapsed_wrapped = duration_div_rem(self.elapsed, self.wrap_period).1;
+        self.elapsed_seconds_wrapped = self.elapsed_wrapped.as_secs_f32();
+        self.elapsed_seconds_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();
+        self.stored_delta = None;
     }
 
     /// Returns the [`Instant`] the clock was created.
