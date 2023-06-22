@@ -32,8 +32,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(ColoredMesh2dPlugin)
+        .add_plugins((DefaultPlugins, ColoredMesh2dPlugin))
         .add_systems(Startup, star)
         .run();
 }

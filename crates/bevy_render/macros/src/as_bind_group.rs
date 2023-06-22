@@ -6,7 +6,7 @@ use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     token::Comma,
-    Data, DataStruct, Error, Fields, LitInt, LitStr, Meta, Result,
+    Data, DataStruct, Error, Fields, LitInt, LitStr, Meta, MetaList, Result,
 };
 
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
@@ -117,6 +117,19 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
     // Read field-level attributes
     for field in fields.iter() {
+        // Search ahead for texture attributes so we can use them with any
+        // corresponding sampler attribute.
+        let mut tex_attrs = None;
+        for attr in &field.attrs {
+            let Some(attr_ident) = attr.path().get_ident() else {
+                continue;
+            };
+            if attr_ident == TEXTURE_ATTRIBUTE_NAME {
+                let (_binding_index, nested_meta_items) = get_binding_nested_attr(attr)?;
+                tex_attrs = Some(get_texture_attrs(nested_meta_items)?);
+            }
+        }
+
         for attr in &field.attrs {
             let Some(attr_ident) = attr.path().get_ident() else {
                 continue;
@@ -255,10 +268,12 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         sample_type,
                         multisampled,
                         visibility,
-                    } = get_texture_attrs(nested_meta_items)?;
+                    } = tex_attrs.as_ref().unwrap();
 
                     let visibility =
                         visibility.hygenic_quote(&quote! { #render_path::render_resource });
+
+                    let fallback_image = get_fallback_image(&render_path, *dimension);
 
                     binding_impls.push(quote! {
                         #render_path::render_resource::OwnedBindingResource::TextureView({
@@ -266,7 +281,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             if let Some(handle) = handle {
                                 images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
                             } else {
-                                fallback_image.texture_view.clone()
+                                #fallback_image.texture_view.clone()
                             }
                         })
                     });
@@ -288,10 +303,16 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let SamplerAttrs {
                         sampler_binding_type,
                         visibility,
+                        ..
                     } = get_sampler_attrs(nested_meta_items)?;
+                    let TextureAttrs { dimension, .. } = tex_attrs
+                        .as_ref()
+                        .expect("sampler attribute must have matching texture attribute");
 
                     let visibility =
                         visibility.hygenic_quote(&quote! { #render_path::render_resource });
+
+                    let fallback_image = get_fallback_image(&render_path, *dimension);
 
                     binding_impls.push(quote! {
                         #render_path::render_resource::OwnedBindingResource::Sampler({
@@ -299,7 +320,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             if let Some(handle) = handle {
                                 images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.sampler.clone()
                             } else {
-                                fallback_image.sampler.clone()
+                                #fallback_image.sampler.clone()
                             }
                         })
                     });
@@ -457,6 +478,22 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     }))
 }
 
+fn get_fallback_image(
+    render_path: &syn::Path,
+    dimension: BindingTextureDimension,
+) -> proc_macro2::TokenStream {
+    quote! {
+        match #render_path::render_resource::#dimension {
+            #render_path::render_resource::TextureViewDimension::D1 => &fallback_image.d1,
+            #render_path::render_resource::TextureViewDimension::D2 => &fallback_image.d2,
+            #render_path::render_resource::TextureViewDimension::D2Array => &fallback_image.d2_array,
+            #render_path::render_resource::TextureViewDimension::Cube => &fallback_image.cube,
+            #render_path::render_resource::TextureViewDimension::CubeArray => &fallback_image.cube_array,
+            #render_path::render_resource::TextureViewDimension::D3 => &fallback_image.d3,
+        }
+    }
+}
+
 /// Represents the arguments for the `uniform` binding attribute.
 ///
 /// If parsed, represents an attribute
@@ -599,45 +636,52 @@ const VISIBILITY_COMPUTE: Symbol = Symbol("compute");
 const VISIBILITY_ALL: Symbol = Symbol("all");
 const VISIBILITY_NONE: Symbol = Symbol("none");
 
-fn get_visibility_flag_value(meta: Meta) -> Result<ShaderStageVisibility> {
-    let mut visibility = VisibilityFlags::vertex_fragment();
+fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibility> {
+    let mut flags = Vec::new();
 
-    use syn::Meta::Path;
-    match meta {
-        // Parse `#[visibility(all)]`.
-        Path(path) if path == VISIBILITY_ALL => {
-            return Ok(ShaderStageVisibility::All)
+    meta_list.parse_nested_meta(|meta| {
+        flags.push(meta.path);
+        Ok(())
+    })?;
+
+    if flags.is_empty() {
+        return Err(Error::new_spanned(
+            meta_list,
+            "Invalid visibility format. Must be `visibility(flags)`, flags can be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
+        ));
+    }
+
+    if flags.len() == 1 {
+        if let Some(flag) = flags.get(0) {
+            if flag == VISIBILITY_ALL {
+                return Ok(ShaderStageVisibility::All);
+            } else if flag == VISIBILITY_NONE {
+                return Ok(ShaderStageVisibility::None);
+            }
         }
-        // Parse `#[visibility(none)]`.
-        Path(path) if path == VISIBILITY_NONE => {
-            return Ok(ShaderStageVisibility::None)
-        }
-        // Parse `#[visibility(vertex, ...)]`.
-        Path(path) if path == VISIBILITY_VERTEX => {
+    }
+
+    let mut visibility = VisibilityFlags::default();
+
+    for flag in flags {
+        if flag == VISIBILITY_VERTEX {
             visibility.vertex = true;
-        }
-        // Parse `#[visibility(fragment, ...)]`.
-        Path(path) if path == VISIBILITY_FRAGMENT => {
+        } else if flag == VISIBILITY_FRAGMENT {
             visibility.fragment = true;
-        }
-        // Parse `#[visibility(compute, ...)]`.
-        Path(path) if path == VISIBILITY_COMPUTE => {
+        } else if flag == VISIBILITY_COMPUTE {
             visibility.compute = true;
+        } else {
+            return Err(Error::new_spanned(
+                flag,
+                "Not a valid visibility flag. Must be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
+            ));
         }
-        Path(path) => return Err(Error::new_spanned(
-            path,
-            "Not a valid visibility flag. Must be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
-        )),
-        _ => return Err(Error::new_spanned(
-            meta,
-            "Invalid visibility format: `visibility(...)`.",
-        )),
     }
 
     Ok(ShaderStageVisibility::Flags(visibility))
 }
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 enum BindingTextureDimension {
     D1,
     #[default]
@@ -757,7 +801,7 @@ fn get_texture_attrs(metas: Vec<Meta>) -> Result<TextureAttrs> {
             }
             // Parse #[texture(0, visibility(...))].
             List(m) if m.path == VISIBILITY => {
-                visibility = get_visibility_flag_value(Meta::Path(m.path))?;
+                visibility = get_visibility_flag_value(&m)?;
             }
             NameValue(m) => {
                 return Err(Error::new_spanned(
@@ -873,7 +917,7 @@ fn get_sampler_attrs(metas: Vec<Meta>) -> Result<SamplerAttrs> {
             }
             // Parse #[sampler(0, visibility(...))].
             List(m) if m.path == VISIBILITY => {
-                visibility = get_visibility_flag_value(Meta::Path(m.path))?;
+                visibility = get_visibility_flag_value(&m)?;
             }
             NameValue(m) => {
                 return Err(Error::new_spanned(
@@ -929,7 +973,7 @@ fn get_storage_binding_attr(metas: Vec<Meta>) -> Result<StorageAttrs> {
         match meta {
             // Parse #[storage(0, visibility(...))].
             List(m) if m.path == VISIBILITY => {
-                visibility = get_visibility_flag_value(Meta::Path(m.path))?;
+                visibility = get_visibility_flag_value(&m)?;
             }
             Path(path) if path == READ_ONLY => {
                 read_only = true;

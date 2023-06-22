@@ -15,8 +15,8 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
 /// Describes the size of a UI node
-#[derive(Component, Debug, Copy, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Copy, Clone, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct Node {
     /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
@@ -81,7 +81,7 @@ impl Default for Node {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(FromReflect, PartialEq, Serialize, Deserialize)]
 pub enum Val {
-    /// Automatically determine the value based on the context and other `Style` properties.
+    /// Automatically determine the value based on the context and other [`Style`] properties.
     Auto,
     /// Set this value in logical pixels.
     Px(f32),
@@ -1563,6 +1563,18 @@ impl From<Color> for BackgroundColor {
     }
 }
 
+/// The atlas sprite to be used in a UI Texture Atlas Node
+#[derive(Component, Clone, Debug, Reflect, FromReflect, Default)]
+#[reflect(Component, Default)]
+pub struct UiTextureAtlasImage {
+    /// Texture index in the TextureAtlas
+    pub index: usize,
+    /// Whether to flip the sprite in the X axis
+    pub flip_x: bool,
+    /// Whether to flip the sprite in the Y axis
+    pub flip_y: bool,
+}
+
 /// The border color of the UI node.
 #[derive(Component, Copy, Clone, Debug, Reflect, FromReflect)]
 #[reflect(FromReflect, Component, Default)]
@@ -1585,8 +1597,8 @@ impl Default for BorderColor {
 }
 
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Clone, Debug, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct UiImage {
     /// Handle to the texture
     pub texture: Handle<Image>,
