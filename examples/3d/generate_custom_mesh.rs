@@ -186,6 +186,7 @@ fn create_cube_mesh() -> Mesh {
     // For meshes with flat shading, normals are orthogonal (pointing out) from the direction of
     // the surface.
     // Normals are required for correct lighting calculations.
+    // Each array represents a normalized vector, which length should be equal to 1.0.
     #[rustfmt::skip]
     cube_mesh.insert_attribute(
         Mesh::ATTRIBUTE_NORMAL,
