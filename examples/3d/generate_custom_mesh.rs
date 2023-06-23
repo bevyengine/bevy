@@ -244,7 +244,7 @@ fn create_cube_mesh() -> Mesh {
 
 // Function that changes the UV mapping of the mesh, to apply the other texture.
 fn toggle_texture(mesh_to_change: &mut Mesh) {
-    // Get a mutable reference the values of the UV attribute, so we can iterate over it.
+    // Get a mutable reference to the values of the UV attribute, so we can iterate over it.
     let uv_attribute = mesh_to_change.attribute_mut(Mesh::ATTRIBUTE_UV_0).unwrap();
     // The format of the UV coordinates should be Float32x2.
     let VertexAttributeValues::Float32x2(uv_attribute) = uv_attribute else {
