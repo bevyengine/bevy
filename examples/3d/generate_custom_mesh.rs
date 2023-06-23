@@ -227,8 +227,9 @@ fn create_cube_mesh() -> Mesh {
     // To construct a square, we need 2 triangles, therfore 12 traingles in total.
     // To construct a triangle, we need the indices of its 3 defined vertices, adding them one
     // by one, in a counter-clockwise order (relative to the position of the viewer, the order
-    // should appear counter-clockwise from the front of the triangle). Read more about how to correctly build a mesh manually
-    // in the Bevy documentation of a Mesh, further examples and the implementation of the built-in shapes.
+    // should appear counter-clockwise from the front of the triangle, in this case from outside the cube).
+    // Read more about how to correctly build a mesh manually in the Bevy documentation of a Mesh,
+    // further examples and the implementation of the built-in shapes.
     #[rustfmt::skip]
     cube_mesh.set_indices(Some(Indices::U32(vec![
         0,3,1 , 1,3,2, // triangles making up the top (+y) facing side.
