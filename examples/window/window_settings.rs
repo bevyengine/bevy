@@ -4,30 +4,34 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, WindowLevel},
+    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "I am a window!".into(),
-                resolution: (500., 300.).into(),
-                present_mode: PresentMode::AutoVsync,
-                // Tells wasm to resize the window according to the available canvas
-                fit_canvas_to_parent: true,
-                // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
-                prevent_default_event_handling: false,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "I am a window!".into(),
+                    resolution: (500., 300.).into(),
+                    present_mode: PresentMode::AutoVsync,
+                    // Tells wasm to resize the window according to the available canvas
+                    fit_canvas_to_parent: true,
+                    // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
+                    prevent_default_event_handling: false,
+                    window_theme: Some(WindowTheme::Dark),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin)
+            LogDiagnosticsPlugin::default(),
+            FrameTimeDiagnosticsPlugin,
+        ))
         .add_systems(
             Update,
             (
                 change_title,
+                toggle_theme,
                 toggle_cursor,
                 toggle_vsync,
                 cycle_cursor_icon,
@@ -90,6 +94,20 @@ fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
             CursorGrabMode::None => CursorGrabMode::Locked,
             CursorGrabMode::Locked | CursorGrabMode::Confined => CursorGrabMode::None,
         };
+    }
+}
+
+// This system will toggle the color theme used by the window
+fn toggle_theme(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
+    if input.just_pressed(KeyCode::F) {
+        let mut window = windows.single_mut();
+
+        if let Some(current_theme) = window.window_theme {
+            window.window_theme = match current_theme {
+                WindowTheme::Light => Some(WindowTheme::Dark),
+                WindowTheme::Dark => Some(WindowTheme::Light),
+            };
+        }
     }
 }
 

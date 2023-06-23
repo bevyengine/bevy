@@ -22,6 +22,10 @@ struct FragmentInput {
     @location(3) world_position: vec4<f32>,
     @location(4) previous_world_position: vec4<f32>,
 #endif // MOTION_VECTOR_PREPASS
+
+#ifdef DEPTH_CLAMP_ORTHO
+    @location(5) clip_position_unclamped: vec4<f32>,
+#endif // DEPTH_CLAMP_ORTHO
 };
 
 // Cutoff used for the premultiplied alpha modes BLEND and ADD.
@@ -35,7 +39,7 @@ fn prepass_alpha_discard(in: FragmentInput) {
 
 #ifdef VERTEX_UVS
     if (material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
-        output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
+        output_color = output_color * textureSampleBias(base_color_texture, base_color_sampler, in.uv, view.mip_bias);
     }
 #endif // VERTEX_UVS
 
@@ -66,6 +70,10 @@ struct FragmentOutput {
 #ifdef MOTION_VECTOR_PREPASS
     @location(1) motion_vector: vec2<f32>,
 #endif // MOTION_VECTOR_PREPASS
+
+#ifdef DEPTH_CLAMP_ORTHO
+    @builtin(frag_depth) frag_depth: f32,
+#endif // DEPTH_CLAMP_ORTHO
 }
 
 @fragment
@@ -73,6 +81,10 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     prepass_alpha_discard(in);
 
     var out: FragmentOutput;
+
+#ifdef DEPTH_CLAMP_ORTHO
+    out.frag_depth = in.clip_position_unclamped.z;
+#endif // DEPTH_CLAMP_ORTHO
 
 #ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit

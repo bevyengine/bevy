@@ -186,7 +186,6 @@ impl TypePathVtable {
             type_ident: T::type_ident,
             crate_name: T::crate_name,
             module_path: T::module_path,
-            type_path_id: T::TYPE_PATH_ID,
         }
     }
 

@@ -82,7 +82,7 @@ fn apply_normal_mapping(
 #ifdef VERTEX_UVS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
-    var Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb;
+    var Nt = textureSampleBias(normal_map_texture, normal_map_sampler, uv, view.mip_bias).rgb;
     if (standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
         // Only use the xy components and derive z for 2-component normal maps.
         Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);
@@ -126,7 +126,7 @@ fn calculate_view(
 
 struct PbrInput {
     material: StandardMaterial,
-    occlusion: f32,
+    occlusion: vec3<f32>,
     frag_coord: vec4<f32>,
     world_position: vec4<f32>,
     // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
@@ -146,7 +146,7 @@ fn pbr_input_new() -> PbrInput {
     var pbr_input: PbrInput;
 
     pbr_input.material = standard_material_new();
-    pbr_input.occlusion = 1.0;
+    pbr_input.occlusion = vec3<f32>(1.0);
 
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);

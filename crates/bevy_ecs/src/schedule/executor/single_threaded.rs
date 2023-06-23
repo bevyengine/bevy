@@ -116,6 +116,9 @@ impl SystemExecutor for SingleThreadedExecutor {
 }
 
 impl SingleThreadedExecutor {
+    /// Creates a new single-threaded executor for use in a [`Schedule`].
+    ///
+    /// [`Schedule`]: crate::schedule::Schedule
     pub const fn new() -> Self {
         Self {
             evaluated_sets: FixedBitSet::new(),

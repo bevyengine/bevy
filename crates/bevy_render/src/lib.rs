@@ -32,7 +32,7 @@ pub mod prelude {
     pub use crate::{
         camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
         color::Color,
-        mesh::{shape, Mesh},
+        mesh::{morph::MorphWeights, shape, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
@@ -49,7 +49,7 @@ use wgpu::Instance;
 
 use crate::{
     camera::CameraPlugin,
-    mesh::MeshPlugin,
+    mesh::{morph::MorphPlugin, MeshPlugin},
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::WgpuSettings,
@@ -329,12 +329,15 @@ impl Plugin for RenderPlugin {
             }));
         }
 
-        app.add_plugin(ValidParentCheckPlugin::<view::ComputedVisibility>::default())
-            .add_plugin(WindowRenderPlugin)
-            .add_plugin(CameraPlugin)
-            .add_plugin(ViewPlugin)
-            .add_plugin(MeshPlugin)
-            .add_plugin(GlobalsPlugin);
+        app.add_plugins((
+            ValidParentCheckPlugin::<view::ComputedVisibility>::default(),
+            WindowRenderPlugin,
+            CameraPlugin,
+            ViewPlugin,
+            MeshPlugin,
+            GlobalsPlugin,
+            MorphPlugin,
+        ));
 
         app.register_type::<color::Color>()
             .register_type::<primitives::Aabb>()

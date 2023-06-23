@@ -13,6 +13,7 @@ use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{Quat, Vec3};
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
@@ -34,9 +35,18 @@ pub enum Keyframes {
     Translation(Vec<Vec3>),
     /// Keyframes for scale.
     Scale(Vec<Vec3>),
+    /// Keyframes for morph target weights.
+    ///
+    /// Note that in `.0`, each contiguous `target_count` values is a single
+    /// keyframe representing the weight values at given keyframe.
+    ///
+    /// This follows the [glTF design].
+    ///
+    /// [glTF design]: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#animations
+    Weights(Vec<f32>),
 }
 
-/// Describes how an attribute of a [`Transform`] should be animated.
+/// Describes how an attribute of a [`Transform`] or [`MorphWeights`] should be animated.
 ///
 /// `keyframe_timestamps` and `keyframes` should have the same length.
 #[derive(Reflect, FromReflect, Clone, Debug)]
@@ -105,6 +115,11 @@ impl AnimationClip {
             self.curves.push(vec![curve]);
             self.paths.insert(path, idx);
         }
+    }
+
+    /// Whether this animation clip can run on entity with given [`Name`].
+    pub fn compatible_with(&self, name: &Name) -> bool {
+        self.paths.keys().all(|path| &path.parts[0] == name)
     }
 }
 
@@ -270,7 +285,7 @@ impl AnimationPlayer {
     }
 }
 
-fn find_bone(
+fn entity_from_path(
     root: Entity,
     path: &EntityPath,
     children: &Query<&Children>,
@@ -336,12 +351,14 @@ fn verify_no_ancestor_player(
 
 /// System that will play all animations, using any entity with a [`AnimationPlayer`]
 /// and a [`Handle<AnimationClip>`] as an animation root
+#[allow(clippy::too_many_arguments)]
 pub fn animation_player(
     time: Res<Time>,
     animations: Res<Assets<AnimationClip>>,
     children: Query<&Children>,
     names: Query<&Name>,
     transforms: Query<&mut Transform>,
+    morphs: Query<&mut MorphWeights>,
     parents: Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
     mut animation_players: Query<(Entity, Option<&Parent>, &mut AnimationPlayer)>,
 ) {
@@ -356,6 +373,7 @@ pub fn animation_player(
                 &animations,
                 &names,
                 &transforms,
+                &morphs,
                 maybe_parent,
                 &parents,
                 &children,
@@ -371,6 +389,7 @@ fn run_animation_player(
     animations: &Assets<AnimationClip>,
     names: &Query<&Name>,
     transforms: &Query<&mut Transform>,
+    morphs: &Query<&mut MorphWeights>,
     maybe_parent: Option<&Parent>,
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
     children: &Query<&Children>,
@@ -392,6 +411,7 @@ fn run_animation_player(
         animations,
         names,
         transforms,
+        morphs,
         maybe_parent,
         parents,
         children,
@@ -413,10 +433,33 @@ fn run_animation_player(
             animations,
             names,
             transforms,
+            morphs,
             maybe_parent,
             parents,
             children,
         );
+    }
+}
+
+/// Update `weights` based on weights in `keyframes` at index `key_index`
+/// with a linear interpolation on `key_lerp`.
+///
+/// # Panics
+///
+/// When `key_index * target_count` is larger than `keyframes`
+///
+/// This happens when `keyframes` is not formatted as described in
+/// [`Keyframes::Weights`]. A possible cause is [`AnimationClip`] not being
+/// meant to be used for the [`MorphWeights`] of the entity it's being applied to.
+fn lerp_morph_weights(weights: &mut [f32], key_lerp: f32, keyframes: &[f32], key_index: usize) {
+    let target_count = weights.len();
+    let start = target_count * key_index;
+    let end = target_count * (key_index + 1);
+
+    let zipped = weights.iter_mut().zip(&keyframes[start..end]);
+    for (morph_weight, keyframe) in zipped {
+        let minus_lerp = 1.0 - key_lerp;
+        *morph_weight = (*morph_weight * minus_lerp) + (keyframe * key_lerp);
     }
 }
 
@@ -430,6 +473,7 @@ fn apply_animation(
     animations: &Assets<AnimationClip>,
     names: &Query<&Name>,
     transforms: &Query<&mut Transform>,
+    morphs: &Query<&mut MorphWeights>,
     maybe_parent: Option<&Parent>,
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
     children: &Query<&Children>,
@@ -456,7 +500,7 @@ fn apply_animation(
         for (path, bone_id) in &animation_clip.paths {
             let cached_path = &mut animation.path_cache[*bone_id];
             let curves = animation_clip.get_curves(*bone_id).unwrap();
-            let Some(target) = find_bone(root, path, children, names, cached_path) else { continue };
+            let Some(target) = entity_from_path(root, path, children, names, cached_path) else { continue };
             // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
             // any of their descendant Transforms.
             //
@@ -470,6 +514,7 @@ fn apply_animation(
             // to run their animation. Any players in the children or descendants will log a warning
             // and do nothing.
             let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else { continue };
+            let mut morphs = unsafe { morphs.get_unchecked(target) };
             for curve in curves {
                 // Some curves have only one keyframe used to set a transform
                 if curve.keyframe_timestamps.len() == 1 {
@@ -483,6 +528,11 @@ fn apply_animation(
                         }
                         Keyframes::Scale(keyframes) => {
                             transform.scale = transform.scale.lerp(keyframes[0], weight);
+                        }
+                        Keyframes::Weights(keyframes) => {
+                            if let Ok(morphs) = &mut morphs {
+                                lerp_morph_weights(morphs.weights_mut(), weight, keyframes, 0);
+                            }
                         }
                     }
                     continue;
@@ -528,6 +578,11 @@ fn apply_animation(
                         let scale_end = keyframes[step_start + 1];
                         let result = scale_start.lerp(scale_end, lerp);
                         transform.scale = transform.scale.lerp(result, weight);
+                    }
+                    Keyframes::Weights(keyframes) => {
+                        if let Ok(morphs) = &mut morphs {
+                            lerp_morph_weights(morphs.weights_mut(), weight, keyframes, step_start);
+                        }
                     }
                 }
             }

@@ -8,8 +8,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<CustomMaterial>::default())
+        .add_plugins((DefaultPlugins, MaterialPlugin::<CustomMaterial>::default()))
         .add_systems(Startup, setup)
         .run();
 }

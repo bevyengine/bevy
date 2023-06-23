@@ -1,9 +1,8 @@
-use bevy_reflect_derive::impl_type_path;
-
 use crate::{
     self as bevy_reflect, utility::reflect_hasher, Reflect, ReflectMut, ReflectOwned, ReflectRef,
     TypeInfo, TypePath, TypePathVtable,
 };
+use bevy_reflect_derive::impl_type_path;
 use std::{
     any::{Any, TypeId},
     fmt::Debug,

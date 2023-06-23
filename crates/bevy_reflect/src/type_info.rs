@@ -25,7 +25,7 @@ use std::fmt::Debug;
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, TypePathId, ValueInfo};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -51,7 +51,6 @@ use std::fmt::Debug;
 /// # impl TypePath for MyStruct {
 /// #     fn type_path() -> &'static str { todo!() }
 /// #     fn short_type_path() -> &'static str { todo!() }
-/// #     const TYPE_PATH_ID: TypePathId = todo!();
 /// # }
 /// # impl Reflect for MyStruct {
 /// #   fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
@@ -67,6 +66,11 @@ use std::fmt::Debug;
 /// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
+/// # }
+/// #
+/// # impl TypePath for MyStruct {
+/// #   fn type_path() -> &'static str { todo!() }
+/// #   fn short_type_path() -> &'static str { todo!() }
 /// # }
 /// ```
 ///

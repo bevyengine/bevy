@@ -86,7 +86,8 @@ impl Plugin for FxaaPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, FXAA_SHADER_HANDLE, "fxaa.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(ExtractComponentPlugin::<Fxaa>::default());
+        app.register_type::<Fxaa>();
+        app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,

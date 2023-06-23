@@ -2,10 +2,9 @@ use std::any::TypeId;
 
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use anyhow::Result;
-use bevy_app::AppTypeRegistry;
 use bevy_ecs::{
     entity::{Entity, EntityMap},
-    reflect::{ReflectComponent, ReflectMapEntities},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
 use bevy_reflect::{Reflect, TypePath, TypeRegistryArc, TypeUuid};
@@ -185,8 +184,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::AppTypeRegistry;
-    use bevy_ecs::{entity::EntityMap, system::Command, world::World};
+    use bevy_ecs::{entity::EntityMap, reflect::AppTypeRegistry, system::Command, world::World};
     use bevy_hierarchy::{AddChild, Parent};
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
@@ -208,7 +206,7 @@ mod tests {
             parent: original_parent_entity,
             child: original_child_entity,
         }
-        .write(&mut world);
+        .apply(&mut world);
 
         // We then write this relationship to a new scene, and then write that scene back to the
         // world to create another parent and child relationship
@@ -229,7 +227,7 @@ mod tests {
             parent: original_child_entity,
             child: from_scene_parent_entity,
         }
-        .write(&mut world);
+        .apply(&mut world);
 
         // We then reload the scene to make sure that from_scene_parent_entity's parent component
         // isn't updated with the entity map, since this component isn't defined in the scene.

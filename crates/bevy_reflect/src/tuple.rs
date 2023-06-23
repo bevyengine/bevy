@@ -5,7 +5,7 @@ use crate::{
     ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
     UnnamedField,
 };
-use crate::{TypePathId, TypePathVtable};
+use crate::TypePathVtable;
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};

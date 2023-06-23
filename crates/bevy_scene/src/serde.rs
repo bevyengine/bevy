@@ -424,11 +424,10 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
 mod tests {
     use crate::serde::{SceneDeserializer, SceneSerializer};
     use crate::{DynamicScene, DynamicSceneBuilder};
-    use bevy_app::AppTypeRegistry;
     use bevy_ecs::entity::{Entity, EntityMap, EntityMapper, MapEntities};
     use bevy_ecs::prelude::{Component, ReflectComponent, ReflectResource, Resource, World};
     use bevy_ecs::query::{With, Without};
-    use bevy_ecs::reflect::ReflectMapEntities;
+    use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
     use bevy_ecs::world::FromWorld;
     use bevy_reflect::{FromReflect, Reflect, ReflectSerialize};
     use bincode::Options;

@@ -227,12 +227,8 @@ pub fn ui_focus_system(
 
                 // The mouse position relative to the node
                 // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
-                let relative_cursor_position = cursor_position.map(|cursor_position| {
-                    Vec2::new(
-                        (cursor_position.x - min.x) / node.node.size().x,
-                        (cursor_position.y - min.y) / node.node.size().y,
-                    )
-                });
+                let relative_cursor_position = cursor_position
+                    .map(|cursor_position| (cursor_position - min) / node.node.size());
 
                 // If the current cursor position is within the bounds of the node, consider it for
                 // clicking

@@ -81,42 +81,45 @@ impl Default for UiScale {
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
+        app.add_plugins(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
+            .register_type::<BackgroundColor>()
+            .register_type::<CalculatedClip>()
             .register_type::<ContentSize>()
             .register_type::<Direction>()
             .register_type::<Display>()
             .register_type::<FlexDirection>()
             .register_type::<FlexWrap>()
+            .register_type::<FocusPolicy>()
             .register_type::<GridAutoFlow>()
             .register_type::<GridPlacement>()
             .register_type::<GridTrack>()
-            .register_type::<RepeatedGridTrack>()
-            .register_type::<FocusPolicy>()
             .register_type::<Interaction>()
             .register_type::<JustifyContent>()
             .register_type::<JustifyItems>()
             .register_type::<JustifySelf>()
             .register_type::<Node>()
-            .register_type::<ZIndex>()
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
             .register_type::<Overflow>()
             .register_type::<OverflowAxis>()
             .register_type::<PositionType>()
-            .register_type::<UiRect>()
+            .register_type::<RelativeCursorPosition>()
+            .register_type::<RepeatedGridTrack>()
             .register_type::<Style>()
-            .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
             .register_type::<UiImageSize>()
+            .register_type::<UiRect>()
             .register_type::<Val>()
+            .register_type::<BorderColor>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
+            .register_type::<ZIndex>()
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
@@ -141,7 +144,7 @@ impl Plugin for UiPlugin {
             ),
         );
         #[cfg(feature = "bevy_text")]
-        app.add_plugin(accessibility::AccessibilityPlugin);
+        app.add_plugins(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
             let system = widget::update_image_content_size_system.before(UiSystem::Layout);
             // Potential conflicts: `Assets<Image>`
@@ -154,8 +157,12 @@ impl Plugin for UiPlugin {
                 .ambiguous_with(widget::text_system);
 
             system
-        })
-        .add_systems(
+        });
+        app.add_systems(
+            PostUpdate,
+            widget::update_atlas_content_size_system.before(UiSystem::Layout),
+        );
+        app.add_systems(
             PostUpdate,
             (
                 ui_layout_system
