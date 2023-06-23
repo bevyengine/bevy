@@ -143,7 +143,9 @@ impl ArrayInfo {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The stable type name of the array.
+    /// A representation of the type path of the array item.
+    ///
+    /// Provides dynamic access to all methods on [`TypePath`].
     pub fn item_type_path_vtable(&self) -> &TypePathVtable {
         &self.item_type_path
     }

@@ -158,7 +158,7 @@ impl MapInfo {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// A representation of the type path of the keys.
+    /// A representation of the type path of the key type.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
     pub fn key_type_path_vtable(&self) -> &TypePathVtable {
@@ -175,7 +175,7 @@ impl MapInfo {
         TypeId::of::<T>() == self.key_type_id
     }
 
-    /// A representation of the type path of the values.
+    /// A representation of the type path of the value type.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
     pub fn value_type_path_vtable(&self) -> &TypePathVtable {
