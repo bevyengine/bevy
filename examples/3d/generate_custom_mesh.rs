@@ -1,5 +1,5 @@
 // ! This example demonstrates how to create a custom mesh,
-// ! assign a custom UV mapping for a cusotm texture,
+// ! assign a custom UV mapping for a custom texture,
 // ! and how to change the UV mapping at run-time.
 use bevy::prelude::*;
 use bevy::render::mesh::Indices;
