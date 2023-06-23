@@ -1389,7 +1389,7 @@ mod tests {
         let info = MyCowStr::type_info();
         if let TypeInfo::Value(info) = info {
             assert!(info.is::<MyCowStr>());
-            assert_eq!(std::any::type_name::<MyCowStr>(), info.type_name());
+            assert_eq!(std::any::type_name::<MyCowStr>(), info.type_path());
         } else {
             panic!("Expected `TypeInfo::Value`");
         }
@@ -1405,8 +1405,11 @@ mod tests {
         if let TypeInfo::List(info) = info {
             assert!(info.is::<MyCowSlice>());
             assert!(info.item_is::<u8>());
-            assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_name());
-            assert_eq!(std::any::type_name::<u8>(), info.item_type_name());
+            assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_path());
+            assert_eq!(
+                std::any::type_name::<u8>(),
+                info.item_type_path_vtable().path()
+            );
         } else {
             panic!("Expected `TypeInfo::List`");
         }

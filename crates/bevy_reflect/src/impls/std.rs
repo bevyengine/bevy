@@ -87,6 +87,7 @@ impl_reflect_value!(isize(
 ));
 impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize, Default));
 impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize, Default));
+impl_type_path!(str);
 impl_reflect_value!(::alloc::string::String(
     Debug,
     Hash,
@@ -1071,8 +1072,6 @@ impl<T: TypePath + ?Sized> TypePath for &'static T {
         static CELL: GenericTypePathCell = GenericTypePathCell::new();
         CELL.get_or_insert::<Self, _>(|| format!("&{}", T::short_type_path()))
     }
-
-    const TYPE_PATH_ID: TypePathId = TypePathId::from_base("&").with_generics(&[T::TYPE_PATH_ID]);
 }
 
 impl Reflect for Cow<'static, str> {
@@ -1179,8 +1178,6 @@ impl FromReflect for Cow<'static, str> {
     }
 }
 
-impl<T: PathOnly> PathOnly for [T] where [T]: ToOwned {}
-
 impl<T: TypePath> TypePath for [T]
 where
     [T]: ToOwned,
@@ -1195,8 +1192,6 @@ where
         CELL.get_or_insert::<Self, _>(|| format!("[{}]", <T>::short_type_path()))
     }
 }
-
-impl<T: ToOwned> PathOnly for T {}
 
 impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
@@ -1229,7 +1224,7 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
             T::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
                     "Attempted to insert invalid value of type {}.",
-                    value.type_name()
+                    value.reflect_type_path()
                 )
             })
         });
@@ -1244,7 +1239,7 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
         let value = T::take_from_reflect(value).unwrap_or_else(|value| {
             panic!(
                 "Attempted to push invalid value of type {}.",
-                value.type_name()
+                value.reflect_type_path()
             )
         });
         self.to_mut().push(value);
@@ -1258,10 +1253,6 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
 }
 
 impl<T: FromReflect + Clone + TypePath> Reflect for Cow<'static, [T]> {
-    fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
-    }
-
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -1434,18 +1425,6 @@ impl Typed for &'static Path {
     }
 }
 
-impl TypePath for &'static Path {
-    fn type_path() -> &'static str {
-        static CELL: GenericTypePathCell = GenericTypePathCell::new();
-        CELL.get_or_insert::<Self, _>(|| "&std::path::Path".to_owned())
-    }
-
-    fn short_type_path() -> &'static str {
-        static CELL: GenericTypePathCell = GenericTypePathCell::new();
-        CELL.get_or_insert::<Self, _>(|| "&Path".to_owned())
-    }
-}
-
 impl GetTypeRegistration for &'static Path {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
@@ -1547,6 +1526,7 @@ impl Typed for Cow<'static, Path> {
     }
 }
 
+impl_type_path!(::std::path::Path);
 impl_type_path!(::alloc::borrow::Cow<'a: 'static, T: ToOwned + ?Sized>);
 
 impl FromReflect for Cow<'static, Path> {

@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// A static accessor to type paths and names.
 ///
 /// The engine uses this trait over [`std::any::type_name`] for stability and flexibility.
