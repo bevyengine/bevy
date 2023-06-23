@@ -42,7 +42,6 @@ impl Default for Preprocessor {
             import_custom_path_regex: Regex::new(r"^\s*#\s*import\s+([^\s]+)").unwrap(),
             import_items_regex: Regex::new(
                 r"^\s*#\s*import\s+([^\s]+)\s+((?:[\w|\d|_]+)(?:\s*,\s*[\w|\d|_]+)*)",
-                // r"^\s*#\s*from\s+([^\s]+)\s+import\s*((?:[\w|\d|_]+)(?:\s*,\s*[\w|\d|_]+)*)",
             )
             .unwrap(),
             identifier_regex: Regex::new(r"([\w|\d|_]+)").unwrap(),

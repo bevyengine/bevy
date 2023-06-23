@@ -8,7 +8,7 @@ repository = "https://github.com/robtfm/naga_oil/"
 readme = "README.md"
 
 [features]
-prune = ["dep:serde", "dep:serde_json", "naga/deserialize", "naga/serialize"]
+prune = []
 override_any = []
 
 [dependencies]
@@ -24,10 +24,6 @@ rustc-hash = "1.1.0"
 unicode-ident = "1"
 once_cell = "1.17.0"
 indexmap = "1.9.3"
-
-# required for prune only
-serde = { version = "1", optional = true }
-serde_json = { version = "1", optional = true }
 
 [dev-dependencies]
 wgpu = { version = "0.16", features=["naga"] }
