@@ -208,7 +208,7 @@ impl AudioBundle<AudioSource> {
     /// Create an [`AudioBundle`] from a standard Bevy audio source.
     ///
     /// Use this if you are loading an audio file asset in the formats supported by Bevy.
-    pub fn from_audio_source(handle: Handle<AudioSource>) -> Self {
+    pub fn from_audio(handle: Handle<AudioSource>) -> Self {
         AudioBundle {
             source: handle,
             settings: Default::default(),
@@ -225,7 +225,7 @@ where
     /// Use this if you have a custom source of audio data (not a regular audio file asset loaded by Bevy).
     ///
     /// Don't forget to register your custom type: `app.add_audio_source::<MySource>()`!
-    pub fn from_custom_source(handle: Handle<Source>) -> Self {
+    pub fn from_custom_audio(handle: Handle<Source>) -> Self {
         AudioBundle {
             source: handle,
             settings: Default::default(),

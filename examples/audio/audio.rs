@@ -10,7 +10,7 @@ fn main() {
 }
 
 fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
-    commands.spawn(AudioBundle::from_audio_source(
+    commands.spawn(AudioBundle::from_audio(
         asset_server.load("sounds/Windless Slopes.ogg"),
     ));
 }

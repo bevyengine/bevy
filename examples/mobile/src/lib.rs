@@ -154,7 +154,7 @@ fn button_handler(
 
 fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.spawn(
-        AudioBundle::from_audio_source(asset_server.load("sounds/Windless Slopes.ogg"))
+        AudioBundle::from_audio(asset_server.load("sounds/Windless Slopes.ogg"))
             .with_settings(PlaybackSettings::LOOP),
     );
 }

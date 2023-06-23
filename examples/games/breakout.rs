@@ -413,7 +413,7 @@ fn play_collision_sound(
         // This prevents events staying active on the next frame.
         collision_events.clear();
         commands.spawn(
-            AudioBundle::from_audio_source(sound.0.clone())
+            AudioBundle::from_audio(sound.0.clone())
                 // auto-despawn the entity when playback finishes
                 .with_settings(PlaybackSettings::DESPAWN),
         );

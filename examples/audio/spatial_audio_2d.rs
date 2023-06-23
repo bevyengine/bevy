@@ -31,7 +31,7 @@ fn setup(
             ..default()
         },
         Emitter,
-        AudioBundle::from_audio_source(asset_server.load("sounds/Windless Slopes.ogg"))
+        AudioBundle::from_audio(asset_server.load("sounds/Windless Slopes.ogg"))
             .with_settings(PlaybackSettings::LOOP)
             .with_spatial(SpatialSettings::new(
                 Transform::IDENTITY,
