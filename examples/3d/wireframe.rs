@@ -8,14 +8,16 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(RenderPlugin {
-            wgpu_settings: WgpuSettings {
-                features: WgpuFeatures::POLYGON_MODE_LINE,
-                ..default()
-            },
-        }))
-        .add_plugin(WireframePlugin)
-        .add_startup_system(setup)
+        .add_plugins((
+            DefaultPlugins.set(RenderPlugin {
+                wgpu_settings: WgpuSettings {
+                    features: WgpuFeatures::POLYGON_MODE_LINE,
+                    ..default()
+                },
+            }),
+            WireframePlugin,
+        ))
+        .add_systems(Startup, setup)
         .run();
 }
 

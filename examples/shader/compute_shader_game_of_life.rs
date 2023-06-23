@@ -11,7 +11,7 @@ use bevy::{
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
-        RenderApp, RenderSet,
+        Render, RenderApp, RenderSet,
     },
     window::WindowPlugin,
 };
@@ -23,16 +23,18 @@ const WORKGROUP_SIZE: u32 = 8;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                // uncomment for unthrottled FPS
-                // present_mode: bevy::window::PresentMode::AutoNoVsync,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    // uncomment for unthrottled FPS
+                    // present_mode: bevy::window::PresentMode::AutoNoVsync,
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(GameOfLifeComputePlugin)
-        .add_startup_system(setup)
+            GameOfLifeComputePlugin,
+        ))
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -70,11 +72,9 @@ impl Plugin for GameOfLifeComputePlugin {
     fn build(&self, app: &mut App) {
         // Extract the game of life image resource from the main world into the render world
         // for operation on by the compute shader and display on the sprite.
-        app.add_plugin(ExtractResourcePlugin::<GameOfLifeImage>::default());
+        app.add_plugins(ExtractResourcePlugin::<GameOfLifeImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
-        render_app
-            .init_resource::<GameOfLifePipeline>()
-            .add_system(queue_bind_group.in_set(RenderSet::Queue));
+        render_app.add_systems(Render, queue_bind_group.in_set(RenderSet::Queue));
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("game_of_life", GameOfLifeNode::default());
@@ -82,6 +82,11 @@ impl Plugin for GameOfLifeComputePlugin {
             "game_of_life",
             bevy::render::main_graph::node::CAMERA_DRIVER,
         );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+        render_app.init_resource::<GameOfLifePipeline>();
     }
 }
 

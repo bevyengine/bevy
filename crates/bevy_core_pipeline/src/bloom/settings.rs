@@ -1,7 +1,7 @@
 use super::downsampling_pipeline::BloomUniforms;
-use bevy_ecs::{prelude::Component, query::QueryItem};
+use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
 use bevy_math::{UVec4, Vec4};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
@@ -26,6 +26,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
 #[allow(clippy::doc_markdown)]
 #[derive(Component, Reflect, Clone)]
+#[reflect(Component, Default)]
 pub struct BloomSettings {
     /// Controls the baseline of how much the image is scattered (default: 0.15).
     ///
@@ -159,7 +160,8 @@ impl Default for BloomSettings {
 /// * Changing these settings creates a physically inaccurate image
 /// * Changing these settings makes it easy to make the final result look worse
 /// * Non-default prefilter settings should be used in conjuction with [`BloomCompositeMode::Additive`]
-#[derive(Default, Clone, Reflect)]
+#[derive(Default, Clone, Reflect, FromReflect)]
+#[reflect(FromReflect)]
 pub struct BloomPrefilterSettings {
     /// Baseline of the quadratic threshold curve (default: 0.0).
     ///

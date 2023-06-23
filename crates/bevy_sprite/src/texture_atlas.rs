@@ -1,6 +1,6 @@
 use crate::Anchor;
 use bevy_asset::Handle;
-use bevy_ecs::component::Component;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use bevy_render::{color::Color, texture::Image};
@@ -20,10 +20,11 @@ pub struct TextureAtlas {
     /// The specific areas of the atlas where each texture can be found
     pub textures: Vec<Rect>,
     /// Mapping from texture handle to index
-    pub(crate) texture_handles: Option<HashMap<Handle<Image>, usize>>,
+    pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
 }
 
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[reflect(Component)]
 pub struct TextureAtlasSprite {
     /// The tint color used to draw the sprite, defaulting to [`Color::WHITE`]
     pub color: Color,

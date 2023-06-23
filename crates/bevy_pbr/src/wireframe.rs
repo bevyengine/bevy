@@ -5,8 +5,9 @@ use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypeUuid};
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy_render::Render;
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -39,26 +40,33 @@ impl Plugin for WireframePlugin {
         app.register_type::<Wireframe>()
             .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
-            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default())
-            .add_plugin(ExtractComponentPlugin::<Wireframe>::default());
+            .add_plugins((
+                ExtractResourcePlugin::<WireframeConfig>::default(),
+                ExtractComponentPlugin::<Wireframe>::default(),
+            ));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
-                .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .add_system(queue_wireframes.in_set(RenderSet::Queue));
+                .add_systems(Render, queue_wireframes.in_set(RenderSet::Queue));
+        }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<WireframePipeline>();
         }
     }
 }
 
 /// Controls whether an entity should rendered in wireframe-mode if the [`WireframePlugin`] is enabled
-#[derive(Component, Debug, Clone, Default, ExtractComponent, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Clone, Default, ExtractComponent, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct Wireframe;
 
-#[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
-#[reflect(Resource)]
+#[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect, FromReflect)]
+#[reflect(Resource, FromReflect)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes. If `false`, only meshes with a [Wireframe] component will be rendered.
     pub global: bool,

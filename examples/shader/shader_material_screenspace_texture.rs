@@ -2,16 +2,15 @@
 
 use bevy::{
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<CustomMaterial>::default())
-        .add_startup_system(setup)
-        .add_system(rotate_camera)
+        .add_plugins((DefaultPlugins, MaterialPlugin::<CustomMaterial>::default()))
+        .add_systems(Startup, setup)
+        .add_systems(Update, rotate_camera)
         .run();
 }
 
@@ -66,7 +65,7 @@ fn rotate_camera(mut camera: Query<&mut Transform, With<MainCamera>>, time: Res<
     cam_transform.look_at(Vec3::ZERO, Vec3::Y);
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "b62bb455-a72c-4b56-87bb-81e0554e234f"]
 pub struct CustomMaterial {
     #[texture(0)]

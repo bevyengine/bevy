@@ -17,10 +17,11 @@ trace = [
     "bevy_log/trace",
     "bevy_render?/trace",
     "bevy_hierarchy/trace",
-    "bevy_winit/trace"
+    "bevy_winit?/trace"
 ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy" ]
+trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
 wgpu_trace = ["bevy_render/wgpu_trace"]
 debug_asset_server = ["bevy_asset/debug_asset_server"]
 detailed_trace = ["bevy_utils/detailed_trace"]
@@ -32,8 +33,10 @@ png = ["bevy_render/png"]
 tga = ["bevy_render/tga"]
 jpeg = ["bevy_render/jpeg"]
 bmp = ["bevy_render/bmp"]
+webp = ["bevy_render/webp"]
 basis-universal = ["bevy_render/basis-universal"]
 dds = ["bevy_render/dds"]
+pnm = ["bevy_render/pnm"]
 ktx2 = ["bevy_render/ktx2"]
 # For ktx2 supercompression
 zlib = ["bevy_render/zlib"]
@@ -55,6 +58,10 @@ symphonia-isomp4 = ["bevy_audio/symphonia-isomp4"]
 symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
+# Shader formats
+shader_format_glsl = ["bevy_render/shader_format_glsl"]
+shader_format_spirv = ["bevy_render/shader_format_spirv"]
+
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_asset/filesystem_watcher"]
 
@@ -68,13 +75,16 @@ x11 = ["bevy_winit/x11"]
 subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 
 # Optimise for WebGL2
-webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl"]
+webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl", "bevy_gizmos?/webgl"]
 
 # enable systems that allow for automated testing on CI
-bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render/ci_limits"]
+bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_time/bevy_ci_testing", "bevy_render?/bevy_ci_testing", "bevy_render?/ci_limits"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
+
+bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite"]
+bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
@@ -87,6 +97,12 @@ android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
 accesskit_unix = ["bevy_winit/accesskit_unix"]
 
 bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
+
+bevy_render = ["dep:bevy_render", "bevy_scene?/bevy_render"]
+# Enable assertions to check the validity of parameters passed to glam
+glam_assert = ["bevy_math/glam_assert"]
+
+default_font = ["bevy_text?/default_font"]
 
 [dependencies]
 # bevy
@@ -122,3 +138,4 @@ bevy_text = { path = "../bevy_text", optional = true, version = "0.11.0-dev" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.11.0-dev" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.11.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.11.0-dev" }
+bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.11.0-dev", default-features = false }

@@ -6,23 +6,23 @@
 //! bevy = { version = "*", default-features = false }
 //! # replace "*" with the most recent version of bevy
 
-use bevy::{app::ScheduleRunnerSettings, prelude::*, utils::Duration};
+use bevy::{app::ScheduleRunnerPlugin, prelude::*, utils::Duration};
 
 fn main() {
-    // this app runs once
+    // This app runs once
     App::new()
-        .insert_resource(ScheduleRunnerSettings::run_once())
-        .add_plugins(MinimalPlugins)
-        .add_system(hello_world_system)
+        .add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_once()))
+        .add_systems(Update, hello_world_system)
         .run();
 
-    // this app loops forever at 60 fps
+    // This app loops forever at 60 fps
     App::new()
-        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
-            1.0 / 60.0,
-        )))
-        .add_plugins(MinimalPlugins)
-        .add_system(counter)
+        .add_plugins(
+            MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+                1.0 / 60.0,
+            ))),
+        )
+        .add_systems(Update, counter)
         .run();
 }
 

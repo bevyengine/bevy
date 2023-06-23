@@ -1,4 +1,4 @@
-use crate::world::World;
+use crate::{component::Tick, world::unsafe_world_cell::UnsafeWorldCell};
 use bevy_tasks::ComputeTaskPool;
 use std::ops::Range;
 
@@ -54,16 +54,19 @@ impl BatchingStrategy {
         }
     }
 
+    /// Configures the minimum allowed batch size of this instance.
     pub const fn min_batch_size(mut self, batch_size: usize) -> Self {
         self.batch_size_limits.start = batch_size;
         self
     }
 
+    /// Configures the maximum allowed batch size of this instance.
     pub const fn max_batch_size(mut self, batch_size: usize) -> Self {
         self.batch_size_limits.end = batch_size;
         self
     }
 
+    /// Configures the number of batches to assign to each thread for this instance.
     pub fn batches_per_thread(mut self, batches_per_thread: usize) -> Self {
         assert!(
             batches_per_thread > 0,
@@ -79,8 +82,10 @@ impl BatchingStrategy {
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
 pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
-    pub(crate) world: &'w World,
+    pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<Q, F>,
+    pub(crate) last_run: Tick,
+    pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
@@ -142,18 +147,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub unsafe fn for_each_unchecked<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
-        &self,
-        func: FN,
-    ) {
+    unsafe fn for_each_unchecked<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&self, func: FN) {
         let thread_count = ComputeTaskPool::get().thread_num();
         if thread_count <= 1 {
-            self.state.for_each_unchecked_manual(
-                self.world,
-                func,
-                self.world.last_change_tick(),
-                self.world.read_change_tick(),
-            );
+            self.state
+                .for_each_unchecked_manual(self.world, func, self.last_run, self.this_run);
         } else {
             // Need a batch size of at least 1.
             let batch_size = self.get_batch_size(thread_count).max(1);
@@ -161,8 +159,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
                 self.world,
                 batch_size,
                 func,
-                self.world.last_change_tick(),
-                self.world.read_change_tick(),
+                self.last_run,
+                self.this_run,
             );
         }
     }
@@ -177,7 +175,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
             "Attempted to run parallel iteration over a query with an empty TaskPool"
         );
         let max_size = if Q::IS_DENSE && F::IS_DENSE {
-            let tables = &self.world.storages().tables;
+            // SAFETY: We only access table metadata.
+            let tables = unsafe { &self.world.world_metadata().storages().tables };
             self.state
                 .matched_table_ids
                 .iter()

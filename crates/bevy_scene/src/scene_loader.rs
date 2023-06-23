@@ -1,7 +1,8 @@
+#[cfg(feature = "serialize")]
 use crate::serde::SceneDeserializer;
-use anyhow::Result;
-use bevy_app::AppTypeRegistry;
+use anyhow::{anyhow, Result};
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
+use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::world::{FromWorld, World};
 use bevy_reflect::TypeRegistryArc;
 use bevy_utils::BoxedFuture;
@@ -35,7 +36,17 @@ impl AssetLoader for SceneLoader {
             let scene_deserializer = SceneDeserializer {
                 type_registry: &self.type_registry.read(),
             };
-            let scene = scene_deserializer.deserialize(&mut deserializer)?;
+            let scene = scene_deserializer
+                .deserialize(&mut deserializer)
+                .map_err(|e| {
+                    let span_error = deserializer.span_error(e);
+                    anyhow!(
+                        "{} at {}:{}",
+                        span_error.code,
+                        load_context.path().to_string_lossy(),
+                        span_error.position,
+                    )
+                })?;
             load_context.set_default_asset(LoadedAsset::new(scene));
             Ok(())
         })
