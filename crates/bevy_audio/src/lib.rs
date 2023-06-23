@@ -70,10 +70,7 @@ impl Plugin for AudioPlugin {
         app.insert_resource(self.global_volume)
             .configure_set(PostUpdate, AudioPlaySet.run_if(audio_output_available))
             .init_resource::<AudioOutput>()
-            .add_systems(
-                PostUpdate,
-                despawn_finished_audio_entities.in_set(AudioPlaySet),
-            );
+            .add_systems(PostUpdate, cleanup_finished_audio.in_set(AudioPlaySet));
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
         {

@@ -62,6 +62,8 @@ pub enum PlaybackMode {
     Loop,
     /// Despawn the entity when the sound finishes playing.
     Despawn,
+    /// Remove the audio components from the entity, when the sound finishes playing.
+    Remove,
 }
 
 /// Initial settings to be used when audio starts playing.
@@ -84,7 +86,7 @@ pub struct PlaybackSettings {
 
 impl Default for PlaybackSettings {
     fn default() -> Self {
-        // TODO: should the default be ONCE or DESPAWN?
+        // TODO: what should the default be: ONCE/DESPAWN/REMOVE?
         Self::ONCE
     }
 }
@@ -106,9 +108,17 @@ impl PlaybackSettings {
         paused: false,
     };
 
-    /// Will play the associated audio source once and despawn the entity.
+    /// Will play the associated audio source once and despawn the entity afterwards.
     pub const DESPAWN: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Despawn,
+        volume: Volume::Relative(VolumeLevel(1.0)),
+        speed: 1.0,
+        paused: false,
+    };
+
+    /// Will play the associated audio source once and remove the audio components afterwards.
+    pub const REMOVE: PlaybackSettings = PlaybackSettings {
+        mode: PlaybackMode::Remove,
         volume: Volume::Relative(VolumeLevel(1.0)),
         speed: 1.0,
         paused: false,

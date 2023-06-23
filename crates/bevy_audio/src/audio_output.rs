@@ -1,6 +1,6 @@
 use crate::{
-    Decodable, GlobalVolume, PlaybackMode, PlaybackSettings, SpatialAudioSink, SpatialSettings,
-    Volume,
+    AudioBundle, Decodable, GlobalVolume, PlaybackMode, PlaybackSettings, SpatialAudioBundle,
+    SpatialAudioSink, SpatialSettings, Volume,
 };
 use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::prelude::*;
@@ -46,6 +46,10 @@ impl Default for AudioOutput {
 /// Marker for internal use, to despawn entities when playback finishes.
 #[derive(Component)]
 pub struct PlaybackDespawnMarker;
+
+/// Marker for internal use, to remove audio components when playback finishes.
+#[derive(Component)]
+pub struct PlaybackRemoveMarker;
 
 /// Plays "queued" audio through the [`AudioOutput`] resource.
 ///
@@ -121,6 +125,16 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                                         PlaybackDespawnMarker,
                                     ));
                             }
+                            PlaybackMode::Remove => {
+                                sink.append(audio_source.decoder());
+                                commands
+                                    .entity(entity)
+                                    // PERF: insert as bundle to reduce archetype moves
+                                    .insert((
+                                        SpatialAudioSink { sink: Some(sink) },
+                                        PlaybackRemoveMarker,
+                                    ));
+                            }
                         };
                     }
                     Err(err) => {
@@ -163,6 +177,13 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                                         PlaybackDespawnMarker,
                                     ));
                             }
+                            PlaybackMode::Remove => {
+                                sink.append(audio_source.decoder());
+                                commands
+                                    .entity(entity)
+                                    // PERF: insert as bundle to reduce archetype moves
+                                    .insert((AudioSink { sink: Some(sink) }, PlaybackRemoveMarker));
+                            }
                         };
                     }
                     Err(err) => {
@@ -174,19 +195,35 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
     }
 }
 
-pub(crate) fn despawn_finished_audio_entities(
+pub(crate) fn cleanup_finished_audio(
     mut commands: Commands,
-    query_nonspatial: Query<(Entity, &AudioSink), With<PlaybackDespawnMarker>>,
-    query_spatial: Query<(Entity, &SpatialAudioSink), With<PlaybackDespawnMarker>>,
+    query_nonspatial_despawn: Query<(Entity, &AudioSink), With<PlaybackDespawnMarker>>,
+    query_spatial_despawn: Query<(Entity, &SpatialAudioSink), With<PlaybackDespawnMarker>>,
+    query_nonspatial_remove: Query<(Entity, &AudioSink), With<PlaybackRemoveMarker>>,
+    query_spatial_remove: Query<(Entity, &SpatialAudioSink), With<PlaybackRemoveMarker>>,
 ) {
-    for (entity, sink) in &query_nonspatial {
+    for (entity, sink) in &query_nonspatial_despawn {
         if sink.sink.as_ref().unwrap().empty() {
             commands.entity(entity).despawn();
         }
     }
-    for (entity, sink) in &query_spatial {
+    for (entity, sink) in &query_spatial_despawn {
         if sink.sink.as_ref().unwrap().empty() {
             commands.entity(entity).despawn();
+        }
+    }
+    for (entity, sink) in &query_nonspatial_remove {
+        if sink.sink.as_ref().unwrap().empty() {
+            commands
+                .entity(entity)
+                .remove::<(AudioBundle, AudioSink, PlaybackRemoveMarker)>();
+        }
+    }
+    for (entity, sink) in &query_spatial_remove {
+        if sink.sink.as_ref().unwrap().empty() {
+            commands
+                .entity(entity)
+                .remove::<(SpatialAudioBundle, SpatialAudioSink, PlaybackRemoveMarker)>();
         }
     }
 }
