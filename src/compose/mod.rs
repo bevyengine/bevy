@@ -318,7 +318,6 @@ pub struct Composer {
     preprocessor: Preprocessor,
     check_decoration_regex: Regex,
     undecorate_regex: Regex,
-    annotated_identifier_regex: Regex,
     virtual_fn_regex: Regex,
     override_fn_regex: Regex,
     undecorate_override_regex: Regex,
@@ -350,7 +349,6 @@ impl Default for Composer {
                 .as_str(),
             )
             .unwrap(),
-            annotated_identifier_regex: Regex::new(r"([^\w|^]+)::([\w|\d|_]+)").unwrap(),
             virtual_fn_regex: Regex::new(r"(?P<lead>[\s]*virtual\s+fn\s+)(?P<function>[^\s]+)(?P<trail>\s*)\(").unwrap(),
             override_fn_regex: Regex::new(
                 format!(
@@ -461,36 +459,52 @@ impl Composer {
         }
 
         // map individually imported items
-        let mut error = None;
-        struct MapReplacer<'a> {
-            items: HashMap<String, String>,
-            error: &'a mut Option<String>,
-        }
+        let mut item_substituted_source = String::default();
+        let mut current_word = String::default();
+        let mut line_is_directive = None;
 
-        impl<'a> regex::Replacer for MapReplacer<'a> {
-            fn replace_append(&mut self, cap: &regex::Captures<'_>, dst: &mut String) {
-                let item = cap.get(2).unwrap().as_str();
-                match self.items.get(item) {
-                    Some(replacement) => {
-                        dst.push_str(&format!("{}{}", cap.get(1).unwrap().as_str(), replacement));
+        for char in substituted_source.chars() {
+            if !current_word.is_empty() {
+                if unicode_ident::is_xid_continue(char) {
+                    current_word.push(char);
+                    continue;
+                }
+
+                let mut output = &current_word;
+
+                // substitute current word if we are not writing a directive (e.g. `#import xyz`)
+                if line_is_directive != Some(true) {
+                    if let Some(replacement) = imported_items.get(&current_word) {
+                        output = replacement;
                     }
-                    None => *self.error = Some(item.to_string()),
+                }
+
+                item_substituted_source += output;
+                current_word.clear();
+            }
+
+            // set current directive state
+            if char == '\r' || char == '\n' {
+                // new line -> could be
+                line_is_directive = None;
+            } else if line_is_directive.is_none() {
+                line_is_directive = match char {
+                    // first non-ws char is a #, this is a directive
+                    '#' => Some(true),
+                    // whitespace, still unknown
+                    ' ' | '\t' => None,
+                    // non-whitespace and not a '#', not a directive
+                    _ => Some(false),
                 }
             }
-        }
 
-        let map_replacer = MapReplacer {
-            items: imported_items,
-            error: &mut error,
-        };
-        substituted_source = self
-            .annotated_identifier_regex
-            .replace_all(&substituted_source, map_replacer)
-            .to_string();
-
-        if let Some(error) = error {
-            return Err(ComposerErrorInner::ImportNotFound(error, 0));
+            if unicode_ident::is_xid_start(char) {
+                current_word.push(char);
+            } else {
+                item_substituted_source.push(char);
+            }
         }
+        substituted_source = item_substituted_source;
 
         // replace @binding(auto) with an incrementing index
         struct AutoBindingReplacer<'a> {

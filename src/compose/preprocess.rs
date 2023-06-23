@@ -41,7 +41,7 @@ impl Default for Preprocessor {
                 .unwrap(),
             import_custom_path_regex: Regex::new(r"^\s*#\s*import\s+([^\s]+)").unwrap(),
             import_items_regex: Regex::new(
-                r"^\s*#\s*from\s+([^\s]+)\s+import\s*((?:[\w|\d|_]+)(?:\s*,\s*[\w|\d|_]+)*)",
+                r"^\s*#\s*import\s+([^\s]+)\s+((?:[\w|\d|_]+)(?:\s*,\s*[\w|\d|_]+)*)",
             )
             .unwrap(),
             identifier_regex: Regex::new(r"([\w|\d|_]+)").unwrap(),
@@ -297,15 +297,6 @@ impl Preprocessor {
                         },
                         offset,
                     });
-                } else if let Some(cap) = self.import_custom_path_regex.captures(line) {
-                    imports.push(ImportDefWithOffset {
-                        definition: ImportDefinition {
-                            import: cap.get(1).unwrap().as_str().to_string(),
-                            as_name: None,
-                            items: Default::default(),
-                        },
-                        offset,
-                    });
                 } else if let Some(cap) = self.import_items_regex.captures(line) {
                     imports.push(ImportDefWithOffset {
                         definition: ImportDefinition {
@@ -317,6 +308,15 @@ impl Preprocessor {
                                     .map(|ident_cap| ident_cap.get(1).unwrap().as_str().to_owned())
                                     .collect(),
                             ),
+                        },
+                        offset,
+                    });
+                } else if let Some(cap) = self.import_custom_path_regex.captures(line) {
+                    imports.push(ImportDefWithOffset {
+                        definition: ImportDefinition {
+                            import: cap.get(1).unwrap().as_str().to_string(),
+                            as_name: None,
+                            items: Default::default(),
                         },
                         offset,
                     });
@@ -398,15 +398,6 @@ impl Preprocessor {
                     },
                     offset,
                 });
-            } else if let Some(cap) = self.import_custom_path_regex.captures(line) {
-                imports.push(ImportDefWithOffset {
-                    definition: ImportDefinition {
-                        import: cap.get(1).unwrap().as_str().to_string(),
-                        as_name: None,
-                        items: Default::default(),
-                    },
-                    offset,
-                });
             } else if let Some(cap) = self.import_items_regex.captures(line) {
                 imports.push(ImportDefWithOffset {
                     definition: ImportDefinition {
@@ -418,6 +409,15 @@ impl Preprocessor {
                                 .map(|ident_cap| ident_cap.get(1).unwrap().as_str().to_owned())
                                 .collect(),
                         ),
+                    },
+                    offset,
+                });
+            } else if let Some(cap) = self.import_custom_path_regex.captures(line) {
+                imports.push(ImportDefWithOffset {
+                    definition: ImportDefinition {
+                        import: cap.get(1).unwrap().as_str().to_string(),
+                        as_name: None,
+                        items: Default::default(),
                     },
                     offset,
                 });
