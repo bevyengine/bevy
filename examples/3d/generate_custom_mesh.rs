@@ -82,8 +82,8 @@ fn setup(
     );
 }
 
-// System to recieve input from the user, check out examples/input/ for more examples about user
-// input.
+// System to receive input from the user,
+// check out examples/input/ for more examples about user input.
 fn input_handler(
     keyboard_input: Res<Input<KeyCode>>,
     mesh_query: Query<&Handle<Mesh>, With<CustomUV>>,
