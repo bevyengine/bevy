@@ -6,8 +6,8 @@ use bevy::render::mesh::Indices;
 use bevy::render::mesh::VertexAttributeValues;
 use bevy::render::render_resource::PrimitiveTopology;
 
-// Define a "marker" component to mark the custom mesh. Marker componenets are often used in Bevy for
-// querying entities, even if they don't contain information within them.
+// Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
+// filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
 #[derive(Component)]
 struct CustomUV;
 
