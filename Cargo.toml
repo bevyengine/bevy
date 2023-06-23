@@ -95,7 +95,7 @@ bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
 
 # Provides text functionality
-bevy_text = ["bevy_internal/bevy_text"]
+bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
 
 # A custom ECS-driven UI framework
 bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite"]
@@ -518,6 +518,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "ssao"
+path = "examples/3d/ssao.rs"
+
+[package.metadata.example.ssao]
+name = "Screen Space Ambient Occlusion"
+description = "A scene showcasing screen space ambient occlusion"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "spotlight"
 path = "examples/3d/spotlight.rs"
 
@@ -733,6 +743,16 @@ path = "examples/animation/animated_fox.rs"
 [package.metadata.example.animated_fox]
 name = "Animated Fox"
 description = "Plays an animation from a skinned glTF"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "morph_targets"
+path = "examples/animation/morph_targets.rs"
+
+[package.metadata.example.morph_targets]
+name = "Morph Targets"
+description = "Plays an animation from a glTF file with meshes with morph targets"
 category = "Animation"
 wasm = true
 
@@ -1794,6 +1814,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "display_and_visibility"
+path = "examples/ui/display_and_visibility.rs"
+
+[package.metadata.example.display_and_visibility]
+name = "Display and Visibility"
+description = "Demonstrates how Display and Visibility work in the UI."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "window_fallthrough"
 path = "examples/ui/window_fallthrough.rs"
 
@@ -1945,6 +1975,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_texture_atlas"
+path = "examples/ui/ui_texture_atlas.rs"
+
+[package.metadata.example.ui_texture_atlas]
+name = "UI Texture Atlas"
+description = "Illustrates how to use TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 
@@ -2042,6 +2082,13 @@ hidden = true
 [[example]]
 name = "window_resizing"
 path = "examples/window/window_resizing.rs"
+
+[[example]]
+name = "fallback_image"
+path = "examples/shader/fallback_image.rs"
+
+[package.metadata.example.fallback_image]
+hidden = true
 
 [package.metadata.example.window_resizing]
 name = "Window Resizing"
