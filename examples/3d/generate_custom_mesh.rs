@@ -162,7 +162,8 @@ fn create_cube_mesh() -> Mesh {
     );
 
     // Take a look at the custom image (assets/textures/array_texture.png)
-    // so the UV coords will make more sense (note (0.0, 0.0) = Top-Left in UV mapping).
+    // so the UV coords will make more sense
+    // Note: (0.0, 0.0) = Top-Left in UV mapping, (1.0, 1.0) = Bottom-Right in UV mapping
     #[rustfmt::skip]
     cube_mesh.insert_attribute(
         Mesh::ATTRIBUTE_UV_0,
