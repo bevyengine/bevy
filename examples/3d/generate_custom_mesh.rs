@@ -6,6 +6,11 @@ use bevy::render::mesh::Indices;
 use bevy::render::mesh::VertexAttributeValues;
 use bevy::render::render_resource::PrimitiveTopology;
 
+// Define a "marker" component to mark the custom mesh. Marker componenets are often used in Bevy for
+// querying entities, even if they don't contain information within them.
+#[derive(Component)]
+struct CustomUV;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -20,24 +25,27 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    // Importing the custom texture.
+    // Import the custom texture.
     let custom_texture_handle: Handle<Image> = asset_server.load("textures/array_texture.png");
-    // Creating and saving a handle to the mesh.
+    // Create and save a handle to the mesh.
     let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_mesh());
 
-    // Rendering the mesh with the custom texture using a PbrBundle.
-    commands.spawn(PbrBundle {
-        mesh: cube_mesh_handle,
-        material: materials.add(StandardMaterial {
-            base_color_texture: Some(custom_texture_handle),
+    // Render the mesh with the custom texture using a PbrBundle, add the marker.
+    commands.spawn((
+        PbrBundle {
+            mesh: cube_mesh_handle,
+            material: materials.add(StandardMaterial {
+                base_color_texture: Some(custom_texture_handle),
+                ..default()
+            }),
             ..default()
-        }),
-        ..default()
-    });
+        },
+        CustomUV,
+    ));
 
     // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
     let camera_and_light_transform =
-        Transform::from_xyz(2.1, 2.1, 2.1).looking_at(Vec3::ZERO, Vec3::Y);
+        Transform::from_xyz(1.8, 1.8, 1.8).looking_at(Vec3::ZERO, Vec3::Y);
 
     // Camera in 3D space.
     commands.spawn(Camera3dBundle {
@@ -45,7 +53,7 @@ fn setup(
         ..default()
     });
 
-    // Lighting up the scene.
+    // Light up the scene.
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 1000.0,
@@ -55,15 +63,32 @@ fn setup(
         transform: camera_and_light_transform,
         ..default()
     });
+
+    // Text to describe the controls.
+    commands.spawn(
+        TextBundle::from_section(
+            "Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation",
+            TextStyle {
+                font_size: 20.0,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        }),
+    );
 }
 
 // System to recieve input from the user, check out examples/input/ for more examples about user
 // input.
 fn input_handler(
     keyboard_input: Res<Input<KeyCode>>,
-    mesh_query: Query<&Handle<Mesh>>,
+    mesh_query: Query<&Handle<Mesh>, With<CustomUV>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut query: Query<&mut Transform, With<Handle<Mesh>>>,
+    mut query: Query<&mut Transform, With<CustomUV>>,
     time: Res<Time>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
@@ -86,6 +111,11 @@ fn input_handler(
             transform.rotate_z(time.delta_seconds() / 1.2);
         }
     }
+    if keyboard_input.pressed(KeyCode::R) {
+        for mut transform in &mut query {
+            transform.look_to(Vec3::NEG_Z, Vec3::Y);
+        }
+    }
 }
 
 fn create_cube_mesh() -> Mesh {
@@ -97,39 +127,39 @@ fn create_cube_mesh() -> Mesh {
         // Each array is an [x, y, z] coordinate in local space.
         vec![
             // top (facing towards +y)
-            [0.0, 1.0, 0.0], // vertex with index 0
-            [1.0, 1.0, 0.0], // vertex wtih index 1
-            [1.0, 1.0, 1.0], // etc. until 23
-            [0.0, 1.0, 1.0],
-            // bottom `  `  (-y)
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [1.0, 0.0, 1.0],
-            [0.0, 0.0, 1.0],
-            // right  `  `  (+x)
-            [1.0, 0.0, 0.0],
-            [1.0, 0.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [1.0, 1.0, 0.0],
-            // left   `  `  (-x)
-            [0.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0],
-            [0.0, 1.0, 1.0],
-            [0.0, 1.0, 0.0],
-            // back   `  `  (+z)
-            [0.0, 0.0, 1.0],
-            [0.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [1.0, 0.0, 1.0],
-            // forward ` `  (-z)
-            [0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [1.0, 1.0, 0.0],
-            [1.0, 0.0, 0.0],
+            [-0.5, 0.5, -0.5], // vertex with index 0
+            [0.5, 0.5, -0.5], // vertex wtih index 1
+            [0.5, 0.5, 0.5], // etc. until 23
+            [-0.5, 0.5, 0.5],
+            // bottom   (-y)
+            [-0.5, -0.5, -0.5],
+            [0.5, -0.5, -0.5],
+            [0.5, -0.5, 0.5],
+            [-0.5, -0.5, 0.5],
+            // right    (+x)
+            [0.5, -0.5, -0.5],
+            [0.5, -0.5, 0.5],
+            [0.5, 0.5, 0.5],
+            [0.5, 0.5, -0.5],
+            // left     (-x)
+            [-0.5, -0.5, -0.5],
+            [-0.5, -0.5, 0.5],
+            [-0.5, 0.5, 0.5],
+            [-0.5, 0.5, -0.5],
+            // back     (+z)
+            [-0.5, -0.5, 0.5],
+            [-0.5, 0.5, 0.5],
+            [0.5, 0.5, 0.5],
+            [0.5, -0.5, 0.5],
+            // forward  (-z)
+            [-0.5, -0.5, -0.5],
+            [-0.5, 0.5, -0.5],
+            [0.5, 0.5, -0.5],
+            [0.5, -0.5, -0.5],
         ],
     );
 
-    // Take a look at the custom image (assets/textures/custom_image_for_example.png)
+    // Take a look at the custom image (assets/textures/array_texture.png)
     // so the UV coords will make more sense (note (0.0, 0.0) = Top-Left in UV mapping).
     #[rustfmt::skip]
     cube_mesh.insert_attribute(
@@ -211,28 +241,19 @@ fn create_cube_mesh() -> Mesh {
 
 // Function that changes the UV mapping of the mesh, to apply the other texture.
 fn toggle_texture(mesh_to_change: &mut Mesh) {
-    // Use .attributes_mut to iterate over all of the attributes of the mesh, and get a mutable
-    // reference to them.
-    for attribute in mesh_to_change.attributes_mut() {
-        // We only want to change the UV attributes.
-        if attribute.0 == Mesh::ATTRIBUTE_UV_0.id {
-            // VertexAttributeValues could have multiple different fromats, because we are dealing
-            // with a UV attribute, we expect the format to be Float32x2 (same format we used to
-            // define in lines 136 - 152).
-            match attribute.1 {
-                VertexAttributeValues::Float32x2(ref mut coordinates) => {
-                    // Iterate all over the UV coordinates, changing them to the coordinate
-                    // corresponding to the other texture.
-                    for uv_coord in coordinates.iter_mut() {
-                        if (uv_coord[1] + 0.5) < 1.0 {
-                            uv_coord[1] += 0.5;
-                        } else {
-                            uv_coord[1] -= 0.5;
-                        }
-                    }
-                }
-                _ => panic!("expected Float32x2 for UV attributes"),
-            }
+    // Get a mutable reference the values of the UV attribute, so we can iterate over it.
+    let uv_attribute = mesh_to_change.attribute_mut(Mesh::ATTRIBUTE_UV_0).unwrap();
+    // The format of the UV coordinates should be Float32x2.
+    let VertexAttributeValues::Float32x2(uv_attribute) = uv_attribute else {
+        panic!("Unexpected vertex format, expected Float32x2.");
+    };
+
+    // Iterate over the UV coordinates, and change them as we want.
+    for uv_coord in uv_attribute.iter_mut() {
+        if (uv_coord[1] + 0.5) < 1.0 {
+            uv_coord[1] += 0.5;
+        } else {
+            uv_coord[1] -= 0.5;
         }
     }
 }
