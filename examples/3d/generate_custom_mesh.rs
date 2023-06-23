@@ -141,7 +141,7 @@ fn create_cube_mesh() -> Mesh {
             // right    (+x)
             [0.5, -0.5, -0.5],
             [0.5, -0.5, 0.5],
-            [0.5, 0.5, 0.5],
+            [0.5, 0.5, 0.5], // This vertex is at the same position as vertex with index 2, but they'll have different UV and normal
             [0.5, 0.5, -0.5],
             // left     (-x)
             [-0.5, -0.5, -0.5],
