@@ -167,7 +167,7 @@ impl<T: TypePath> DynamicTypePath for T {
 }
 
 /// Provides dynamic access to all methods on [`TypePath`].
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct TypePathVtable {
     // Cache the type path as it is likely the only one that will be used.
     type_path: &'static str,
@@ -175,6 +175,12 @@ pub struct TypePathVtable {
     type_ident: fn() -> Option<&'static str>,
     crate_name: fn() -> Option<&'static str>,
     module_path: fn() -> Option<&'static str>,
+}
+
+impl fmt::Debug for TypePathVtable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self.type_path, f)
+    }
 }
 
 impl TypePathVtable {

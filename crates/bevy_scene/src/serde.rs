@@ -116,7 +116,7 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
         let mut state = serializer.serialize_map(Some(self.entries.len()))?;
         for reflect in self.entries {
             state.serialize_entry(
-                reflect.reflect_type_path(),
+                reflect.get_represented_type_info().unwrap().type_path(),
                 &TypedReflectSerializer::new(&**reflect, &self.registry.read()),
             )?;
         }
@@ -812,11 +812,14 @@ mod tests {
                 let received = received
                     .components
                     .iter()
-                    .find(|component| component.reflect_type_path() == expected.reflect_type_path())
+                    .find(|component| {
+                        component.get_represented_type_info().unwrap().type_path()
+                            == expected.get_represented_type_info().unwrap().type_path()
+                    })
                     .unwrap_or_else(|| {
                         panic!(
                             "missing component (expected: `{}`)",
-                            expected.reflect_type_path()
+                            expected.get_represented_type_info().unwrap().type_path()
                         )
                     });
 

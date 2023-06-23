@@ -43,12 +43,14 @@ pub struct SceneSpawner {
 
 #[derive(Error, Debug)]
 pub enum SceneSpawnError {
-    #[error("scene contains the unregistered component `{type_name}`. consider adding `#[reflect(Component)]` to your type")]
-    UnregisteredComponent { type_name: String },
-    #[error("scene contains the unregistered resource `{type_name}`. consider adding `#[reflect(Resource)]` to your type")]
-    UnregisteredResource { type_name: String },
-    #[error("scene contains the unregistered type `{type_name}`. consider registering the type using `app.register_type::<T>()`")]
-    UnregisteredType { type_name: String },
+    #[error("scene contains the unregistered component `{type_path}`. consider adding `#[reflect(Component)]` to your type")]
+    UnregisteredComponent { type_path: String },
+    #[error("scene contains the unregistered resource `{type_path}`. consider adding `#[reflect(Resource)]` to your type")]
+    UnregisteredResource { type_path: String },
+    #[error("scene contains the unregistered type `{type_path}`. consider registering the type using `app.register_type::<T>()`")]
+    UnregisteredType { type_path: String },
+    #[error("scene contains dynamic type `{type_path}` without a represented type. consider changing this using `set_represented_type`.")]
+    NoRepresentedType { type_path: String },
     #[error("scene does not exist")]
     NonExistentScene { handle: Handle<DynamicScene> },
     #[error("scene does not exist")]
