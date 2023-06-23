@@ -130,7 +130,7 @@ fn create_cube_mesh() -> Mesh {
         vec![
             // top (facing towards +y)
             [-0.5, 0.5, -0.5], // vertex with index 0
-            [0.5, 0.5, -0.5], // vertex wtih index 1
+            [0.5, 0.5, -0.5], // vertex with index 1
             [0.5, 0.5, 0.5], // etc. until 23
             [-0.5, 0.5, 0.5],
             // bottom   (-y)
