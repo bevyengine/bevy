@@ -183,7 +183,7 @@ fn create_cube_mesh() -> Mesh {
         ],
     );
 
-    // For meshes with flat shading, normlas are orthogonal (pointing out) from the direction of
+    // For meshes with flat shading, normals are orthogonal (pointing out) from the direction of
     // the surface.
     // Normals are required for correct lighting calculations.
     #[rustfmt::skip]
