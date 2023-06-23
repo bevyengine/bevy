@@ -255,9 +255,12 @@ fn toggle_texture(mesh_to_change: &mut Mesh) {
 
     // Iterate over the UV coordinates, and change them as we want.
     for uv_coord in uv_attribute.iter_mut() {
+        // If the UV coordinate points to the upper, "dirt+grass" part of the texture...
         if (uv_coord[1] + 0.5) < 1.0 {
+            // ... point to the equivalent lower, "sand+water" part instead,
             uv_coord[1] += 0.5;
         } else {
+            // else, point back to the upper, "dirt+grass" part.
             uv_coord[1] -= 0.5;
         }
     }
