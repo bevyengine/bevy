@@ -1,5 +1,6 @@
-// ! This example demonstrates how to create a custom mesh, and assign a custom UV mapping for a
-// ! cusotm texture. And how to change the UV mapping at run-time.
+// ! This example demonstrates how to create a custom mesh,
+// ! assign a custom UV mapping for a cusotm texture,
+// ! and how to change the UV mapping at run-time.
 use bevy::prelude::*;
 use bevy::render::mesh::Indices;
 use bevy::render::mesh::VertexAttributeValues;
@@ -9,35 +10,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, rotate_y)
-        // .add_systems(Update, rotate_x)
-        // .add_systems(Update, rotate_z)
         .add_systems(Update, input_handler)
         .run();
-}
-
-// Rotate the cube to show off all the sides.
-#[allow(dead_code)]
-fn rotate_y(mut query: Query<&mut Transform, With<Handle<Mesh>>>, time: Res<Time>) {
-    for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() / 1.2);
-    }
-}
-
-// Optional system to rotate around the x axis.
-#[allow(dead_code)]
-fn rotate_x(mut query: Query<&mut Transform, With<Handle<Mesh>>>, time: Res<Time>) {
-    for mut transform in &mut query {
-        transform.rotate_x(time.delta_seconds() / 1.2);
-    }
-}
-
-// Optional system to rotate around the z axis.
-#[allow(dead_code)]
-fn rotate_z(mut query: Query<&mut Transform, With<Handle<Mesh>>>, time: Res<Time>) {
-    for mut transform in &mut query {
-        transform.rotate_z(time.delta_seconds() / 1.2);
-    }
 }
 
 fn setup(
@@ -63,7 +37,7 @@ fn setup(
 
     // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
     let camera_and_light_transform =
-        Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y);
+        Transform::from_xyz(2.1, 2.1, 2.1).looking_at(Vec3::ZERO, Vec3::Y);
 
     // Camera in 3D space.
     commands.spawn(Camera3dBundle {
@@ -74,7 +48,7 @@ fn setup(
     // Lighting up the scene.
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 9000.0,
+            intensity: 1000.0,
             range: 100.0,
             ..default()
         },
@@ -89,11 +63,28 @@ fn input_handler(
     keyboard_input: Res<Input<KeyCode>>,
     mesh_query: Query<&Handle<Mesh>>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut query: Query<&mut Transform, With<Handle<Mesh>>>,
+    time: Res<Time>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         let mesh_handle = mesh_query.get_single().expect("Query not successful");
         let mesh = meshes.get_mut(mesh_handle).unwrap();
         toggle_texture(mesh);
+    }
+    if keyboard_input.pressed(KeyCode::X) {
+        for mut transform in &mut query {
+            transform.rotate_x(time.delta_seconds() / 1.2);
+        }
+    }
+    if keyboard_input.pressed(KeyCode::Y) {
+        for mut transform in &mut query {
+            transform.rotate_y(time.delta_seconds() / 1.2);
+        }
+    }
+    if keyboard_input.pressed(KeyCode::Z) {
+        for mut transform in &mut query {
+            transform.rotate_z(time.delta_seconds() / 1.2);
+        }
     }
 }
 
@@ -103,6 +94,7 @@ fn create_cube_mesh() -> Mesh {
     #[rustfmt::skip]
     cube_mesh.insert_attribute(
         Mesh::ATTRIBUTE_POSITION,
+        // Each array is an [x, y, z] coordinate in local space.
         vec![
             // top (facing towards +y)
             [0.0, 1.0, 0.0], // vertex with index 0
@@ -158,8 +150,9 @@ fn create_cube_mesh() -> Mesh {
         ],
     );
 
-    // When it comes to smooth, and simple meshes, normals are as simple as the direction of the flat surface
-    // Assign normals to allow for correct lighting calculations.
+    // For meshes with flat shading, normlas are orthogonal (pointing out) from the direction of
+    // the surface.
+    // Normals are required for correct lighting calculations.
     #[rustfmt::skip]
     cube_mesh.insert_attribute(
         Mesh::ATTRIBUTE_NORMAL,
