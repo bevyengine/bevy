@@ -448,6 +448,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "generate_custom_mesh"
+path = "examples/3d/generate_custom_mesh.rs"
+
+[package.metadata.example.generate_custom_mesh]
+name = "Generate Custom Mesh"
+description = "Simple showcase of how to generate a custom mesh with a custom texture"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "anti_aliasing"
 path = "examples/3d/anti_aliasing.rs"
 
