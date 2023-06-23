@@ -125,6 +125,8 @@ fn create_cube_mesh() -> Mesh {
     cube_mesh.insert_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.
+        // Meshes always rotate around [0, 0, 0]
+        // By centering our mesh around the origin, rotation preserves the center of mass.
         vec![
             // top (facing towards +y)
             [-0.5, 0.5, -0.5], // vertex with index 0
