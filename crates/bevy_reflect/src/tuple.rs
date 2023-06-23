@@ -1,11 +1,11 @@
 use bevy_reflect_derive::impl_type_path;
 
+use crate::TypePathVtable;
 use crate::{
     self as bevy_reflect, utility::GenericTypePathCell, FromReflect, GetTypeRegistration, Reflect,
     ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
     UnnamedField,
 };
-use crate::TypePathVtable;
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
