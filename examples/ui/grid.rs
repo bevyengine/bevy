@@ -169,7 +169,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             });
 
-            // Modal (absolutely positioned on top of content - change its visibility to view)
+            // Modal (absolutely positioned on top of content - currently hidden: to view it, change its visibility)
             builder.spawn(NodeBundle {
                 visibility: Visibility::Hidden,
                 style: Style {
