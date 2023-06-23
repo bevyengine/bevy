@@ -424,6 +424,10 @@ impl Time {
     pub fn fixed_clock(&self) -> &Clock {
         &self.fixed_clock
     }
+
+    pub fn current_clock(&self) -> &Clock {
+        &self.current_clock
+    }
 }
 
 #[cfg(test)]
