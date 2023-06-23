@@ -2,6 +2,8 @@ use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{Duration, Instant};
 
+use crate::clock::Clock;
+
 /// A clock that tracks how much it has advanced (and how much real time has elapsed) since
 /// its previous update and since its creation.
 #[derive(Resource, Reflect, FromReflect, Debug, Clone)]
@@ -14,30 +16,17 @@ pub struct Time {
     paused: bool,
     // scaling
     relative_speed: f64, // using `f64` instead of `f32` to minimize drift from rounding errors
-    delta: Duration,
-    delta_seconds: f32,
-    delta_seconds_f64: f64,
-    elapsed: Duration,
-    elapsed_seconds: f32,
-    elapsed_seconds_f64: f64,
-    raw_delta: Duration,
-    raw_delta_seconds: f32,
-    raw_delta_seconds_f64: f64,
-    raw_elapsed: Duration,
-    raw_elapsed_seconds: f32,
-    raw_elapsed_seconds_f64: f64,
     // wrapping
-    wrap_period: Duration,
-    elapsed_wrapped: Duration,
-    elapsed_seconds_wrapped: f32,
-    elapsed_seconds_wrapped_f64: f64,
-    raw_elapsed_wrapped: Duration,
-    raw_elapsed_seconds_wrapped: f32,
-    raw_elapsed_seconds_wrapped_f64: f64,
+    wrap_seconds: u64,
+
     maximum_delta: Option<Duration>,
-    accumulated: Duration,
+    fixed_accumulated: Duration,
     fixed_period: Duration,
-    stored_delta: Option<Duration>,
+
+    raw_clock: Clock,
+    virtual_clock: Clock,
+    fixed_clock: Clock,
+    current_clock: Clock,
 }
 
 impl Default for Time {
@@ -48,29 +37,14 @@ impl Default for Time {
             last_update: None,
             paused: false,
             relative_speed: 1.0,
-            delta: Duration::ZERO,
-            delta_seconds: 0.0,
-            delta_seconds_f64: 0.0,
-            elapsed: Duration::ZERO,
-            elapsed_seconds: 0.0,
-            elapsed_seconds_f64: 0.0,
-            raw_delta: Duration::ZERO,
-            raw_delta_seconds: 0.0,
-            raw_delta_seconds_f64: 0.0,
-            raw_elapsed: Duration::ZERO,
-            raw_elapsed_seconds: 0.0,
-            raw_elapsed_seconds_f64: 0.0,
-            wrap_period: Duration::from_secs(3600), // 1 hour
-            elapsed_wrapped: Duration::ZERO,
-            elapsed_seconds_wrapped: 0.0,
-            elapsed_seconds_wrapped_f64: 0.0,
-            raw_elapsed_wrapped: Duration::ZERO,
-            raw_elapsed_seconds_wrapped: 0.0,
-            raw_elapsed_seconds_wrapped_f64: 0.0,
+            wrap_seconds: 3600, // 1 hour
             maximum_delta: Some(Duration::from_millis(333)),
-            accumulated: Duration::ZERO,
+            fixed_accumulated: Duration::ZERO,
             fixed_period: Duration::from_secs_f32(1. / 60.), // XXX
-            stored_delta: None,
+            raw_clock: Clock::new(3600),
+            virtual_clock: Clock::new(3600),
+            fixed_clock: Clock::new(3600),
+            current_clock: Clock::new(3600),
         }
     }
 }
@@ -146,9 +120,9 @@ impl Time {
     /// }
     /// ```
     pub fn update_with_instant(&mut self, instant: Instant) {
-        assert!(self.stored_delta.is_none());
         let raw_delta = instant - self.last_update.unwrap_or(self.startup);
-        let delta = if self.paused {
+        self.raw_clock.advance_by(raw_delta);
+        let scaled_delta = if self.paused {
             Duration::ZERO
         } else if self.relative_speed != 1.0 {
             raw_delta.mul_f64(self.relative_speed)
@@ -157,88 +131,35 @@ impl Time {
             raw_delta
         };
         let delta = if let Some(maximum_delta) = self.maximum_delta {
-            std::cmp::min(delta, maximum_delta)
+            std::cmp::min(scaled_delta, maximum_delta)
         } else {
-            delta
+            scaled_delta
         };
+        self.virtual_clock.advance_by(delta);
+        self.fixed_accumulated += delta;
 
-        if self.last_update.is_some() {
-            self.delta = delta;
-            self.delta_seconds = self.delta.as_secs_f32();
-            self.delta_seconds_f64 = self.delta.as_secs_f64();
-            self.raw_delta = raw_delta;
-            self.raw_delta_seconds = self.raw_delta.as_secs_f32();
-            self.raw_delta_seconds_f64 = self.raw_delta.as_secs_f64();
-        } else {
+        if self.last_update.is_none() {
             self.first_update = Some(instant);
+            // on first actual update, zero out delta so we do not get a big jump due to startup systems
+            self.raw_clock.advance_by(Duration::ZERO);
+            self.virtual_clock.advance_by(Duration::ZERO);
         }
-
-        self.accumulated += delta;
-        self.elapsed += delta;
-        self.elapsed_seconds = self.elapsed.as_secs_f32();
-        self.elapsed_seconds_f64 = self.elapsed.as_secs_f64();
-        self.raw_elapsed += raw_delta;
-        self.raw_elapsed_seconds = self.raw_elapsed.as_secs_f32();
-        self.raw_elapsed_seconds_f64 = self.raw_elapsed.as_secs_f64();
-
-        self.elapsed_wrapped = duration_div_rem(self.elapsed, self.wrap_period).1;
-        self.elapsed_seconds_wrapped = self.elapsed_wrapped.as_secs_f32();
-        self.elapsed_seconds_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();
-        self.raw_elapsed_wrapped = duration_div_rem(self.raw_elapsed, self.wrap_period).1;
-        self.raw_elapsed_seconds_wrapped = self.raw_elapsed_wrapped.as_secs_f32();
-        self.raw_elapsed_seconds_wrapped_f64 = self.raw_elapsed_wrapped.as_secs_f64();
-
         self.last_update = Some(instant);
-    }
-
-    pub fn prepare_fixed(&mut self) {
-        assert!(self.stored_delta.is_none());
-        // stash current delta since we don't have it anywhere else, also is used as a marker if we are in fixed time or not
-        self.stored_delta = Some(self.delta);
-        self.delta = self.fixed_period;
-        self.delta_seconds = self.delta.as_secs_f32();
-        self.delta_seconds_f64 = self.delta.as_secs_f64();
-        // rewind elapsed to time during last fixed update
-        self.elapsed -= self.accumulated;
-        self.elapsed_seconds = self.elapsed.as_secs_f32();
-        self.elapsed_seconds_f64 = self.elapsed.as_secs_f64();
-        self.elapsed_wrapped = duration_div_rem(self.elapsed, self.wrap_period).1;
-        self.elapsed_seconds_wrapped = self.elapsed_wrapped.as_secs_f32();
-        self.elapsed_seconds_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();
+        self.current_clock = self.virtual_clock;
     }
 
     pub fn expend_fixed(&mut self) -> bool {
-        assert!(self.stored_delta.is_some());
-        if let Some(new_value) = self.accumulated.checked_sub(self.fixed_period) {
+        if let Some(new_value) = self.fixed_accumulated.checked_sub(self.fixed_period) {
             // reduce accumulated and increase elapsed by period
-            self.accumulated = new_value;
-            self.elapsed += self.fixed_period;
-            self.elapsed_seconds = self.elapsed.as_secs_f32();
-            self.elapsed_seconds_f64 = self.elapsed.as_secs_f64();
-            self.elapsed_wrapped = duration_div_rem(self.elapsed, self.wrap_period).1;
-            self.elapsed_seconds_wrapped = self.elapsed_wrapped.as_secs_f32();
-            self.elapsed_seconds_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();
+            self.fixed_accumulated = new_value;
+            self.fixed_clock.advance_by(self.fixed_period);
+            self.current_clock = self.fixed_clock;
             true
         } else {
             // no more periods left in accumulated
+            self.current_clock = self.virtual_clock;
             false
         }
-    }
-
-    pub fn finish_fixed(&mut self) {
-        assert!(self.stored_delta.is_some());
-        // restore delta from stashed delta
-        self.delta = self.stored_delta.unwrap();
-        self.delta_seconds = self.delta.as_secs_f32();
-        self.delta_seconds_f64 = self.delta.as_secs_f64();
-        // add remainder of accumulated back to elapsed for Update stage
-        self.elapsed += self.accumulated;
-        self.elapsed_seconds = self.elapsed.as_secs_f32();
-        self.elapsed_seconds_f64 = self.elapsed.as_secs_f64();
-        self.elapsed_wrapped = duration_div_rem(self.elapsed, self.wrap_period).1;
-        self.elapsed_seconds_wrapped = self.elapsed_wrapped.as_secs_f32();
-        self.elapsed_seconds_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();
-        self.stored_delta = None;
     }
 
     /// Returns the [`Instant`] the clock was created.
@@ -268,25 +189,25 @@ impl Time {
     /// Returns how much time has advanced since the last [`update`](#method.update), as a [`Duration`].
     #[inline]
     pub fn delta(&self) -> Duration {
-        self.delta
+        self.current_clock.delta
     }
 
     /// Returns how much time has advanced since the last [`update`](#method.update), as [`f32`] seconds.
     #[inline]
     pub fn delta_seconds(&self) -> f32 {
-        self.delta_seconds
+        self.current_clock.delta_seconds
     }
 
     /// Returns how much time has advanced since the last [`update`](#method.update), as [`f64`] seconds.
     #[inline]
     pub fn delta_seconds_f64(&self) -> f64 {
-        self.delta_seconds_f64
+        self.current_clock.delta_seconds_f64
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup), as [`Duration`].
     #[inline]
     pub fn elapsed(&self) -> Duration {
-        self.elapsed
+        self.current_clock.elapsed
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup), as [`f32`] seconds.
@@ -296,20 +217,20 @@ impl Time {
     /// use [`elapsed_seconds_wrapped`](#method.elapsed_seconds_wrapped).
     #[inline]
     pub fn elapsed_seconds(&self) -> f32 {
-        self.elapsed_seconds
+        self.current_clock.elapsed_seconds
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup), as [`f64`] seconds.
     #[inline]
     pub fn elapsed_seconds_f64(&self) -> f64 {
-        self.elapsed_seconds_f64
+        self.current_clock.elapsed_seconds_f64
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup) modulo
     /// the [`wrap_period`](#method.wrap_period), as [`Duration`].
     #[inline]
     pub fn elapsed_wrapped(&self) -> Duration {
-        self.elapsed_wrapped
+        self.current_clock.elapsed_wrapped
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup) modulo
@@ -319,38 +240,38 @@ impl Time {
     /// suffer from the gradual precision loss of [`elapsed_seconds`](#method.elapsed_seconds).
     #[inline]
     pub fn elapsed_seconds_wrapped(&self) -> f32 {
-        self.elapsed_seconds_wrapped
+        self.current_clock.elapsed_seconds_wrapped
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup) modulo
     /// the [`wrap_period`](#method.wrap_period), as [`f64`] seconds.
     #[inline]
     pub fn elapsed_seconds_wrapped_f64(&self) -> f64 {
-        self.elapsed_seconds_wrapped_f64
+        self.current_clock.elapsed_seconds_wrapped_f64
     }
 
     /// Returns how much real time has elapsed since the last [`update`](#method.update), as a [`Duration`].
     #[inline]
     pub fn raw_delta(&self) -> Duration {
-        self.raw_delta
+        self.raw_clock.delta
     }
 
     /// Returns how much real time has elapsed since the last [`update`](#method.update), as [`f32`] seconds.
     #[inline]
     pub fn raw_delta_seconds(&self) -> f32 {
-        self.raw_delta_seconds
+        self.raw_clock.delta_seconds
     }
 
     /// Returns how much real time has elapsed since the last [`update`](#method.update), as [`f64`] seconds.
     #[inline]
     pub fn raw_delta_seconds_f64(&self) -> f64 {
-        self.raw_delta_seconds_f64
+        self.raw_clock.delta_seconds_f64
     }
 
     /// Returns how much real time has elapsed since [`startup`](#method.startup), as [`Duration`].
     #[inline]
     pub fn raw_elapsed(&self) -> Duration {
-        self.raw_elapsed
+        self.raw_clock.elapsed
     }
 
     /// Returns how much real time has elapsed since [`startup`](#method.startup), as [`f32`] seconds.
@@ -360,20 +281,20 @@ impl Time {
     /// use [`raw_elapsed_seconds_wrapped`](#method.raw_elapsed_seconds_wrapped).
     #[inline]
     pub fn raw_elapsed_seconds(&self) -> f32 {
-        self.raw_elapsed_seconds
+        self.raw_clock.elapsed_seconds
     }
 
     /// Returns how much real time has elapsed since [`startup`](#method.startup), as [`f64`] seconds.
     #[inline]
     pub fn raw_elapsed_seconds_f64(&self) -> f64 {
-        self.raw_elapsed_seconds_f64
+        self.raw_clock.elapsed_seconds_f64
     }
 
     /// Returns how much real time has elapsed since [`startup`](#method.startup) modulo
     /// the [`wrap_period`](#method.wrap_period), as [`Duration`].
     #[inline]
     pub fn raw_elapsed_wrapped(&self) -> Duration {
-        self.raw_elapsed_wrapped
+        self.raw_clock.elapsed_wrapped
     }
 
     /// Returns how much real time has elapsed since [`startup`](#method.startup) modulo
@@ -383,14 +304,14 @@ impl Time {
     /// suffer from the gradual precision loss of [`raw_elapsed_seconds`](#method.raw_elapsed_seconds).
     #[inline]
     pub fn raw_elapsed_seconds_wrapped(&self) -> f32 {
-        self.raw_elapsed_seconds_wrapped
+        self.raw_clock.elapsed_seconds_wrapped
     }
 
     /// Returns how much real time has elapsed since [`startup`](#method.startup) modulo
     /// the [`wrap_period`](#method.wrap_period), as [`f64`] seconds.
     #[inline]
     pub fn raw_elapsed_seconds_wrapped_f64(&self) -> f64 {
-        self.raw_elapsed_seconds_wrapped_f64
+        self.raw_clock.elapsed_seconds_wrapped_f64
     }
 
     /// Returns the modulus used to calculate [`elapsed_wrapped`](#method.elapsed_wrapped) and
@@ -399,7 +320,7 @@ impl Time {
     /// **Note:** The default modulus is one hour.
     #[inline]
     pub fn wrap_period(&self) -> Duration {
-        self.wrap_period
+        Duration::from_secs(self.wrap_seconds)
     }
 
     /// Sets the modulus used to calculate [`elapsed_wrapped`](#method.elapsed_wrapped) and
@@ -413,7 +334,11 @@ impl Time {
     #[inline]
     pub fn set_wrap_period(&mut self, wrap_period: Duration) {
         assert!(!wrap_period.is_zero(), "division by zero");
-        self.wrap_period = wrap_period;
+        assert_eq!(wrap_period.subsec_nanos(), 0, "wrap period must be integral seconds");
+        self.wrap_seconds = wrap_period.as_secs();
+        self.raw_clock.wrap_seconds = self.wrap_seconds;
+        self.virtual_clock.wrap_seconds = self.wrap_seconds;
+        self.fixed_clock.wrap_seconds = self.wrap_seconds;
     }
 
     /// Returns the speed the clock advances relative to your system clock, as [`f32`].
@@ -487,13 +412,18 @@ impl Time {
     pub fn is_paused(&self) -> bool {
         self.paused
     }
-}
 
-fn duration_div_rem(dividend: Duration, divisor: Duration) -> (u32, Duration) {
-    // `Duration` does not have a built-in modulo operation
-    let quotient = (dividend.as_nanos() / divisor.as_nanos()) as u32;
-    let remainder = dividend - (quotient * divisor);
-    (quotient, remainder)
+    pub fn raw_clock(&self) -> &Clock {
+        &self.raw_clock
+    }
+
+    pub fn virtual_clock(&self) -> &Clock {
+        &self.virtual_clock
+    }
+
+    pub fn fixed_clock(&self) -> &Clock {
+        &self.fixed_clock
+    }
 }
 
 #[cfg(test)]
@@ -619,7 +549,7 @@ mod tests {
 
         let mut time = Time {
             startup: start_instant,
-            wrap_period: Duration::from_secs(3),
+            wrap_seconds: 3,
             ..Default::default()
         };
 

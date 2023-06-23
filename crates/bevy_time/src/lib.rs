@@ -7,6 +7,7 @@ mod stopwatch;
 #[allow(clippy::module_inception)]
 mod time;
 mod timer;
+mod clock;
 
 use fixed_timestep::FixedTime;
 pub use stopwatch::*;
