@@ -45,7 +45,7 @@ impl Default for AudioOutput {
 
 /// Marker for internal use, to despawn entities when playback finishes.
 #[derive(Component)]
-pub(crate) struct PlaybackDespawnMarker;
+pub struct PlaybackDespawnMarker;
 
 /// Plays "queued" audio through the [`AudioOutput`] resource.
 ///
