@@ -2,7 +2,7 @@ use crate::{Interaction, UiStack};
 use bevy_a11y::Focus;
 use bevy_ecs::prelude::Component;
 use bevy_ecs::query::With;
-use bevy_ecs::system::{Local, Query, Res, ResMut};
+use bevy_ecs::system::{Local, Query, Res, ResMut, Resource};
 use bevy_ecs::{change_detection::DetectChangesMut, entity::Entity};
 use bevy_input::{prelude::KeyCode, Input};
 use bevy_reflect::{FromReflect, Reflect};
@@ -28,7 +28,7 @@ impl Focusable {
     }
 }
 
-#[derive(Reflect, FromReflect, Component, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Reflect, FromReflect, Clone, Debug, Default, Eq, PartialEq)]
 enum FocusState {
     /// Entity is not focused
     #[default]
@@ -41,9 +41,24 @@ enum FocusState {
     },
 }
 
+/// Resource for the configuration of keyboard navigation of UI with <kbd>tab</kbd>.
+#[derive(Resource)]
+pub struct KeyboardNavigationInput {
+    pub enabled: bool,
+}
+
+impl Default for KeyboardNavigationInput {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
 /// Should the [`keyboard_navigation_system`] run?
-pub(crate) fn tab_pressed(keyboard_input: Res<Input<KeyCode>>) -> bool {
-    keyboard_input.just_pressed(KeyCode::Tab)
+pub(crate) fn tab_pressed(
+    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_navigation: Res<KeyboardNavigationInput>,
+) -> bool {
+    keyboard_navigation.enabled && keyboard_input.just_pressed(KeyCode::Tab)
 }
 
 /// The system updates the [`Focus`] resource when the user uses keyboard navigation with <kbd>tab</kbd> or <kbd>shift</kbd> + <kbd>tab</kbd>.

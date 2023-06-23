@@ -55,11 +55,10 @@ fn update_focus_style(
     for (focusable, mut color) in &mut focusable_query {
         info!("Update focus {focusable:?}");
         *color = if focusable.is_focus_visible() {
-            FOCUS_BORDER
+            FOCUS_BORDER.into()
         } else {
-            NORMAL_BORDER
-        }
-        .into();
+            NORMAL_BORDER.into()
+        };
     }
 }
 
