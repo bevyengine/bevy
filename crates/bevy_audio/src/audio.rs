@@ -135,10 +135,6 @@ impl PlaybackSettings {
 
 /// Settings for playing spatial audio.
 ///
-/// These settings are applied when the sound starts playing. If they are changed after
-/// the sound has started playing, they will have no effect. Bevy does not yet support
-/// moving positional sound sources.
-///
 /// Note: Bevy does not currently support HRTF or any other high-quality 3D sound rendering
 /// features. Spatial audio is implemented via simple left-right stereo panning.
 #[derive(Component, Clone, Debug)]
