@@ -94,9 +94,9 @@ fn create_text_measure(
             if matches!(text.linebreak_behavior, BreakLineOn::NoWrap) {
                 content_size.set(FixedMeasure {
                     size: measure.max_width_content_size,
-                })
+                });
             } else {
-                content_size.set(TextMeasure { info: measure })
+                content_size.set(TextMeasure { info: measure });
             }
 
             // Text measure func created succesfully, so set `TextFlags` to schedule a recompute
