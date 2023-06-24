@@ -32,7 +32,7 @@ impl Default for Time {
             last_update: None,
             paused: false,
             relative_speed: 1.0,
-            maximum_delta: None, // XXX
+            maximum_delta: Some(Duration::from_millis(333)), // XXX: From Unity, maybe we should do better
             fixed_accumulated: Duration::ZERO,
             fixed_period: Duration::from_secs_f32(1. / 60.), // XXX
             raw_clock: Clock::default(),
