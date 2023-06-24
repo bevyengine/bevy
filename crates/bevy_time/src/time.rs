@@ -347,6 +347,10 @@ impl Time {
     pub fn set_maximum_delta(&mut self, maximum_delta: Option<Duration>) {
         self.maximum_delta = maximum_delta;
     }
+    
+    pub fn set_maximum_fixed_ticks(&mut self, ticks: u32) {
+        self.maximum_delta = Some(self.fixed_period * ticks);
+    }
 
     /// Returns the speed the clock advances relative to your system clock, as [`f32`].
     /// This is known as "time scaling" or "time dilation" in other engines.
