@@ -36,13 +36,9 @@ struct FragmentInput {
 @fragment
 #ifdef DEFERRED_PREPASS
 fn fragment(in: FragmentInput) -> FragmentOutput {
+    var out: FragmentOutput;
 #else
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
-#endif
-
-#ifdef DEFERRED_PREPASS
-    prepass_alpha_discard(in);
-    var out: FragmentOutput;
 #endif // DEFERRED_PREPASS
     
     let is_orthographic = view.projection[3].w == 1.0;
@@ -150,6 +146,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 
         pbr_input.flags = mesh.flags;
 #ifdef DEFERRED_PREPASS
+        alpha_discard(material, output_color);
         out.deferred = deferred_gbuffer_from_pbr_input(pbr_input, in.frag_coord.z);
 #ifdef NORMAL_PREPASS
         out.normal = vec4(pbr_input.N * 0.5 + vec3(0.5), 1.0);
@@ -158,13 +155,12 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         output_color = pbr(pbr_input);
 #endif // DEFERRED_PREPASS
     } else {
-#ifdef DEFERRED_PREPASS
+            alpha_discard(material, output_color);
+#ifdef DEFERRED_PREPASS    
             var pbr_input = pbr_input_new();
             pbr_input.material.base_color = output_color;
             pbr_input.material.flags |= STANDARD_MATERIAL_FLAGS_UNLIT_BIT;
             out.deferred = deferred_gbuffer_from_pbr_input(pbr_input, in.frag_coord.z);
-#else // DEFERRED_PREPASS
-            output_color = alpha_discard(material, output_color);
 #endif // DEFERRED_PREPASS
 #ifdef NORMAL_PREPASS
             out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
