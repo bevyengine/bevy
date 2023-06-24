@@ -2,7 +2,6 @@
 
 /// Common run conditions
 pub mod common_conditions;
-pub mod fixed_timestep;
 mod stopwatch;
 #[allow(clippy::module_inception)]
 mod time;
@@ -26,7 +25,7 @@ pub mod prelude {
 use bevy_app::{prelude::*, RunFixedUpdateLoop};
 use bevy_ecs::prelude::*;
 
-use crate::fixed_timestep::run_fixed_update_schedule;
+use crate::time::run_fixed_update_schedule;
 
 /// Adds time functionality to Apps.
 #[derive(Default)]

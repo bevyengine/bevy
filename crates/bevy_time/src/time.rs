@@ -1,6 +1,7 @@
-use bevy_ecs::{reflect::ReflectResource, system::Resource};
+use bevy_ecs::{reflect::ReflectResource, system::Resource, world::World};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{Duration, Instant};
+use bevy_app::FixedUpdate;
 
 use crate::clock::Clock;
 
@@ -738,5 +739,55 @@ mod tests {
             (third_update_instant - second_update_instant) + (first_update_instant - start_instant),
         );
         assert_eq!(time.raw_elapsed(), third_update_instant - start_instant);
+    }
+
+    #[test]
+    fn fixed_time_starts_at_zero() {
+        let start_instant = Instant::now();
+
+        let time = Time::new(start_instant);
+
+        assert_eq!(time.fixed_accumulated, Duration::ZERO);
+    }
+
+    #[test]
+    fn fixed_time_ticks_up() {
+        let start_instant = Instant::now();
+        let mut time = Time::new(start_instant);
+        time.set_maximum_delta(None);
+
+        time.update_with_instant(start_instant + Duration::from_secs(1));
+        assert_eq!(time.fixed_accumulated, Duration::from_secs(1));
+    }
+
+    #[test]
+    fn enough_accumulated_time_is_required() {
+        let start_instant = Instant::now();
+        let mut time = Time::new(start_instant);
+        time.set_maximum_delta(None);
+        time.set_fixed_period(Duration::from_secs(2));
+
+        time.update_with_instant(start_instant + Duration::from_secs(1));
+        assert_eq!(time.expend_fixed(), false);
+        assert_eq!(time.fixed_accumulated, Duration::from_secs(1));
+
+        time.update_with_instant(start_instant + Duration::from_secs(2));
+        assert_eq!(time.expend_fixed(), true);
+        assert_eq!(time.fixed_accumulated, Duration::ZERO);
+        assert_eq!(time.expend_fixed(), false);
+    }
+
+    #[test]
+    fn repeatedly_expending_time() {
+        let start_instant = Instant::now();
+        let mut time = Time::new(start_instant);
+        time.set_maximum_delta(None);
+        time.set_fixed_period(Duration::from_secs(1));
+
+        time.update_with_instant(start_instant + Duration::new(3, 200_000_000));
+        assert_eq!(time.expend_fixed(), true);
+        assert_eq!(time.expend_fixed(), true);
+        assert_eq!(time.expend_fixed(), true);
+        assert_eq!(time.expend_fixed(), false);
     }
 }
