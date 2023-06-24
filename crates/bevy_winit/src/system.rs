@@ -181,21 +181,17 @@ pub(crate) fn changed_window(
                 let constraints = window.resize_constraints.check_constraints();
                 let logical_width = if window.resolution.width() > constraints.max_width {
                     constraints.max_width
+                } else if window.resolution.width() < constraints.min_width {
+                    constraints.min_width
                 } else {
-                    if window.resolution.width() < constraints.min_width {
-                        constraints.min_width
-                    } else {
-                        window.resolution.width()
-                    }
+                    window.resolution.width()
                 };
                 let logical_height = if window.resolution.height() > constraints.max_height {
                     constraints.max_height
+                } else if window.resolution.height() < constraints.min_height {
+                    constraints.min_height
                 } else {
-                    if window.resolution.height() < constraints.min_height {
-                        constraints.min_height
-                    } else {
-                        window.resolution.height()
-                    }
+                    window.resolution.height()
                 };
                 window.resolution.set(logical_width, logical_height);
 
