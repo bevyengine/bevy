@@ -473,6 +473,9 @@ pub fn queue_material_meshes<M: Material>(
                     let mut mesh_key =
                         MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                             | view_key;
+                    if mesh.morph_targets.is_some() {
+                        mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+                    }
                     match material.properties.alpha_mode {
                         AlphaMode::Blend => {
                             mesh_key |= MeshPipelineKey::BLEND_ALPHA;

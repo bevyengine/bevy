@@ -10,14 +10,14 @@ use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryItem, With},
-    schedule::IntoSystemConfigs,
+    schedule::{apply_deferred, IntoSystemConfigs},
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_math::vec2;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
-    camera::{ExtractedCamera, TemporalJitter},
+    camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
@@ -65,7 +65,8 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_taa_jitter
+                    (prepare_taa_jitter_and_mip_bias, apply_deferred)
+                        .chain()
                         .before(prepare_view_uniforms)
                         .in_set(RenderSet::Prepare),
                     prepare_taa_history_textures.in_set(RenderSet::Prepare),
@@ -131,7 +132,8 @@ pub struct TemporalAntiAliasBundle {
 ///
 /// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
-/// Currently does not support skinned meshes. There will probably be ghosting artifacts if used with them.
+/// Currently does not support skinned meshes and morph targets.
+/// There will probably be ghosting artifacts if used with them.
 /// Does not work well with alpha-blended meshes as it requires depth writing to determine motion.
 ///
 /// It is very important that correct motion vectors are written for everything on screen.
@@ -139,6 +141,8 @@ pub struct TemporalAntiAliasBundle {
 /// are added using a third party library, the library must either:
 /// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
+///
+/// If no [`MipBias`] component is attached to the camera, TAA will add a MipBias(-1.0) component.
 #[derive(Component, Reflect, Clone)]
 pub struct TemporalAntiAliasSettings {
     /// Set to true to delete the saved temporal history (past frames).
@@ -435,9 +439,13 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
     }
 }
 
-fn prepare_taa_jitter(
+fn prepare_taa_jitter_and_mip_bias(
     frame_count: Res<FrameCount>,
-    mut query: Query<&mut TemporalJitter, With<TemporalAntiAliasSettings>>,
+    mut query: Query<
+        (Entity, &mut TemporalJitter, Option<&MipBias>),
+        With<TemporalAntiAliasSettings>,
+    >,
+    mut commands: Commands,
 ) {
     // Halton sequence (2, 3) - 0.5, skipping i = 0
     let halton_sequence = [
@@ -453,8 +461,12 @@ fn prepare_taa_jitter(
 
     let offset = halton_sequence[frame_count.0 as usize % halton_sequence.len()];
 
-    for mut jitter in &mut query {
+    for (entity, mut jitter, mip_bias) in &mut query {
         jitter.offset = offset;
+
+        if mip_bias.is_none() {
+            commands.entity(entity).insert(MipBias(-1.0));
+        }
     }
 }
 

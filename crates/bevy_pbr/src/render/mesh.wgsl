@@ -1,5 +1,6 @@
 #import bevy_pbr::mesh_functions as mesh_functions
 #import bevy_pbr::skinning
+#import bevy_pbr::morph
 #import bevy_pbr::mesh_bindings       mesh
 #import bevy_pbr::mesh_vertex_output  MeshVertexOutput
 
@@ -23,11 +24,41 @@ struct Vertex {
     @location(5) joint_indices: vec4<u32>,
     @location(6) joint_weights: vec4<f32>,
 #endif
+#ifdef MORPH_TARGETS
+    @builtin(vertex_index) index: u32,
+#endif
 };
 
+#ifdef MORPH_TARGETS
+fn morph_vertex(vertex_in: Vertex) -> Vertex {
+    var vertex = vertex_in;
+    let weight_count = bevy_pbr::morph::layer_count();
+    for (var i: u32 = 0u; i < weight_count; i ++) {
+        let weight = bevy_pbr::morph::weight_at(i);
+        if weight == 0.0 {
+            continue;
+        }
+        vertex.position += weight * bevy_pbr::morph::morph(vertex.index, bevy_pbr::morph::position_offset, i);
+#ifdef VERTEX_NORMALS
+        vertex.normal += weight * bevy_pbr::morph::morph(vertex.index, bevy_pbr::morph::normal_offset, i);
+#endif
+#ifdef VERTEX_TANGENTS
+        vertex.tangent += vec4(weight * bevy_pbr::morph::morph(vertex.index, bevy_pbr::morph::tangent_offset, i), 0.0);
+#endif
+    }
+    return vertex;
+}
+#endif
+
 @vertex
-fn vertex(vertex: Vertex) -> MeshVertexOutput {
+fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
     var out: MeshVertexOutput;
+
+#ifdef MORPH_TARGETS
+    var vertex = morph_vertex(vertex_no_morph);
+#else
+    var vertex = vertex_no_morph;
+#endif
 
 #ifdef SKINNED
     var model = bevy_pbr::skinning::skin_model(vertex.joint_indices, vertex.joint_weights);

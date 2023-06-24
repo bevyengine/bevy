@@ -771,3 +771,9 @@ impl TemporalJitter {
         projection.z_axis.y += jitter.y;
     }
 }
+
+/// Camera component specifying a mip bias to apply when sampling from material textures.
+///
+/// Often used in conjunction with antialiasing post-process effects to reduce textures blurriness.
+#[derive(Component)]
+pub struct MipBias(pub f32);
