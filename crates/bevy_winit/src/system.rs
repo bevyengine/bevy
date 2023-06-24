@@ -15,7 +15,7 @@ use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use winit::{
-    dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
+    dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, Size},
     event_loop::EventLoopWindowTarget,
 };
 
@@ -164,12 +164,76 @@ pub(crate) fn changed_window(
                     winit_window.set_fullscreen(new_mode);
                 }
             }
+
             if window.resolution != cache.window.resolution {
+                // If `scale_factor_override` changed, the constraints need to be updated with the size.
+                if window.resolution.scale_factor_override()
+                    != cache.window.resolution.scale_factor_override()
+                {
+                    let constraints = window.resize_constraints.check_constraints();
+                    let min_inner_size = LogicalSize {
+                        width: constraints.min_width,
+                        height: constraints.min_height,
+                    };
+                    let max_inner_size = LogicalSize {
+                        width: constraints.max_width,
+                        height: constraints.max_height,
+                    };
+
+                    let (min_inner_size, max_inner_size): (Size, Size) =
+                        if let Some(sf) = window.resolution.scale_factor_override() {
+                            (
+                                min_inner_size.to_physical::<f64>(sf).into(),
+                                max_inner_size.to_physical::<f64>(sf).into(),
+                            )
+                        } else {
+                            (min_inner_size.into(), max_inner_size.into())
+                        };
+
+                    winit_window.set_min_inner_size(Some(min_inner_size));
+                    if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
+                        winit_window.set_max_inner_size(Some(max_inner_size));
+                    }
+                }
+
+                // Winit doesn't check constraints when using `set_inner_size`.
+                // Check them manually.
+                let constraints = window.resize_constraints.check_constraints();
+                let logical_width = if window.resolution.width() > constraints.max_width {
+                    constraints.max_width
+                } else {
+                    if window.resolution.width() < constraints.min_width {
+                        constraints.min_width
+                    } else {
+                        window.resolution.width()
+                    }
+                };
+                let logical_height = if window.resolution.height() > constraints.max_height {
+                    constraints.max_height
+                } else {
+                    if window.resolution.height() < constraints.min_height {
+                        constraints.min_height
+                    } else {
+                        window.resolution.height()
+                    }
+                };
+                window.resolution.set(logical_width, logical_height);
+
+                // Use `set_inner_size` to set the new size.
                 let physical_size = PhysicalSize::new(
                     window.resolution.physical_width(),
                     window.resolution.physical_height(),
                 );
                 winit_window.set_inner_size(physical_size);
+
+                // Winit doesn't send a WindowEvent::Resized when using `set_inner_size`.
+                // The resulting size can be different from the requested size when we reach full screen.
+                // In that case there would be a desynchronization between the Window component and Winit window.
+                // Refresh manually.
+                let inner_size = winit_window.inner_size();
+                window
+                    .resolution
+                    .set_physical_resolution(inner_size.width, inner_size.height);
             }
 
             if window.physical_cursor_position() != cache.window.physical_cursor_position() {
@@ -232,6 +296,16 @@ pub(crate) fn changed_window(
                     width: constraints.max_width,
                     height: constraints.max_height,
                 };
+
+                let (min_inner_size, max_inner_size): (Size, Size) =
+                    if let Some(sf) = window.resolution.scale_factor_override() {
+                        (
+                            min_inner_size.to_physical::<f64>(sf).into(),
+                            max_inner_size.to_physical::<f64>(sf).into(),
+                        )
+                    } else {
+                        (min_inner_size.into(), max_inner_size.into())
+                    };
 
                 winit_window.set_min_inner_size(Some(min_inner_size));
                 if constraints.max_width.is_finite() && constraints.max_height.is_finite() {

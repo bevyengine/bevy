@@ -12,7 +12,7 @@ use bevy_utils::{tracing::warn, HashMap};
 use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution};
 
 use winit::{
-    dpi::{LogicalSize, PhysicalPosition},
+    dpi::{LogicalSize, PhysicalPosition, Size},
     monitor::MonitorHandle,
 };
 
@@ -106,6 +106,16 @@ impl WinitWindows {
             width: constraints.max_width,
             height: constraints.max_height,
         };
+
+        let (min_inner_size, max_inner_size): (Size, Size) =
+            if let Some(sf) = window.resolution.scale_factor_override() {
+                (
+                    min_inner_size.to_physical::<f64>(sf).into(),
+                    max_inner_size.to_physical::<f64>(sf).into(),
+                )
+            } else {
+                (min_inner_size.into(), max_inner_size.into())
+            };
 
         let winit_window_builder =
             if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
