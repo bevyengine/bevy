@@ -15,7 +15,7 @@ use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use winit::{
-    dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, Size},
+    dpi::{LogicalPosition, PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,
 };
 
@@ -24,7 +24,7 @@ use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
 use crate::{
     accessibility::{AccessKitAdapters, WinitActionHandlers},
     converters::{self, convert_window_level, convert_window_theme, convert_winit_theme},
-    get_best_videomode, get_fitting_videomode, WinitWindows,
+    get_best_videomode, get_fitting_videomode, get_inner_size_constraints, WinitWindows,
 };
 
 /// System responsible for creating new windows whenever a [`Window`] component is added
@@ -170,30 +170,10 @@ pub(crate) fn changed_window(
                 if window.resolution.scale_factor_override()
                     != cache.window.resolution.scale_factor_override()
                 {
-                    let constraints = window.resize_constraints.check_constraints();
-                    let min_inner_size = LogicalSize {
-                        width: constraints.min_width,
-                        height: constraints.min_height,
-                    };
-                    let max_inner_size = LogicalSize {
-                        width: constraints.max_width,
-                        height: constraints.max_height,
-                    };
-
-                    let (min_inner_size, max_inner_size): (Size, Size) =
-                        if let Some(sf) = window.resolution.scale_factor_override() {
-                            (
-                                min_inner_size.to_physical::<f64>(sf).into(),
-                                max_inner_size.to_physical::<f64>(sf).into(),
-                            )
-                        } else {
-                            (min_inner_size.into(), max_inner_size.into())
-                        };
+                    let (min_inner_size, max_inner_size) = get_inner_size_constraints(&window);
 
                     winit_window.set_min_inner_size(Some(min_inner_size));
-                    if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
-                        winit_window.set_max_inner_size(Some(max_inner_size));
-                    }
+                    winit_window.set_max_inner_size(max_inner_size);
                 }
 
                 // Winit doesn't check constraints when using `set_inner_size`.
@@ -287,30 +267,10 @@ pub(crate) fn changed_window(
             }
 
             if window.resize_constraints != cache.window.resize_constraints {
-                let constraints = window.resize_constraints.check_constraints();
-                let min_inner_size = LogicalSize {
-                    width: constraints.min_width,
-                    height: constraints.min_height,
-                };
-                let max_inner_size = LogicalSize {
-                    width: constraints.max_width,
-                    height: constraints.max_height,
-                };
-
-                let (min_inner_size, max_inner_size): (Size, Size) =
-                    if let Some(sf) = window.resolution.scale_factor_override() {
-                        (
-                            min_inner_size.to_physical::<f64>(sf).into(),
-                            max_inner_size.to_physical::<f64>(sf).into(),
-                        )
-                    } else {
-                        (min_inner_size.into(), max_inner_size.into())
-                    };
+                let (min_inner_size, max_inner_size) = get_inner_size_constraints(&window);
 
                 winit_window.set_min_inner_size(Some(min_inner_size));
-                if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
-                    winit_window.set_max_inner_size(Some(max_inner_size));
-                }
+                winit_window.set_max_inner_size(max_inner_size);
             }
 
             if window.position != cache.window.position {
