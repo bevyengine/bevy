@@ -333,6 +333,14 @@ impl Time {
         self.current_clock.set_wrap_period(wrap_period);
     }
 
+    pub fn fixed_period(&self) -> Duration {
+        self.fixed_period
+    }
+
+    pub fn set_fixed_period(&mut self, period: Duration) {
+        self.fixed_period = period;
+    }
+
     /// Returns the speed the clock advances relative to your system clock, as [`f32`].
     /// This is known as "time scaling" or "time dilation" in other engines.
     ///
