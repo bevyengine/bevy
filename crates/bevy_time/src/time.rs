@@ -114,6 +114,11 @@ impl Time {
     /// }
     /// ```
     pub fn update_with_instant(&mut self, instant: Instant) {
+        if self.last_update.is_none() {
+            self.first_update = Some(instant);
+            self.last_update = Some(instant);
+            return;
+        }
         let raw_delta = instant - self.last_update.unwrap_or(self.startup);
         self.raw_clock.advance_by(raw_delta);
         let scaled_delta = if self.paused {
@@ -132,12 +137,6 @@ impl Time {
         self.virtual_clock.advance_by(delta);
         self.fixed_accumulated += delta;
 
-        if self.last_update.is_none() {
-            self.first_update = Some(instant);
-            // on first actual update, zero out delta so we do not get a big jump due to startup systems
-            self.raw_clock.advance_by(Duration::ZERO);
-            self.virtual_clock.advance_by(Duration::ZERO);
-        }
         self.last_update = Some(instant);
         self.current_clock = self.virtual_clock;
     }
@@ -498,23 +497,23 @@ mod tests {
         assert_eq!(time.raw_delta(), Duration::ZERO);
         assert_eq!(time.raw_delta_seconds(), 0.0);
         assert_eq!(time.raw_delta_seconds_f64(), 0.0);
-        assert_eq!(time.elapsed(), first_update_instant - start_instant,);
+        assert_eq!(time.elapsed(), Duration::ZERO);
         assert_eq!(
             time.elapsed_seconds(),
-            (first_update_instant - start_instant).as_secs_f32(),
+            0.0
         );
         assert_eq!(
             time.elapsed_seconds_f64(),
-            (first_update_instant - start_instant).as_secs_f64(),
+            0.0
         );
-        assert_eq!(time.raw_elapsed(), first_update_instant - start_instant,);
+        assert_eq!(time.raw_elapsed(), Duration::ZERO);
         assert_eq!(
             time.raw_elapsed_seconds(),
-            (first_update_instant - start_instant).as_secs_f32(),
+            0.0
         );
         assert_eq!(
             time.raw_elapsed_seconds_f64(),
-            (first_update_instant - start_instant).as_secs_f64(),
+            0.0
         );
 
         // Update `time` again and check results.
@@ -546,23 +545,23 @@ mod tests {
             time.raw_delta_seconds_f64(),
             (second_update_instant - first_update_instant).as_secs_f64(),
         );
-        assert_eq!(time.elapsed(), second_update_instant - start_instant,);
+        assert_eq!(time.elapsed(), second_update_instant - first_update_instant,);
         assert_eq!(
             time.elapsed_seconds(),
-            (second_update_instant - start_instant).as_secs_f32(),
+            (second_update_instant - first_update_instant).as_secs_f32(),
         );
         assert_eq!(
             time.elapsed_seconds_f64(),
-            (second_update_instant - start_instant).as_secs_f64(),
+            (second_update_instant - first_update_instant).as_secs_f64(),
         );
-        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant,);
+        assert_eq!(time.raw_elapsed(), second_update_instant - first_update_instant,);
         assert_eq!(
             time.raw_elapsed_seconds(),
-            (second_update_instant - start_instant).as_secs_f32(),
+            (second_update_instant - first_update_instant).as_secs_f32(),
         );
         assert_eq!(
             time.raw_elapsed_seconds_f64(),
-            (second_update_instant - start_instant).as_secs_f64(),
+            (second_update_instant - first_update_instant).as_secs_f64(),
         );
     }
 
@@ -573,6 +572,7 @@ mod tests {
         let mut time = Time::new(start_instant);
         time.set_maximum_delta(None);
         time.set_wrap_period(Duration::from_secs(3));
+        time.update_with_instant(start_instant);
 
         assert_eq!(time.elapsed_seconds_wrapped(), 0.0);
 
@@ -627,23 +627,23 @@ mod tests {
             time.raw_delta_seconds_f64(),
             (second_update_instant - first_update_instant).as_secs_f64(),
         );
-        assert_eq!(time.elapsed(), second_update_instant - start_instant,);
+        assert_eq!(time.elapsed(), second_update_instant - first_update_instant,);
         assert_eq!(
             time.elapsed_seconds(),
-            (second_update_instant - start_instant).as_secs_f32(),
+            (second_update_instant - first_update_instant).as_secs_f32(),
         );
         assert_eq!(
             time.elapsed_seconds_f64(),
-            (second_update_instant - start_instant).as_secs_f64(),
+            (second_update_instant - first_update_instant).as_secs_f64(),
         );
-        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant,);
+        assert_eq!(time.raw_elapsed(), second_update_instant - first_update_instant,);
         assert_eq!(
             time.raw_elapsed_seconds(),
-            (second_update_instant - start_instant).as_secs_f32(),
+            (second_update_instant - first_update_instant).as_secs_f32(),
         );
         assert_eq!(
             time.raw_elapsed_seconds_f64(),
-            (second_update_instant - start_instant).as_secs_f64(),
+            (second_update_instant - first_update_instant).as_secs_f64(),
         );
 
         // Make app time advance at 2x the rate of your system clock.
@@ -668,27 +668,27 @@ mod tests {
         assert_eq!(time.raw_delta_seconds_f64(), elapsed.as_secs_f64());
         assert_eq!(
             time.elapsed(),
-            second_update_instant - start_instant + elapsed.mul_f32(2.0),
+            second_update_instant - first_update_instant + elapsed.mul_f32(2.0),
         );
         assert_eq!(
             time.elapsed_seconds(),
-            (second_update_instant - start_instant + elapsed.mul_f32(2.0)).as_secs_f32(),
+            (second_update_instant - first_update_instant + elapsed.mul_f32(2.0)).as_secs_f32(),
         );
         assert_eq!(
             time.elapsed_seconds_f64(),
-            (second_update_instant - start_instant + elapsed.mul_f32(2.0)).as_secs_f64(),
+            (second_update_instant - first_update_instant + elapsed.mul_f32(2.0)).as_secs_f64(),
         );
         assert_eq!(
             time.raw_elapsed(),
-            second_update_instant - start_instant + elapsed,
+            second_update_instant - first_update_instant + elapsed,
         );
         assert_eq!(
             time.raw_elapsed_seconds(),
-            (second_update_instant - start_instant + elapsed).as_secs_f32(),
+            (second_update_instant - first_update_instant + elapsed).as_secs_f32(),
         );
         assert_eq!(
             time.raw_elapsed_seconds_f64(),
-            (second_update_instant - start_instant + elapsed).as_secs_f64(),
+            (second_update_instant - first_update_instant + elapsed).as_secs_f64(),
         );
     }
 
@@ -718,8 +718,8 @@ mod tests {
             time.raw_delta(),
             second_update_instant - first_update_instant,
         );
-        assert_eq!(time.elapsed(), first_update_instant - start_instant);
-        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant);
+        assert_eq!(time.elapsed(), first_update_instant - first_update_instant);
+        assert_eq!(time.raw_elapsed(), second_update_instant - first_update_instant);
 
         time.unpause();
 
@@ -738,9 +738,9 @@ mod tests {
         );
         assert_eq!(
             time.elapsed(),
-            (third_update_instant - second_update_instant) + (first_update_instant - start_instant),
+            (third_update_instant - second_update_instant) + (first_update_instant - first_update_instant),
         );
-        assert_eq!(time.raw_elapsed(), third_update_instant - start_instant);
+        assert_eq!(time.raw_elapsed(), third_update_instant - first_update_instant);
     }
 
     #[test]
@@ -757,6 +757,7 @@ mod tests {
         let start_instant = Instant::now();
         let mut time = Time::new(start_instant);
         time.set_maximum_delta(None);
+        time.update_with_instant(start_instant);
 
         time.update_with_instant(start_instant + Duration::from_secs(1));
         assert_eq!(time.fixed_accumulated, Duration::from_secs(1));
@@ -768,6 +769,7 @@ mod tests {
         let mut time = Time::new(start_instant);
         time.set_maximum_delta(None);
         time.set_fixed_period(Duration::from_secs(2));
+        time.update_with_instant(start_instant);
 
         time.update_with_instant(start_instant + Duration::from_secs(1));
         assert_eq!(time.expend_fixed(), false);
@@ -785,6 +787,7 @@ mod tests {
         let mut time = Time::new(start_instant);
         time.set_maximum_delta(None);
         time.set_fixed_period(Duration::from_secs(1));
+        time.update_with_instant(start_instant);
 
         time.update_with_instant(start_instant + Duration::new(3, 200_000_000));
         assert_eq!(time.expend_fixed(), true);
