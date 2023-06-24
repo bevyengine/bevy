@@ -99,22 +99,22 @@ fn change_scaling(input: Res<Input<KeyCode>>, mut ui_scale: ResMut<TargetScale>)
 
 #[derive(Resource)]
 struct TargetScale {
-    start_scale: f64,
-    target_scale: f64,
+    start_scale: f32,
+    target_scale: f32,
     target_time: Timer,
 }
 
 impl TargetScale {
-    fn set_scale(&mut self, scale: f64) {
+    fn set_scale(&mut self, scale: f32) {
         self.start_scale = self.current_scale();
         self.target_scale = scale;
         self.target_time.reset();
     }
 
-    fn current_scale(&self) -> f64 {
+    fn current_scale(&self) -> f32 {
         let completion = self.target_time.percent();
         let multiplier = ease_in_expo(completion as f64);
-        self.start_scale + (self.target_scale - self.start_scale) * multiplier
+        self.start_scale + (self.target_scale - self.start_scale) * multiplier as f32
     }
 
     fn tick(&mut self, delta: Duration) -> &Self {

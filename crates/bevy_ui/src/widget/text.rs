@@ -78,7 +78,7 @@ impl Measure for TextMeasure {
 fn create_text_measure(
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
-    scale_factor: f64,
+    scale_factor: f32,
     text: Ref<Text>,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
@@ -116,7 +116,7 @@ fn create_text_measure(
 /// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 pub fn measure_text_system(
-    mut last_scale_factor: Local<f64>,
+    mut last_scale_factor: Local<f32>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
@@ -172,7 +172,7 @@ fn queue_text(
     texture_atlases: &mut Assets<TextureAtlas>,
     textures: &mut Assets<Image>,
     text_settings: &TextSettings,
-    scale_factor: f64,
+    scale_factor: f32,
     text: &Text,
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
@@ -226,7 +226,7 @@ fn queue_text(
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
-    mut last_scale_factor: Local<f64>,
+    mut last_scale_factor: Local<f32>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     text_settings: Res<TextSettings>,

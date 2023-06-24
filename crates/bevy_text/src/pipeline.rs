@@ -43,7 +43,7 @@ impl TextPipeline {
         &mut self,
         fonts: &Assets<Font>,
         sections: &[TextSection],
-        scale_factor: f64,
+        scale_factor: f32,
         text_alignment: TextAlignment,
         linebreak_behavior: BreakLineOn,
         bounds: Vec2,
@@ -122,7 +122,7 @@ impl TextPipeline {
         &mut self,
         fonts: &Assets<Font>,
         sections: &[TextSection],
-        scale_factor: f64,
+        scale_factor: f32,
         text_alignment: TextAlignment,
         linebreak_behaviour: BreakLineOn,
     ) -> Result<TextMeasureInfo, TextError> {

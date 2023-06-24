@@ -475,7 +475,7 @@ impl NormalizedRenderTarget {
                         window.resolution.physical_width(),
                         window.resolution.physical_height(),
                     ),
-                    scale_factor: window.resolution.scale_factor(),
+                    scale_factor: window.resolution.scale_factor() as f64,
                 }),
             NormalizedRenderTarget::Image(image_handle) => {
                 let image = images.get(image_handle)?;

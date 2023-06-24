@@ -69,7 +69,7 @@ pub(crate) fn create_window<'a>(
 
         window
             .resolution
-            .set_scale_factor(winit_window.scale_factor());
+            .set_scale_factor(winit_window.scale_factor() as f32);
         commands
             .entity(entity)
             .insert(RawHandleWrapper {

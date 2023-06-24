@@ -21,7 +21,7 @@ use std::fmt;
 use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
 pub struct LayoutContext {
-    pub scale_factor: f64,
+    pub scale_factor: f32,
     pub physical_size: Vec2,
     pub min_size: f32,
     pub max_size: f32,
@@ -29,7 +29,7 @@ pub struct LayoutContext {
 
 impl LayoutContext {
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
-    fn new(scale_factor: f64, physical_size: Vec2) -> Self {
+    fn new(scale_factor: f32, physical_size: Vec2) -> Self {
         Self {
             scale_factor,
             physical_size,
@@ -303,7 +303,7 @@ pub fn ui_layout_system(
 
     let physical_to_logical_factor = 1. / logical_to_physical_factor;
 
-    let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
+    let to_logical = |v| physical_to_logical_factor * v;
 
     // PERF: try doing this incrementally
     for (entity, mut node, mut transform, parent) in &mut node_transform_query {

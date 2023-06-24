@@ -70,7 +70,7 @@ pub enum UiSystem {
 #[derive(Debug, Resource)]
 pub struct UiScale {
     /// The scale to be applied.
-    pub scale: f64,
+    pub scale: f32,
 }
 
 impl Default for UiScale {
