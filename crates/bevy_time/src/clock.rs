@@ -61,6 +61,18 @@ impl Clock {
         self.delta_seconds_f64
     }
 
+    pub fn elapsed(&self) -> Duration {
+        self.elapsed
+    }
+
+    pub fn elapsed_seconds(&self) -> f32 {
+        self.elapsed_seconds
+    }
+
+    pub fn elapsed_seconds_f64(&self) -> f64 {
+        self.elapsed_seconds_f64
+    }
+
     pub fn elapsed_wrapped(&self) -> Duration {
         self.elapsed_wrapped
     }
