@@ -17,7 +17,6 @@ pub struct Time {
     maximum_delta: Option<Duration>,
     fixed_accumulated: Duration,
     fixed_period: Duration,
-
     raw_clock: Clock,
     virtual_clock: Clock,
     fixed_clock: Clock,
@@ -32,7 +31,7 @@ impl Default for Time {
             last_update: None,
             paused: false,
             relative_speed: 1.0,
-            maximum_delta: Some(Duration::from_millis(333)),
+            maximum_delta: None, // XXX
             fixed_accumulated: Duration::ZERO,
             fixed_period: Duration::from_secs_f32(1. / 60.), // XXX
             raw_clock: Clock::default(),
@@ -341,6 +340,14 @@ impl Time {
         self.fixed_period = period;
     }
 
+    pub fn maximum_delta(&self) -> Option<Duration> {
+        self.maximum_delta
+    }
+
+    pub fn set_maximum_delta(&mut self, maximum_delta: Option<Duration>) {
+        self.maximum_delta = maximum_delta;
+    }
+
     /// Returns the speed the clock advances relative to your system clock, as [`f32`].
     /// This is known as "time scaling" or "time dilation" in other engines.
     ///
@@ -430,11 +437,22 @@ impl Time {
     }
 }
 
+/// Ticks the [`FixedTime`] resource then runs the [`FixedUpdate`].
+pub fn run_fixed_update_schedule(world: &mut World) {
+    // Run the schedule until we run out of accumulated time
+    let _ = world.try_schedule_scope(FixedUpdate, |world, schedule| {
+        while world.resource_mut::<Time>().expend_fixed() {
+            schedule.run(world);
+        }
+    });
+}
+
 #[cfg(test)]
 #[allow(clippy::float_cmp)]
 mod tests {
     use super::Time;
     use bevy_utils::{Duration, Instant};
+    
 
     fn assert_float_eq(a: f32, b: f32) {
         assert!((a - b).abs() <= f32::EPSILON, "{a} != {b}");
