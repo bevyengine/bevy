@@ -187,7 +187,7 @@ pub enum BreakLineOn {
     /// However it may lead to words being broken up across linebreaks.
     AnyCharacter,
     /// Lines will never be broken up.
-    NeverBreak,
+    NoWrap,
 }
 
 impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
@@ -195,8 +195,8 @@ impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
         match val {
             BreakLineOn::WordBoundary => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
             BreakLineOn::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
-            // If `NeverBreak` is set the text is given unbounded width and won't ever break lines, so this `BuiltInLineBreaker` won't be used.
-            BreakLineOn::NeverBreak => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
+            // If `NoWrap` is set the text is given unbounded width and won't ever break lines, so this `BuiltInLineBreaker` won't be used.
+            BreakLineOn::NoWrap => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
         }
     }
 }

@@ -91,7 +91,7 @@ fn create_text_measure(
         text.linebreak_behavior,
     ) {
         Ok(measure) => {
-            if matches!(text.linebreak_behavior, BreakLineOn::NeverBreak) {
+            if matches!(text.linebreak_behavior, BreakLineOn::NoWrap) {
                 content_size.set(FixedMeasure {
                     size: measure.max_width_content_size,
                 })
@@ -180,8 +180,8 @@ fn queue_text(
 ) {
     // Skip the text node if it is waiting for a new measure func
     if !text_flags.needs_new_measure_func {
-        let physical_node_size = if text.linebreak_behavior == BreakLineOn::NeverBreak {
-            // With `NeverBreak` set, no constraints are placed on the width of the text.
+        let physical_node_size = if text.linebreak_behavior == BreakLineOn::NoWrap {
+            // With `NoWrap` set, no constraints are placed on the width of the text.
             Vec2::splat(f32::INFINITY)
         } else {
             node.physical_size(scale_factor)

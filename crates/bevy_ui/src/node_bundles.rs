@@ -10,6 +10,7 @@ use bevy_render::{
     prelude::{Color, ComputedVisibility},
     view::Visibility,
 };
+use bevy_text::BreakLineOn;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -207,6 +208,11 @@ impl TextBundle {
     /// Returns this [`TextBundle`] with a new [`BackgroundColor`].
     pub const fn with_background_color(mut self, color: Color) -> Self {
         self.background_color = BackgroundColor(color);
+        self
+    }
+
+    pub const fn with_no_wrap(mut self) -> Self {
+        self.text.linebreak_behavior = BreakLineOn::NoWrap;
         self
     }
 }
