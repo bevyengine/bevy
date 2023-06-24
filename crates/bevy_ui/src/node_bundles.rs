@@ -257,6 +257,7 @@ impl TextBundle {
         self
     }
 
+    /// Returns this [`TextBundle`] with text wrapping disabled.
     pub const fn with_no_wrap(mut self) -> Self {
         self.text.linebreak_behavior = BreakLineOn::NoWrap;
         self
