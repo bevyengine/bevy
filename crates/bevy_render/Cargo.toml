@@ -63,6 +63,7 @@ codespan-reporting = "0.11.0"
 naga = { version = "0.12.0", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
+bytemuck = { version = "1.5", features = ["derive"] }
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
 once_cell = "1.4.1" # TODO: replace once_cell with std equivalent if/when this lands: https://github.com/rust-lang/rfcs/pull/2788
 downcast-rs = "1.2.0"

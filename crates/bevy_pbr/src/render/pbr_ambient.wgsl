@@ -10,7 +10,7 @@ fn ambient_light(
     diffuse_color: vec3<f32>,
     specular_color: vec3<f32>,
     perceptual_roughness: f32,
-    occlusion: f32,
+    occlusion: vec3<f32>,
 ) -> vec3<f32> {
     let diffuse_ambient = EnvBRDFApprox(diffuse_color, F_AB(1.0, NdotV)) * occlusion;
     let specular_ambient = EnvBRDFApprox(specular_color, F_AB(perceptual_roughness, NdotV));

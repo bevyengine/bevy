@@ -65,8 +65,7 @@ impl Plugin for SpritePlugin {
             .register_type::<TextureAtlasSprite>()
             .register_type::<Anchor>()
             .register_type::<Mesh2dHandle>()
-            .add_plugin(Mesh2dRenderPlugin)
-            .add_plugin(ColorMaterialPlugin)
+            .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
             .add_systems(
                 PostUpdate,
                 calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),

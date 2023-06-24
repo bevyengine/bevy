@@ -37,7 +37,7 @@ use std::ops::Mul;
 /// [`Transform`]: super::Transform
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, FromReflect)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///
