@@ -22,7 +22,7 @@ use taffy::Taffy;
 use thiserror::Error;
 
 pub struct LayoutContext {
-    pub scale_factor: f64,
+    pub scale_factor: f32,
     pub physical_size: Vec2,
     pub min_size: f32,
     pub max_size: f32,
@@ -30,7 +30,7 @@ pub struct LayoutContext {
 
 impl LayoutContext {
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
-    fn new(scale_factor: f64, physical_size: Vec2) -> Self {
+    fn new(scale_factor: f32, physical_size: Vec2) -> Self {
         Self {
             scale_factor,
             physical_size,
