@@ -36,7 +36,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     for linebreak_behavior in [
         BreakLineOn::AnyCharacter,
         BreakLineOn::WordBoundary,
-        BreakLineOn::NoWrap, 
+        BreakLineOn::NoWrap,
     ] {
         let row_id = commands
             .spawn(NodeBundle {
@@ -98,9 +98,6 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     .spawn(TextBundle {
                         text,
                         background_color: Color::rgb(0.8 - j as f32 * 0.2, 0., 0.).into(),
-                        style: Style {
-                            ..default()
-                        },
                         ..Default::default()
                     })
                     .id();
