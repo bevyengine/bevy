@@ -194,7 +194,9 @@ impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
     fn from(val: BreakLineOn) -> Self {
         match val {
             // If `NoWrap` is set the text is given unbounded width, so the `BuiltInLineBreaker` won't be used.
-            BreakLineOn::WordBoundary | BreakLineOn::NoWrap => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
+            BreakLineOn::WordBoundary | BreakLineOn::NoWrap => {
+                glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker
+            }
             BreakLineOn::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
         }
     }
