@@ -47,6 +47,15 @@ jobs:
       - name: Test
         run: xvfb-run cargo test
 
+  test-macos:
+    name: Test Suite (MacOS)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test
+        run: cargo test --no-default-features
+
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest

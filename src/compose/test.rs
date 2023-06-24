@@ -481,6 +481,7 @@ mod test {
         println!("{wgsl}");
     }
 
+    #[cfg(feature = "test_shader")]
     #[test]
     fn apply_mod_override() {
         let mut composer = Composer::default();
@@ -512,6 +513,7 @@ mod test {
         assert_eq!(test_shader(&mut composer), 3.0);
     }
 
+    #[cfg(feature = "test_shader")]
     #[test]
     fn additional_import() {
         let mut composer = Composer::default();
