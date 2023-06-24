@@ -571,6 +571,7 @@ mod tests {
         let start_instant = Instant::now();
 
         let mut time = Time::new(start_instant);
+        time.set_maximum_delta(None);
         time.set_wrap_period(Duration::from_secs(3));
 
         assert_eq!(time.elapsed_seconds_wrapped(), 0.0);
@@ -592,6 +593,7 @@ mod tests {
     fn relative_speed_test() {
         let start_instant = Instant::now();
         let mut time = Time::new(start_instant);
+        time.set_maximum_delta(None);
 
         let first_update_instant = Instant::now();
         time.update_with_instant(first_update_instant);
