@@ -29,15 +29,15 @@ pub struct Clock {
 impl Default for Clock {
     fn default() -> Self {
         Self {
+            startup: Instant::now(),
+            first_update: None,
+            last_update: None,
             delta: Duration::ZERO,
             delta_seconds: 0.0,
             delta_seconds_f64: 0.0,
             elapsed: Duration::ZERO,
             elapsed_seconds: 0.0,
             elapsed_seconds_f64: 0.0,
-            startup: Instant::now(),
-            first_update: None,
-            last_update: None,
             wrap_period: Duration::from_secs(3600), // 1 hour
             elapsed_wrapped: Duration::ZERO,
             elapsed_seconds_wrapped: 0.0,
@@ -55,7 +55,8 @@ impl Clock {
         }
     }
 
-    pub fn tick(&mut self, dt: Duration, instant: Instant) {
+    /// Advances the clock by `dt` and records it happening at `instant`.
+    pub fn update(&mut self, dt: Duration, instant: Instant) {
         self.delta = dt;
         self.delta_seconds = self.delta.as_secs_f32();
         self.delta_seconds_f64 = self.delta.as_secs_f64();

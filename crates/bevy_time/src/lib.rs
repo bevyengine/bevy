@@ -67,17 +67,17 @@ impl Plugin for TimePlugin {
     }
 }
 
-/// Configuration resource used to determine how the time system should run.
+/// Determines how the duration of app updates are measured.
 ///
-/// For most cases, [`TimeUpdateStrategy::Automatic`] is fine. When writing tests, dealing with networking, or similar
-/// you may prefer to set the next [`Time`] value manually.
-#[derive(Resource, Default)]
+/// Most users should leave this as [`TimeUpdateStrategy::Automatic`]. The other variants are provided to
+/// make writing tests and similar logic easier.
+#[derive(Resource, Default, Clone, Copy)]
 pub enum TimeUpdateStrategy {
     #[default]
     Automatic,
-    // Update [`Time`] with an exact `Instant` value
+    /// The duration of the update will be the duration between its last update and the given [`Instant`].
     ManualInstant(Instant),
-    // Update [`Time`] with the last update time + a specified `Duration`
+    /// The duration of the update will be the given [`Duration`].
     ManualDuration(Duration),
 }
 
@@ -104,11 +104,12 @@ fn time_system(
     mut time: ResMut<Time>,
     mut real_time: ResMut<RealTime>,
     mut fixed_timestep: ResMut<FixedTimestep>,
-    update_strategy: Res<TimeUpdateStrategy>,
+    strategy: Res<TimeUpdateStrategy>,
     time_recv: Option<Res<TimeReceiver>>,
     mut has_received_time: Local<bool>,
 ) {
-    let real_frame_start = if let Some(time_recv) = time_recv {
+    assert!(matches!(time.context(), TimeContext::Update));
+    let frame_start = if let Some(time_recv) = time_recv {
         // TODO: Figure out how to handle this when using pipelined rendering.
         if let Ok(instant) = time_recv.0.try_recv() {
             *has_received_time = true;
@@ -123,11 +124,8 @@ fn time_system(
         Instant::now()
     };
 
-    // update real time clock
-    real_time.update_with_instant(real_frame_start);
-
-    let virtual_frame_start = match update_strategy.as_ref() {
-        TimeUpdateStrategy::Automatic => real_frame_start,
+    let frame_start = match strategy.as_ref() {
+        TimeUpdateStrategy::Automatic => frame_start,
         TimeUpdateStrategy::ManualInstant(instant) => *instant,
         TimeUpdateStrategy::ManualDuration(duration) => {
             let last_update = time.last_update().unwrap_or(time.startup());
@@ -135,10 +133,12 @@ fn time_system(
         }
     };
 
-    // update virtual time clock
-    // TODO: limit how much time can be advanced in a single frame (e.g. Unity's maximumDeltaTime)
-    time.update_with_instant(virtual_frame_start);
+    // update real time clock
+    real_time.update_with_instant(frame_start);
 
-    // accumulate virtual time delta
+    // update virtual time clock
+    time.update_with_instant(frame_start);
+
+    // accumulate
     fixed_timestep.accumulate(time.delta());
 }

@@ -15,11 +15,11 @@ pub struct Time {
     context: TimeContext,
     update: Clock,
     fixed_update: Clock,
-    // settings
     paused: bool,
     next_paused: Option<bool>,
     relative_speed: f64, // using `f64` instead of `f32` to minimize drift from rounding errors
     next_relative_speed: Option<f64>,
+    max_delta: Duration,
 }
 
 /// [`Time`] stores two clocks that are synchronized but advance at different rates.
@@ -41,6 +41,7 @@ impl Default for Time {
             next_paused: None,
             relative_speed: 1.0,
             next_relative_speed: None,
+            max_delta: Duration::from_millis(500),
         }
     }
 }
@@ -156,8 +157,17 @@ impl Time {
                 self.apply_pending_changes();
 
                 // zero for first update
-                let dt = instant - self.current_clock().last_update().unwrap_or(instant);
-                let dt = if self.paused {
+                let mut dt = instant - self.update.last_update().unwrap_or(instant);
+
+                if dt > self.max_delta {
+                    warn!(
+                        "update delta time {:?} is larger than the maximum {:?}",
+                        dt, self.max_delta
+                    );
+                    dt = self.max_delta;
+                }
+
+                dt = if self.paused {
                     Duration::ZERO
                 } else if self.relative_speed != 1.0 {
                     dt.mul_f64(self.relative_speed)
@@ -166,7 +176,7 @@ impl Time {
                     dt
                 };
 
-                self.update.tick(dt, instant);
+                self.update.update(dt, instant);
             }
             TimeContext::FixedUpdate => {
                 warn!("In the `FixedUpdate` context, `Time` can only be advanced via `tick`.");
@@ -175,7 +185,7 @@ impl Time {
     }
 
     pub(crate) fn tick(&mut self, dt: Duration, instant: Instant) {
-        self.current_clock_mut().tick(dt, instant);
+        self.current_clock_mut().update(dt, instant);
     }
 
     /// Applies pending pause or relative speed changes.
@@ -376,6 +386,27 @@ impl Time {
     pub fn is_paused(&self) -> bool {
         self.paused
     }
+
+    /// Returns the maximum value of [`delta`](#method.delta) (*before* scaling) for any given update.
+    #[inline]
+    pub fn max_delta(&self) -> Duration {
+        self.max_delta
+    }
+
+    /// Sets the maximum value of [`delta`](#method.delta) (*before* scaling) for any given update.
+    ///
+    /// After an unusually long update, this value limits the value of [`delta`](#method.delta)
+    /// in the next update to avoid the app falling into a "death spiral" where each update has an
+    /// ever-increasing number of `FixedUpdate` steps to run.
+    ///
+    /// Without this setting, anything that results in an exceptionally long time passing between
+    /// app updates (e.g. the program was suspended) would cause time to jump forward a lot and
+    /// rack up a large simulation debt.
+    #[inline]
+    pub fn set_max_delta(&mut self, max_delta: Duration) {
+        assert!(!max_delta.is_zero());
+        self.max_delta = max_delta;
+    }
 }
 
 /// A clock that tracks how much actual time has elasped since the last update and since startup.
@@ -407,7 +438,7 @@ impl RealTime {
     pub fn update_with_instant(&mut self, instant: Instant) {
         // zero for first update
         let dt = instant - self.0.last_update().unwrap_or(instant);
-        self.0.tick(dt, instant);
+        self.0.update(dt, instant);
     }
 
     /// Returns the [`Instant`] the clock was created.
@@ -608,6 +639,9 @@ mod tests {
         let mut time = Time::new(startup);
         time.set_wrap_period(Duration::from_secs(3));
 
+        // disable maximum delta for this test
+        time.set_max_delta(Duration::MAX);
+
         assert_eq!(time.elapsed_seconds_wrapped(), 0.0);
 
         // time starts counting from first update
@@ -632,6 +666,9 @@ mod tests {
         let startup = Instant::now();
         let mut time = Time::new(startup);
         let mut real_time = RealTime::new(startup);
+
+        // disable maximum delta for this test
+        time.set_max_delta(Duration::MAX);
 
         let first_update = Instant::now();
         time.update_with_instant(first_update);

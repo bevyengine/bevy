@@ -16,7 +16,7 @@ use bevy_utils::{default, Duration, Instant};
 
 use crate::{Time, TimeContext};
 
-/// The step size (and some metadata) for the `FixedUpdate` schedule .
+/// The step size (and some metadata) for the `FixedUpdate` schedule.
 #[derive(Resource, Debug, Clone, Copy)]
 pub struct FixedTimestep {
     size: Duration,
