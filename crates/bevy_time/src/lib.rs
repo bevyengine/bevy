@@ -9,7 +9,6 @@ mod time;
 mod timer;
 mod clock;
 
-use fixed_timestep::FixedTime;
 pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
@@ -21,7 +20,7 @@ use crossbeam_channel::{Receiver, Sender};
 pub mod prelude {
     //! The Bevy Time Prelude.
     #[doc(hidden)]
-    pub use crate::{fixed_timestep::FixedTime, Time, Timer, TimerMode};
+    pub use crate::{Time, Timer, TimerMode};
 }
 
 use bevy_app::{prelude::*, RunFixedUpdateLoop};
@@ -45,7 +44,6 @@ impl Plugin for TimePlugin {
             .register_type::<Timer>()
             .register_type::<Time>()
             .register_type::<Stopwatch>()
-            .init_resource::<FixedTime>()
             .add_systems(First, time_system.in_set(TimeSystem))
             .add_systems(RunFixedUpdateLoop, run_fixed_update_schedule);
 
