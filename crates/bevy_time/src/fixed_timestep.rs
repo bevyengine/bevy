@@ -12,7 +12,7 @@
 
 use bevy_app::FixedUpdate;
 use bevy_ecs::{system::Resource, world::World};
-use bevy_utils::{default, Duration, Instant};
+use bevy_utils::{default, Duration};
 
 use crate::{Time, TimeContext};
 
@@ -28,7 +28,7 @@ pub struct FixedTimestep {
 impl Default for FixedTimestep {
     fn default() -> Self {
         Self {
-            size: Duration::from_micros(15625),
+            size: Self::DEFAULT_STEP_SIZE,
             steps: 0,
             overstep: Duration::ZERO,
             max_steps_per_update: u32::MAX,
@@ -37,6 +37,9 @@ impl Default for FixedTimestep {
 }
 
 impl FixedTimestep {
+    /// The default step size.
+    pub const DEFAULT_STEP_SIZE: Duration = Duration::from_micros(15625);
+
     /// Constructs a new `FixedTimestep` from a [`Duration`].
     pub fn new(size: Duration) -> Self {
         assert!(!size.is_zero(), "timestep is zero");
@@ -139,11 +142,10 @@ pub fn run_fixed_update_schedule(world: &mut World) {
         }
 
         // run schedule however many times
-        let dt = timestep.size();
         for _ in 0..steps {
             let mut time = world.resource_mut::<Time>();
             assert!(matches!(time.context(), TimeContext::FixedUpdate));
-            time.tick(dt, Instant::now());
+            time.update();
             schedule.run(world);
         }
 

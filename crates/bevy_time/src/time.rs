@@ -4,6 +4,7 @@ use bevy_utils::tracing::warn;
 use bevy_utils::{default, Duration, Instant};
 
 use crate::clock::Clock;
+use crate::fixed_timestep::FixedTimestep;
 
 /// A clock that tracks how much time has advanced since the last update and since startup.
 ///
@@ -15,6 +16,7 @@ pub struct Time {
     context: TimeContext,
     update: Clock,
     fixed_update: Clock,
+    pub(crate) fixed_timestep_size: Duration,
     paused: bool,
     next_paused: Option<bool>,
     relative_speed: f64, // using `f64` instead of `f32` to minimize drift from rounding errors
@@ -37,6 +39,7 @@ impl Default for Time {
             context: TimeContext::Update,
             update: default(),
             fixed_update: default(),
+            fixed_timestep_size: FixedTimestep::DEFAULT_STEP_SIZE,
             paused: false,
             next_paused: None,
             relative_speed: 1.0,
@@ -179,13 +182,9 @@ impl Time {
                 self.update.update(dt, instant);
             }
             TimeContext::FixedUpdate => {
-                warn!("In the `FixedUpdate` context, `Time` can only be advanced via `tick`.");
+                self.fixed_update.update(self.fixed_timestep_size, instant);
             }
         }
-    }
-
-    pub(crate) fn tick(&mut self, dt: Duration, instant: Instant) {
-        self.current_clock_mut().update(dt, instant);
     }
 
     /// Applies pending pause or relative speed changes.
