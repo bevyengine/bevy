@@ -1,116 +1,155 @@
-//! Tools to run systems at a regular interval.
-//! This can be extremely useful for steady, frame-rate independent gameplay logic and physics.
+//! A tool for implementing gameplay logic in way that results in consistent behaviour,
+//! independent of framerate.
 //!
-//! To run a system on a fixed timestep, add it to the [`FixedUpdate`] [`Schedule`](bevy_ecs::schedule::Schedule).
-//! This schedule is run in [`RunFixedUpdateLoop`](bevy_app::RunFixedUpdateLoop) near the start of each frame,
-//! via the [`run_fixed_update_schedule`] exclusive system.
+//! To run systems on a fixed timestep, add them to the [`FixedUpdate`] schedule.
+//! This schedule will be run during [`RunFixedUpdateLoop`](bevy_app::RunFixedUpdateLoop), by the
+//! exclusive system [`run_fixed_update_schedule`].
 //!
-//! This schedule will be run a number of times each frame,
-//! equal to the accumulated divided by the period resource, rounded down,
-//! as tracked in the [`FixedTime`] resource.
-//! Unused time will be carried over.
+//! [`FixedUpdate`] can run zero or more times each frame. Each [timestep](FixedTimestep::size)
+//! time that elapses in [`Time`] will queue another step to run.
 //!
-//! This does not guarantee that the time elapsed between executions is exact,
-//! and systems in this schedule can run 0, 1 or more times on any given frame.
-//!
-//! For example, a system with a fixed timestep run criteria of 120 times per second will run
-//! two times during a ~16.667ms frame, once during a ~8.333ms frame, and once every two frames
-//! with ~4.167ms frames. However, the same criteria may not result in exactly 8.333ms passing
-//! between each execution.
-//!
-//! When using fixed time steps, it is advised not to rely on [`Time::delta`] or any of it's
-//! variants for game simulation, but rather use the value of [`FixedTime`] instead.
+//! However, no guarantees about the real time that elapses between these runs can be made.
 
-use crate::Time;
 use bevy_app::FixedUpdate;
 use bevy_ecs::{system::Resource, world::World};
-use bevy_utils::Duration;
-use thiserror::Error;
+use bevy_utils::{default, Duration, Instant};
 
-/// The amount of time that must pass before the fixed timestep schedule is run again.
-#[derive(Resource, Debug)]
-pub struct FixedTime {
-    accumulated: Duration,
-    /// Defaults to 1/60th of a second.
-    /// To configure this value, simply mutate or overwrite this resource.
-    pub period: Duration,
+use crate::{Time, TimeContext};
+
+/// The step size (and some metadata) for the `FixedUpdate` schedule .
+#[derive(Resource, Debug, Clone, Copy)]
+pub struct FixedTimestep {
+    size: Duration,
+    steps: u32,
+    overstep: Duration,
+    max_steps_per_update: u32,
 }
 
-impl FixedTime {
-    /// Creates a new [`FixedTime`] struct
-    pub fn new(period: Duration) -> Self {
-        FixedTime {
-            accumulated: Duration::ZERO,
-            period,
-        }
-    }
-
-    /// Creates a new [`FixedTime`] struct with a period specified in `f32` seconds
-    pub fn new_from_secs(period: f32) -> Self {
-        FixedTime {
-            accumulated: Duration::ZERO,
-            period: Duration::from_secs_f32(period),
-        }
-    }
-
-    /// Adds the `delta_time` to the accumulated time so far.
-    pub fn tick(&mut self, delta_time: Duration) {
-        self.accumulated += delta_time;
-    }
-
-    /// Returns the current amount of accumulated time
-    pub fn accumulated(&self) -> Duration {
-        self.accumulated
-    }
-
-    /// Expends one `period` of accumulated time.
-    ///
-    /// [`Err(FixedUpdateError`)] will be returned if there is
-    /// not enough accumulated time to span an entire period.
-    pub fn expend(&mut self) -> Result<(), FixedUpdateError> {
-        if let Some(new_value) = self.accumulated.checked_sub(self.period) {
-            self.accumulated = new_value;
-            Ok(())
-        } else {
-            Err(FixedUpdateError::NotEnoughTime {
-                accumulated: self.accumulated,
-                period: self.period,
-            })
-        }
-    }
-}
-
-impl Default for FixedTime {
+impl Default for FixedTimestep {
     fn default() -> Self {
-        FixedTime {
-            accumulated: Duration::ZERO,
-            period: Duration::from_secs_f32(1. / 60.),
+        Self {
+            size: Duration::from_micros(15625),
+            steps: 0,
+            overstep: Duration::ZERO,
+            max_steps_per_update: u32::MAX,
         }
     }
 }
 
-/// An error returned when working with [`FixedTime`].
-#[derive(Debug, Error)]
-pub enum FixedUpdateError {
-    #[error("At least one period worth of time must be accumulated.")]
-    NotEnoughTime {
-        accumulated: Duration,
-        period: Duration,
-    },
+impl FixedTimestep {
+    /// Constructs a new `FixedTimestep` from a [`Duration`].
+    pub fn new(size: Duration) -> Self {
+        assert!(!size.is_zero(), "timestep is zero");
+        Self { size, ..default() }
+    }
+
+    /// Constructs a new `FixedTimestep` from an [`f64`] number of seconds.
+    pub fn from_secs(seconds: f64) -> Self {
+        Self::new(Duration::from_secs_f64(seconds))
+    }
+
+    /// Constructs a new `FixedTimestep` from a nominal [`f64`] number of steps per second.
+    pub fn from_hz(hz: f64) -> Self {
+        assert!(hz.is_sign_positive(), "Hz less than or equal to zero");
+        assert!(hz.is_finite(), "Hz is infinite");
+        Self::from_secs(1.0 / hz)
+    }
+
+    /// Returns the step size as a [`Duration`].
+    #[inline]
+    pub fn size(&self) -> Duration {
+        self.size
+    }
+
+    /// Sets the step size, given as a [`Duration`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `step_size` is a zero-length duration.
+    pub fn set_size(&mut self, size: Duration) {
+        assert!(!size.is_zero(), "timestep is zero");
+        self.size = size;
+    }
+
+    /// Returns the number of steps accumulated.
+    #[inline]
+    pub fn steps(&self) -> u32 {
+        self.steps
+    }
+
+    /// Returns the amount of time accumulated toward new steps, as a [`Duration`].
+    #[inline]
+    pub fn overstep(&self) -> Duration {
+        self.overstep
+    }
+
+    /// Returns the amount of time accumulated toward new steps,
+    /// as an [`f32`] fraction of the timestep.
+    #[inline]
+    pub fn overstep_percentage(&self) -> f32 {
+        self.overstep.as_secs_f32() / self.size.as_secs_f32()
+    }
+
+    /// Returns the amount of time accumulated toward new steps,
+    /// as an [`f64`] fraction of the timestep.
+    pub fn overstep_percentage_f64(&self) -> f64 {
+        self.overstep.as_secs_f64() / self.size.as_secs_f64()
+    }
+
+    /// Adds `time` to an internal accumulator.
+    pub fn accumulate(&mut self, time: Duration) {
+        self.overstep += time;
+        while self.overstep >= self.size {
+            self.overstep -= self.size;
+            self.steps += 1;
+        }
+    }
+
+    /// Consumes one step and returns the number remaining.
+    /// Returns `None` if there was no step that could be expended.
+    pub fn expend(&mut self) -> Option<u32> {
+        let remaining = self.steps.checked_sub(1);
+        self.steps = self.steps.saturating_sub(1);
+        remaining
+    }
+
+    /// Returns the maximum number of `FixedUpdate` steps that can be run in one update.
+    pub fn max_steps_per_update(&self) -> u32 {
+        self.max_steps_per_update
+    }
+
+    /// Sets the maximum number of `FixedUpdate` steps that can be run in one update.
+    pub fn set_max_steps_per_update(&mut self, steps: u32) {
+        self.max_steps_per_update = steps;
+    }
 }
 
-/// Ticks the [`FixedTime`] resource then runs the [`FixedUpdate`].
+/// Runs the [`FixedUpdate`] schedule zero or more times, advancing its clock each time.
 pub fn run_fixed_update_schedule(world: &mut World) {
-    // Tick the time
-    let delta_time = world.resource::<Time>().delta();
-    let mut fixed_time = world.resource_mut::<FixedTime>();
-    fixed_time.tick(delta_time);
-
-    // Run the schedule until we run out of accumulated time
     let _ = world.try_schedule_scope(FixedUpdate, |world, schedule| {
-        while world.resource_mut::<FixedTime>().expend().is_ok() {
+        // swap context
+        let mut time = world.resource_mut::<Time>();
+        time.set_context(TimeContext::FixedUpdate);
+
+        // solve for number of steps (done in advance on purpose)
+        let mut timestep = world.resource_mut::<FixedTimestep>();
+        let mut steps = 0;
+        while timestep.expend().is_some() && steps < timestep.max_steps_per_update {
+            steps += 1;
+        }
+
+        // run schedule however many times
+        let dt = timestep.size();
+        for _ in 0..steps {
+            let mut time = world.resource_mut::<Time>();
+            assert!(matches!(time.context(), TimeContext::FixedUpdate));
+            time.tick(dt, Instant::now());
             schedule.run(world);
         }
+
+        // swap context
+        let mut time = world.resource_mut::<Time>();
+        time.set_context(TimeContext::Update);
     });
 }
 
@@ -120,39 +159,40 @@ mod test {
 
     #[test]
     fn fixed_time_starts_at_zero() {
-        let new_time = FixedTime::new_from_secs(42.);
-        assert_eq!(new_time.accumulated(), Duration::ZERO);
+        let acc = FixedTimestep::from_secs(42.0);
+        assert_eq!(acc.overstep(), Duration::ZERO);
 
-        let default_time = FixedTime::default();
-        assert_eq!(default_time.accumulated(), Duration::ZERO);
+        let acc = FixedTimestep::default();
+        assert_eq!(acc.overstep(), Duration::ZERO);
     }
 
     #[test]
     fn fixed_time_ticks_up() {
-        let mut fixed_time = FixedTime::default();
-        fixed_time.tick(Duration::from_secs(1));
-        assert_eq!(fixed_time.accumulated(), Duration::from_secs(1));
+        let mut acc = FixedTimestep::new(Duration::from_secs(2));
+        acc.accumulate(Duration::from_secs(1));
+        assert_eq!(acc.overstep(), Duration::from_secs(1));
     }
 
     #[test]
     fn enough_accumulated_time_is_required() {
-        let mut fixed_time = FixedTime::new(Duration::from_secs(2));
-        fixed_time.tick(Duration::from_secs(1));
-        assert!(fixed_time.expend().is_err());
-        assert_eq!(fixed_time.accumulated(), Duration::from_secs(1));
+        let mut acc = FixedTimestep::new(Duration::from_secs(2));
+        acc.accumulate(Duration::from_secs(1));
+        assert!(acc.expend().is_none());
+        assert_eq!(acc.overstep(), Duration::from_secs(1));
 
-        fixed_time.tick(Duration::from_secs(1));
-        assert!(fixed_time.expend().is_ok());
-        assert_eq!(fixed_time.accumulated(), Duration::ZERO);
+        acc.accumulate(Duration::from_secs(1));
+        assert_eq!(acc.overstep(), Duration::ZERO);
+        assert_eq!(acc.steps(), 1);
+        assert!(acc.expend().is_some());
     }
 
     #[test]
     fn repeatedly_expending_time() {
-        let mut fixed_time = FixedTime::new(Duration::from_secs(1));
-        fixed_time.tick(Duration::from_secs_f32(3.2));
-        assert!(fixed_time.expend().is_ok());
-        assert!(fixed_time.expend().is_ok());
-        assert!(fixed_time.expend().is_ok());
-        assert!(fixed_time.expend().is_err());
+        let mut acc = FixedTimestep::new(Duration::from_secs(1));
+        acc.accumulate(Duration::from_secs_f32(3.2));
+        assert!(acc.expend().is_some());
+        assert!(acc.expend().is_some());
+        assert!(acc.expend().is_some());
+        assert!(acc.expend().is_none());
     }
 }

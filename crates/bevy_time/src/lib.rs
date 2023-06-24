@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 
+mod clock;
 /// Common run conditions
 pub mod common_conditions;
 pub mod fixed_timestep;
@@ -8,7 +9,7 @@ mod stopwatch;
 mod time;
 mod timer;
 
-use fixed_timestep::FixedTime;
+use fixed_timestep::*;
 pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
@@ -20,7 +21,7 @@ use crossbeam_channel::{Receiver, Sender};
 pub mod prelude {
     //! The Bevy Time Prelude.
     #[doc(hidden)]
-    pub use crate::{fixed_timestep::FixedTime, Time, Timer, TimerMode};
+    pub use crate::{fixed_timestep::FixedTimestep, RealTime, Time, Timer, TimerMode};
 }
 
 use bevy_app::{prelude::*, RunFixedUpdateLoop};
@@ -33,18 +34,21 @@ use crate::fixed_timestep::run_fixed_update_schedule;
 pub struct TimePlugin;
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
-/// Updates the elapsed time. Any system that interacts with [Time] component should run after
-/// this.
+/// Updates [`Time`]. All systems that access [`Time`] should run after this.
 pub struct TimeSystem;
 
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Time>()
-            .init_resource::<TimeUpdateStrategy>()
-            .register_type::<Timer>()
+        app.register_type::<Timer>()
             .register_type::<Time>()
-            .register_type::<Stopwatch>()
-            .init_resource::<FixedTime>()
+            .register_type::<Stopwatch>();
+
+        // initialize clocks w/ same startup time
+        let startup = Instant::now();
+        app.insert_resource(Time::new(startup))
+            .insert_resource(RealTime::new(startup))
+            .init_resource::<FixedTimestep>()
+            .init_resource::<TimeUpdateStrategy>()
             .add_systems(First, time_system.in_set(TimeSystem))
             .add_systems(RunFixedUpdateLoop, run_fixed_update_schedule);
 
@@ -93,19 +97,22 @@ pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
     (TimeSender(s), TimeReceiver(r))
 }
 
-/// The system used to update the [`Time`] used by app logic. If there is a render world the time is sent from
-/// there to this system through channels. Otherwise the time is updated in this system.
+/// The system used to update all clocks. If there is a render world, the previous frame duration
+/// is sent from there to this system through a channel. Otherwise, it's calculated in this system.
+#[allow(clippy::too_many_arguments)]
 fn time_system(
     mut time: ResMut<Time>,
+    mut real_time: ResMut<RealTime>,
+    mut fixed_timestep: ResMut<FixedTimestep>,
     update_strategy: Res<TimeUpdateStrategy>,
     time_recv: Option<Res<TimeReceiver>>,
     mut has_received_time: Local<bool>,
 ) {
-    let new_time = if let Some(time_recv) = time_recv {
+    let real_frame_start = if let Some(time_recv) = time_recv {
         // TODO: Figure out how to handle this when using pipelined rendering.
-        if let Ok(new_time) = time_recv.0.try_recv() {
+        if let Ok(instant) = time_recv.0.try_recv() {
             *has_received_time = true;
-            new_time
+            instant
         } else {
             if *has_received_time {
                 warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
@@ -116,12 +123,22 @@ fn time_system(
         Instant::now()
     };
 
-    match update_strategy.as_ref() {
-        TimeUpdateStrategy::Automatic => time.update_with_instant(new_time),
-        TimeUpdateStrategy::ManualInstant(instant) => time.update_with_instant(*instant),
+    // update real time clock
+    real_time.update_with_instant(real_frame_start);
+
+    let virtual_frame_start = match update_strategy.as_ref() {
+        TimeUpdateStrategy::Automatic => real_frame_start,
+        TimeUpdateStrategy::ManualInstant(instant) => *instant,
         TimeUpdateStrategy::ManualDuration(duration) => {
-            let last_update = time.last_update().unwrap_or_else(|| time.startup());
-            time.update_with_instant(last_update + *duration);
+            let last_update = time.last_update().unwrap_or(time.startup());
+            last_update.checked_add(*duration).unwrap()
         }
-    }
+    };
+
+    // update virtual time clock
+    // TODO: limit how much time can be advanced in a single frame (e.g. Unity's maximumDeltaTime)
+    time.update_with_instant(virtual_frame_start);
+
+    // accumulate virtual time delta
+    fixed_timestep.accumulate(time.delta());
 }
