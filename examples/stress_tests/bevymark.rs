@@ -56,7 +56,7 @@ fn main() {
                 counter_system,
             ),
         )
-        .insert_resource(FixedTime::new_from_secs(0.2))
+        .insert_resource(FixedTimestep::from_hz(60.0))
         .run();
 }
 
