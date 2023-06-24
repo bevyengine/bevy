@@ -193,10 +193,9 @@ pub enum BreakLineOn {
 impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
     fn from(val: BreakLineOn) -> Self {
         match val {
-            BreakLineOn::WordBoundary => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
-            BreakLineOn::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
             // If `NoWrap` is set the text is given unbounded width and won't ever break lines, so this `BuiltInLineBreaker` won't be used.
-            BreakLineOn::NoWrap => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
+            BreakLineOn::WordBoundary | BreakLineOn::NoWrap => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
+            BreakLineOn::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
         }
     }
 }
