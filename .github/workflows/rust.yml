@@ -9,9 +9,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
+      - name: Check
+        run: cargo check
 
   test:
     name: Test Suite
@@ -22,9 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
+      - name: Test
+        run: cargo test
 
   fmt:
     name: Rustfmt
@@ -34,10 +32,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - name: Format
+        run: cargo fmt --all -- --check
 
   clippy:
     name: Clippy
@@ -47,7 +43,5 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+      - name: Clippy
+        run: cargo clippy -- -D warnings
