@@ -12,6 +12,17 @@ jobs:
       - name: Check
         run: cargo check
 
+  check-wasm:
+    name: Check (Wasm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: wasm32-unknown-unknown
+      - name: Check wasm
+        run: cargo check --target wasm32-unknown-unknown
+
   test:
     name: Test Suite
     strategy:
