@@ -49,6 +49,19 @@ impl Clock {
         self.advance_by(elapsed - self.elapsed)
     }
 
+    pub fn wrap_period(&self) -> Duration {
+        Duration::from_secs(self.wrap_seconds)
+    }
+
+    pub fn set_wrap_period(&mut self, wrap_period: Duration) {
+        assert!(!wrap_period.is_zero(), "division by zero");
+        assert_eq!(wrap_period.subsec_nanos(), 0, "wrap period must be integral seconds");
+        self.wrap_seconds = wrap_period.as_secs();
+        self.elapsed_wrapped = Duration::new(self.elapsed.as_secs() % self.wrap_seconds, self.elapsed.subsec_nanos());
+        self.elapsed_seconds_wrapped = self.elapsed_wrapped.as_secs_f32();
+        self.elapsed_seconds_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();        
+    }
+
     pub fn delta(&self) -> Duration {
         self.delta
     }
@@ -83,19 +96,6 @@ impl Clock {
 
     pub fn elapsed_seconds_wrapped_f64(&self) -> f64 {
         self.elapsed_seconds_wrapped_f64
-    }
-
-    pub fn wrap_period(&self) -> Duration {
-        Duration::from_secs(self.wrap_seconds)
-    }
-
-    pub fn set_wrap_period(&mut self, wrap_period: Duration) {
-        assert!(!wrap_period.is_zero(), "division by zero");
-        assert_eq!(wrap_period.subsec_nanos(), 0, "wrap period must be integral seconds");
-        self.wrap_seconds = wrap_period.as_secs();
-        self.elapsed_wrapped = Duration::new(self.elapsed.as_secs() % self.wrap_seconds, self.elapsed.subsec_nanos());
-        self.elapsed_seconds_wrapped = self.elapsed_wrapped.as_secs_f32();
-        self.elapsed_seconds_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();        
     }
 }
 
