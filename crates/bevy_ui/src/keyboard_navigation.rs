@@ -211,7 +211,7 @@ mod test {
 
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
-        
+
         commands.init_resource::<bevy_a11y::Focus>();
         commands.init_resource::<Input<KeyCode>>();
         commands.init_resource::<UiStack>();
