@@ -68,7 +68,7 @@ pub struct RenderTargetInfo {
     /// The physical size of this render target (ignores scale factor).
     pub physical_size: UVec2,
     /// The scale factor of this render target.
-    pub scale_factor: f64,
+    pub scale_factor: f32,
 }
 
 /// Holds internally computed [`Camera`] values.
@@ -140,7 +140,7 @@ impl Camera {
     #[inline]
     pub fn to_logical(&self, physical_size: UVec2) -> Option<Vec2> {
         let scale = self.computed.target_info.as_ref()?.scale_factor;
-        Some((physical_size.as_dvec2() / scale).as_vec2())
+        Some((physical_size.as_dvec2() / scale as f64).as_vec2())
     }
 
     /// The rendered physical bounds [`URect`] of the camera. If the `viewport` field is
