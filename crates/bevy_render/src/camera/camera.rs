@@ -140,7 +140,7 @@ impl Camera {
     #[inline]
     pub fn to_logical(&self, physical_size: UVec2) -> Option<Vec2> {
         let scale = self.computed.target_info.as_ref()?.scale_factor;
-        Some((physical_size.as_dvec2() / scale as f64).as_vec2())
+        Some(physical_size.as_vec2() / scale)
     }
 
     /// The rendered physical bounds [`URect`] of the camera. If the `viewport` field is
