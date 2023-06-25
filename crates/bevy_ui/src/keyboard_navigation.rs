@@ -63,7 +63,7 @@ pub(crate) fn tab_pressed(
 
 /// The system updates the [`Focus`] resource when the user uses keyboard navigation with <kbd>tab</kbd> or <kbd>shift</kbd> + <kbd>tab</kbd>.
 ///
-/// Entities can be focused [`ComputedVisibility`] is visible and they have the [`Focusable`] component.
+/// Entities can be focused if [`ComputedVisibility`] is visible and they have the [`Focusable`] component.
 pub(crate) fn keyboard_navigation_system(
     mut focus: ResMut<Focus>,
     mut interactions: Query<&mut Interaction>,
@@ -75,11 +75,11 @@ pub(crate) fn keyboard_navigation_system(
         keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight);
 
     let can_focus = |entity: &&Entity| {
-        let Ok( computed_visibility) = focusables.get(**entity) else {
-            return false;
-        };
-
-        computed_visibility.is_visible()
+        focusables
+            .get(**entity)
+            .map_or(false, |computed_visibility| {
+                computed_visibility.is_visible()
+            })
     };
 
     let ui_nodes = &ui_stack.uinodes;
@@ -91,7 +91,7 @@ pub(crate) fn keyboard_navigation_system(
 
     let new_focus = if reverse_order {
         // Start with the entity before the current focused or at the end of the list
-        let first_index = current_index.map(|index| index - 1).unwrap_or_default();
+        let first_index = current_index.unwrap_or_default();
 
         let before = ui_nodes.iter().take(first_index);
         let after = ui_nodes.iter().skip(first_index);
@@ -136,6 +136,7 @@ fn set_focus_state(
     }
 }
 
+/// Modify the [`FocusState`] of the [`Focusable`] component, based on the [`Focus`] resource.
 pub(crate) fn update_focused_state(
     mut focusable: Query<&mut Focusable>,
     focus: Res<Focus>,
@@ -185,4 +186,79 @@ pub(crate) fn end_keyboard_click(mut interactions: Query<&mut Interaction>) {
             *interaction = Interaction::None;
         }
     });
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::prelude::{ButtonBundle, NodeBundle};
+    use crate::{ui_stack_system, Focusable};
+    use bevy_ecs::prelude::*;
+    use bevy_ecs::system::CommandQueue;
+    use bevy_hierarchy::BuildChildren;
+    use bevy_utils::default;
+
+    #[test]
+    fn keyboard_navigation() {
+        let mut world = World::default();
+
+        let mut schedule = Schedule::new();
+        schedule.add_systems((
+            ui_stack_system,
+            keyboard_navigation_system.after(ui_stack_system),
+            update_focused_state.after(keyboard_navigation_system),
+        ));
+
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+        
+        commands.init_resource::<bevy_a11y::Focus>();
+        commands.init_resource::<Input<KeyCode>>();
+        commands.init_resource::<UiStack>();
+
+        let mut children = Vec::new();
+        commands
+            .spawn(NodeBundle::default())
+            .with_children(|parent| {
+                for _child in 0..3 {
+                    children.push(
+                        parent
+                            .spawn(ButtonBundle {
+                                computed_visibility: ComputedVisibility::VISIBLE,
+                                ..default()
+                            })
+                            .id(),
+                    );
+                }
+            });
+        queue.apply(&mut world);
+
+        schedule.run(&mut world);
+        assert!(
+            world.get::<Focusable>(children[0]).unwrap().is_focused(),
+            "navigation should start at the first button"
+        );
+        schedule.run(&mut world);
+        assert!(
+            world.get::<Focusable>(children[1]).unwrap().is_focused(),
+            "navigation should go to the second button"
+        );
+
+        // Simulate pressing shift
+        let mut keyboard_input = world
+            .get_resource_mut::<Input<KeyCode>>()
+            .expect("keyboard input resource");
+        keyboard_input.press(KeyCode::ShiftLeft);
+
+        schedule.run(&mut world);
+        assert!(
+            world.get::<Focusable>(children[0]).unwrap().is_focused(),
+            "backwards navigation"
+        );
+        schedule.run(&mut world);
+        assert!(
+            world.get::<Focusable>(children[2]).unwrap().is_focused(),
+            "navigation should loop around"
+        );
+    }
 }

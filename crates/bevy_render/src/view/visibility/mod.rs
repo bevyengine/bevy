@@ -88,6 +88,10 @@ impl ComputedVisibility {
     pub const HIDDEN: Self = ComputedVisibility {
         flags: ComputedVisibilityFlags::empty(),
     };
+    /// A [`ComputedVisibility`], set as visible.
+    pub const VISIBLE: Self = ComputedVisibility {
+        flags: ComputedVisibilityFlags::all(),
+    };
 
     /// Whether this entity is visible to something this frame. This is true if and only if [`Self::is_visible_in_hierarchy`] and [`Self::is_visible_in_view`]
     /// are true. This is the canonical method to call to determine if an entity should be drawn.
