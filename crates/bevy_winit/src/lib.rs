@@ -578,13 +578,20 @@ pub fn winit_runner(mut app: App) {
                             .set_physical_resolution(new_inner_size.width, new_inner_size.height);
                     }
                     WindowEvent::Focused(focused) => {
-                        // Component
-                        window.focused = focused;
+                        #[cfg(feature = "wayland")]
+                        if focused && !window.internal.is_ready() {
+                            window.internal.set_ready();
+                        }
 
-                        window_events.window_focused.send(WindowFocused {
-                            window: window_entity,
-                            focused,
-                        });
+                        if window.internal.is_ready() {
+                            // Component
+                            window.focused = focused;
+
+                            window_events.window_focused.send(WindowFocused {
+                                window: window_entity,
+                                focused,
+                            });
+                        }
                     }
                     WindowEvent::DroppedFile(path_buf) => {
                         file_drag_and_drop_events.send(FileDragAndDrop::DroppedFile {

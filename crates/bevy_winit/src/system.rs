@@ -63,6 +63,9 @@ pub(crate) fn create_window<'a>(
             &mut accessibility_requested,
         );
 
+        #[cfg(not(feature = "wayland"))]
+        window.internal.set_ready();
+
         if let Some(theme) = winit_window.theme() {
             window.window_theme = Some(convert_winit_theme(theme));
         }
