@@ -276,6 +276,7 @@ impl World {
     /// position.x = 1.0;
     /// ```
     #[inline]
+    #[track_caller]
     pub fn entity_mut(&mut self, entity: Entity) -> EntityMut {
         #[inline(never)]
         #[cold]
