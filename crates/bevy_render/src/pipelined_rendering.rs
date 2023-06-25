@@ -10,13 +10,6 @@ use bevy_tasks::ComputeTaskPool;
 
 use crate::RenderApp;
 
-/// A Label for the sub app that runs the parts of pipelined rendering that need to run on the main thread.
-///
-/// The Main schedule of this app can be used to run logic after the render schedule starts, but
-/// before I/O processing. This can be useful for something like frame pacing.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
-pub struct RenderExtractApp;
-
 /// Channel to send the render app from the main thread to the rendering thread
 #[derive(Resource)]
 pub struct MainToRenderAppSender(pub Sender<SubApp>);
@@ -70,18 +63,15 @@ impl Plugin for PipelinedRenderingPlugin {
             return;
         }
         app.insert_resource(MainThreadExecutor::new());
-
-        let mut sub_app = App::empty();
-        sub_app.init_schedule(Main);
-        app.insert_sub_app(RenderExtractApp, SubApp::new(sub_app, update_rendering));
     }
 
     // Sets up the render thread and inserts resources into the main app used for controlling the render thread.
     fn cleanup(&self, app: &mut App) {
         // skip setting up when headless
-        if app.get_sub_app(RenderExtractApp).is_err() {
+        // clone main thread executor to render world
+        let Some(executor) = app.world.get_resource::<MainThreadExecutor>().cloned() else {
             return;
-        }
+        };
 
         let (app_to_render_sender, app_to_render_receiver) = async_channel::bounded::<SubApp>(1);
         let (render_to_app_sender, render_to_app_receiver) = async_channel::bounded::<SubApp>(1);
@@ -90,14 +80,13 @@ impl Plugin for PipelinedRenderingPlugin {
             .remove_sub_app(RenderApp)
             .expect("Unable to get RenderApp. Another plugin may have removed the RenderApp before PipelinedRenderingPlugin");
 
-        // clone main thread executor to render world
-        let executor = app.world.get_resource::<MainThreadExecutor>().unwrap();
-        render_app.app.world.insert_resource(executor.clone());
+        render_app.app.world.insert_resource(executor);
 
         render_to_app_sender.send_blocking(render_app).unwrap();
 
         app.insert_resource(MainToRenderAppSender(app_to_render_sender));
         app.insert_resource(RenderToMainAppReceiver(render_to_app_receiver));
+        app.add_systems(Render, update_rendering);
 
         std::thread::spawn(move || {
             #[cfg(feature = "trace")]
@@ -124,7 +113,7 @@ impl Plugin for PipelinedRenderingPlugin {
 
 // This function waits for the rendering world to be received,
 // runs extract, and then sends the rendering world back to the render thread.
-fn update_rendering(app_world: &mut World, _sub_app: &mut App) {
+fn update_rendering(app_world: &mut World) {
     app_world.resource_scope(|world, main_thread_executor: Mut<MainThreadExecutor>| {
         // we use a scope here to run any main thread tasks that the render world still needs to run
         // while we wait for the render world to be received.

@@ -57,7 +57,11 @@ use crate::{
 };
 use bevy_app::{App, AppLabel, Plugin, Render, SubApp};
 use bevy_asset::{AddAsset, AssetServer};
-use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
+use bevy_ecs::{
+    prelude::*,
+    schedule::{MainThreadExecutor, ScheduleLabel},
+    system::SystemState,
+};
 use bevy_utils::tracing::debug;
 use std::{
     ops::{Deref, DerefMut},
@@ -371,6 +375,30 @@ impl Plugin for RenderPlugin {
                 .insert_resource(render_adapter)
                 .insert_resource(adapter_info);
         }
+    }
+
+    fn cleanup(&self, app: &mut App) {
+        // skip setting up when No backend is used
+        if self.wgpu_settings.backends.is_none() {
+            return;
+        }
+
+        // skip setting up when using PipelinedRenderingPlugin
+        if app.world.get_resource::<MainThreadExecutor>().is_some() {
+            return;
+        };
+
+        let mut render_app = app
+            .remove_sub_app(RenderApp)
+            .expect("Unable to get RenderApp. Another plugin may have removed the RenderApp before RenderPlugin");
+
+        app.add_systems(Render, move |world: &mut World| {
+            #[cfg(feature = "trace")]
+            let _sub_app_span =
+                bevy_utils::tracing::info_span!("sub app", name = ?RenderApp).entered();
+            render_app.extract(world);
+            render_app.run();
+        });
     }
 }
 
