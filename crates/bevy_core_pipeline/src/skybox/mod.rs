@@ -1,4 +1,4 @@
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Render};
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::{Component, Entity},
@@ -22,7 +22,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{BevyDefault, Image},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderSet,
+    RenderApp, RenderSet,
 };
 
 const SKYBOX_SHADER_HANDLE: HandleUntyped =

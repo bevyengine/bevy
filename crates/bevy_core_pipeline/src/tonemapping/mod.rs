@@ -10,7 +10,7 @@ use bevy_render::render_asset::RenderAssets;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_render::view::{ViewTarget, ViewUniform};
-use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
+use bevy_render::{render_resource::*, RenderApp, RenderSet};
 
 mod node;
 

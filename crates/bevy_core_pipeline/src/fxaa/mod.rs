@@ -19,7 +19,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
+    RenderApp, RenderSet,
 };
 
 mod node;

@@ -30,7 +30,7 @@ pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Render};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -48,7 +48,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::ViewDepthTexture,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_utils::{FloatOrd, HashMap};
 

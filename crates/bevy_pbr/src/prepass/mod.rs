@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, PreUpdate, Update};
+use bevy_app::{Plugin, PreUpdate, Render, Update};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -39,7 +39,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImagesDepth, FallbackImagesMsaa},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;

@@ -95,6 +95,10 @@ pub struct PostUpdate;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Last;
 
+/// The main render schedule.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Render;
+
 /// Defines the schedules to be run for the [`Main`] schedule, including
 /// their order.
 #[derive(Resource, Debug)]

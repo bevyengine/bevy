@@ -24,7 +24,7 @@ use system::{changed_window, create_window, despawn_window, CachedWindow};
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, Last, Plugin};
+use bevy_app::{App, AppExit, Last, Main, Plugin, Render};
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::*;
 use bevy_input::{

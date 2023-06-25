@@ -19,7 +19,7 @@ use bevy::{
         render_resource::*,
         renderer::RenderDevice,
         view::{ExtractedView, NoFrustumCulling},
-        Render, RenderApp, RenderSet,
+        RenderApp, RenderSet,
     },
 };
 use bytemuck::{Pod, Zeroable};

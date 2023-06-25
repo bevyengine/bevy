@@ -22,7 +22,7 @@ pub const CORE_2D: &str = graph::NAME;
 pub use camera_2d::*;
 pub use main_pass_2d_node::*;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Render};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::Camera,
@@ -33,7 +33,7 @@ use bevy_render::{
         DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
     },
     render_resource::CachedRenderPipelineId,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_utils::FloatOrd;
 use std::ops::Range;

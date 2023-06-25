@@ -63,7 +63,7 @@ use bevy_render::{
     render_phase::sort_phase_system,
     render_resource::Shader,
     view::{ViewSet, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;

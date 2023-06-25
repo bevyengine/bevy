@@ -40,7 +40,7 @@ use bevy_render::{
     render_resource::{Shader, SpecializedRenderPipelines},
     texture::Image,
     view::{NoFrustumCulling, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, RenderApp, RenderSet,
 };
 
 #[derive(Default)]

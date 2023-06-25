@@ -55,7 +55,7 @@ use crate::{
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppLabel, Plugin, Render, SubApp};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
@@ -108,11 +108,7 @@ pub enum RenderSet {
     CleanupFlush,
 }
 
-/// The main render schedule.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct Render;
-
-impl Render {
+impl RenderSet {
     /// Sets up the base structure of the rendering [`Schedule`].
     ///
     /// The sets defined in this enum are configured to run in order,
@@ -273,7 +269,7 @@ impl Plugin for RenderPlugin {
 
             render_app
                 .add_schedule(ExtractSchedule, extract_schedule)
-                .add_schedule(Render, Render::base_schedule())
+                .add_schedule(Render, RenderSet::base_schedule())
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(app.world.resource::<AssetServer>().clone())
                 .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
