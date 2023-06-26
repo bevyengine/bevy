@@ -8,6 +8,9 @@ repository = "https://github.com/robtfm/naga_oil/"
 readme = "README.md"
 
 [features]
+default = ["test_shader"]
+# enable tests that need a graphical card
+test_shader = []
 prune = []
 override_any = []
 
