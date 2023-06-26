@@ -10,7 +10,7 @@
 #import bevy_pbr::mesh_view_bindings       view, fog, screen_space_ambient_occlusion_texture
 #import bevy_pbr::mesh_view_types          FOG_MODE_OFF
 #import bevy_core_pipeline::tonemapping    screen_space_dither, powsafe, tone_mapping
-#import bevy_pbr::parallax_mapping
+#import bevy_pbr::parallax_mapping         parallaxed_uv
 
 #import bevy_pbr::prepass_utils
 
@@ -30,16 +30,16 @@ fn fragment(
 #ifdef VERTEX_UVS
     var uv = in.uv;
 #ifdef VERTEX_TANGENTS
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
+    if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
         let N = in.world_normal;
         let T = in.world_tangent.xyz;
         let B = in.world_tangent.w * cross(N, T);
         // Transform V from fragment to camera in world space to tangent space.
         let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
         uv = parallaxed_uv(
-            material.parallax_depth_scale,
-            material.max_parallax_layer_count,
-            material.max_relief_mapping_search_steps,
+            pbr_bindings::material.parallax_depth_scale,
+            pbr_bindings::material.max_parallax_layer_count,
+            pbr_bindings::material.max_relief_mapping_search_steps,
             uv,
             // Flip the direction of Vt to go toward the surface to make the
             // parallax mapping algorithm easier to understand and reason
