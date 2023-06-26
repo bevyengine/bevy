@@ -28,9 +28,8 @@ fn mesh_mat_flags_from_deferred_flags(deferred_flags: u32) -> vec2<u32> {
 // https://jcgt.org/published/0003/02/01/paper.pdf
 // could possibly go down to oct20 if the space is needed 
 
-// https://github.com/EmbarkStudios/kajiya/blob/d3b6ac22c5306cc9d3ea5e2d62fd872bea58d8d6/assets/shaders/inc/pack_unpack.hlsl#LL66C1
 fn octa_wrap(v: vec2<f32>) -> vec2<f32> {
-    return (1.0 - abs(v.yx)) * (vec2<f32>(v.xy >= vec2(0.0)) * 2.0 - 1.0);
+    return (1.0 - abs(v.yx)) * sign(v.xy);
 }
 
 fn octa_encode(n: vec3<f32>) -> vec2<f32> {
@@ -43,14 +42,11 @@ fn octa_encode(n: vec3<f32>) -> vec2<f32> {
 
 fn octa_decode(f: vec2<f32>) -> vec3<f32> {
     var f = f * 2.0 - 1.0;
- 
-    // https://twitter.com/Stubbesaurus/status/937994790553227264
     var n = vec3( f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
-    let t = clamp(-n.z, 0.0, 1.0);
-    //n.xy += select(n.xy >= 0.0, -t, t);
-    // n.xy -= (step(0.0, n.xy) * 2 - 1) * t;
-    let tmp = n.xy - (vec2<f32>(n.xy >= vec2(0.0)) * 2.0 - 1.0) * t;
-    return normalize(vec3(tmp, n.z));
+    if (n.z < 0.0) {
+        n = vec3(octa_wrap(n.xy), n.z);
+    }
+    return normalize(n);
 }
 
 const U12MAXF = 4095.0;

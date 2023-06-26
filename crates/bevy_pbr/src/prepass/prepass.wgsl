@@ -69,7 +69,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #endif // MOTION_VECTOR_PREPASS
 
 #ifdef DEFERRED_PREPASS
-    out.deferred = vec4(0u, float3_to_rgb9e5(vec3(1.0, 0.0, 1.0)), 0u, 0u);
+    out.deferred = vec4(0u, vec3_to_rgb9e5(vec3(1.0, 0.0, 1.0)), 0u, 0u);
 #endif
 
     return out;

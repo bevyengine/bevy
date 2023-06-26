@@ -64,7 +64,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
     }
     let deferred = vec4(
         pack_unorm4x8(vec4(base_color_srgb, in.material.perceptual_roughness)),
-        float3_to_rgb9e5(emissive),
+        vec3_to_rgb9e5(emissive),
         props,
         pack_24bit_nor_and_flags(oct_nor, flags),
     );
@@ -83,7 +83,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
 
     let base_rough = unpack_unorm4x8(gbuffer.r);
     pbr.material.perceptual_roughness = base_rough.a;
-    let emissive = rgb9e5_to_float3(gbuffer.g);
+    let emissive = rgb9e5_to_vec3(gbuffer.g);
     if ((pbr.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
         pbr.material.base_color = vec4(emissive, 1.0);
         pbr.material.emissive = vec4(vec3(0.0), 1.0);
