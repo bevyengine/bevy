@@ -7,7 +7,6 @@ use crate::{
     UnnamedField,
 };
 use std::any::{Any, TypeId};
-use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
@@ -221,7 +220,6 @@ impl TupleInfo {
 /// A tuple which allows fields to be added at runtime.
 #[derive(Default, Debug)]
 pub struct DynamicTuple {
-    name: Cow<'static, str>,
     represented_type: Option<&'static TypeInfo>,
     fields: Vec<Box<dyn Reflect>>,
 }
@@ -241,8 +239,6 @@ impl DynamicTuple {
                 "expected TypeInfo::Tuple but received: {:?}",
                 represented_type
             );
-
-            self.name = Cow::Borrowed(represented_type.type_path());
         }
         self.represented_type = represented_type;
     }
@@ -251,28 +247,12 @@ impl DynamicTuple {
     pub fn insert_boxed(&mut self, value: Box<dyn Reflect>) {
         self.represented_type = None;
         self.fields.push(value);
-        self.generate_name();
     }
 
     /// Appends a typed element with value `value` to the tuple.
     pub fn insert<T: Reflect>(&mut self, value: T) {
         self.represented_type = None;
         self.insert_boxed(Box::new(value));
-        self.generate_name();
-    }
-
-    fn generate_name(&mut self) {
-        let mut name = self.name.to_string();
-        name.clear();
-        name.push('(');
-        for (i, field) in self.fields.iter().enumerate() {
-            if i > 0 {
-                name.push_str(", ");
-            }
-            name.push_str(field.reflect_type_path());
-        }
-        name.push(')');
-        self.name = Cow::Owned(name);
     }
 }
 
@@ -308,7 +288,6 @@ impl Tuple for DynamicTuple {
     #[inline]
     fn clone_dynamic(&self) -> DynamicTuple {
         DynamicTuple {
-            name: self.name.clone(),
             represented_type: self.represented_type,
             fields: self
                 .fields
@@ -518,7 +497,6 @@ macro_rules! impl_reflect_tuple {
             fn clone_dynamic(&self) -> DynamicTuple {
                 let info = self.get_represented_type_info();
                 DynamicTuple {
-                    name: Cow::Borrowed(Self::type_path()),
                     represented_type: info,
                     fields: self
                         .iter_fields()
