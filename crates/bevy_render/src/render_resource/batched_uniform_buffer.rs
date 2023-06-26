@@ -14,7 +14,16 @@ use wgpu::{BindingResource, Limits};
 // `max_uniform_buffer_binding_size`. On macOS this ends up being the minimum
 // size of the uniform buffer as well as the size of each chunk of data at a
 // dynamic offset.
+#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
 const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u32 = 1 << 20;
+
+// WebGL2 quirk: using uniform buffers larger than 4KB will cause extremely
+// long shader compilation times, so the limit needs to be lower on WebGL2.
+// This is due to older shader compilers/GPUs that don't support dynamically
+// indexing uniform buffers, and instead emulate it with large switch statements
+// over buffer indices that take a long time to compile.
+#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u32 = 1 << 12;
 
 /// Similar to [`DynamicUniformBuffer`], except every N elements (depending on size)
 /// are grouped into a batch as an `array<T, N>` in WGSL.
