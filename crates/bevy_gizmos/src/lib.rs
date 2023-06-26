@@ -16,6 +16,7 @@
 //!
 //! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
 
+use std::hash::{Hash, Hasher};
 use std::mem;
 
 use bevy_app::{Last, Plugin, Update};
@@ -52,6 +53,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_utils::AHasher;
 
 pub mod gizmos;
 
@@ -229,7 +231,12 @@ fn draw_all_aabbs(
 }
 
 fn color_from_entity(entity: Entity) -> Color {
-    let hue = entity.to_bits() as f32 * 100_000. % 360.;
+    const U64_TO_DEGREES: f32 = 360.0 / u64::MAX as f32;
+
+    let mut hasher = AHasher::default();
+    entity.hash(&mut hasher);
+
+    let hue = hasher.finish() as f32 * U64_TO_DEGREES;
     Color::hsl(hue, 1., 0.5)
 }
 
