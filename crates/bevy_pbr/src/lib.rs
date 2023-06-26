@@ -192,19 +192,22 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
             .register_type::<ShadowFilteringMethod>()
-            .add_plugin(MeshRenderPlugin)
-            .add_plugin(MaterialPlugin::<StandardMaterial> {
-                prepass_enabled: self.prepass_enabled,
-                ..Default::default()
-            })
-            .add_plugin(ScreenSpaceAmbientOcclusionPlugin)
-            .add_plugin(EnvironmentMapPlugin)
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
-            .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
-            .add_plugin(ExtractComponentPlugin::<ShadowFilteringMethod>::default())
+            .add_plugins((
+                MeshRenderPlugin,
+                MaterialPlugin::<StandardMaterial> {
+                    prepass_enabled: self.prepass_enabled,
+                    ..Default::default()
+                },
+                ScreenSpaceAmbientOcclusionPlugin,
+                EnvironmentMapPlugin,
+                ExtractResourcePlugin::<AmbientLight>::default(),
+                FogPlugin,
+                ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+            ))
             .configure_sets(
                 PostUpdate,
                 (
@@ -214,7 +217,6 @@ impl Plugin for PbrPlugin {
                 )
                     .chain(),
             )
-            .add_plugin(FogPlugin)
             .add_systems(
                 PostUpdate,
                 (

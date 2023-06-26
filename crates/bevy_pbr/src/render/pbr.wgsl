@@ -55,7 +55,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #endif
 #ifdef VERTEX_UVS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
-        output_color = output_color * textureSample(base_color_texture, base_color_sampler, uv);
+        output_color = output_color * textureSampleBias(base_color_texture, base_color_sampler, uv, view.mip_bias);
     }
 #endif
 
@@ -74,7 +74,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         var emissive: vec4<f32> = material.emissive;
 #ifdef VERTEX_UVS
         if ((material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
-            emissive = vec4<f32>(emissive.rgb * textureSample(emissive_texture, emissive_sampler, uv).rgb, 1.0);
+            emissive = vec4<f32>(emissive.rgb * textureSampleBias(emissive_texture, emissive_sampler, uv, view.mip_bias).rgb, 1.0);
         }
 #endif
         pbr_input.material.emissive = emissive;
@@ -83,7 +83,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         var perceptual_roughness: f32 = material.perceptual_roughness;
 #ifdef VERTEX_UVS
         if ((material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
-            let metallic_roughness = textureSample(metallic_roughness_texture, metallic_roughness_sampler, uv);
+            let metallic_roughness = textureSampleBias(metallic_roughness_texture, metallic_roughness_sampler, uv, view.mip_bias);
             // Sampling from GLTF standard channels for now
             metallic = metallic * metallic_roughness.b;
             perceptual_roughness = perceptual_roughness * metallic_roughness.g;
@@ -96,7 +96,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         var occlusion: vec3<f32> = vec3(1.0);
 #ifdef VERTEX_UVS
         if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
-            occlusion = vec3(textureSample(occlusion_texture, occlusion_sampler, in.uv).r);
+            occlusion = vec3(textureSampleBias(occlusion_texture, occlusion_sampler, in.uv, view.mip_bias).r);
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
@@ -109,18 +109,17 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.frag_coord = in.frag_coord;
         pbr_input.world_position = in.world_position;
 
-#ifdef LOAD_PREPASS_NORMALS
-        pbr_input.world_normal = prepass_normal(in.frag_coord, 0u);
-#else // LOAD_PREPASS_NORMALS
         pbr_input.world_normal = prepare_world_normal(
             in.world_normal,
             (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
             in.is_front,
         );
-#endif // LOAD_PREPASS_NORMALS
 
         pbr_input.is_orthographic = is_orthographic;
 
+#ifdef LOAD_PREPASS_NORMALS
+        pbr_input.N = prepass_normal(in.frag_coord, 0u);
+#else
         pbr_input.N = apply_normal_mapping(
             material.flags,
             pbr_input.world_normal,
@@ -133,6 +132,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             uv,
 #endif
         );
+#endif
+
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
 

@@ -211,6 +211,26 @@ impl ReflectComponent {
     pub fn new(fns: ReflectComponentFns) -> Self {
         Self(fns)
     }
+
+    /// The underlying function pointers implementing methods on `ReflectComponent`.
+    ///
+    /// This is useful when you want to keep track locally of an individual
+    /// function pointer.
+    ///
+    /// Calling [`TypeRegistry::get`] followed by
+    /// [`TypeRegistration::data::<ReflectComponent>`] can be costly if done several
+    /// times per frame. Consider cloning [`ReflectComponent`] and keeping it
+    /// between frames, cloning a `ReflectComponent` is very cheap.
+    ///
+    /// If you only need a subset of the methods on `ReflectComponent`,
+    /// use `fn_pointers` to get the underlying [`ReflectComponentFns`]
+    /// and copy the subset of function pointers you care about.
+    ///
+    /// [`TypeRegistration::data::<ReflectComponent>`]: bevy_reflect::TypeRegistration::data
+    /// [`TypeRegistry::get`]: bevy_reflect::TypeRegistry::get
+    pub fn fn_pointers(&self) -> &ReflectComponentFns {
+        &self.0
+    }
 }
 
 impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {

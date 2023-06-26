@@ -3,11 +3,13 @@ pub mod skinning;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
+    prelude::Image,
     primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset},
-    render_resource::{Buffer, VertexBufferLayout},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
+    render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
 };
+use bevy_asset::Handle;
 use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
@@ -35,6 +37,8 @@ pub struct Mesh {
     /// which allows easy stable VertexBuffers (i.e. same buffer order)
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
+    morph_targets: Option<Handle<Image>>,
+    morph_target_names: Option<Vec<String>>,
 }
 
 /// Contains geometry in the form of a mesh.
@@ -43,17 +47,55 @@ pub struct Mesh {
 /// [`shape::Cube`](crate::mesh::shape::Cube) or [`shape::Box`](crate::mesh::shape::Box), but you can also construct
 /// one yourself.
 ///
-/// Example of constructing a mesh:
+/// Example of constructing a mesh (to be rendered with a `StandardMaterial`):
 /// ```
 /// # use bevy_render::mesh::{Mesh, Indices};
 /// # use bevy_render::render_resource::PrimitiveTopology;
-/// fn create_triangle() -> Mesh {
+/// fn create_simple_parallelogram() -> Mesh {
+///     // Create a new mesh, add 4 vertices, each with its own position attribute (coordinate in
+///     // 3D space), for each of the corners of the parallelogram.
 ///     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-///     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]);
-///     mesh.set_indices(Some(Indices::U32(vec![0,1,2])));
+///     mesh.insert_attribute(
+///         Mesh::ATTRIBUTE_POSITION,
+///         vec![[0.0, 0.0, 0.0], [1.0, 2.0, 0.0], [2.0, 2.0, 0.0], [1.0, 0.0, 0.0]]
+///     );
+///     // Assign a UV coordinate to each vertex.
+///     mesh.insert_attribute(
+///         Mesh::ATTRIBUTE_UV_0,
+///         vec![[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]]
+///     );
+///     // Assign normals (everything points outwards)
+///     mesh.insert_attribute(
+///        Mesh::ATTRIBUTE_NORMAL,
+///        vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]
+///     );
+///     // After defining all the vertices and their attributes, build each triangle using the
+///     // indices of the vertices that make it up in a counter-clockwise order.
+///     mesh.set_indices(Some(Indices::U32(vec![
+///         // First triangle
+///         0, 3, 1,
+///         // Second triangle
+///         1, 3, 2
+///     ])));
 ///     mesh
+///     // For further visualization, explanation, and examples see the built-in Bevy examples
+///     // and the implementation of the built-in shapes.
 /// }
 /// ```
+/// Common points of confusion:
+/// - UV maps in Bevy are "flipped", (0.0, 0.0) = Top-Left (not Bot-Left like `OpenGL`)
+/// - It is normal for multiple vertices to have the same position
+///   attribute - it's a common technique in 3D modelling for complex UV mapping or other calculations.
+///
+/// To render correctly with `StandardMaterial` a mesh needs to have properly defined:
+/// - [`UVs`](Mesh::ATTRIBUTE_UV_0): Bevy needs to know how to map a texture onto the mesh.
+/// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh. ([0.0, 0.0, 1.0] is very
+///              common for simple meshes because simple meshes are smooth, and they don't require complex light calculations.)
+/// - Vertex winding order -
+///              the default behavior is with `StandardMaterial.cull_mode` = Some([`Face::Front`](crate::render_resource::Face::Front)) which means
+///              that by default Bevy would *only* render the front of each triangle, and the front
+///              is the side of the triangle in which the vertices appear in a *counter-clockwise* order.
+///
 impl Mesh {
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_POSITION: MeshVertexAttribute =
@@ -91,6 +133,8 @@ impl Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
+            morph_targets: None,
+            morph_target_names: None,
         }
     }
 
@@ -405,6 +449,28 @@ impl Mesh {
         }
 
         None
+    }
+
+    /// Whether this mesh has morph targets.
+    pub fn has_morph_targets(&self) -> bool {
+        self.morph_targets.is_some()
+    }
+
+    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::mesh::morph::MorphTargetImage) for info.
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
+        self.morph_targets = Some(morph_targets);
+    }
+
+    /// Sets the names of each morph target. This should correspond to the order of the morph targets in `set_morph_targets`.
+    pub fn set_morph_target_names(&mut self, names: Vec<String>) {
+        self.morph_target_names = Some(names);
+    }
+
+    /// Gets a list of all morph target names, if they exist.
+    pub fn morph_target_names(&self) -> Option<&[String]> {
+        self.morph_target_names.as_deref()
     }
 }
 
@@ -821,6 +887,7 @@ pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,
     pub vertex_count: u32,
+    pub morph_targets: Option<TextureView>,
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
@@ -841,7 +908,7 @@ pub enum GpuBufferInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
-    type Param = SRes<RenderDevice>;
+    type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
 
     /// Clones the mesh.
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -851,7 +918,7 @@ impl RenderAsset for Mesh {
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
-        render_device: &mut SystemParamItem<Self::Param>,
+        (render_device, images): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
@@ -882,6 +949,9 @@ impl RenderAsset for Mesh {
             buffer_info,
             primitive_topology: mesh.primitive_topology(),
             layout: mesh_vertex_buffer_layout,
+            morph_targets: mesh
+                .morph_targets
+                .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
         })
     }
 }

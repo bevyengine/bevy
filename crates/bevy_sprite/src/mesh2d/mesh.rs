@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Mat4, Vec2};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypeUuid};
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -29,8 +29,8 @@ use bevy_transform::components::GlobalTransform;
 /// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
 ///
 /// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
-#[derive(Default, Clone, Component, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Default, Clone, Component, Debug, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
 pub struct Mesh2dHandle(pub Handle<Mesh>);
 
 impl From<Handle<Mesh>> for Mesh2dHandle {
@@ -97,7 +97,7 @@ impl Plugin for Mesh2dRenderPlugin {
         );
         load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(UniformComponentPlugin::<Mesh2dUniform>::default());
+        app.add_plugins(UniformComponentPlugin::<Mesh2dUniform>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
