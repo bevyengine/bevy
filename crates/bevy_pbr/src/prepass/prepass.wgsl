@@ -21,6 +21,10 @@ struct Vertex {
     @location(4) joint_indices: vec4<u32>,
     @location(5) joint_weights: vec4<f32>,
 #endif // SKINNED
+
+#ifdef MORPH_TARGETS
+    @builtin(vertex_index) index: u32,
+#endif // MORPH_TARGETS
 }
 
 struct VertexOutput {
@@ -41,11 +45,42 @@ struct VertexOutput {
     @location(3) world_position: vec4<f32>,
     @location(4) previous_world_position: vec4<f32>,
 #endif // MOTION_VECTOR_PREPASS
+
+#ifdef DEPTH_CLAMP_ORTHO
+    @location(5) clip_position_unclamped: vec4<f32>,
+#endif // DEPTH_CLAMP_ORTHO
 }
 
+#ifdef MORPH_TARGETS
+fn morph_vertex(vertex_in: Vertex) -> Vertex {
+    var vertex = vertex_in;
+    let weight_count = layer_count();
+    for (var i: u32 = 0u; i < weight_count; i ++) {
+        let weight = weight_at(i);
+        if weight == 0.0 {
+            continue;
+        }
+        vertex.position += weight * morph(vertex.index, position_offset, i);
+#ifdef VERTEX_NORMALS
+        vertex.normal += weight * morph(vertex.index, normal_offset, i);
+#endif
+#ifdef VERTEX_TANGENTS
+        vertex.tangent += vec4(weight * morph(vertex.index, tangent_offset, i), 0.0);
+#endif
+    }
+    return vertex;
+}
+#endif
+
 @vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
+fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
+
+#ifdef MORPH_TARGETS
+    var vertex = morph_vertex(vertex_no_morph);
+#else
+    var vertex = vertex_no_morph;
+#endif
 
 #ifdef SKINNED
     var model = skin_model(vertex.joint_indices, vertex.joint_weights);
@@ -55,7 +90,8 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
     out.clip_position = mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
 #ifdef DEPTH_CLAMP_ORTHO
-        out.clip_position.z = min(out.clip_position.z, 1.0);
+    out.clip_position_unclamped = out.clip_position;
+    out.clip_position.z = min(out.clip_position.z, 1.0);
 #endif // DEPTH_CLAMP_ORTHO
 
 #ifdef VERTEX_UVS
@@ -96,6 +132,10 @@ struct FragmentInput {
     @location(3) world_position: vec4<f32>,
     @location(4) previous_world_position: vec4<f32>,
 #endif // MOTION_VECTOR_PREPASS
+
+#ifdef DEPTH_CLAMP_ORTHO
+    @location(5) clip_position_unclamped: vec4<f32>,
+#endif // DEPTH_CLAMP_ORTHO
 }
 
 struct FragmentOutput {
@@ -106,6 +146,10 @@ struct FragmentOutput {
 #ifdef MOTION_VECTOR_PREPASS
     @location(1) motion_vector: vec2<f32>,
 #endif // MOTION_VECTOR_PREPASS
+
+#ifdef DEPTH_CLAMP_ORTHO
+    @builtin(frag_depth) frag_depth: f32,
+#endif // DEPTH_CLAMP_ORTHO
 }
 
 @fragment
@@ -115,6 +159,10 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #ifdef NORMAL_PREPASS
     out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
 #endif
+
+#ifdef DEPTH_CLAMP_ORTHO
+    out.frag_depth = in.clip_position_unclamped.z;
+#endif // DEPTH_CLAMP_ORTHO
 
 #ifdef MOTION_VECTOR_PREPASS
     let clip_position_t = view.unjittered_view_proj * in.world_position;

@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::mem;
+use std::ops::Deref;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
@@ -36,6 +37,7 @@ pub use bevy_ecs_macros::States;
 ///
 /// ```
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
+    /// The type returned when iterating over all [`variants`](States::variants) of this type.
     type Iter: Iterator<Item = Self>;
 
     /// Returns an iterator over all the state variants.
@@ -92,6 +94,14 @@ impl<S: States> State<S> {
 impl<S: States> PartialEq<S> for State<S> {
     fn eq(&self, other: &S) -> bool {
         self.get() == other
+    }
+}
+
+impl<S: States> Deref for State<S> {
+    type Target = S;
+
+    fn deref(&self) -> &Self::Target {
+        self.get()
     }
 }
 

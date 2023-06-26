@@ -8,7 +8,7 @@ use bevy_render::{
     color::Color,
     extract_resource::ExtractResource,
     prelude::Projection,
-    primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Plane, Sphere},
+    primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, VisibleEntities},
@@ -40,8 +40,8 @@ use crate::{
 /// | 4000 | 300 |    | 75-100 | 40.5  |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Clone, Copy, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct PointLight {
     pub color: Color,
     pub intensity: f32,
@@ -75,8 +75,8 @@ impl PointLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource)]
+#[derive(Resource, Clone, Debug, Reflect, FromReflect)]
+#[reflect(Resource, FromReflect)]
 pub struct PointLightShadowMap {
     pub size: usize,
 }
@@ -91,8 +91,8 @@ impl Default for PointLightShadowMap {
 /// Behaves like a point light in a perfectly absorbent housing that
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](bevy_transform::components::Transform::looking_at).
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Clone, Copy, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct SpotLight {
     pub color: Color,
     pub intensity: f32,
@@ -187,8 +187,8 @@ impl Default for SpotLight {
 /// App::new()
 ///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
 /// ```
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct DirectionalLight {
     pub color: Color,
     /// Illuminance in lux
@@ -218,8 +218,8 @@ impl DirectionalLight {
 }
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
-#[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource)]
+#[derive(Resource, Clone, Debug, Reflect, FromReflect)]
+#[reflect(Resource, FromReflect)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
 }
@@ -243,8 +243,8 @@ impl Default for DirectionalLightShadowMap {
 ///   ..default()
 /// }.into();
 /// ```
-#[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Clone, Debug, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
 pub struct CascadeShadowConfig {
     /// The (positive) distance to the far boundary of each cascade.
     pub bounds: Vec<f32>,
@@ -353,7 +353,7 @@ impl CascadeShadowConfigBuilder {
 
 impl Default for CascadeShadowConfigBuilder {
     fn default() -> Self {
-        if cfg!(feature = "webgl") {
+        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
             // Currently only support one cascade in webgl.
             Self {
                 num_cascades: 1,
@@ -380,14 +380,15 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
     }
 }
 
-#[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Clone, Debug, Default, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
     pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
 }
 
 #[derive(Clone, Debug, Default, Reflect, FromReflect)]
+#[reflect(FromReflect)]
 pub struct Cascade {
     /// The transform of the light, i.e. the view to world matrix.
     pub(crate) view_transform: Mat4,
@@ -580,8 +581,8 @@ fn calculate_cascade(
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
-#[reflect(Resource)]
+#[derive(Resource, Clone, Debug, ExtractResource, Reflect, FromReflect)]
+#[reflect(Resource, FromReflect)]
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.
@@ -598,12 +599,12 @@ impl Default for AmbientLight {
 }
 
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.
-#[derive(Component, Reflect, Default)]
-#[reflect(Component, Default)]
+#[derive(Component, Reflect, FromReflect, Default)]
+#[reflect(Component, Default, FromReflect)]
 pub struct NotShadowCaster;
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows.
-#[derive(Component, Reflect, Default)]
-#[reflect(Component, Default)]
+#[derive(Component, Reflect, FromReflect, Default)]
+#[reflect(Component, Default, FromReflect)]
 pub struct NotShadowReceiver;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -640,7 +641,7 @@ pub enum ClusterFarZMode {
 
 /// Configure the depth-slicing strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Reflect, FromReflect)]
-#[reflect(Default)]
+#[reflect(Default, FromReflect)]
 pub struct ClusterZConfig {
     /// Far `Z` plane of the first depth slice
     pub first_slice_depth: f32,
@@ -658,8 +659,8 @@ impl Default for ClusterZConfig {
 }
 
 /// Configuration of the clustering strategy for clustered forward rendering
-#[derive(Debug, Copy, Clone, Component, Reflect)]
-#[reflect(Component)]
+#[derive(Debug, Copy, Clone, Component, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
 pub enum ClusterConfig {
     /// Disable light cluster calculations for this view
     None,
@@ -1457,7 +1458,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let view_x = clip_to_view(inverse_projection, Vec4::new(x_pos, 0.0, 1.0, 1.0)).x;
                 let normal = Vec3::X;
                 let d = view_x * normal.x;
-                x_planes.push(Plane::new(normal.extend(d)));
+                x_planes.push(HalfSpace::new(normal.extend(d)));
             }
 
             let y_slices = clusters.dimensions.y as f32;
@@ -1467,7 +1468,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let view_y = clip_to_view(inverse_projection, Vec4::new(0.0, y_pos, 1.0, 1.0)).y;
                 let normal = Vec3::Y;
                 let d = view_y * normal.y;
-                y_planes.push(Plane::new(normal.extend(d)));
+                y_planes.push(HalfSpace::new(normal.extend(d)));
             }
         } else {
             let x_slices = clusters.dimensions.x as f32;
@@ -1478,7 +1479,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let nt = clip_to_view(inverse_projection, Vec4::new(x_pos, 1.0, 1.0, 1.0)).xyz();
                 let normal = nb.cross(nt);
                 let d = nb.dot(normal);
-                x_planes.push(Plane::new(normal.extend(d)));
+                x_planes.push(HalfSpace::new(normal.extend(d)));
             }
 
             let y_slices = clusters.dimensions.y as f32;
@@ -1489,7 +1490,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let nr = clip_to_view(inverse_projection, Vec4::new(1.0, y_pos, 1.0, 1.0)).xyz();
                 let normal = nr.cross(nl);
                 let d = nr.dot(normal);
-                y_planes.push(Plane::new(normal.extend(d)));
+                y_planes.push(HalfSpace::new(normal.extend(d)));
             }
         }
 
@@ -1498,7 +1499,7 @@ pub(crate) fn assign_lights_to_clusters(
             let view_z = z_slice_to_view_z(first_slice_depth, far_z, z_slices, z, is_orthographic);
             let normal = -Vec3::Z;
             let d = view_z * normal.z;
-            z_planes.push(Plane::new(normal.extend(d)));
+            z_planes.push(HalfSpace::new(normal.extend(d)));
         }
 
         let mut update_from_light_intersections = |visible_lights: &mut Vec<Entity>| {
@@ -1737,7 +1738,7 @@ pub(crate) fn assign_lights_to_clusters(
 }
 
 // NOTE: This exploits the fact that a x-plane normal has only x and z components
-fn get_distance_x(plane: Plane, point: Vec3A, is_orthographic: bool) -> f32 {
+fn get_distance_x(plane: HalfSpace, point: Vec3A, is_orthographic: bool) -> f32 {
     if is_orthographic {
         point.x - plane.d()
     } else {
@@ -1750,7 +1751,7 @@ fn get_distance_x(plane: Plane, point: Vec3A, is_orthographic: bool) -> f32 {
 }
 
 // NOTE: This exploits the fact that a z-plane normal has only a z component
-fn project_to_plane_z(z_light: Sphere, z_plane: Plane) -> Option<Sphere> {
+fn project_to_plane_z(z_light: Sphere, z_plane: HalfSpace) -> Option<Sphere> {
     // p = sphere center
     // n = plane normal
     // d = n.p if p is in the plane
@@ -1772,7 +1773,11 @@ fn project_to_plane_z(z_light: Sphere, z_plane: Plane) -> Option<Sphere> {
 }
 
 // NOTE: This exploits the fact that a y-plane normal has only y and z components
-fn project_to_plane_y(y_light: Sphere, y_plane: Plane, is_orthographic: bool) -> Option<Sphere> {
+fn project_to_plane_y(
+    y_light: Sphere,
+    y_plane: HalfSpace,
+    is_orthographic: bool,
+) -> Option<Sphere> {
     let distance_to_plane = if is_orthographic {
         y_plane.d() - y_light.center.y
     } else {

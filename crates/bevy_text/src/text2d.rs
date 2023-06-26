@@ -10,7 +10,7 @@ use bevy_ecs::{
     system::{Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
 use bevy_render::{
     prelude::Color,
     texture::Image,
@@ -23,8 +23,8 @@ use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
 use crate::{
-    Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, Text, TextError, TextLayoutInfo,
-    TextPipeline, TextSettings, YAxisOrientation,
+    BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, Text, TextError,
+    TextLayoutInfo, TextPipeline, TextSettings, YAxisOrientation,
 };
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
@@ -34,8 +34,8 @@ use crate::{
 /// Note: only characters that are completely out of the bounds will be truncated, so this is not a
 /// reliable limit if it is necessary to contain the text strictly in the bounds. Currently this
 /// component is mainly useful for text wrapping only.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Copy, Clone, Debug, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
 pub struct Text2dBounds {
     pub size: Vec2,
 }
@@ -174,7 +174,11 @@ pub fn update_text2d_layout(
     for (entity, text, bounds, mut text_layout_info) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = Vec2::new(
-                scale_value(bounds.size.x, scale_factor),
+                if text.linebreak_behavior == BreakLineOn::NoWrap {
+                    f32::INFINITY
+                } else {
+                    scale_value(bounds.size.x, scale_factor)
+                },
                 scale_value(bounds.size.y, scale_factor),
             );
 

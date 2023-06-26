@@ -28,7 +28,7 @@ use std::borrow::Cow;
 use std::ffi::OsString;
 use std::marker::PhantomData;
 use std::ops::Range;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(not(target_arch = "wasm32"))]
@@ -59,6 +59,7 @@ fn register_rust_types(app: &mut App) {
         .register_type::<Option<bool>>()
         .register_type::<Option<f64>>()
         .register_type::<Cow<'static, str>>()
+        .register_type::<Cow<'static, Path>>()
         .register_type::<Duration>()
         .register_type::<Instant>();
 }
@@ -164,8 +165,7 @@ mod tests {
     #[test]
     fn runs_spawn_local_tasks() {
         let mut app = App::new();
-        app.add_plugin(TaskPoolPlugin::default());
-        app.add_plugin(TypeRegistrationPlugin::default());
+        app.add_plugins((TaskPoolPlugin::default(), TypeRegistrationPlugin::default()));
 
         let (async_tx, async_rx) = crossbeam_channel::unbounded();
         AsyncComputeTaskPool::get()
@@ -198,9 +198,11 @@ mod tests {
     #[test]
     fn frame_counter_update() {
         let mut app = App::new();
-        app.add_plugin(TaskPoolPlugin::default());
-        app.add_plugin(TypeRegistrationPlugin::default());
-        app.add_plugin(FrameCountPlugin::default());
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            TypeRegistrationPlugin::default(),
+            FrameCountPlugin::default(),
+        ));
         app.update();
 
         let frame_count = app.world.resource::<FrameCount>();
