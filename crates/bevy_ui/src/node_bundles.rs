@@ -257,7 +257,8 @@ impl TextBundle {
         self
     }
 
-    /// Returns this [`TextBundle`] with text wrapping disabled.
+    /// Returns this [`TextBundle`] with soft wrapping disabled.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
     pub const fn with_no_wrap(mut self) -> Self {
         self.text.linebreak_behavior = BreakLineOn::NoWrap;
         self
