@@ -42,7 +42,7 @@ pub(crate) enum ReflectDerive<'a> {
 pub(crate) struct ReflectMeta<'a> {
     /// The registered traits for this type.
     traits: ReflectTraits,
-    /// The name of this type.
+    /// The path to this type.
     type_path: ReflectTypePath<'a>,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
@@ -376,7 +376,7 @@ impl<'a> ReflectMeta<'a> {
         &self.traits
     }
 
-    /// The name of this struct.
+    /// The path to this type.
     pub fn type_path(&self) -> &ReflectTypePath<'a> {
         &self.type_path
     }

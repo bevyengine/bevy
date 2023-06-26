@@ -90,7 +90,6 @@ impl StructInfo {
     ///
     /// # Arguments
     ///
-    /// * `name`: The name of this struct (_without_ generics or lifetimes)
     /// * `fields`: The fields of this struct in the order they are defined
     ///
     pub fn new<T: Reflect + TypePath>(fields: &[NamedField]) -> Self {

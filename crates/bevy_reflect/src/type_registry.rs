@@ -177,7 +177,7 @@ impl TypeRegistry {
     /// Returns a reference to the [`TypeRegistration`] of the type with the
     /// given [type path].
     ///
-    /// If no type with the given name has been registered, returns `None`.
+    /// If no type with the given path has been registered, returns `None`.
     ///
     /// [type path]: TypePath::type_path
     pub fn get_with_type_path(&self, type_path: &str) -> Option<&TypeRegistration> {

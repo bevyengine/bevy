@@ -147,7 +147,6 @@ impl EnumInfo {
     ///
     /// # Arguments
     ///
-    /// * `name`: The name of this enum (_without_ generics or lifetimes)
     /// * `variants`: The variants of this enum in the order they are defined
     ///
     pub fn new<TEnum: Enum + TypePath>(variants: &[VariantInfo]) -> Self {
