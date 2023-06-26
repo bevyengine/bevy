@@ -153,7 +153,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     var history_color = vec3(0.0);
     if disocclusion_checks(uv, history_uv, d_mm) {
         // Increase accumulated samples by 1, up to 16 total
-        accumulated_samples = textureSampleLevel(history, nearest_sampler, uv, 0.0).a;
+        accumulated_samples = textureSampleLevel(history, nearest_sampler, history_uv, 0.0).a;
         accumulated_samples = min(accumulated_samples + 1.0, 16.0);
 
         // Reproject to find the equivalent sample from the past
