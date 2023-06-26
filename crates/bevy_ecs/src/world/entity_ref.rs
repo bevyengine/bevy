@@ -883,13 +883,11 @@ unsafe fn remove_bundle_from_archetype(
     // check the archetype graph to see if the Bundle has been removed from this archetype in the
     // past
     let remove_bundle_result = {
-        let current_archetype = &mut archetypes[archetype_id];
+        let edges = archetypes[archetype_id].edges();
         if intersection {
-            current_archetype
-                .edges()
-                .get_remove_bundle(bundle_info.id())
+            edges.get_remove_bundle(bundle_info.id())
         } else {
-            current_archetype.edges().get_take_bundle(bundle_info.id())
+            edges.get_take_bundle(bundle_info.id())
         }
     };
     let result = if let Some(result) = remove_bundle_result {
