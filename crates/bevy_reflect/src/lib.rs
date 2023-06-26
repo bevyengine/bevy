@@ -1219,6 +1219,8 @@ mod tests {
             u8 => "u8", "u8",
             Type => "Long", "Short",
             &Type => "&Long", "&Short",
+            [Type] => "[Long]", "[Short]",
+            &[Type] => "&[Long]", "&[Short]",
             [Type; 0] => "[Long; 0]", "[Short; 0]",
             [Type; 100] => "[Long; 100]", "[Short; 100]",
             () => "()", "()",
