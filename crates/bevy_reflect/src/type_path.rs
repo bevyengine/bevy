@@ -181,7 +181,9 @@ pub struct TypePathVtable {
 
 impl fmt::Debug for TypePathVtable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(self.type_path, f)
+        f.debug_struct("TypePathVtable")
+            .field("type_path", &self.type_path)
+            .finish()
     }
 }
 

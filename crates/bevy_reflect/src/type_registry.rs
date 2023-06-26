@@ -175,9 +175,11 @@ impl TypeRegistry {
     }
 
     /// Returns a reference to the [`TypeRegistration`] of the type with the
-    /// given name.
+    /// given [type path].
     ///
     /// If no type with the given name has been registered, returns `None`.
+    ///
+    /// [type path]: TypePath::type_path
     pub fn get_with_type_path(&self, type_path: &str) -> Option<&TypeRegistration> {
         self.type_path_to_id
             .get(type_path)
@@ -185,9 +187,11 @@ impl TypeRegistry {
     }
 
     /// Returns a mutable reference to the [`TypeRegistration`] of the type with
-    /// the given name.
+    /// the given [type path].
     ///
-    /// If no type with the given name has been registered, returns `None`.
+    /// If no type with the given type path has been registered, returns `None`.
+    ///
+    /// [type path]: TypePath::type_path
     pub fn get_with_type_path_mut(&mut self, type_path: &str) -> Option<&mut TypeRegistration> {
         self.type_path_to_id
             .get(type_path)
@@ -196,10 +200,12 @@ impl TypeRegistry {
     }
 
     /// Returns a reference to the [`TypeRegistration`] of the type with
-    /// the given short name.
+    /// the given [short type path].
     ///
-    /// If the short name is ambiguous, or if no type with the given short name
+    /// If the short type path is ambiguous, or if no type with the given path
     /// has been registered, returns `None`.
+    ///
+    /// [type path]: TypePath::short_type_path
     pub fn get_with_short_type_path(&self, short_type_path: &str) -> Option<&TypeRegistration> {
         self.short_path_to_id
             .get(short_type_path)
@@ -207,10 +213,12 @@ impl TypeRegistry {
     }
 
     /// Returns a mutable reference to the [`TypeRegistration`] of the type with
-    /// the given short name.
+    /// the given [short type path].
     ///
-    /// If the short name is ambiguous, or if no type with the given short name
+    /// If the short type path is ambiguous, or if no type with the given path
     /// has been registered, returns `None`.
+    ///
+    /// [type path]: TypePath::short_type_path
     pub fn get_with_short_type_path_mut(
         &mut self,
         short_type_path: &str,
@@ -282,7 +290,7 @@ impl TypeRegistryArc {
 /// but is more often automatically generated using [`#[derive(Reflect)]`](derive@crate::Reflect) which itself generates
 /// an implementation of the [`GetTypeRegistration`] trait.
 ///
-/// Along with the type's [`TypeInfo`] and [short name],
+/// Along with the type's [`TypeInfo`],
 /// this struct also contains a type's registered [`TypeData`].
 ///
 /// See the [crate-level documentation] for more information on type registration.
@@ -300,7 +308,6 @@ impl TypeRegistryArc {
 /// assert!(registration.data::<ReflectDefault>().is_some())
 /// ```
 ///
-/// [short name]: bevy_utils::get_short_name
 /// [crate-level documentation]: crate
 pub struct TypeRegistration {
     data: HashMap<TypeId, Box<dyn TypeData>>,
