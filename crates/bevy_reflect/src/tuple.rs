@@ -1,4 +1,5 @@
 use bevy_reflect_derive::impl_type_path;
+use bevy_utils::all_tuples;
 
 use crate::TypePathVtable;
 use crate::{
@@ -578,22 +579,6 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl <$($name: Reflect + TypePath),*> TypePath for ($($name,)*) {
-            fn type_path() -> &'static str {
-                static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| {
-                    "(".to_owned() $(+ <$name as TypePath>::type_path())* + ")"
-                })
-            }
-
-            fn short_type_path() -> &'static str {
-                static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| {
-                    "(".to_owned() $(+ <$name as TypePath>::short_type_path())* + ")"
-                })
-            }
-        }
-
 
         impl<$($name: Reflect + TypePath),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
@@ -633,3 +618,56 @@ impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I}
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J}
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K}
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L}
+
+macro_rules! impl_type_path_tuple {
+    () => {
+        impl TypePath for () {
+            fn type_path() -> &'static str {
+                "()"
+            }
+
+            fn short_type_path() -> &'static str {
+                "()"
+            }
+        }
+    };
+
+    ($param:ident) => {
+        impl <$param: TypePath> TypePath for ($param,) {
+            fn type_path() -> &'static str {
+                static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    "(".to_owned() + $param::type_path() + ",)"
+                })
+            }
+
+            fn short_type_path() -> &'static str {
+                static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    "(".to_owned() + $param::short_type_path() + ",)"
+                })
+            }
+        }
+    };
+
+    ($last:ident $(,$param:ident)*) => {
+
+        impl <$($param: TypePath,)* $last: TypePath> TypePath for ($($param,)* $last) {
+            fn type_path() -> &'static str {
+                static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    "(".to_owned() $(+ $param::type_path() + ", ")* + $last::type_path() + ")"
+                })
+            }
+
+            fn short_type_path() -> &'static str {
+                static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    "(".to_owned() $(+ $param::short_type_path() + ", ")* + $last::short_type_path() + ")"
+                })
+            }
+        }
+    };
+}
+
+all_tuples!(impl_type_path_tuple, 0, 12, P);

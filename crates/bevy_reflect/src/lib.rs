@@ -1135,6 +1135,15 @@ mod tests {
         );
     }
 
+    macro_rules! assert_type_paths {
+        ($($ty:ty => $long:literal, $short:literal,)*) => {
+            $(
+                assert_eq!(<$ty as TypePath>::type_path(), $long);
+                assert_eq!(<$ty as TypePath>::short_type_path(), $short);
+            )*
+        };
+    }
+
     #[test]
     fn reflect_type_path() {
         #[derive(TypePath)]
@@ -1176,55 +1185,48 @@ mod tests {
         struct MacroNameG<T>(PhantomData<T>);
         impl_type_path!((in my_alias as MyMacroNameG) MacroNameG<T>);
 
-        assert_eq!(Derive::type_path(), "bevy_reflect::tests::Derive");
-        assert_eq!(DerivePath::type_path(), "my_alias::DerivePath");
-        assert_eq!(DerivePathName::type_path(), "my_alias::MyDerivePathName");
+        assert_type_paths! {
+            Derive => "bevy_reflect::tests::Derive", "Derive",
+            DerivePath => "my_alias::DerivePath", "DerivePath",
+            DerivePathName => "my_alias::MyDerivePathName", "MyDerivePathName",
+            DeriveG<Param> => "bevy_reflect::tests::DeriveG<bevy_reflect::tests::Param>", "DeriveG<Param>",
+            DerivePathG<Param, 10> => "my_alias::DerivePathG<bevy_reflect::tests::Param, 10>", "DerivePathG<Param, 10>",
+            DerivePathNameG<Param> => "my_alias::MyDerivePathNameG<bevy_reflect::tests::Param>", "MyDerivePathNameG<Param>",
+            Macro => "my_alias::Macro", "Macro",
+            MacroName => "my_alias::MyMacroName", "MyMacroName",
+            MacroG<Param, 10> => "my_alias::MacroG<bevy_reflect::tests::Param, 10>", "MacroG<Param, 10>",
+            MacroNameG<Param> => "my_alias::MyMacroNameG<bevy_reflect::tests::Param>", "MyMacroNameG<Param>",
+        }
+    }
 
-        assert_eq!(
-            DeriveG::<Param>::type_path(),
-            "bevy_reflect::tests::DeriveG<bevy_reflect::tests::Param>"
-        );
-        assert_eq!(
-            DerivePathG::<Param, 10>::type_path(),
-            "my_alias::DerivePathG<bevy_reflect::tests::Param, 10>"
-        );
-        assert_eq!(
-            DerivePathNameG::<Param>::type_path(),
-            "my_alias::MyDerivePathNameG<bevy_reflect::tests::Param>"
-        );
+    #[test]
+    fn std_type_paths() {
+        #[derive(Clone)]
+        struct Type;
 
-        assert_eq!(Macro::type_path(), "my_alias::Macro");
-        assert_eq!(MacroName::type_path(), "my_alias::MyMacroName");
-        assert_eq!(
-            MacroG::<Param, 10>::type_path(),
-            "my_alias::MacroG<bevy_reflect::tests::Param, 10>"
-        );
-        assert_eq!(
-            MacroNameG::<Param>::type_path(),
-            "my_alias::MyMacroNameG<bevy_reflect::tests::Param>"
-        );
+        impl TypePath for Type {
+            fn type_path() -> &'static str {
+                // for brevity in tests
+                "Long"
+            }
 
-        assert_eq!(Derive::short_type_path(), "Derive");
-        assert_eq!(DerivePath::short_type_path(), "DerivePath");
-        assert_eq!(DerivePathName::short_type_path(), "MyDerivePathName");
+            fn short_type_path() -> &'static str {
+                "Short"
+            }
+        }
 
-        assert_eq!(DeriveG::<Param>::short_type_path(), "DeriveG<Param>");
-        assert_eq!(
-            DerivePathG::<Param, 10>::short_type_path(),
-            "DerivePathG<Param, 10>"
-        );
-        assert_eq!(
-            DerivePathNameG::<Param>::short_type_path(),
-            "MyDerivePathNameG<Param>"
-        );
-
-        assert_eq!(Macro::short_type_path(), "Macro");
-        assert_eq!(MacroName::short_type_path(), "MyMacroName");
-        assert_eq!(MacroG::<Param, 10>::short_type_path(), "MacroG<Param, 10>");
-        assert_eq!(
-            MacroNameG::<Param>::short_type_path(),
-            "MyMacroNameG<Param>"
-        );
+        assert_type_paths! {
+            u8 => "u8", "u8",
+            Type => "Long", "Short",
+            &Type => "&Long", "&Short",
+            [Type; 0] => "[Long; 0]", "[Short; 0]",
+            [Type; 100] => "[Long; 100]", "[Short; 100]",
+            () => "()", "()",
+            (Type,) => "(Long,)", "(Short,)",
+            (Type, Type) => "(Long, Long)", "(Short, Short)",
+            (Type, Type, Type) => "(Long, Long, Long)", "(Short, Short, Short)",
+            Cow<'static, Type> => "alloc::borrow::Cow<Long>", "Cow<Short>",
+        }
     }
 
     #[test]
