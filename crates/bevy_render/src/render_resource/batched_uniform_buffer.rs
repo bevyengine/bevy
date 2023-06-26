@@ -1,4 +1,4 @@
-use super::{GpuListIndex, GpuListable};
+use super::{GpuArrayBufferIndex, GpuArrayBufferable};
 use crate::{
     render_resource::DynamicUniformBuffer,
     renderer::{RenderDevice, RenderQueue},
@@ -31,14 +31,14 @@ const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u32 = 1 << 12;
 /// This reduces the number of rebindings required due to having to pass dynamic
 /// offsets to bind group commands, and if indices into the array can be passed
 /// in via other means, it enables batching of draw commands.
-pub struct BatchedUniformBuffer<T: GpuListable> {
+pub struct BatchedUniformBuffer<T: GpuArrayBufferable> {
     uniforms: DynamicUniformBuffer<MaxCapacityArray<Vec<T>>>,
     temp: MaxCapacityArray<Vec<T>>,
     current_offset: u32,
     dynamic_offset_alignment: u32,
 }
 
-impl<T: GpuListable> BatchedUniformBuffer<T> {
+impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     pub fn batch_size(limits: &Limits) -> usize {
         (limits
             .max_uniform_buffer_binding_size
@@ -69,8 +69,8 @@ impl<T: GpuListable> BatchedUniformBuffer<T> {
         self.temp.0.clear();
     }
 
-    pub fn push(&mut self, component: T) -> GpuListIndex<T> {
-        let result = GpuListIndex {
+    pub fn push(&mut self, component: T) -> GpuArrayBufferIndex<T> {
+        let result = GpuArrayBufferIndex {
             index: self.temp.0.len() as u32,
             dynamic_offset: Some(self.current_offset),
             element_type: PhantomData,
