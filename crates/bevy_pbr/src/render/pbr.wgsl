@@ -100,13 +100,13 @@ fn fragment(
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.clip_position.xy), 0i).r;
+        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
         let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
         occlusion = min(occlusion, ssao_multibounce);
 #endif
         pbr_input.occlusion = occlusion;
 
-        pbr_input.frag_coord = in.clip_position;
+        pbr_input.frag_coord = in.position;
         pbr_input.world_position = in.world_position;
 
         pbr_input.world_normal = pbr_functions::prepare_world_normal(
@@ -118,7 +118,7 @@ fn fragment(
         pbr_input.is_orthographic = is_orthographic;
 
 #ifdef LOAD_PREPASS_NORMALS
-        pbr_input.N = bevy_pbr::prepass_utils::prepass_normal(in.clip_position, 0u);
+        pbr_input.N = bevy_pbr::prepass_utils::prepass_normal(in.position, 0u);
 #else
         pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
@@ -154,7 +154,7 @@ fn fragment(
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
     output_rgb = powsafe(output_rgb, 1.0 / 2.2);
-    output_rgb = output_rgb + screen_space_dither(in.clip_position.xy);
+    output_rgb = output_rgb + screen_space_dither(in.position.xy);
     // This conversion back to linear space is required because our output texture format is
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
     output_rgb = powsafe(output_rgb, 2.2);

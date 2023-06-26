@@ -37,7 +37,7 @@ fn vertex(vertex: Vertex) -> MeshVertexOutput {
         mesh.model, 
         vec4<f32>(vertex.position, 1.0)
     );
-    out.clip_position = mesh_functions::mesh2d_position_world_to_clip(out.world_position);
+    out.position = mesh_functions::mesh2d_position_world_to_clip(out.world_position);
 #endif
 
 #ifdef VERTEX_NORMALS

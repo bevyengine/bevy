@@ -1,7 +1,9 @@
 #define_import_path bevy_sprite::mesh2d_vertex_output
 
 struct MeshVertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
+    // this is `clip position` when the struct is used as a vertex stage output 
+    // and `frag coord` when used as a fragment stage input
+    @builtin(position) position: vec4<f32>,
     @location(0) world_position: vec4<f32>,
     @location(1) world_normal: vec3<f32>,
     @location(2) uv: vec2<f32>,

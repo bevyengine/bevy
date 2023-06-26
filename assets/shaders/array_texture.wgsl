@@ -25,7 +25,7 @@ fn fragment(
     pbr_input.material.base_color = pbr_input.material.base_color * mesh.color;
 #endif
 
-    pbr_input.frag_coord = mesh.clip_position;
+    pbr_input.frag_coord = mesh.position;
     pbr_input.world_position = mesh.world_position;
     pbr_input.world_normal = fns::prepare_world_normal(
         mesh.world_normal,
