@@ -270,10 +270,13 @@ pub fn ui_focus_system(
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
-                focus.set_if_neq(Focus {
-                    entity: Some(node.entity),
-                    focus_visible: false,
-                });
+                if node.entity != Some(focus.entity) {
+                    *focus = Focus {
+                        entity: Some(node.entity),
+                        focus_visible: false,
+                    };
+                }
+
                 // only consider nodes with Interaction "clickable"
                 if *interaction != Interaction::Clicked {
                     *interaction = Interaction::Clicked;

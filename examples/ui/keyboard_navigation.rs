@@ -79,13 +79,13 @@ fn button_trigger(
     }
 }
 
-fn text(text: &str, parent: &mut ChildBuilder, font: Handle<Font>, counter: bool) {
+fn text(text: &str, parent: &mut ChildBuilder, counter: bool) {
     let text_bundle = TextBundle::from_section(
         text,
         TextStyle {
-            font,
             font_size: 40.0,
             color: Color::rgb(0.9, 0.9, 0.9),
+            ..default()
         },
     );
     if counter {
@@ -95,12 +95,7 @@ fn text(text: &str, parent: &mut ChildBuilder, font: Handle<Font>, counter: bool
     };
 }
 
-fn spawn_button(
-    name: &str,
-    parent: &mut ChildBuilder,
-    font: Handle<Font>,
-    counter_change: CounterChange,
-) {
+fn spawn_button(name: &str, parent: &mut ChildBuilder, counter_change: CounterChange) {
     parent
         .spawn((
             counter_change,
@@ -122,13 +117,12 @@ fn spawn_button(
             },
         ))
         .with_children(|parent| {
-            text(name, parent, font, false);
+            text(name, parent, false);
         });
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.insert_resource(Counter(0));
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     // ui camera
     commands.spawn(Camera2dBundle::default());
     commands
@@ -143,11 +137,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            text("Counter: 0", parent, font.clone(), true);
+            text("Counter: 0", parent, true);
             parent.spawn(NodeBundle::default()).with_children(|parent| {
-                spawn_button("Add", parent, font.clone(), CounterChange::Add);
-                spawn_button("Subtract", parent, font.clone(), CounterChange::Subtract);
-                spawn_button("Reset", parent, font, CounterChange::Reset);
+                spawn_button("Add", parent, CounterChange::Add);
+                spawn_button("Subtract", parent, CounterChange::Subtract);
+                spawn_button("Reset", parent, CounterChange::Reset);
             });
         });
 }
