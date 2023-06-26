@@ -285,7 +285,6 @@ impl World {
             panic!("Entity {entity:?} does not exist");
         }
 
-        // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
         match self.get_entity_mut(entity) {
             Some(entity) => entity,
             None => panic_no_entity(entity),
