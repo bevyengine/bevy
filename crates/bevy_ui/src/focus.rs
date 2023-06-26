@@ -270,7 +270,7 @@ pub fn ui_focus_system(
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
-                if node.entity != Some(focus.entity) {
+                if focus.entity != Some(node.entity) {
                     *focus = Focus {
                         entity: Some(node.entity),
                         focus_visible: false,
