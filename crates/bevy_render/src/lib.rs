@@ -266,7 +266,6 @@ impl Plugin for RenderPlugin {
             app.init_resource::<ScratchMainWorld>();
 
             let mut render_app = App::empty();
-            render_app.main_schedule_label = Box::new(Render);
 
             let mut extract_schedule = Schedule::new();
             extract_schedule.set_apply_final_deferred(false);
@@ -296,14 +295,14 @@ impl Plugin for RenderPlugin {
             app.insert_resource(receiver);
             render_app.insert_resource(sender);
 
-            app.insert_sub_app(RenderApp, SubApp::new(render_app, move |main_world, render_app| {
+            let mut sub_app = SubApp::new(render_app, move |main_world, render_app| {
                 #[cfg(feature = "trace")]
-                let _render_span = bevy_utils::tracing::info_span!("extract main app to render subapp").entered();
+                let _render_span =
+                    bevy_utils::tracing::info_span!("extract main app to render subapp").entered();
                 {
                     #[cfg(feature = "trace")]
                     let _stage_span =
-                        bevy_utils::tracing::info_span!("reserve_and_flush")
-                            .entered();
+                        bevy_utils::tracing::info_span!("reserve_and_flush").entered();
 
                     // reserve all existing main world entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
@@ -326,7 +325,9 @@ impl Plugin for RenderPlugin {
 
                 // run extract schedule
                 extract(main_world, render_app);
-            }));
+            });
+            sub_app.main_schedule_label = Box::new(Render);
+            app.insert_sub_app(RenderApp, sub_app);
         }
 
         app.add_plugins((

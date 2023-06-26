@@ -424,13 +424,13 @@ mod test {
             })
             .id();
 
-        app.update();
+        app.world.run_schedule(Main);
 
         // check the `Children` structure is spawned
         assert_eq!(&**app.world.get::<Children>(parent).unwrap(), &[child]);
         assert_eq!(&**app.world.get::<Children>(child).unwrap(), &[grandchild]);
         // Note that at this point, the `GlobalTransform`s will not have updated yet, due to `Commands` delay
-        app.update();
+        app.world.run_schedule(Main);
 
         let mut state = app.world.query::<&GlobalTransform>();
         for global in state.iter(&app.world) {
@@ -474,6 +474,6 @@ mod test {
             &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
         );
 
-        app.update();
+        app.world.run_schedule(Main);
     }
 }

@@ -64,13 +64,12 @@ pub struct App {
     /// the application's event loop and advancing the [`Schedule`].
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
+    ///
+    /// # Note
+    ///
+    /// Inside the runner function, `World::clear_trackers()` must be called periodically.
+    /// If that isn't called on a world, it may lead to memory leaks in `RemovedComponents`.
     pub runner: Box<dyn FnOnce(App) + Send + Sync>,
-    /// The schedule that systems are added to by default.
-    ///
-    /// The schedule that runs the main loop of schedule execution.
-    ///
-    /// This is initially set to [`Main`].
-    pub main_schedule_label: BoxedScheduleLabel,
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
@@ -135,6 +134,11 @@ pub struct SubApp {
     /// The [`SubApp`]'s instance of [`App`]
     pub app: App,
 
+    /// The schedule to run by default.
+    ///
+    /// This is initially set to [`Main`].
+    pub main_schedule_label: BoxedScheduleLabel,
+
     /// A function that allows access to both the main [`App`] [`World`] and the [`SubApp`]. This is
     /// useful for moving data between the sub app and the main app.
     extract: Box<dyn Fn(&mut World, &mut App) + Send + Sync>,
@@ -143,20 +147,21 @@ pub struct SubApp {
 impl SubApp {
     /// Creates a new [`SubApp`].
     ///
-    /// The provided function `extract` is normally called by the [`update`](App::update) method.
+    /// The provided function `extract` is normally called by the [`run_schedule`](World::run_schedule) method.
     /// After extract is called, the [`Schedule`] of the sub app is run. The [`World`]
     /// parameter represents the main app world, while the [`App`] parameter is just a mutable
     /// reference to the `SubApp` itself.
     pub fn new(app: App, extract: impl Fn(&mut World, &mut App) + Send + Sync + 'static) -> Self {
         Self {
             app,
+            main_schedule_label: Box::new(Main),
             extract: Box::new(extract),
         }
     }
 
     /// Runs the [`SubApp`]'s default schedule.
     pub fn run(&mut self) {
-        self.app.world.run_schedule(&*self.app.main_schedule_label);
+        self.app.world.run_schedule(&*self.main_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -219,38 +224,19 @@ impl App {
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
-            main_schedule_label: Box::new(Main),
             building_plugin_depth: 0,
         }
     }
 
-    /// Advances the execution of the [`Schedule`] by one cycle.
-    ///
-    /// This method also updates sub apps.
+    /// Update sub apps.
     /// See [`insert_sub_app`](Self::insert_sub_app) for more details.
-    ///
-    /// The schedule run by this method is determined by the [`main_schedule_label`](App) field.
-    /// By default this is [`Main`].
-    ///
-    /// # Panics
-    ///
-    /// The active schedule of the app must be set before this method is called.
-    pub fn update(&mut self) {
-        #[cfg(feature = "trace")]
-        let _bevy_update_span = info_span!("update").entered();
-        {
-            #[cfg(feature = "trace")]
-            let _bevy_main_update_span = info_span!("main app").entered();
-            self.world.run_schedule(&*self.main_schedule_label);
-        }
+    pub fn update_sub_apps(&mut self) {
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]
             let _sub_app_span = info_span!("sub app", name = ?_label).entered();
             sub_app.extract(&mut self.world);
             sub_app.run();
         }
-
-        self.world.clear_trackers();
     }
 
     /// Starts the application by calling the app's [runner function](Self::set_runner).
@@ -293,7 +279,7 @@ impl App {
     }
 
     /// Check that [`Plugin::ready`] of all plugins returns true. This is usually called by the
-    /// event loop, but can be useful for situations where you want to use [`App::update`]
+    /// event loop, but can be useful for situations where you want to no use [`App::run`]
     pub fn ready(&self) -> bool {
         for plugin in &self.plugin_registry {
             if !plugin.ready(self) {
@@ -304,8 +290,8 @@ impl App {
     }
 
     /// Run [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
-    /// plugins are [`App::ready`], but can be useful for situations where you want to use
-    /// [`App::update`].
+    /// plugins are [`App::ready`], but can be useful for situations where you want to no use
+    /// [`App::run`].
     pub fn finish(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
         let plugin_registry = std::mem::take(&mut self.plugin_registry);
@@ -316,7 +302,7 @@ impl App {
     }
 
     /// Run [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
-    /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
+    /// [`App::finish`], but can be useful for situations where you want to no use [`App::run`].
     pub fn cleanup(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
         let plugin_registry = std::mem::take(&mut self.plugin_registry);
@@ -636,6 +622,11 @@ impl App {
     /// The runner function is usually not set manually, but by Bevy integrated plugins
     /// (e.g. `WinitPlugin`).
     ///
+    /// # Note
+    ///
+    /// Inside the runner function, `World::clear_trackers()` must be called periodically.
+    /// If that isn't called on a world, it may lead to memory leaks in `RemovedComponents`.
+    ///
     /// # Examples
     ///
     /// ```
@@ -644,7 +635,7 @@ impl App {
     /// fn my_runner(mut app: App) {
     ///     loop {
     ///         println!("In main loop");
-    ///         app.update();
+    ///         app.world.run_schedule(Main);
     ///     }
     /// }
     ///
@@ -970,7 +961,12 @@ fn run_once(mut app: App) {
     app.finish();
     app.cleanup();
 
-    app.update();
+    {
+        #[cfg(feature = "trace")]
+        let _main_schedule_span = info_span!("main schedule", name = ?Main).entered();
+        app.world.run_schedule(Main);
+    }
+    app.update_sub_apps();
 }
 
 /// An event that indicates the [`App`] should exit. This will fully exit the app process at the
