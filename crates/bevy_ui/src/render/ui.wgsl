@@ -49,28 +49,14 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     } else {
         color = in.color;
     }
-
-    if in.radius <= 0. {
-        return color;
-    }
-
-    let point = abs(in.uv - vec2<f32>(0.5, 0.5)) * in.size;
-    let inner = 0.5 * in.size - vec2<f32>(in.radius, in.radius);
+    
+    let q = (abs(in.uv - vec2<f32>(0.5, 0.5)) - 0.5) * in.size + in.radius;
+    let d = min(max(q.x, q.y), 0.0) + length(max(q, vec2<f32>(0.0))) - in.radius;
 
     if in.mode == INVERT_CORNERS {
-        if inner.x < point.x && inner.y < point.y {
-            let c = point - inner;
-            if  dot(c, c) <= in.radius * in.radius  {
-                color[3] = 0.0;
-            }
-        } else {
-            color[3] = 0.0;
-        }
-    } else if inner.x < point.x && inner.y < point.y {
-        let c = point - inner;
-        if in.radius * in.radius < dot(c, c) {
-            color[3] = 0.0;
-        }
+        return mix(color, vec4<f32>(0.0), smoothstep(-1.0, 1.0, d));
+    } else {
+        return mix(vec4<f32>(0.0), color , smoothstep(0.0, 1.0, d));
     }
-    return color;
 }
+
