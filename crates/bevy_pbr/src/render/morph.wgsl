@@ -7,6 +7,27 @@
 
 #define_import_path bevy_pbr::morph
 
+#ifdef MORPH_TARGETS
+
+#import bevy_pbr::mesh_types MorphWeights
+
+#ifdef MESH_BINDGROUP_1
+
+@group(1) @binding(2)
+var<uniform> morph_weights: MorphWeights;
+@group(1) @binding(3)
+var morph_targets: texture_3d<f32>;
+
+#else
+
+@group(2) @binding(2)
+var<uniform> morph_weights: MorphWeights;
+@group(2) @binding(3)
+var morph_targets: texture_3d<f32>;
+
+#endif
+
+
 // NOTE: Those are the "hardcoded" values found in `MorphAttributes` struct
 // in crates/bevy_render/src/mesh/morph/visitors.rs
 // In an ideal world, the offsets are established dynamically and passed as #defines
@@ -43,3 +64,5 @@ fn morph(vertex_index: u32, component_offset: u32, weight_index: u32) -> vec3<f3
         morph_pixel(vertex_index, component_offset + 2u, weight_index),
     );
 }
+
+#endif // MORPH_TARGETS
