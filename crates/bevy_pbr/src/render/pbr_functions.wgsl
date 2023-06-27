@@ -4,20 +4,32 @@
 #import bevy_core_pipeline::tonemapping
 #endif
 
+#import bevy_pbr::pbr_types as pbr_types
+#import bevy_pbr::pbr_bindings as pbr_bindings
+#import bevy_pbr::mesh_view_bindings as view_bindings
+#import bevy_pbr::mesh_view_types as mesh_view_types
+#import bevy_pbr::lighting as lighting
+#import bevy_pbr::clustered_forward as clustering
+#import bevy_pbr::shadows as shadows
+#import bevy_pbr::fog as fog
+#import bevy_pbr::ambient as ambient
 #ifdef ENVIRONMENT_MAP
 #import bevy_pbr::environment_map
 #endif
 
-fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
+#import bevy_pbr::mesh_bindings   mesh
+#import bevy_pbr::mesh_types      MESH_FLAGS_SHADOW_RECEIVER_BIT
+
+fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
-    let alpha_mode = material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
+    let alpha_mode = material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
     }
 
 #ifdef MAY_DISCARD
-    else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+    else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
         if color.a >= material.alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
@@ -82,8 +94,8 @@ fn apply_normal_mapping(
 #ifdef VERTEX_UVS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
-    var Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb;
-    if (standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
+    var Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv, view_bindings::view.mip_bias).rgb;
+    if (standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
         // Only use the xy components and derive z for 2-component normal maps.
         Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);
         Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
@@ -91,7 +103,7 @@ fn apply_normal_mapping(
         Nt = Nt * 2.0 - 1.0;
     }
     // Normal maps authored for DirectX require flipping the y component
-    if (standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u {
+    if (standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u {
         Nt.y = -Nt.y;
     }
     // NOTE: The mikktspace method of normal mapping applies maps the tangent-space normal from
@@ -116,17 +128,17 @@ fn calculate_view(
     var V: vec3<f32>;
     if is_orthographic {
         // Orthographic view vector
-        V = normalize(vec3<f32>(view.view_proj[0].z, view.view_proj[1].z, view.view_proj[2].z));
+        V = normalize(vec3<f32>(view_bindings::view.view_proj[0].z, view_bindings::view.view_proj[1].z, view_bindings::view.view_proj[2].z));
     } else {
         // Only valid for a perpective projection
-        V = normalize(view.world_position.xyz - world_position.xyz);
+        V = normalize(view_bindings::view.world_position.xyz - world_position.xyz);
     }
     return V;
 }
 
 struct PbrInput {
-    material: StandardMaterial,
-    occlusion: f32,
+    material: pbr_types::StandardMaterial,
+    occlusion: vec3<f32>,
     frag_coord: vec4<f32>,
     world_position: vec4<f32>,
     // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
@@ -145,8 +157,8 @@ struct PbrInput {
 fn pbr_input_new() -> PbrInput {
     var pbr_input: PbrInput;
 
-    pbr_input.material = standard_material_new();
-    pbr_input.occlusion = 1.0;
+    pbr_input.material = pbr_types::standard_material_new();
+    pbr_input.occlusion = vec3<f32>(1.0);
 
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
@@ -174,7 +186,7 @@ fn pbr(
     // calculate non-linear roughness from linear perceptualRoughness
     let metallic = in.material.metallic;
     let perceptual_roughness = in.material.perceptual_roughness;
-    let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
+    let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
 
     let occlusion = in.occlusion;
 
@@ -193,64 +205,65 @@ fn pbr(
 
     let R = reflect(-in.V, in.N);
 
-    let f_ab = F_AB(perceptual_roughness, NdotV);
+    let f_ab = lighting::F_AB(perceptual_roughness, NdotV);
 
     var direct_light: vec3<f32> = vec3<f32>(0.0);
 
     let view_z = dot(vec4<f32>(
-        view.inverse_view[0].z,
-        view.inverse_view[1].z,
-        view.inverse_view[2].z,
-        view.inverse_view[3].z
+        view_bindings::view.inverse_view[0].z,
+        view_bindings::view.inverse_view[1].z,
+        view_bindings::view.inverse_view[2].z,
+        view_bindings::view.inverse_view[3].z
     ), in.world_position);
-    let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
-    let offset_and_counts = unpack_offset_and_counts(cluster_index);
+    let cluster_index = clustering::fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
+    let offset_and_counts = clustering::unpack_offset_and_counts(cluster_index);
 
     // Point lights (direct)
     for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
-        let light_id = get_light_id(i);
+        let light_id = clustering::get_light_id(i);
         var shadow: f32 = 1.0;
-        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
+        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (view_bindings::point_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
-        let light_contrib = point_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
+        let light_contrib = lighting::point_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
         direct_light += light_contrib * shadow;
     }
 
     // Spot lights (direct)
     for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
-        let light_id = get_light_id(i);
+        let light_id = clustering::get_light_id(i);
+
         var shadow: f32 = 1.0;
-        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
+        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (view_bindings::point_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            shadow = shadows::fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
-        let light_contrib = spot_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
+        let light_contrib = lighting::spot_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
         direct_light += light_contrib * shadow;
     }
 
-    // Directional lights (direct)
-    let n_directional_lights = lights.n_directional_lights;
+    // directional lights (direct)
+    let n_directional_lights = view_bindings::lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
         var shadow: f32 = 1.0;
-        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (lights.directional_lights[i].flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
+        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
         }
-        var light_contrib = directional_light(i, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
+        var light_contrib = lighting::directional_light(i, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
 #ifdef DIRECTIONAL_LIGHT_SHADOW_MAP_DEBUG_CASCADES
-        light_contrib = cascade_debug_visualization(light_contrib, i, view_z);
+        light_contrib = shadows::cascade_debug_visualization(light_contrib, i, view_z);
 #endif
         direct_light += light_contrib * shadow;
     }
 
     // Ambient light (indirect)
-    var indirect_light = ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
+    var indirect_light = ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
-    let environment_light = environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
+    let environment_light = bevy_pbr::environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
     indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
 #endif
 
@@ -262,7 +275,7 @@ fn pbr(
         output_color.a
     );
 
-    output_color = cluster_debug_visualization(
+    output_color = clustering::cluster_debug_visualization(
         output_color,
         view_z,
         in.is_orthographic,
@@ -275,7 +288,7 @@ fn pbr(
 #endif // PREPASS_FRAGMENT
 
 #ifndef PREPASS_FRAGMENT
-fn apply_fog(fog_params: Fog, input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
+fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
     let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
 
     // `length()` is used here instead of just `view_to_world.z` since that produces more
@@ -287,9 +300,9 @@ fn apply_fog(fog_params: Fog, input_color: vec4<f32>, fragment_world_position: v
     var scattering = vec3<f32>(0.0);
     if fog_params.directional_light_color.a > 0.0 {
         let view_to_world_normalized = view_to_world / distance;
-        let n_directional_lights = lights.n_directional_lights;
+        let n_directional_lights = view_bindings::lights.n_directional_lights;
         for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
-            let light = lights.directional_lights[i];
+            let light = view_bindings::lights.directional_lights[i];
             scattering += pow(
                 max(
                     dot(view_to_world_normalized, light.direction_to_light),
@@ -300,14 +313,14 @@ fn apply_fog(fog_params: Fog, input_color: vec4<f32>, fragment_world_position: v
         }
     }
 
-    if fog_params.mode == FOG_MODE_LINEAR {
-        return linear_fog(fog_params, input_color, distance, scattering);
-    } else if fog_params.mode == FOG_MODE_EXPONENTIAL {
-        return exponential_fog(fog_params, input_color, distance, scattering);
-    } else if fog_params.mode == FOG_MODE_EXPONENTIAL_SQUARED {
-        return exponential_squared_fog(fog_params, input_color, distance, scattering);
-    } else if fog_params.mode == FOG_MODE_ATMOSPHERIC {
-        return atmospheric_fog(fog_params, input_color, distance, scattering);
+    if fog_params.mode == mesh_view_types::FOG_MODE_LINEAR {
+        return fog::linear_fog(fog_params, input_color, distance, scattering);
+    } else if fog_params.mode == mesh_view_types::FOG_MODE_EXPONENTIAL {
+        return fog::exponential_fog(fog_params, input_color, distance, scattering);
+    } else if fog_params.mode == mesh_view_types::FOG_MODE_EXPONENTIAL_SQUARED {
+        return fog::exponential_squared_fog(fog_params, input_color, distance, scattering);
+    } else if fog_params.mode == mesh_view_types::FOG_MODE_ATMOSPHERIC {
+        return fog::atmospheric_fog(fog_params, input_color, distance, scattering);
     } else {
         return input_color;
     }
@@ -324,8 +337,8 @@ fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32
     // For `BlendState::PREMULTIPLIED_ALPHA_BLENDING` the blend function is:
     //
     //     result = 1 * src_color + (1 - src_alpha) * dst_color
-    let alpha_mode = standard_material_flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD {
+    let alpha_mode = standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD {
         // Here, we premultiply `src_color` by `src_alpha`, and replace `src_alpha` with 0.0:
         //
         //     src_color *= src_alpha

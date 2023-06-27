@@ -34,7 +34,7 @@ impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(ExtractComponentPlugin::<Skybox>::default());
+        app.add_plugins(ExtractComponentPlugin::<Skybox>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,

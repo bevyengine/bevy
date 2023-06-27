@@ -1,4 +1,4 @@
-use crate::{ContentSize, Measure, Node, UiScale};
+use crate::{ContentSize, FixedMeasure, Measure, Node, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
     prelude::{Component, DetectChanges},
@@ -8,12 +8,12 @@ use bevy_ecs::{
     world::{Mut, Ref},
 };
 use bevy_math::Vec2;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextSettings, YAxisOrientation,
+    BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo,
+    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
@@ -21,8 +21,8 @@ use taffy::style::AvailableSpace;
 /// Text system flags
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub struct TextFlags {
     /// If set a new measure function for the text node will be created
     needs_new_measure_func: bool,
@@ -91,7 +91,13 @@ fn create_text_measure(
         text.linebreak_behavior,
     ) {
         Ok(measure) => {
-            content_size.set(TextMeasure { info: measure });
+            if text.linebreak_behavior == BreakLineOn::NoWrap {
+                content_size.set(FixedMeasure {
+                    size: measure.max_width_content_size,
+                });
+            } else {
+                content_size.set(TextMeasure { info: measure });
+            }
 
             // Text measure func created succesfully, so set `TextFlags` to schedule a recompute
             text_flags.needs_new_measure_func = false;
@@ -174,7 +180,12 @@ fn queue_text(
 ) {
     // Skip the text node if it is waiting for a new measure func
     if !text_flags.needs_new_measure_func {
-        let physical_node_size = node.physical_size(scale_factor);
+        let physical_node_size = if text.linebreak_behavior == BreakLineOn::NoWrap {
+            // With `NoWrap` set, no constraints are placed on the width of the text.
+            Vec2::splat(f32::INFINITY)
+        } else {
+            node.physical_size(scale_factor)
+        };
 
         match text_pipeline.queue_text(
             fonts,

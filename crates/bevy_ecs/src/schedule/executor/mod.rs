@@ -62,6 +62,7 @@ pub struct SystemSchedule {
 }
 
 impl SystemSchedule {
+    /// Creates an empty [`SystemSchedule`].
     pub const fn new() -> Self {
         Self {
             systems: Vec::new(),

@@ -1,5 +1,6 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::pbr_bindings
+#import bevy_pbr::pbr_types
 #ifdef NORMAL_PREPASS
 #import bevy_pbr::pbr_functions
 #endif // NORMAL_PREPASS
@@ -22,6 +23,10 @@ struct FragmentInput {
     @location(3) world_position: vec4<f32>,
     @location(4) previous_world_position: vec4<f32>,
 #endif // MOTION_VECTOR_PREPASS
+
+#ifdef DEPTH_CLAMP_ORTHO
+    @location(5) clip_position_unclamped: vec4<f32>,
+#endif // DEPTH_CLAMP_ORTHO
 };
 
 // Cutoff used for the premultiplied alpha modes BLEND and ADD.
@@ -31,24 +36,24 @@ const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 fn prepass_alpha_discard(in: FragmentInput) {
 
 #ifdef MAY_DISCARD
-    var output_color: vec4<f32> = material.base_color;
+    var output_color: vec4<f32> = bevy_pbr::pbr_bindings::material.base_color;
 
 #ifdef VERTEX_UVS
-    if (material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
-        output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
+    if (bevy_pbr::pbr_bindings::material.flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
+        output_color = output_color * textureSampleBias(bevy_pbr::pbr_bindings::base_color_texture, bevy_pbr::pbr_bindings::base_color_sampler, in.uv, bevy_pbr::prepass_bindings::view.mip_bias);
     }
 #endif // VERTEX_UVS
 
-    let alpha_mode = material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
-        if output_color.a < material.alpha_cutoff {
+    let alpha_mode = bevy_pbr::pbr_bindings::material.flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+        if output_color.a < bevy_pbr::pbr_bindings::material.alpha_cutoff {
             discard;
         }
-    } else if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD) {
+    } else if (alpha_mode == bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD) {
         if output_color.a < PREMULTIPLIED_ALPHA_CUTOFF {
             discard;
         }
-    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED {
+    } else if alpha_mode == bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED {
         if all(output_color < vec4(PREMULTIPLIED_ALPHA_CUTOFF)) {
             discard;
         }
@@ -66,6 +71,10 @@ struct FragmentOutput {
 #ifdef MOTION_VECTOR_PREPASS
     @location(1) motion_vector: vec2<f32>,
 #endif // MOTION_VECTOR_PREPASS
+
+#ifdef DEPTH_CLAMP_ORTHO
+    @builtin(frag_depth) frag_depth: f32,
+#endif // DEPTH_CLAMP_ORTHO
 }
 
 @fragment
@@ -74,17 +83,21 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 
     var out: FragmentOutput;
 
+#ifdef DEPTH_CLAMP_ORTHO
+    out.frag_depth = in.clip_position_unclamped.z;
+#endif // DEPTH_CLAMP_ORTHO
+
 #ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
-    if (material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
-        let world_normal = prepare_world_normal(
+    if (bevy_pbr::pbr_bindings::material.flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
+        let world_normal = bevy_pbr::pbr_functions::prepare_world_normal(
             in.world_normal,
-            (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+            (bevy_pbr::pbr_bindings::material.flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
             in.is_front,
         );
 
-        let normal = apply_normal_mapping(
-            material.flags,
+        let normal = bevy_pbr::pbr_functions::apply_normal_mapping(
+            bevy_pbr::pbr_bindings::material.flags,
             world_normal,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
@@ -103,9 +116,9 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #endif // NORMAL_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
-    let clip_position_t = view.unjittered_view_proj * in.world_position;
+    let clip_position_t = bevy_pbr::prepass_bindings::view.unjittered_view_proj * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = previous_view_proj * in.previous_world_position;
+    let previous_clip_position_t = bevy_pbr::prepass_bindings::previous_view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

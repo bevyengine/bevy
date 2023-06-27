@@ -1,38 +1,48 @@
-use crate::{measurement::AvailableSpace, ContentSize, Measure, Node, UiImage};
-use bevy_asset::Assets;
+use crate::{
+    measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiScale, UiTextureAtlasImage,
+};
+use bevy_asset::{Assets, Handle};
+
 #[cfg(feature = "bevy_text")]
 use bevy_ecs::query::Without;
 use bevy_ecs::{
     prelude::Component,
     query::With,
     reflect::ReflectComponent,
-    system::{Query, Res},
+    system::{Local, Query, Res},
 };
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
 use bevy_render::texture::Image;
+use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::Text;
+use bevy_window::{PrimaryWindow, Window};
 
-/// The size of the image in physical pixels
+/// The size of the image's texture
 ///
-/// This field is set automatically by `update_image_calculated_size_system`
+/// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect, FromReflect)]
 #[reflect(Component, Default, FromReflect)]
 pub struct UiImageSize {
+    /// The size of the image's texture
+    ///
+    /// This field is updated automatically by [`update_image_content_size_system`]
     size: Vec2,
 }
 
 impl UiImageSize {
+    /// The size of the image's texture
     pub fn size(&self) -> Vec2 {
         self.size
     }
 }
 
 #[derive(Clone)]
+/// Used to calculate the size of UI image nodes
 pub struct ImageMeasure {
-    // target size of the image
-    size: Vec2,
+    /// The size of the image's texture
+    pub size: Vec2,
 }
 
 impl Measure for ImageMeasure {
@@ -65,6 +75,9 @@ impl Measure for ImageMeasure {
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
+    mut previous_combined_scale_factor: Local<f64>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
     #[cfg(feature = "bevy_text")] mut query: Query<
         (&mut ContentSize, &UiImage, &mut UiImageSize),
@@ -75,17 +88,76 @@ pub fn update_image_content_size_system(
         With<Node>,
     >,
 ) {
+    let combined_scale_factor = windows
+        .get_single()
+        .map(|window| window.resolution.scale_factor())
+        .unwrap_or(1.)
+        * ui_scale.scale;
+
     for (mut content_size, image, mut image_size) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
             let size = Vec2::new(
                 texture.texture_descriptor.size.width as f32,
                 texture.texture_descriptor.size.height as f32,
             );
-            // Update only if size has changed to avoid needless layout calculations
-            if size != image_size.size {
+            // Update only if size or scale factor has changed to avoid needless layout calculations
+            if size != image_size.size || combined_scale_factor != *previous_combined_scale_factor {
                 image_size.size = size;
-                content_size.set(ImageMeasure { size });
+                content_size.set(ImageMeasure {
+                    // multiply the image size by the scale factor to get the physical size
+                    size: size * combined_scale_factor as f32,
+                });
             }
         }
     }
+
+    *previous_combined_scale_factor = combined_scale_factor;
+}
+
+/// Updates content size of the node based on the texture atlas sprite
+pub fn update_atlas_content_size_system(
+    mut previous_combined_scale_factor: Local<f64>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+    atlases: Res<Assets<TextureAtlas>>,
+    #[cfg(feature = "bevy_text")] mut atlas_query: Query<
+        (
+            &mut ContentSize,
+            &Handle<TextureAtlas>,
+            &UiTextureAtlasImage,
+            &mut UiImageSize,
+        ),
+        (With<Node>, Without<Text>, Without<UiImage>),
+    >,
+    #[cfg(not(feature = "bevy_text"))] mut atlas_query: Query<
+        (
+            &mut ContentSize,
+            &Handle<TextureAtlas>,
+            &UiTextureAtlasImage,
+            &mut UiImageSize,
+        ),
+        (With<Node>, Without<UiImage>),
+    >,
+) {
+    let combined_scale_factor = windows
+        .get_single()
+        .map(|window| window.resolution.scale_factor())
+        .unwrap_or(1.)
+        * ui_scale.scale;
+
+    for (mut content_size, atlas, atlas_image, mut image_size) in &mut atlas_query {
+        if let Some(atlas) = atlases.get(atlas) {
+            let size = atlas.textures[atlas_image.index].size();
+            // Update only if size or scale factor has changed to avoid needless layout calculations
+            if size != image_size.size || combined_scale_factor != *previous_combined_scale_factor {
+                image_size.size = size;
+                content_size.set(ImageMeasure {
+                    // multiply the image size by the scale factor to get the physical size
+                    size: size * combined_scale_factor as f32,
+                });
+            }
+        }
+    }
+
+    *previous_combined_scale_factor = combined_scale_factor;
 }

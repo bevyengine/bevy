@@ -257,7 +257,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                 }
 
                 unsafe fn init_fetch<'__w>(
-                    _world: &'__w #path::world::World,
+                    _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'__w>,
                     state: &Self::State,
                     _last_run: #path::component::Tick,
                     _this_run: #path::component::Tick,
