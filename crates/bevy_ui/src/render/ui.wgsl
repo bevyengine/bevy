@@ -45,14 +45,17 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let d = min(max(q.x, q.y), 0.0) + length(max(q, vec2<f32>(0.0))) - in.radius;
 
     switch in.mode {
+        // Textured rect
         case 0u: {
             return mix(in.color * color, vec4<f32>(0.0), smoothstep(-1.0, 0.5, d));
         }
+        // Untextured rect
         case 1u: {
             return mix(in.color, vec4<f32>(0.0), smoothstep(-1.0, 0.5, d));
         }
+        // Inverted rect (fills outside the rounded corners)
         case 2u, default: {
-            return mix(in.color, vec4<f32>(0.0), smoothstep(-1.0, 0.5, d));
+            return mix(vec4<f32>(0.0), in.color, smoothstep(-1.0, 1.0, d));
         }
     }
 }
