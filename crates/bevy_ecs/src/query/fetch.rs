@@ -20,6 +20,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// - **`WorldQueryData` tuples.**
 ///   If every element of a tuple implements `WorldQueryData`, then the tuple itself also implements the same trait.
 ///   This enables a single `Query` to access multiple components.
+///   Note that only entities with **all** of the provided components will be fetched.
 ///   Due to the current lack of variadic generics in Rust, the trait has been implemented for tuples from 0 to 15 elements,
 ///   but nesting of tuples allows infinite `WorldQuery`s.
 /// - **[`Entity`].**
