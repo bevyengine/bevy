@@ -126,7 +126,11 @@ pub trait WorldQueryFilter: WorldQuery {
 /// ```
 pub struct With<T>(PhantomData<T>);
 
-/// SAFETY: Updates component access correctly
+/// SAFETY:
+/// `update_component_access` and `update_archetype_component_access` do not add any accesses.
+/// This is sound because `fetch` does not access any components.
+/// `update_component_access` adds a `With` filter for `T`.
+/// This is sound because `matches_component_set` returns whether the set contains the component.
 unsafe impl<T: Component> WorldQuery for With<T> {
     type Fetch<'w> = ();
     type Item<'w> = ();
@@ -234,7 +238,11 @@ impl<T: Component> WorldQueryFilter for With<T> {
 /// ```
 pub struct Without<T>(PhantomData<T>);
 
-/// SAFETY: Updates component access correctly
+/// SAFETY:
+/// `update_component_access` and `update_archetype_component_access` do not add any accesses.
+/// This is sound because `fetch` does not access any components.
+/// `update_component_access` adds a `Without` filter for `T`.
+/// This is sound because `matches_component_set` returns whether the set does not contain the component.
 unsafe impl<T: Component> WorldQuery for Without<T> {
     type Fetch<'w> = ();
     type Item<'w> = ();
@@ -354,12 +362,16 @@ pub struct OrFetch<'w, T: WorldQuery> {
     matches: bool,
 }
 
-macro_rules! impl_query_filter_tuple {
+macro_rules! impl_or_world_query {
     ($(($filter: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
-        // SAFETY: defers to soundness of `$filter: WorldQuery` impl
+        /// SAFETY:
+        /// `fetch` accesses are a subset of the subqueries' accesses
+        /// This is sound because `update_component_access` and `update_archetype_component_access` adds accesses according to the implementations of all the subqueries.
+        /// `update_component_access` replace the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
+        /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($filter: WorldQueryFilter),*> WorldQuery for Or<($($filter,)*)> {
             type Fetch<'w> = ($(OrFetch<'w, $filter>,)*);
             type Item<'w> = bool;
@@ -506,7 +518,7 @@ macro_rules! impl_tuple_world_query_filter {
 }
 
 all_tuples!(impl_tuple_world_query_filter, 0, 15, F);
-all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
+all_tuples!(impl_or_world_query, 0, 15, F, S);
 
 /// A filter on a component that only retains results added after the system last ran.
 ///
@@ -545,7 +557,11 @@ pub struct AddedFetch<'w, T> {
     this_run: Tick,
 }
 
-/// SAFETY: Updates component access correctly
+/// SAFETY:
+/// `fetch` accesses a single component in a readonly way.
+/// This is sound because `update_component_access` and `update_archetype_component_access` add read access for that component and panic when appropriate.
+/// `update_component_access` adds a `With` filter for a component.
+/// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Added<T> {
     type Fetch<'w> = AddedFetch<'w, T>;
     type Item<'w> = bool;
@@ -716,7 +732,11 @@ pub struct ChangedFetch<'w, T> {
     this_run: Tick,
 }
 
-/// SAFETY: Updates component access correctly
+/// SAFETY:
+/// `fetch` accesses a single component in a readonly way.
+/// This is sound because `update_component_access` and `update_archetype_component_access` add read access for that component and panic when appropriate.
+/// `update_component_access` adds a `With` filter for a component.
+/// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Changed<T> {
     type Fetch<'w> = ChangedFetch<'w, T>;
     type Item<'w> = bool;

@@ -284,7 +284,9 @@ pub type QueryFetch<'w, Q> = <Q as WorldQuery>::Fetch<'w>;
 #[deprecated = "use <<Q as WorldQuery>::ReadOnly as WorldQuery>::Fetch<'w> instead"]
 pub type ROQueryFetch<'w, Q> = <<Q as WorldQueryData>::ReadOnly as WorldQuery>::Fetch<'w>;
 
-/// SAFETY: no component or archetype access
+/// SAFETY:
+/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for Entity {
     type Fetch<'w> = ();
     type Item<'w> = Entity;
@@ -355,7 +357,10 @@ unsafe impl WorldQueryData for Entity {
 /// SAFETY: access is read only
 unsafe impl ReadOnlyWorldQueryData for Entity {}
 
-/// SAFETY: Updates component access correctly
+/// SAFETY:
+/// `fetch` accesses all components in a readonly way.
+/// This is sound because `update_component_access` and `update_archetype_component_access` set read access for all components and panic when appropriate.
+/// Filters are unchanged.
 unsafe impl<'a> WorldQuery for EntityRef<'a> {
     type Fetch<'w> = &'w World;
     type Item<'w> = EntityRef<'w>;
@@ -448,7 +453,11 @@ pub struct ReadFetch<'w, T> {
     sparse_set: Option<&'w ComponentSparseSet>,
 }
 
-/// SAFETY: Updates component access correctly
+/// SAFETY:
+/// `fetch` accesses a single component in a readonly way.
+/// This is sound because `update_component_access` and `update_archetype_component_access` add read access for that component and panic when appropriate.
+/// `update_component_access` adds a `With` filter for a component.
+/// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for &T {
     type Fetch<'w> = ReadFetch<'w, T>;
     type Item<'w> = &'w T;
@@ -601,7 +610,11 @@ pub struct RefFetch<'w, T> {
     this_run: Tick,
 }
 
-/// SAFETY: Updates component access correctly
+/// SAFETY:
+/// `fetch` accesses a single component in a readonly way.
+/// This is sound because `update_component_access` and `update_archetype_component_access` add read access for that component and panic when appropriate.
+/// `update_component_access` adds a `With` filter for a component.
+/// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     type Fetch<'w> = RefFetch<'w, T>;
     type Item<'w> = Ref<'w, T>;
@@ -767,7 +780,11 @@ pub struct WriteFetch<'w, T> {
     this_run: Tick,
 }
 
-/// SAFETY: Updates component access correctly
+/// SAFETY:
+/// `fetch` accesses a single component mutably.
+/// This is sound because `update_component_access` and `update_archetype_component_access` add write access for that component and panic when appropriate.
+/// `update_component_access` adds a `With` filter for a component.
+/// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Fetch<'w> = WriteFetch<'w, T>;
     type Item<'w> = Mut<'w, T>;
@@ -921,7 +938,10 @@ pub struct OptionFetch<'w, T: WorldQuery> {
     matches: bool,
 }
 
-// SAFETY: defers to soundness of `T: WorldQuery` impl
+/// SAFETY:
+/// `fetch` might access any components that `T` accesses.
+/// This is sound because `update_component_access` and `update_archetype_component_access` add the same accesses as `T`.
+/// Filters are unchanged.
 unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     type Fetch<'w> = OptionFetch<'w, T>;
     type Item<'w> = Option<T::Item<'w>>;
@@ -1080,7 +1100,9 @@ unsafe impl<T: ReadOnlyWorldQueryData> ReadOnlyWorldQueryData for Option<T> {}
 /// ```
 pub struct Has<T>(PhantomData<T>);
 
-/// SAFETY: Updates component access correctly
+/// SAFETY:
+/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// This is sound because `fetch` does not access components.
 unsafe impl<T: Component> WorldQuery for Has<T> {
     type Fetch<'w> = bool;
     type Item<'w> = bool;
@@ -1202,7 +1224,11 @@ macro_rules! impl_anytuple_fetch {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
-        // SAFETY: defers to soundness of `$name: WorldQuery` impl
+        /// SAFETY:
+        /// `fetch` accesses are a subset of the subqueries' accesses
+        /// This is sound because `update_component_access` and `update_archetype_component_access` adds accesses according to the implementations of all the subqueries.
+        /// `update_component_access` replaces the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
+        /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
             type Fetch<'w> = ($(($name::Fetch<'w>, bool),)*);
             type Item<'w> = ($(Option<$name::Item<'w>>,)*);
@@ -1334,7 +1360,9 @@ all_tuples!(impl_anytuple_fetch, 0, 15, F, S);
 /// This will rarely be useful to consumers of `bevy_ecs`.
 pub struct NopWorldQuery<Q: WorldQueryData>(PhantomData<Q>);
 
-/// SAFETY: no component or archetype access
+/// SAFETY:
+/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// This is sound because `fetch` does not access components.
 unsafe impl<Q: WorldQueryData> WorldQuery for NopWorldQuery<Q> {
     type Fetch<'w> = ();
     type Item<'w> = ();
@@ -1404,7 +1432,9 @@ unsafe impl<Q: WorldQueryData> WorldQueryData for NopWorldQuery<Q> {
 /// SAFETY: `NopFetch` never accesses any data
 unsafe impl<Q: WorldQueryData> ReadOnlyWorldQueryData for NopWorldQuery<Q> {}
 
-/// SAFETY: no component or archetype access
+/// SAFETY:
+/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// This is sound because `fetch` does not access components.
 unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     type Item<'a> = ();
     type Fetch<'a> = ();

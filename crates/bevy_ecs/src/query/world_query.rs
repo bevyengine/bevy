@@ -17,11 +17,19 @@ use bevy_utils::all_tuples;
 /// # Safety
 ///
 /// Implementor must ensure that
-/// [`update_component_access`] and [`update_archetype_component_access`]
-/// exactly reflects the results of the following methods:
+/// [`update_component_access`], [`update_archetype_component_access`], [`matches_component_set`], and [`fetch`]
+/// obey the following:
 ///
-/// - [`matches_component_set`]
-/// - [`fetch`]
+/// - For each component mutably accessed by [`fetch`], [`update_component_access`] should add write access unless read or write access has already been added, in which case it should panic.
+/// - For each component readonly accessed by [`fetch`], [`update_component_access`] should add read access unless write access has already been added, in which case it should panic.
+/// - For each component mutably accessed by [`fetch`], [`update_archetype_component_access`] should add write access if that component belongs to the archetype.
+/// - For each component readonly accessed by [`fetch`], [`update_archetype_component_access`] should add read access if that component belongs to the archetype.
+/// - If `fetch` mutably accesses a component and also accesses the same component again, [`update_component_access`] should panic.
+/// - [`update_component_access`] may not add a `With` filter for a component unless [`matches_component_set`] always returns `false` if the component set doesn't contain that component.
+/// - [`update_component_access`] may not add a `Without` filter for a component unless [`matches_component_set`] always returns `false` when the component set contains that component.
+/// - [`update_component_access`] may replace the filters with a disjunction where every member of the disjunction is a conjunction of the previous filters and the filters of a soundly implemented [`WorldQuery`] so long as [`matches_component_set`] is a disjunction of the implementations in those [`WorldQuery`]s.
+///
+/// When implementing [`update_component_access`], note that `add_read` and `add_write` both also add a `With` filter, whereas `extend_access` does not change the filters.
 ///
 /// [`fetch`]: Self::fetch
 /// [`matches_component_set`]: Self::matches_component_set
@@ -149,7 +157,11 @@ macro_rules! impl_tuple_world_query {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
-        // SAFETY: defers to soundness `$name: WorldQuery` impl
+        /// SAFETY:
+        /// `fetch` accesses are the conjunction of the subqueries' accesses
+        /// This is sound because `update_component_access` and `update_archetype_component_access` adds accesses according to the implementations of all the subqueries.
+        /// `update_component_access` adds all `With` and `Without` filters from the subqueries.
+        /// This is sound because `matches_component_set` always returns `false` if any the subqueries' implementations return `false`.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
             type Fetch<'w> = ($($name::Fetch<'w>,)*);
             type Item<'w> = ($($name::Item<'w>,)*);
