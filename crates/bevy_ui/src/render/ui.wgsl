@@ -44,16 +44,21 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // textureSample can only be called in unform control flow, not inside an if branch.
     var color = textureSample(sprite_texture, sprite_sampler, in.uv);
 
-    let point = abs(in.uv - vec2<f32>(0.5, 0.5)) * in.size;
-    let inner = 0.5 * in.size - vec2<f32>(in.radius, in.radius);
-
     if in.mode == TEXTURED_QUAD {
         color = in.color * color;
     } else {
         color = in.color;
     }
+
+    if in.radius <= 0. {
+        return color;
+    }
+
+    let point = abs(in.uv - vec2<f32>(0.5, 0.5)) * in.size;
+    let inner = 0.5 * in.size - vec2<f32>(in.radius, in.radius);
+
     if in.mode == INVERT_CORNERS {
-         if inner.x < point.x && inner.y < point.y {
+        if inner.x < point.x && inner.y < point.y {
             let c = point - inner;
             let distance = in.radius - length(c);
             if  dot(c, c) <= in.radius * in.radius  {

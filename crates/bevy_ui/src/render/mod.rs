@@ -160,6 +160,7 @@ pub struct ExtractedUiNode {
     pub flip_x: bool,
     pub flip_y: bool,
     pub corner_radius: f32,
+    pub invert_corners: bool,
 }
 
 #[derive(Resource, Default)]
@@ -250,6 +251,7 @@ pub fn extract_atlas_uinodes(
                 flip_y: atlas_image.flip_y,
                 corner_radius: corner_radius.resolve(uinode.calculated_size)
                     * ui_scale.scale as f32,
+                invert_corners: false,
             });
         }
     }
@@ -357,6 +359,8 @@ pub fn extract_uinode_borders(
                 },
             ];
 
+            let resolved_corner_radius = corner_radius.resolve(node.calculated_size)
+                * ui_scale.scale as f32;
             let transform = global_transform.compute_matrix();
 
             for edge in border_rects {
@@ -376,11 +380,34 @@ pub fn extract_uinode_borders(
                         clip: clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
-                        corner_radius: corner_radius.resolve(node.calculated_size)
-                            * ui_scale.scale as f32,
+                        corner_radius: resolved_corner_radius,
+                        invert_corners: false,
                     });
                 }
             }
+
+            if 0. <= resolved_corner_radius {
+                let inner_rect = Rect {
+                    min: inner_min,
+                    max: inner_max,
+                };
+
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    stack_index,
+                    // This translates the uinode's transform to the center of the current border rectangle
+                    transform: transform * Mat4::from_translation(inner_rect.center().extend(0.)),
+                    color: border_color.0,
+                    rect: Rect { min: Vec2::ZERO, max: inner_rect.size() },
+                    image: image.clone_weak(),
+                    atlas_size: None,
+                    clip: clip.map(|clip| clip.clip),
+                    flip_x: false,
+                    flip_y: false,
+                    corner_radius: resolved_corner_radius,
+                    invert_corners: true,       
+                });
+            }
+
         }
     }
 }
@@ -441,6 +468,7 @@ pub fn extract_uinodes(
                 flip_y,
                 corner_radius: corner_radius.resolve(uinode.calculated_size)
                     * ui_scale.scale as f32,
+                invert_corners: false,
             });
         };
     }
@@ -570,6 +598,7 @@ pub fn extract_text_uinodes(
                     flip_x: false,
                     flip_y: false,
                     corner_radius: 0.,
+                    invert_corners: false,
                 });
             }
         }
@@ -768,7 +797,11 @@ pub fn prepare_uinodes(
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color,
-                mode,
+                mode: if extracted_uinode.invert_corners {
+                    2
+                } else {
+                    mode
+                },
                 radius: extracted_uinode.corner_radius,
                 //size: transformed_rect_size.xy().into(),
                 size: extracted_uinode
