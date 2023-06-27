@@ -131,6 +131,7 @@ fn fragment(
 #ifdef VERTEX_UVS
             uv,
 #endif
+            view.mip_bias,
         );
 #endif
 
