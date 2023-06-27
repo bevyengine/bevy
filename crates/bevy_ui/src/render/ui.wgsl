@@ -53,7 +53,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         case 1u: {
             return mix(in.color, vec4<f32>(0.0), smoothstep(-1.0, 0.5, d));
         }
-        // Inverted rect (fills outside the rounded corners)
+        // Inverted rect (fill outside the rounded corners)
         case 2u, default: {
             return mix(vec4<f32>(0.0), in.color, smoothstep(-1.0, 1.0, d));
         }
