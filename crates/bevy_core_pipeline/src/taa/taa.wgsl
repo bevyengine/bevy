@@ -4,17 +4,19 @@
 // http://leiy.cc/publications/TAA/TAA_EG2020_Talk.pdf
 // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING
 
+#import bevy_render::view
 #import bevy_core_pipeline::fullscreen_vertex_shader
 
-@group(0) @binding(0) var view_target: texture_2d<f32>;
-@group(0) @binding(1) var history: texture_2d<f32>;
-@group(0) @binding(2) var motion_vectors: texture_2d<f32>;
-@group(0) @binding(3) var depth: texture_depth_2d;
-@group(0) @binding(4) var last_frame_depth: texture_depth_2d;
-@group(0) @binding(5) var normals: texture_2d<f32>;
-@group(0) @binding(6) var last_frame_normals: texture_2d<f32>;
-@group(0) @binding(7) var nearest_sampler: sampler;
-@group(0) @binding(8) var linear_sampler: sampler;
+@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(1) var view_target: texture_2d<f32>;
+@group(0) @binding(2) var history: texture_2d<f32>;
+@group(0) @binding(3) var motion_vectors: texture_2d<f32>;
+@group(0) @binding(4) var depth: texture_depth_2d;
+@group(0) @binding(5) var last_frame_depth: texture_depth_2d;
+@group(0) @binding(6) var normals: texture_2d<f32>;
+@group(0) @binding(7) var last_frame_normals: texture_2d<f32>;
+@group(0) @binding(8) var nearest_sampler: sampler;
+@group(0) @binding(9) var linear_sampler: sampler;
 
 // Settings for FXAA EXTREME 
 const EDGE_THRESHOLD_MIN: f32 = 0.0078;
@@ -26,6 +28,14 @@ const FXAA_SUBPIXEL_QUALITY: f32 = 0.75;
 struct Output {
     @location(0) view_target: vec4<f32>,
     @location(1) history: vec4<f32>,
+}
+
+// Calculate the world space size of the side of a square pixel given the linear depth for that pixel
+fn world_space_pixel_size(linear_depth: f32) -> f32 {
+    let is_orthographic = view.projection[3].w == 1.0;
+    let vertical_projection_scale = view.projection[1][1];
+    let unproject = 1.0 / (0.5 * view.viewport.w * vertical_projection_scale);
+    return unproject * select(linear_depth, 1.0, is_orthographic);
 }
 
 // TAA is ideally applied after tonemapping, but before post processing
@@ -81,26 +91,34 @@ fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
 }
 
 fn disocclusion_checks(uv: vec2<f32>, history_uv: vec2<f32>, current_depth_nonlinear: f32) -> bool {
+
     // Check if history is now off-screen
     if any(history_uv < 0.0) || any(history_uv > 1.0) {
        return false;
     }
 
+#ifdef DEPTH_DISOCCLUSION_CHECK
     // Compare current and previous depth
-    let current_depth = 1.0 / current_depth_nonlinear;
-    let last_frame_depth = 1.0 / textureSampleLevel(last_frame_depth, nearest_sampler, history_uv, 0.0);
-    if abs(current_depth - last_frame_depth) > 0.05 {
+    let near = view.projection[3][2];
+    let linear_depth = near / current_depth_nonlinear;
+    let pixel_size = world_space_pixel_size(linear_depth);
+    let current_depth = current_depth_nonlinear;
+    let last_frame_depth = textureSampleLevel(last_frame_depth, nearest_sampler, history_uv, 0.0);
+    if distance(current_depth, last_frame_depth) > pixel_size * 2.0 {
         return false;
     }
+#endif //DEPTH_DISOCCLUSION_CHECK
 
+#ifdef NORMAL_DISOCCLUSION_CHECK
     // Compare current and last frame's normals
     var current_normal = textureSampleLevel(normals, nearest_sampler, uv, 0.0).xyz;
     var last_frame_normal = textureSampleLevel(last_frame_normals, nearest_sampler, history_uv, 0.0).xyz;
     current_normal = current_normal * 2.0 - 1.0;
     last_frame_normal = last_frame_normal * 2.0 - 1.0;
-    if dot(current_normal, last_frame_normal) < 0.95 {
+    if dot(current_normal, last_frame_normal) < 0.9 {
         return false;
     }
+#endif //NORMAL_DISOCCLUSION_CHECK
 
     return true;
 }

@@ -22,16 +22,20 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState,
-        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
+        BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState,
+        MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
+        RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+        SamplerDescriptor, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages, TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
-    view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
+    view::{
+        prepare_view_uniforms, ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset,
+        ViewUniforms,
+    },
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
@@ -168,11 +172,21 @@ pub struct TemporalAntiAliasSettings {
     /// After setting this to true, it will automatically be toggled
     /// back to false after one frame.
     pub reset: bool,
+
+    /// When enabled differing reprojected depths will trigger disocclusion
+    pub depth_disocclusion_check: bool,
+
+    /// When enabled differing reprojected normals will trigger disocclusion
+    pub normal_disocclusion_check: bool,
 }
 
 impl Default for TemporalAntiAliasSettings {
     fn default() -> Self {
-        Self { reset: true }
+        Self {
+            reset: true,
+            depth_disocclusion_check: false,
+            normal_disocclusion_check: false,
+        }
     }
 }
 
@@ -186,21 +200,31 @@ impl ViewNode for TAANode {
         &'static TAAHistoryTextures,
         &'static ViewPrepassTextures,
         &'static TAAPipelineId,
+        &'static ViewUniformOffset,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
-            Self::ViewQuery,
-        >,
+        (
+            camera,
+            view_target,
+            taa_history_textures,
+            prepass_textures,
+            taa_pipeline_id,
+            view_uniform_offset,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let (Some(pipelines), Some(pipeline_cache)) = (
+        let (Some(pipelines), Some(pipeline_cache), Some(view_uniforms)) = (
             world.get_resource::<TAAPipeline>(),
             world.get_resource::<PipelineCache>(),
+            world.get_resource::<ViewUniforms>(),
         ) else {
+            return Ok(());
+        };
+        let Some(view_binding) = view_uniforms.uniforms.binding() else {
             return Ok(());
         };
         let (
@@ -231,50 +255,54 @@ impl ViewNode for TAANode {
                     entries: &[
                         BindGroupEntry {
                             binding: 0,
-                            resource: BindingResource::TextureView(view_target.source),
+                            resource: view_binding,
                         },
                         BindGroupEntry {
                             binding: 1,
+                            resource: BindingResource::TextureView(view_target.source),
+                        },
+                        BindGroupEntry {
+                            binding: 2,
                             resource: BindingResource::TextureView(
                                 &taa_history_textures.read.default_view,
                             ),
                         },
                         BindGroupEntry {
-                            binding: 2,
+                            binding: 3,
                             resource: BindingResource::TextureView(
                                 &prepass_motion_vectors_texture.default_view,
                             ),
                         },
                         BindGroupEntry {
-                            binding: 3,
+                            binding: 4,
                             resource: BindingResource::TextureView(
                                 &prepass_depth_texture.default_view,
                             ),
                         },
                         BindGroupEntry {
-                            binding: 4,
+                            binding: 5,
                             resource: BindingResource::TextureView(
                                 &prepass_last_frame_depth_texture.default_view,
                             ),
                         },
                         BindGroupEntry {
-                            binding: 5,
+                            binding: 6,
                             resource: BindingResource::TextureView(
                                 &prepass_normals_texture.default_view,
                             ),
                         },
                         BindGroupEntry {
-                            binding: 6,
+                            binding: 7,
                             resource: BindingResource::TextureView(
                                 &prepass_last_frame_normals_texture.default_view,
                             ),
                         },
                         BindGroupEntry {
-                            binding: 7,
+                            binding: 8,
                             resource: BindingResource::Sampler(&pipelines.nearest_sampler),
                         },
                         BindGroupEntry {
-                            binding: 8,
+                            binding: 9,
                             resource: BindingResource::Sampler(&pipelines.linear_sampler),
                         },
                     ],
@@ -298,7 +326,7 @@ impl ViewNode for TAANode {
                 depth_stencil_attachment: None,
             });
             taa_pass.set_render_pipeline(taa_pipeline);
-            taa_pass.set_bind_group(0, &taa_bind_group, &[]);
+            taa_pass.set_bind_group(0, &taa_bind_group, &[view_uniform_offset.offset]);
             if let Some(viewport) = camera.viewport.as_ref() {
                 taa_pass.set_camera_viewport(viewport);
             }
@@ -337,18 +365,18 @@ impl FromWorld for TAAPipeline {
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("taa_bind_group_layout"),
                 entries: &[
-                    // View target (read)
+                    // View
                     BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
+                        visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: true,
+                            min_binding_size: Some(ViewUniform::min_size()),
                         },
                         count: None,
                     },
-                    // TAA History (read)
+                    // View target (read)
                     BindGroupLayoutEntry {
                         binding: 1,
                         visibility: ShaderStages::FRAGMENT,
@@ -359,7 +387,7 @@ impl FromWorld for TAAPipeline {
                         },
                         count: None,
                     },
-                    // Motion Vectors
+                    // TAA History (read)
                     BindGroupLayoutEntry {
                         binding: 2,
                         visibility: ShaderStages::FRAGMENT,
@@ -370,18 +398,18 @@ impl FromWorld for TAAPipeline {
                         },
                         count: None,
                     },
-                    // Depth
+                    // Motion Vectors
                     BindGroupLayoutEntry {
                         binding: 3,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Depth,
+                            sample_type: TextureSampleType::Float { filterable: true },
                             view_dimension: TextureViewDimension::D2,
                             multisampled: false,
                         },
                         count: None,
                     },
-                    // Last Frame Depth
+                    // Depth
                     BindGroupLayoutEntry {
                         binding: 4,
                         visibility: ShaderStages::FRAGMENT,
@@ -392,18 +420,18 @@ impl FromWorld for TAAPipeline {
                         },
                         count: None,
                     },
-                    // Normals
+                    // Last Frame Depth
                     BindGroupLayoutEntry {
                         binding: 5,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
+                            sample_type: TextureSampleType::Depth,
                             view_dimension: TextureViewDimension::D2,
                             multisampled: false,
                         },
                         count: None,
                     },
-                    // Last Frame Normals
+                    // Normals
                     BindGroupLayoutEntry {
                         binding: 6,
                         visibility: ShaderStages::FRAGMENT,
@@ -414,16 +442,27 @@ impl FromWorld for TAAPipeline {
                         },
                         count: None,
                     },
-                    // Nearest sampler
+                    // Last Frame Normals
                     BindGroupLayoutEntry {
                         binding: 7,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Float { filterable: true },
+                            view_dimension: TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    // Nearest sampler
+                    BindGroupLayoutEntry {
+                        binding: 8,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                         count: None,
                     },
                     // Linear sampler
                     BindGroupLayoutEntry {
-                        binding: 8,
+                        binding: 9,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler(SamplerBindingType::Filtering),
                         count: None,
@@ -443,6 +482,8 @@ impl FromWorld for TAAPipeline {
 struct TAAPipelineKey {
     hdr: bool,
     reset: bool,
+    depth_disocclusion_check: bool,
+    normal_disocclusion_check: bool,
 }
 
 impl SpecializedRenderPipeline for TAAPipeline {
@@ -460,6 +501,14 @@ impl SpecializedRenderPipeline for TAAPipeline {
 
         if key.reset {
             shader_defs.push("RESET".into());
+        }
+
+        if key.depth_disocclusion_check {
+            shader_defs.push("DEPTH_DISOCCLUSION_CHECK".into());
+        }
+
+        if key.normal_disocclusion_check {
+            shader_defs.push("NORMAL_DISOCCLUSION_CHECK".into());
         }
 
         RenderPipelineDescriptor {
@@ -613,6 +662,8 @@ fn prepare_taa_pipelines(
         let mut pipeline_key = TAAPipelineKey {
             hdr: view.hdr,
             reset: taa_settings.reset,
+            depth_disocclusion_check: taa_settings.depth_disocclusion_check,
+            normal_disocclusion_check: taa_settings.normal_disocclusion_check,
         };
         let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key.clone());
 
