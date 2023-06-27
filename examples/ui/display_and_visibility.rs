@@ -1,7 +1,10 @@
 //! Demonstrates how Display and Visibility work in the UI.
 
-use bevy::prelude::*;
 use bevy::winit::WinitSettings;
+use bevy::{
+    prelude::*,
+    ui::RelativeCursorPosition,
+};
 
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
 const HIDDEN_COLOR: Color = Color::rgb(1.0, 0.7, 0.7);
@@ -435,14 +438,14 @@ where
 
 fn buttons_handler<T>(
     mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
-    mut visibility_button_query: Query<(&Target<T>, &Interaction, &Children), Changed<Interaction>>,
+    mut visibility_button_query: Query<(&Target<T>, &Pressed, &Children), Changed<Pressed>>,
     mut text_query: Query<&mut Text>,
 ) where
     T: Send + Sync,
     Target<T>: TargetUpdate + Component,
 {
-    for (target, interaction, children) in visibility_button_query.iter_mut() {
-        if matches!(interaction, Interaction::Clicked) {
+    for (target, pressed, children) in visibility_button_query.iter_mut() {
+        if pressed.pressed {
             let mut target_value = left_panel_query.get_mut(target.id).unwrap();
             for &child in children {
                 if let Ok(mut text) = text_query.get_mut(child) {
@@ -461,33 +464,33 @@ fn buttons_handler<T>(
 }
 
 fn text_hover(
-    mut button_query: Query<(&Interaction, &mut BackgroundColor, &Children), Changed<Interaction>>,
+    mut button_query: Query<
+        (&RelativeCursorPosition, &mut BackgroundColor, &Children),
+        Changed<RelativeCursorPosition>,
+    >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, mut background_color, children) in button_query.iter_mut() {
-        match interaction {
-            Interaction::Hovered => {
-                *background_color = BackgroundColor(Color::BLACK.with_a(0.6));
-                for &child in children {
-                    if let Ok(mut text) = text_query.get_mut(child) {
-                        // Bypass change detection to avoid recomputation of the text when only changing the color
-                        text.bypass_change_detection().sections[0].style.color = Color::YELLOW;
-                    }
+    for (relative_cursor_position, mut background_color, children) in button_query.iter_mut() {
+        if relative_cursor_position.mouse_over() {
+            *background_color = BackgroundColor(Color::BLACK.with_a(0.6));
+            for &child in children {
+                if let Ok(mut text) = text_query.get_mut(child) {
+                    // Bypass change detection to avoid recomputation of the text when only changing the color
+                    text.bypass_change_detection().sections[0].style.color = Color::YELLOW;
                 }
             }
-            _ => {
-                *background_color = BackgroundColor(Color::BLACK.with_a(0.5));
-                for &child in children {
-                    if let Ok(mut text) = text_query.get_mut(child) {
-                        text.bypass_change_detection().sections[0].style.color =
-                            if text.sections[0].value.contains("None")
-                                || text.sections[0].value.contains("Hidden")
-                            {
-                                HIDDEN_COLOR
-                            } else {
-                                Color::WHITE
-                            };
-                    }
+        } else {
+            *background_color = BackgroundColor(Color::BLACK.with_a(0.5));
+            for &child in children {
+                if let Ok(mut text) = text_query.get_mut(child) {
+                    text.bypass_change_detection().sections[0].style.color =
+                        if text.sections[0].value.contains("None")
+                            || text.sections[0].value.contains("Hidden")
+                        {
+                            HIDDEN_COLOR
+                        } else {
+                            Color::WHITE
+                        };
                 }
             }
         }
