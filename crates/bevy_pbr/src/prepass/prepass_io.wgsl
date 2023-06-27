@@ -20,6 +20,10 @@ struct Vertex {
     @location(4) joint_indices: vec4<u32>,
     @location(5) joint_weights: vec4<f32>,
 #endif
+
+#ifdef MORPH_TARGETS
+    @builtin(vertex_index) index: u32,
+#endif // MORPH_TARGETS
 }
 
 struct VertexOutput {
@@ -89,3 +93,6 @@ struct FragmentOutput {
 #endif // DEPTH_CLAMP_ORTHO
 }
 #endif //PREPASS_FRAGMENT
+
+
+
