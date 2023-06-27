@@ -139,7 +139,7 @@ impl SystemRegistry {
                     *initialized = true;
                 }
                 matching_system.run((), world);
-                // matching_system.apply_buffers(world);
+                matching_system.apply_deferred(world);
                 Ok(())
             }
             None => Err(SystemRegistryError::SystemIdNotRegistered(id)),
