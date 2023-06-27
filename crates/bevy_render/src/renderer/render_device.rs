@@ -52,8 +52,8 @@ impl RenderDevice {
     ///
     /// no-op on the web, device is automatically polled.
     #[inline]
-    pub fn poll(&self, maintain: wgpu::Maintain) {
-        self.device.poll(maintain);
+    pub fn poll(&self, maintain: wgpu::Maintain) -> bool {
+        self.device.poll(maintain)
     }
 
     /// Creates an empty [`CommandEncoder`](wgpu::CommandEncoder).
