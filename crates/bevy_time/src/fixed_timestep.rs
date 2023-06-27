@@ -20,18 +20,14 @@ use crate::{Time, TimeContext};
 #[derive(Resource, Debug, Clone, Copy)]
 pub struct FixedTimestep {
     size: Duration,
-    steps: u32,
     overstep: Duration,
-    max_steps_per_update: u32,
 }
 
 impl Default for FixedTimestep {
     fn default() -> Self {
         Self {
             size: Self::DEFAULT_STEP_SIZE,
-            steps: 0,
             overstep: Duration::ZERO,
-            max_steps_per_update: u32::MAX,
         }
     }
 }
@@ -74,12 +70,6 @@ impl FixedTimestep {
         self.size = size;
     }
 
-    /// Returns the number of steps accumulated.
-    #[inline]
-    pub fn steps(&self) -> u32 {
-        self.steps
-    }
-
     /// Returns the amount of time accumulated toward new steps, as a [`Duration`].
     #[inline]
     pub fn overstep(&self) -> Duration {
@@ -102,44 +92,35 @@ impl FixedTimestep {
     /// Adds `time` to an internal accumulator.
     pub fn accumulate(&mut self, time: Duration) {
         self.overstep += time;
+    }
+
+    ///
+    pub fn expend(&mut self) -> usize {
+        let mut steps = 0;
         while self.overstep >= self.size {
             self.overstep -= self.size;
-            self.steps += 1;
+            steps += 1;
         }
-    }
 
-    /// Consumes one step and returns the number remaining.
-    /// Returns `None` if there was no step that could be expended.
-    pub fn expend(&mut self) -> Option<u32> {
-        let remaining = self.steps.checked_sub(1);
-        self.steps = self.steps.saturating_sub(1);
-        remaining
-    }
-
-    /// Returns the maximum number of `FixedUpdate` steps that can be run in one update.
-    pub fn max_steps_per_update(&self) -> u32 {
-        self.max_steps_per_update
-    }
-
-    /// Sets the maximum number of `FixedUpdate` steps that can be run in one update.
-    pub fn set_max_steps_per_update(&mut self, steps: u32) {
-        self.max_steps_per_update = steps;
+        steps
     }
 }
 
 /// Runs the [`FixedUpdate`] schedule zero or more times, advancing its clock each time.
 pub fn run_fixed_update_schedule(world: &mut World) {
     let _ = world.try_schedule_scope(FixedUpdate, |world, schedule| {
+        // get number of steps (done in advance on purpose)
+        let mut timestep = world.resource_mut::<FixedTimestep>();
+        let steps = timestep.expend();
+        let step_size = timestep.size();
+
         // swap context
         let mut time = world.resource_mut::<Time>();
+        assert!(matches!(time.context(), TimeContext::Update));
         time.set_context(TimeContext::FixedUpdate);
 
-        // solve for number of steps (done in advance on purpose)
-        let mut timestep = world.resource_mut::<FixedTimestep>();
-        let mut steps = 0;
-        while timestep.expend().is_some() && steps < timestep.max_steps_per_update {
-            steps += 1;
-        }
+        // also apply step size change
+        time.fixed_timestep_size = step_size;
 
         // run schedule however many times
         for _ in 0..steps {
@@ -179,22 +160,19 @@ mod test {
     fn enough_accumulated_time_is_required() {
         let mut acc = FixedTimestep::new(Duration::from_secs(2));
         acc.accumulate(Duration::from_secs(1));
-        assert!(acc.expend().is_none());
+        assert_eq!(acc.expend(), 0);
         assert_eq!(acc.overstep(), Duration::from_secs(1));
 
         acc.accumulate(Duration::from_secs(1));
+        assert_eq!(acc.expend(), 1);
         assert_eq!(acc.overstep(), Duration::ZERO);
-        assert_eq!(acc.steps(), 1);
-        assert!(acc.expend().is_some());
     }
 
     #[test]
     fn repeatedly_expending_time() {
         let mut acc = FixedTimestep::new(Duration::from_secs(1));
-        acc.accumulate(Duration::from_secs_f32(3.2));
-        assert!(acc.expend().is_some());
-        assert!(acc.expend().is_some());
-        assert!(acc.expend().is_some());
-        assert!(acc.expend().is_none());
+        acc.accumulate(Duration::from_millis(3200));
+        assert_eq!(acc.expend(), 3);
+        assert_eq!(acc.overstep(), Duration::from_millis(200));
     }
 }

@@ -722,7 +722,6 @@ mod tests {
 
         // Make app time advance at 2x the rate of your system clock.
         time.set_relative_speed(2.0);
-        time.apply_pending_changes();
 
         // Update `time` again 1 second later.
         let elapsed = Duration::from_secs(1);
@@ -779,14 +778,17 @@ mod tests {
         assert_eq!(time.relative_speed(), 1.0);
 
         time.pause();
-        time.apply_pending_changes();
 
-        assert!(time.is_paused());
-        assert_eq!(time.relative_speed(), 0.0);
+        // deferred until next update
+        assert!(!time.is_paused());
+        assert_eq!(time.relative_speed(), 1.0);
 
         let second_update = Instant::now();
         time.update_with_instant(second_update);
         real_time.update_with_instant(second_update);
+
+        assert!(time.is_paused());
+        assert_eq!(time.relative_speed(), 0.0);
 
         assert_eq!(time.startup(), startup);
         assert_eq!(time.first_update(), Some(first_update));
@@ -797,14 +799,17 @@ mod tests {
         assert_eq!(real_time.elapsed(), second_update - first_update);
 
         time.unpause();
-        time.apply_pending_changes();
 
-        assert!(!time.is_paused());
-        assert_eq!(time.relative_speed(), 1.0);
+        // deferred until next update
+        assert!(time.is_paused());
+        assert_eq!(time.relative_speed(), 0.0);
 
         let third_update = Instant::now();
         time.update_with_instant(third_update);
         real_time.update_with_instant(third_update);
+
+        assert!(!time.is_paused());
+        assert_eq!(time.relative_speed(), 1.0);
 
         assert_eq!(time.startup(), startup);
         assert_eq!(time.first_update(), Some(first_update));

@@ -139,9 +139,6 @@ fn time_system(
     // update virtual time clock
     time.update_with_instant(frame_start);
 
-    // apply any step size changes
-    time.fixed_timestep_size = fixed_timestep.size();
-
     // accumulate
     fixed_timestep.accumulate(time.delta());
 }
