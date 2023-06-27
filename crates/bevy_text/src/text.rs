@@ -51,7 +51,7 @@ impl Text {
     ///     // Accepts a String or any type that converts into a String, such as &str.
     ///     "hello world!",
     ///     TextStyle {
-    ///         font: font_handle.clone(),
+    ///         font: font_handle.clone().into(),
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
@@ -60,7 +60,7 @@ impl Text {
     /// let hello_bevy = Text::from_section(
     ///     "hello bevy!",
     ///     TextStyle {
-    ///         font: font_handle,
+    ///         font: font_handle.into(),
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
@@ -87,7 +87,7 @@ impl Text {
     ///     TextSection::new(
     ///         "Hello, ",
     ///         TextStyle {
-    ///             font: font_handle.clone(),
+    ///             font: font_handle.clone().into(),
     ///             font_size: 60.0,
     ///             color: Color::BLUE,
     ///         },
@@ -95,7 +95,7 @@ impl Text {
     ///     TextSection::new(
     ///         "World!",
     ///         TextStyle {
-    ///             font: font_handle,
+    ///             font: font_handle.into(),
     ///             font_size: 60.0,
     ///             color: Color::RED,
     ///         },
@@ -209,12 +209,14 @@ impl From<Handle<Font>> for FontRef {
 /// Queries for a font from those already loaded.
 ///
 /// ```
-/// let fira_sans_bold = FontQuery::family("FiraSans").weight(FontWeight::Bold);
+/// # use bevy_text::{FontQuery, FontWeight, TextStyle};
+///
+/// let fira_sans_bold = FontQuery::family("FiraSans").weight(FontWeight::BOLD);
 ///
 /// let text_style = TextStyle {
 ///     font: fira_sans_bold.into(),
 ///     ..Default::default()
-/// }
+/// };
 /// ```
 #[derive(Clone, Debug)]
 pub struct FontQuery {
