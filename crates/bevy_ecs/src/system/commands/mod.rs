@@ -14,7 +14,6 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-
 use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 
 /// A [`World`] mutation.

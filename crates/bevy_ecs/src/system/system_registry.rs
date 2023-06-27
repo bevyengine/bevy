@@ -253,8 +253,8 @@ pub enum SystemRegistryError {
 }
 
 mod tests {
-    use crate::prelude::*;
     use crate as bevy_ecs;
+    use crate::prelude::*;
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -348,8 +348,8 @@ mod tests {
     fn local_variables() {
         // The `Local` begins at the default value of 0
         fn doubling(mut last_counter: Local<Counter>, mut counter: ResMut<Counter>) {
-            counter.0 += last_counter.0.0;
-            last_counter.0.0 = counter.0;
+            counter.0 += last_counter.0 .0;
+            last_counter.0 .0 = counter.0;
         }
 
         let mut world = World::new();
