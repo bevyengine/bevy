@@ -34,7 +34,9 @@ fn button_system(
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (pressed, relative_cursor_position, mut color, mut border_color, children) in &mut interaction_query {
+    for (pressed, relative_cursor_position, mut color, mut border_color, children) in
+        &mut interaction_query
+    {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match (pressed, relative_cursor_position).interaction_state() {
             InteractionState::Pressed => {

@@ -2,9 +2,8 @@
 
 use crate::{
     widget::{Button, TextFlags, UiImageSize},
-    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Node, Pressed, RelativeCursorPosition, Style,
-    UiImage,
-    UiTextureAtlasImage, ZIndex,
+    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Node, Pressed, RelativeCursorPosition,
+    Style, UiImage, UiTextureAtlasImage, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
