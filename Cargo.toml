@@ -448,6 +448,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "generate_custom_mesh"
+path = "examples/3d/generate_custom_mesh.rs"
+
+[package.metadata.example.generate_custom_mesh]
+name = "Generate Custom Mesh"
+description = "Simple showcase of how to generate a custom mesh with a custom texture"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "anti_aliasing"
 path = "examples/3d/anti_aliasing.rs"
 
@@ -753,6 +763,16 @@ path = "examples/animation/animated_fox.rs"
 [package.metadata.example.animated_fox]
 name = "Animated Fox"
 description = "Plays an animation from a skinned glTF"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "morph_targets"
+path = "examples/animation/morph_targets.rs"
+
+[package.metadata.example.morph_targets]
+name = "Morph Targets"
+description = "Plays an animation from a glTF file with meshes with morph targets"
 category = "Animation"
 wasm = true
 
