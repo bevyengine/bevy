@@ -51,7 +51,7 @@ impl RenderDevice {
     /// Check for resource cleanups and mapping callbacks.
     ///
     /// Return `true` if the queue is empty, or `false` if there are more queue
-    /// submissions still in flight. (Note that, unless access to the [`Queue`] is
+    /// submissions still in flight. (Note that, unless access to the [`wgpu::Queue`] is
     /// coordinated somehow, this information could be out of date by the time
     /// the caller receives it. `Queue`s can be shared between threads, so
     /// other threads could submit new work at any time.)
