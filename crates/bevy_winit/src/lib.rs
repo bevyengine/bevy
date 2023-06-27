@@ -578,7 +578,10 @@ pub fn winit_runner(mut app: App) {
                             .set_physical_resolution(new_inner_size.width, new_inner_size.height);
                     }
                     WindowEvent::Focused(focused) => {
-                        #[cfg(feature = "wayland")]
+                        // When using Wayland (or sometimes X11 through XWayland) we need to consider the window
+                        // focused after creation and ignore the initial `WindowEvent::Focused(false)` event.
+                        // See https://github.com/bevyengine/bevy/pull/8953 for more details.
+                        #[cfg(any(feature = "wayland", feature = " x11"))]
                         if focused && !window.internal.is_ready() {
                             window.internal.set_ready();
                         }
