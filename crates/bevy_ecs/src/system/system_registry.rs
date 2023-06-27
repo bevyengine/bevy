@@ -29,7 +29,7 @@ use bevy_ecs_macros::Resource;
 ///
 /// You can run a single system directly on the World,
 /// applying its effect and caching its state for the next time
-/// you call this method (internally, this is based on [`SystemTypeIdLabel`]).
+/// you call this method.
 ///
 /// ```rust
 /// use bevy_ecs::prelude::*;
@@ -83,7 +83,6 @@ pub struct SystemRegistry {
 impl SystemRegistry {
     /// Registers a system in the [`SystemRegistry`], so then it can be later run.
     ///
-    /// This allows the system to be run by their [`SystemTypeIdLabel`] using the `run_systems_by_label` method.
     /// Repeatedly registering a system will have no effect.
     ///
     /// When [`run_systems_by_label`](SystemRegistry::run_systems_by_label) is called,
