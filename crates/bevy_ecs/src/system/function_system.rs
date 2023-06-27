@@ -8,7 +8,7 @@ use crate::{
 };
 
 use bevy_utils::all_tuples;
-use std::{any::TypeId, borrow::Cow, marker::PhantomData};
+use std::{any::TypeId, borrow::Cow, marker::PhantomData, fmt::Debug, hash::Hash};
 
 use super::{In, IntoSystem, ReadOnlySystem};
 
@@ -526,10 +526,6 @@ where
     F: SystemParamFunction<Marker>,
     F::Param: ReadOnlySystemParam,
 {
-    #[inline]
-    fn default_labels(&self) -> Vec<SystemLabelId> {
-        vec![self.func.as_system_label().as_label()]
-    }
 }
 
 /// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
@@ -543,13 +539,6 @@ impl<T: 'static> SystemTypeIdLabel<T> {
     /// of your function type.
     pub fn new() -> Self {
         Self(PhantomData::default())
-    }
-}
-
-impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
-    #[inline]
-    fn as_str(&self) -> &'static str {
-        std::any::type_name::<T>()
     }
 }
 
@@ -582,8 +571,8 @@ impl<T> PartialEq for SystemTypeIdLabel<T> {
 }
 impl<T> Eq for SystemTypeIdLabel<T> {}
 
-impl<T> SystemLabel for SystemTypeIdLabel<T> {
-    fn dyn_clone(&self) -> Box<dyn SystemLabel> {
+impl<T> crate::schedule::SystemSet for SystemTypeIdLabel<T> {
+    fn dyn_clone(&self) -> Box<dyn crate::schedule::SystemSet> {
         Box::new(*self)
     }
 }

@@ -18,7 +18,7 @@ use crate::{
     component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, Events},
-    query::{DebugCheckedUnwrap, FilterFetch, QueryState, ReadOnlyWorldQuery, WorldQuery},
+    query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{Column, ResourceData, SparseSet, Storages},
@@ -70,10 +70,6 @@ pub struct World {
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
-    /// Stores the systems associated with this [`World`],
-    ///
-    /// These system can be manually run using [`World::run_system`].
-    pub system_registry: SystemRegistry,
 }
 
 impl Default for World {
@@ -92,8 +88,8 @@ impl Default for World {
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
-        }
-       // This resource is required by bevy_ecs itself, so cannot be included in a plugin
+        };
+        // This resource is required by bevy_ecs itself, so cannot be included in a plugin
         world.init_resource::<SystemRegistry>();
         world
     }

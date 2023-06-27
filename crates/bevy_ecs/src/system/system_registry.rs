@@ -75,7 +75,7 @@ use bevy_ecs_macros::Resource;
 /// world.run_system(spawn_7_entities);
 /// world.run_system(assert_7_spawned);
 /// ```
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct SystemRegistry {
     systems: Vec<(bool, BoxedSystem)>,
     indices: TypeIdMap<usize>,
@@ -139,7 +139,7 @@ impl SystemRegistry {
                     *initialized = true;
                 }
                 matching_system.run((), world);
-                matching_system.apply_buffers(world);
+                // matching_system.apply_buffers(world);
                 Ok(())
             }
             None => Err(SystemRegistryError::SystemIdNotRegistered(id)),
@@ -216,11 +216,7 @@ impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
 {
     #[inline]
     fn apply(self, world: &mut World) {
-        if self.flush {
-            world.run_system(self.system);
-        } else {
-            world.run_system_without_flushing(self.system);
-        }
+        world.run_system(self.system);
     }
 }
 
@@ -238,7 +234,7 @@ impl RunSystemById {
 
 impl Command for RunSystemById {
     #[inline]
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
             registry
                 .run_by_id(world, self.system_id)
@@ -260,8 +256,9 @@ pub enum SystemRegistryError {
 
 mod tests {
     use crate::prelude::*;
+    use crate as bevy_ecs;
 
-    #[derive(Default, PartialEq, Debug)]
+    #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
 
     #[allow(dead_code)]
@@ -293,7 +290,7 @@ mod tests {
 
     #[allow(dead_code)]
     fn spawn_entity(mut commands: Commands) {
-        commands.spawn();
+        commands.spawn_empty();
     }
 
     #[test]
@@ -320,7 +317,7 @@ mod tests {
 
     #[test]
     fn change_detection() {
-        #[derive(Default)]
+        #[derive(Resource, Default)]
         struct ChangeDetector;
 
         #[allow(dead_code)]
@@ -353,8 +350,8 @@ mod tests {
     fn local_variables() {
         // The `Local` begins at the default value of 0
         fn doubling(mut last_counter: Local<Counter>, mut counter: ResMut<Counter>) {
-            counter.0 += last_counter.0;
-            last_counter.0 = counter.0;
+            counter.0 += last_counter.0.0;
+            last_counter.0.0 = counter.0;
         }
 
         let mut world = World::new();
