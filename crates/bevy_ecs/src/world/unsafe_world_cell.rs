@@ -2,11 +2,11 @@
 
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use super::{Mut, World, WorldId};
+use super::{Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, Archetypes},
     bundle::Bundles,
-    change_detection::{MutUntyped, TicksMut},
+    change_detection::{MutUntyped, Ticks, TicksMut},
     component::{
         ComponentId, ComponentStorage, ComponentTicks, Components, StorageType, Tick, TickCells,
     },
@@ -104,7 +104,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ///     it is likely *unsound* to call this method.
     /// - The returned `&mut World` *must* be unique: it must never be allowed to exist
     ///   at the same time as any other borrows of the world or any accesses to its data.
-    ///   This includes safe ways of accessing world data, such as [`UnsafeWorldCell::archetypes`]:
+    ///   This includes safe ways of accessing world data, such as [`UnsafeWorldCell::archetypes`].
     ///   - Note that the `&mut World` *may* exist at the same time as instances of `UnsafeWorldCell`,
     ///     so long as none of those instances are used to access world data in any way
     ///     while the mutable borrow is active.
@@ -127,7 +127,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ///
     /// // !!This is unsound!! Even though this method is safe, we cannot call it until
     /// // `world_mut` is no longer active.
-    /// let tick = world_cell.read_change_tick();
+    /// let tick = world_cell.change_tick();
     ///
     /// // Use mutable access to spawn an entity.
     /// world_mut.spawn(Player);
@@ -443,7 +443,9 @@ impl<'w> UnsafeWorldCell<'w> {
         };
 
         Some(MutUntyped {
-            // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
+            // SAFETY:
+            // - caller ensures that `self` has permission to access the resource
+            // - caller ensures that the resource is unaliased
             value: unsafe { ptr.assert_unique() },
             ticks,
         })
@@ -652,10 +654,10 @@ impl<'w> UnsafeEntityCell<'w> {
     #[inline]
     pub unsafe fn get<T: Component>(self) -> Option<&'w T> {
         let component_id = self.world.components().get_id(TypeId::of::<T>())?;
-
         // SAFETY:
-        // - entity location is valid
-        // - proper world access is promised by caller
+        // - `storage_type` is correct (T component_id + T::STORAGE_TYPE)
+        // - `location` is valid
+        // - proper aliasing is promised by caller
         unsafe {
             get_component(
                 self.world,
@@ -666,6 +668,36 @@ impl<'w> UnsafeEntityCell<'w> {
             )
             // SAFETY: returned component is of type T
             .map(|value| value.deref::<T>())
+        }
+    }
+
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component
+    /// - no other mutable references to the component exist at the same time
+    #[inline]
+    pub unsafe fn get_ref<T: Component>(self) -> Option<Ref<'w, T>> {
+        let last_change_tick = self.world.last_change_tick();
+        let change_tick = self.world.change_tick();
+        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
+
+        // SAFETY:
+        // - `storage_type` is correct (T component_id + T::STORAGE_TYPE)
+        // - `location` is valid
+        // - proper aliasing is promised by caller
+        unsafe {
+            get_component_and_ticks(
+                self.world,
+                component_id,
+                T::Storage::STORAGE_TYPE,
+                self.entity,
+                self.location,
+            )
+            .map(|(value, cells)| Ref {
+                // SAFETY: returned component is of type T
+                value: value.deref::<T>(),
+                ticks: Ticks::from_tick_cells(cells, last_change_tick, change_tick),
+            })
         }
     }
 
@@ -761,6 +793,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.location,
             )
             .map(|(value, cells)| Mut {
+                // SAFETY: returned component is of type T
                 value: value.assert_unique().deref_mut::<T>(),
                 ticks: TicksMut::from_tick_cells(cells, last_change_tick, change_tick),
             })

@@ -1,9 +1,9 @@
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
     GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
-    ShadowSamplers, ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset,
-    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
-    MAX_DIRECTIONAL_LIGHTS,
+    ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewFogUniformOffset,
+    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -103,7 +103,7 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
+        app.add_plugins(UniformComponentPlugin::<MeshUniform>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -419,21 +419,32 @@ pub fn mesh_view_layout_entries(
             },
             count: None,
         },
+        // Screen space ambient occlusion texture
+        BindGroupLayoutEntry {
+            binding: 11,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                multisampled: false,
+                sample_type: TextureSampleType::Float { filterable: false },
+                view_dimension: TextureViewDimension::D2,
+            },
+            count: None,
+        },
     ];
 
     // EnvironmentMapLight
-    let environment_map_entries = environment_map::get_bind_group_layout_entries([11, 12, 13]);
+    let environment_map_entries = environment_map::get_bind_group_layout_entries([12, 13, 14]);
     entries.extend_from_slice(&environment_map_entries);
 
     // Tonemapping
-    let tonemapping_lut_entries = get_lut_bind_group_layout_entries([14, 15]);
+    let tonemapping_lut_entries = get_lut_bind_group_layout_entries([15, 16]);
     entries.extend_from_slice(&tonemapping_lut_entries);
 
     if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
         || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
     {
         entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
-            [16, 17, 18, 19],
+            [17, 18, 19, 20],
             multisampled,
         ));
     }
@@ -583,8 +594,9 @@ bitflags::bitflags! {
         const MAY_DISCARD                       = (1 << 7); // Guards shader codepaths that may discard, allowing early depth tests in most cases
                                                             // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
         const ENVIRONMENT_MAP                   = (1 << 8);
-        const DEPTH_CLAMP_ORTHO                 = (1 << 9);
-        const TAA                               = (1 << 10);
+        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 9);
+        const DEPTH_CLAMP_ORTHO                 = (1 << 10);
+        const TAA                               = (1 << 11);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
@@ -667,10 +679,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
-        if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
-            shader_defs.push("LOAD_PREPASS_NORMALS".into());
-        }
-
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
@@ -724,10 +732,15 @@ impl SpecializedMeshPipeline for MeshPipeline {
             bind_group_layout.push(self.mesh_layout.clone());
         };
 
+        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
+            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
+        }
+
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
+        let mut is_opaque = false;
         if pass == MeshPipelineKey::BLEND_ALPHA {
             label = "alpha_blend_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
@@ -764,6 +777,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
+            is_opaque = true;
+        }
+
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque {
+            shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
@@ -971,6 +989,7 @@ pub fn queue_mesh_view_bind_groups(
         Entity,
         &ViewShadowBindings,
         &ViewClusterBindings,
+        Option<&ScreenSpaceAmbientOcclusionTextures>,
         Option<&ViewPrepassTextures>,
         Option<&EnvironmentMapLight>,
         &Tonemapping,
@@ -999,11 +1018,17 @@ pub fn queue_mesh_view_bind_groups(
             entity,
             view_shadow_bindings,
             view_cluster_bindings,
+            ssao_textures,
             prepass_textures,
             environment_map,
             tonemapping,
         ) in &views
         {
+            let fallback_ssao = fallback_images
+                .image_for_samplecount(1, TextureFormat::Rgba8Unorm)
+                .texture_view
+                .clone();
+
             let layout = if msaa.samples() > 1 {
                 &mesh_pipeline.view_layout_multisampled
             } else {
@@ -1059,18 +1084,26 @@ pub fn queue_mesh_view_bind_groups(
                     binding: 10,
                     resource: fog_binding.clone(),
                 },
+                BindGroupEntry {
+                    binding: 11,
+                    resource: BindingResource::TextureView(
+                        ssao_textures
+                            .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
+                            .unwrap_or(&fallback_ssao),
+                    ),
+                },
             ];
 
             let env_map = environment_map::get_bindings(
                 environment_map,
                 &images,
                 &fallback_cubemap,
-                [11, 12, 13],
+                [12, 13, 14],
             );
             entries.extend_from_slice(&env_map);
 
             let tonemapping_luts =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
             entries.extend_from_slice(&tonemapping_luts);
 
             let prepass_bindings =
@@ -1079,7 +1112,7 @@ pub fn queue_mesh_view_bind_groups(
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
             {
-                entries.extend_from_slice(&prepass_bindings.get_entries([16, 17, 18, 19]));
+                entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));
             }
 
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {

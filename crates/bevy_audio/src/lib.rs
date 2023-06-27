@@ -7,9 +7,7 @@
 //! # use bevy_app::{App, AppExit, NoopPluginGroup as MinimalPlugins, Startup};
 //! fn main() {
 //!    App::new()
-//!         .add_plugins(MinimalPlugins)
-//!         .add_plugin(AssetPlugin::default())
-//!         .add_plugin(AudioPlugin::default())
+//!         .add_plugins((MinimalPlugins, AssetPlugin::default(), AudioPlugin::default()))
 //!         .add_systems(Startup, play_background_audio)
 //!         .run();
 //! }

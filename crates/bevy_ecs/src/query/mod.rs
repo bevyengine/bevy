@@ -64,7 +64,7 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 mod tests {
     use super::{ReadOnlyWorldQuery, WorldQuery};
     use crate::prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without};
-    use crate::query::{ArchetypeFilter, QueryCombinationIter};
+    use crate::query::{ArchetypeFilter, Has, QueryCombinationIter};
     use crate::schedule::{IntoSystemConfigs, Schedule};
     use crate::system::{IntoSystem, Query, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
@@ -473,6 +473,24 @@ mod tests {
         assert_eq!(
             values,
             vec![(Some(&A(1)), Some(&B(2))), (Some(&A(2)), None),]
+        );
+    }
+
+    #[test]
+    fn has_query() {
+        let mut world = World::new();
+
+        world.spawn((A(1), B(1)));
+        world.spawn(A(2));
+        world.spawn((A(3), B(1)));
+        world.spawn(A(4));
+
+        let values: Vec<(&A, bool)> = world.query::<(&A, Has<B>)>().iter(&world).collect();
+
+        // The query seems to put the components with B first
+        assert_eq!(
+            values,
+            vec![(&A(1), true), (&A(3), true), (&A(2), false), (&A(4), false),]
         );
     }
 

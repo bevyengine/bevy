@@ -18,7 +18,8 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
     out.clip_position = mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
 #ifdef DEPTH_CLAMP_ORTHO
-        out.clip_position.z = min(out.clip_position.z, 1.0);
+    out.clip_position_unclamped = out.clip_position;
+    out.clip_position.z = min(out.clip_position.z, 1.0);
 #endif // DEPTH_CLAMP_ORTHO
 
 #ifdef VERTEX_UVS
@@ -53,6 +54,10 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #ifdef NORMAL_PREPASS
     out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
 #endif
+
+#ifdef DEPTH_CLAMP_ORTHO
+    out.frag_depth = in.clip_position_unclamped.z;
+#endif // DEPTH_CLAMP_ORTHO
 
 #ifdef MOTION_VECTOR_PREPASS
     let clip_position_t = view.unjittered_view_proj * in.world_position;

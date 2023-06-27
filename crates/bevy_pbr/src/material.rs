@@ -1,8 +1,8 @@
 use crate::{
     deferred::DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE, render, AlphaMode, DrawMesh,
     DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey, MeshUniform,
-    PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems, SetMeshBindGroup,
-    SetMeshViewBindGroup, Shadow,
+    PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems, ScreenSpaceAmbientOcclusionSettings,
+    SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -219,7 +219,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+            .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -245,10 +245,10 @@ where
         }
 
         // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
-        app.add_plugin(PrepassPipelinePlugin::<M>::default());
+        app.add_plugins(PrepassPipelinePlugin::<M>::default());
 
         if self.prepass_enabled {
-            app.add_plugin(PrepassPlugin::<M>::default());
+            app.add_plugins(PrepassPlugin::<M>::default());
         }
     }
 
@@ -439,6 +439,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Tonemapping>,
         Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
+        Option<&ScreenSpaceAmbientOcclusionSettings>,
         Option<&NormalPrepass>,
         Option<&DeferredPrepass>,
         Option<&TemporalAntiAliasSettings>,
@@ -455,6 +456,7 @@ pub fn queue_material_meshes<M: Material>(
         tonemapping,
         dither,
         environment_map,
+        ssao,
         normal_prepass,
         deferred_prepass,
         taa_settings,
@@ -511,6 +513,10 @@ pub fn queue_material_meshes<M: Material>(
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
+        }
+
+        if ssao.is_some() {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 
         let rangefinder = view.rangefinder3d();

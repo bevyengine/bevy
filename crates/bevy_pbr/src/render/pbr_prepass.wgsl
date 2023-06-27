@@ -15,6 +15,10 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 
     var out: FragmentOutput;
 
+#ifdef DEPTH_CLAMP_ORTHO
+    out.frag_depth = in.clip_position_unclamped.z;
+#endif // DEPTH_CLAMP_ORTHO
+
 #ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if (material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
