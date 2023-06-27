@@ -1,6 +1,7 @@
 #import bevy_render::view
 
 const TEXTURED_QUAD: u32 = 0u;
+const INVERT_CORNERS: u32 = 2u;
 
 @group(0) @binding(0)
 var<uniform> view: View;
@@ -51,12 +52,23 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     } else {
         color = in.color;
     }
-    
-    if inner.x < point.x && inner.y < point.y {
-        let c = point - inner;
-        let distance = in.radius - length(c);
-        if in.radius * in.radius < dot(c, c) {
+    if in.mode == INVERT_CORNERS {
+         if inner.x < point.x && inner.y < point.y {
+            let c = point - inner;
+            let distance = in.radius - length(c);
+            if  dot(c, c) <= in.radius * in.radius  {
+                color[3] = 0.0;
+            }
+        } else {
             color[3] = 0.0;
+        }
+    } else {
+        if inner.x < point.x && inner.y < point.y {
+            let c = point - inner;
+            let distance = in.radius - length(c);
+            if in.radius * in.radius < dot(c, c) {
+                color[3] = 0.0;
+            }
         }
     } 
     return color;
