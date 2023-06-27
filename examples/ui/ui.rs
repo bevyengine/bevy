@@ -44,6 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         border: UiRect::all(Val::Px(2.)),
                         ..default()
                     },
+                    corner_radius: UiCornerRadius(20.),
                     background_color: Color::rgb(0.65, 0.65, 0.65).into(),
                     ..default()
                 })
@@ -55,6 +56,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 width: Val::Percent(100.),
                                 ..default()
                             },
+                            corner_radius: UiCornerRadius(20.),
                             background_color: Color::rgb(0.15, 0.15, 0.15).into(),
                             ..default()
                         })
@@ -116,6 +118,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 overflow: Overflow::clip_y(),
                                 ..default()
                             },
+                            corner_radius: UiCornerRadius(20.),
                             background_color: Color::rgb(0.10, 0.10, 0.10).into(),
                             ..default()
                         })
@@ -165,7 +168,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         border: UiRect::all(Val::Px(20.)),
                         ..default()
                     },
-                    border_color: Color::GREEN.into(),
+                    //border_color: Color::GREEN.into(),
+                    corner_radius: UiCornerRadius(20.),
                     background_color: Color::rgb(0.4, 0.4, 1.).into(),
                     ..default()
                 })
@@ -176,6 +180,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             height: Val::Percent(100.0),
                             ..default()
                         },
+                        corner_radius: UiCornerRadius(20.),
                         background_color: Color::rgb(0.8, 0.8, 1.).into(),
                         ..default()
                     });
@@ -191,6 +196,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         justify_content: JustifyContent::Center,
                         ..default()
                     },
+                    corner_radius: UiCornerRadius(20.),
+
                     ..default()
                 })
                 .with_children(|parent| {
@@ -201,6 +208,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 height: Val::Px(100.0),
                                 ..default()
                             },
+                            corner_radius: UiCornerRadius(20.),
+
                             background_color: Color::rgb(1.0, 0.0, 0.).into(),
                             ..default()
                         })
@@ -215,6 +224,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     bottom: Val::Px(20.),
                                     ..default()
                                 },
+                                corner_radius: UiCornerRadius(20.),
+
                                 background_color: Color::rgb(1.0, 0.3, 0.3).into(),
                                 ..default()
                             });
@@ -227,6 +238,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     bottom: Val::Px(40.),
                                     ..default()
                                 },
+                                corner_radius: UiCornerRadius(20.),
+
                                 background_color: Color::rgb(1.0, 0.5, 0.5).into(),
                                 ..default()
                             });
@@ -239,6 +252,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     bottom: Val::Px(60.),
                                     ..default()
                                 },
+                                corner_radius: UiCornerRadius(20.),
+
                                 background_color: Color::rgb(1.0, 0.7, 0.7).into(),
                                 ..default()
                             });
@@ -252,6 +267,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     bottom: Val::Px(80.),
                                     ..default()
                                 },
+                                corner_radius: UiCornerRadius(20.),
+
                                 background_color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
                                 ..default()
                             });
@@ -267,6 +284,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::FlexStart,
                         ..default()
                     },
+                    corner_radius: UiCornerRadius(40.),
+
                     ..default()
                 })
                 .with_children(|parent| {

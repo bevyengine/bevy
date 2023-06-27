@@ -8,15 +8,15 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::UiTextureAtlasImage;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
 };
 use crate::{ContentSize, Style, Val};
+use crate::{UiCornerRadius, UiScale, UiTextureAtlasImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
@@ -159,6 +159,7 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub corner_radius: f32,
 }
 
 #[derive(Resource, Default)]
@@ -170,7 +171,7 @@ pub fn extract_atlas_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-
+    ui_scale: Extract<Res<UiScale>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<
@@ -182,14 +183,23 @@ pub fn extract_atlas_uinodes(
                 Option<&CalculatedClip>,
                 &Handle<TextureAtlas>,
                 &UiTextureAtlasImage,
+                &UiCornerRadius,
             ),
             Without<UiImage>,
         >,
     >,
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, visibility, clip, texture_atlas_handle, atlas_image)) =
-            uinode_query.get(*entity)
+        if let Ok((
+            uinode,
+            transform,
+            color,
+            visibility,
+            clip,
+            texture_atlas_handle,
+            atlas_image,
+            corner_radius,
+        )) = uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
             if !visibility.is_visible() || color.0.a() == 0.0 {
@@ -238,6 +248,8 @@ pub fn extract_atlas_uinodes(
                 atlas_size: Some(atlas_size),
                 flip_x: atlas_image.flip_x,
                 flip_y: atlas_image.flip_y,
+                corner_radius: corner_radius.resolve(uinode.calculated_size)
+                    * ui_scale.scale as f32,
             });
         }
     }
@@ -258,6 +270,7 @@ fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) 
 pub fn extract_uinode_borders(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
+    ui_scale: Extract<Res<UiScale>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<
@@ -269,6 +282,7 @@ pub fn extract_uinode_borders(
                 Option<&Parent>,
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
+                &UiCornerRadius,
             ),
             Without<ContentSize>,
         >,
@@ -283,8 +297,16 @@ pub fn extract_uinode_borders(
         .unwrap_or(Vec2::ZERO);
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((node, global_transform, style, border_color, parent, visibility, clip)) =
-            uinode_query.get(*entity)
+        if let Ok((
+            node,
+            global_transform,
+            style,
+            border_color,
+            parent,
+            visibility,
+            clip,
+            corner_radius,
+        )) = uinode_query.get(*entity)
         {
             // Skip invisible borders
             if !visibility.is_visible()
@@ -339,20 +361,23 @@ pub fn extract_uinode_borders(
 
             for edge in border_rects {
                 if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
+                    let uv_rect = Rect {
+                        min: (edge.min - min),
+                        max: (edge.max - min),
+                    };
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
                         stack_index,
                         // This translates the uinode's transform to the center of the current border rectangle
                         transform: transform * Mat4::from_translation(edge.center().extend(0.)),
                         color: border_color.0,
-                        rect: Rect {
-                            max: edge.size(),
-                            ..Default::default()
-                        },
+                        rect: uv_rect,
                         image: image.clone_weak(),
-                        atlas_size: None,
+                        atlas_size: Some(node.size()),
                         clip: clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
+                        corner_radius: corner_radius.resolve(node.calculated_size)
+                            * ui_scale.scale as f32,
                     });
                 }
             }
@@ -364,6 +389,7 @@ pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     ui_stack: Extract<Res<UiStack>>,
+    ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<
             (
@@ -373,6 +399,7 @@ pub fn extract_uinodes(
                 Option<&UiImage>,
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
+                &UiCornerRadius,
             ),
             Without<UiTextureAtlasImage>,
         >,
@@ -381,7 +408,7 @@ pub fn extract_uinodes(
     extracted_uinodes.uinodes.clear();
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
+        if let Ok((uinode, transform, color, maybe_image, visibility, clip, corner_radius)) =
             uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
@@ -412,6 +439,8 @@ pub fn extract_uinodes(
                 atlas_size: None,
                 flip_x,
                 flip_y,
+                corner_radius: corner_radius.resolve(uinode.calculated_size)
+                    * ui_scale.scale as f32,
             });
         };
     }
@@ -540,6 +569,7 @@ pub fn extract_text_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
+                    corner_radius: 0.,
                 });
             }
         }
@@ -553,6 +583,8 @@ struct UiVertex {
     pub uv: [f32; 2],
     pub color: [f32; 4],
     pub mode: u32,
+    pub radius: f32,
+    pub size: [f32; 2],
 }
 
 #[derive(Resource)]
@@ -689,9 +721,10 @@ pub fn prepare_uinodes(
                 continue;
             }
         }
-        let uvs = if mode == UNTEXTURED_QUAD {
-            [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
-        } else {
+        let uvs = {
+            // if mode == UNTEXTURED_QUAD {
+            //     [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
+            // } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
             if extracted_uinode.flip_x {
                 std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
@@ -729,12 +762,19 @@ pub fn prepare_uinodes(
         };
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
+        //println!("{}", extracted_uinode.transform.w_axis.xy());
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color,
                 mode,
+                radius: extracted_uinode.corner_radius,
+                //size: transformed_rect_size.xy().into(),
+                size: extracted_uinode
+                    .atlas_size
+                    .unwrap_or_else(|| transformed_rect_size.xy())
+                    .into(),
             });
         }
 

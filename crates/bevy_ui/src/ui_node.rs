@@ -1684,6 +1684,23 @@ impl Default for ZIndex {
     }
 }
 
+/// Radius for rounded corner edges.
+/// If set to 0 the corners will be unrounded.
+/// The value is clamped to between 0 and half the length of the shortest side of the node before being used.
+#[derive(Component, Copy, Clone, Debug, Default, Reflect, FromReflect)]
+#[reflect(Component, FromReflect)]
+pub struct UiCornerRadius(pub f32);
+
+impl UiCornerRadius {
+    pub fn resolve(self, size: Vec2) -> f32 {
+        if self.0 <= 0. {
+            0.
+        } else {
+            (self.0).min(0.5 * size.min_element())
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::ValArithmeticError;
