@@ -23,7 +23,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::{
     entity::Entity,
-    schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
+    schedule::ExclusiveSystemDescriptorCoercion,
     system::IntoExclusiveSystem,
 };
 use bevy_utils::HashSet;

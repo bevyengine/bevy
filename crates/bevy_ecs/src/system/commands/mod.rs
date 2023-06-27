@@ -12,7 +12,7 @@ use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
-use std::{any::TypeId, marker::PhantomData};
+use std::marker::PhantomData;
 
 
 use super::{Deferred, Resource, SystemBuffer, SystemMeta};

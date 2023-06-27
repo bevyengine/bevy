@@ -5,7 +5,7 @@ use bevy_ecs::{
 };
 
 impl App {
-    /// Register a system with any number of [`SystemLabel`]s.
+    /// Register a system.
     ///
     /// Calls [`SystemRegistry::register_system`](bevy_ecs::system::SystemRegistry::register_system).
     pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(
