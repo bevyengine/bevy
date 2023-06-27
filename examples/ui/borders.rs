@@ -92,6 +92,7 @@ fn setup(mut commands: Commands) {
                     ..Default::default()
                 },
                 background_color: Color::YELLOW.into(),
+                corner_radius: UiCornerRadius(5.),
                 ..Default::default()
             })
             .id();
@@ -106,8 +107,9 @@ fn setup(mut commands: Commands) {
                     justify_content: JustifyContent::Center,
                     ..Default::default()
                 },
-                background_color: Color::BLUE.into(),
-                border_color: Color::WHITE.with_a(0.5).into(),
+                background_color: Color::MAROON.into(),
+                border_color: Color::CRIMSON.into(),
+                corner_radius: UiCornerRadius(12.),
                 ..Default::default()
             })
             .add_child(inner_spot)

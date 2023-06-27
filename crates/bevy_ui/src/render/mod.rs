@@ -359,8 +359,8 @@ pub fn extract_uinode_borders(
                 },
             ];
 
-            let resolved_corner_radius = corner_radius.resolve(node.calculated_size)
-                * ui_scale.scale as f32;
+            let resolved_corner_radius =
+                corner_radius.resolve(node.calculated_size) * ui_scale.scale as f32;
 
             let transform = global_transform.compute_matrix();
 
@@ -392,23 +392,246 @@ pub fn extract_uinode_borders(
                     min: inner_min,
                     max: inner_max,
                 };
+                if inner_rect.min.x < inner_rect.max.x && inner_rect.min.y < inner_rect.max.y {
+                    match (0. < left, 0. < right, 0. < top, 0. < bottom) {
+                        (true, true, true, true) => {
+                            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                                stack_index,
+                                // This translates the uinode's transform to the center of the current border rectangle
+                                transform: transform
+                                    * Mat4::from_translation(inner_rect.center().extend(0.)),
+                                color: border_color.0,
+                                rect: Rect {
+                                    min: Vec2::ZERO,
+                                    max: inner_rect.size(),
+                                },
+                                image: image.clone_weak(),
+                                atlas_size: None,
+                                clip: clip.map(|clip| clip.clip),
+                                flip_x: false,
+                                flip_y: false,
+                                corner_radius: resolved_corner_radius,
+                                invert_corners: true,
+                            });
+                        }
+                        (true, true, true, false) => {
+                            let target = Rect {
+                                max: inner_rect.max - 0.5 * inner_rect.size().y * Vec2::Y,
+                                ..inner_rect
+                            };
+                            let uv_rect = Rect {
+                                min: (target.min - inner_rect.min),
+                                max: (target.max - inner_rect.min),
+                            };
 
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    stack_index,
-                    // This translates the uinode's transform to the center of the current border rectangle
-                    transform: transform * Mat4::from_translation(inner_rect.center().extend(0.)),
-                    color: border_color.0,
-                    rect: Rect { min: Vec2::ZERO, max: inner_rect.size() },
-                    image: image.clone_weak(),
-                    atlas_size: None,
-                    clip: clip.map(|clip| clip.clip),
-                    flip_x: false,
-                    flip_y: false,
-                    corner_radius: resolved_corner_radius,
-                    invert_corners: true,       
-                });
+                            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                                stack_index,
+                                // This translates the uinode's transform to the center of the current border rectangle
+                                transform: transform
+                                    * Mat4::from_translation(target.center().extend(0.)),
+                                color: border_color.0,
+                                rect: uv_rect,
+                                image: image.clone_weak(),
+                                atlas_size: Some(inner_rect.size()),
+                                clip: clip.map(|clip| clip.clip),
+                                flip_x: false,
+                                flip_y: false,
+                                corner_radius: resolved_corner_radius,
+                                invert_corners: true,
+                            });
+                        }
+                        (true, true, false, true) => {
+                            let target = Rect {
+                                min: inner_rect.min + 0.5 * inner_rect.size().y * Vec2::Y,
+                                ..inner_rect
+                            };
+                            let uv_rect = Rect {
+                                min: (target.min - inner_rect.min),
+                                max: (target.max - inner_rect.min),
+                            };
+
+                            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                                stack_index,
+                                // This translates the uinode's transform to the center of the current border rectangle
+                                transform: transform
+                                    * Mat4::from_translation(target.center().extend(0.)),
+                                color: border_color.0,
+                                rect: uv_rect,
+                                image: image.clone_weak(),
+                                atlas_size: Some(inner_rect.size()),
+                                clip: clip.map(|clip| clip.clip),
+                                flip_x: false,
+                                flip_y: false,
+                                corner_radius: resolved_corner_radius,
+                                invert_corners: true,
+                            });
+                        }
+                        (true, false, true, true) => {
+                            let target = Rect {
+                                max: inner_rect.max - 0.5 * inner_rect.size().x * Vec2::X,
+                                ..inner_rect
+                            };
+                            let uv_rect = Rect {
+                                min: (target.min - inner_rect.min),
+                                max: (target.max - inner_rect.min),
+                            };
+
+                            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                                stack_index,
+                                // This translates the uinode's transform to the center of the current border rectangle
+                                transform: transform
+                                    * Mat4::from_translation(target.center().extend(0.)),
+                                color: border_color.0,
+                                rect: uv_rect,
+                                image: image.clone_weak(),
+                                atlas_size: Some(inner_rect.size()),
+                                clip: clip.map(|clip| clip.clip),
+                                flip_x: false,
+                                flip_y: false,
+                                corner_radius: resolved_corner_radius,
+                                invert_corners: true,
+                            });
+                        }
+                        (false, true, true, true) => {
+                            let target = Rect {
+                                min: inner_rect.min + 0.5 * inner_rect.size().x * Vec2::X,
+                                ..inner_rect
+                            };
+                            let uv_rect = Rect {
+                                min: (target.min - inner_rect.min),
+                                max: (target.max - inner_rect.min),
+                            };
+
+                            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                                stack_index,
+                                // This translates the uinode's transform to the center of the current border rectangle
+                                transform: transform
+                                    * Mat4::from_translation(target.center().extend(0.)),
+                                color: border_color.0,
+                                rect: uv_rect,
+                                image: image.clone_weak(),
+                                atlas_size: Some(inner_rect.size()),
+                                clip: clip.map(|clip| clip.clip),
+                                flip_x: false,
+                                flip_y: false,
+                                corner_radius: resolved_corner_radius,
+                                invert_corners: true,
+                            });
+                        }
+                        (true, false, true, false) => {
+                            let target = Rect {
+                                max: inner_rect.min + 0.5 * inner_rect.size(),
+                                ..inner_rect
+                            };
+                            let uv_rect = Rect {
+                                min: (target.min - inner_rect.min),
+                                max: (target.max - inner_rect.min),
+                            };
+
+                            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                                stack_index,
+                                // This translates the uinode's transform to the center of the current border rectangle
+                                transform: transform
+                                    * Mat4::from_translation(target.center().extend(0.)),
+                                color: border_color.0,
+                                rect: uv_rect,
+                                image: image.clone_weak(),
+                                atlas_size: Some(inner_rect.size()),
+                                clip: clip.map(|clip| clip.clip),
+                                flip_x: false,
+                                flip_y: false,
+                                corner_radius: resolved_corner_radius,
+                                invert_corners: true,
+                            });
+                        }
+                        (false, true, true, false) => {
+                            let target = Rect {
+                                min: inner_rect.min + 0.5 * inner_rect.size().x * Vec2::X,
+                                max: inner_rect.max - 0.5 * inner_rect.size().y * Vec2::Y,
+                            };
+                            let uv_rect = Rect {
+                                min: (target.min - inner_rect.min),
+                                max: (target.max - inner_rect.min),
+                            };
+
+                            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                                stack_index,
+                                // This translates the uinode's transform to the center of the current border rectangle
+                                transform: transform
+                                    * Mat4::from_translation(target.center().extend(0.)),
+                                color: border_color.0,
+                                rect: uv_rect,
+                                image: image.clone_weak(),
+                                atlas_size: Some(inner_rect.size()),
+                                clip: clip.map(|clip| clip.clip),
+                                flip_x: false,
+                                flip_y: false,
+                                corner_radius: resolved_corner_radius,
+                                invert_corners: true,
+                            });
+                        }
+                        (false, true, false, true) => {
+                            let target = Rect {
+                                min: inner_rect.min + 0.5 * inner_rect.size(),
+                                ..inner_rect
+                            };
+                            let uv_rect = Rect {
+                                min: (target.min - inner_rect.min),
+                                max: (target.max - inner_rect.min),
+                            };
+
+                            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                                stack_index,
+                                // This translates the uinode's transform to the center of the current border rectangle
+                                transform: transform
+                                    * Mat4::from_translation(target.center().extend(0.)),
+                                color: border_color.0,
+                                rect: uv_rect,
+                                image: image.clone_weak(),
+                                atlas_size: Some(inner_rect.size()),
+                                clip: clip.map(|clip| clip.clip),
+                                flip_x: false,
+                                flip_y: false,
+                                corner_radius: resolved_corner_radius,
+                                invert_corners: true,
+                            });
+                        }
+                        (true, false, false, true) => {
+                            let target = Rect {
+                                min: inner_rect.min + 0.5 * inner_rect.size().y * Vec2::Y,
+                                max: inner_rect.max - 0.5 * inner_rect.size().x * Vec2::X,
+                            };
+                            let uv_rect = Rect {
+                                min: (target.min - inner_rect.min),
+                                max: (target.max - inner_rect.min),
+                            };
+
+                            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                                stack_index,
+                                // This translates the uinode's transform to the center of the current border rectangle
+                                transform: transform
+                                    * Mat4::from_translation(target.center().extend(0.)),
+                                color: border_color.0,
+                                rect: uv_rect,
+                                image: image.clone_weak(),
+                                atlas_size: Some(inner_rect.size()),
+                                clip: clip.map(|clip| clip.clip),
+                                flip_x: false,
+                                flip_y: false,
+                                corner_radius: resolved_corner_radius,
+                                invert_corners: true,
+                            });
+                        }
+                        (true, true, false, false)
+                        | (false, false, true, true)
+                        | (true, false, false, false)
+                        | (false, true, false, false)
+                        | (false, false, true, false)
+                        | (false, false, false, true)
+                        | (false, false, false, false) => continue,
+                    }
+                }
             }
-
         }
     }
 }
