@@ -48,7 +48,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
     var props = pack_unorm4x8(vec4(
         in.material.reflectance, // could be fewer bits
         in.material.metallic, // could be fewer bits
-        in.occlusion, // is this usually included / worth including?
+        dot(in.occlusion, vec3<f32>(0.2126, 0.7152, 0.0722)), // is this usually included / worth including?
         0.0)); // spare
 #endif //WEBGL
     let flags = deferred_flags_from_mesh_mat_flags(in.flags, in.material.flags);
@@ -100,7 +100,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     pbr.material.reflectance = props.r;
 #endif //WEBGL
     pbr.material.metallic = props.g;
-    pbr.occlusion = props.b;
+    pbr.occlusion = vec3(props.b);
     let oct_nor = unpack_24bit_nor(gbuffer.a);
     let N = octa_decode(oct_nor);
 

@@ -40,6 +40,10 @@ struct VertexOutput {
 #ifdef MOTION_VECTOR_PREPASS
     @location(4) previous_world_position: vec4<f32>,
 #endif
+
+#ifdef DEPTH_CLAMP_ORTHO
+    @location(5) clip_position_unclamped: vec4<f32>,
+#endif // DEPTH_CLAMP_ORTHO
 }
 
 struct FragmentInput {
@@ -47,7 +51,7 @@ struct FragmentInput {
     @builtin(position) frag_coord: vec4<f32>,
 #ifdef VERTEX_UVS
     @location(0) uv: vec2<f32>,
-#endif
+#endif // VERTEX_UVS
 
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
     @location(1) world_normal: vec3<f32>,
@@ -59,7 +63,11 @@ struct FragmentInput {
     @location(3) world_position: vec4<f32>,
 #ifdef MOTION_VECTOR_PREPASS
     @location(4) previous_world_position: vec4<f32>,
-#endif
+#endif // MOTION_VECTOR_PREPASS
+
+#ifdef DEPTH_CLAMP_ORTHO
+    @location(5) clip_position_unclamped: vec4<f32>,
+#endif // DEPTH_CLAMP_ORTHO
 };
 
 #ifdef PREPASS_FRAGMENT
@@ -75,5 +83,9 @@ struct FragmentOutput {
 #ifdef DEFERRED_PREPASS
     @location(2) deferred: vec4<u32>,
 #endif
+
+#ifdef DEPTH_CLAMP_ORTHO
+    @builtin(frag_depth) frag_depth: f32,
+#endif // DEPTH_CLAMP_ORTHO
 }
 #endif //PREPASS_FRAGMENT

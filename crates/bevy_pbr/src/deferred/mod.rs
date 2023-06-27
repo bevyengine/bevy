@@ -1,3 +1,5 @@
+use crate::ScreenSpaceAmbientOcclusionTextures;
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core_pipeline::{
     clear_color::ClearColorConfig,
@@ -19,8 +21,6 @@ use bevy_render::{
     view::{Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset, ViewUniforms},
     Render, RenderSet,
 };
-
-use bevy_app::prelude::*;
 
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
@@ -65,7 +65,7 @@ impl Plugin for DeferredLightingPlugin {
 
         app.init_resource::<PBRDeferredLightingStencilReference>()
             .register_type::<PBRDeferredLightingStencilReference>()
-            .add_plugin(ExtractResourcePlugin::<PBRDeferredLightingStencilReference>::default());
+            .add_plugins(ExtractResourcePlugin::<PBRDeferredLightingStencilReference>::default());
 
         load_internal_asset!(
             app,
@@ -403,6 +403,7 @@ pub fn queue_deferred_lighting_bind_groups(
             Entity,
             &ViewShadowBindings,
             &ViewClusterBindings,
+            Option<&ScreenSpaceAmbientOcclusionTextures>,
             Option<&ViewPrepassTextures>,
             Option<&EnvironmentMapLight>,
             &Tonemapping,
@@ -434,11 +435,17 @@ pub fn queue_deferred_lighting_bind_groups(
             entity,
             view_shadow_bindings,
             view_cluster_bindings,
+            ssao_textures,
             prepass_textures,
             environment_map,
             tonemapping,
         ) in &views
         {
+            let fallback_ssao = fallback_images
+                .image_for_samplecount(1, TextureFormat::Rgba8Unorm)
+                .texture_view
+                .clone();
+
             let mut entries = vec![
                 BindGroupEntry {
                     binding: 0,
@@ -488,18 +495,26 @@ pub fn queue_deferred_lighting_bind_groups(
                     binding: 10,
                     resource: fog_binding.clone(),
                 },
+                BindGroupEntry {
+                    binding: 11,
+                    resource: BindingResource::TextureView(
+                        ssao_textures
+                            .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
+                            .unwrap_or(&fallback_ssao),
+                    ),
+                },
             ];
 
             let env_map = environment_map::get_bindings(
                 environment_map,
                 &images,
                 &fallback_cubemap,
-                [11, 12, 13],
+                [12, 13, 14],
             );
             entries.extend_from_slice(&env_map);
 
             let tonemapping_luts =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [14, 15]);
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
             entries.extend_from_slice(&tonemapping_luts);
 
             let prepass_bindings =
@@ -508,7 +523,7 @@ pub fn queue_deferred_lighting_bind_groups(
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
             {
-                entries.extend_from_slice(&prepass_bindings.get_entries([16, 17, 18, 19]));
+                entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));
             }
 
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
