@@ -1,60 +1,51 @@
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::mesh_bindings
-
-#import bevy_pbr::pbr_types
-#import bevy_pbr::utils
-#import bevy_pbr::clustered_forward
-#import bevy_pbr::lighting
-#import bevy_pbr::shadows
-#import bevy_pbr::fog
-#import bevy_pbr::pbr_functions
-#import bevy_pbr::pbr_ambient
+#import bevy_pbr::mesh_vertex_output    MeshVertexOutput
+#import bevy_pbr::mesh_view_bindings    view
+#import bevy_pbr::pbr_types             STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT
+#import bevy_core_pipeline::tonemapping tone_mapping
+#import bevy_pbr::pbr_functions as fns
 
 @group(1) @binding(0)
 var my_array_texture: texture_2d_array<f32>;
 @group(1) @binding(1)
 var my_array_texture_sampler: sampler;
 
-struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
-    @builtin(position) frag_coord: vec4<f32>,
-    #import bevy_pbr::mesh_vertex_output
-};
-
 @fragment
-fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
-    let layer = i32(in.world_position.x) & 0x3;
+fn fragment(
+    @builtin(front_facing) is_front: bool,
+    mesh: MeshVertexOutput,
+) -> @location(0) vec4<f32> {
+    let layer = i32(mesh.world_position.x) & 0x3;
 
     // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
     // the material members
-    var pbr_input: PbrInput = pbr_input_new();
+    var pbr_input: fns::PbrInput = fns::pbr_input_new();
 
-    pbr_input.material.base_color = textureSample(my_array_texture, my_array_texture_sampler, in.uv, layer);
+    pbr_input.material.base_color = textureSample(my_array_texture, my_array_texture_sampler, mesh.uv, layer);
 #ifdef VERTEX_COLORS
-    pbr_input.material.base_color = pbr_input.material.base_color * in.color;
+    pbr_input.material.base_color = pbr_input.material.base_color * mesh.color;
 #endif
 
-    pbr_input.frag_coord = in.frag_coord;
-    pbr_input.world_position = in.world_position;
-    pbr_input.world_normal = prepare_world_normal(
-        in.world_normal,
+    pbr_input.frag_coord = mesh.position;
+    pbr_input.world_position = mesh.world_position;
+    pbr_input.world_normal = fns::prepare_world_normal(
+        mesh.world_normal,
         (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
-        in.is_front,
+        is_front,
     );
 
     pbr_input.is_orthographic = view.projection[3].w == 1.0;
 
-    pbr_input.N = apply_normal_mapping(
+    pbr_input.N = fns::apply_normal_mapping(
         pbr_input.material.flags,
-        pbr_input.world_normal,
+        mesh.world_normal,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
-        in.world_tangent,
+        mesh.world_tangent,
 #endif
 #endif
-        in.uv,
+        mesh.uv,
     );
-    pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
+    pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 
-    return tone_mapping(pbr(pbr_input));
+    return tone_mapping(fns::pbr(pbr_input), view.color_grading);
 }
