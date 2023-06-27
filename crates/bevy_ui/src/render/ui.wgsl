@@ -1,8 +1,5 @@
 #import bevy_render::view
 
-const TEXTURED_QUAD: u32 = 0u;
-const INVERT_CORNERS: u32 = 2u;
-
 @group(0) @binding(0)
 var<uniform> view: View;
 
@@ -43,20 +40,20 @@ var sprite_sampler: sampler;
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // textureSample can only be called in unform control flow, not inside an if branch.
     var color = textureSample(sprite_texture, sprite_sampler, in.uv);
-
-    if in.mode == TEXTURED_QUAD {
-        color = in.color * color;
-    } else {
-        color = in.color;
-    }
     
     let q = (abs(in.uv - vec2<f32>(0.5, 0.5)) - 0.5) * in.size + in.radius;
     let d = min(max(q.x, q.y), 0.0) + length(max(q, vec2<f32>(0.0))) - in.radius;
 
-    if in.mode == INVERT_CORNERS {
-        return mix(color, vec4<f32>(0.0), smoothstep(-1.0, 1.0, d));
-    } else {
-        return mix(vec4<f32>(0.0), color , smoothstep(0.0, 1.0, d));
+    switch in.mode {
+        case 0u: {
+            return mix(in.color * color, vec4<f32>(0.0), smoothstep(-1.0, 0.5, d));
+        }
+        case 1u: {
+            return mix(in.color, vec4<f32>(0.0), smoothstep(-1.0, 0.5, d));
+        }
+        case 2u, default: {
+            return mix(in.color, vec4<f32>(0.0), smoothstep(-1.0, 0.5, d));
+        }
     }
 }
 
