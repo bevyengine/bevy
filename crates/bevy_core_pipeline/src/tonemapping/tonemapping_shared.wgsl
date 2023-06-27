@@ -1,5 +1,19 @@
 #define_import_path bevy_core_pipeline::tonemapping
 
+#import bevy_render::view View, ColorGrading
+
+// hack !! not sure what to do with this
+#ifdef TONEMAPPING_PASS
+    @group(0) @binding(3)
+    var dt_lut_texture: texture_3d<f32>;
+    @group(0) @binding(4)
+    var dt_lut_sampler: sampler;
+#else
+    @group(0) @binding(15)
+    var dt_lut_texture: texture_3d<f32>;
+    @group(0) @binding(16)
+    var dt_lut_sampler: sampler;
+#endif
 
 fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
     // Don't include code that will try to sample from LUTs if tonemap method doesn't require it
@@ -48,7 +62,7 @@ fn tonemap_curve(v: f32) -> f32 {
 #endif
 }
 
-fn tonemap_curve3(v: vec3<f32>) -> vec3<f32> {
+fn tonemap_curve3_(v: vec3<f32>) -> vec3<f32> {
     return vec3(tonemap_curve(v.r), tonemap_curve(v.g), tonemap_curve(v.b));
 }
 
@@ -65,7 +79,7 @@ fn somewhat_boring_display_transform(col: vec3<f32>) -> vec3<f32> {
     let tm_luma = tonemap_curve(ycbcr.x);
     let tm0 = boring_color.rgb * max(0.0, tm_luma / max(1e-5, tonemapping_luminance(boring_color.rgb)));
     let final_mult = 0.97;
-    let tm1 = tonemap_curve3(desat_col);
+    let tm1 = tonemap_curve3_(desat_col);
 
     boring_color = mix(tm0, tm1, bt * bt);
 
@@ -167,7 +181,7 @@ fn saturation(color: vec3<f32>, saturationAmount: f32) -> vec3<f32> {
     Similar to OCIO lg2 AllocationTransform.
     ref[0]
 */
-fn convertOpenDomainToNormalizedLog2(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32> {
+fn convertOpenDomainToNormalizedLog2_(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32> {
     let in_midgray = 0.18;
 
     // remove negative before log transform
@@ -210,7 +224,7 @@ fn applyAgXLog(Image: vec3<f32>) -> vec3<f32> {
     let b = dot(prepared_image, vec3(0.04237565, 0.0784336, 0.87914297));
     prepared_image = vec3(r, g, b);
 
-    prepared_image = convertOpenDomainToNormalizedLog2(prepared_image, -10.0, 6.5);
+    prepared_image = convertOpenDomainToNormalizedLog2_(prepared_image, -10.0, 6.5);
     
     prepared_image = clamp(prepared_image, vec3(0.0), vec3(1.0));
     return prepared_image;
@@ -226,7 +240,7 @@ fn applyLUT3D(Image: vec3<f32>, block_size: f32) -> vec3<f32> {
 
 fn sample_blender_filmic_lut(stimulus: vec3<f32>) -> vec3<f32> {
     let block_size = 64.0;
-    let normalized = saturate(convertOpenDomainToNormalizedLog2(stimulus, -11.0, 12.0));
+    let normalized = saturate(convertOpenDomainToNormalizedLog2_(stimulus, -11.0, 12.0));
     return applyLUT3D(normalized, block_size);
 }
 
@@ -270,7 +284,7 @@ fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
     return (dither - 0.5) / 255.0;
 }
 
-fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
+fn tone_mapping(in: vec4<f32>, color_grading: ColorGrading) -> vec4<f32> {
     var color = max(in.rgb, vec3(0.0));
 
     // Possible future grading:
@@ -282,9 +296,9 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // color += color * luma.xxx * 1.0; 
 
     // Linear pre tonemapping grading
-    color = saturation(color, view.color_grading.pre_saturation);
-    color = powsafe(color, view.color_grading.gamma);
-    color = color * powsafe(vec3(2.0), view.color_grading.exposure);
+    color = saturation(color, color_grading.pre_saturation);
+    color = powsafe(color, color_grading.gamma);
+    color = color * powsafe(vec3(2.0), color_grading.exposure);
     color = max(color, vec3(0.0));
 
     // tone_mapping
@@ -308,7 +322,7 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
 #endif
 
     // Perceptual post tonemapping grading
-    color = saturation(color, view.color_grading.post_saturation);
+    color = saturation(color, color_grading.post_saturation);
     
     return vec4(color, in.a);
 }

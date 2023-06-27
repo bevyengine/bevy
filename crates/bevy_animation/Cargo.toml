@@ -14,9 +14,8 @@ bevy_app = { path = "../bevy_app", version = "0.11.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.11.0-dev" }
 bevy_core = { path = "../bevy_core", version = "0.11.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.11.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev", features = [
-    "bevy",
-] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev", features = ["bevy"] }
+bevy_render = { path = "../bevy_render", version = "0.11.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.11.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.11.0-dev" }

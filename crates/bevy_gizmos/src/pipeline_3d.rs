@@ -12,10 +12,7 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_pbr::{
-    MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup, MAX_CASCADES_PER_LIGHT,
-    MAX_DIRECTIONAL_LIGHTS,
-};
+use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
@@ -77,15 +74,6 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             #[cfg(feature = "webgl")]
             "SIXTEEN_BYTE_ALIGNMENT".into(),
         ];
-
-        shader_defs.push(ShaderDefVal::Int(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as i32,
-        ));
-        shader_defs.push(ShaderDefVal::Int(
-            "MAX_CASCADES_PER_LIGHT".to_string(),
-            MAX_CASCADES_PER_LIGHT as i32,
-        ));
 
         if key.perspective {
             shader_defs.push("PERSPECTIVE".into());

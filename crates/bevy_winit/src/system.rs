@@ -295,10 +295,10 @@ pub(crate) fn changed_window(
             }
 
             if window.ime_position != cache.window.ime_position {
-                winit_window.set_ime_position(LogicalPosition::new(
-                    window.ime_position.x,
-                    window.ime_position.y,
-                ));
+                winit_window.set_ime_cursor_area(
+                    LogicalPosition::new(window.ime_position.x, window.ime_position.y),
+                    PhysicalSize::new(10, 10),
+                );
             }
 
             if window.window_theme != cache.window.window_theme {
