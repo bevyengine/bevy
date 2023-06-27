@@ -916,7 +916,6 @@ pub fn prepare_uinodes(
         };
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
-        //println!("{}", extracted_uinode.transform.w_axis.xy());
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),
@@ -928,7 +927,6 @@ pub fn prepare_uinodes(
                     mode
                 },
                 radius: extracted_uinode.corner_radius,
-                //size: transformed_rect_size.xy().into(),
                 size: extracted_uinode
                     .atlas_size
                     .unwrap_or_else(|| transformed_rect_size.xy())
