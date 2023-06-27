@@ -1848,6 +1848,15 @@ bevy_reflect::tests::should_reflect_debug::Test {
         assert_eq!("123", format!("{:?}", foo));
     }
 
+    #[test]
+    fn recursive_typed_storage_does_not_hang() {
+        #[derive(Reflect)]
+        struct Recurse<T>(T);
+
+        let _ = <Recurse<Recurse<()>> as Typed>::type_info();
+        let _ = <Recurse<Recurse<()>> as TypePath>::type_path();
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
