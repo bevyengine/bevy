@@ -361,6 +361,7 @@ pub fn extract_uinode_borders(
 
             let resolved_corner_radius = corner_radius.resolve(node.calculated_size)
                 * ui_scale.scale as f32;
+
             let transform = global_transform.compute_matrix();
 
             for edge in border_rects {
@@ -386,7 +387,7 @@ pub fn extract_uinode_borders(
                 }
             }
 
-            if 0. <= resolved_corner_radius {
+            if 0. < resolved_corner_radius {
                 let inner_rect = Rect {
                     min: inner_min,
                     max: inner_max,
