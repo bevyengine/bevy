@@ -49,6 +49,7 @@ use bevy_render::{
         VertexFormat, VertexStepMode,
     },
     renderer::RenderDevice,
+    view::RenderLayers,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -159,6 +160,10 @@ pub struct GizmoConfig {
     pub depth_bias: f32,
     /// Configuration for the [`AabbGizmo`].
     pub aabb: AabbGizmoConfig,
+    /// Describes which rendering layers gizmos will be rendered to.
+    ///
+    /// Gizmos will only be rendered to cameras with intersecting layers.
+    pub render_layers: RenderLayers,
 }
 
 impl Default for GizmoConfig {
@@ -169,6 +174,7 @@ impl Default for GizmoConfig {
             line_perspective: false,
             depth_bias: 0.,
             aabb: Default::default(),
+            render_layers: Default::default(),
         }
     }
 }
