@@ -170,6 +170,9 @@ pub struct AddChild {
 
 impl Command for AddChild {
     fn apply(self, world: &mut World) {
+        if self.child == self.parent {
+            panic!("Cannot add entity as a child of itself.");
+        }
         world.entity_mut(self.parent).add_child(self.child);
     }
 }
