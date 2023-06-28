@@ -120,12 +120,13 @@ pub enum InteractionState {
 ///
 /// Example usage:
 /// ```
+/// use bevy::prelude::*;
 /// use bevy_ui::InteractionStateHandler;
 /// use bevy_ui::InteractionState;
 /// use bevy_ui::Pressed;
 /// use bevy_ui::RelativeCursorPosition;
 ///
-/// fn button_system(button_query: Query<(&Pressed, &RelativeCursorComponent)>) {
+/// fn button_system(button_query: Query<(&Pressed, &RelativeCursorPosition)>) {
 ///     let button = button_query.single();
 ///
 ///     match button.interaction_state() {
