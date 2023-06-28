@@ -96,6 +96,10 @@ impl SpecializedMeshPipeline for WireframePipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.vertex.shader = self.shader.clone_weak();
+        descriptor
+            .vertex
+            .shader_defs
+            .push("MESH_BINDGROUP_1".into());
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone_weak();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;

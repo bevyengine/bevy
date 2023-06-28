@@ -1,17 +1,9 @@
-#import bevy_pbr::mesh_types
-#import bevy_pbr::mesh_view_bindings
-
-@group(1) @binding(0)
-var<uniform> mesh: Mesh;
+#import bevy_pbr::mesh_bindings    mesh
+#import bevy_pbr::mesh_functions   mesh_position_local_to_clip
 
 #ifdef SKINNED
-@group(1) @binding(1)
-var<uniform> joint_matrices: SkinnedMesh;
-#import bevy_pbr::skinning
+    #import bevy_pbr::skinning
 #endif
-
-// NOTE: Bindings must come before functions that use them!
-#import bevy_pbr::mesh_functions
 
 struct Vertex {
     @location(0) position: vec3<f32>,
@@ -28,7 +20,7 @@ struct VertexOutput {
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
 #ifdef SKINNED
-    let model = skin_model(vertex.joint_indexes, vertex.joint_weights);
+    let model = bevy_pbr::skinning::skin_model(vertex.joint_indexes, vertex.joint_weights);
 #else
     let model = mesh.model;
 #endif

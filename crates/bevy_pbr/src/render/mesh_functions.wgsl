@@ -1,5 +1,9 @@
 #define_import_path bevy_pbr::mesh_functions
 
+#import bevy_pbr::mesh_view_bindings  view
+#import bevy_pbr::mesh_bindings       mesh
+#import bevy_pbr::mesh_types          MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT
+
 fn mesh_position_local_to_world(model: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
     return model * vertex_position;
 }
@@ -34,7 +38,7 @@ fn mesh_normal_local_to_world(vertex_normal: vec3<f32>) -> vec3<f32> {
 
 // Calculates the sign of the determinant of the 3x3 model matrix based on a
 // mesh flag
-fn sign_determinant_model_3x3() -> f32 {
+fn sign_determinant_model_3x3m() -> f32 {
     // bool(u32) is false if 0u else true
     // f32(bool) is 1.0 if true else 0.0
     // * 2.0 - 1.0 remaps 0.0 or 1.0 to -1.0 or 1.0 respectively
@@ -58,6 +62,6 @@ fn mesh_tangent_local_to_world(model: mat4x4<f32>, vertex_tangent: vec4<f32>) ->
         ),
         // NOTE: Multiplying by the sign of the determinant of the 3x3 model matrix accounts for
         // situations such as negative scaling.
-        vertex_tangent.w * sign_determinant_model_3x3()
+        vertex_tangent.w * sign_determinant_model_3x3m()
     );
 }
