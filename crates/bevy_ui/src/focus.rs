@@ -119,8 +119,8 @@ pub enum InteractionState {
 /// Simplified way to get the [`InteractionState`] of the node.
 ///
 /// Example usage:
-/// ```
-/// use bevy::prelude::*;
+/// ```rust
+/// use bevy_ecs::system::Query;
 /// use bevy_ui::InteractionStateHandler;
 /// use bevy_ui::InteractionState;
 /// use bevy_ui::Pressed;
