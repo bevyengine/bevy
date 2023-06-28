@@ -20,14 +20,12 @@ use bevy_window::{PrimaryWindow, Window};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-/// Describes what type of input interaction has occurred for a UI node.
-///
-/// This is commonly queried with a `Changed<Interaction>` filter.
+/// Describes if a UI node has been pressed.
 ///
 /// Updated in [`ui_focus_system`].
 ///
-/// If a UI node has both [`Interaction`] and [`ComputedVisibility`] components,
-/// [`Interaction`] will always be [`Interaction::None`]
+/// If a UI node has both [`Pressed`] and [`ComputedVisibility`] components,
+/// the node will be considered not pressed
 /// when [`ComputedVisibility::is_visible()`] is false.
 /// This ensures that hidden UI nodes are not interactable,
 /// and do not end up stuck in an active state if hidden at the wrong time.
