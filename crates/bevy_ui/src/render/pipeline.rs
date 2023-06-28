@@ -80,7 +80,9 @@ impl SpecializedRenderPipeline for UiPipeline {
                 // mode
                 VertexFormat::Uint32,
                 // radius
-                VertexFormat::Float32,
+                VertexFormat::Float32x4,
+                // thickness
+                VertexFormat::Float32x4,
                 // size
                 VertexFormat::Float32x2,
             ],

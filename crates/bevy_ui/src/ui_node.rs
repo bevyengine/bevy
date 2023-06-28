@@ -1689,15 +1689,23 @@ impl Default for ZIndex {
 /// The value is clamped to between 0 and half the length of the shortest side of the node before being used.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect, FromReflect)]
 #[reflect(Component, FromReflect)]
-pub struct UiCornerRadius(pub f32);
+pub struct UiCornerRadius(pub [f32; 4]);
 
 impl UiCornerRadius {
-    pub fn resolve(self, size: Vec2) -> f32 {
-        if self.0 <= 0. {
-            0.
-        } else {
-            (self.0).min(0.5 * size.min_element())
-        }
+    #[inline]
+    pub fn resolve(self, size: Vec2, ui_scale: f64) -> [f32; 4] {
+        self.0.map(|r| {
+            if r <= 0. {
+                0.
+            } else {
+                r.min(0.5 * size.min_element()) * ui_scale as f32
+            }
+        })
+    }
+
+    #[inline]
+    pub fn all(radius: f32) -> Self {
+        Self([radius; 4])
     }
 }
 

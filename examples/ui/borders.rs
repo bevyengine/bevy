@@ -92,7 +92,7 @@ fn setup(mut commands: Commands) {
                     ..Default::default()
                 },
                 background_color: Color::YELLOW.into(),
-                corner_radius: UiCornerRadius(5.),
+                corner_radius: UiCornerRadius::all(5.),
                 ..Default::default()
             })
             .id();
@@ -109,7 +109,7 @@ fn setup(mut commands: Commands) {
                 },
                 background_color: Color::MAROON.into(),
                 border_color: Color::CRIMSON.into(),
-                corner_radius: UiCornerRadius(12.),
+                corner_radius: UiCornerRadius::all(25.),
                 ..Default::default()
             })
             .add_child(inner_spot)
