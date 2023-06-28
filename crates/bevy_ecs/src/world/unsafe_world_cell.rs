@@ -12,7 +12,7 @@ use crate::{
     },
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
-    storage::{Column, ComponentSparseSet},
+    storage::{Column, ComponentSparseSet, Storages},
     system::Resource,
 };
 use bevy_ptr::Ptr;
@@ -269,6 +269,20 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - we only access world metadata
         unsafe { self.world_metadata() }.increment_change_tick()
+    }
+
+    /// Provides unchecked access to the internal data stores of the [`World`].
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that this is only used to access world data
+    /// that this [`UnsafeWorldCell`] is allowed to.
+    /// As always, any mutable access to a component must not exist at the same
+    /// time as any other accesses to that same component.
+    #[inline]
+    pub unsafe fn storages(self) -> &'w Storages {
+        // SAFETY: The caller promises to only access world data allowed by this instance.
+        &unsafe { self.unsafe_world() }.storages
     }
 
     /// Shorthand helper function for getting the [`ArchetypeComponentId`] for a resource.
