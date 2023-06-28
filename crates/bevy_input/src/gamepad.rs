@@ -1,4 +1,4 @@
-use crate::{Axis, Input};
+use crate::{Axis, ButtonState, Input};
 use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -252,6 +252,21 @@ impl GamepadButton {
             button_type,
         }
     }
+}
+
+/// A gamepad button input event.
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct GamepadButtonInput {
+    /// The gamepad button assigned to the event.
+    pub button: GamepadButton,
+    /// The pressed state of the button.
+    pub state: ButtonState,
 }
 
 /// A type of a [`GamepadAxis`].
@@ -1135,6 +1150,7 @@ pub fn gamepad_button_event_system(
     mut button_events: EventReader<GamepadButtonChangedEvent>,
     mut button_input: ResMut<Input<GamepadButton>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
+    mut button_input_events: EventWriter<GamepadButtonInput>,
     settings: Res<GamepadSettings>,
 ) {
     for button_event in button_events.iter() {
@@ -1146,8 +1162,16 @@ pub fn gamepad_button_event_system(
             // We don't have to check if the button was previously pressed
             // because that check is performed within Input<T>::release()
             button_input.release(button);
+            button_input_events.send(GamepadButtonInput {
+                button,
+                state: ButtonState::Released,
+            });
         } else if button_property.is_pressed(value) {
             button_input.press(button);
+            button_input_events.send(GamepadButtonInput {
+                button,
+                state: ButtonState::Pressed,
+            });
         };
 
         button_axis.set(button, value);
