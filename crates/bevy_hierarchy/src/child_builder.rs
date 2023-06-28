@@ -187,6 +187,9 @@ pub struct InsertChildren {
 
 impl Command for InsertChildren {
     fn apply(self, world: &mut World) {
+        if self.children.contains(&self.parent) {
+            panic!("Cannot insert entity as a child of itself.");
+        }
         world
             .entity_mut(self.parent)
             .insert_children(self.index, &self.children);
@@ -202,6 +205,9 @@ pub struct PushChildren {
 
 impl Command for PushChildren {
     fn apply(self, world: &mut World) {
+        if self.children.contains(&self.parent) {
+            panic!("Cannot push entity as a child of itself.");
+        }
         world.entity_mut(self.parent).push_children(&self.children);
     }
 }
@@ -238,6 +244,9 @@ pub struct ReplaceChildren {
 
 impl Command for ReplaceChildren {
     fn apply(self, world: &mut World) {
+        if self.children.contains(&self.parent) {
+            panic!("Cannot replace entity as a child of itself.");
+        }
         clear_children(self.parent, world);
         world.entity_mut(self.parent).push_children(&self.children);
     }
