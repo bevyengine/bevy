@@ -16,7 +16,7 @@ use crate::{UiCornerRadius, UiScale, UiTextureAtlasImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles, Vec4};
+use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
@@ -333,7 +333,6 @@ pub fn extract_uinode_borders(
 
             let resolved_corner_radius =
                 corner_radius.resolve(node.calculated_size, ui_scale.scale);
-                
 
             let transform = global_transform.compute_matrix();
             extracted_uinodes.uinodes.push(ExtractedUiNode {
@@ -355,7 +354,7 @@ pub fn extract_uinode_borders(
                 thickness: [left, top, right, bottom],
             });
         }
-   }
+    }
 }
 
 pub fn extract_uinodes(
@@ -744,11 +743,7 @@ pub fn prepare_uinodes(
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color,
-                mode: if extracted_uinode.invert {
-                    2
-                } else {
-                    mode
-                },
+                mode: if extracted_uinode.invert { 2 } else { mode },
                 radius: extracted_uinode.corner_radius,
                 thickness: extracted_uinode.thickness,
                 size: extracted_uinode

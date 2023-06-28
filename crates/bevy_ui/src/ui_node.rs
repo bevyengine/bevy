@@ -1689,7 +1689,7 @@ impl Default for ZIndex {
 /// The value is clamped to between 0 and half the length of the shortest side of the node before being used.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect, FromReflect)]
 #[reflect(Component, FromReflect)]
-pub struct UiCornerRadius{
+pub struct UiCornerRadius {
     top_left: f32,
     top_right: f32,
     bottom_left: f32,
@@ -1726,8 +1726,6 @@ impl UiCornerRadius {
             bottom_left,
             top_left,
         }
-    
-        
     }
 
     #[inline]
@@ -1744,7 +1742,7 @@ impl UiCornerRadius {
             bottom_right: radius,
             ..Default::default()
         }
-    }    
+    }
 
     #[inline]
     pub fn bottom_left(radius: f32) -> Self {
@@ -1809,7 +1807,6 @@ impl From<UiCornerRadius> for [f32; 4] {
         ]
     }
 }
-
 
 #[cfg(test)]
 mod tests {
