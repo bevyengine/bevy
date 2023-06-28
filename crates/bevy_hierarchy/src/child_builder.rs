@@ -346,12 +346,18 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
         spawn_children(&mut builder);
         let children = builder.push_children;
+        if children.children.contains(&parent) {
+            panic!("Entity cannot be a child of itself.");
+        }
         self.commands().add(children);
         self
     }
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot push entity as a child of itself.");
+        }
         self.commands().add(PushChildren {
             children: SmallVec::from(children),
             parent,
@@ -361,6 +367,9 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot insert entity as a child of itself.");
+        }
         self.commands().add(InsertChildren {
             children: SmallVec::from(children),
             index,
@@ -380,6 +389,9 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
+        if child == parent {
+            panic!("Cannot add entity as a child of itself.");
+        }
         self.commands().add(AddChild { child, parent });
         self
     }
@@ -392,6 +404,9 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot replace entity as a child of itself.");
+        }
         self.commands().add(ReplaceChildren {
             children: SmallVec::from(children),
             parent,
@@ -401,6 +416,9 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn set_parent(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
+        if child == parent {
+            panic!("Cannot set parent to itself");
+        }
         self.commands().add(AddChild { child, parent });
         self
     }
