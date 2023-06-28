@@ -43,6 +43,26 @@ pub enum AssetServerError {
     AssetIoError(#[from] AssetIoError),
 }
 
+impl Clone for AssetServerError {
+    fn clone(&self) -> AssetServerError {
+        match self {
+            AssetServerError::AssetFolderNotADirectory(error) => {
+                AssetServerError::AssetFolderNotADirectory(error.clone())
+            }
+            AssetServerError::MissingAssetLoader { extensions } => {
+                AssetServerError::MissingAssetLoader {
+                    extensions: extensions.clone(),
+                }
+            }
+            AssetServerError::IncorrectHandleType => AssetServerError::IncorrectHandleType,
+            AssetServerError::AssetLoaderError(error) => {
+                AssetServerError::AssetLoaderError(anyhow::Error::msg(error.to_string()))
+            }
+            AssetServerError::AssetIoError(error) => AssetServerError::AssetIoError(error.clone()),
+        }
+    }
+}
+
 fn format_missing_asset_ext(exts: &[String]) -> String {
     if !exts.is_empty() {
         format!(
@@ -247,7 +267,7 @@ impl AssetServer {
                 let asset_sources = self.server.asset_sources.read();
                 asset_sources
                     .get(&id.source_path_id())
-                    .map_or(LoadState::NotLoaded, |info| info.load_state)
+                    .map_or(LoadState::NotLoaded, |info| info.load_state.clone())
             }
             HandleId::Id(_, _) => LoadState::NotLoaded,
         }
@@ -266,7 +286,7 @@ impl AssetServer {
                     LoadState::Loading => {
                         load_state = LoadState::Loading;
                     }
-                    LoadState::Failed => return LoadState::Failed,
+                    LoadState::Failed(err) => return LoadState::Failed(err),
                     LoadState::NotLoaded => return LoadState::NotLoaded,
                     LoadState::Unloaded => return LoadState::Unloaded,
                 },
@@ -345,20 +365,20 @@ impl AssetServer {
             source_info.version
         };
 
-        let set_asset_failed = || {
+        let set_asset_failed = |err: AssetServerError| -> AssetServerError {
             let mut asset_sources = self.server.asset_sources.write();
             let source_info = asset_sources
                 .get_mut(&asset_path_id.source_path_id())
                 .expect("`AssetSource` should exist at this point.");
-            source_info.load_state = LoadState::Failed;
+            source_info.load_state = LoadState::Failed(err.clone());
+            err
         };
 
         // get the according asset loader
         let asset_loader = match self.get_path_asset_loader(asset_path.path()) {
             Ok(loader) => loader,
             Err(err) => {
-                set_asset_failed();
-                return Err(err);
+                return Err(set_asset_failed(err));
             }
         };
 
@@ -366,8 +386,7 @@ impl AssetServer {
         let bytes = match self.asset_io().load_path(asset_path.path()).await {
             Ok(bytes) => bytes,
             Err(err) => {
-                set_asset_failed();
-                return Err(AssetServerError::AssetIoError(err));
+                return Err(set_asset_failed(AssetServerError::AssetIoError(err)));
             }
         };
 
@@ -384,8 +403,7 @@ impl AssetServer {
             .await
             .map_err(AssetServerError::AssetLoaderError)
         {
-            set_asset_failed();
-            return Err(err);
+            return Err(set_asset_failed(err));
         }
 
         // if version has changed since we loaded and grabbed a lock, return. there is a newer
@@ -800,14 +818,14 @@ mod test {
 
         let err = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
             .unwrap_err();
-        assert!(match err {
+        assert!(match &err {
             AssetServerError::MissingAssetLoader { extensions } => {
-                extensions == ["not-a-real-extension"]
+                extensions == &["not-a-real-extension"]
             }
             _ => false,
         });
 
-        assert_eq!(asset_server.get_load_state(handle), LoadState::Failed);
+        assert_eq!(asset_server.get_load_state(handle), LoadState::Failed(err));
     }
 
     #[test]
@@ -822,7 +840,7 @@ mod test {
             .unwrap_err();
         assert!(matches!(err, AssetServerError::AssetIoError(_)));
 
-        assert_eq!(asset_server.get_load_state(handle), LoadState::Failed);
+        assert_eq!(asset_server.get_load_state(handle), LoadState::Failed(err));
     }
 
     #[test]
@@ -838,7 +856,7 @@ mod test {
             .unwrap_err();
         assert!(matches!(err, AssetServerError::AssetLoaderError(_)));
 
-        assert_eq!(asset_server.get_load_state(handle), LoadState::Failed);
+        assert_eq!(asset_server.get_load_state(handle), LoadState::Failed(err));
     }
 
     #[test]

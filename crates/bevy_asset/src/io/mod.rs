@@ -20,7 +20,7 @@ use anyhow::Result;
 use bevy_utils::BoxedFuture;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{
-    io,
+    io::{self, Error, ErrorKind},
     path::{Path, PathBuf},
 };
 use thiserror::Error;
@@ -43,6 +43,17 @@ pub enum AssetIoError {
     PathWatchError(PathBuf),
 }
 
+impl Clone for AssetIoError {
+    fn clone(&self) -> Self {
+        match self {
+            AssetIoError::NotFound(error) => AssetIoError::NotFound(error.clone()),
+            AssetIoError::Io(error) => {
+                AssetIoError::Io(Error::new(ErrorKind::Other, error.to_string()))
+            }
+            AssetIoError::PathWatchError(error) => AssetIoError::PathWatchError(error.clone()),
+        }
+    }
+}
 /// A storage provider for an [`AssetServer`].
 ///
 /// An asset I/O is the backend actually providing data for the asset loaders managed by the asset

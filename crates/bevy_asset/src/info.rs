@@ -1,4 +1,4 @@
-use crate::{path::AssetPath, LabelId};
+use crate::{path::AssetPath, AssetServerError, LabelId};
 use bevy_utils::{HashMap, HashSet, Uuid};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -53,7 +53,7 @@ impl SourceInfo {
 }
 
 /// The load state of an asset.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone)]
 pub enum LoadState {
     /// The asset has not been loaded.
     NotLoaded,
@@ -62,8 +62,14 @@ pub enum LoadState {
     /// The asset has been loaded and is living inside an [`Assets`](crate::Assets) collection.
     Loaded,
     /// The asset failed to load.
-    Failed,
+    Failed(AssetServerError),
     /// The asset was previously loaded, however all handles were dropped and the asset was removed
     /// from the [`Assets`](crate::Assets) collection.
     Unloaded,
+}
+
+impl PartialEq for LoadState {
+    fn eq(&self, other: &Self) -> bool {
+        self == other
+    }
 }
