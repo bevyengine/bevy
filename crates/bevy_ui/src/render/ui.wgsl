@@ -43,9 +43,9 @@ fn sd_rounded_rect(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>) -> f32 
     var r: f32;
     if 0.0 < point.x {
         if 0.0 < point.y {
-            r = radius.x;
-        } else {
             r = radius.y;
+        } else {
+            r = radius.x;
         }
     } else {
         if 0.0 < point.y {
@@ -67,15 +67,22 @@ fn sd_inner_box(point: vec2<f32>, size: vec2<f32>, thickness: vec4<f32>) -> f32 
 
 fn sd_inset_rounded_rect(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, inset: vec4<f32>) -> f32 {
     var r = radius;
-    r.x = r.x - max(inset.y, inset.z);
-    r.y = r.y - max(inset.y, inset.w);
-    r.z = r.z - max(inset.x, inset.z);
+    // top right corner
+    r.y = r.y - max(inset.z, inset.y);
+
+    // bottom right corner
+    r.x = r.x - max(inset.z, inset.w);
+
+    // bottom left corner
     r.w = r.w - max(inset.x, inset.w); 
+
+    // top left corner
+    r.z = r.z - max(inset.x, inset.y);
+    
     r = max(r, vec4<f32>(0.0));
-    let p = point + 0.5 * (inset.xy - inset.zw);
-    let size = size - inset.xy - inset.zw;
-    let d = abs(p) - 0.5 * size;
-    return sd_rounded_rect(p, size, r);
+    let p = point + 0.5 * (inset.zw - inset.xy);
+    let inner_size = size - inset.xy - inset.zw;
+    return sd_rounded_rect(p, inner_size, r);
 }
 
 fn sd_box(point: vec2<f32>, size: vec2<f32>) -> f32 {
@@ -84,34 +91,8 @@ fn sd_box(point: vec2<f32>, size: vec2<f32>) -> f32 {
 }
 
 fn sd_outer_box(point: vec2<f32>, size: vec2<f32>, inset: vec4<f32>) -> f32 {
-    // let h = thickness.x + thickness.y;
-    // let v = thickness.z + thickness.w;
     return -sd_inner_box(point, size, inset);
 }
-
-// @fragment
-// fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-//     // textureSample can only be called in unform control flow, not inside an if branch.
-//     var color = textureSample(sprite_texture, sprite_sampler, in.uv);
-
-//     let point = (in.uv - vec2<f32>(0.5, 0.5)) * in.size;
-    
-//     let d = abs(sd_rounded_rect(point, in.size, in.radius)) - 1.;
-//     switch in.mode {
-//         // Textured rect
-//         case 0u: {
-//             return mix(in.color * color, vec4<f32>(0.0), smoothstep(-1.0, 0.5, d));
-//         }
-//         // Untextured rect
-//         case 1u: {
-//             return mix(in.color, vec4<f32>(0.0), smoothstep(-1.0, 0.5, d));
-//         }
-//         // Inverted rect (fill outside the rounded corners)
-//         case 2u, default: {
-//             return mix(vec4<f32>(0.0), in.color, smoothstep(-1.0, 1.0, d));
-//         }
-//     }
-// }
 
 fn sd_box_border(point: vec2<f32>, size: vec2<f32>, thickness: vec4<f32>) -> f32 {
     return max(sd_box(point, size), sd_inner_box(point, size, thickness));
@@ -127,37 +108,21 @@ fn sd_rounded_border(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, thick
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // textureSample can only be called in unform control flow, not inside an if branch.
     var color = textureSample(sprite_texture, sprite_sampler, in.uv);    
-    // let d = sd_rounded_rect(point, in.size, in.radius);
-    // let delta = fwidth(d);
-    // if -20. <= d && d <= 0.  {
-    //     return in.color;
-    // }
-
-    //let d = sd_border_box(point, in.size, vec4<f32>(4.0));//in.thickness);
-    //let distance = sd_outer_box(point, in.size, in.thickness);
-    // if d < 0. {
-    //     return in.color;
-    // }
-
-    //return vec4<f32>(0.0);
-    switch in.mode {
+        switch in.mode {
         // Textured rect
-        case 0u: {
+        case default, 0u: {
             return in.color * color;
         }
         // Untextured rect
         case 1u: {
             let point = (in.uv - vec2<f32>(0.5, 0.5)) * in.size;
             let distance = sd_rounded_rect(point, in.size, in.radius);
-            return in.color * step(distance, 0.0);
+            return mix(in.color, vec4<f32>(0.0), smoothstep(-0.5, 0.5, distance));
         }
         // Untextured border
-        case 2u, default: {
+        case 2u: {
             let point = (in.uv - vec2<f32>(0.5, 0.5)) * in.size;
             let distance = sd_rounded_border(point, in.size, in.radius, in.thickness);
-            //let distance = sd_inset_rounded_rect(point, in.size, in.radius, in.thickness);          
-            //let distance = sd_rounded_rect(point, in.size, in.radius);
-            //return in.color * step(distance, 0.);
             return mix(in.color, vec4<f32>(0.0), smoothstep(-0.5, 0.5, distance));
         }
     }

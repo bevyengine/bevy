@@ -1689,12 +1689,17 @@ impl Default for ZIndex {
 /// The value is clamped to between 0 and half the length of the shortest side of the node before being used.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect, FromReflect)]
 #[reflect(Component, FromReflect)]
-pub struct UiCornerRadius(pub [f32; 4]);
+pub struct UiCornerRadius{
+    top_left: f32,
+    top_right: f32,
+    bottom_left: f32,
+    bottom_right: f32,
+}
 
 impl UiCornerRadius {
     #[inline]
     pub fn resolve(self, size: Vec2, ui_scale: f64) -> [f32; 4] {
-        self.0.map(|r| {
+        <[f32; 4]>::from(self).map(|r| {
             if r <= 0. {
                 0.
             } else {
@@ -1705,9 +1710,106 @@ impl UiCornerRadius {
 
     #[inline]
     pub fn all(radius: f32) -> Self {
-        Self([radius; 4])
+        Self {
+            top_right: radius,
+            bottom_right: radius,
+            bottom_left: radius,
+            top_left: radius,
+        }
+    }
+
+    #[inline]
+    pub fn new(top_right: f32, bottom_right: f32, bottom_left: f32, top_left: f32) -> Self {
+        Self {
+            top_right,
+            bottom_right,
+            bottom_left,
+            top_left,
+        }
+    
+        
+    }
+
+    #[inline]
+    pub fn top_right(radius: f32) -> Self {
+        Self {
+            top_right: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    pub fn bottom_right(radius: f32) -> Self {
+        Self {
+            bottom_right: radius,
+            ..Default::default()
+        }
+    }    
+
+    #[inline]
+    pub fn bottom_left(radius: f32) -> Self {
+        Self {
+            bottom_left: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    pub fn top_left(radius: f32) -> Self {
+        Self {
+            top_left: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    pub fn left(radius: f32) -> Self {
+        Self {
+            bottom_left: radius,
+            top_left: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    pub fn right(radius: f32) -> Self {
+        Self {
+            bottom_right: radius,
+            top_right: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    pub fn top(radius: f32) -> Self {
+        Self {
+            top_left: radius,
+            top_right: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    pub fn bottom(radius: f32) -> Self {
+        Self {
+            bottom_left: radius,
+            bottom_right: radius,
+            ..Default::default()
+        }
     }
 }
+
+impl From<UiCornerRadius> for [f32; 4] {
+    fn from(value: UiCornerRadius) -> Self {
+        [
+            value.top_right,
+            value.bottom_right,
+            value.bottom_left,
+            value.top_left,
+        ]
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
