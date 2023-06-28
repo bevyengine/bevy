@@ -53,7 +53,7 @@ impl SourceInfo {
 }
 
 /// The load state of an asset.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum LoadState {
     /// The asset has not been loaded.
     NotLoaded,
@@ -66,10 +66,4 @@ pub enum LoadState {
     /// The asset was previously loaded, however all handles were dropped and the asset was removed
     /// from the [`Assets`](crate::Assets) collection.
     Unloaded,
-}
-
-impl PartialEq for LoadState {
-    fn eq(&self, other: &Self) -> bool {
-        self == other
-    }
 }

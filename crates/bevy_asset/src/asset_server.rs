@@ -63,6 +63,35 @@ impl Clone for AssetServerError {
     }
 }
 
+impl PartialEq for AssetServerError {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            AssetServerError::AssetFolderNotADirectory(s1) => match other {
+                AssetServerError::AssetFolderNotADirectory(s2) => s1 == s2,
+                _ => false,
+            },
+            AssetServerError::MissingAssetLoader { extensions } => match other {
+                AssetServerError::MissingAssetLoader {
+                    extensions: extensions2,
+                } => extensions2 == extensions,
+                _ => false,
+            },
+            AssetServerError::IncorrectHandleType => match other {
+                AssetServerError::IncorrectHandleType => true,
+                _ => false,
+            },
+            AssetServerError::AssetLoaderError(e1) => match other {
+                AssetServerError::AssetLoaderError(e2) => e1.to_string() == e2.to_string(),
+                _ => false,
+            },
+            AssetServerError::AssetIoError(e1) => match other {
+                AssetServerError::AssetIoError(e2) => e1.to_string() == e2.to_string(),
+                _ => false,
+            },
+        }
+    }
+}
+
 fn format_missing_asset_ext(exts: &[String]) -> String {
     if !exts.is_empty() {
         format!(
