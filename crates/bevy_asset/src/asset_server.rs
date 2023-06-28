@@ -76,10 +76,9 @@ impl PartialEq for AssetServerError {
                 } => extensions2 == extensions,
                 _ => false,
             },
-            AssetServerError::IncorrectHandleType => match other {
-                AssetServerError::IncorrectHandleType => true,
-                _ => false,
-            },
+            AssetServerError::IncorrectHandleType => {
+                matches!(other, AssetServerError::IncorrectHandleType)
+            }
             AssetServerError::AssetLoaderError(e1) => match other {
                 AssetServerError::AssetLoaderError(e2) => e1.to_string() == e2.to_string(),
                 _ => false,
