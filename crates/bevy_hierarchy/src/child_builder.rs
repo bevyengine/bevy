@@ -170,9 +170,6 @@ pub struct AddChild {
 
 impl Command for AddChild {
     fn apply(self, world: &mut World) {
-        if self.child == self.parent {
-            panic!("Cannot add entity as a child of itself.");
-        }
         world.entity_mut(self.parent).add_child(self.child);
     }
 }
@@ -187,9 +184,6 @@ pub struct InsertChildren {
 
 impl Command for InsertChildren {
     fn apply(self, world: &mut World) {
-        if self.children.contains(&self.parent) {
-            panic!("Cannot insert entity as a child of itself.");
-        }
         world
             .entity_mut(self.parent)
             .insert_children(self.index, &self.children);
@@ -205,9 +199,6 @@ pub struct PushChildren {
 
 impl Command for PushChildren {
     fn apply(self, world: &mut World) {
-        if self.children.contains(&self.parent) {
-            panic!("Cannot push entity as a child of itself.");
-        }
         world.entity_mut(self.parent).push_children(&self.children);
     }
 }
@@ -244,9 +235,6 @@ pub struct ReplaceChildren {
 
 impl Command for ReplaceChildren {
     fn apply(self, world: &mut World) {
-        if self.children.contains(&self.parent) {
-            panic!("Cannot replace entity as a child of itself.");
-        }
         clear_children(self.parent, world);
         world.entity_mut(self.parent).push_children(&self.children);
     }
@@ -523,6 +511,9 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
+        if child == parent {
+            panic!("Cannot add entity as a child of itself.");
+        }
         self.world_scope(|world| {
             update_old_parent(world, child, parent);
         });
@@ -537,6 +528,9 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot push entity as a child of itself.");
+        }
         self.world_scope(|world| {
             update_old_parents(world, parent, children);
         });
@@ -553,6 +547,9 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot insert entity as a child of itself.");
+        }
         self.world_scope(|world| {
             update_old_parents(world, parent, children);
         });
