@@ -1,4 +1,4 @@
-use bevy_app::Plugin;
+use bevy_app::{Plugin, Render};
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 
 use bevy_ecs::{
@@ -22,7 +22,7 @@ use bevy_render::{
     view::{
         ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 

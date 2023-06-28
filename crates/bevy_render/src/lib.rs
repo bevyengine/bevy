@@ -55,9 +55,13 @@ use crate::{
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppLabel, Plugin, Render, SubApp};
 use bevy_asset::{AddAsset, AssetServer};
-use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
+use bevy_ecs::{
+    prelude::*,
+    schedule::{MainThreadExecutor, ScheduleLabel},
+    system::SystemState,
+};
 use bevy_utils::tracing::debug;
 use std::{
     ops::{Deref, DerefMut},
@@ -108,11 +112,7 @@ pub enum RenderSet {
     CleanupFlush,
 }
 
-/// The main render schedule.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct Render;
-
-impl Render {
+impl RenderSet {
     /// Sets up the base structure of the rendering [`Schedule`].
     ///
     /// The sets defined in this enum are configured to run in order,
@@ -266,14 +266,13 @@ impl Plugin for RenderPlugin {
             app.init_resource::<ScratchMainWorld>();
 
             let mut render_app = App::empty();
-            render_app.main_schedule_label = Box::new(Render);
 
             let mut extract_schedule = Schedule::new();
             extract_schedule.set_apply_final_deferred(false);
 
             render_app
                 .add_schedule(ExtractSchedule, extract_schedule)
-                .add_schedule(Render, Render::base_schedule())
+                .add_schedule(Render, RenderSet::base_schedule())
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(app.world.resource::<AssetServer>().clone())
                 .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
@@ -296,14 +295,14 @@ impl Plugin for RenderPlugin {
             app.insert_resource(receiver);
             render_app.insert_resource(sender);
 
-            app.insert_sub_app(RenderApp, SubApp::new(render_app, move |main_world, render_app| {
+            let mut sub_app = SubApp::new(render_app, move |main_world, render_app| {
                 #[cfg(feature = "trace")]
-                let _render_span = bevy_utils::tracing::info_span!("extract main app to render subapp").entered();
+                let _render_span =
+                    bevy_utils::tracing::info_span!("extract main app to render subapp").entered();
                 {
                     #[cfg(feature = "trace")]
                     let _stage_span =
-                        bevy_utils::tracing::info_span!("reserve_and_flush")
-                            .entered();
+                        bevy_utils::tracing::info_span!("reserve_and_flush").entered();
 
                     // reserve all existing main world entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
@@ -326,7 +325,9 @@ impl Plugin for RenderPlugin {
 
                 // run extract schedule
                 extract(main_world, render_app);
-            }));
+            });
+            sub_app.main_schedule_label = Box::new(Render);
+            app.insert_sub_app(RenderApp, sub_app);
         }
 
         app.add_plugins((
@@ -375,6 +376,30 @@ impl Plugin for RenderPlugin {
                 .insert_resource(render_adapter)
                 .insert_resource(adapter_info);
         }
+    }
+
+    fn cleanup(&self, app: &mut App) {
+        // skip setting up when No backend is used
+        if self.wgpu_settings.backends.is_none() {
+            return;
+        }
+
+        // skip setting up when using PipelinedRenderingPlugin
+        if app.world.get_resource::<MainThreadExecutor>().is_some() {
+            return;
+        };
+
+        let mut render_app = app
+            .remove_sub_app(RenderApp)
+            .expect("Unable to get RenderApp. Another plugin may have removed the RenderApp before RenderPlugin");
+
+        app.add_systems(Render, move |world: &mut World| {
+            #[cfg(feature = "trace")]
+            let _sub_app_span =
+                bevy_utils::tracing::info_span!("sub app", name = ?RenderApp).entered();
+            render_app.extract(world);
+            render_app.run();
+        });
     }
 }
 

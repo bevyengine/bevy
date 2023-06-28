@@ -8,7 +8,7 @@ use crate::{
     core_2d::{self, CORE_2D},
     core_3d::{self, CORE_3D},
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Render};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::UVec2;
@@ -24,7 +24,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    Render, RenderApp, RenderSet,
+    RenderApp, RenderSet,
 };
 use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,

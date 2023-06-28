@@ -19,7 +19,7 @@
 use std::hash::{Hash, Hasher};
 use std::mem;
 
-use bevy_app::{Last, Plugin, Update};
+use bevy_app::{Last, Plugin, Render, Update};
 use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_core::cast_slice;
 use bevy_ecs::{
@@ -50,7 +50,7 @@ use bevy_render::{
         VertexFormat, VertexStepMode,
     },
     renderer::RenderDevice,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::AHasher;

@@ -11,7 +11,7 @@ use bevy::{
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
-        Render, RenderApp, RenderSet,
+        RenderApp, RenderSet,
     },
     window::WindowPlugin,
 };

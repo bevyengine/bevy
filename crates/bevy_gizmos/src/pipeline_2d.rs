@@ -2,7 +2,7 @@ use crate::{
     line_gizmo_vertex_buffer_layouts, DrawLineGizmo, LineGizmo, LineGizmoUniformBindgroupLayout,
     SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Render};
 use bevy_asset::Handle;
 use bevy_core_pipeline::core_2d::Transparent2d;
 
@@ -18,7 +18,7 @@ use bevy_render::{
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, ViewTarget},
-    Render, RenderApp, RenderSet,
+    RenderApp, RenderSet,
 };
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use bevy_utils::FloatOrd;

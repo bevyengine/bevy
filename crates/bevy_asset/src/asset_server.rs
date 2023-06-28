@@ -645,7 +645,7 @@ pub fn free_unused_assets_system(asset_server: Res<AssetServer>) {
 mod test {
     use super::*;
     use crate::{loader::LoadedAsset, update_asset_storage_system};
-    use bevy_app::{App, Update};
+    use bevy_app::{App, Main, Update};
     use bevy_ecs::prelude::*;
     use bevy_reflect::{TypePath, TypeUuid};
     use bevy_utils::BoxedFuture;
@@ -896,19 +896,19 @@ mod test {
         // asset is loading
         assert_eq!(LoadState::Loading, get_load_state(&handle, &app.world));
 
-        app.update();
+        app.world.run_schedule(Main);
         // asset should exist and be loaded at this point
         assert_eq!(LoadState::Loaded, get_load_state(&handle, &app.world));
         assert!(get_asset(&handle, &app.world).is_some());
 
         // after dropping the handle, next call to `tick` will prepare the assets for removal.
         drop(handle);
-        app.update();
+        app.world.run_schedule(Main);
         assert_eq!(LoadState::Loaded, get_load_state(&weak_handle, &app.world));
         assert!(get_asset(&weak_handle, &app.world).is_some());
 
         // second call to tick will actually remove the asset.
-        app.update();
+        app.world.run_schedule(Main);
         assert_eq!(
             LoadState::Unloaded,
             get_load_state(&weak_handle, &app.world)
@@ -918,7 +918,7 @@ mod test {
         // finally, reload the asset
         let handle = load_asset(path.clone(), &app.world).typed();
         assert_eq!(LoadState::Loading, get_load_state(&handle, &app.world));
-        app.update();
+        app.world.run_schedule(Main);
         assert_eq!(LoadState::Loaded, get_load_state(&handle, &app.world));
         assert!(get_asset(&handle, &app.world).is_some());
     }

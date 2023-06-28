@@ -70,7 +70,7 @@ fn did_hurt_enemy() {
         .id();
 
     // Run systems
-    app.update();
+    app.world.run_schedule(Main);
 
     // Check resulting changes
     assert!(app.world.get::<Enemy>(enemy_id).is_some());
@@ -101,7 +101,7 @@ fn did_despawn_enemy() {
         .id();
 
     // Run systems
-    app.update();
+    app.world.run_schedule(Main);
 
     // Check enemy was despawned
     assert!(app.world.get::<Enemy>(enemy_id).is_none());
@@ -129,7 +129,7 @@ fn spawn_enemy_using_input_resource() {
     app.insert_resource(input);
 
     // Run systems
-    app.update();
+    app.world.run_schedule(Main);
 
     // Check resulting changes, one entity has been spawned with `Enemy` component
     assert_eq!(app.world.query::<&Enemy>().iter(&app.world).len(), 1);
@@ -138,7 +138,7 @@ fn spawn_enemy_using_input_resource() {
     app.world.resource_mut::<Input<KeyCode>>().clear();
 
     // Run systems
-    app.update();
+    app.world.run_schedule(Main);
 
     // Check resulting changes, no new entity has been spawned
     assert_eq!(app.world.query::<&Enemy>().iter(&app.world).len(), 1);
@@ -164,7 +164,7 @@ fn update_score_on_event() {
         .send(EnemyDied(3));
 
     // Run systems
-    app.update();
+    app.world.run_schedule(Main);
 
     // Check resulting changes
     assert_eq!(app.world.resource::<Score>().0, 3);

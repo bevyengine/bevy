@@ -516,7 +516,7 @@ mod test {
             .entity_mut(root2_child2)
             .push_children(&[root2_child2_grandchild1]);
 
-        app.update();
+        app.world.run_schedule(Main);
 
         let is_visible = |e: Entity| {
             app.world
@@ -613,7 +613,7 @@ mod test {
             .entity_mut(root1_child2)
             .push_children(&[root1_child2_grandchild1]);
 
-        app.update();
+        app.world.run_schedule(Main);
 
         let is_visible = |e: Entity| {
             app.world

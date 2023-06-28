@@ -5,7 +5,7 @@ use bevy_ecs::{
     world::{Mut, World},
 };
 
-/// The schedule that contains the app logic that is evaluated each tick of [`App::update()`].
+/// The schedule that contains the app logic that is evaluated each tick of event loop.
 ///
 /// By default, it will run the following schedules in the given order:
 ///
@@ -94,6 +94,10 @@ pub struct PostUpdate;
 /// This is run by the [`Main`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Last;
+
+/// The main render schedule.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Render;
 
 /// Defines the schedules to be run for the [`Main`] schedule, including
 /// their order.

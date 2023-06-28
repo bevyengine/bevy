@@ -1,4 +1,5 @@
-use bevy_ecs::system::Resource;
+use bevy_app::{Main, Render};
+use bevy_ecs::{schedule::BoxedScheduleLabel, system::Resource};
 use bevy_utils::Duration;
 
 /// A resource for configuring usage of the [`winit`] library.
@@ -31,6 +32,14 @@ pub struct WinitSettings {
     pub focused_mode: UpdateMode,
     /// Configures how the winit event loop updates while the window is *not* focused.
     pub unfocused_mode: UpdateMode,
+    /// The main schedule to run by default.
+    ///
+    /// This is initially set to [`Main`].
+    pub main_schedule_label: BoxedScheduleLabel,
+    /// The render schedule to run by default.
+    ///
+    /// This is initially set to [`Render`].
+    pub render_schedule_label: BoxedScheduleLabel,
 }
 impl WinitSettings {
     /// Configure winit with common settings for a game.
@@ -65,6 +74,8 @@ impl Default for WinitSettings {
             return_from_run: false,
             focused_mode: UpdateMode::Continuous,
             unfocused_mode: UpdateMode::Continuous,
+            main_schedule_label: Box::new(Main),
+            render_schedule_label: Box::new(Render),
         }
     }
 }

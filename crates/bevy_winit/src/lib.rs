@@ -45,6 +45,9 @@ use bevy_window::{
     WindowScaleFactorChanged, WindowThemeChanged,
 };
 
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
+
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity::AndroidApp;
 
@@ -334,6 +337,16 @@ pub fn winit_runner(mut app: App) {
         ResMut<AccessibilityRequested>,
         ResMut<CanvasParentResizeEventChannel>,
     )> = SystemState::from_world(&mut app.world);
+
+    {
+        let (winit_config, _) = focused_window_state.get(&app.world);
+        let main_schedule_label = winit_config.main_schedule_label.clone();
+        let render_schedule_label = winit_config.render_schedule_label.clone();
+
+        // Prevent panic when schedules do not exist
+        app.init_schedule(main_schedule_label);
+        app.init_schedule(render_schedule_label);
+    }
 
     let mut finished_and_setup_done = false;
 
@@ -690,7 +703,23 @@ pub fn winit_runner(mut app: App) {
 
                 if update && finished_and_setup_done {
                     winit_state.last_update = Instant::now();
-                    app.update();
+                    let main_schedule_label = winit_config.main_schedule_label.clone();
+                    let render_schedule_label = winit_config.render_schedule_label.clone();
+
+                    {
+                        #[cfg(feature = "trace")]
+                        let _main_schedule_span =
+                            info_span!("main schedule", name = ?main_schedule_label).entered();
+                        app.world.run_schedule(main_schedule_label);
+                    }
+                    {
+                        #[cfg(feature = "trace")]
+                        let _render_schedule_span =
+                            info_span!("render schedule", name = ?render_schedule_label).entered();
+                        app.world.run_schedule(render_schedule_label);
+                    }
+                    app.update_sub_apps();
+                    app.world.clear_trackers();
                 }
             }
             Event::RedrawEventsCleared => {
@@ -715,7 +744,7 @@ pub fn winit_runner(mut app: App) {
                     };
                 }
 
-                // This block needs to run after `app.update()` in `MainEventsCleared`. Otherwise,
+                // This block needs to run after `app.world.run_schedule` in `MainEventsCleared`. Otherwise,
                 // we won't be able to see redraw requests until the next event, defeating the
                 // purpose of a redraw request!
                 let mut redraw = false;

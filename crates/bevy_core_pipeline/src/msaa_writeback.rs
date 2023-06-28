@@ -3,14 +3,14 @@ use crate::{
     core_2d::{self, CORE_2D},
     core_3d::{self, CORE_3D},
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Render};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
-    Render, RenderSet,
+    RenderSet,
 };
 use bevy_render::{render_resource::*, RenderApp};
 

@@ -1,9 +1,16 @@
 use crate::{
     app::{App, AppExit},
     plugin::Plugin,
+    Main,
 };
-use bevy_ecs::event::{Events, ManualEventReader};
+use bevy_ecs::{
+    event::{Events, ManualEventReader},
+    schedule::BoxedScheduleLabel,
+};
 use bevy_utils::{Duration, Instant};
+
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 
 #[cfg(target_arch = "wasm32")]
 use std::{cell::RefCell, rc::Rc};
@@ -43,10 +50,13 @@ impl Default for RunMode {
 /// typically, the `winit` event loop
 /// (see [`WinitPlugin`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html))
 /// executes the schedule making [`ScheduleRunnerPlugin`] unnecessary.
-#[derive(Default)]
 pub struct ScheduleRunnerPlugin {
     /// Determines whether the [`Schedule`](bevy_ecs::schedule::Schedule) is run once or repeatedly.
     pub run_mode: RunMode,
+    /// The schedule to run by default.
+    ///
+    /// This is initially set to [`Main`].
+    pub main_schedule_label: BoxedScheduleLabel,
 }
 
 impl ScheduleRunnerPlugin {
@@ -54,6 +64,7 @@ impl ScheduleRunnerPlugin {
     pub fn run_once() -> Self {
         ScheduleRunnerPlugin {
             run_mode: RunMode::Once,
+            main_schedule_label: Box::new(Main),
         }
     }
 
@@ -63,6 +74,16 @@ impl ScheduleRunnerPlugin {
             run_mode: RunMode::Loop {
                 wait: Some(wait_duration),
             },
+            main_schedule_label: Box::new(Main),
+        }
+    }
+}
+
+impl Default for ScheduleRunnerPlugin {
+    fn default() -> Self {
+        ScheduleRunnerPlugin {
+            run_mode: RunMode::Loop { wait: None },
+            main_schedule_label: Box::new(Main),
         }
     }
 }
@@ -70,11 +91,21 @@ impl ScheduleRunnerPlugin {
 impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut App) {
         let run_mode = self.run_mode;
+        let main_schedule_label = self.main_schedule_label.clone();
         app.set_runner(move |mut app: App| {
+            // Prevent panic when schedules do not exist
+            app.init_schedule(main_schedule_label.clone());
+
             let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
             match run_mode {
                 RunMode::Once => {
-                    app.update();
+                    {
+                        #[cfg(feature = "trace")]
+                        let _main_schedule_span =
+                            info_span!("main schedule", name = ?main_schedule_label).entered();
+                        app.world.run_schedule(main_schedule_label);
+                    }
+                    app.update_sub_apps();
                 }
                 RunMode::Loop { wait } => {
                     let mut tick = move |app: &mut App,
@@ -91,7 +122,14 @@ impl Plugin for ScheduleRunnerPlugin {
                             }
                         }
 
-                        app.update();
+                        {
+                            #[cfg(feature = "trace")]
+                            let _main_schedule_span =
+                                info_span!("main schedule", name = ?main_schedule_label).entered();
+                            app.world.run_schedule(&main_schedule_label);
+                        }
+                        app.update_sub_apps();
+                        app.world.clear_trackers();
 
                         if let Some(app_exit_events) =
                             app.world.get_resource_mut::<Events<AppExit>>()

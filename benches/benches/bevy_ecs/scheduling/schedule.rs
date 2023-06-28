@@ -85,7 +85,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
                 for _ in 0..graph_size {
                     app.add_systems(Update, empty_system);
                 }
-                app.update();
+                app.world.run_schedule(Update);
             });
         });
 
@@ -111,7 +111,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
                 // This is necessary since dependency resolution does not occur until the game runs.
                 // FIXME: Running the game clutters up the benchmarks, so ideally we'd be
                 // able to benchmark the dependency resolution directly.
-                app.update();
+                app.world.run_schedule(Update);
             });
         });
     }
