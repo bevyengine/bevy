@@ -838,7 +838,7 @@ mod tests {
         bar: C,
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     struct C {
         baz: f32,
     }
@@ -849,7 +849,7 @@ mod tests {
     #[derive(Reflect)]
     struct E(f32, usize);
 
-    #[derive(Reflect, FromReflect, PartialEq, Debug)]
+    #[derive(Reflect, PartialEq, Debug)]
     enum F {
         Unit,
         Tuple(u32, u32),

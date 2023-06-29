@@ -10,9 +10,7 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
-use bevy_reflect::{
-    FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
-};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ComputedVisibility};
 use bevy_transform::components::GlobalTransform;
 
@@ -85,11 +83,10 @@ pub enum PressPolicy {
     PartialEq,
     Debug,
     Reflect,
-    FromReflect,
     Serialize,
     Deserialize,
 )]
-#[reflect(Component, FromReflect, Serialize, Deserialize, PartialEq)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub struct RelativeCursorPosition {
     /// Cursor position relative to size and position of the Node.
     pub normalized: Option<Vec2>,
@@ -160,10 +157,8 @@ impl InteractionStateHandler for (&Pressed, &RelativeCursorPosition) {
 pub type InteractionStateChangedFilter = Or<(Changed<Pressed>, Changed<RelativeCursorPosition>)>;
 
 /// Describes whether the node should block interactions with lower nodes
-#[derive(
-    Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, FromReflect, Serialize, Deserialize,
-)]
-#[reflect(Component, FromReflect, Serialize, Deserialize, PartialEq)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum FocusPolicy {
     /// Blocks interaction
     Block,
