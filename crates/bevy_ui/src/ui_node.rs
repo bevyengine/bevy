@@ -1719,13 +1719,13 @@ impl UiCornerRadius {
 
     #[inline]
     pub fn px(top_right: f32, bottom_right: f32, bottom_left: f32, top_left: f32) -> Self {
-            Self {
-                top_right: Val::Px(top_right),
-                bottom_right: Val::Px(bottom_right),
-                bottom_left: Val::Px(bottom_left),
-                top_left: Val::Px(top_left),
-            }
+        Self {
+            top_right: Val::Px(top_right),
+            bottom_right: Val::Px(bottom_right),
+            bottom_left: Val::Px(bottom_left),
+            top_left: Val::Px(top_left),
         }
+    }
 
     #[inline]
     pub fn top_right(radius: Val) -> Self {

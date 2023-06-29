@@ -96,12 +96,28 @@ fn setup(mut commands: Commands) {
                 ..Default::default()
             })
             .id();
-        let border =  borders[i % borders.len()];
+        let border = borders[i % borders.len()];
         let corner_radius = UiCornerRadius::px(
-            if border.right != Val::Px(0.) && border.top != Val::Px(0.) { f32::MAX } else { 0. },
-            if border.right != Val::Px(0.) && border.bottom != Val::Px(0.) { f32::MAX } else { 0. },
-            if border.left != Val::Px(0.) && border.bottom != Val::Px(0.) { f32::MAX } else { 0. },
-            if border.left != Val::Px(0.) && border.top != Val::Px(0.) { f32::MAX } else { 0. },
+            if border.right != Val::Px(0.) && border.top != Val::Px(0.) {
+                f32::MAX
+            } else {
+                0.
+            },
+            if border.right != Val::Px(0.) && border.bottom != Val::Px(0.) {
+                f32::MAX
+            } else {
+                0.
+            },
+            if border.left != Val::Px(0.) && border.bottom != Val::Px(0.) {
+                f32::MAX
+            } else {
+                0.
+            },
+            if border.left != Val::Px(0.) && border.top != Val::Px(0.) {
+                f32::MAX
+            } else {
+                0.
+            },
         );
         let bordered_node = commands
             .spawn(NodeBundle {

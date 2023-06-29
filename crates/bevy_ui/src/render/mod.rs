@@ -256,7 +256,12 @@ pub fn extract_atlas_uinodes(
                 atlas_size: Some(atlas_size),
                 flip_x: atlas_image.flip_x,
                 flip_y: atlas_image.flip_y,
-                corner_radius: resolve_corner_radius(corner_radius, uinode.calculated_size, viewport_size, ui_scale.scale),
+                corner_radius: resolve_corner_radius(
+                    corner_radius,
+                    uinode.calculated_size,
+                    viewport_size,
+                    ui_scale.scale,
+                ),
                 invert: false,
                 border: [0.; 4],
             });
@@ -278,7 +283,12 @@ fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) 
 }
 
 #[inline]
-fn resolve_corner_radius(&values: &UiCornerRadius, node_size: Vec2, viewport_size: Vec2, ui_scale: f64) -> [f32; 4] {
+fn resolve_corner_radius(
+    &values: &UiCornerRadius,
+    node_size: Vec2,
+    viewport_size: Vec2,
+    ui_scale: f64,
+) -> [f32; 4] {
     <[Val; 4]>::from(values).map(|value| {
         let px_val = match value {
             Val::Auto => 0.,
@@ -324,7 +334,8 @@ pub fn extract_uinode_borders(
     let viewport_size = windows
         .get_single()
         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(Vec2::ZERO) * ui_scale.scale as f32;
+        .unwrap_or(Vec2::ZERO)
+        * ui_scale.scale as f32;
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((
@@ -373,7 +384,12 @@ pub fn extract_uinode_borders(
                 clip: clip.map(|clip| clip.clip),
                 flip_x: false,
                 flip_y: false,
-                corner_radius: resolve_corner_radius(corner_radius, node.calculated_size, viewport_size, ui_scale.scale),
+                corner_radius: resolve_corner_radius(
+                    corner_radius,
+                    node.calculated_size,
+                    viewport_size,
+                    ui_scale.scale,
+                ),
                 invert: true,
                 border: [left, top, right, bottom],
             });
@@ -407,7 +423,8 @@ pub fn extract_uinodes(
     let viewport_size = windows
         .get_single()
         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(Vec2::ZERO) * ui_scale.scale as f32;
+        .unwrap_or(Vec2::ZERO)
+        * ui_scale.scale as f32;
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip, corner_radius)) =
@@ -441,7 +458,12 @@ pub fn extract_uinodes(
                 atlas_size: None,
                 flip_x,
                 flip_y,
-                corner_radius: resolve_corner_radius(corner_radius, uinode.calculated_size, viewport_size, ui_scale.scale),
+                corner_radius: resolve_corner_radius(
+                    corner_radius,
+                    uinode.calculated_size,
+                    viewport_size,
+                    ui_scale.scale,
+                ),
                 invert: false,
                 border: [0.; 4],
             });
