@@ -4,7 +4,7 @@ use crate::{
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::TextureView,
-    view::{ColorGrading, ExtractedView, ExtractedWindows, VisibleEntities},
+    view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
     Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -615,6 +615,7 @@ pub fn extract_cameras(
             &VisibleEntities,
             Option<&ColorGrading>,
             Option<&TemporalJitter>,
+            Option<&RenderLayers>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -628,6 +629,7 @@ pub fn extract_cameras(
         visible_entities,
         color_grading,
         temporal_jitter,
+        render_layers,
     ) in query.iter()
     {
         let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
@@ -678,6 +680,10 @@ pub fn extract_cameras(
 
             if let Some(temporal_jitter) = temporal_jitter {
                 commands.insert(temporal_jitter.clone());
+            }
+
+            if let Some(render_layers) = render_layers {
+                commands.insert(*render_layers);
             }
         }
     }
