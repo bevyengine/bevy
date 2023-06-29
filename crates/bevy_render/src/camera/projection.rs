@@ -5,7 +5,7 @@ use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::{Mat4, Rect, Vec2};
 use bevy_reflect::{
     std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, ReflectDeserialize,
-    ReflectSerialize,
+    ReflectFromReflect, ReflectSerialize,
 };
 use serde::{Deserialize, Serialize};
 
@@ -62,8 +62,8 @@ pub trait CameraProjection {
 }
 
 /// A configurable [`CameraProjection`] that can select its projection type at runtime.
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[reflect(Component, Default, FromReflect)]
 pub enum Projection {
     Perspective(PerspectiveProjection),
     Orthographic(OrthographicProjection),

@@ -3,31 +3,60 @@ use crate::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{
+    FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
+};
 use bevy_render::{
     camera::{Camera, CameraRenderGraph, Projection},
     extract_component::ExtractComponent,
     primitives::Frustum,
-    render_resource::LoadOp,
+    render_resource::{LoadOp, TextureUsages},
     view::{ColorGrading, VisibleEntities},
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the "main 3d render graph".
-#[derive(Component, Reflect, Clone, Default, ExtractComponent)]
+#[derive(Component, Reflect, FromReflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component)]
+#[reflect(Component, FromReflect)]
 pub struct Camera3d {
     /// The clear color operation to perform for the main 3d pass.
     pub clear_color: ClearColorConfig,
     /// The depth clear operation to perform for the main 3d pass.
     pub depth_load_op: Camera3dDepthLoadOp,
+    /// The texture usages for the depth texture created for the main 3d pass.
+    pub depth_texture_usages: Camera3dDepthTextureUsage,
+}
+
+impl Default for Camera3d {
+    fn default() -> Self {
+        Self {
+            clear_color: ClearColorConfig::Default,
+            depth_load_op: Default::default(),
+            depth_texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Reflect, FromReflect)]
+#[reflect(FromReflect)]
+pub struct Camera3dDepthTextureUsage(u32);
+
+impl From<TextureUsages> for Camera3dDepthTextureUsage {
+    fn from(value: TextureUsages) -> Self {
+        Self(value.bits())
+    }
+}
+impl From<Camera3dDepthTextureUsage> for TextureUsages {
+    fn from(value: Camera3dDepthTextureUsage) -> Self {
+        Self::from_bits_truncate(value.0)
+    }
 }
 
 /// The depth clear operation to perform for the main 3d pass.
-#[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
-#[reflect(Serialize, Deserialize)]
+#[derive(Reflect, FromReflect, Serialize, Deserialize, Clone, Debug)]
+#[reflect(Serialize, Deserialize, FromReflect)]
 pub enum Camera3dDepthLoadOp {
     /// Clear with a specified value.
     /// Note that 0.0 is the far plane due to bevy's use of reverse-z projections.
@@ -78,7 +107,7 @@ impl Default for Camera3dBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             camera_3d: Default::default(),
-            tonemapping: Tonemapping::ReinhardLuminance,
+            tonemapping: Default::default(),
             dither: DebandDither::Enabled,
             color_grading: ColorGrading::default(),
         }

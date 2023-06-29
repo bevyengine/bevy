@@ -44,6 +44,8 @@ use std::{
 pub struct ArchetypeRow(u32);
 
 impl ArchetypeRow {
+    /// Index indicating an invalid archetype row.
+    /// This is meant to be used as a placeholder.
     pub const INVALID: ArchetypeRow = ArchetypeRow(u32::MAX);
 
     /// Creates a `ArchetypeRow`.
@@ -349,6 +351,7 @@ impl Archetype {
         self.table_id
     }
 
+    /// Fetches the entities contained in this archetype.
     #[inline]
     pub fn entities(&self) -> &[ArchetypeEntity] {
         &self.entities
@@ -596,7 +599,7 @@ impl SparseSetIndex for ArchetypeComponentId {
 /// For more information, see the *[module level documentation]*.
 ///
 /// [`World`]: crate::world::World
-/// [*module level documentation]: crate::archetype
+/// [module level documentation]: crate::archetype
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     pub(crate) archetype_component_count: usize,
@@ -614,6 +617,8 @@ impl Archetypes {
         archetypes
     }
 
+    /// Returns the current archetype generation. This is an ID indicating the current set of archetypes
+    /// that are registered with the world.
     #[inline]
     pub fn generation(&self) -> ArchetypeGeneration {
         ArchetypeGeneration(self.archetypes.len())
@@ -719,6 +724,8 @@ impl Archetypes {
             })
     }
 
+    /// Returns the number of components that are stored in archetypes.
+    /// Note that if some component `T` is stored in more than one archetype, it will be counted once for each archetype it's present in.
     #[inline]
     pub fn archetype_components_len(&self) -> usize {
         self.archetype_component_count

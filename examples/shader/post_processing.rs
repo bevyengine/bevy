@@ -6,6 +6,7 @@
 //! This is a fairly low level example and assumes some familiarity with rendering concepts and wgpu.
 
 use bevy::{
+    asset::ChangeWatcher,
     core_pipeline::{
         clear_color::ClearColorConfig, core_3d,
         fullscreen_vertex_shader::fullscreen_shader_vertex_state,
@@ -29,16 +30,19 @@ use bevy::{
         view::{ExtractedView, ViewTarget},
         RenderApp,
     },
+    utils::Duration,
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            // Hot reloading the shader works correctly
-            watch_for_changes: true,
-            ..default()
-        }))
-        .add_plugin(PostProcessPlugin)
+        .add_plugins((
+            DefaultPlugins.set(AssetPlugin {
+                // Hot reloading the shader works correctly
+                watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
+                ..default()
+            }),
+            PostProcessPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, update_settings))
         .run();
@@ -49,18 +53,19 @@ struct PostProcessPlugin;
 
 impl Plugin for PostProcessPlugin {
     fn build(&self, app: &mut App) {
-        app
+        app.add_plugins((
             // The settings will be a component that lives in the main world but will
             // be extracted to the render world every frame.
             // This makes it possible to control the effect from the main world.
             // This plugin will take care of extracting it automatically.
             // It's important to derive [`ExtractComponent`] on [`PostProcessingSettings`]
             // for this plugin to work correctly.
-            .add_plugin(ExtractComponentPlugin::<PostProcessSettings>::default())
+            ExtractComponentPlugin::<PostProcessSettings>::default(),
             // The settings will also be the data used in the shader.
             // This plugin will prepare the component for the GPU by creating a uniform buffer
             // and writing the data to that buffer every frame.
-            .add_plugin(UniformComponentPlugin::<PostProcessSettings>::default());
+            UniformComponentPlugin::<PostProcessSettings>::default(),
+        ));
 
         // We need to get the render app from the main app
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -68,8 +73,6 @@ impl Plugin for PostProcessPlugin {
         };
 
         render_app
-            // Initialize the pipeline
-            .init_resource::<PostProcessPipeline>()
             // Bevy's renderer uses a render graph which is a collection of nodes in a directed acyclic graph.
             // It currently runs on each view/camera and executes each node in the specified order.
             // It will make sure that any node that needs a dependency from another node
@@ -96,6 +99,17 @@ impl Plugin for PostProcessPlugin {
                     core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
                 ],
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        // We need to get the render app from the main app
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            // Initialize the pipeline
+            .init_resource::<PostProcessPipeline>();
     }
 }
 

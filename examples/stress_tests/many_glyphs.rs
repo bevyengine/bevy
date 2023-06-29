@@ -14,15 +14,17 @@ use bevy::{
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            present_mode: PresentMode::Immediate,
+    app.add_plugins((
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: PresentMode::Immediate,
+                ..default()
+            }),
             ..default()
         }),
-        ..default()
-    }))
-    .add_plugin(FrameTimeDiagnosticsPlugin::default())
-    .add_plugin(LogDiagnosticsPlugin::default())
+        FrameTimeDiagnosticsPlugin,
+        LogDiagnosticsPlugin::default(),
+    ))
     .add_systems(Startup, setup);
 
     if std::env::args().any(|arg| arg == "recompute-text") {
@@ -63,7 +65,7 @@ fn setup(mut commands: Commands) {
             commands.spawn(TextBundle {
                 text: text.clone(),
                 style: Style {
-                    size: Size::width(Val::Px(1000.)),
+                    width: Val::Px(1000.),
                     ..Default::default()
                 },
                 ..Default::default()

@@ -1,14 +1,14 @@
 use crate::{DynamicScene, Scene};
-use bevy_app::AppTypeRegistry;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
     event::{Events, ManualEventReader},
+    reflect::AppTypeRegistry,
     system::{Command, Resource},
     world::{Mut, World},
 };
 use bevy_hierarchy::{AddChild, Parent};
-use bevy_utils::{tracing::error, HashMap};
+use bevy_utils::{tracing::error, HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -284,7 +284,7 @@ impl SceneSpawner {
                             parent,
                             child: entity,
                         }
-                        .write(world);
+                        .apply(world);
                     }
                 }
             } else {
@@ -316,6 +316,26 @@ impl SceneSpawner {
 
 pub fn scene_spawner_system(world: &mut World) {
     world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
+        // remove any loading instances where parent is deleted
+        let mut dead_instances = HashSet::default();
+        scene_spawner
+            .scenes_with_parent
+            .retain(|(instance, parent)| {
+                let retain = world.get_entity(*parent).is_some();
+
+                if !retain {
+                    dead_instances.insert(*instance);
+                }
+
+                retain
+            });
+        scene_spawner
+            .dynamic_scenes_to_spawn
+            .retain(|(_, instance)| !dead_instances.contains(instance));
+        scene_spawner
+            .scenes_to_spawn
+            .retain(|(_, instance)| !dead_instances.contains(instance));
+
         let scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
 
         let mut updated_spawned_scenes = Vec::new();
