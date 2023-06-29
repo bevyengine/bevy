@@ -946,7 +946,7 @@ impl App {
     pub fn edit_schedule(
         &mut self,
         label: impl ScheduleLabel,
-        mut f: impl FnMut(&mut Schedule),
+        f: impl FnOnce(&mut Schedule),
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
