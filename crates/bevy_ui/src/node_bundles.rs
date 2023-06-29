@@ -172,7 +172,7 @@ pub struct TextBundle {
     /// Text layout information
     pub text_layout_info: TextLayoutInfo,
     /// Text system flags
-    pub text_flags: crate::widget::TextFlags,
+    pub text_flags: TextFlags,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
     /// Whether this node should block interaction with lower nodes
