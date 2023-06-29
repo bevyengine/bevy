@@ -34,9 +34,7 @@ use bevy_ecs::{
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
     },
 };
-use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypePath, TypeUuid,
-};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
 use bevy_render::{
     color::Color,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -199,8 +197,8 @@ pub struct AabbGizmoConfig {
 }
 
 /// Add this [`Component`] to an entity to draw its [`Aabb`] component.
-#[derive(Component, Reflect, FromReflect, Default, Debug)]
-#[reflect(Component, FromReflect, Default)]
+#[derive(Component, Reflect, Default, Debug)]
+#[reflect(Component, Default)]
 pub struct AabbGizmo {
     /// The color of the box.
     ///

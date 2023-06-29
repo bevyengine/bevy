@@ -429,7 +429,7 @@ mod tests {
     use bevy_ecs::query::{With, Without};
     use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
     use bevy_ecs::world::FromWorld;
-    use bevy_reflect::{FromReflect, Reflect, ReflectSerialize};
+    use bevy_reflect::{Reflect, ReflectSerialize};
     use bincode::Options;
     use serde::de::DeserializeSeed;
     use serde::Serialize;
@@ -453,7 +453,7 @@ mod tests {
         baz: MyEnum,
     }
 
-    #[derive(Reflect, FromReflect, Default)]
+    #[derive(Reflect, Default)]
     enum MyEnum {
         #[default]
         Unit,
