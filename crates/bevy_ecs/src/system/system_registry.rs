@@ -294,7 +294,6 @@ mod tests {
     #[test]
     fn command_processing() {
         let mut world = World::new();
-        world.init_resource::<Counter>();
         assert_eq!(world.entities.len(), 0);
         world.run_system(spawn_entity);
         assert_eq!(world.entities.len(), 1);
@@ -363,6 +362,18 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(4));
         world.run_system(doubling);
         assert_eq!(*world.resource::<Counter>(), Counter(8));
+    }
+
+    #[test]
+    fn unregistered_system_command() {
+        fn command_system(mut commands: Commands) {
+            commands.run_system(spawn_entity);
+        }
+
+        let mut world = World::new();
+        assert_eq!(world.entities.len(), 0);
+        world.run_system(command_system);
+        assert_eq!(world.entities.len(), 1)
     }
 
     #[test]
