@@ -172,7 +172,9 @@ impl Camera {
     ///
     /// Returns `None` if both:
     /// - The viewport is not set
-    /// - The render target is not set
+    /// - Bevy has not set the render target. This can happen if:
+    ///   - The function is called just after the `Camera` is created, before `camera_system` is executed
+    ///   - The target isn't correctly set (for example it points to an image that doesn't exist)
     #[inline]
     pub fn logical_viewport_size(&self) -> Option<Vec2> {
         self.viewport
@@ -226,7 +228,9 @@ impl Camera {
     /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. This can happen if both:
     ///   - The viewport is not set
-    ///   - The render target is not set
+    ///   - Bevy has not set the render target. This can happen if:
+    ///     - The function is called just after the `Camera` is created, before `camera_system` is executed
+    ///     - The target isn't correctly set (for example it points to an image that doesn't exist)
     /// - The projection matrix is invalid
     /// - The camera transform is invalid or cannot be inverted
     /// - The world position is invalid
@@ -263,7 +267,9 @@ impl Camera {
     /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. This can happen if both:
     ///   - The viewport is not set
-    ///   - The render target is not set
+    ///   - Bevy has not set the render target. This can happen if:
+    ///     - The function is called just after the `Camera` is created, before `camera_system` is executed
+    ///     - The target isn't correctly set (for example it points to an image that doesn't exist)
     /// - The near or far plane cannot be computed. This can happen if:
     ///   - The projection matrix is invalid or cannot be inverted
     ///   - The camera transform is invalid
@@ -300,7 +306,9 @@ impl Camera {
     /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. This can happen if both:
     ///   - The viewport is not set
-    ///   - The render target is not set
+    ///   - Bevy has not set the render target. This can happen if:
+    ///     - The function is called just after the `Camera` is created, before `camera_system` is executed
+    ///     - The target isn't correctly set (for example it points to an image that doesn't exist)
     /// - The viewport position cannot be mapped to the world. This can happen if:
     ///   - The projection matrix is invalid or cannot be inverted
     ///   - The camera transform is invalid
