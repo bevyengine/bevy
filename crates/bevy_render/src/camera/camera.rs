@@ -170,7 +170,7 @@ impl Camera {
     ///  For logic that requires the full logical size of the
     /// [`RenderTarget`], prefer [`Camera::logical_target_size`].
     ///
-    /// Returns None if both:
+    /// Returns `None` if both:
     /// - The viewport is not set
     /// - The render target is not set
     #[inline]
@@ -223,7 +223,7 @@ impl Camera {
     /// To get the coordinates in Normalized Device Coordinates, you should use
     /// [`world_to_ndc`](Self::world_to_ndc).
     ///
-    /// Returns None if any of these conditions occur:
+    /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. This can happen if both:
     ///   - The viewport is not set
     ///   - The render target is not set
@@ -260,7 +260,7 @@ impl Camera {
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
     ///
-    /// Returns None if any of these conditions occur:
+    /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. This can happen if both:
     ///   - The viewport is not set
     ///   - The render target is not set
@@ -297,7 +297,7 @@ impl Camera {
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
     ///
-    /// Returns None if any of these conditions occur:
+    /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. This can happen if both:
     ///   - The viewport is not set
     ///   - The render target is not set
@@ -327,7 +327,7 @@ impl Camera {
     /// To get the coordinates in the render target's viewport dimensions, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
-    /// Returns None if any of these conditions occur:
+    /// Returns `None` if any of these conditions occur:
     /// - The projection matrix is invalid
     /// - The camera transform is invalid or cannot be inverted
     /// - The world position is invalid
@@ -352,7 +352,7 @@ impl Camera {
     /// To get the world space coordinates with the viewport position, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
-    /// Returns None if any of these conditions occur:
+    /// Returns `None` if any of these conditions occur:
     /// - The projection matrix is invalid or cannot be inverted
     /// - The camera transform is invalid
     /// - The ndc is invalid
