@@ -6,15 +6,10 @@ use bevy::{
     core_pipeline::clear_color::ClearColorConfig, pbr::CascadeShadowConfigBuilder, prelude::*,
     render::camera::Viewport, window::WindowResized,
 };
-use bevy_internal::render::view::RenderLayers;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(GizmoConfig {
-            render_layers: RenderLayers::layer(1),
-            ..Default::default()
-        })
         .add_systems(Startup, setup)
         .add_systems(Update, set_camera_viewports)
         .run();
@@ -81,7 +76,6 @@ fn setup(
             },
             ..default()
         },
-        RenderLayers::from_layers(&[0, 1]),
         RightCamera,
     ));
 }
@@ -97,12 +91,7 @@ fn set_camera_viewports(
     mut resize_events: EventReader<WindowResized>,
     mut left_camera: Query<&mut Camera, (With<LeftCamera>, Without<RightCamera>)>,
     mut right_camera: Query<&mut Camera, With<RightCamera>>,
-    mut gizmos: Gizmos,
 ) {
-    gizmos.cuboid(
-        Transform::IDENTITY.with_scale(Vec3::splat(100.)),
-        Color::GREEN,
-    );
     // We need to dynamically resize the camera's viewports whenever the window size changes
     // so then each camera always takes up half the screen.
     // A resize_event is sent when the window is first created, allowing us to reuse this system for initial setup.
