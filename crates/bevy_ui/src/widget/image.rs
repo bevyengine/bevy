@@ -70,12 +70,10 @@ impl Measure for ImageMeasure {
     }
 }
 
-/// The filter type for `update_image_content_size_system` and `update_atlas_content_size_system`.
 #[cfg(feature = "bevy_text")]
-pub type UpdateImageFilter = (With<Node>, Without<bevy_text::Text>);
-/// The filter type for `update_image_content_size_system` and `update_atlas_content_size_system`.
+type UpdateImageFilter = (With<Node>, Without<bevy_text::Text>);
 #[cfg(not(feature = "bevy_text"))]
-pub type UpdateImageFilter = With<Node>;
+type UpdateImageFilter = With<Node>;
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
