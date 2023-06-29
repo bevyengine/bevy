@@ -34,7 +34,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
         QueryIter {
             query_state,
             // SAFETY: We only access table data that has been registered in `query_state`.
-            tables: &world.unsafe_world().storages().tables,
+            tables: &world.storages().tables,
             archetypes: world.archetypes(),
             cursor: QueryIterationCursor::init(world, query_state, last_run, this_run),
         }
@@ -107,7 +107,7 @@ where
             archetypes: world.archetypes(),
             // SAFETY: We only access table data that has been registered in `query_state`.
             // This means `world` has permission to access the data we use.
-            tables: &world.unsafe_world().storages.tables,
+            tables: &world.storages().tables,
             fetch,
             filter,
             entity_iter: entity_list.into_iter(),
@@ -316,7 +316,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
         QueryCombinationIter {
             query_state,
             // SAFETY: We only access table data that has been registered in `query_state`.
-            tables: &world.unsafe_world().storages().tables,
+            tables: &world.storages().tables,
             archetypes: world.archetypes(),
             cursors: array.assume_init(),
         }

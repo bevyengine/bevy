@@ -4,7 +4,7 @@ use crate::{
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::TextureView,
-    view::{ColorGrading, ExtractedView, ExtractedWindows, VisibleEntities},
+    view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
     Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -21,7 +21,6 @@ use bevy_ecs::{
 use bevy_log::warn;
 use bevy_math::{Mat4, Ray, Rect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
-use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
@@ -35,7 +34,7 @@ use wgpu::{BlendState, Extent3d, LoadOp, TextureFormat};
 /// The viewport defines the area on the render target to which the camera renders its image.
 /// You can overlay multiple cameras in a single window using viewports to create effects like
 /// split screen, minimaps, and character viewers.
-#[derive(Reflect, FromReflect, Debug, Clone)]
+#[derive(Reflect, Debug, Clone)]
 #[reflect(Default)]
 pub struct Viewport {
     /// The physical position to render this viewport to within the [`RenderTarget`] of this [`Camera`].
@@ -86,7 +85,7 @@ pub struct ComputedCameraValues {
 ///
 /// Adding a camera is typically done by adding a bundle, either the `Camera2dBundle` or the
 /// `Camera3dBundle`.
-#[derive(Component, Debug, Reflect, FromReflect, Clone)]
+#[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
@@ -377,8 +376,7 @@ impl CameraRenderGraph {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`](bevy_window::Window)
 /// swapchain or an [`Image`].
-#[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(FromReflect)]
+#[derive(Debug, Clone, Reflect)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),
@@ -615,6 +613,7 @@ pub fn extract_cameras(
             &VisibleEntities,
             Option<&ColorGrading>,
             Option<&TemporalJitter>,
+            Option<&RenderLayers>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -628,6 +627,7 @@ pub fn extract_cameras(
         visible_entities,
         color_grading,
         temporal_jitter,
+        render_layers,
     ) in query.iter()
     {
         let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
@@ -678,6 +678,10 @@ pub fn extract_cameras(
 
             if let Some(temporal_jitter) = temporal_jitter {
                 commands.insert(temporal_jitter.clone());
+            }
+
+            if let Some(render_layers) = render_layers {
+                commands.insert(*render_layers);
             }
         }
     }
