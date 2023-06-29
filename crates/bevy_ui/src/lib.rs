@@ -50,7 +50,11 @@ use update::update_clipping_system;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
-pub struct UiPlugin;
+pub struct UiPlugin {
+    /// When set to true, UI rendering won't be added to the `RenderApp` and the UI will not be shown.
+    /// The UI layout and interaction components will still be updated as normal.
+    pub disable_ui_rendering: bool,
+}
 
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -173,15 +177,19 @@ impl Plugin for UiPlugin {
             ),
         );
 
-        crate::render::build_ui_render(app);
+        if !self.disable_ui_rendering {
+            crate::render::build_ui_render(app);
+        }
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
-        };
+        if !self.disable_ui_rendering {
+            let render_app = match app.get_sub_app_mut(RenderApp) {
+                Ok(render_app) => render_app,
+                Err(_) => return,
+            };
 
-        render_app.init_resource::<UiPipeline>();
+            render_app.init_resource::<UiPipeline>();
+        }
     }
 }
