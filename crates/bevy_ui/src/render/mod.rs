@@ -160,7 +160,7 @@ pub struct ExtractedUiNode {
     pub flip_x: bool,
     pub flip_y: bool,
     pub corner_radius: [f32; 4],
-    pub thickness: [f32; 4],
+    pub border: [f32; 4],
     pub invert: bool,
 }
 
@@ -171,6 +171,7 @@ pub struct ExtractedUiNodes {
 
 pub fn extract_atlas_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     images: Extract<Res<Assets<Image>>>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     ui_scale: Extract<Res<UiScale>>,
@@ -191,6 +192,11 @@ pub fn extract_atlas_uinodes(
         >,
     >,
 ) {
+    let viewport_size = windows
+        .get_single()
+        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .unwrap_or(Vec2::ZERO);
+
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((
             uinode,
@@ -250,14 +256,15 @@ pub fn extract_atlas_uinodes(
                 atlas_size: Some(atlas_size),
                 flip_x: atlas_image.flip_x,
                 flip_y: atlas_image.flip_y,
-                corner_radius: corner_radius.resolve(uinode.calculated_size, ui_scale.scale),
+                corner_radius: resolve_corner_radius(corner_radius, uinode.calculated_size, viewport_size, ui_scale.scale),
                 invert: false,
-                thickness: [0.; 4],
+                border: [0.; 4],
             });
         }
     }
 }
 
+#[inline]
 fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
     match value {
         Val::Auto => 0.,
@@ -268,6 +275,26 @@ fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) 
         Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
         Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
     }
+}
+
+#[inline]
+fn resolve_corner_radius(&values: &UiCornerRadius, node_size: Vec2, viewport_size: Vec2, ui_scale: f64) -> [f32; 4] {
+    <[Val; 4]>::from(values).map(|value| {
+        let px_val = match value {
+            Val::Auto => 0.,
+            Val::Px(px) => ui_scale as f32 * px.max(0.),
+            Val::Percent(percent) => (node_size.min_element() * percent / 100.).max(0.),
+            Val::Vw(percent) => (viewport_size.x * percent / 100.).max(0.),
+            Val::Vh(percent) => (viewport_size.y * percent / 100.).max(0.),
+            Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
+            Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
+        };
+        if px_val <= 0. {
+            0.
+        } else {
+            px_val.min(0.5 * node_size.min_element()) * ui_scale as f32
+        }
+    })
 }
 
 pub fn extract_uinode_borders(
@@ -297,7 +324,7 @@ pub fn extract_uinode_borders(
     let viewport_size = windows
         .get_single()
         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(Vec2::ZERO);
+        .unwrap_or(Vec2::ZERO) * ui_scale.scale as f32;
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((
@@ -331,9 +358,6 @@ pub fn extract_uinode_borders(
             let top = resolve_border_thickness(style.border.top, parent_width, viewport_size);
             let bottom = resolve_border_thickness(style.border.bottom, parent_width, viewport_size);
 
-            let resolved_corner_radius =
-                corner_radius.resolve(node.calculated_size, ui_scale.scale);
-
             let transform = global_transform.compute_matrix();
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
@@ -349,9 +373,9 @@ pub fn extract_uinode_borders(
                 clip: clip.map(|clip| clip.clip),
                 flip_x: false,
                 flip_y: false,
-                corner_radius: resolved_corner_radius,
+                corner_radius: resolve_corner_radius(corner_radius, node.calculated_size, viewport_size, ui_scale.scale),
                 invert: true,
-                thickness: [left, top, right, bottom],
+                border: [left, top, right, bottom],
             });
         }
     }
@@ -359,6 +383,7 @@ pub fn extract_uinode_borders(
 
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     images: Extract<Res<Assets<Image>>>,
     ui_stack: Extract<Res<UiStack>>,
     ui_scale: Extract<Res<UiScale>>,
@@ -378,6 +403,11 @@ pub fn extract_uinodes(
     >,
 ) {
     extracted_uinodes.uinodes.clear();
+
+    let viewport_size = windows
+        .get_single()
+        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .unwrap_or(Vec2::ZERO) * ui_scale.scale as f32;
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip, corner_radius)) =
@@ -411,9 +441,9 @@ pub fn extract_uinodes(
                 atlas_size: None,
                 flip_x,
                 flip_y,
-                corner_radius: corner_radius.resolve(uinode.calculated_size, ui_scale.scale),
+                corner_radius: resolve_corner_radius(corner_radius, uinode.calculated_size, viewport_size, ui_scale.scale),
                 invert: false,
-                thickness: [0.; 4],
+                border: [0.; 4],
             });
         };
     }
@@ -544,7 +574,7 @@ pub fn extract_text_uinodes(
                     flip_y: false,
                     corner_radius: [0.; 4],
                     invert: false,
-                    thickness: [0.; 4],
+                    border: [0.; 4],
                 });
             }
         }
@@ -559,7 +589,7 @@ struct UiVertex {
     pub color: [f32; 4],
     pub mode: u32,
     pub radius: [f32; 4],
-    pub thickness: [f32; 4],
+    pub border: [f32; 4],
     pub size: [f32; 2],
 }
 
@@ -745,7 +775,7 @@ pub fn prepare_uinodes(
                 color,
                 mode: if extracted_uinode.invert { 2 } else { mode },
                 radius: extracted_uinode.corner_radius,
-                thickness: extracted_uinode.thickness,
+                border: extracted_uinode.border,
                 size: extracted_uinode
                     .atlas_size
                     .unwrap_or_else(|| transformed_rect_size.xy())

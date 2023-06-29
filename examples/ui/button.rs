@@ -77,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    corner_radius: UiCornerRadius::all(10.),
+                    corner_radius: UiCornerRadius::all(Val::Px(10.)),
                     border_color: BorderColor(Color::BLACK),
                     background_color: NORMAL_BUTTON.into(),
                     ..default()

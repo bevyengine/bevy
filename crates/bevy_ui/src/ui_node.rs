@@ -1690,26 +1690,15 @@ impl Default for ZIndex {
 #[derive(Component, Copy, Clone, Debug, Default, Reflect, FromReflect)]
 #[reflect(Component, FromReflect)]
 pub struct UiCornerRadius {
-    top_left: f32,
-    top_right: f32,
-    bottom_left: f32,
-    bottom_right: f32,
+    pub top_left: Val,
+    pub top_right: Val,
+    pub bottom_left: Val,
+    pub bottom_right: Val,
 }
 
 impl UiCornerRadius {
     #[inline]
-    pub fn resolve(self, size: Vec2, ui_scale: f64) -> [f32; 4] {
-        <[f32; 4]>::from(self).map(|r| {
-            if r <= 0. {
-                0.
-            } else {
-                r.min(0.5 * size.min_element()) * ui_scale as f32
-            }
-        })
-    }
-
-    #[inline]
-    pub fn all(radius: f32) -> Self {
+    pub fn all(radius: Val) -> Self {
         Self {
             top_right: radius,
             bottom_right: radius,
@@ -1719,7 +1708,7 @@ impl UiCornerRadius {
     }
 
     #[inline]
-    pub fn new(top_right: f32, bottom_right: f32, bottom_left: f32, top_left: f32) -> Self {
+    pub fn new(top_right: Val, bottom_right: Val, bottom_left: Val, top_left: Val) -> Self {
         Self {
             top_right,
             bottom_right,
@@ -1729,7 +1718,17 @@ impl UiCornerRadius {
     }
 
     #[inline]
-    pub fn top_right(radius: f32) -> Self {
+    pub fn px(top_right: f32, bottom_right: f32, bottom_left: f32, top_left: f32) -> Self {
+            Self {
+                top_right: Val::Px(top_right),
+                bottom_right: Val::Px(bottom_right),
+                bottom_left: Val::Px(bottom_left),
+                top_left: Val::Px(top_left),
+            }
+        }
+
+    #[inline]
+    pub fn top_right(radius: Val) -> Self {
         Self {
             top_right: radius,
             ..Default::default()
@@ -1737,7 +1736,7 @@ impl UiCornerRadius {
     }
 
     #[inline]
-    pub fn bottom_right(radius: f32) -> Self {
+    pub fn bottom_right(radius: Val) -> Self {
         Self {
             bottom_right: radius,
             ..Default::default()
@@ -1745,7 +1744,7 @@ impl UiCornerRadius {
     }
 
     #[inline]
-    pub fn bottom_left(radius: f32) -> Self {
+    pub fn bottom_left(radius: Val) -> Self {
         Self {
             bottom_left: radius,
             ..Default::default()
@@ -1753,7 +1752,7 @@ impl UiCornerRadius {
     }
 
     #[inline]
-    pub fn top_left(radius: f32) -> Self {
+    pub fn top_left(radius: Val) -> Self {
         Self {
             top_left: radius,
             ..Default::default()
@@ -1761,7 +1760,7 @@ impl UiCornerRadius {
     }
 
     #[inline]
-    pub fn left(radius: f32) -> Self {
+    pub fn left(radius: Val) -> Self {
         Self {
             bottom_left: radius,
             top_left: radius,
@@ -1770,7 +1769,7 @@ impl UiCornerRadius {
     }
 
     #[inline]
-    pub fn right(radius: f32) -> Self {
+    pub fn right(radius: Val) -> Self {
         Self {
             bottom_right: radius,
             top_right: radius,
@@ -1779,7 +1778,7 @@ impl UiCornerRadius {
     }
 
     #[inline]
-    pub fn top(radius: f32) -> Self {
+    pub fn top(radius: Val) -> Self {
         Self {
             top_left: radius,
             top_right: radius,
@@ -1788,7 +1787,7 @@ impl UiCornerRadius {
     }
 
     #[inline]
-    pub fn bottom(radius: f32) -> Self {
+    pub fn bottom(radius: Val) -> Self {
         Self {
             bottom_left: radius,
             bottom_right: radius,
@@ -1797,7 +1796,7 @@ impl UiCornerRadius {
     }
 }
 
-impl From<UiCornerRadius> for [f32; 4] {
+impl From<UiCornerRadius> for [Val; 4] {
     fn from(value: UiCornerRadius) -> Self {
         [
             value.top_right,

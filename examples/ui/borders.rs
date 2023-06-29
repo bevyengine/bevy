@@ -92,16 +92,23 @@ fn setup(mut commands: Commands) {
                     ..Default::default()
                 },
                 background_color: Color::YELLOW.into(),
-                corner_radius: UiCornerRadius::all(5.),
+                corner_radius: UiCornerRadius::all(Val::Px(5.)),
                 ..Default::default()
             })
             .id();
+        let border =  borders[i % borders.len()];
+        let corner_radius = UiCornerRadius::px(
+            if border.right != Val::Px(0.) && border.top != Val::Px(0.) { f32::MAX } else { 0. },
+            if border.right != Val::Px(0.) && border.bottom != Val::Px(0.) { f32::MAX } else { 0. },
+            if border.left != Val::Px(0.) && border.bottom != Val::Px(0.) { f32::MAX } else { 0. },
+            if border.left != Val::Px(0.) && border.top != Val::Px(0.) { f32::MAX } else { 0. },
+        );
         let bordered_node = commands
             .spawn(NodeBundle {
                 style: Style {
                     width: Val::Px(50.),
                     height: Val::Px(50.),
-                    border: borders[i % borders.len()],
+                    border,
                     margin: UiRect::all(Val::Px(2.)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
@@ -109,7 +116,7 @@ fn setup(mut commands: Commands) {
                 },
                 background_color: Color::MAROON.into(),
                 border_color: Color::CRIMSON.into(),
-                corner_radius: UiCornerRadius::all(f32::MAX),
+                corner_radius,
                 ..Default::default()
             })
             .add_child(inner_spot)

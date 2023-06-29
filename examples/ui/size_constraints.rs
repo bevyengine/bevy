@@ -90,7 +90,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 margin: UiRect::top(Val::Px(50.)),
                                 ..Default::default()
                             },
-                            corner_radius: UiCornerRadius::all(25.),
+                            corner_radius: UiCornerRadius::all(Val::Px(25.)),
                             border_color: Color::YELLOW.into(),
                             background_color: Color::BLACK.into(),
                             ..Default::default()
@@ -118,7 +118,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                 padding: UiRect::all(Val::Px(10.)),
                 ..Default::default()
             },
-            corner_radius: UiCornerRadius::all(f32::MAX),
+            corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
             background_color: Color::YELLOW.into(),
             ..Default::default()
         })
@@ -132,7 +132,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                         padding: UiRect::all(Val::Px(4.)),
                         ..Default::default()
                     },
-                    corner_radius: UiCornerRadius::all(f32::MAX),
+                    corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                     background_color: Color::BLACK.into(),
                     ..Default::default()
                 })
@@ -143,7 +143,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                                 ..Default::default()
                             },
                             background_color: Color::WHITE.into(),
-                            corner_radius: UiCornerRadius::all(f32::MAX),
+                            corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                             ..Default::default()
                         },
                         Bar,
@@ -250,7 +250,7 @@ fn spawn_button(
                     margin: UiRect::horizontal(Val::Px(2.)),
                     ..Default::default()
                 },
-                corner_radius: UiCornerRadius::all(f32::MAX),
+                corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                 background_color: if active {
                     ACTIVE_BORDER_COLOR
                 } else {
@@ -270,7 +270,7 @@ fn spawn_button(
                         justify_content: JustifyContent::Center,
                         ..Default::default()
                     },
-                    corner_radius: UiCornerRadius::all(f32::MAX),
+                    corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                     background_color: if active {
                         ACTIVE_INNER_COLOR
                     } else {
