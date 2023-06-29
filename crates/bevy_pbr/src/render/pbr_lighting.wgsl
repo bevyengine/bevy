@@ -1,5 +1,9 @@
 #define_import_path bevy_pbr::lighting
 
+#import bevy_pbr::utils PI
+#import bevy_pbr::mesh_view_types as view_types
+#import bevy_pbr::mesh_view_bindings as view_bindings
+
 // From the Filament design doc
 // https://google.github.io/filament/Filament.html#table_symbols
 // Symbol Definition
@@ -180,7 +184,7 @@ fn point_light(
     f_ab: vec2<f32>,
     diffuseColor: vec3<f32>
 ) -> vec3<f32> {
-    let light = &point_lights.data[light_id];
+    let light = &view_bindings::point_lights.data[light_id];
     let light_to_frag = (*light).position_radius.xyz - world_position.xyz;
     let distance_square = dot(light_to_frag, light_to_frag);
     let rangeAttenuation = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
@@ -244,12 +248,12 @@ fn spot_light(
     // reuse the point light calculations
     let point_light = point_light(world_position, light_id, roughness, NdotV, N, V, R, F0, f_ab, diffuseColor);
 
-    let light = &point_lights.data[light_id];
+    let light = &view_bindings::point_lights.data[light_id];
 
     // reconstruct spot dir from x/z and y-direction flag
     var spot_dir = vec3<f32>((*light).light_custom_data.x, 0.0, (*light).light_custom_data.y);
     spot_dir.y = sqrt(max(0.0, 1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z));
-    if ((*light).flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u {
+    if ((*light).flags & view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u {
         spot_dir.y = -spot_dir.y;
     }
     let light_to_frag = (*light).position_radius.xyz - world_position.xyz;
@@ -265,7 +269,7 @@ fn spot_light(
 }
 
 fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, f_ab: vec2<f32>, diffuseColor: vec3<f32>) -> vec3<f32> {
-    let light = &lights.directional_lights[light_id];
+    let light = &view_bindings::lights.directional_lights[light_id];
 
     let incident_light = (*light).direction_to_light.xyz;
 

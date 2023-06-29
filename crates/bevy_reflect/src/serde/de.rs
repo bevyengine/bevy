@@ -8,7 +8,8 @@ use crate::{
 };
 use erased_serde::Deserializer;
 use serde::de::{
-    self, DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor,
+    self, DeserializeSeed, EnumAccess, Error, IgnoredAny, MapAccess, SeqAccess, VariantAccess,
+    Visitor,
 };
 use serde::Deserialize;
 use std::any::TypeId;
@@ -322,11 +323,17 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
     {
         let registration = map
             .next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
-            .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?;
+            .ok_or_else(|| Error::invalid_length(0, &"a single entry"))?;
+
         let value = map.next_value_seed(TypedReflectDeserializer {
             registration,
             registry: self.registry,
         })?;
+
+        if map.next_key::<IgnoredAny>()?.is_some() {
+            return Err(Error::invalid_length(2, &"a single entry"));
+        }
+
         Ok(value)
     }
 }
