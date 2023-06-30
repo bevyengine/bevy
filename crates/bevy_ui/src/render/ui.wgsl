@@ -94,7 +94,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         // Textured rect
         case default, 0u: {
             let distance = sd_rounded_rect(point, in.size, in.radius);
-            return in.color * color;
+            return mix(vec4<f32>(0.0), in.color, smoothstep(-1.0, 1.0, distance));
         }
         // Untextured rect
         case 1u: {

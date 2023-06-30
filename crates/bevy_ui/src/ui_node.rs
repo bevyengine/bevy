@@ -1719,8 +1719,8 @@ impl Default for ZIndex {
 /// Radius for rounded corner edges.
 /// If set to 0 the corners will be unrounded.
 /// The value is clamped to between 0 and half the length of the shortest side of the node before being used.
-#[derive(Copy, Clone, Debug, PartialEq, Reflect, FromReflect)]
-#[reflect(FromReflect, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(PartialEq)]
 pub struct UiBorderRadius {
     pub top_left: Val,
     pub top_right: Val,
