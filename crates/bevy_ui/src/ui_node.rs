@@ -601,6 +601,7 @@ pub struct Style {
     ///         // The bottom right corner will be unrounded.
     ///         ..Default::default()
     ///     },
+    ///     ..Default::default()
     /// };
     /// ```
     ///
