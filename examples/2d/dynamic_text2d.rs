@@ -87,16 +87,19 @@ fn handle_button(
                             text.sections[0] =
                                 TextSection::new("Anchor::BottomLeft", text_style.style.clone());
                         }
+
                         Anchor::BottomLeft => {
                             *anchor = Anchor::TopLeft;
                             text.sections[0] =
                                 TextSection::new("Anchor::TopLeft", text_style.style.clone());
                         }
+
                         Anchor::TopLeft => {
                             *anchor = Anchor::TopRight;
                             text.sections[0] =
                                 TextSection::new("Anchor::TopRight", text_style.style.clone());
                         }
+
                         Anchor::TopRight => {
                             *anchor = Anchor::BottomRight;
                             text.sections[0] =
@@ -106,8 +109,7 @@ fn handle_button(
                     }
                 }
             }
-            Interaction::None => {}
-            Interaction::Hovered => {}
+            Interaction::None | Interaction::Hovered => {}
         }
     }
 }
@@ -143,7 +145,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut config: Res
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("Hello, Center!", text_style.clone())
+            text: Text::from_section("Hello, Center!", text_style)
                 .with_alignment(TextAlignment::Center),
             text_anchor: Anchor::Center,
             ..default()
@@ -161,6 +163,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut config: Res
         transform: Transform::from_xyz(250.0, -250.0, 0.0),
         ..default()
     });
+
     commands
         .spawn(NodeBundle {
             style: Style {
