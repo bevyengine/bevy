@@ -2,6 +2,9 @@
 //!
 //! To start the demo without text run
 //! `cargo run --example many_buttons --release no-text`
+//! 
+//! //! To start the demo without borders run
+//! `cargo run --example many_buttons --release no-borders`
 //!
 //| To do a full layout update each frame run
 //! `cargo run --example many_buttons --release recompute-layout`
@@ -87,10 +90,15 @@ fn setup(mut commands: Commands) {
         })
         .with_children(|commands| {
             let spawn_text = std::env::args().all(|arg| arg != "no-text");
+            let (border, border_color) = if std::env::args().all(|arg| arg != "no-borders") {
+                (UiRect::DEFAULT, Color::NONE)
+            } else {
+                (UiRect::all(Val::Percent(10.)), Color::WHITE)
+            };
             for i in 0..count {
                 for j in 0..count {
                     let color = as_rainbow(j % i.max(1)).into();
-                    spawn_button(commands, color, count_f, i, j, spawn_text);
+                    spawn_button(commands, color, count_f, i, j, spawn_text, border, border_color);
                 }
             }
         });
@@ -103,6 +111,8 @@ fn spawn_button(
     i: usize,
     j: usize,
     spawn_text: bool,
+    border: UiRect,
+    border_color: Color,
 ) {
     let width = 90.0 / total;
     let mut builder = commands.spawn((
@@ -114,9 +124,11 @@ fn spawn_button(
                 left: Val::Percent(100.0 / total * j as f32),
                 align_items: AlignItems::Center,
                 position_type: PositionType::Absolute,
+                border,
                 ..default()
             },
             background_color: color,
+            border_color: border_color.into(),
             ..default()
         },
         IdleColor(color),
