@@ -12,7 +12,7 @@ use bevy_ecs::{
     system::{Local, Query, Res},
 };
 use bevy_math::Vec2;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
@@ -22,8 +22,8 @@ use bevy_window::{PrimaryWindow, Window};
 /// The size of the image's texture
 ///
 /// This component is updated automatically by [`update_image_content_size_system`]
-#[derive(Component, Debug, Copy, Clone, Default, Reflect, FromReflect)]
-#[reflect(Component, Default, FromReflect)]
+#[derive(Component, Debug, Copy, Clone, Default, Reflect)]
+#[reflect(Component, Default)]
 pub struct UiImageSize {
     /// The size of the image's texture
     ///

@@ -30,7 +30,7 @@ pub mod node;
 use std::cmp::Reverse;
 
 use bevy_ecs::prelude::*;
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::Reflect;
 use bevy_render::{
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
@@ -43,19 +43,16 @@ pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
 
 /// If added to a [`crate::prelude::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
-#[derive(Component, Default, Reflect, FromReflect)]
-#[reflect(FromReflect)]
+#[derive(Component, Default, Reflect)]
 pub struct DepthPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
 /// Normals will have normal map textures already applied.
-#[derive(Component, Default, Reflect, FromReflect)]
-#[reflect(FromReflect)]
+#[derive(Component, Default, Reflect)]
 pub struct NormalPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then screen space motion vectors will be copied to a separate texture available to the main pass.
-#[derive(Component, Default, Reflect, FromReflect)]
-#[reflect(FromReflect)]
+#[derive(Component, Default, Reflect)]
 pub struct MotionVectorPrepass;
 
 /// Textures that are written to by the prepass.

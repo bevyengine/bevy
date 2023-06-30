@@ -1,7 +1,7 @@
 use crate as bevy_reflect;
 use crate::prelude::ReflectDefault;
 use crate::{ReflectDeserialize, ReflectSerialize};
-use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_struct, impl_reflect_value};
+use bevy_reflect_derive::{impl_reflect_struct, impl_reflect_value};
 use glam::*;
 
 impl_reflect_struct!(
@@ -269,9 +269,6 @@ impl_reflect_value!(::glam::DQuat(
     Deserialize,
     Default
 ));
-
-impl_from_reflect_value!(Quat);
-impl_from_reflect_value!(DQuat);
 
 impl_reflect_value!(::glam::EulerRot(Debug, Default));
 impl_reflect_value!(::glam::BVec3A(Debug, Default));
