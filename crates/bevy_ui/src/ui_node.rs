@@ -1716,9 +1716,10 @@ impl Default for ZIndex {
     }
 }
 
-/// Radius for rounded corner edges.
-/// If set to 0 the corners will be unrounded.
-/// The value is clamped to between 0 and half the length of the shortest side of the node before being used.
+/// Radii for rounded corner edges.
+/// * A corner set to a 0 value will be right angled.
+/// * The value is clamped to between 0 and half the length of the shortest side of the node before being used.
+/// * `Val::AUTO` is resolved to `Val::Px(0.)`.
 #[derive(Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq)]
 pub struct UiBorderRadius {
@@ -1743,6 +1744,7 @@ impl UiBorderRadius {
     };
 
     #[inline]
+    /// Uniform curvature.
     pub fn all(radius: Val) -> Self {
         Self {
             top_right: radius,
@@ -1750,6 +1752,12 @@ impl UiBorderRadius {
             bottom_left: radius,
             top_left: radius,
         }
+    }
+
+    #[inline]
+    /// Maximum curvature. The Ui Node will take a capsule shape or circular if width and height are equal.
+    pub fn max() -> Self {
+        Self::all(Val::Px(f32::MAX))
     }
 
     #[inline]
@@ -1763,6 +1771,7 @@ impl UiBorderRadius {
     }
 
     #[inline]
+    /// Sets the radii to logical pixel values.
     pub fn px(top_right: f32, bottom_right: f32, bottom_left: f32, top_left: f32) -> Self {
         Self {
             top_right: Val::Px(top_right),
@@ -1773,6 +1782,20 @@ impl UiBorderRadius {
     }
 
     #[inline]
+    /// Sets the radii to percentage values.
+    pub fn percent(top_right: f32, bottom_right: f32, bottom_left: f32, top_left: f32) -> Self {
+        Self {
+            top_right: Val::Px(top_right),
+            bottom_right: Val::Px(bottom_right),
+            bottom_left: Val::Px(bottom_left),
+            top_left: Val::Px(top_left),
+        }
+    }
+
+
+    #[inline]
+    /// Sets the radius for the top right corner.
+    /// Remaining corners will be right-angled.
     pub fn top_right(radius: Val) -> Self {
         Self {
             top_right: radius,
@@ -1781,6 +1804,8 @@ impl UiBorderRadius {
     }
 
     #[inline]
+    /// Sets the radius for the bottom right corner.
+    /// Remaining corners will be right-angled.
     pub fn bottom_right(radius: Val) -> Self {
         Self {
             bottom_right: radius,
@@ -1789,6 +1814,8 @@ impl UiBorderRadius {
     }
 
     #[inline]
+    /// Sets the radius for the bottom left corner.
+    /// Remaining corners will be right-angled.
     pub fn bottom_left(radius: Val) -> Self {
         Self {
             bottom_left: radius,
@@ -1797,6 +1824,8 @@ impl UiBorderRadius {
     }
 
     #[inline]
+    /// Sets the radius for the top left corner.
+    /// Remaining corners will be right-angled.
     pub fn top_left(radius: Val) -> Self {
         Self {
             top_left: radius,
@@ -1805,6 +1834,8 @@ impl UiBorderRadius {
     }
 
     #[inline]
+    /// Sets the radii for the top left and bottom left corners.
+    /// Remaining corners will be right-angled.
     pub fn left(radius: Val) -> Self {
         Self {
             bottom_left: radius,
@@ -1814,6 +1845,8 @@ impl UiBorderRadius {
     }
 
     #[inline]
+    /// Sets the radii for the top right and bottom right corners.
+    /// Remaining corners will be right-angled.
     pub fn right(radius: Val) -> Self {
         Self {
             bottom_right: radius,
@@ -1823,6 +1856,8 @@ impl UiBorderRadius {
     }
 
     #[inline]
+    /// Sets the radii for the top left and top right corners.
+    /// Remaining corners will be right-angled.
     pub fn top(radius: Val) -> Self {
         Self {
             top_left: radius,
@@ -1832,6 +1867,8 @@ impl UiBorderRadius {
     }
 
     #[inline]
+    /// Sets the radii for the bottom left and bottom right corners.
+    /// Remaining corners will be right-angled.
     pub fn bottom(radius: Val) -> Self {
         Self {
             bottom_left: radius,
