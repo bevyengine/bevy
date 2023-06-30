@@ -520,9 +520,9 @@ fn apply_animation(
         }
         let mut elapsed = animation.elapsed;
 
-        if elapsed > animation_clip.duration && animation.speed > 0.0 {
-            animation.completions += 1;
-        } else if elapsed < 0.0 && animation.speed < 0.0 {
+        if (elapsed > animation_clip.duration && animation.speed > 0.0)
+            || (elapsed < 0.0 && animation.speed < 0.0)
+        {
             animation.completions += 1;
         }
 
