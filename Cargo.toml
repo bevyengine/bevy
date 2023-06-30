@@ -1383,6 +1383,16 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "time"
+path = "examples/ecs/time.rs"
+
+[package.metadata.example.time]
+name = "Time handling"
+description = "Explains how Time is handled in ECS"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "timers"
 path = "examples/ecs/timers.rs"
 doc-scrape-examples = true
