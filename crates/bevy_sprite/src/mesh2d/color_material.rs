@@ -39,7 +39,7 @@ impl Plugin for ColorMaterialPlugin {
 }
 
 /// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2dHandle) with a texture tinted by a uniform color
-#[derive(AsBindGroup, Reflect, FromReflect, Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Reflect, Debug, Clone, TypeUuid)]
 #[reflect(Default, Debug)]
 #[uuid = "e228a544-e3ca-4e1e-bb9d-4d8bc1ad8c19"]
 #[uniform(0, ColorMaterialUniform)]
