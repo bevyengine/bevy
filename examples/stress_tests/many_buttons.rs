@@ -2,7 +2,7 @@
 //!
 //! To start the demo without text run
 //! `cargo run --example many_buttons --release no-text`
-//! 
+//!
 //! //! To start the demo without borders run
 //! `cargo run --example many_buttons --release no-borders`
 //!
@@ -99,7 +99,16 @@ fn setup(mut commands: Commands) {
                 for j in 0..count {
                     let color = as_rainbow(j % i.max(1)).into();
                     let border_color = as_rainbow(i % j.max(1)).into();
-                    spawn_button(commands, color, count_f, i, j, spawn_text, border, border_color);
+                    spawn_button(
+                        commands,
+                        color,
+                        count_f,
+                        i,
+                        j,
+                        spawn_text,
+                        border,
+                        border_color,
+                    );
                 }
             }
         });
