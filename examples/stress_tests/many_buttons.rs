@@ -90,14 +90,15 @@ fn setup(mut commands: Commands) {
         })
         .with_children(|commands| {
             let spawn_text = std::env::args().all(|arg| arg != "no-text");
-            let (border, border_color) = if std::env::args().all(|arg| arg != "no-borders") {
-                (UiRect::DEFAULT, Color::NONE)
+            let border = if std::env::args().all(|arg| arg != "no-borders") {
+                UiRect::all(Val::Px(1.))
             } else {
-                (UiRect::all(Val::Percent(10.)), Color::WHITE)
+                UiRect::DEFAULT
             };
             for i in 0..count {
                 for j in 0..count {
                     let color = as_rainbow(j % i.max(1)).into();
+                    let border_color = as_rainbow(i % j.max(1)).into();
                     spawn_button(commands, color, count_f, i, j, spawn_text, border, border_color);
                 }
             }
