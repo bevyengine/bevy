@@ -114,15 +114,16 @@ fn setup(mut commands: Commands) {
         });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn spawn_button(
     commands: &mut ChildBuilder,
-    color: BackgroundColor,
+    background_color: BackgroundColor,
     total: f32,
     i: usize,
     j: usize,
     spawn_text: bool,
     border: UiRect,
-    border_color: Color,
+    border_color: BorderColor,
 ) {
     let width = 90.0 / total;
     let mut builder = commands.spawn((
@@ -137,11 +138,11 @@ fn spawn_button(
                 border,
                 ..default()
             },
-            background_color: color,
-            border_color: border_color.into(),
+            background_color,
+            border_color,
             ..default()
         },
-        IdleColor(color),
+        IdleColor(background_color),
     ));
 
     if spawn_text {
