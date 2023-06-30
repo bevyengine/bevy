@@ -91,7 +91,7 @@ fn setup(mut commands: Commands) {
         .with_children(|commands| {
             let spawn_text = std::env::args().all(|arg| arg != "no-text");
             let border = if std::env::args().all(|arg| arg != "no-borders") {
-                UiRect::all(Val::Px(1.))
+                UiRect::all(Val::Percent(10. / count_f))
             } else {
                 UiRect::DEFAULT
             };
