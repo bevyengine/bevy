@@ -123,23 +123,38 @@ impl AnimationClip {
     }
 }
 
+/// Repetition behavior of the animation.
+#[derive(Reflect, Copy, Clone)]
+pub enum RepeatAnimation {
+    /// Repeat forever.
+    Forever,
+    /// Repeat forever.
+    Once,
+    /// Repeat "n" times.
+    Count(u32),
+}
+
 #[derive(Reflect)]
 struct PlayingAnimation {
-    repeat: bool,
+    repeat: RepeatAnimation,
     speed: f32,
     elapsed: f32,
     animation_clip: Handle<AnimationClip>,
     path_cache: Vec<Vec<Option<Entity>>>,
+    /// Number of times the animation has completed.
+    /// If the animation is playing in reverse, this increments when the animation passes the start.
+    completions: u32,
 }
 
 impl Default for PlayingAnimation {
     fn default() -> Self {
         Self {
-            repeat: false,
+            repeat: RepeatAnimation::Once,
             speed: 1.0,
             elapsed: 0.0,
             animation_clip: Default::default(),
             path_cache: Vec::new(),
+            completions: 0,
         }
     }
 }
@@ -212,6 +227,16 @@ impl AnimationPlayer {
         self
     }
 
+    /// Predicate to check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
+    /// Note: A repeating will never finish.
+    pub fn is_finished(&self) -> bool {
+        match self.animation.repeat {
+            RepeatAnimation::Forever => false,
+            RepeatAnimation::Once => self.animation.completions >= 1,
+            RepeatAnimation::Count(n) => self.animation.completions >= n,
+        }
+    }
+
     /// Start playing an animation, resetting state of the player, unless the requested animation is already playing.
     /// If `transition_duration` is set, this will use a linear blending
     /// between the previous and the new animation to make a smooth transition
@@ -237,14 +262,25 @@ impl AnimationPlayer {
 
     /// Set the animation to repeat
     pub fn repeat(&mut self) -> &mut Self {
-        self.animation.repeat = true;
+        self.animation.repeat = RepeatAnimation::Forever;
         self
     }
 
     /// Stop the animation from repeating
     pub fn stop_repeating(&mut self) -> &mut Self {
-        self.animation.repeat = false;
+        self.animation.repeat = RepeatAnimation::Once;
         self
+    }
+
+    /// Set the repetition behaviour of the animation
+    pub fn set_repeat(&mut self, repeat: RepeatAnimation) -> &mut Self {
+        self.animation.repeat = repeat;
+        self
+    }
+
+    /// Predicate to check if the animation is playing in reverse.
+    pub fn is_playback_reversed(&self) -> bool {
+        self.animation.speed < 0.0
     }
 
     /// Pause the animation
@@ -483,7 +519,14 @@ fn apply_animation(
             animation.elapsed += time.delta_seconds() * animation.speed;
         }
         let mut elapsed = animation.elapsed;
-        if animation.repeat {
+
+        if elapsed > animation_clip.duration && animation.speed > 0.0 {
+            animation.completions += 1;
+        } else if elapsed < 0.0 && animation.speed < 0.0 {
+            animation.completions += 1;
+        }
+
+        if matches!(animation.repeat, RepeatAnimation::Forever) {
             elapsed %= animation_clip.duration;
         }
         if elapsed < 0.0 {
