@@ -584,7 +584,7 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
+    /// # use bevy_ui::{Style, UiRect, UiBorderRadius, Val};
     /// let style = Style {
     ///     // Set a uniform border radius of 10 logical pixels
     ///     border_radius: UiBorderRadius::all(Val::Px(10.)),
@@ -1790,7 +1790,6 @@ impl UiBorderRadius {
             top_left: Val::Px(top_left),
         }
     }
-
 
     #[inline]
     /// Sets the radius for the top right corner.
