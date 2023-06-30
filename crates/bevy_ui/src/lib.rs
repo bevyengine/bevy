@@ -117,7 +117,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiRect>()
             .register_type::<Val>()
             .register_type::<BorderColor>()
-            .register_type::<UiCornerRadius>()
+            .register_type::<UiBorderRadius>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()

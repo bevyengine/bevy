@@ -12,7 +12,7 @@ use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
 };
 use crate::{ContentSize, Style, Val};
-use crate::{UiCornerRadius, UiScale, UiTextureAtlasImage};
+use crate::{UiBorderRadius, UiScale, UiTextureAtlasImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -159,7 +159,7 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
-    pub corner_radius: [f32; 4],
+    pub border_radius: [f32; 4],
     pub border: [f32; 4],
     pub invert: bool,
 }
@@ -186,7 +186,7 @@ pub fn extract_atlas_uinodes(
                 Option<&CalculatedClip>,
                 &Handle<TextureAtlas>,
                 &UiTextureAtlasImage,
-                &UiCornerRadius,
+                &Style,
             ),
             Without<UiImage>,
         >,
@@ -206,7 +206,7 @@ pub fn extract_atlas_uinodes(
             clip,
             texture_atlas_handle,
             atlas_image,
-            corner_radius,
+            style,
         )) = uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
@@ -256,8 +256,8 @@ pub fn extract_atlas_uinodes(
                 atlas_size: Some(atlas_size),
                 flip_x: atlas_image.flip_x,
                 flip_y: atlas_image.flip_y,
-                corner_radius: resolve_corner_radius(
-                    corner_radius,
+                border_radius: resolve_border_radius(
+                    &style.border_radius,
                     uinode.calculated_size,
                     viewport_size,
                     ui_scale.scale,
@@ -283,8 +283,8 @@ fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) 
 }
 
 #[inline]
-fn resolve_corner_radius(
-    &values: &UiCornerRadius,
+fn resolve_border_radius(
+    &values: &UiBorderRadius,
     node_size: Vec2,
     viewport_size: Vec2,
     ui_scale: f64,
@@ -322,7 +322,6 @@ pub fn extract_uinode_borders(
                 Option<&Parent>,
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
-                &UiCornerRadius,
             ),
             Without<ContentSize>,
         >,
@@ -338,16 +337,8 @@ pub fn extract_uinode_borders(
         * ui_scale.scale as f32;
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((
-            node,
-            global_transform,
-            style,
-            border_color,
-            parent,
-            visibility,
-            clip,
-            corner_radius,
-        )) = uinode_query.get(*entity)
+        if let Ok((node, global_transform, style, border_color, parent, visibility, clip)) =
+            uinode_query.get(*entity)
         {
             // Skip invisible borders
             if !visibility.is_visible()
@@ -384,8 +375,8 @@ pub fn extract_uinode_borders(
                 clip: clip.map(|clip| clip.clip),
                 flip_x: false,
                 flip_y: false,
-                corner_radius: resolve_corner_radius(
-                    corner_radius,
+                border_radius: resolve_border_radius(
+                    &style.border_radius,
                     node.calculated_size,
                     viewport_size,
                     ui_scale.scale,
@@ -412,7 +403,7 @@ pub fn extract_uinodes(
                 Option<&UiImage>,
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
-                &UiCornerRadius,
+                &Style,
             ),
             Without<UiTextureAtlasImage>,
         >,
@@ -427,7 +418,7 @@ pub fn extract_uinodes(
         * ui_scale.scale as f32;
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip, corner_radius)) =
+        if let Ok((uinode, transform, color, maybe_image, visibility, clip, style)) =
             uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
@@ -458,8 +449,8 @@ pub fn extract_uinodes(
                 atlas_size: None,
                 flip_x,
                 flip_y,
-                corner_radius: resolve_corner_radius(
-                    corner_radius,
+                border_radius: resolve_border_radius(
+                    &style.border_radius,
                     uinode.calculated_size,
                     viewport_size,
                     ui_scale.scale,
@@ -594,7 +585,7 @@ pub fn extract_text_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
-                    corner_radius: [0.; 4],
+                    border_radius: [0.; 4],
                     invert: false,
                     border: [0.; 4],
                 });
@@ -796,7 +787,7 @@ pub fn prepare_uinodes(
                 uv: uvs[i].into(),
                 color,
                 mode: if extracted_uinode.invert { 2 } else { mode },
-                radius: extracted_uinode.corner_radius,
+                radius: extracted_uinode.border_radius,
                 border: extracted_uinode.border,
                 size: extracted_uinode
                     .atlas_size

@@ -43,9 +43,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         width: Val::Px(200.),
                         border: UiRect::all(Val::Px(2.)),
                         justify_content: JustifyContent::Center,
+                        border_radius: UiBorderRadius::all(Val::Px(20.)),
                         ..default()
                     },
-                    corner_radius: UiCornerRadius::all(Val::Px(20.)),
                     border_color: Color::rgb(0.65, 0.65, 0.65).into(),
                     background_color: Color::rgb(0.15, 0.15, 0.15).into(),
                     ..default()
@@ -108,9 +108,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 height: Val::Percent(50.),
                                 overflow: Overflow::clip_y(),
                                 margin: UiRect::axes(Val::Px(10.), Val::Px(5.)),
+                                border_radius: UiBorderRadius::all(Val::Px(20.)),
                                 ..default()
                             },
-                            corner_radius: UiCornerRadius::all(Val::Px(20.)),
                             background_color: Color::rgb(0.10, 0.10, 0.10).into(),
                             ..default()
                         })
@@ -157,9 +157,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     left: Val::Px(210.),
                     bottom: Val::Px(10.),
                     border: UiRect::all(Val::Px(20.)),
+                    border_radius: UiBorderRadius::all(Val::Px(40.)),
                     ..default()
                 },
-                corner_radius: UiCornerRadius::all(Val::Px(40.)),
                 border_color: Color::rgb(0.4, 0.4, 1.).into(),
                 background_color: Color::rgb(0.8, 0.8, 1.).into(),
                 ..default()
@@ -174,9 +174,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         position_type: PositionType::Absolute,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
+                        border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                         ..default()
                     },
-                    corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -187,9 +187,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 height: Val::Px(100.0),
                                 left: Val::Px(-10.),
                                 bottom: Val::Px(-10.),
+                                border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                                 ..default()
                             },
-                            corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                             background_color: Color::rgb(1.0, 0.0, 0.).into(),
                             ..default()
                         })
@@ -202,9 +202,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(30.),
                                     bottom: Val::Px(20.),
+                                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                                     ..default()
                                 },
-                                corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                                 background_color: Color::rgb(1.0, 0.3, 0.3).into(),
                                 ..default()
                             });
@@ -215,9 +215,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(70.),
                                     bottom: Val::Px(50.),
+                                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                                     ..default()
                                 },
-                                corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                                 background_color: Color::rgb(1.0, 0.5, 0.5).into(),
                                 ..default()
                             });
@@ -228,9 +228,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(110.),
                                     bottom: Val::Px(80.),
+                                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                                     ..default()
                                 },
-                                corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                                 background_color: Color::rgb(1.0, 0.7, 0.7).into(),
                                 ..default()
                             });
@@ -242,9 +242,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(150.),
                                     bottom: Val::Px(110.),
+                                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                                     ..default()
                                 },
-                                corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                                 background_color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
                                 ..default()
                             });
@@ -258,9 +258,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         position_type: PositionType::Absolute,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::FlexStart,
+                        border_radius: UiBorderRadius::all(Val::Px(40.)),
                         ..default()
                     },
-                    corner_radius: UiCornerRadius::all(Val::Px(40.)),
                     ..default()
                 })
                 .with_children(|parent| {

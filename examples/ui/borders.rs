@@ -89,15 +89,15 @@ fn setup(mut commands: Commands) {
                 style: Style {
                     width: Val::Px(10.),
                     height: Val::Px(10.),
+                    border_radius: UiBorderRadius::all(Val::Px(5.)),
                     ..Default::default()
                 },
                 background_color: Color::YELLOW.into(),
-                corner_radius: UiCornerRadius::all(Val::Px(5.)),
                 ..Default::default()
             })
             .id();
         let border = borders[i % borders.len()];
-        let corner_radius = UiCornerRadius::px(
+        let border_radius = UiBorderRadius::px(
             if border.right != Val::Px(0.) && border.top != Val::Px(0.) {
                 f32::MAX
             } else {
@@ -128,11 +128,11 @@ fn setup(mut commands: Commands) {
                     margin: UiRect::all(Val::Px(2.)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
+                    border_radius,
                     ..Default::default()
                 },
                 background_color: Color::MAROON.into(),
                 border_color: Color::CRIMSON.into(),
-                corner_radius,
                 ..Default::default()
             })
             .add_child(inner_spot)

@@ -88,9 +88,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 align_items: AlignItems::Stretch,
                                 border: UiRect::all(Val::Px(10.)),
                                 margin: UiRect::top(Val::Px(50.)),
+                                border_radius: UiBorderRadius::all(Val::Px(25.)),
                                 ..Default::default()
                             },
-                            corner_radius: UiCornerRadius::all(Val::Px(25.)),
                             border_color: Color::YELLOW.into(),
                             background_color: Color::BLACK.into(),
                             ..Default::default()
@@ -116,9 +116,9 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                 flex_basis: Val::Percent(100.0),
                 align_self: AlignSelf::Stretch,
                 padding: UiRect::all(Val::Px(10.)),
+                border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                 ..Default::default()
             },
-            corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
             background_color: Color::YELLOW.into(),
             ..Default::default()
         })
@@ -130,9 +130,9 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                         width: Val::Percent(100.),
                         height: Val::Px(100.),
                         padding: UiRect::all(Val::Px(4.)),
+                        border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                         ..Default::default()
                     },
-                    corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                     background_color: Color::BLACK.into(),
                     ..Default::default()
                 })
@@ -140,10 +140,10 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                     parent.spawn((
                         NodeBundle {
                             style: Style {
+                                border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                                 ..Default::default()
                             },
                             background_color: Color::WHITE.into(),
-                            corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                             ..Default::default()
                         },
                         Bar,
@@ -248,9 +248,9 @@ fn spawn_button(
                     justify_content: JustifyContent::Center,
                     border: UiRect::all(Val::Px(2.)),
                     margin: UiRect::horizontal(Val::Px(2.)),
+                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                     ..Default::default()
                 },
-                corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                 background_color: if active {
                     ACTIVE_BORDER_COLOR
                 } else {
@@ -268,9 +268,9 @@ fn spawn_button(
                     style: Style {
                         width: Val::Px(100.),
                         justify_content: JustifyContent::Center,
+                        border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                         ..Default::default()
                     },
-                    corner_radius: UiCornerRadius::all(Val::Px(f32::MAX)),
                     background_color: if active {
                         ACTIVE_INNER_COLOR
                     } else {

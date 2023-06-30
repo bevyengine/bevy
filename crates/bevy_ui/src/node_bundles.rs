@@ -2,8 +2,8 @@
 
 use crate::{
     widget::{Button, TextFlags, UiImageSize},
-    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style,
-    UiCornerRadius, UiImage, UiTextureAtlasImage, ZIndex,
+    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
+    UiTextureAtlasImage, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -48,8 +48,6 @@ pub struct NodeBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// Corner radius
-    pub corner_radius: UiCornerRadius,
 }
 
 impl Default for NodeBundle {
@@ -66,7 +64,6 @@ impl Default for NodeBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
-            corner_radius: Default::default(),
         }
     }
 }
@@ -112,8 +109,6 @@ pub struct ImageBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// Corner radius
-    pub corner_radius: UiCornerRadius,
 }
 
 /// A UI node that is a texture atlas sprite
@@ -159,8 +154,6 @@ pub struct AtlasImageBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// Corner radius
-    pub corner_radius: UiCornerRadius,
 }
 
 #[cfg(feature = "bevy_text")]
@@ -310,8 +303,6 @@ pub struct ButtonBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// Corner radius
-    pub corner_radius: UiCornerRadius,
 }
 
 impl Default for ButtonBundle {
@@ -330,7 +321,6 @@ impl Default for ButtonBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
-            corner_radius: Default::default(),
         }
     }
 }

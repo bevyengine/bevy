@@ -576,6 +576,38 @@ pub struct Style {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
     pub grid_column: GridPlacement,
+
+    /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly rounded corners
+    /// or specify different radii for each corner. If a given radius exceeds half the length of the smallest dimension between the node's height or width,
+    /// the radius will calculated as half the smallest dimension.
+    ///
+    /// Elliptical nodes are not supported yet. Percentage values are based on the node's smallest dimension, either width or height.
+    ///
+    /// ```
+    /// # Example
+    /// ```
+    /// # use bevy_ui::{Style, UiRect, Val};
+    /// let style = Style {
+    ///     // Set a uniform border radius of 10 logical pixels
+    ///     border_radius: UiBorderRadius::all(Val::Px(10.)),
+    ///     ..Default::default()
+    /// };
+    /// let style = Style {
+    ///     border_radius: UiBorderRadius {
+    ///         // The top left corner will be rounded with a radius of 10 logical pixels.
+    ///         top_left: Val::Px(10.),
+    ///         // Percentage values are based on the node's smallest dimension, either width or height.
+    ///         top_right: Val::Percent(20.),
+    ///         // Viewport coordinates can also be used.
+    ///         bottom_left: Val::Vw(10.),
+    ///         // The bottom right corner will be unrounded.
+    ///         ..Default::default()
+    ///     },
+    /// };
+    /// ```
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
+    pub border_radius: UiBorderRadius,
 }
 
 impl Style {
@@ -618,6 +650,7 @@ impl Style {
         grid_auto_columns: Vec::new(),
         grid_column: GridPlacement::DEFAULT,
         grid_row: GridPlacement::DEFAULT,
+        border_radius: UiBorderRadius::DEFAULT,
     };
 }
 
@@ -1687,16 +1720,29 @@ impl Default for ZIndex {
 /// Radius for rounded corner edges.
 /// If set to 0 the corners will be unrounded.
 /// The value is clamped to between 0 and half the length of the shortest side of the node before being used.
-#[derive(Component, Copy, Clone, Debug, Default, Reflect, FromReflect)]
-#[reflect(Component, FromReflect)]
-pub struct UiCornerRadius {
+#[derive(Copy, Clone, Debug, PartialEq, Reflect, FromReflect)]
+#[reflect(FromReflect, PartialEq)]
+pub struct UiBorderRadius {
     pub top_left: Val,
     pub top_right: Val,
     pub bottom_left: Val,
     pub bottom_right: Val,
 }
 
-impl UiCornerRadius {
+impl Default for UiBorderRadius {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl UiBorderRadius {
+    pub const DEFAULT: Self = Self {
+        top_left: Val::Px(0.),
+        top_right: Val::Px(0.),
+        bottom_left: Val::Px(0.),
+        bottom_right: Val::Px(0.),
+    };
+
     #[inline]
     pub fn all(radius: Val) -> Self {
         Self {
@@ -1796,8 +1842,8 @@ impl UiCornerRadius {
     }
 }
 
-impl From<UiCornerRadius> for [Val; 4] {
-    fn from(value: UiCornerRadius) -> Self {
+impl From<UiBorderRadius> for [Val; 4] {
+    fn from(value: UiBorderRadius) -> Self {
         [
             value.top_right,
             value.bottom_right,
