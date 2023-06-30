@@ -397,6 +397,16 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "dynamic_text2d"
+path = "examples/2d/dynamic_text2d.rs"
+
+[package.metadata.example.dynamic_text2d]
+name = "Dynamic Text 2D"
+description = "Creates text and mutates its allignment settings and anchoring"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 
