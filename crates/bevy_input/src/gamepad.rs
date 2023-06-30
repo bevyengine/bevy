@@ -256,7 +256,7 @@ impl GamepadButton {
 
 /// A gamepad button input event.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
