@@ -582,7 +582,6 @@ pub struct Style {
     ///
     /// Elliptical nodes are not supported yet. Percentage values are based on the node's smallest dimension, either width or height.
     ///
-    /// ```
     /// # Example
     /// ```
     /// # use bevy_ui::{Style, UiRect, Val};
