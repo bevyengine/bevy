@@ -526,7 +526,7 @@ fn apply_animation(
             animation.completions += 1;
         }
 
-        if matches!(animation.repeat, RepeatAnimation::Forever) {
+        if elapsed > animation_clip.duration {
             elapsed %= animation_clip.duration;
         }
         if elapsed < 0.0 {
