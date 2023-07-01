@@ -29,7 +29,7 @@ fn main() {
             },
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (rotate, toggle_prepass_view))
+        .add_systems(Update, (rotate, toggle_prepass_view, toggle_multisampling))
         // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
         .insert_resource(Msaa::Off)
         .run();
@@ -142,10 +142,12 @@ fn setup(
     commands.spawn(
         TextBundle::from_sections(vec![
             TextSection::new("Prepass Output: transparent\n", style.clone()),
+            TextSection::new("MSAA: Off\n", style.clone()),
             TextSection::new("\n\n", style.clone()),
             TextSection::new("Controls\n", style.clone()),
             TextSection::new("---------------\n", style.clone()),
-            TextSection::new("Space - Change output\n", style),
+            TextSection::new("Space - Change output\n", style.clone()),
+            TextSection::new("M - Change MSAA\n", style),
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -242,22 +244,31 @@ fn toggle_prepass_view(
             3 => "motion vectors",
             _ => unreachable!(),
         };
-        let text_color = if *prepass_view == 3 {
-            Color::BLACK
-        } else {
-            Color::WHITE
-        };
 
         let mut text = text.single_mut();
         text.sections[0].value = format!("Prepass Output: {label}\n");
-        for section in &mut text.sections {
-            section.style.color = text_color;
-        }
 
         let handle = material_handle.single();
         let mat = materials.get_mut(handle).unwrap();
         mat.settings.show_depth = (*prepass_view == 1) as u32;
         mat.settings.show_normals = (*prepass_view == 2) as u32;
         mat.settings.show_motion_vectors = (*prepass_view == 3) as u32;
+    }
+}
+
+fn toggle_multisampling(
+    keycode: Res<Input<KeyCode>>,
+    mut text: Query<&mut Text>,
+    mut msaa: ResMut<Msaa>,
+) {
+    if keycode.just_pressed(KeyCode::M) {
+        *msaa = match *msaa {
+            Msaa::Off => Msaa::Sample2,
+            Msaa::Sample2 => Msaa::Sample4,
+            Msaa::Sample4 => Msaa::Sample8,
+            Msaa::Sample8 => Msaa::Off,
+        };
+        let mut text = text.single_mut();
+        text.sections[1].value = format!("MSAA: {:?}\n", *msaa);
     }
 }
