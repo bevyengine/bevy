@@ -321,7 +321,7 @@ impl Camera {
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
     /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
-    /// Panics if the `camera_transform` contains `NAN` and the `glam_assert feature is enabled.
+    /// Panics if the `camera_transform` contains `NAN` and the `glam_assert` feature is enabled.
     pub fn world_to_ndc(
         &self,
         camera_transform: &GlobalTransform,
