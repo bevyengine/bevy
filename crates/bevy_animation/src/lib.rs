@@ -542,7 +542,7 @@ fn apply_animation(
     if animation.finished() || paused {
         return;
     }
-    if let Some(animation_clip) = animations.get(&animation_clip_handle) {
+    if let Some(animation_clip) = animations.get(animation_clip_handle) {
         animation.elapsed += time.delta_seconds() * animation.speed;
         let mut elapsed = animation.elapsed;
 
