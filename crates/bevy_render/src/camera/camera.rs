@@ -263,10 +263,8 @@ impl Camera {
     ///
     /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
-    /// - The near or far plane cannot be computed. This can happen if:
-    ///   - The projection matrix is invalid or cannot be inverted
-    ///   - The camera transform is invalid
-    ///   - The viewport position is invalid
+    /// - The near or far plane cannot be computed. This can happen if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
+    /// Panics if the projection matrix is null and `glam_assert` is enabled.
     pub fn viewport_to_world(
         &self,
         camera_transform: &GlobalTransform,
@@ -298,10 +296,8 @@ impl Camera {
     ///
     /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
-    /// - The viewport position cannot be mapped to the world. This can happen if:
-    ///   - The projection matrix is invalid or cannot be inverted
-    ///   - The camera transform is invalid
-    ///   - The viewport position is invalid
+    /// - The viewport position cannot be mapped to the world. See [`ndc_to_world`](Camera::ndc_to_world)
+    /// May panic. See [`ndc_to_world`](Camera::ndc_to_world).
     pub fn viewport_to_world_2d(
         &self,
         camera_transform: &GlobalTransform,
@@ -347,10 +343,8 @@ impl Camera {
     /// To get the world space coordinates with the viewport position, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
-    /// Returns `None` if any of these conditions occur:
-    /// - The projection matrix is invalid or cannot be inverted
-    /// - The camera transform is invalid
-    /// - The ndc is invalid
+    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
+    /// Panics if the projection matrix is null and `glam_assert` is enabled.
     pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
         // Build a transformation matrix to convert from NDC to world space using camera data
         let ndc_to_world =
