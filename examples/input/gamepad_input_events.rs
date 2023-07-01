@@ -18,7 +18,13 @@ fn main() {
 fn gamepad_events(
     mut connection_events: EventReader<GamepadConnectionEvent>,
     mut axis_changed_events: EventReader<GamepadAxisChangedEvent>,
+    // Handles the continuous measure of how far a button has been pressed down, as measured
+    // by `Axis<GamepadButton>`. Whenever that value changes, this event is emitted.
     mut button_changed_events: EventReader<GamepadButtonChangedEvent>,
+    // Handles the boolean measure of whether a button is considered pressed or unpressed, as
+    // defined by the thresholds in `GamepadSettings::button_settings` and measured by
+    // `Input<GamepadButton>`. When the threshold is crossed and the button state changes,
+    // this event is emmitted.
     mut button_input_events: EventReader<GamepadButtonInput>,
 ) {
     for connection_event in connection_events.iter() {
