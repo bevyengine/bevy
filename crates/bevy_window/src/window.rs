@@ -3,7 +3,7 @@ use bevy_ecs::{
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{DVec2, IVec2, Vec2};
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -18,16 +18,14 @@ use crate::CursorIcon;
 ///
 /// [`WindowPlugin`](crate::WindowPlugin) will spawn a window entity
 /// with this component if `primary_window` is `Some`.
-#[derive(
-    Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect, FromReflect,
-)]
-#[reflect(Component, FromReflect)]
+#[derive(Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect)]
+#[reflect(Component)]
 pub struct PrimaryWindow;
 
 /// Reference to a [`Window`], whether it be a direct link to a specific entity or
 /// a more vague defaulting choice.
 #[repr(C)]
-#[derive(Default, Copy, Clone, Debug, Reflect, FromReflect)]
+#[derive(Default, Copy, Clone, Debug, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -74,7 +72,7 @@ impl MapEntities for WindowRef {
 ///
 /// For most purposes you probably want to use the unnormalized version [`WindowRef`].
 #[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect, FromReflect)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -98,13 +96,13 @@ impl NormalizedWindowRef {
 ///
 /// This component is synchronized with `winit` through `bevy_winit`:
 /// it will reflect the current state of the window and can be modified to change this state.
-#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Component, Default, FromReflect)]
+#[reflect(Component, Default)]
 pub struct Window {
     /// The cursor of this window.
     pub cursor: Cursor,
@@ -338,16 +336,17 @@ impl Window {
 /// Please note that if the window is resizable, then when the window is
 /// maximized it may have a size outside of these limits. The functionality
 /// required to disable maximizing is not yet exposed by winit.
+
 ///
 /// Constraints will be validated using [`WindowResizeConstraints::check_constraints`]
 /// before being used.
-#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default, FromReflect)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct WindowResizeConstraints {
     /// The minimum width the window can have.
     pub min_width: f32,
@@ -438,13 +437,13 @@ impl WindowResizeConstraints {
 }
 
 /// Cursor data for a [`Window`].
-#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, Default, FromReflect)]
+#[reflect(Debug, Default)]
 pub struct Cursor {
     /// What the cursor should look like while inside the window.
     pub icon: CursorIcon,
@@ -490,13 +489,13 @@ impl Default for Cursor {
 }
 
 /// Defines where a [`Window`] should be placed on the screen.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[reflect(Debug, PartialEq)]
 pub enum WindowPosition {
     /// Position will be set by the window manager.
     /// Bevy will delegate this decision to the window manager and no guarantees can be made about where the window will be placed.
@@ -579,13 +578,13 @@ impl WindowPosition {
 /// and then setting a scale factor that makes the previous requested size within
 /// the limits of the screen will not get back that previous requested size.
 
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Debug, Clone, PartialEq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default, FromReflect)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct WindowResolution {
     /// Width of the window in physical pixels.
     physical_width: u32,
@@ -754,13 +753,13 @@ impl From<bevy_math::DVec2> for WindowResolution {
 /// - **`iOS/Android`** don't have cursors.
 ///
 /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default, FromReflect)]
+#[reflect(Debug, PartialEq, Default)]
 pub enum CursorGrabMode {
     /// The cursor can freely leave the window.
     #[default]
@@ -772,13 +771,13 @@ pub enum CursorGrabMode {
 }
 
 /// Stores internal [`Window`] state that isn't directly accessible.
-#[derive(Default, Debug, Copy, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default, FromReflect)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct InternalWindowState {
     /// If this is true then next frame we will ask to minimize the window.
     minimize_request: Option<bool>,
@@ -803,13 +802,13 @@ impl InternalWindowState {
 /// References a screen monitor.
 ///
 /// Used when centering a [`Window`] on a monitor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[reflect(Debug, PartialEq)]
 pub enum MonitorSelection {
     /// Uses the current monitor of the window.
     ///
@@ -842,13 +841,13 @@ pub enum MonitorSelection {
 /// [`AutoNoVsync`]: PresentMode::AutoNoVsync
 ///
 #[repr(C)]
-#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Hash, FromReflect)]
+#[reflect(Debug, PartialEq, Hash)]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
     /// Chooses FifoRelaxed -> Fifo based on availability.
@@ -882,13 +881,13 @@ pub enum PresentMode {
 
 /// Specifies how the alpha channel of the textures should be handled during compositing, for a [`Window`].
 #[repr(C)]
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Hash, FromReflect)]
+#[reflect(Debug, PartialEq, Hash)]
 pub enum CompositeAlphaMode {
     /// Chooses either [`Opaque`](CompositeAlphaMode::Opaque) or [`Inherit`](CompositeAlphaMode::Inherit)
     /// automatically, depending on the `alpha_mode` that the current surface can support.
@@ -917,13 +916,13 @@ pub enum CompositeAlphaMode {
 }
 
 /// Defines the way a [`Window`] is displayed.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[reflect(Debug, PartialEq)]
 pub enum WindowMode {
     /// The window should take a portion of the screen, using the window resolution size.
     #[default]
@@ -964,13 +963,13 @@ pub enum WindowMode {
 /// ## Platform-specific
 ///
 /// - **iOS / Android / Web / Wayland:** Unsupported.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[reflect(Debug, PartialEq)]
 pub enum WindowLevel {
     /// The window will always be below [`WindowLevel::Normal`] and [`WindowLevel::AlwaysOnTop`] windows.
     ///
@@ -984,13 +983,13 @@ pub enum WindowLevel {
 }
 
 /// The [`Window`] theme variant to use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[reflect(Debug, PartialEq)]
 pub enum WindowTheme {
     /// Use the light variant.
     Light,

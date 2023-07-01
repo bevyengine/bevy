@@ -4,8 +4,7 @@ use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::{Mat4, Rect, Vec2};
 use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, ReflectDeserialize,
-    ReflectFromReflect, ReflectSerialize,
+    std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
 use serde::{Deserialize, Serialize};
 
@@ -62,8 +61,8 @@ pub trait CameraProjection {
 }
 
 /// A configurable [`CameraProjection`] that can select its projection type at runtime.
-#[derive(Component, Debug, Clone, Reflect, FromReflect)]
-#[reflect(Component, Default, FromReflect)]
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Default)]
 pub enum Projection {
     Perspective(PerspectiveProjection),
     Orthographic(OrthographicProjection),
@@ -111,7 +110,7 @@ impl Default for Projection {
 }
 
 /// A 3D camera projection in which distant objects appear smaller than close objects.
-#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct PerspectiveProjection {
     /// The vertical field of view (FOV) in radians.
@@ -167,7 +166,7 @@ impl Default for PerspectiveProjection {
     }
 }
 
-#[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
     /// Manually specify the projection's size, ignoring window resizing. The image will stretch.
@@ -198,7 +197,7 @@ pub enum ScalingMode {
 ///
 /// Note that the scale of the projection and the apparent size of objects are inversely proportional.
 /// As the size of the projection increases, the size of objects decreases.
-#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.

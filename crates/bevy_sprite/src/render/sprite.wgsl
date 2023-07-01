@@ -2,7 +2,7 @@
 #import bevy_core_pipeline::tonemapping
 #endif
 
-#import bevy_render::view
+#import bevy_render::view  View
 
 @group(0) @binding(0)
 var<uniform> view: View;
@@ -45,7 +45,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 #endif
 
 #ifdef TONEMAP_IN_SHADER
-    color = tone_mapping(color);
+    color = bevy_core_pipeline::tonemapping::tone_mapping(color, view.color_grading);
 #endif
 
     return color;
