@@ -240,7 +240,7 @@ impl Camera {
     ) -> Option<Vec2> {
         let target_size = self.logical_viewport_size()?;
         let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
-        // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in viewport-space
+        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
             return None;
         }
