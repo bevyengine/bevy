@@ -170,11 +170,13 @@ impl Camera {
     ///  For logic that requires the full logical size of the
     /// [`RenderTarget`], prefer [`Camera::logical_target_size`].
     ///
-    /// Returns `None` if both:
-    /// - The viewport is not set
-    /// - Bevy has not set the render target. This can happen if:
-    ///   - The function is called just after the `Camera` is created, before `camera_system` is executed
-    ///   - The target isn't correctly set (for example it points to an image that doesn't exist)
+    /// Returns `None` if either:
+    /// - the function is called just after the `Camera` is created, before `camera_system` is executed,
+    /// - the [`RenderTarget`] isn't correctly set:
+    ///   - it references the [`PrimaryWindow`](RenderTarget::Window) when there is none,
+    ///   - it references a [`Window`](RenderTarget::Window) entity that doesn't exist or doesn't actually have a `Window` component,
+    ///   - it references an [`Image`](RenderTarget::Image) that doesn't exist (invalid handle),
+    ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid handle).
     #[inline]
     pub fn logical_viewport_size(&self) -> Option<Vec2> {
         self.viewport
@@ -226,11 +228,7 @@ impl Camera {
     /// [`world_to_ndc`](Self::world_to_ndc).
     ///
     /// Returns `None` if any of these conditions occur:
-    /// - The logical viewport size cannot be computed. This can happen if both:
-    ///   - The viewport is not set
-    ///   - Bevy has not set the render target. This can happen if:
-    ///     - The function is called just after the `Camera` is created, before `camera_system` is executed
-    ///     - The target isn't correctly set (for example it points to an image that doesn't exist)
+    /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
     /// - The projection matrix is invalid
     /// - The camera transform is invalid or cannot be inverted
     /// - The world position is invalid
@@ -265,11 +263,7 @@ impl Camera {
     /// [`ndc_to_world`](Self::ndc_to_world).
     ///
     /// Returns `None` if any of these conditions occur:
-    /// - The logical viewport size cannot be computed. This can happen if both:
-    ///   - The viewport is not set
-    ///   - Bevy has not set the render target. This can happen if:
-    ///     - The function is called just after the `Camera` is created, before `camera_system` is executed
-    ///     - The target isn't correctly set (for example it points to an image that doesn't exist)
+    /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
     /// - The near or far plane cannot be computed. This can happen if:
     ///   - The projection matrix is invalid or cannot be inverted
     ///   - The camera transform is invalid
@@ -304,11 +298,7 @@ impl Camera {
     /// [`ndc_to_world`](Self::ndc_to_world).
     ///
     /// Returns `None` if any of these conditions occur:
-    /// - The logical viewport size cannot be computed. This can happen if both:
-    ///   - The viewport is not set
-    ///   - Bevy has not set the render target. This can happen if:
-    ///     - The function is called just after the `Camera` is created, before `camera_system` is executed
-    ///     - The target isn't correctly set (for example it points to an image that doesn't exist)
+    /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
     /// - The viewport position cannot be mapped to the world. This can happen if:
     ///   - The projection matrix is invalid or cannot be inverted
     ///   - The camera transform is invalid
