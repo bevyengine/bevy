@@ -538,12 +538,13 @@ fn apply_animation(
     let Some(animation_clip_handle) = &animation.animation_clip else {
         return;
     };
-    // On update the animation while the player is not paused and the animation is not complete.
-    if animation.finished() || paused {
-        return;
-    }
+
     if let Some(animation_clip) = animations.get(animation_clip_handle) {
-        animation.elapsed += time.delta_seconds() * animation.speed;
+        // Only update the elapsed time while the player is not paused and the animation is not complete.
+        // We don't return early because set_elapsed() may have been called on the animation player.
+        if !animation.finished() && !paused {
+            animation.elapsed += time.delta_seconds() * animation.speed;
+        }
         let mut elapsed = animation.elapsed;
 
         if (elapsed > animation_clip.duration && animation.speed > 0.0)
