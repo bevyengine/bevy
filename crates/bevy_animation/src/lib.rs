@@ -161,7 +161,7 @@ impl Default for PlayingAnimation {
 
 impl PlayingAnimation {
     /// Predicate to check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
-    /// Note: A repeating will never finish.
+    /// Note: An animation with `RepeatAnimation::Forever` will never finish.
     pub fn finished(&self) -> bool {
         match self.repeat {
             RepeatAnimation::Forever => false,
