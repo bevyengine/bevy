@@ -91,6 +91,26 @@ pub struct WindowClosed {
     /// by the time this event is received.
     pub window: Entity,
 }
+
+/// An event that is sent whenever a window is destroyed by the underlying window system.
+///
+/// Note that if your application only has a single window, this event may be your last chance to
+/// persist state before the application terminates.
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowDestroyed {
+    /// Window that has been destroyed.
+    ///
+    /// Note that this entity probably no longer exists
+    /// by the time this event is received.
+    pub window: Entity,
+}
+
 /// An event reporting that the mouse cursor has moved inside a window.
 ///
 /// The event is sent only if the cursor is over one of the application's windows.
