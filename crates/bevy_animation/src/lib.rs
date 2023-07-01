@@ -139,7 +139,7 @@ struct PlayingAnimation {
     repeat: RepeatAnimation,
     speed: f32,
     elapsed: f32,
-    animation_clip: Handle<AnimationClip>,
+    animation_clip: Option<Handle<AnimationClip>>,
     path_cache: Vec<Vec<Option<Entity>>>,
     /// Number of times the animation has completed.
     /// If the animation is playing in reverse, this increments when the animation passes the start.
@@ -155,6 +155,18 @@ impl Default for PlayingAnimation {
             animation_clip: Default::default(),
             path_cache: Vec::new(),
             completions: 0,
+        }
+    }
+}
+
+impl PlayingAnimation {
+    /// Predicate to check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
+    /// Note: A repeating will never finish.
+    pub fn finished(&self) -> bool {
+        match self.repeat {
+            RepeatAnimation::Forever => false,
+            RepeatAnimation::Never => self.completions >= 1,
+            RepeatAnimation::Count(n) => self.completions >= n,
         }
     }
 }
@@ -191,7 +203,7 @@ impl AnimationPlayer {
     /// This will use a linear blending between the previous and the new animation to make a smooth transition
     pub fn start(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
         self.animation = PlayingAnimation {
-            animation_clip: handle,
+            animation_clip: Some(handle),
             ..Default::default()
         };
 
@@ -210,7 +222,7 @@ impl AnimationPlayer {
         transition_duration: Duration,
     ) -> &mut Self {
         let mut animation = PlayingAnimation {
-            animation_clip: handle,
+            animation_clip: Some(handle),
             ..Default::default()
         };
         std::mem::swap(&mut animation, &mut self.animation);
@@ -227,21 +239,11 @@ impl AnimationPlayer {
         self
     }
 
-    /// Predicate to check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
-    /// Note: A repeating will never finish.
-    pub fn is_finished(&self) -> bool {
-        match self.animation.repeat {
-            RepeatAnimation::Forever => false,
-            RepeatAnimation::Never => self.animation.completions >= 1,
-            RepeatAnimation::Count(n) => self.animation.completions >= n,
-        }
-    }
-
     /// Start playing an animation, resetting state of the player, unless the requested animation is already playing.
     /// If `transition_duration` is set, this will use a linear blending
     /// between the previous and the new animation to make a smooth transition
     pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
-        if self.animation.animation_clip != handle || self.is_paused() {
+        if !self.is_playing_clip(&handle) || self.is_paused() {
             self.start(handle);
         }
         self
@@ -254,10 +256,29 @@ impl AnimationPlayer {
         handle: Handle<AnimationClip>,
         transition_duration: Duration,
     ) -> &mut Self {
-        if self.animation.animation_clip != handle || self.is_paused() {
+        if !self.is_playing_clip(&handle) || self.is_paused() {
             self.start_with_transition(handle, transition_duration);
         }
         self
+    }
+
+    /// Handle to the animation clip being played.
+    pub fn animation_clip(&self) -> Option<&Handle<AnimationClip>> {
+        self.animation.animation_clip.as_ref()
+    }
+
+    /// Predicate to check if the given animation clip is being played.
+    pub fn is_playing_clip(&self, handle: &Handle<AnimationClip>) -> bool {
+        if let Some(animation_clip_handle) = self.animation_clip() {
+            animation_clip_handle == handle
+        } else {
+            false
+        }
+    }
+
+    /// Predicate to check if the playing animation has finished, according to the repetition behavior.
+    pub fn is_finished(&self) -> bool {
+        self.animation.finished()
     }
 
     /// Set the animation to repeat
@@ -514,10 +535,15 @@ fn apply_animation(
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
-    if let Some(animation_clip) = animations.get(&animation.animation_clip) {
-        if !paused {
-            animation.elapsed += time.delta_seconds() * animation.speed;
-        }
+    let Some(animation_clip_handle) = &animation.animation_clip else {
+        return;
+    };
+    // On update the animation while the player is not paused and the animation is not complete.
+    if animation.finished() || paused {
+        return;
+    }
+    if let Some(animation_clip) = animations.get(&animation_clip_handle) {
+        animation.elapsed += time.delta_seconds() * animation.speed;
         let mut elapsed = animation.elapsed;
 
         if (elapsed > animation_clip.duration && animation.speed > 0.0)
