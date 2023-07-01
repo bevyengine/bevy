@@ -25,7 +25,7 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, Last, Plugin};
-use bevy_ecs::event::{Events, ManualEventReader};
+use bevy_ecs::event::ManualEventReader;
 use bevy_ecs::prelude::*;
 use bevy_input::{
     keyboard::KeyboardInput,
@@ -35,12 +35,12 @@ use bevy_input::{
 };
 use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::{
-    tracing::{trace, warn},
-    Instant,
+    tracing::{debug, warn},
+    Duration, Instant,
 };
 use bevy_window::{
     exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
-    ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
+    PrimaryWindow, ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
     WindowCloseRequested, WindowCreated, WindowFocused, WindowMoved, WindowResized,
     WindowScaleFactorChanged, WindowThemeChanged,
 };
@@ -61,6 +61,9 @@ use crate::accessibility::{AccessKitAdapters, AccessibilityPlugin, WinitActionHa
 use crate::converters::convert_winit_theme;
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
+
+// Does anyone know the safe value?
+const FALLBACK_REFRESH_RATE: f64 = 30.;
 
 /// [`AndroidApp`] provides an interface to query the application state as well as monitor events (for example lifecycle and input events)
 #[cfg(target_os = "android")]
@@ -266,28 +269,30 @@ struct CursorEvents<'w> {
 //     winit_runner_with(app, EventLoop::new_any_thread());
 // }
 
-/// Stores state that must persist between frames.
-struct WinitPersistentState {
-    /// Tracks whether or not the application is active or suspended.
-    active: bool,
-    /// Tracks whether or not an event has occurred this frame that would trigger an update in low
-    /// power mode. Should be reset at the end of every frame.
-    low_power_event: bool,
-    /// Tracks whether the event loop was started this frame because of a redraw request.
-    redraw_request_sent: bool,
-    /// Tracks if the event loop was started this frame because of a [`ControlFlow::WaitUntil`]
-    /// timeout.
-    timeout_reached: bool,
-    last_update: Instant,
+enum TickMode {
+    Manual {
+        request_steps: u64,
+    },
+    Periodic {
+        next_tick: Instant,
+        rate_multiplier: f64,
+    },
+    Continuous,
 }
-impl Default for WinitPersistentState {
-    fn default() -> Self {
-        Self {
-            active: false,
-            low_power_event: false,
-            redraw_request_sent: false,
-            timeout_reached: false,
-            last_update: Instant::now(),
+
+fn run_top_schedule(label: impl AsRef<dyn ScheduleLabel>, world: &mut World) {
+    let label = label.as_ref();
+    #[cfg(feature = "trace")]
+    let _ = info_span!("run top schedule", name = ?label).entered();
+    world.run_schedule(label);
+}
+
+fn update_next_time(next: &mut Instant, rate: f64, skip_would: Option<Instant>) {
+    let interval = Duration::from_secs(1).div_f64(rate);
+    *next += interval;
+    if let Some(skip_would) = skip_would {
+        if *next <= skip_would {
+            *next = skip_would + interval;
         }
     }
 }
@@ -301,19 +306,19 @@ pub fn winit_runner(mut app: App) {
         .world
         .remove_non_send_resource::<EventLoop<()>>()
         .unwrap();
-
-    let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
-    let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
-    let mut winit_state = WinitPersistentState::default();
     app.world
         .insert_non_send_resource(event_loop.create_proxy());
 
-    let return_from_run = app.world.resource::<WinitSettings>().return_from_run;
+    let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
+    let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
 
-    trace!("Entering winit event loop");
+    let mut settings_system_state = SystemState::<Res<WinitSettings>>::from_world(&mut app.world);
+    let return_from_run = settings_system_state.get(&app.world).return_from_run;
 
-    let mut focused_window_state: SystemState<(Res<WinitSettings>, Query<&Window>)> =
-        SystemState::from_world(&mut app.world);
+    let mut primary_window_system_state = SystemState::<(
+        NonSend<WinitWindows>,
+        Query<Entity, With<PrimaryWindow>>,
+    )>::from_world(&mut app.world);
 
     #[cfg(not(target_arch = "wasm32"))]
     let mut create_window_system_state: SystemState<(
@@ -339,16 +344,24 @@ pub fn winit_runner(mut app: App) {
     )> = SystemState::from_world(&mut app.world);
 
     {
-        let (winit_config, _) = focused_window_state.get(&app.world);
-        let main_schedule_label = winit_config.main_schedule_label.clone();
-        let render_schedule_label = winit_config.render_schedule_label.clone();
+        let settings = settings_system_state.get(&app.world);
+        let main_schedule_label = settings.main_schedule_label.clone();
+        let render_schedule_label = settings.render_schedule_label.clone();
 
         // Prevent panic when schedules do not exist
         app.init_schedule(main_schedule_label);
         app.init_schedule(render_schedule_label);
     }
 
+    let mut app_active = false;
     let mut finished_and_setup_done = false;
+
+    let mut tick_mode = TickMode::Periodic {
+        next_tick: Instant::now(),
+        rate_multiplier: 1.,
+    };
+    let mut request_redraw = true;
+    let mut next_frame = Instant::now();
 
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
@@ -356,52 +369,35 @@ pub fn winit_runner(mut app: App) {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
 
-        if !finished_and_setup_done {
-            if !app.ready() {
-                #[cfg(not(target_arch = "wasm32"))]
-                tick_global_task_pools_on_main_thread();
-            } else {
-                app.finish();
-                app.cleanup();
-                finished_and_setup_done = true;
-            }
-        }
-
-        if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-            if app_exit_event_reader.iter(app_exit_events).last().is_some() {
-                *control_flow = ControlFlow::Exit;
-                return;
-            }
-        }
-
         match event {
-            event::Event::NewEvents(start) => {
-                let (winit_config, window_focused_query) = focused_window_state.get(&app.world);
+            Event::NewEvents(start) => {
+                if let StartCause::Init = start {
+                    debug!("Entering winit event loop");
+                    // Spin wait until plugins is ready.
+                    *control_flow = ControlFlow::Poll;
+                }
 
-                let app_focused = window_focused_query.iter().any(|window| window.focused);
-
-                // Check if either the `WaitUntil` timeout was triggered by winit, or that same
-                // amount of time has elapsed since the last app update. This manual check is needed
-                // because we don't know if the criteria for an app update were met until the end of
-                // the frame.
-                let auto_timeout_reached = matches!(start, StartCause::ResumeTimeReached { .. });
-                let now = Instant::now();
-                let manual_timeout_reached = match winit_config.update_mode(app_focused) {
-                    UpdateMode::Continuous => false,
-                    UpdateMode::Reactive { max_wait }
-                    | UpdateMode::ReactiveLowPower { max_wait } => {
-                        now.duration_since(winit_state.last_update) >= *max_wait
+                if !finished_and_setup_done {
+                    if !app.ready() {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        tick_global_task_pools_on_main_thread();
+                    } else {
+                        app.finish();
+                        app.cleanup();
+                        finished_and_setup_done = true;
                     }
-                };
-                // The low_power_event state and timeout must be reset at the start of every frame.
-                winit_state.low_power_event = false;
-                winit_state.timeout_reached = auto_timeout_reached || manual_timeout_reached;
+                }
             }
-            event::Event::WindowEvent {
+            Event::WindowEvent {
                 event,
                 window_id: winit_window_id,
                 ..
             } => {
+                let settings = settings_system_state.get(&app.world);
+                if settings.redraw_when_window_event {
+                    request_redraw = true;
+                }
+
                 // Fetch and prepare details from the world
                 let mut system_state: SystemState<(
                     NonSend<WinitWindows>,
@@ -442,8 +438,6 @@ pub fn winit_runner(mut app: App) {
                         );
                         return;
                     };
-
-                winit_state.low_power_event = true;
 
                 match event {
                     WindowEvent::Resized(size) => {
@@ -658,10 +652,15 @@ pub fn winit_runner(mut app: App) {
                     cache.window = window.clone();
                 }
             }
-            event::Event::DeviceEvent {
+            Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
+                let settings = settings_system_state.get(&app.world);
+                if settings.redraw_when_device_event {
+                    request_redraw = true;
+                }
+
                 let mut system_state: SystemState<EventWriter<MouseMotion>> =
                     SystemState::new(&mut app.world);
                 let mut mouse_motion = system_state.get_mut(&mut app.world);
@@ -670,8 +669,8 @@ pub fn winit_runner(mut app: App) {
                     delta: Vec2::new(x as f32, y as f32),
                 });
             }
-            event::Event::Suspended => {
-                winit_state.active = false;
+            Event::Suspended => {
+                app_active = false;
                 #[cfg(target_os = "android")]
                 {
                     // Bevy doesn't support suspend/resume so we just exit
@@ -680,88 +679,142 @@ pub fn winit_runner(mut app: App) {
                     *control_flow = ControlFlow::Exit;
                 }
             }
-            event::Event::Resumed => {
-                winit_state.active = true;
+            Event::Resumed => {
+                app_active = true;
             }
-            event::Event::MainEventsCleared => {
-                let (winit_config, window_focused_query) = focused_window_state.get(&app.world);
+            Event::MainEventsCleared => {
+                if !finished_and_setup_done {
+                    return;
+                }
 
-                let update = if winit_state.active {
-                    // True if _any_ windows are currently being focused
-                    let app_focused = window_focused_query.iter().any(|window| window.focused);
-                    match winit_config.update_mode(app_focused) {
-                        UpdateMode::Continuous | UpdateMode::Reactive { .. } => true,
-                        UpdateMode::ReactiveLowPower { .. } => {
-                            winit_state.low_power_event
-                                || winit_state.redraw_request_sent
-                                || winit_state.timeout_reached
+                let settings = settings_system_state.get(&app.world);
+
+                let do_tick = match &mut tick_mode {
+                    TickMode::Manual { request_steps } => {
+                        if *request_steps > 0 {
+                            *request_steps -= 1;
+                            true
+                        } else {
+                            false
                         }
                     }
-                } else {
-                    false
+                    TickMode::Periodic {
+                        next_tick,
+                        rate_multiplier,
+                    } => {
+                        let now = Instant::now();
+                        if *next_tick <= now {
+                            update_next_time(
+                                next_tick,
+                                settings.tick_rate * *rate_multiplier,
+                                settings.allow_tick_skip.then_some(now),
+                            );
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    TickMode::Continuous => true,
                 };
 
-                if update && finished_and_setup_done {
-                    winit_state.last_update = Instant::now();
-                    let main_schedule_label = winit_config.main_schedule_label.clone();
-                    let render_schedule_label = winit_config.render_schedule_label.clone();
+                if do_tick {
+                    if settings.redraw_when_tick {
+                        request_redraw = true;
+                    }
 
-                    {
-                        #[cfg(feature = "trace")]
-                        let _main_schedule_span =
-                            info_span!("main schedule", name = ?main_schedule_label).entered();
-                        app.world.run_schedule(main_schedule_label);
-                    }
-                    {
-                        #[cfg(feature = "trace")]
-                        let _render_schedule_span =
-                            info_span!("render schedule", name = ?render_schedule_label).entered();
-                        app.world.run_schedule(render_schedule_label);
-                    }
+                    run_top_schedule(settings.main_schedule_label.clone(), &mut app.world);
                     app.update_sub_apps();
                     app.world.clear_trackers();
                 }
-            }
-            Event::RedrawEventsCleared => {
+
+                let (windows, query) = primary_window_system_state.get(&app.world);
+                if let Some(primary_window) =
+                    query.get_single().ok().and_then(|e| windows.get_window(e))
                 {
-                    // Fetch from world
-                    let (winit_config, window_focused_query) = focused_window_state.get(&app.world);
-
-                    // True if _any_ windows are currently being focused
-                    let app_focused = window_focused_query.iter().any(|window| window.focused);
-
                     let now = Instant::now();
-                    use UpdateMode::*;
-                    *control_flow = match winit_config.update_mode(app_focused) {
-                        Continuous => ControlFlow::Poll,
-                        Reactive { max_wait } | ReactiveLowPower { max_wait } => {
-                            if let Some(instant) = now.checked_add(*max_wait) {
-                                ControlFlow::WaitUntil(instant)
-                            } else {
-                                ControlFlow::Wait
+                    if next_frame <= now {
+                        let settings = settings_system_state.get(&app.world);
+                        let refresh_rate = primary_window
+                            .current_monitor()
+                            .and_then(|mh| mh.refresh_rate_millihertz())
+                            .map(|x| x as f64 / 1000.)
+                            .unwrap_or(FALLBACK_REFRESH_RATE);
+
+                        // Ensure that the counter advances without redrawing
+                        update_next_time(
+                            &mut next_frame,
+                            settings.frame_rate_limit.min(refresh_rate),
+                            Some(now),
+                        );
+
+                        if let Some(app_redraw_events) =
+                            app.world.get_resource::<Events<RequestRedraw>>()
+                        {
+                            if redraw_event_reader.iter(app_redraw_events).last().is_some() {
+                                request_redraw = true;
                             }
                         }
-                    };
-                }
 
-                // This block needs to run after `app.world.run_schedule` in `MainEventsCleared`. Otherwise,
-                // we won't be able to see redraw requests until the next event, defeating the
-                // purpose of a redraw request!
-                let mut redraw = false;
-                if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
-                    if redraw_event_reader.iter(app_redraw_events).last().is_some() {
-                        *control_flow = ControlFlow::Poll;
-                        redraw = true;
+                        if request_redraw
+                            && primary_window.is_visible().unwrap_or(true)
+                            && !primary_window.is_minimized().unwrap_or(false)
+                        {
+                            primary_window.request_redraw();
+                        }
+                        request_redraw = false;
                     }
                 }
 
-                winit_state.redraw_request_sent = redraw;
-            }
+                *control_flow = match &tick_mode {
+                    TickMode::Manual { request_steps } => {
+                        if *request_steps > 0 {
+                            ControlFlow::Poll
+                        } else {
+                            ControlFlow::WaitUntil(next_frame)
+                        }
+                    }
+                    TickMode::Periodic { next_tick, .. } => {
+                        if request_redraw && next_frame < *next_tick {
+                            ControlFlow::WaitUntil(next_frame)
+                        } else {
+                            ControlFlow::WaitUntil(*next_tick)
+                        }
+                    }
+                    TickMode::Continuous => ControlFlow::Poll,
+                };
 
+                if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
+                    if app_exit_event_reader.iter(app_exit_events).last().is_some() {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                }
+            }
+            Event::RedrawRequested(window_id) => {
+                let (windows, query) = primary_window_system_state.get(&app.world);
+                let Some(primary_window) = query.get_single().ok().and_then(|e| windows.get_window(e)) else {
+                    return;
+                };
+                if primary_window.id() != window_id {
+                    return;
+                }
+
+                let settings = settings_system_state.get(&app.world);
+                let frame_rate = settings
+                    .frame_rate_limit
+                    .min(get_refresh_rate(primary_window));
+
+                run_top_schedule(settings.render_schedule_label.clone(), &mut app.world);
+
+                // Avoid waiting for VSync
+                let now = Instant::now();
+                if next_frame <= now {
+                    update_next_time(&mut next_frame, frame_rate, Some(now));
+                }
+            }
             _ => (),
         }
 
-        if winit_state.active {
+        if app_active {
             #[cfg(not(target_arch = "wasm32"))]
             let (
                 commands,

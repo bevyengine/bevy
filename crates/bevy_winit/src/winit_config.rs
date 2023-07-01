@@ -1,6 +1,5 @@
 use bevy_app::{Main, Render};
 use bevy_ecs::{schedule::BoxedScheduleLabel, system::Resource};
-use bevy_utils::Duration;
 
 /// A resource for configuring usage of the [`winit`] library.
 #[derive(Debug, Resource)]
@@ -28,97 +27,89 @@ pub struct WinitSettings {
     /// Setting [`return_from_run`](Self::return_from_run) to `true` on
     /// unsupported platforms will cause [`App::run()`](bevy_app::App::run()) to panic!
     pub return_from_run: bool,
-    /// Configures how the winit event loop updates while the window is focused.
-    pub focused_mode: UpdateMode,
-    /// Configures how the winit event loop updates while the window is *not* focused.
-    pub unfocused_mode: UpdateMode,
-    /// The main schedule to run by default.
+    /// The frequency at which schedule `main_schedule_label` runs per second.
+    /// Also, determines the virtual time that elapses for each tick.
     ///
-    /// This is initially set to [`Main`].
+    /// The default is `125.`.
+    /// This value is consistent with polling rates for typical input devices,
+    /// thus optimizing input responsiveness.
+    pub tick_rate: f64,
+    /// Allow tick skipping if runs are overdue.
+    ///
+    /// If this is enabled, may slow down the game simulation, so it is recommended to disable this for action game.
+    ///
+    /// If this is disabled, may result in instantaneous game simulation when tick running load is variable,
+    /// so it is recommended to enable this for not action game.
+    ///
+    /// The default is `false`.
+    pub allow_tick_skip: bool,
+    /// Limit on the frequency at which schedule `render_schedule_label` runs per second.
+    /// Even if this is set to a higher value, the monitor refresh rate will be capped.
+    ///
+    /// Redrawing will not be performed unless requested for each frame.
+    /// Redraw requests are made when:
+    ///
+    /// - From the OS as necessary.
+    /// - Called `WinitHandler::redraw`.
+    /// - The events specified by `redraw_when_tick`, `redraw_when_window_event`, and `redraw_when_device_event` occurred.
+    ///
+    /// The default is `f64::INFINITY`.
+    pub frame_rate_limit: f64,
+    /// Request redraw after running ticks.
+    ///
+    /// The default is `true`.
+    pub redraw_when_tick: bool,
+    /// Request redraw after receiving window events.
+    ///
+    /// The default is `true`.
+    pub redraw_when_window_event: bool,
+    /// Request redraw after receiving device events.
+    ///
+    /// The default is `true`.
+    pub redraw_when_device_event: bool,
+    /// The main schedule to be run for each tick.
+    ///
+    /// The default is [`Main`].
     pub main_schedule_label: BoxedScheduleLabel,
-    /// The render schedule to run by default.
+    /// The render schedule to be run for each frame.
     ///
-    /// This is initially set to [`Render`].
+    /// The default is [`Render`].
     pub render_schedule_label: BoxedScheduleLabel,
 }
-impl WinitSettings {
-    /// Configure winit with common settings for a game.
-    pub fn game() -> Self {
-        WinitSettings::default()
-    }
 
-    /// Configure winit with common settings for a desktop application.
-    pub fn desktop_app() -> Self {
-        WinitSettings {
-            focused_mode: UpdateMode::Reactive {
-                max_wait: Duration::from_secs(5),
-            },
-            unfocused_mode: UpdateMode::ReactiveLowPower {
-                max_wait: Duration::from_secs(60),
-            },
+impl WinitSettings {
+    /// Configure winit with basic settings.
+    pub fn new(tick_rate: f64, allow_tick_skip: bool) -> Self {
+        Self {
+            tick_rate,
+            allow_tick_skip,
             ..Default::default()
         }
     }
 
-    /// Gets the configured [`UpdateMode`] depending on whether the window is focused or not
-    pub fn update_mode(&self, focused: bool) -> &UpdateMode {
-        match focused {
-            true => &self.focused_mode,
-            false => &self.unfocused_mode,
-        }
+    /// Configure winit with common settings for a game.
+    pub fn game() -> Self {
+        unimplemented!()
+    }
+
+    /// Configure winit with common settings for a desktop application.
+    pub fn desktop_app() -> Self {
+        unimplemented!()
     }
 }
+
 impl Default for WinitSettings {
     fn default() -> Self {
         WinitSettings {
             return_from_run: false,
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
+            tick_rate: 125.,
+            allow_tick_skip: false,
+            frame_rate_limit: f64::INFINITY,
+            redraw_when_tick: true,
+            redraw_when_window_event: true,
+            redraw_when_device_event: true,
             main_schedule_label: Box::new(Main),
             render_schedule_label: Box::new(Render),
         }
     }
-}
-
-/// Configure how the winit event loop should update.
-#[derive(Debug)]
-pub enum UpdateMode {
-    /// The event loop will update continuously, running as fast as possible.
-    Continuous,
-    /// The event loop will only update if there is a winit event, a redraw is requested, or the
-    /// maximum wait time has elapsed.
-    ///
-    /// ## Note
-    ///
-    /// Once the app has executed all bevy systems and reaches the end of the event loop, there is
-    /// no way to force the app to wake and update again, unless a `winit` event (such as user
-    /// input, or the window being resized) is received or the time limit is reached.
-    Reactive {
-        /// The maximum time to wait before the event loop runs again.
-        ///
-        /// Note that Bevy will wait indefinitely if the duration is too high (such as [`Duration::MAX`]).
-        max_wait: Duration,
-    },
-    /// The event loop will only update if there is a winit event from direct interaction with the
-    /// window (e.g. mouseover), a redraw is requested, or the maximum wait time has elapsed.
-    ///
-    /// ## Note
-    ///
-    /// Once the app has executed all bevy systems and reaches the end of the event loop, there is
-    /// no way to force the app to wake and update again, unless a `winit` event (such as user
-    /// input, or the window being resized) is received or the time limit is reached.
-    ///
-    /// ## Differences from [`UpdateMode::Reactive`]
-    ///
-    /// Unlike [`UpdateMode::Reactive`], this mode will ignore winit events that aren't directly
-    /// caused by interaction with the window. For example, you might want to use this mode when the
-    /// window is not focused, to only re-draw your bevy app when the cursor is over the window, but
-    /// not when the mouse moves somewhere else on the screen. This helps to significantly reduce
-    /// power consumption by only updated the app when absolutely necessary.
-    ReactiveLowPower {
-        /// The maximum time to wait before the event loop runs again.
-        ///
-        /// Note that Bevy will wait indefinitely if the duration is too high (such as [`Duration::MAX`]).
-        max_wait: Duration,
-    },
 }
