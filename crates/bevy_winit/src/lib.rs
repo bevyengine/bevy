@@ -642,7 +642,7 @@ pub fn winit_runner(mut app: App) {
                     WindowEvent::Destroyed => {
                         window_events.window_destroyed.send(WindowDestroyed {
                             window: window_entity,
-                        })
+                        });
                     }
                     _ => {}
                 }
