@@ -1146,31 +1146,37 @@ pub fn gamepad_axis_event_system(
 
 /// Uses [`GamepadButtonChangedEvent`]s to update the relevant [`Input`] and [`Axis`] values.
 pub fn gamepad_button_event_system(
-    mut button_events: EventReader<GamepadButtonChangedEvent>,
+    mut button_changed_events: EventReader<GamepadButtonChangedEvent>,
     mut button_input: ResMut<Input<GamepadButton>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
     mut button_input_events: EventWriter<GamepadButtonInput>,
     settings: Res<GamepadSettings>,
 ) {
-    for button_event in button_events.iter() {
+    for button_event in button_changed_events.iter() {
         let button = GamepadButton::new(button_event.gamepad, button_event.button_type);
         let value = button_event.value;
         let button_property = settings.get_button_settings(button);
 
         if button_property.is_released(value) {
-            // We don't have to check if the button was previously pressed
+            // Check if button was previously pressed
+            if button_input.pressed(button) {
+                button_input_events.send(GamepadButtonInput {
+                    button,
+                    state: ButtonState::Released,
+                });
+            }
+            // We don't have to check if the button was previously pressed here
             // because that check is performed within Input<T>::release()
             button_input.release(button);
-            button_input_events.send(GamepadButtonInput {
-                button,
-                state: ButtonState::Released,
-            });
         } else if button_property.is_pressed(value) {
+            // Check if button was previously not pressed
+            if !button_input.pressed(button) {
+                button_input_events.send(GamepadButtonInput {
+                    button,
+                    state: ButtonState::Pressed,
+                });
+            }
             button_input.press(button);
-            button_input_events.send(GamepadButtonInput {
-                button,
-                state: ButtonState::Pressed,
-            });
         };
 
         button_axis.set(button, value);
