@@ -1,0 +1,41 @@
+[package]
+name = "bevy_entropy"
+version = "0.11.0-dev"
+edition = "2021"
+description = "Bevy Engine's RNG integration"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["game", "bevy", "rand", "rng"]
+categories = ["game-engines", "algorithms"]
+
+[features]
+bevy_reflect = ["dep:bevy_reflect", "bevy_app/bevy_reflect", "serialize"]
+default = ["bevy_reflect"]
+serialize = ["dep:serde", "rand_core/serde1", "rand_chacha/serde1"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.11.0-dev", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.11.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev", optional = true }
+
+# others
+serde = { version = "1.0", features = ["derive"], optional = true }
+rand_core = { version = "0.6", features = ["std"] }
+rand_chacha = "0.3"
+
+[dev-dependencies]
+rand = "0.8"
+ron = { version = "0.8.0", features = ["integer128"] }
+
+[target.'cfg(all(any(target_arch = "wasm32", target_arch = "wasm64"), target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
+[[example]]
+name = "determinism"
+path = "examples/determinism.rs"
+
+[[example]]
+name = "parallelism"
+path = "examples/parallelism.rs"
