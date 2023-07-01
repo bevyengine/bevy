@@ -13,6 +13,7 @@ mod system;
 #[cfg(target_arch = "wasm32")]
 mod web_resize;
 mod winit_config;
+mod winit_handler;
 mod winit_windows;
 
 use bevy_a11y::AccessibilityRequested;
@@ -22,6 +23,7 @@ use bevy_tasks::tick_global_task_pools_on_main_thread;
 use system::{changed_window, create_window, despawn_window, CachedWindow};
 
 pub use winit_config::*;
+pub use winit_handler::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, Last, Plugin};
@@ -75,7 +77,7 @@ pub struct WinitPlugin;
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
-        let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
+        let mut event_loop_builder = EventLoopBuilder::<HandleEvent>::with_user_event();
 
         #[cfg(target_os = "android")]
         {
@@ -113,7 +115,7 @@ impl Plugin for WinitPlugin {
         #[cfg(not(target_arch = "wasm32"))]
         let mut create_window_system_state: SystemState<(
             Commands,
-            NonSendMut<EventLoop<()>>,
+            NonSendMut<EventLoop<HandleEvent>>,
             Query<(Entity, &mut Window)>,
             EventWriter<WindowCreated>,
             NonSendMut<WinitWindows>,
@@ -125,7 +127,7 @@ impl Plugin for WinitPlugin {
         #[cfg(target_arch = "wasm32")]
         let mut create_window_system_state: SystemState<(
             Commands,
-            NonSendMut<EventLoop<()>>,
+            NonSendMut<EventLoop<HandleEvent>>,
             Query<(Entity, &mut Window)>,
             EventWriter<WindowCreated>,
             NonSendMut<WinitWindows>,
@@ -185,9 +187,10 @@ impl Plugin for WinitPlugin {
     }
 }
 
-fn run<F>(event_loop: EventLoop<()>, event_handler: F) -> !
+fn run<F>(event_loop: EventLoop<HandleEvent>, event_handler: F) -> !
 where
-    F: 'static + FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
+    F: 'static
+        + FnMut(Event<'_, HandleEvent>, &EventLoopWindowTarget<HandleEvent>, &mut ControlFlow),
 {
     event_loop.run(event_handler)
 }
@@ -204,9 +207,9 @@ where
     target_os = "netbsd",
     target_os = "openbsd"
 ))]
-fn run_return<F>(event_loop: &mut EventLoop<()>, event_handler: F)
+fn run_return<F>(event_loop: &mut EventLoop<HandleEvent>, event_handler: F)
 where
-    F: FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
+    F: FnMut(Event<'_, HandleEvent>, &EventLoopWindowTarget<HandleEvent>, &mut ControlFlow),
 {
     use winit::platform::run_return::EventLoopExtRunReturn;
     event_loop.run_return(event_handler);
@@ -221,9 +224,9 @@ where
     target_os = "netbsd",
     target_os = "openbsd"
 )))]
-fn run_return<F>(_event_loop: &mut EventLoop<()>, _event_handler: F)
+fn run_return<F>(_event_loop: &mut EventLoop<HandleEvent>, _event_handler: F)
 where
-    F: FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
+    F: FnMut(Event<'_, HandleEvent>, &EventLoopWindowTarget<HandleEvent>, &mut ControlFlow),
 {
     panic!("Run return is not supported on this platform!")
 }
@@ -304,10 +307,9 @@ pub fn winit_runner(mut app: App) {
     // We remove this so that we have ownership over it.
     let mut event_loop = app
         .world
-        .remove_non_send_resource::<EventLoop<()>>()
+        .remove_non_send_resource::<EventLoop<HandleEvent>>()
         .unwrap();
-    app.world
-        .insert_non_send_resource(event_loop.create_proxy());
+    app.world.insert_resource(WinitHandler::new(&event_loop));
 
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
     let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
@@ -363,8 +365,8 @@ pub fn winit_runner(mut app: App) {
     let mut request_redraw = true;
     let mut next_frame = Instant::now();
 
-    let event_handler = move |event: Event<()>,
-                              event_loop: &EventLoopWindowTarget<()>,
+    let event_handler = move |event: Event<HandleEvent>,
+                              event_loop: &EventLoopWindowTarget<HandleEvent>,
                               control_flow: &mut ControlFlow| {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
@@ -669,6 +671,44 @@ pub fn winit_runner(mut app: App) {
                     delta: Vec2::new(x as f32, y as f32),
                 });
             }
+            Event::UserEvent(event) => match event {
+                HandleEvent::Run(rate_multiplier) => {
+                    tick_mode = if let TickMode::Periodic { next_tick, .. } = tick_mode {
+                        TickMode::Periodic {
+                            next_tick,
+                            rate_multiplier,
+                        }
+                    } else {
+                        TickMode::Periodic {
+                            next_tick: Instant::now(),
+                            rate_multiplier,
+                        }
+                    };
+                }
+                HandleEvent::RunFullThrottle => {
+                    tick_mode = TickMode::Continuous;
+                }
+                HandleEvent::Pause => {
+                    tick_mode = TickMode::Manual { request_steps: 0 };
+                }
+                HandleEvent::Step(additional_steps) => {
+                    tick_mode = if let TickMode::Manual { request_steps } = tick_mode {
+                        TickMode::Manual {
+                            request_steps: request_steps + additional_steps,
+                        }
+                    } else {
+                        TickMode::Manual {
+                            request_steps: additional_steps,
+                        }
+                    };
+                }
+                HandleEvent::Redraw => {
+                    request_redraw = true;
+                }
+                HandleEvent::Exit(code) => {
+                    *control_flow = ControlFlow::ExitWithCode(code);
+                }
+            },
             Event::Suspended => {
                 app_active = false;
                 #[cfg(target_os = "android")]

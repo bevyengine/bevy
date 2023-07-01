@@ -32,9 +32,9 @@ use crate::{
 ///
 /// This will default any necessary components if they are not already added.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn create_window<'a>(
+pub(crate) fn create_window<'a, T: 'static>(
     mut commands: Commands,
-    event_loop: &EventLoopWindowTarget<()>,
+    event_loop: &EventLoopWindowTarget<T>,
     created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
     mut event_writer: EventWriter<WindowCreated>,
     mut winit_windows: NonSendMut<WinitWindows>,

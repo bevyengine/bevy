@@ -39,9 +39,9 @@ pub struct WinitWindows {
 
 impl WinitWindows {
     /// Creates a `winit` window and associates it with our entity.
-    pub fn create_window(
+    pub fn create_window<T: 'static>(
         &mut self,
-        event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
+        event_loop: &winit::event_loop::EventLoopWindowTarget<T>,
         entity: Entity,
         window: &Window,
         adapters: &mut AccessKitAdapters,
