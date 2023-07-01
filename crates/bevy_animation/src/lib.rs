@@ -304,7 +304,7 @@ impl AnimationPlayer {
         self.animation.repeat
     }
 
-    /// Number of times the animation has been completed.
+    /// Number of times the animation has completed.
     pub fn completions(&self) -> u32 {
         self.animation.completions
     }
