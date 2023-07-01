@@ -299,6 +299,16 @@ impl AnimationPlayer {
         self
     }
 
+    /// Repetition behavior of the animation.
+    pub fn repeat_mode(&self) -> RepeatAnimation {
+        self.animation.repeat
+    }
+
+    /// Number of times the animation has been completed.
+    pub fn completions(&self) -> u32 {
+        self.animation.completions
+    }
+
     /// Predicate to check if the animation is playing in reverse.
     pub fn is_playback_reversed(&self) -> bool {
         self.animation.speed < 0.0
