@@ -57,18 +57,18 @@ struct VertexOutput {
 #ifdef MORPH_TARGETS
 fn morph_vertex(vertex_in: Vertex) -> Vertex {
     var vertex = vertex_in;
-    let weight_count = layer_count();
+    let weight_count = bevy_pbr::morph::layer_count();
     for (var i: u32 = 0u; i < weight_count; i ++) {
-        let weight = weight_at(i);
+        let weight = bevy_pbr::morph::weight_at(i);
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph(vertex.index, position_offset, i);
+        vertex.position += weight * bevy_pbr::morph::morph(vertex.index, bevy_pbr::morph::position_offset, i);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * morph(vertex.index, normal_offset, i);
+        vertex.normal += weight * bevy_pbr::morph::morph(vertex.index, bevy_pbr::morph::normal_offset, i);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * morph(vertex.index, tangent_offset, i), 0.0);
+        vertex.tangent += vec4(weight * bevy_pbr::morph::morph(vertex.index, bevy_pbr::morph::tangent_offset, i), 0.0);
 #endif
     }
     return vertex;
