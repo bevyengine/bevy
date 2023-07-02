@@ -76,8 +76,7 @@ use bevy_ecs_macros::Resource;
 /// ```
 #[derive(Resource, Default)]
 pub struct SystemRegistry {
-    systems: Vec<(bool, BoxedSystem)>,
-    indices: TypeIdMap<usize>,
+    systems: TypeIdMap<(bool, BoxedSystem)>,
 }
 
 impl SystemRegistry {
@@ -90,17 +89,13 @@ impl SystemRegistry {
     ///
     /// To provide explicit label(s), use [`register_system_with_labels`](SystemRegistry::register_system_with_labels).
     #[inline]
-    pub fn register<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> SystemId {
+    pub fn register<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> TypeId {
         let type_id = TypeId::of::<S>();
-
-        let index = *self.indices.entry(type_id).or_insert_with(|| {
-            let index = self.systems.len();
-            self.systems
-                .push((false, Box::new(IntoSystem::into_system(system))));
-            index
-        });
-
-        SystemId::new(index)
+        if !self.systems.contains_key(&type_id) {
+            let boxed_system = Box::new(IntoSystem::into_system(system));
+            self.systems.insert(type_id, (false, boxed_system));
+        }
+        type_id
     }
 
     /// Runs the supplied system on the [`World`] a single time.
@@ -128,9 +123,9 @@ impl SystemRegistry {
     pub fn run_by_id(
         &mut self,
         world: &mut World,
-        id: SystemId,
+        id: TypeId,
     ) -> Result<(), SystemRegistryError> {
-        match self.systems.get_mut(id.index()) {
+        match self.systems.get_mut(&id) {
             Some((initialized, matching_system)) => {
                 if !*initialized {
                     matching_system.initialize(world);
@@ -145,27 +140,12 @@ impl SystemRegistry {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct SystemId(usize);
-
-impl SystemId {
-    #[inline]
-    pub const fn new(index: usize) -> SystemId {
-        SystemId(index)
-    }
-
-    #[inline]
-    pub fn index(self) -> usize {
-        self.0
-    }
-}
-
 impl World {
     #[inline]
     pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(
         &mut self,
         system: S,
-    ) -> SystemId {
+    ) -> TypeId {
         self.resource_mut::<SystemRegistry>().register(system)
     }
 
@@ -183,7 +163,7 @@ impl World {
     ///
     /// Calls [`SystemRegistry::run_callback`].
     #[inline]
-    pub fn run_system_by_id(&mut self, id: SystemId) -> Result<(), SystemRegistryError> {
+    pub fn run_system_by_id(&mut self, id: TypeId) -> Result<(), SystemRegistryError> {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
             registry.run_by_id(world, id)
         })
@@ -221,11 +201,11 @@ impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
 /// The [`Command`] type for [`SystemRegistry::run_systems_by_label`]
 #[derive(Debug, Clone)]
 pub struct RunSystemById {
-    pub system_id: SystemId,
+    pub system_id: TypeId,
 }
 
 impl RunSystemById {
-    pub fn new(system_id: SystemId) -> Self {
+    pub fn new(system_id: TypeId) -> Self {
         Self { system_id }
     }
 }
@@ -249,7 +229,7 @@ pub enum SystemRegistryError {
     /// A system was run by label, but no system with that label was found.
     ///
     /// Did you forget to register it?
-    SystemIdNotRegistered(SystemId),
+    SystemIdNotRegistered(TypeId),
 }
 
 mod tests {
