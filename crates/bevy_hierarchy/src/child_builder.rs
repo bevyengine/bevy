@@ -504,6 +504,10 @@ pub trait BuildWorldChildren {
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the child is the same as the parent.
     fn add_child(&mut self, child: Entity) -> &mut Self;
 
     /// Pushes children to the back of the builder's children. For any entities that are
@@ -512,12 +516,20 @@ pub trait BuildWorldChildren {
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Inserts children at the given index.
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
     /// Removes the given children
     ///
@@ -529,6 +541,10 @@ pub trait BuildWorldChildren {
     /// If this entity already had a parent, the parent's [`Children`] component will have this
     /// child removed from its list. Removing all children from a parent causes its [`Children`]
     /// component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the parent is the same as the child.
     fn set_parent(&mut self, parent: Entity) -> &mut Self;
 
     /// Removes the [`Parent`] of this entity.
