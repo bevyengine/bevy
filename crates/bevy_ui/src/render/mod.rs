@@ -609,6 +609,7 @@ struct UiVertex {
 #[derive(Resource)]
 pub struct UiMeta {
     vertices: BufferVec<UiVertex>,
+    indices: BufferVec<u32>,
     view_bind_group: Option<BindGroup>,
 }
 
@@ -616,6 +617,7 @@ impl Default for UiMeta {
     fn default() -> Self {
         Self {
             vertices: BufferVec::new(BufferUsages::VERTEX),
+            indices: BufferVec::new(BufferUsages::INDEX),
             view_bind_group: None,
         }
     }
@@ -648,6 +650,7 @@ pub fn prepare_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
 ) {
     ui_meta.vertices.clear();
+    ui_meta.indices.clear();
 
     // sort by ui stack index, starting from the deepest node
     extracted_uinodes
@@ -658,6 +661,7 @@ pub fn prepare_uinodes(
     let mut end = 0;
     let mut current_batch_image = DEFAULT_IMAGE_HANDLE.typed();
     let mut last_z = 0.0;
+    let mut vertex_index = 0;
 
     #[inline]
     fn is_textured(image: &Handle<Image>) -> bool {
@@ -781,7 +785,7 @@ pub fn prepare_uinodes(
         };
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
-        for i in QUAD_INDICES {
+        for i in 0..4 {
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
@@ -796,8 +800,13 @@ pub fn prepare_uinodes(
             });
         }
 
+        for &index in QUAD_INDICES.iter() {
+            ui_meta.indices.push(vertex_index + index as u32);
+        }
+        vertex_index += 4;
+
         last_z = extracted_uinode.transform.w_axis[2];
-        end += QUAD_INDICES.len() as u32;
+        end += 6;
     }
 
     // if start != end, there is one last batch to process
@@ -810,6 +819,8 @@ pub fn prepare_uinodes(
     }
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
+    ui_meta.indices.write_buffer(&render_device, &render_queue)
+
 }
 
 #[derive(Resource, Default)]
