@@ -43,18 +43,22 @@ var sprite_texture: texture_2d<f32>;
 var sprite_sampler: sampler;
 
 fn sd_rounded_rect(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>) -> f32 {
+    let top_right_radius = radius.x;
+    let bottom_right_radius = radius.y;
+    let bottom_left_radius = radius.z;
+    let top_left_radius = radius.w;
     var r: f32;
     if 0.0 < point.x {
         if 0.0 < point.y {
-            r = radius.y;
+            r = top_left_radius;
         } else {
-            r = radius.x;
+            r = bottom_left_radius;
         }
     } else {
         if 0.0 < point.y {
-            r = radius.z;
+            r = top_right_radius;
         } else {
-            r = radius.w;
+            r = bottom_right_radius;
         }
     }
     let q = abs(point) - 0.5 * size + r;
@@ -77,7 +81,7 @@ fn sd_inset_rounded_rect(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, i
     r.w = r.w - max(inset.x, inset.y);
     
     r = max(r, vec4<f32>(0.0));
-    let p = point + 0.5 * (inset.zw - inset.xy);
+    let p = point + 0.5 * (inset.xy - inset.zw);
     let inner_size = size - inset.xy - inset.zw;
     return sd_rounded_rect(p, inner_size, r);
 }
@@ -99,19 +103,34 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let inner_distance = sd_inset_rounded_rect(point, in.size, in.radius, in.thickness);
     let fwidth_outer = fwidth(outer_distance);
     let fwidth_inner = fwidth(inner_distance);
-    if 0. < outer_distance {
-        // outside outer border, no color
 
-        if 0. < abs(inner_distance) - 0.00001 {
-            let a = mix(in.border_color.w, 0.0, smoothstep(0.0, fwidth_outer, outer_distance));
-            return vec4<f32>(in.border_color.xyz, a);
-        } else {
-            let a = mix(inner_color.w, 0.0, smoothstep(0.0, fwidth_outer, outer_distance));
-            return vec4<f32>(inner_color.xyz, a);
-        }    
+    if inner_distance <= 0.0 {
+        // inside border
+        //return mix( in.border_color, inner_color, smoothstep(-fwidth_inner, 0.0, inner_distance));
+        return vec4<f32>(0.0, 0.0, 1.0, 1.0);
     }
 
-    return mix(inner_color, in.border_color, smoothstep(-fwidth_inner, 0.0, inner_distance));
+    
+
+    // if 0. < outer_distance {
+    //     // outside outer border, no color
+
+    //     if 0. < inner_distance {
+    //         let a = mix(inner_color.w, 0.0, smoothstep(0.0, fwidth_outer, outer_distance));
+    //         return vec4<f32>(inner_color.xyz, a);
+    //     }
+
+    //     let a = mix(in.border_color.w, 0.0, smoothstep(0.0, fwidth_outer, outer_distance));
+    //     return vec4<f32>(in.border_color.xyz, a);
+    //     // } else {
+    //     //     let a = mix(inner_color.w, 0.0, smoothstep(0.0, fwidth_outer, outer_distance));
+    //     //     return vec4<f32>(inner_color.xyz, a);
+    //     // }    
+    // }
+
+    //return mix(inner_color, in.border_color, smoothstep(-fwidth_inner, 0.0, inner_distance));
+
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
 
 
     
