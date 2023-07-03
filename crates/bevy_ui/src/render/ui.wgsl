@@ -10,6 +10,7 @@ struct VertexOutput {
     @location(3) @interpolate(flat) mode: u32,
     @location(4) @interpolate(flat) radius: vec4<f32>,    
     @location(5) @interpolate(flat) thickness: vec4<f32>,    
+    @location(6) border_color: vec4<f32>,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -22,11 +23,13 @@ fn vertex(
     @location(4) radius: vec4<f32>,
     @location(5) thickness: vec4<f32>,
     @location(6) size: vec2<f32>,
+    @location(7) border_color: vec4<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
     out.color = vertex_color;
+    out.border_color = border_color;
     out.mode = mode;
     out.radius = radius;
     out.size = size;
@@ -88,24 +91,47 @@ fn sd_rounded_border(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, thick
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // textureSample can only be called in unform control flow, not inside an if branch.
-    var color = textureSample(sprite_texture, sprite_sampler, in.uv);    
+    var inner_color = in.color * select(vec4<f32>(1.0), textureSample(sprite_texture, sprite_sampler, in.uv), in.mode == 0u);    
+    // displacement from center of rect
     let point = (in.uv - vec2<f32>(0.5, 0.5)) * in.size;
-    switch in.mode {
-        // Textured rect
-        case default, 0u: {
-            let distance = sd_rounded_rect(point, in.size, in.radius);
-            return mix(in.color * color, vec4<f32>(0.0), smoothstep(-1.0, 1.0, distance));
-        }
-        // Untextured rect
-        case 1u: {
-            let distance = sd_rounded_rect(point, in.size, in.radius);
-            return mix(in.color, vec4<f32>(0.0), smoothstep(-1.0, 1.0, distance));
-        }
-        // Untextured border
-        case 2u: {
-            let distance = sd_rounded_border(point, in.size, in.radius, in.thickness);
-            return mix(in.color, vec4<f32>(0.0), smoothstep(-1.0, 1.0, distance));
-        }
+    // distance from border edge
+    let outer_distance = sd_rounded_rect(point, in.size, in.radius);
+    let inner_distance = sd_inset_rounded_rect(point, in.size, in.radius, in.thickness);
+    let fwidth_outer = fwidth(outer_distance);
+    let fwidth_inner = fwidth(inner_distance);
+    if 0. < outer_distance {
+        // outside outer border, no color
+
+        if 0. < abs(inner_distance) - 0.00001 {
+            let a = mix(in.border_color.w, 0.0, smoothstep(0.0, fwidth_outer, outer_distance));
+            return vec4<f32>(in.border_color.xyz, a);
+        } else {
+            let a = mix(inner_color.w, 0.0, smoothstep(0.0, fwidth_outer, outer_distance));
+            return vec4<f32>(inner_color.xyz, a);
+        }    
     }
+
+    return mix(inner_color, in.border_color, smoothstep(-fwidth_inner, 0.0, inner_distance));
+
+
+    
+
+    // switch in.mode {
+    //     // Textured rect
+    //     case default, 0u: {
+    //         let distance = sd_rounded_rect(point, in.size, in.radius);
+    //         return mix(in.color * color, vec4<f32>(0.0), smoothstep(-1.0, 1.0, distance));
+    //     }
+    //     // Untextured rect
+    //     case 1u: {
+    //         let distance = sd_rounded_rect(point, in.size, in.radius);
+    //         return mix(in.color, vec4<f32>(0.0), smoothstep(-1.0, 1.0, distance));
+    //     }
+    //     // Untextured border
+    //     case 2u: {
+    //         let distance = sd_rounded_border(point, in.size, in.radius, in.thickness);
+    //         return mix(in.border_color, color, smoothstep(-1.0, 1.0, distance));
+    //     }
+    // }
 }
 

@@ -82,7 +82,6 @@ pub fn build_ui_render(app: &mut App) {
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
                 extract_atlas_uinodes.after(RenderUiSystem::ExtractNode),
-                extract_uinode_borders.after(RenderUiSystem::ExtractNode),
                 #[cfg(feature = "bevy_text")]
                 extract_text_uinodes.after(RenderUiSystem::ExtractNode),
             ),
@@ -161,7 +160,7 @@ pub struct ExtractedUiNode {
     pub flip_y: bool,
     pub border_radius: [f32; 4],
     pub border: [f32; 4],
-    pub invert: bool,
+    pub border_color: Color,
 }
 
 #[derive(Resource, Default)]
@@ -262,8 +261,8 @@ pub fn extract_atlas_uinodes(
                     viewport_size,
                     ui_scale.scale,
                 ),
-                invert: false,
                 border: [0.; 4],
+                border_color: Color::NONE,
             });
         }
     }
@@ -307,9 +306,10 @@ fn resolve_border_radius(
     })
 }
 
-pub fn extract_uinode_borders(
+pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
+    images: Extract<Res<Assets<Image>>>,
     ui_scale: Extract<Res<UiScale>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
@@ -318,17 +318,19 @@ pub fn extract_uinode_borders(
                 &Node,
                 &GlobalTransform,
                 &Style,
+                &BackgroundColor,
                 &BorderColor,
                 Option<&Parent>,
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
+                Option<&UiImage>,
             ),
-            Without<ContentSize>,
+            //Without<ContentSize>,
         >,
     >,
     parent_node_query: Extract<Query<&Node, With<Parent>>>,
 ) {
-    let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
+    extracted_uinodes.uinodes.clear();
 
     let viewport_size = windows
         .get_single()
@@ -337,9 +339,19 @@ pub fn extract_uinode_borders(
         * ui_scale.scale as f32;
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((node, global_transform, style, border_color, parent, visibility, clip)) =
+        if let Ok((node, global_transform, style, background_color, border_color, parent, visibility, clip, maybe_image)) =
             uinode_query.get(*entity)
         {
+            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+                // Skip loading images
+                if !images.contains(&image.texture) {
+                    continue;
+                }
+                (image.texture.clone_weak(), image.flip_x, image.flip_y)
+            } else {
+                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+            };
+
             // Skip invisible borders
             if !visibility.is_visible()
                 || border_color.0.a() == 0.0
@@ -365,7 +377,7 @@ pub fn extract_uinode_borders(
                 stack_index,
                 // This translates the uinode's transform to the center of the current border rectangle
                 transform,
-                color: border_color.0,
+                color: background_color.0,
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: node.size(),
@@ -373,94 +385,21 @@ pub fn extract_uinode_borders(
                 image: image.clone_weak(),
                 atlas_size: None,
                 clip: clip.map(|clip| clip.clip),
-                flip_x: false,
-                flip_y: false,
+                flip_x: true,
+                flip_y: true,
                 border_radius: resolve_border_radius(
                     &style.border_radius,
                     node.calculated_size,
                     viewport_size,
                     ui_scale.scale,
                 ),
-                invert: true,
                 border: [left, top, right, bottom],
+                border_color: border_color.0,
             });
         }
     }
 }
 
-pub fn extract_uinodes(
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
-    images: Extract<Res<Assets<Image>>>,
-    ui_stack: Extract<Res<UiStack>>,
-    ui_scale: Extract<Res<UiScale>>,
-    uinode_query: Extract<
-        Query<
-            (
-                &Node,
-                &GlobalTransform,
-                &BackgroundColor,
-                Option<&UiImage>,
-                &ComputedVisibility,
-                Option<&CalculatedClip>,
-                &Style,
-            ),
-            Without<UiTextureAtlasImage>,
-        >,
-    >,
-) {
-    extracted_uinodes.uinodes.clear();
-
-    let viewport_size = windows
-        .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(Vec2::ZERO)
-        * ui_scale.scale as f32;
-
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip, style)) =
-            uinode_query.get(*entity)
-        {
-            // Skip invisible and completely transparent nodes
-            if !visibility.is_visible() || color.0.a() == 0.0 {
-                continue;
-            }
-
-            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-                // Skip loading images
-                if !images.contains(&image.texture) {
-                    continue;
-                }
-                (image.texture.clone_weak(), image.flip_x, image.flip_y)
-            } else {
-                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
-            };
-
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                stack_index,
-                transform: transform.compute_matrix(),
-                color: color.0,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
-                },
-                clip: clip.map(|clip| clip.clip),
-                image,
-                atlas_size: None,
-                flip_x,
-                flip_y,
-                border_radius: resolve_border_radius(
-                    &style.border_radius,
-                    uinode.calculated_size,
-                    viewport_size,
-                    ui_scale.scale,
-                ),
-                invert: false,
-                border: [0.; 4],
-            });
-        };
-    }
-}
 
 /// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
 /// distance of this many units. This ensures that with a left-handed projection,
@@ -586,8 +525,8 @@ pub fn extract_text_uinodes(
                     flip_x: false,
                     flip_y: false,
                     border_radius: [0.; 4],
-                    invert: false,
                     border: [0.; 4],
+                    border_color: Color::NONE,
                 });
             }
         }
@@ -604,6 +543,7 @@ struct UiVertex {
     pub radius: [f32; 4],
     pub border: [f32; 4],
     pub size: [f32; 2],
+    pub border_color: [f32; 4],
 }
 
 #[derive(Resource)]
@@ -790,13 +730,14 @@ pub fn prepare_uinodes(
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color,
-                mode: if extracted_uinode.invert { 2 } else { mode },
+                mode,
                 radius: extracted_uinode.border_radius,
                 border: extracted_uinode.border,
                 size: extracted_uinode
                     .atlas_size
                     .unwrap_or_else(|| transformed_rect_size.xy())
                     .into(),
+                border_color: extracted_uinode.border_color.as_linear_rgba_f32(),
             });
         }
 

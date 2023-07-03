@@ -87,6 +87,8 @@ pub struct ImageBundle {
     ///
     /// Combines with `UiImage` to tint the provided image.
     pub background_color: BackgroundColor,
+    /// The color of the Node's border
+    pub border_color: BorderColor,
     /// The image of the node
     pub image: UiImage,
     /// The size of the image in pixels

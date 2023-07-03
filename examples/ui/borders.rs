@@ -9,7 +9,9 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    //let image = asset_server.load("branding/icon.png");
+    let image = asset_server.load("textures/rpg/tiles/generic-rpg-tile-waterfall03.png");
     commands.spawn(Camera2dBundle::default());
     let root = commands
         .spawn(NodeBundle {
@@ -93,32 +95,35 @@ fn setup(mut commands: Commands) {
                     ..Default::default()
                 },
                 background_color: Color::YELLOW.into(),
+                border_color: Color::YELLOW.into(),
                 ..Default::default()
             })
             .id();
         let border = borders[i % borders.len()];
-        let border_radius = UiBorderRadius::px(
-            if border.right != Val::Px(0.) && border.top != Val::Px(0.) {
-                f32::MAX
-            } else {
-                0.
-            },
-            if border.right != Val::Px(0.) && border.bottom != Val::Px(0.) {
-                f32::MAX
-            } else {
-                0.
-            },
-            if border.left != Val::Px(0.) && border.bottom != Val::Px(0.) {
-                f32::MAX
-            } else {
-                0.
-            },
-            if border.left != Val::Px(0.) && border.top != Val::Px(0.) {
-                f32::MAX
-            } else {
-                0.
-            },
-        );
+        // let border_radius = UiBorderRadius::px(
+        //     if border.right != Val::Px(0.) && border.top != Val::Px(0.) {
+        //         f32::MAX
+        //     } else {
+        //         0.
+        //     },
+        //     if border.right != Val::Px(0.) && border.bottom != Val::Px(0.) {
+        //         f32::MAX
+        //     } else {
+        //         0.
+        //     },
+        //     if border.left != Val::Px(0.) && border.bottom != Val::Px(0.) {
+        //         f32::MAX
+        //     } else {
+        //         0.
+        //     },
+        //     if border.left != Val::Px(0.) && border.top != Val::Px(0.) {
+        //         f32::MAX
+        //     } else {
+        //         0.
+        //     },
+        // );
+
+        let border_radius = UiBorderRadius::max();
         let bordered_node = commands
             .spawn(NodeBundle {
                 style: Style {
@@ -131,10 +136,11 @@ fn setup(mut commands: Commands) {
                     border_radius,
                     ..Default::default()
                 },
-                background_color: Color::MAROON.into(),
+                background_color: Color::GREEN.into(),
                 border_color: Color::CRIMSON.into(),
                 ..Default::default()
             })
+            .insert(UiImage::new(image.clone()))
             .add_child(inner_spot)
             .id();
         commands.entity(root).add_child(bordered_node);
