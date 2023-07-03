@@ -2,7 +2,7 @@ use crate::{
     render_resource::{PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     texture::TextureFormatPixelInfo,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, RenderApp, RenderFlow, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -42,8 +42,8 @@ impl Plugin for WindowRenderPlugin {
                 .init_resource::<WindowSurfaces>()
                 .init_non_send_resource::<NonSendMarker>()
                 .add_systems(ExtractSchedule, extract_windows)
-                .configure_set(Render, WindowSystem::Prepare.in_set(RenderSet::Prepare))
-                .add_systems(Render, prepare_windows.in_set(WindowSystem::Prepare));
+                .configure_set(RenderFlow, WindowSystem::Prepare.in_set(RenderSet::Prepare))
+                .add_systems(RenderFlow, prepare_windows.in_set(WindowSystem::Prepare));
         }
     }
 

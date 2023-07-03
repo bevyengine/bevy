@@ -18,7 +18,7 @@
 
 use std::mem;
 
-use bevy_app::{Last, Plugin, Render, Update};
+use bevy_app::{Last, Plugin, RenderFlow, Update};
 use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_core::cast_slice;
 use bevy_ecs::{
@@ -97,7 +97,10 @@ impl Plugin for GizmoPlugin {
 
         render_app
             .add_systems(ExtractSchedule, extract_gizmo_data)
-            .add_systems(Render, queue_line_gizmo_bind_group.in_set(RenderSet::Queue));
+            .add_systems(
+                RenderFlow,
+                queue_line_gizmo_bind_group.in_set(RenderSet::Queue),
+            );
 
         #[cfg(feature = "bevy_sprite")]
         app.add_plugins(pipeline_2d::LineGizmo2dPlugin);

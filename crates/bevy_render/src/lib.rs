@@ -55,7 +55,7 @@ use crate::{
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, AppLabel, Plugin, Render, SubApp};
+use bevy_app::{App, AppLabel, Plugin, RenderFlow, SubApp};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::{
     prelude::*,
@@ -272,12 +272,12 @@ impl Plugin for RenderPlugin {
 
             render_app
                 .add_schedule(ExtractSchedule, extract_schedule)
-                .add_schedule(Render, RenderSet::base_schedule())
+                .add_schedule(RenderFlow, RenderSet::base_schedule())
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(app.world.resource::<AssetServer>().clone())
                 .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
                 .add_systems(
-                    Render,
+                    RenderFlow,
                     (
                         // This set applies the commands from the extract schedule while the render schedule
                         // is running in parallel with the main app.
@@ -326,7 +326,7 @@ impl Plugin for RenderPlugin {
                 // run extract schedule
                 extract(main_world, render_app);
             });
-            sub_app.main_schedule_label = Box::new(Render);
+            sub_app.main_schedule_label = Box::new(RenderFlow);
             app.insert_sub_app(RenderApp, sub_app);
         }
 
@@ -393,7 +393,7 @@ impl Plugin for RenderPlugin {
             .remove_sub_app(RenderApp)
             .expect("Unable to get RenderApp. Another plugin may have removed the RenderApp before RenderPlugin");
 
-        app.add_systems(Render, move |world: &mut World| {
+        app.add_systems(RenderFlow, move |world: &mut World| {
             #[cfg(feature = "trace")]
             let _sub_app_span =
                 bevy_utils::tracing::info_span!("sub app", name = ?RenderApp).entered();

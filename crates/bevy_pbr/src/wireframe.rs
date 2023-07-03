@@ -1,6 +1,6 @@
 use crate::MeshPipeline;
 use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
-use bevy_app::{Plugin, Render};
+use bevy_app::{Plugin, RenderFlow};
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
@@ -48,7 +48,7 @@ impl Plugin for WireframePlugin {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .add_systems(Render, queue_wireframes.in_set(RenderSet::Queue));
+                .add_systems(RenderFlow, queue_wireframes.in_set(RenderSet::Queue));
         }
     }
 

@@ -87,7 +87,7 @@ impl Plugin for SpritePlugin {
                     ),
                 )
                 .add_systems(
-                    Render,
+                    RenderFlow,
                     queue_sprites
                         .in_set(RenderSet::Queue)
                         .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),

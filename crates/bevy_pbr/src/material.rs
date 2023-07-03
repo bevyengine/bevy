@@ -3,7 +3,7 @@ use crate::{
     MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems,
     ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
-use bevy_app::{App, Plugin, Render};
+use bevy_app::{App, Plugin, RenderFlow};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
@@ -202,7 +202,7 @@ where
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
                 .add_systems(ExtractSchedule, extract_materials::<M>)
                 .add_systems(
-                    Render,
+                    RenderFlow,
                     (
                         prepare_materials::<M>
                             .in_set(RenderSet::Prepare)

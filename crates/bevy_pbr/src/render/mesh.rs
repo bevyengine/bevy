@@ -5,7 +5,7 @@ use crate::{
     ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
     MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
-use bevy_app::{Plugin, Render};
+use bevy_app::{Plugin, RenderFlow};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleId, HandleUntyped};
 use bevy_core_pipeline::{
     prepass::ViewPrepassTextures,
@@ -123,7 +123,7 @@ impl Plugin for MeshRenderPlugin {
                     (extract_meshes, extract_skinned_meshes, extract_morphs),
                 )
                 .add_systems(
-                    Render,
+                    RenderFlow,
                     (
                         prepare_skinned_meshes.in_set(RenderSet::Prepare),
                         prepare_morphs.in_set(RenderSet::Prepare),

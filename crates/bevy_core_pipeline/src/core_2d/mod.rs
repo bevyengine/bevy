@@ -22,7 +22,7 @@ pub const CORE_2D: &str = graph::NAME;
 pub use camera_2d::*;
 pub use main_pass_2d_node::*;
 
-use bevy_app::{App, Plugin, Render};
+use bevy_app::{App, Plugin, RenderFlow};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::Camera,
@@ -56,7 +56,7 @@ impl Plugin for Core2dPlugin {
             .init_resource::<DrawFunctions<Transparent2d>>()
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
             .add_systems(
-                Render,
+                RenderFlow,
                 (
                     sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
                     batch_phase_system::<Transparent2d>

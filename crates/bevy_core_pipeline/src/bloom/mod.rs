@@ -8,7 +8,7 @@ use crate::{
     core_2d::{self, CORE_2D},
     core_3d::{self, CORE_3D},
 };
-use bevy_app::{App, Plugin, Render};
+use bevy_app::{App, Plugin, RenderFlow};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::UVec2;
@@ -66,7 +66,7 @@ impl Plugin for BloomPlugin {
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
             .add_systems(
-                Render,
+                RenderFlow,
                 (
                     prepare_bloom_textures.in_set(RenderSet::Prepare),
                     prepare_downsampling_pipeline.in_set(RenderSet::Prepare),

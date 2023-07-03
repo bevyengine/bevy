@@ -1,4 +1,4 @@
-use bevy_app::{App, Plugin, Render};
+use bevy_app::{App, Plugin, RenderFlow};
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::{Component, Entity},
@@ -44,7 +44,7 @@ impl Plugin for SkyboxPlugin {
         render_app
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .add_systems(
-                Render,
+                RenderFlow,
                 (
                     prepare_skybox_pipelines.in_set(RenderSet::Prepare),
                     queue_skybox_bind_groups.in_set(RenderSet::Queue),

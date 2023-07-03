@@ -1,4 +1,4 @@
-use crate::{Extract, ExtractSchedule, Render, RenderApp, RenderSet};
+use crate::{Extract, ExtractSchedule, RenderApp, RenderFlow, RenderSet};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetEvent, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -85,7 +85,7 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_systems(ExtractSchedule, extract_render_asset::<A>)
                 .configure_sets(
-                    Render,
+                    RenderFlow,
                     (
                         PrepareAssetSet::PreAssetPrepare,
                         PrepareAssetSet::AssetPrepare,
@@ -95,7 +95,7 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
                         .in_set(RenderSet::Prepare),
                 )
                 .add_systems(
-                    Render,
+                    RenderFlow,
                     prepare_assets::<A>.in_set(self.prepare_asset_set.clone()),
                 );
         }

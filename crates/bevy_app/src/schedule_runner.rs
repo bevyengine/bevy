@@ -1,7 +1,7 @@
 use crate::{
     app::{App, AppExit},
     plugin::Plugin,
-    Main,
+    UpdateFlow,
 };
 use bevy_ecs::{
     event::{Events, ManualEventReader},
@@ -64,7 +64,7 @@ impl ScheduleRunnerPlugin {
     pub fn run_once() -> Self {
         ScheduleRunnerPlugin {
             run_mode: RunMode::Once,
-            main_schedule_label: Box::new(Main),
+            main_schedule_label: Box::new(UpdateFlow),
         }
     }
 
@@ -74,7 +74,7 @@ impl ScheduleRunnerPlugin {
             run_mode: RunMode::Loop {
                 wait: Some(wait_duration),
             },
-            main_schedule_label: Box::new(Main),
+            main_schedule_label: Box::new(UpdateFlow),
         }
     }
 }
@@ -83,7 +83,7 @@ impl Default for ScheduleRunnerPlugin {
     fn default() -> Self {
         ScheduleRunnerPlugin {
             run_mode: RunMode::Loop { wait: None },
-            main_schedule_label: Box::new(Main),
+            main_schedule_label: Box::new(UpdateFlow),
         }
     }
 }

@@ -24,7 +24,7 @@ use bevy_ecs::{
 /// * [`PostUpdate`]
 /// * [`Last`]
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Main;
+pub struct UpdateFlow;
 
 /// The schedule that runs before [`Startup`].
 /// This is run by the [`Main`] schedule.
@@ -97,17 +97,17 @@ pub struct Last;
 
 /// The main render schedule.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct Render;
+pub struct RenderFlow;
 
-/// Defines the schedules to be run for the [`Main`] schedule, including
+/// Defines the schedules to be run for the [`UpdateFlow`] schedule, including
 /// their order.
 #[derive(Resource, Debug)]
-pub struct MainScheduleOrder {
-    /// The labels to run for the [`Main`] schedule (in the order they will be run).
+pub struct UpdateFlowOrder {
+    /// The labels to run for the [`UpdateFlow`] schedule (in the order they will be run).
     pub labels: Vec<Box<dyn ScheduleLabel>>,
 }
 
-impl Default for MainScheduleOrder {
+impl Default for UpdateFlowOrder {
     fn default() -> Self {
         Self {
             labels: vec![
@@ -123,7 +123,7 @@ impl Default for MainScheduleOrder {
     }
 }
 
-impl MainScheduleOrder {
+impl UpdateFlowOrder {
     /// Adds the given `schedule` after the `after` schedule
     pub fn insert_after(&mut self, after: impl ScheduleLabel, schedule: impl ScheduleLabel) {
         let index = self
@@ -135,7 +135,7 @@ impl MainScheduleOrder {
     }
 }
 
-impl Main {
+impl UpdateFlow {
     /// A system that runs the "main schedule"
     pub fn run_main(world: &mut World, mut run_at_least_once: Local<bool>) {
         if !*run_at_least_once {
@@ -145,7 +145,7 @@ impl Main {
             *run_at_least_once = true;
         }
 
-        world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
+        world.resource_scope(|world, order: Mut<UpdateFlowOrder>| {
             for label in &order.labels {
                 let _ = world.try_run_schedule(&**label);
             }
@@ -164,9 +164,9 @@ impl Plugin for MainSchedulePlugin {
         let mut fixed_update_loop_schedule = Schedule::new();
         fixed_update_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
 
-        app.add_schedule(Main, main_schedule)
+        app.add_schedule(UpdateFlow, main_schedule)
             .add_schedule(RunFixedUpdateLoop, fixed_update_loop_schedule)
-            .init_resource::<MainScheduleOrder>()
-            .add_systems(Main, Main::run_main);
+            .init_resource::<UpdateFlowOrder>()
+            .add_systems(UpdateFlow, UpdateFlow::run_main);
     }
 }

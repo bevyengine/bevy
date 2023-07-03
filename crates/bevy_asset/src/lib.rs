@@ -47,7 +47,7 @@ pub use loader::*;
 pub use path::*;
 pub use reflect::*;
 
-use bevy_app::{prelude::*, MainScheduleOrder};
+use bevy_app::{prelude::*, UpdateFlowOrder};
 use bevy_ecs::schedule::ScheduleLabel;
 use bevy_utils::Duration;
 
@@ -142,7 +142,7 @@ impl Plugin for AssetPlugin {
         ))]
         app.add_systems(LoadAssets, io::filesystem_watcher_system);
 
-        let mut order = app.world.resource_mut::<MainScheduleOrder>();
+        let mut order = app.world.resource_mut::<UpdateFlowOrder>();
         order.insert_after(First, LoadAssets);
         order.insert_after(PostUpdate, AssetEvents);
     }

@@ -88,7 +88,7 @@ pub fn build_ui_render(app: &mut App) {
             ),
         )
         .add_systems(
-            Render,
+            RenderFlow,
             (
                 prepare_uinodes.in_set(RenderSet::Prepare),
                 queue_uinodes.in_set(RenderSet::Queue),

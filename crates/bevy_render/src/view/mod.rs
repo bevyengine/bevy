@@ -14,7 +14,7 @@ use crate::{
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, CachedTexture, TextureCache},
-    Render, RenderApp, RenderSet,
+    RenderApp, RenderFlow, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -55,9 +55,12 @@ impl Plugin for ViewPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .configure_set(Render, ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
+                .configure_set(
+                    RenderFlow,
+                    ViewSet::PrepareUniforms.in_set(RenderSet::Prepare),
+                )
                 .add_systems(
-                    Render,
+                    RenderFlow,
                     (
                         prepare_view_uniforms.in_set(ViewSet::PrepareUniforms),
                         prepare_view_targets

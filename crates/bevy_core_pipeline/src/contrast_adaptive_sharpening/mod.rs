@@ -119,7 +119,7 @@ impl Plugin for CASPlugin {
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<CASPipeline>>()
-            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
+            .add_systems(RenderFlow, prepare_cas_pipelines.in_set(RenderSet::Prepare));
 
         {
             use core_3d::graph::node::*;

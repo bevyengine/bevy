@@ -30,7 +30,7 @@ pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
-use bevy_app::{App, Plugin, Render};
+use bevy_app::{App, Plugin, RenderFlow};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -85,7 +85,7 @@ impl Plugin for Core3dPlugin {
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
             .add_systems(ExtractSchedule, extract_camera_prepass_phase)
             .add_systems(
-                Render,
+                RenderFlow,
                 (
                     prepare_core_3d_depth_textures
                         .in_set(RenderSet::Prepare)

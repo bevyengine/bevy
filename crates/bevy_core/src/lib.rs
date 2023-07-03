@@ -203,7 +203,7 @@ mod tests {
             TypeRegistrationPlugin::default(),
             FrameCountPlugin::default(),
         ));
-        app.world.run_schedule(Main);
+        app.world.run_schedule(UpdateFlow);
 
         let frame_count = app.world.resource::<FrameCount>();
         assert_eq!(1, frame_count.0);

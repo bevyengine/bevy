@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, PreUpdate, Render, Update};
+use bevy_app::{Plugin, PreUpdate, RenderFlow, Update};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -104,7 +104,7 @@ where
 
         render_app
             .add_systems(
-                Render,
+                RenderFlow,
                 queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
             )
             .init_resource::<PrepassViewBindGroup>()
@@ -154,7 +154,7 @@ where
             render_app
                 .add_systems(ExtractSchedule, extract_camera_previous_view_projection)
                 .add_systems(
-                    Render,
+                    RenderFlow,
                     (
                         prepare_previous_view_projection_uniforms
                             .in_set(RenderSet::Prepare)
@@ -171,7 +171,7 @@ where
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>()
             .add_systems(
-                Render,
+                RenderFlow,
                 queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
             );
     }

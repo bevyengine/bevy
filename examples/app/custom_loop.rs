@@ -14,7 +14,7 @@ fn my_runner(mut app: App) {
             let mut input = app.world.resource_mut::<Input>();
             input.0 = line.unwrap();
         }
-        app.world.run_schedule(Main);
+        app.world.run_schedule(UpdateFlow);
     }
 }
 

@@ -1,6 +1,6 @@
 use async_channel::{Receiver, Sender};
 
-use bevy_app::{App, Plugin, Render, SubApp};
+use bevy_app::{App, Plugin, RenderFlow, SubApp};
 use bevy_ecs::{
     schedule::MainThreadExecutor,
     system::Resource,
@@ -84,7 +84,7 @@ impl Plugin for PipelinedRenderingPlugin {
 
         app.insert_resource(MainToRenderAppSender(app_to_render_sender));
         app.insert_resource(RenderToMainAppReceiver(render_to_app_receiver));
-        app.add_systems(Render, update_rendering);
+        app.add_systems(RenderFlow, update_rendering);
 
         std::thread::spawn(move || {
             #[cfg(feature = "trace")]

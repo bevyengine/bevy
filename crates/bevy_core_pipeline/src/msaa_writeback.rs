@@ -3,7 +3,7 @@ use crate::{
     core_2d::{self, CORE_2D},
     core_3d::{self, CORE_3D},
 };
-use bevy_app::{App, Plugin, Render};
+use bevy_app::{App, Plugin, RenderFlow};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -25,7 +25,7 @@ impl Plugin for MsaaWritebackPlugin {
         };
 
         render_app.add_systems(
-            Render,
+            RenderFlow,
             queue_msaa_writeback_pipelines.in_set(RenderSet::Queue),
         );
         {

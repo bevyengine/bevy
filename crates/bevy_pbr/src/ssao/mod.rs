@@ -1,4 +1,4 @@
-use bevy_app::{App, Plugin, Render};
+use bevy_app::{App, Plugin, RenderFlow};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core_pipeline::{
     core_3d::CORE_3D,
@@ -114,9 +114,12 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             .init_resource::<SsaoPipelines>()
             .init_resource::<SpecializedComputePipelines<SsaoPipelines>>()
             .add_systems(ExtractSchedule, extract_ssao_settings)
-            .add_systems(Render, prepare_ssao_textures.in_set(RenderSet::Prepare))
-            .add_systems(Render, prepare_ssao_pipelines.in_set(RenderSet::Prepare))
-            .add_systems(Render, queue_ssao_bind_groups.in_set(RenderSet::Queue))
+            .add_systems(RenderFlow, prepare_ssao_textures.in_set(RenderSet::Prepare))
+            .add_systems(
+                RenderFlow,
+                prepare_ssao_pipelines.in_set(RenderSet::Prepare),
+            )
+            .add_systems(RenderFlow, queue_ssao_bind_groups.in_set(RenderSet::Queue))
             .add_render_graph_node::<ViewNodeRunner<SsaoNode>>(
                 CORE_3D,
                 draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,

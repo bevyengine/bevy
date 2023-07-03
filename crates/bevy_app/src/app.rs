@@ -1,4 +1,6 @@
-use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, Startup, StateTransition, Update};
+use crate::{
+    First, MainSchedulePlugin, Plugin, Plugins, Startup, StateTransition, Update, UpdateFlow,
+};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
@@ -94,7 +96,7 @@ impl Debug for App {
 /// # Example
 ///
 /// ```rust
-/// # use bevy_app::{App, AppLabel, SubApp, Main};
+/// # use bevy_app::{App, AppLabel, SubApp, UpdateFlow};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::schedule::ScheduleLabel;
 ///
@@ -115,7 +117,7 @@ impl Debug for App {
 /// sub_app.insert_resource(Val(100));
 ///
 /// // initialize main schedule
-/// sub_app.add_systems(Main, |counter: Res<Val>| {
+/// sub_app.add_systems(UpdateFlow, |counter: Res<Val>| {
 ///     // since we assigned the value from the main world in extract
 ///     // we see that value instead of 100
 ///     assert_eq!(counter.0, 10);
@@ -136,7 +138,7 @@ pub struct SubApp {
 
     /// The schedule to run by default.
     ///
-    /// This is initially set to [`Main`].
+    /// This is initially set to [`UpdateFlow`].
     pub main_schedule_label: BoxedScheduleLabel,
 
     /// A function that allows access to both the main [`App`] [`World`] and the [`SubApp`]. This is
@@ -154,7 +156,7 @@ impl SubApp {
     pub fn new(app: App, extract: impl Fn(&mut World, &mut App) + Send + Sync + 'static) -> Self {
         Self {
             app,
-            main_schedule_label: Box::new(Main),
+            main_schedule_label: Box::new(UpdateFlow),
             extract: Box::new(extract),
         }
     }
@@ -635,7 +637,7 @@ impl App {
     /// fn my_runner(mut app: App) {
     ///     loop {
     ///         println!("In main loop");
-    ///         app.world.run_schedule(Main);
+    ///         app.world.run_schedule(UpdateFlow);
     ///     }
     /// }
     ///
@@ -963,8 +965,8 @@ fn run_once(mut app: App) {
 
     {
         #[cfg(feature = "trace")]
-        let _main_schedule_span = info_span!("main schedule", name = ?Main).entered();
-        app.world.run_schedule(Main);
+        let _ = info_span!("run top schedule", name = ?UpdateFlow).entered();
+        app.world.run_schedule(UpdateFlow);
     }
     app.update_sub_apps();
 }

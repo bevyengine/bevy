@@ -1,4 +1,4 @@
-use bevy_app::{Main, Render};
+use bevy_app::{UpdateFlow, RenderFlow};
 use bevy_ecs::{schedule::BoxedScheduleLabel, system::Resource};
 
 /// A resource for configuring usage of the [`winit`] library.
@@ -108,8 +108,8 @@ impl Default for WinitSettings {
             redraw_when_tick: true,
             redraw_when_window_event: true,
             redraw_when_device_event: true,
-            main_schedule_label: Box::new(Main),
-            render_schedule_label: Box::new(Render),
+            main_schedule_label: Box::new(UpdateFlow),
+            render_schedule_label: Box::new(RenderFlow),
         }
     }
 }
