@@ -1,5 +1,4 @@
 use std::any::TypeId;
-use std::hash::Hash;
 use std::marker::PhantomData;
 
 use crate::system::{BoxedSystem, Command, IntoSystem};
@@ -91,10 +90,9 @@ impl SystemRegistry {
     #[inline]
     pub fn register<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> TypeId {
         let type_id = TypeId::of::<S>();
-        if !self.systems.contains_key(&type_id) {
-            let boxed_system = Box::new(IntoSystem::into_system(system));
-            self.systems.insert(type_id, (false, boxed_system));
-        }
+        self.systems.entry(type_id).or_insert_with(|| {
+            (false, Box::new(IntoSystem::into_system(system)))
+        });
         type_id
     }
 
@@ -345,15 +343,15 @@ mod tests {
     }
 
     #[test]
-    fn unregistered_system_command() {
-        fn command_system(mut commands: Commands) {
-            commands.run_system(spawn_entity);
-        }
+    fn run_system_through_command() {
+        use crate::system::RunSystem;
+        use crate::system::commands::Command;
 
         let mut world = World::new();
+        let command = RunSystem::new(spawn_entity);
         assert_eq!(world.entities.len(), 0);
-        world.run_system(command_system);
-        assert_eq!(world.entities.len(), 1)
+        command.apply(&mut world);
+        assert_eq!(world.entities.len(), 1);
     }
 
     #[test]
