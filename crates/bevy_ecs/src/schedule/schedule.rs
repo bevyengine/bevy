@@ -747,10 +747,6 @@ impl ScheduleGraph {
             self.check_set(id, &**set)?;
         }
 
-        if let Some(base_set) = &graph_info.base_set {
-            self.check_set(id, &**base_set)?;
-        }
-
         Ok(())
     }
 
