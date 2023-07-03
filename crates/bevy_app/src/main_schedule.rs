@@ -1,20 +1,35 @@
 use crate::{App, Plugin};
 use bevy_ecs::{
     schedule::{ExecutorKind, Schedule, ScheduleLabel},
-    system::{Local, Resource},
+    system::Resource,
     world::{Mut, World},
 };
 
-/// The schedule that contains the app logic that is evaluated each tick of event loop.
-///
-/// By default, it will run the following schedules in the given order:
-///
 /// On the first run of the schedule (and only on the first run), it will run:
 /// * [`PreStartup`]
 /// * [`Startup`]
 /// * [`PostStartup`]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct StartupFlow;
+
+/// The schedule that runs before [`Startup`].
+/// This is run by the [`StartupFlow`] schedule.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PreStartup;
+
+/// The schedule that runs once when the app starts.
+/// This is run by the [`StartupFlow`] schedule.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Startup;
+
+/// The schedule that runs once after [`Startup`].
+/// This is run by the [`StartupFlow`] schedule.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PostStartup;
+
+/// The schedule that contains the app logic that is evaluated each tick of event loop.
 ///
-/// Then it will run:
+/// By default, it will run the following schedules in the given order:
 /// * [`First`]
 /// * [`PreUpdate`]
 /// * [`StateTransition`]
@@ -26,23 +41,8 @@ use bevy_ecs::{
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct UpdateFlow;
 
-/// The schedule that runs before [`Startup`].
-/// This is run by the [`Main`] schedule.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct PreStartup;
-
-/// The schedule that runs once when the app starts.
-/// This is run by the [`Main`] schedule.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Startup;
-
-/// The schedule that runs once after [`Startup`].
-/// This is run by the [`Main`] schedule.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct PostStartup;
-
 /// Runs first in the schedule.
-/// This is run by the [`Main`] schedule.
+/// This is run by the [`UpdateFlow`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct First;
 
@@ -53,17 +53,17 @@ pub struct First;
 /// [`PreUpdate`] exists to do "engine/plugin preparation work" that ensures the APIs consumed in [`Update`] are "ready".
 /// [`PreUpdate`] abstracts out "pre work implementation details".
 ///
-/// This is run by the [`Main`] schedule.
+/// This is run by the [`UpdateFlow`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PreUpdate;
 
 /// Runs [state transitions](bevy_ecs::schedule::States).
-/// This is run by the [`Main`] schedule.
+/// This is run by the [`UpdateFlow`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateTransition;
 
 /// Runs the [`FixedUpdate`] schedule in a loop according until all relevant elapsed time has been "consumed".
-/// This is run by the [`Main`] schedule.
+/// This is run by the [`UpdateFlow`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RunFixedUpdateLoop;
 
@@ -75,7 +75,7 @@ pub struct RunFixedUpdateLoop;
 pub struct FixedUpdate;
 
 /// The schedule that contains app logic.
-/// This is run by the [`Main`] schedule.
+/// This is run by the [`UpdateFlow`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Update;
 
@@ -86,16 +86,26 @@ pub struct Update;
 /// [`PostUpdate`] exists to do "engine/plugin response work" to things that happened in [`Update`].
 /// [`PostUpdate`] abstracts out "implementation details" from users defining systems in [`Update`].
 ///
-/// This is run by the [`Main`] schedule.
+/// This is run by the [`UpdateFlow`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PostUpdate;
 
 /// Runs last in the schedule.
-/// This is run by the [`Main`] schedule.
+/// This is run by the [`UpdateFlow`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Last;
 
-/// The main render schedule.
+/// Each time an event is received from windows and devices, this schedule is run.
+/// This is useful for responding to events regardless of whether tick updates take place.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Control;
+
+/// Each time a frame is ready to be updated, this schedule is run.
+/// This is the best place to decide whether to redraw.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct FrameReady;
+
+/// The schedule that builds and sends drawing queries to the GPU.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct RenderFlow;
 
@@ -135,16 +145,19 @@ impl UpdateFlowOrder {
     }
 }
 
-impl UpdateFlow {
-    /// A system that runs the "main schedule"
-    pub fn run_main(world: &mut World, mut run_at_least_once: Local<bool>) {
-        if !*run_at_least_once {
-            let _ = world.try_run_schedule(PreStartup);
-            let _ = world.try_run_schedule(Startup);
-            let _ = world.try_run_schedule(PostStartup);
-            *run_at_least_once = true;
-        }
+/// Initializes the [`StartupFlow`] schedule, [`UpdateFlow`] schedule, sub schedules,  and resources for a given [`App`].
+pub struct MainSchedulePlugin;
 
+impl MainSchedulePlugin {
+    /// A system that runs the `StartupFlow` sub schedules
+    pub fn run_startup(world: &mut World) {
+        let _ = world.try_run_schedule(PreStartup);
+        let _ = world.try_run_schedule(Startup);
+        let _ = world.try_run_schedule(PostStartup);
+    }
+
+    /// A system that runs the `UpdateFlow` sub schedules
+    pub fn run_update(world: &mut World) {
         world.resource_scope(|world, order: Mut<UpdateFlowOrder>| {
             for label in &order.labels {
                 let _ = world.try_run_schedule(&**label);
@@ -153,20 +166,21 @@ impl UpdateFlow {
     }
 }
 
-/// Initializes the [`Main`] schedule, sub schedules,  and resources for a given [`App`].
-pub struct MainSchedulePlugin;
-
 impl Plugin for MainSchedulePlugin {
     fn build(&self, app: &mut App) {
         // simple "facilitator" schedules benefit from simpler single threaded scheduling
-        let mut main_schedule = Schedule::new();
-        main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        let mut startup_schedule = Schedule::new();
+        startup_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        let mut update_schedule = Schedule::new();
+        update_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
         let mut fixed_update_loop_schedule = Schedule::new();
         fixed_update_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
 
-        app.add_schedule(UpdateFlow, main_schedule)
+        app.add_schedule(StartupFlow, startup_schedule)
+            .add_schedule(UpdateFlow, update_schedule)
             .add_schedule(RunFixedUpdateLoop, fixed_update_loop_schedule)
             .init_resource::<UpdateFlowOrder>()
-            .add_systems(UpdateFlow, UpdateFlow::run_main);
+            .add_systems(StartupFlow, Self::run_startup)
+            .add_systems(UpdateFlow, Self::run_update);
     }
 }

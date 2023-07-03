@@ -25,8 +25,8 @@ pub mod prelude {
     pub use crate::{
         app::App,
         main_schedule::{
-            First, FixedUpdate, Last, UpdateFlow, PostStartup, PostUpdate, PreStartup, PreUpdate, RenderFlow,
-            Startup, StateTransition, Update,
+            Control, First, FixedUpdate, FrameReady, Last, PostStartup, PostUpdate, PreStartup,
+            PreUpdate, RenderFlow, Startup, StartupFlow, StateTransition, Update, UpdateFlow,
         },
         DynamicPlugin, Plugin, PluginGroup,
     };

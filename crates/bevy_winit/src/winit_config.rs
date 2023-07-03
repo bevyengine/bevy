@@ -1,8 +1,8 @@
-use bevy_app::{UpdateFlow, RenderFlow};
+use bevy_app::{Control, FrameReady, RenderFlow, StartupFlow, UpdateFlow};
 use bevy_ecs::{schedule::BoxedScheduleLabel, system::Resource};
 
 /// A resource for configuring usage of the [`winit`] library.
-#[derive(Debug, Resource)]
+#[derive(Clone, Debug, Resource)]
 pub struct WinitSettings {
     /// Configures `winit` to return control to the caller after exiting the
     /// event loop, enabling [`App::run()`](bevy_app::App::run()) to return.
@@ -45,7 +45,7 @@ pub struct WinitSettings {
     pub allow_tick_skip: bool,
     /// Limit on the frequency at which schedule `render_schedule_label` runs per second.
     /// Even if this is set to a higher value, the monitor refresh rate will be capped.
-    ///
+    /// 
     /// Redrawing will not be performed unless requested for each frame.
     /// Redraw requests are made when:
     ///
@@ -67,13 +67,25 @@ pub struct WinitSettings {
     ///
     /// The default is `true`.
     pub redraw_when_device_event: bool,
-    /// The main schedule to be run for each tick.
+    /// This schedule is run only once at startup.
     ///
-    /// The default is [`Main`].
-    pub main_schedule_label: BoxedScheduleLabel,
-    /// The render schedule to be run for each frame.
+    /// The default is [`StartupFlow`].
+    pub startup_schedule_label: BoxedScheduleLabel,
+    /// This schedule is run for each tick.
     ///
-    /// The default is [`Render`].
+    /// The default is [`UpdateFlow`].
+    pub update_schedule_label: BoxedScheduleLabel,
+    /// This schedule is run for each time an event is received from windows and devices.
+    ///
+    /// The default is [`Control`].
+    pub control_schedule_label: BoxedScheduleLabel,
+    /// This schedule is run for each time a frame is ready to be updated.
+    ///
+    /// The default is [`FrameReady`].
+    pub frame_ready_schedule_label: BoxedScheduleLabel,
+    /// This schedule is run when redraw is requested.
+    ///
+    /// The default is [`RenderFlow`].
     pub render_schedule_label: BoxedScheduleLabel,
 }
 
@@ -108,7 +120,10 @@ impl Default for WinitSettings {
             redraw_when_tick: true,
             redraw_when_window_event: true,
             redraw_when_device_event: true,
-            main_schedule_label: Box::new(UpdateFlow),
+            startup_schedule_label: Box::new(StartupFlow),
+            update_schedule_label: Box::new(UpdateFlow),
+            control_schedule_label: Box::new(Control),
+            frame_ready_schedule_label: Box::new(FrameReady),
             render_schedule_label: Box::new(RenderFlow),
         }
     }

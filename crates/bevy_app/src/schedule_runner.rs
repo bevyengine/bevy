@@ -1,7 +1,7 @@
 use crate::{
     app::{App, AppExit},
     plugin::Plugin,
-    UpdateFlow,
+    StartupFlow, UpdateFlow,
 };
 use bevy_ecs::{
     event::{Events, ManualEventReader},
@@ -53,10 +53,14 @@ impl Default for RunMode {
 pub struct ScheduleRunnerPlugin {
     /// Determines whether the [`Schedule`](bevy_ecs::schedule::Schedule) is run once or repeatedly.
     pub run_mode: RunMode,
-    /// The schedule to run by default.
+    /// This schedule is run only once at startup.
     ///
-    /// This is initially set to [`Main`].
-    pub main_schedule_label: BoxedScheduleLabel,
+    /// The default is [`StartupFlow`].
+    pub startup_schedule_label: BoxedScheduleLabel,
+    /// This schedule is run for each tick.
+    ///
+    /// The default is [`UpdateFlow`].
+    pub update_schedule_label: BoxedScheduleLabel,
 }
 
 impl ScheduleRunnerPlugin {
@@ -64,7 +68,7 @@ impl ScheduleRunnerPlugin {
     pub fn run_once() -> Self {
         ScheduleRunnerPlugin {
             run_mode: RunMode::Once,
-            main_schedule_label: Box::new(UpdateFlow),
+            ..Default::default()
         }
     }
 
@@ -74,7 +78,7 @@ impl ScheduleRunnerPlugin {
             run_mode: RunMode::Loop {
                 wait: Some(wait_duration),
             },
-            main_schedule_label: Box::new(UpdateFlow),
+            ..Default::default()
         }
     }
 }
@@ -83,7 +87,8 @@ impl Default for ScheduleRunnerPlugin {
     fn default() -> Self {
         ScheduleRunnerPlugin {
             run_mode: RunMode::Loop { wait: None },
-            main_schedule_label: Box::new(UpdateFlow),
+            startup_schedule_label: Box::new(StartupFlow),
+            update_schedule_label: Box::new(UpdateFlow),
         }
     }
 }
@@ -91,19 +96,27 @@ impl Default for ScheduleRunnerPlugin {
 impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut App) {
         let run_mode = self.run_mode;
-        let main_schedule_label = self.main_schedule_label.clone();
+        let startup_schedule_label = self.startup_schedule_label.clone();
+        let update_schedule_label = self.update_schedule_label.clone();
         app.set_runner(move |mut app: App| {
             // Prevent panic when schedules do not exist
-            app.init_schedule(main_schedule_label.clone());
+            app.init_schedule(startup_schedule_label.clone());
+            app.init_schedule(update_schedule_label.clone());
+
+            {
+                #[cfg(feature = "trace")]
+                let _ = info_span!("run top schedule", name = ?startup_schedule_label).entered();
+                app.world.run_schedule(startup_schedule_label);
+            }
 
             let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
             match run_mode {
                 RunMode::Once => {
                     {
                         #[cfg(feature = "trace")]
-                        let _main_schedule_span =
-                            info_span!("main schedule", name = ?main_schedule_label).entered();
-                        app.world.run_schedule(main_schedule_label);
+                        let _ =
+                            info_span!("run top schedule", name = ?update_schedule_label).entered();
+                        app.world.run_schedule(update_schedule_label);
                     }
                     app.update_sub_apps();
                 }
@@ -124,9 +137,9 @@ impl Plugin for ScheduleRunnerPlugin {
 
                         {
                             #[cfg(feature = "trace")]
-                            let _main_schedule_span =
-                                info_span!("main schedule", name = ?main_schedule_label).entered();
-                            app.world.run_schedule(&main_schedule_label);
+                            let _ = info_span!("run top schedule", name = ?update_schedule_label)
+                                .entered();
+                            app.world.run_schedule(&update_schedule_label);
                         }
                         app.update_sub_apps();
                         app.world.clear_trackers();

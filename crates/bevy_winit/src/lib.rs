@@ -17,7 +17,10 @@ mod winit_handler;
 mod winit_windows;
 
 use bevy_a11y::AccessibilityRequested;
-use bevy_ecs::system::{SystemParam, SystemState};
+use bevy_ecs::{
+    schedule::ScheduleLabel,
+    system::{SystemParam, SystemState},
+};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 use system::{changed_window, create_window, despawn_window, CachedWindow};
@@ -306,6 +309,14 @@ fn update_next_time(next: &mut Instant, rate: f64, skip_would: Option<Instant>) 
     }
 }
 
+fn get_refresh_rate(primary_window: &winit::window::Window) -> f64 {
+    primary_window
+        .current_monitor()
+        .and_then(|mh| mh.refresh_rate_millihertz())
+        .map(|x| x as f64 / 1000.)
+        .unwrap_or(FALLBACK_REFRESH_RATE)
+}
+
 /// The default [`App::runner`] for the [`WinitPlugin`] plugin.
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the `EventLoop`.
@@ -316,6 +327,7 @@ pub fn winit_runner(mut app: App) {
         .remove_non_send_resource::<EventLoop<HandleEvent>>()
         .unwrap();
     app.world.insert_resource(WinitHandler::new(&event_loop));
+    let event_loop_proxy = event_loop.create_proxy();
 
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
     let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
@@ -352,22 +364,19 @@ pub fn winit_runner(mut app: App) {
     )> = SystemState::from_world(&mut app.world);
 
     {
-        let settings = settings_system_state.get(&app.world);
-        let main_schedule_label = settings.main_schedule_label.clone();
-        let render_schedule_label = settings.render_schedule_label.clone();
-
         // Prevent panic when schedules do not exist
-        app.init_schedule(main_schedule_label);
-        app.init_schedule(render_schedule_label);
+        let settings = settings_system_state.get(&app.world).clone();
+        app.init_schedule(settings.startup_schedule_label);
+        app.init_schedule(settings.update_schedule_label);
+        app.init_schedule(settings.control_schedule_label);
+        app.init_schedule(settings.frame_ready_schedule_label);
+        app.init_schedule(settings.render_schedule_label);
     }
 
     let mut app_active = false;
     let mut finished_and_setup_done = false;
 
-    let mut tick_mode = TickMode::Periodic {
-        next_tick: Instant::now(),
-        rate_multiplier: 1.,
-    };
+    let mut tick_mode = TickMode::Manual { request_steps: 0 };
     let mut request_redraw = true;
     let mut next_frame = Instant::now();
 
@@ -393,6 +402,14 @@ pub fn winit_runner(mut app: App) {
                         app.finish();
                         app.cleanup();
                         finished_and_setup_done = true;
+
+                        run_top_schedule(
+                            settings_system_state
+                                .get(&app.world)
+                                .startup_schedule_label
+                                .clone(),
+                            &mut app.world,
+                        );
                     }
                 }
             }
@@ -708,8 +725,22 @@ pub fn winit_runner(mut app: App) {
                         }
                     };
                 }
-                HandleEvent::Redraw => {
+                HandleEvent::RequestRedraw => {
                     request_redraw = true;
+                }
+                HandleEvent::DetermineRedraw => {
+                    let (windows, query) = primary_window_system_state.get(&app.world);
+                    if let Some(primary_window) =
+                        query.get_single().ok().and_then(|e| windows.get_window(e))
+                    {
+                        if request_redraw
+                            && primary_window.is_visible().unwrap_or(true)
+                            && !primary_window.is_minimized().unwrap_or(false)
+                        {
+                            primary_window.request_redraw();
+                        }
+                    }
+                    request_redraw = false;
                 }
                 HandleEvent::Exit(code) => {
                     *control_flow = ControlFlow::ExitWithCode(code);
@@ -732,6 +763,14 @@ pub fn winit_runner(mut app: App) {
                 if !finished_and_setup_done {
                     return;
                 }
+
+                run_top_schedule(
+                    settings_system_state
+                        .get(&app.world)
+                        .control_schedule_label
+                        .clone(),
+                    &mut app.world,
+                );
 
                 let settings = settings_system_state.get(&app.world);
 
@@ -768,7 +807,7 @@ pub fn winit_runner(mut app: App) {
                         request_redraw = true;
                     }
 
-                    run_top_schedule(settings.main_schedule_label.clone(), &mut app.world);
+                    run_top_schedule(settings.update_schedule_label.clone(), &mut app.world);
                     app.update_sub_apps();
                     app.world.clear_trackers();
                 }
@@ -780,17 +819,18 @@ pub fn winit_runner(mut app: App) {
                     let now = Instant::now();
                     if next_frame <= now {
                         let settings = settings_system_state.get(&app.world);
-                        let refresh_rate = primary_window
-                            .current_monitor()
-                            .and_then(|mh| mh.refresh_rate_millihertz())
-                            .map(|x| x as f64 / 1000.)
-                            .unwrap_or(FALLBACK_REFRESH_RATE);
+                        let refresh_rate = get_refresh_rate(primary_window);
 
                         // Ensure that the counter advances without redrawing
                         update_next_time(
                             &mut next_frame,
                             settings.frame_rate_limit.min(refresh_rate),
                             Some(now),
+                        );
+
+                        run_top_schedule(
+                            settings.frame_ready_schedule_label.clone(),
+                            &mut app.world,
                         );
 
                         if let Some(app_redraw_events) =
@@ -801,13 +841,10 @@ pub fn winit_runner(mut app: App) {
                             }
                         }
 
-                        if request_redraw
-                            && primary_window.is_visible().unwrap_or(true)
-                            && !primary_window.is_minimized().unwrap_or(false)
-                        {
-                            primary_window.request_redraw();
-                        }
-                        request_redraw = false;
+                        // Via this event to decide whether to redraw after receiving `HandleEvent::RequestRedraw`
+                        event_loop_proxy
+                            .send_event(HandleEvent::DetermineRedraw)
+                            .expect("Used only in the event loop");
                     }
                 }
 
