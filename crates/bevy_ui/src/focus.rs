@@ -35,7 +35,7 @@ use smallvec::SmallVec;
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum Interaction {
-    /// The node has been pressed
+    /// The node has been pressed (Note: This does not capture click/press-release action)
     Pressed,
     /// The node has been hovered over
     Hovered,
