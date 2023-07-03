@@ -297,12 +297,20 @@ pub trait BuildChildren {
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Inserts children at the given index.
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
     /// Removes the given children
     ///
@@ -313,18 +321,30 @@ pub trait BuildChildren {
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the child is the same as the parent.
     fn add_child(&mut self, child: Entity) -> &mut Self;
     /// Removes all children from this entity. The [`Children`] component will be removed if it exists, otherwise this does nothing.
     fn clear_children(&mut self) -> &mut Self;
     /// Removes all current children from this entity, replacing them with the specified list of entities.
     ///
     /// The removed children will have their [`Parent`] component removed.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
     fn replace_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Sets the parent of this entity.
     ///
     /// If this entity already had a parent, the parent's [`Children`] component will have this
     /// child removed from its list. Removing all children from a parent causes its [`Children`]
     /// component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the parent is the same as the child.
     fn set_parent(&mut self, parent: Entity) -> &mut Self;
     /// Removes the [`Parent`] of this entity.
     ///
