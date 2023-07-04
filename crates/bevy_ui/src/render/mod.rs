@@ -361,14 +361,12 @@ pub fn extract_uinodes(
                 (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
             };
 
-            if !visibility.is_visible()    
-                || node.size().x <= 0.
-                || node.size().y <= 0.
-            {
+            if !visibility.is_visible() || node.size().x <= 0. || node.size().y <= 0. {
                 continue;
             }
 
-            let border_color = maybe_border_color.map_or(Color::NONE, |background_color| background_color.0);
+            let border_color =
+                maybe_border_color.map_or(Color::NONE, |background_color| background_color.0);
 
             // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
             // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
