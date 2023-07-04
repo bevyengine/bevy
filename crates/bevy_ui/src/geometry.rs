@@ -334,6 +334,8 @@ impl UiRect {
     /// assert_eq!(ui_rect.right, Val::Vw(25.));
     /// assert_eq!(ui_rect.top, Val::Vw(25.));
     /// assert_eq!(ui_rect.bottom, Val::Vw(25.0));
+    ///
+    /// assert_eq!(UiRect::DEFAULT.with_left(Val::Percent(35.)), UiRect::left(Val::Percent(35.)));
     /// ```
     #[inline]
     pub fn with_left(mut self, left: Val) -> UiRect {
@@ -353,6 +355,8 @@ impl UiRect {
     /// assert_eq!(ui_rect.right, Val::Px(10.));
     /// assert_eq!(ui_rect.top, Val::Vw(25.));
     /// assert_eq!(ui_rect.bottom, Val::Vw(25.0));
+    ///
+    /// assert_eq!(UiRect::DEFAULT.with_right(Val::Percent(35.)), UiRect::right(Val::Percent(35.)));
     /// ```
     #[inline]
     pub fn with_right(mut self, right: Val) -> UiRect {
@@ -372,6 +376,8 @@ impl UiRect {
     /// assert_eq!(ui_rect.right, Val::Vw(25.));
     /// assert_eq!(ui_rect.top, Val::Px(10.));
     /// assert_eq!(ui_rect.bottom, Val::Vw(25.0));
+    ///
+    /// assert_eq!(UiRect::DEFAULT.with_top(Val::Percent(35.)), UiRect::top(Val::Percent(35.)));
     /// ```
     #[inline]
     pub fn with_top(mut self, top: Val) -> UiRect {
@@ -391,6 +397,8 @@ impl UiRect {
     /// assert_eq!(ui_rect.right, Val::Vw(25.));
     /// assert_eq!(ui_rect.top, Val::Vw(25.));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
+    ///
+    /// assert_eq!(UiRect::DEFAULT.with_bottom(Val::Percent(35.)), UiRect::bottom(Val::Percent(35.)));
     /// ```
     #[inline]
     pub fn with_bottom(mut self, bottom: Val) -> UiRect {
