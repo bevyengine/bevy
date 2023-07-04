@@ -3,12 +3,12 @@ mod colorspace;
 pub use colorspace::*;
 
 use bevy_math::{Vec3, Vec4};
-use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 use thiserror::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Color {
     /// sRGBA color

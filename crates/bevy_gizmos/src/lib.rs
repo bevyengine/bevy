@@ -33,9 +33,7 @@ use bevy_ecs::{
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
     },
 };
-use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypePath, TypeUuid,
-};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
 use bevy_render::{
     color::Color,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -49,6 +47,7 @@ use bevy_render::{
         VertexFormat, VertexStepMode,
     },
     renderer::RenderDevice,
+    view::RenderLayers,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -159,6 +158,10 @@ pub struct GizmoConfig {
     pub depth_bias: f32,
     /// Configuration for the [`AabbGizmo`].
     pub aabb: AabbGizmoConfig,
+    /// Describes which rendering layers gizmos will be rendered to.
+    ///
+    /// Gizmos will only be rendered to cameras with intersecting layers.
+    pub render_layers: RenderLayers,
 }
 
 impl Default for GizmoConfig {
@@ -169,6 +172,7 @@ impl Default for GizmoConfig {
             line_perspective: false,
             depth_bias: 0.,
             aabb: Default::default(),
+            render_layers: Default::default(),
         }
     }
 }
@@ -191,8 +195,8 @@ pub struct AabbGizmoConfig {
 }
 
 /// Add this [`Component`] to an entity to draw its [`Aabb`] component.
-#[derive(Component, Reflect, FromReflect, Default, Debug)]
-#[reflect(Component, FromReflect, Default)]
+#[derive(Component, Reflect, Default, Debug)]
+#[reflect(Component, Default)]
 pub struct AabbGizmo {
     /// The color of the box.
     ///
@@ -229,7 +233,13 @@ fn draw_all_aabbs(
 }
 
 fn color_from_entity(entity: Entity) -> Color {
-    let hue = entity.to_bits() as f32 * 100_000. % 360.;
+    use bevy_utils::RandomState;
+    const U64_TO_DEGREES: f32 = 360.0 / u64::MAX as f32;
+    const STATE: RandomState =
+        RandomState::with_seeds(5952553601252303067, 16866614500153072625, 0, 0);
+
+    let hash = STATE.hash_one(entity);
+    let hue = hash as f32 * U64_TO_DEGREES;
     Color::hsl(hue, 1., 0.5)
 }
 

@@ -1,4 +1,4 @@
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::Reflect;
 
 /// The [parallax mapping] method to use to compute depth based on the
 /// material's [`depth_map`].
@@ -11,7 +11,7 @@ use bevy_reflect::{FromReflect, Reflect};
 ///
 /// [`depth_map`]: crate::StandardMaterial::depth_map
 /// [parallax mapping]: https://en.wikipedia.org/wiki/Parallax_mapping
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Reflect)]
 pub enum ParallaxMappingMethod {
     /// A simple linear interpolation, using a single texture sample.
     ///

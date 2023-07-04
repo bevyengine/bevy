@@ -662,7 +662,6 @@ unsafe impl<T: Component> WorldQuery for &T {
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
                     // Note that we do not actually access any components in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
-                    .unsafe_world()
                     .storages()
                     .sparse_sets
                     .get(component_id)
@@ -810,7 +809,6 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
                     // SAFETY: See &T::init_fetch.
-                    .unsafe_world()
                     .storages()
                     .sparse_sets
                     .get(component_id)
@@ -974,7 +972,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
                     // SAFETY: See &T::init_fetch.
-                    .unsafe_world()
                     .storages()
                     .sparse_sets
                     .get(component_id)

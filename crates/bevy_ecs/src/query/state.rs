@@ -482,7 +482,6 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut filter = F::init_fetch(world, &self.filter_state, last_run, this_run);
 
         let table = world
-            .unsafe_world()
             .storages()
             .tables
             .get(location.table_id)
@@ -1004,7 +1003,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut fetch = Q::init_fetch(world, &self.fetch_state, last_run, this_run);
         let mut filter = F::init_fetch(world, &self.filter_state, last_run, this_run);
 
-        let tables = &world.unsafe_world().storages().tables;
+        let tables = &world.storages().tables;
         if Q::IS_DENSE && F::IS_DENSE {
             for table_id in &self.matched_table_ids {
                 let table = tables.get(*table_id).debug_checked_unwrap();
@@ -1079,7 +1078,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         ComputeTaskPool::get().scope(|scope| {
             if Q::IS_DENSE && F::IS_DENSE {
                 // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
-                let tables = &world.unsafe_world().storages().tables;
+                let tables = &world.storages().tables;
                 for table_id in &self.matched_table_ids {
                     let table = &tables[*table_id];
                     if table.is_empty() {
@@ -1095,7 +1094,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 Q::init_fetch(world, &self.fetch_state, last_run, this_run);
                             let mut filter =
                                 F::init_fetch(world, &self.filter_state, last_run, this_run);
-                            let tables = &world.unsafe_world().storages().tables;
+                            let tables = &world.storages().tables;
                             let table = tables.get(*table_id).debug_checked_unwrap();
                             let entities = table.entities();
                             Q::set_table(&mut fetch, &self.fetch_state, table);
@@ -1139,7 +1138,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 Q::init_fetch(world, &self.fetch_state, last_run, this_run);
                             let mut filter =
                                 F::init_fetch(world, &self.filter_state, last_run, this_run);
-                            let tables = &world.unsafe_world().storages().tables;
+                            let tables = &world.storages().tables;
                             let archetype =
                                 world.archetypes().get(*archetype_id).debug_checked_unwrap();
                             let table = tables.get(archetype.table_id()).debug_checked_unwrap();
