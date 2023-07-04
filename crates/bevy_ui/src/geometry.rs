@@ -321,6 +321,30 @@ impl UiRect {
             ..Default::default()
         }
     }
+
+    #[inline]
+    pub fn with_left(mut self, left: Val) -> UiRect {
+        self.left = left;
+        self
+    }
+
+    #[inline]
+    pub fn with_right(mut self, right: Val) -> UiRect {
+        self.left = right;
+        self
+    }
+
+    #[inline]
+    pub fn with_top(mut self, top: Val) -> UiRect {
+        self.top = top;
+        self
+    }
+
+    #[inline]
+    pub fn with_bottom(mut self, bottom: Val) -> UiRect {
+        self.bottom = bottom;
+        self
+    }
 }
 
 impl Default for UiRect {
