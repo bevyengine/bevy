@@ -1427,7 +1427,7 @@ pub enum QueryEntityMismatchDetail {
 /// Represents which [`Entity`]'s component do not match a [`Query`](crate::system::Query) or [`QueryState`].
 ///
 /// Will be returned automatically with [`QueryEntityMismatchDetail::ComponentMismatch`],
-/// or can be requested manually with [`QueryState::get_mismatch_details_unchecked`].
+/// or can be requested manually with [`QueryState::get_mismatches_detail`].
 ///
 /// This is usually used in an array because of a query like `QueryState<A, Or<(With<B>, With<C)>>`
 /// is separated into two queries `QueryState<A, With<B>>` and `QueryState<A, With<B>>`,
