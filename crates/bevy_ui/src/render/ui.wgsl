@@ -42,36 +42,6 @@ var sprite_texture: texture_2d<f32>;
 @group(1) @binding(1)
 var sprite_sampler: sampler;
 
-fn sd_box(point: vec2<f32>, size: vec2<f32>) -> f32 {
-    let d = abs(point) - 0.5 * size;
-    return length(max(d,vec2<f32>(0.0))) + min(max(d.x,d.y),0.0);
-}
-
-fn sd_inset_box(point: vec2<f32>, size: vec2<f32>, inset: vec4<f32>) -> f32 {
-    let inner_size = size - inset.xy - inset.zw;
-    let inner_center = inset.xy + 0.5 * inner_size - 0.5 * size;
-    let inner_point = point - inner_center;
-    return sd_box(inner_point, inner_size);
-}
-
-fn rects(in: VertexOutput) -> vec4<f32> {
-    let point = (in.uv - vec2<f32>(0.49999)) * in.size;
-    // distance from internal border
-    let internal_distance = sd_inset_box(point, in.size, in.border);
-    // distance from external border
-    let external_distance = sd_box(point, in.size);
-
-    if internal_distance <= 0.0 {
-        return in.color;
-    }
-
-    if external_distance <= 0.0 {
-        return in.border_color;
-    }
-
-    return vec4<f32>(0.0);
-}
-
 fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>) -> f32 {
     let top_right_radius = radius.x;
     let bottom_right_radius = radius.y;
@@ -93,11 +63,6 @@ fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>) -> f32 {
     }
     let q = abs(point) - 0.5 * size + r;
     return length(max(q, vec2(0.0, 0.0))) + min(max(q.x, q.y), 0.0) - r;
-}
-
-fn calculate_inner_radius(radius: f32, inset: vec2<f32>) -> f32 {
-    let s = max(inset.x, inset.y);
-    return min(radius - s, 0.0);
 }
 
 fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, inset: vec4<f32>) -> f32 {
@@ -127,9 +92,8 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
     return sd_rounded_box(inner_point, inner_size, r);
 }
 
-
-
-fn rounded_rects(in: VertexOutput) -> vec4<f32> {
+@fragment
+fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = select(in.color, in.color * textureSample(sprite_texture, sprite_sampler, in.uv), in.mode == 0u);
     let point = (in.uv - vec2<f32>(0.4999)) * in.size;
     // distance from internal border
@@ -146,9 +110,4 @@ fn rounded_rects(in: VertexOutput) -> vec4<f32> {
     }
 
     return vec4<f32>(0.0);
-}
-
-@fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    return rounded_rects(in);
 }
