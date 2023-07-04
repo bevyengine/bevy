@@ -1729,8 +1729,8 @@ mod tests {
             assert_eq!(
                 QueryComponentError::MissingWriteAccess(QueryComponentErrorDetail {
                     requested_entity: entity,
-                    requested_component: "W<u32>",
-                    query_type: "Query<'_, '_, &W<u32>>",
+                    requested_component: "bevy_ecs::system::tests::W<u32>",
+                    query_type: "bevy_ecs::system::query::Query<&bevy_ecs::system::tests::W<u32>>",
                 }),
                 rq.get_component_mut::<W<u32>>(entity).unwrap_err(),
             );

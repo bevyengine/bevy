@@ -263,7 +263,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// ```rust
     /// use bevy_ecs::prelude::*;
-    /// use bevy_ecs::query::QueryEntityError;
+    /// use bevy_ecs::query::{QueryEntityError, QueryEntityErrorDetail};
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
@@ -282,7 +282,13 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// let wrong_entity = Entity::from_raw(365);
     ///
-    /// assert_eq!(query_state.get_many(&world, [wrong_entity]), Err(QueryEntityError::NoSuchEntity(wrong_entity)));
+    /// assert!(matches!(
+    ///     query_state.get_many(&world, [wrong_entity]),
+    ///     Err(QueryEntityError::NoSuchEntity(QueryEntityErrorDetail {
+    ///         requested_entity: wrong_entity,
+    ///         ..
+    ///     }))
+    /// ));
     /// ```
     #[inline]
     pub fn get_many<'w, const N: usize>(
@@ -334,7 +340,11 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// ```rust
     /// use bevy_ecs::prelude::*;
-    /// use bevy_ecs::query::QueryEntityError;
+    /// use bevy_ecs::query::{
+    ///     QueryEntityError,
+    ///     QueryEntityErrorDetail,
+    ///     QueryEntityMismatchDetail,
+    /// };
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
@@ -361,9 +371,31 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// let wrong_entity = Entity::from_raw(57);
     /// let invalid_entity = world.spawn_empty().id();
     ///
-    /// assert_eq!(query_state.get_many_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
-    /// assert_eq!(query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err(), QueryEntityError::QueryDoesNotMatch(invalid_entity));
-    /// assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
+    /// assert!(matches!(
+    ///     query_state.get_many_mut(&mut world, [wrong_entity]).unwrap_err(),
+    ///     QueryEntityError::NoSuchEntity(QueryEntityErrorDetail {
+    ///         requested_entity: wrong_entity,
+    ///         ..
+    ///     })
+    /// ));
+    /// assert!(matches!(
+    ///     query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err(),
+    ///     QueryEntityError::QueryDoesNotMatch(
+    ///         QueryEntityMismatchDetail::ComponentMismatch(_),
+    ///         QueryEntityErrorDetail {
+    ///             requested_entity: invalid_entity,
+    ///             ..
+    ///         }
+    ///     )
+    /// ));
+    /// let first_entity = entities[0];
+    /// assert!(matches!(
+    ///     query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(),
+    ///     QueryEntityError::AliasedMutability(QueryEntityErrorDetail {
+    ///         requested_entity: first_entity,
+    ///         ..
+    ///     })
+    /// ));
     /// ```
     #[inline]
     pub fn get_many_mut<'w, const N: usize>(
@@ -1317,7 +1349,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ) -> Vec<QueryEntityComponentMismatch> {
         let mut mismatch_details = Vec::new();
 
-        for components_access in self.component_access.filter_sets.iter() {
+        for components_access in &self.component_access.filter_sets {
             let query_with_components = components_access.with.clone();
             let query_without_components = components_access.without.clone();
             let mut query_unmatched_components = query_with_components.clone();
@@ -1500,7 +1532,7 @@ mod tests {
             },
             QueryEntityError::AliasedMutability(QueryEntityErrorDetail {
                 requested_entity: entities[0],
-                query_type: "QueryState<Entity>",
+                query_type: "bevy_ecs::query::state::QueryState<bevy_ecs::entity::Entity>",
             })
         );
 
@@ -1518,7 +1550,7 @@ mod tests {
             },
             QueryEntityError::AliasedMutability(QueryEntityErrorDetail {
                 requested_entity: entities[0],
-                query_type: "QueryState<Entity>",
+                query_type: "bevy_ecs::query::state::QueryState<bevy_ecs::entity::Entity>",
             })
         );
 
@@ -1536,7 +1568,7 @@ mod tests {
             },
             QueryEntityError::AliasedMutability(QueryEntityErrorDetail {
                 requested_entity: entities[9],
-                query_type: "QueryState<Entity>",
+                query_type: "bevy_ecs::query::state::QueryState<bevy_ecs::entity::Entity>",
             })
         );
     }

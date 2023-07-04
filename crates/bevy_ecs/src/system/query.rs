@@ -1467,7 +1467,7 @@ pub enum QueryComponentError {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, system::QueryComponentError};
+    /// # use bevy_ecs::{prelude::*, system::{QueryComponentError, QueryComponentErrorDetail}};
     /// #
     /// # #[derive(Component)]
     /// # struct OtherComponent;
@@ -1503,7 +1503,7 @@ pub enum QueryComponentError {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, system::QueryComponentError};
+    /// # use bevy_ecs::{prelude::*, system::{QueryComponentError, QueryComponentErrorDetail}};
     /// #
     /// # #[derive(Component, PartialEq, Debug)]
     /// # struct RequestedComponent;
@@ -1601,11 +1601,11 @@ impl std::fmt::Display for QueryComponentError {
 
 impl QueryComponentErrorDetail {
     /// Creates a [`QueryComponentErrorDetail`] given a [`Query`], a [`Component`] and an [`Entity`].
-    pub fn from<Query, C: Component>(entity: Entity) -> QueryComponentErrorDetail {
+    pub fn from<Q, C: Component>(entity: Entity) -> QueryComponentErrorDetail {
         QueryComponentErrorDetail {
             requested_entity: entity,
             requested_component: std::any::type_name::<C>(),
-            query_type: std::any::type_name::<Self>(),
+            query_type: std::any::type_name::<Q>(),
         }
     }
 }
