@@ -9,7 +9,7 @@ struct VertexOutput {
     @location(2) @interpolate(flat) size: vec2<f32>,
     @location(3) @interpolate(flat) mode: u32,
     @location(4) @interpolate(flat) radius: vec4<f32>,    
-    @location(5) @interpolate(flat) thickness: vec4<f32>,    
+    @location(5) @interpolate(flat) border: vec4<f32>,    
     @location(6) border_color: vec4<f32>,
     @builtin(position) position: vec4<f32>,
 };
@@ -21,7 +21,7 @@ fn vertex(
     @location(2) vertex_color: vec4<f32>,
     @location(3) mode: u32,
     @location(4) radius: vec4<f32>,
-    @location(5) thickness: vec4<f32>,
+    @location(5) border: vec4<f32>,
     @location(6) size: vec2<f32>,
     @location(7) border_color: vec4<f32>,
 ) -> VertexOutput {
@@ -33,7 +33,7 @@ fn vertex(
     out.mode = mode;
     out.radius = radius;
     out.size = size;
-    out.thickness = thickness;
+    out.border = border;
     return out;
 }
 
@@ -45,6 +45,13 @@ var sprite_sampler: sampler;
 fn sd_box(point: vec2<f32>, size: vec2<f32>) -> f32 {
     let d = abs(point) - 0.5 * size;
     return length(max(d,vec2<f32>(0.0))) + min(max(d.x,d.y),0.0);
+}
+
+fn sd_inset_box(point: vec2<f32>, size: vec2<f32>, inset: vec4<f32>) -> f32 {
+    let inner_size = size - inset.xy - inset.zw;
+    let inner_center = inset.xy + 0.5 * inner_size - 0.5 *size;
+    let inner_point = point - inner_center;
+    return sd_box(inner_point, inner_size);
 }
 
 fn sd_rounded_rect(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>) -> f32 {
@@ -76,6 +83,10 @@ fn calculate_inner_radius(radius: f32, inset: vec2<f32>) -> f32 {
 }
 
 fn sd_inset_rounded_rect(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, inset: vec4<f32>) -> f32 {
+    let inner_size = size - inset.xy - inset.zw;
+    let inner_center = inset.xy + 0.5 * inner_size - 0.5 *size;
+    let inner_point = point - inner_center;
+
     let left = inset.x;
     let top = inset.y;
     let right = inset.z;
@@ -91,10 +102,6 @@ fn sd_inset_rounded_rect(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, i
     let bottom_left_radius = radius.z;
     let top_left_radius = radius.w;
 
-    let inner_size = size - inset.xy - inset.zw;
-    let inner_center = inset.xy + 0.5 * inner_size;
-    let inner_point = point - inner_center;
-
     var inner_radius: vec4<f32>;
     inner_radius.x = calculate_inner_radius(top_right_radius, top_right);
     inner_radius.y = calculate_inner_radius(bottom_right_radius, bottom_right);
@@ -104,9 +111,9 @@ fn sd_inset_rounded_rect(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, i
     return sd_rounded_rect(inner_point, inner_size, inner_radius);
 }
 
-fn sd_rounded_border(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, thickness: vec4<f32>) -> f32 {
+fn sd_rounded_border(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, border: vec4<f32>) -> f32 {
     let a = sd_rounded_rect(point, size, radius);
-    let b = sd_inset_rounded_rect(point, size, radius, thickness);
+    let b = sd_inset_rounded_rect(point, size, radius, border);
     return max(a, -b);
 }
 
@@ -119,23 +126,49 @@ fn sd_inset_rect(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, inset: ve
     return sd_rounded_rect(inner_point, inner_size, inner_radius);
 }
 
-fn rects(in: VertexOutput) -> vec4<f32> {
-    var outer_color = vec4<f32>(1.0, 0.0, 0.0, 1.0); // red
-    var border_color = vec4<f32>(0.0, 1.0, 0.0, 1.0); // green
-    var inner_color = vec4<f32>(0.0, 0.0, 1.0, 1.0); // blue
 
+
+fn rects(in: VertexOutput) -> vec4<f32> {
     let point = (in.uv - vec2<f32>(0.5)) * in.size;
-    let outer_distance = sd_box(point, in.size);
-    if outer_distance <= 0.0 {
-        return outer_color;
+    // distance from internal border
+    let internal_distance = sd_inset_box(point, in.size, in.border);
+    // distance from external border
+    let external_distance = sd_box(point, in.size);
+
+    if internal_distance <= 0.0 {
+        return in.color;
     }
 
-    return border_color;
+    if external_distance <= 0.0 {
+        return in.border_color;
+    }
+
+    return vec4<f32>(0.0);
 }
+
+fn rounded_rects(in: VertexOutput) -> vec4<f32> {
+    let point = (in.uv - vec2<f32>(0.5)) * in.size;
+    // distance from internal border
+    let internal_distance = sd_inset_box(point, in.size, in.border);
+    // distance from external border
+    let external_distance = sd_box(point, in.size);
+
+    if internal_distance <= 0.0 {
+        return in.color;
+    }
+
+    if external_distance <= 0.0 {
+        return in.border_color;
+    }
+
+    return vec4<f32>(0.0);
+}
+
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    return rects(in);
+    //return rects(in);
+    return rounded_rects(in);
 }
 
 //     // textureSample can only be called in unform control flow, not inside an if branch.
@@ -150,8 +183,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 //     let point = (in.uv - vec2<f32>(0.5)) * in.size;
 //     // distance from border edge
 //     let outer_distance = sd_rounded_rect(point, in.size, in.radius);
-//     //let inner_distance = sd_inset_rounded_rect(point, in.size, in.radius, in.thickness);
-//     let inner_distance = sd_inset_rect(point, in.size, in.radius, in.thickness);
+//     //let inner_distance = sd_inset_rounded_rect(point, in.size, in.radius, in.border);
+//     let inner_distance = sd_inset_rect(point, in.size, in.radius, in.border);
 //     let fwidth_outer = fwidth(outer_distance);
 //     let fwidth_inner = fwidth(inner_distance);
 
@@ -212,7 +245,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 //     //     }
 //     //     // Untextured border
 //     //     case 2u: {
-//     //         let distance = sd_rounded_border(point, in.size, in.radius, in.thickness);
+//     //         let distance = sd_rounded_border(point, in.size, in.radius, in.border);
 //     //         return mix(in.border_color, color, smoothstep(-1.0, 1.0, distance));
 //     //     }
 //     // }

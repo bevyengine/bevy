@@ -373,7 +373,9 @@ pub fn extract_uinodes(
             let bottom = resolve_border_thickness(style.border.bottom, parent_width, viewport_size);
 
             let transform = global_transform.compute_matrix();
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
+
+
+            let extracted_node = ExtractedUiNode {
                 stack_index,
                 // This translates the uinode's transform to the center of the current border rectangle
                 transform,
@@ -385,8 +387,8 @@ pub fn extract_uinodes(
                 image: image.clone_weak(),
                 atlas_size: None,
                 clip: clip.map(|clip| clip.clip),
-                flip_x: true,
-                flip_y: true,
+                flip_x,
+                flip_y,
                 border_radius: resolve_border_radius(
                     &style.border_radius,
                     node.calculated_size,
@@ -395,7 +397,9 @@ pub fn extract_uinodes(
                 ),
                 border: [left, top, right, bottom],
                 border_color: border_color.0,
-            });
+            };
+            extracted_uinodes.uinodes.push(extracted_node);
+
         }
     }
 }
@@ -534,7 +538,7 @@ pub fn extract_text_uinodes(
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
 struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
@@ -726,7 +730,7 @@ pub fn prepare_uinodes(
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
         for i in 0..4 {
-            ui_meta.vertices.push(UiVertex {
+            let ui_vertex = UiVertex {
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color,
@@ -738,7 +742,11 @@ pub fn prepare_uinodes(
                     .unwrap_or_else(|| transformed_rect_size.xy())
                     .into(),
                 border_color: extracted_uinode.border_color.as_linear_rgba_f32(),
-            });
+            };
+            // println!("Vertex");
+            // println!("{ui_vertex:?}");
+            // println!();
+            ui_meta.vertices.push(ui_vertex);
         }
 
         for &index in QUAD_INDICES.iter() {
