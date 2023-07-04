@@ -1,9 +1,8 @@
 use crate::{DynamicEntity, DynamicScene};
-use bevy_app::AppTypeRegistry;
 use bevy_ecs::component::ComponentId;
 use bevy_ecs::{
     prelude::Entity,
-    reflect::{ReflectComponent, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     world::World,
 };
 use bevy_reflect::Reflect;
@@ -21,7 +20,7 @@ use std::collections::BTreeMap;
 /// # Example
 /// ```
 /// # use bevy_scene::DynamicSceneBuilder;
-/// # use bevy_app::AppTypeRegistry;
+/// # use bevy_ecs::reflect::AppTypeRegistry;
 /// # use bevy_ecs::{
 /// #     component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
 /// # };
@@ -38,7 +37,7 @@ use std::collections::BTreeMap;
 /// ```
 pub struct DynamicSceneBuilder<'w> {
     extracted_resources: BTreeMap<ComponentId, Box<dyn Reflect>>,
-    extracted_scene: BTreeMap<u32, DynamicEntity>,
+    extracted_scene: BTreeMap<Entity, DynamicEntity>,
     type_registry: AppTypeRegistry,
     original_world: &'w World,
 }
@@ -101,7 +100,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Extracting entities can be used to extract entities from a query:
     /// ```
     /// # use bevy_scene::DynamicSceneBuilder;
-    /// # use bevy_app::AppTypeRegistry;
+    /// # use bevy_ecs::reflect::AppTypeRegistry;
     /// # use bevy_ecs::{
     /// #     component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
     /// # };
@@ -123,19 +122,17 @@ impl<'w> DynamicSceneBuilder<'w> {
         let type_registry = self.type_registry.read();
 
         for entity in entities {
-            let index = entity.index();
-
-            if self.extracted_scene.contains_key(&index) {
+            if self.extracted_scene.contains_key(&entity) {
                 continue;
             }
 
             let mut entry = DynamicEntity {
-                entity: index,
+                entity,
                 components: Vec::new(),
             };
 
-            let entity = self.original_world.entity(entity);
-            for component_id in entity.archetype().components() {
+            let original_entity = self.original_world.entity(entity);
+            for component_id in original_entity.archetype().components() {
                 let mut extract_and_push = || {
                     let type_id = self
                         .original_world
@@ -145,13 +142,13 @@ impl<'w> DynamicSceneBuilder<'w> {
                     let component = type_registry
                         .get(type_id)?
                         .data::<ReflectComponent>()?
-                        .reflect(entity)?;
+                        .reflect(original_entity)?;
                     entry.components.push(component.clone_value());
                     Some(())
                 };
                 extract_and_push();
             }
-            self.extracted_scene.insert(index, entry);
+            self.extracted_scene.insert(entity, entry);
         }
 
         drop(type_registry);
@@ -164,7 +161,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Re-extracting a resource that was already extracted will have no effect.
     /// ```
     /// # use bevy_scene::DynamicSceneBuilder;
-    /// # use bevy_app::AppTypeRegistry;
+    /// # use bevy_ecs::reflect::AppTypeRegistry;
     /// # use bevy_ecs::prelude::{ReflectResource, Resource, World};
     /// # use bevy_reflect::Reflect;
     /// #[derive(Resource, Default, Reflect)]
@@ -206,10 +203,10 @@ impl<'w> DynamicSceneBuilder<'w> {
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::AppTypeRegistry;
     use bevy_ecs::{
         component::Component, prelude::Entity, prelude::Resource, query::With,
-        reflect::ReflectComponent, reflect::ReflectResource, world::World,
+        reflect::AppTypeRegistry, reflect::ReflectComponent, reflect::ReflectResource,
+        world::World,
     };
 
     use bevy_reflect::Reflect;
@@ -243,7 +240,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.index());
+        assert_eq!(scene.entities[0].entity, entity);
         assert_eq!(scene.entities[0].components.len(), 1);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
@@ -264,7 +261,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.index());
+        assert_eq!(scene.entities[0].entity, entity);
         assert_eq!(scene.entities[0].components.len(), 1);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
@@ -288,7 +285,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.index());
+        assert_eq!(scene.entities[0].entity, entity);
         assert_eq!(scene.entities[0].components.len(), 2);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
         assert!(scene.entities[0].components[1].represents::<ComponentB>());
@@ -315,10 +312,10 @@ mod tests {
         let mut entities = builder.build().entities.into_iter();
 
         // Assert entities are ordered
-        assert_eq!(entity_a.index(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_b.index(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_c.index(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_d.index(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_a, entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_b, entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_c, entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_d, entities.next().map(|e| e.entity).unwrap());
     }
 
     #[test]
@@ -345,7 +342,7 @@ mod tests {
         assert_eq!(scene.entities.len(), 2);
         let mut scene_entities = vec![scene.entities[0].entity, scene.entities[1].entity];
         scene_entities.sort();
-        assert_eq!(scene_entities, [entity_a_b.index(), entity_a.index()]);
+        assert_eq!(scene_entities, [entity_a_b, entity_a]);
     }
 
     #[test]
@@ -365,7 +362,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity_a.index());
+        assert_eq!(scene.entities[0].entity, entity_a);
     }
 
     #[test]

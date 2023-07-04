@@ -9,11 +9,6 @@ const LOOP_LENGTH: f32 = 4.0;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // TODO: Remove once #8144 is fixed
-        .insert_resource(GizmoConfig {
-            enabled: false,
-            ..default()
-        })
         .insert_resource(AnimationState {
             playing: false,
             paused_at: 0.0,
@@ -86,7 +81,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::width(Val::Percent(100.)),
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
@@ -96,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::height(Val::Px(32.)),
+                        height: Val::Px(32.),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -149,7 +145,7 @@ fn spawn_row(parent: &mut ChildBuilder, spawn_children: impl FnOnce(&mut ChildBu
     parent
         .spawn(NodeBundle {
             style: Style {
-                size: Size::width(Val::Percent(50.)),
+                width: Val::Percent(50.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceEvenly,
                 ..default()
@@ -168,7 +164,7 @@ fn spawn_image(
         parent.spawn(ImageBundle {
             image: UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
             style: Style {
-                size: Size::height(Val::Px(100.)),
+                height: Val::Px(100.),
                 position_type: PositionType::Absolute,
                 top: Val::Px(-50.),
                 left: Val::Px(-200.),
@@ -209,10 +205,11 @@ fn spawn_container(
         .spawn((
             NodeBundle {
                 style: Style {
-                    size: Size::new(Val::Px(CONTAINER_SIZE), Val::Px(CONTAINER_SIZE)),
+                    width: Val::Px(CONTAINER_SIZE),
+                    height: Val::Px(CONTAINER_SIZE),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    overflow: Overflow::Hidden,
+                    overflow: Overflow::clip(),
                     ..default()
                 },
                 background_color: Color::DARK_GRAY.into(),
@@ -278,8 +275,19 @@ fn toggle_overflow(keys: Res<Input<KeyCode>>, mut containers: Query<&mut Style, 
     if keys.just_pressed(KeyCode::O) {
         for mut style in &mut containers {
             style.overflow = match style.overflow {
-                Overflow::Visible => Overflow::Hidden,
-                Overflow::Hidden => Overflow::Visible,
+                Overflow {
+                    x: OverflowAxis::Visible,
+                    y: OverflowAxis::Visible,
+                } => Overflow::clip_y(),
+                Overflow {
+                    x: OverflowAxis::Visible,
+                    y: OverflowAxis::Clip,
+                } => Overflow::clip_x(),
+                Overflow {
+                    x: OverflowAxis::Clip,
+                    y: OverflowAxis::Visible,
+                } => Overflow::clip(),
+                _ => Overflow::visible(),
             };
         }
     }
@@ -293,10 +301,13 @@ fn next_container_size(
         for (mut style, mut container) in &mut containers {
             container.0 = (container.0 + 1) % 3;
 
-            style.size = match container.0 {
-                1 => Size::new(Val::Px(CONTAINER_SIZE), Val::Px(30.)),
-                2 => Size::new(Val::Px(30.), Val::Px(CONTAINER_SIZE)),
-                _ => Size::new(Val::Px(CONTAINER_SIZE), Val::Px(CONTAINER_SIZE)),
+            style.width = match container.0 {
+                2 => Val::Px(30.),
+                _ => Val::Px(CONTAINER_SIZE),
+            };
+            style.height = match container.0 {
+                1 => Val::Px(30.),
+                _ => Val::Px(CONTAINER_SIZE),
             };
         }
     }

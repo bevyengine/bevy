@@ -93,7 +93,7 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_set(
+        app.add_plugins(RenderAssetPlugin::<Image>::with_prepare_asset_set(
             PrepareAssetSet::PreAssetPrepare,
         ))
         .register_type::<Image>()
@@ -104,21 +104,26 @@ impl Plugin for ImagePlugin {
             .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<TextureCache>().add_systems(
+                Render,
+                update_texture_cache_system.in_set(RenderSet::Cleanup),
+            );
+        }
+    }
+
+    fn finish(&self, app: &mut App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {
                 let device = render_app.world.resource::<RenderDevice>();
                 device.create_sampler(&self.default_sampler.clone())
             };
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))
-                .init_resource::<TextureCache>()
                 .init_resource::<FallbackImage>()
+                .init_resource::<FallbackImageZero>()
                 .init_resource::<FallbackImageCubemap>()
                 .init_resource::<FallbackImageMsaaCache>()
-                .init_resource::<FallbackImageDepthCache>()
-                .add_systems(
-                    Render,
-                    update_texture_cache_system.in_set(RenderSet::Cleanup),
-                );
+                .init_resource::<FallbackImageDepthCache>();
         }
     }
 }

@@ -1,3 +1,5 @@
+//! Contains APIs for ordering systems and executing them on a [`World`](crate::world::World)
+
 mod condition;
 mod config;
 mod executor;

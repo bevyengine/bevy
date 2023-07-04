@@ -1,11 +1,13 @@
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, TypePath};
 
 #[derive(Reflect)]
+#[reflect(from_reflect = false)]
 struct Foo<T> {
     a: T,
 }
 
 // Type that doesn't implement Reflect
+#[derive(TypePath)]
 struct NoReflect(f32);
 
 fn main() {

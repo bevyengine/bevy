@@ -14,7 +14,9 @@ use crate::system::{
 
 define_boxed_label!(ScheduleLabel);
 
+/// A shorthand for `Box<dyn SystemSet>`.
 pub type BoxedSystemSet = Box<dyn SystemSet>;
+/// A shorthand for `Box<dyn ScheduleLabel>`.
 pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
 
 /// Types that identify logical groups of systems.
@@ -132,8 +134,10 @@ impl SystemSet for AnonymousSet {
 
 /// Types that can be converted into a [`SystemSet`].
 pub trait IntoSystemSet<Marker>: Sized {
+    /// The type of [`SystemSet`] this instance converts into.
     type Set: SystemSet;
 
+    /// Converts this instance to its associated [`SystemSet`] type.
     fn into_system_set(self) -> Self::Set;
 }
 
@@ -170,5 +174,42 @@ where
     #[inline]
     fn into_system_set(self) -> Self::Set {
         SystemTypeSet::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        schedule::{tests::ResMut, Schedule},
+        system::Resource,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_boxed_label() {
+        use crate::{self as bevy_ecs, world::World};
+
+        #[derive(Resource)]
+        struct Flag(bool);
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct A;
+
+        let mut world = World::new();
+
+        let mut schedule = Schedule::new();
+        schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
+        world.add_schedule(schedule, A);
+
+        let boxed: Box<dyn ScheduleLabel> = Box::new(A);
+
+        world.insert_resource(Flag(false));
+        world.run_schedule(&boxed);
+        assert!(world.resource::<Flag>().0);
+
+        world.insert_resource(Flag(false));
+        world.run_schedule(boxed);
+        assert!(world.resource::<Flag>().0);
     }
 }
