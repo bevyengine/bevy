@@ -1745,13 +1745,18 @@ impl UiBorderRadius {
 
     #[inline]
     /// Uniform curvature.
-    pub fn all(radius: Val) -> Self {
+    pub const fn all(radius: Val) -> Self {
         Self {
             top_right: radius,
             bottom_right: radius,
             bottom_left: radius,
             top_left: radius,
         }
+    }
+
+    #[inline]
+    pub const fn zero() -> Self {
+        Self::DEFAULT
     }
 
     #[inline]

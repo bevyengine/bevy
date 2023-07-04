@@ -339,8 +339,17 @@ pub fn extract_uinodes(
         * ui_scale.scale as f32;
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((node, global_transform, style, background_color, border_color, parent, visibility, clip, maybe_image)) =
-            uinode_query.get(*entity)
+        if let Ok((
+            node,
+            global_transform,
+            style,
+            background_color,
+            border_color,
+            parent,
+            visibility,
+            clip,
+            maybe_image,
+        )) = uinode_query.get(*entity)
         {
             let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
                 // Skip loading images
@@ -374,6 +383,12 @@ pub fn extract_uinodes(
 
             let transform = global_transform.compute_matrix();
 
+            let border_radius = resolve_border_radius(
+                &style.border_radius,
+                node.calculated_size,
+                viewport_size,
+                ui_scale.scale,
+            );
 
             let extracted_node = ExtractedUiNode {
                 stack_index,
@@ -389,21 +404,14 @@ pub fn extract_uinodes(
                 clip: clip.map(|clip| clip.clip),
                 flip_x,
                 flip_y,
-                border_radius: resolve_border_radius(
-                    &style.border_radius,
-                    node.calculated_size,
-                    viewport_size,
-                    ui_scale.scale,
-                ),
+                border_radius,
                 border: [left, top, right, bottom],
                 border_color: border_color.0,
             };
             extracted_uinodes.uinodes.push(extracted_node);
-
         }
     }
 }
-
 
 /// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
 /// distance of this many units. This ensures that with a left-handed projection,
@@ -743,9 +751,6 @@ pub fn prepare_uinodes(
                     .into(),
                 border_color: extracted_uinode.border_color.as_linear_rgba_f32(),
             };
-            // println!("Vertex");
-            // println!("{ui_vertex:?}");
-            // println!();
             ui_meta.vertices.push(ui_vertex);
         }
 
@@ -769,7 +774,6 @@ pub fn prepare_uinodes(
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
     ui_meta.indices.write_buffer(&render_device, &render_queue)
-
 }
 
 #[derive(Resource, Default)]
