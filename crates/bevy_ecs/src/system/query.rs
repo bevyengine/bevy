@@ -814,7 +814,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns the read-only query item for the given [`Entity`].
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity or mismatched components, a [`QueryEntityError`] is returned instead.
     ///
     /// # Example
     ///
@@ -860,8 +860,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// Returns the read-only query items for the given array of [`Entity`].
     ///
     /// The returned query items are in the same order as the input.
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     /// The elements of the array do not need to be unique, unlike `get_many_mut`.
+    ///
+    /// In case of a nonexisting entity or mismatched components, a [`QueryEntityError`] is returned instead.
     ///
     /// # See also
     ///
@@ -887,7 +888,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # Panics
     ///
-    /// This method panics if there is a query mismatch or a non-existing entity.
+    /// This method panics if there are mismatched components or a non-existing entity.
     ///
     /// # Examples
     /// ```rust, no_run
@@ -931,7 +932,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns the query item for the given [`Entity`].
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity or mismatched components, a [`QueryEntityError`] is returned instead.
     ///
     /// # Example
     ///
@@ -969,7 +970,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// Returns the query items for the given array of [`Entity`].
     ///
     /// The returned query items are in the same order as the input.
-    /// In case of a nonexisting entity, duplicate entities or mismatched component, a [`QueryEntityError`] is returned instead.
+    ///
+    /// In case of a nonexisting entity, duplicate entities or mismatched components,
+    /// a [`QueryEntityError`] is returned instead.
     ///
     /// # See also
     ///
@@ -991,7 +994,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # Panics
     ///
-    /// This method panics if there is a query mismatch, a non-existing entity, or the same `Entity` is included more than once in the array.
+    /// This method panics if there are mismatched components, a non-existing entity,
+    /// or the same `Entity` is included more than once in the array.
     ///
     /// # Examples
     ///
@@ -1042,7 +1046,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns the query item for the given [`Entity`].
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity or mismatched components, a [`QueryEntityError`] is returned instead.
     ///
     /// # Safety
     ///
@@ -1064,7 +1068,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// In case of a nonexisting entity, if the entity doesn't have the requested component,
     /// or if the query doesn't have read access to this component,
-    /// a [`QueryEntityError`] is returned instead.
+    /// a [`QueryComponentError`] is returned instead.
     ///
     /// # Example
     ///
@@ -1099,36 +1103,19 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         let entity_ref = world
             .get_entity(entity)
             .ok_or(QueryComponentError::NoSuchEntity(
-                QueryComponentErrorDetails {
-                    requested_entity: entity,
-                    requested_component: std::any::type_name::<T>(),
-                    query_type: std::any::type_name::<Self>(),
-                }
+                QueryComponentErrorDetail::from::<Self, T>(entity),
             ))?;
-        todo!();
-        let component_id = world
-            .components()
-            .get_id(TypeId::of::<T>())
-            .ok_or(QueryComponentError::MissingComponent(
-                "",
-                QueryComponentErrorDetails {
-                    requested_entity: entity,
-                    requested_component: std::any::type_name::<T>(),
-                    query_type: std::any::type_name::<Self>(),
-                }
-            ))?;
-        
-        todo!();
+        let component_id = world.components().get_id(TypeId::of::<T>()).ok_or(
+            QueryComponentError::MissingComponent(QueryComponentErrorDetail::from::<Self, T>(
+                entity,
+            )),
+        )?;
+
         let archetype_component = entity_ref
             .archetype()
             .get_archetype_component_id(component_id)
             .ok_or(QueryComponentError::MissingComponent(
-                "",
-                QueryComponentErrorDetails {
-                    requested_entity: entity,
-                    requested_component: std::any::type_name::<T>(),
-                    query_type: std::any::type_name::<Self>(),
-                }
+                QueryComponentErrorDetail::from::<Self, T>(entity),
             ))?;
         if self
             .state
@@ -1137,22 +1124,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         {
             // SAFETY: `self.world` must have access to the component `T` for this entity,
             // since it was registered in `self.state`'s archetype component access set.
-            todo!();
             unsafe { entity_ref.get::<T>() }.ok_or(QueryComponentError::MissingComponent(
-                "",
-                QueryComponentErrorDetails {
-                    requested_entity: entity,
-                    requested_component: std::any::type_name::<T>(),
-                    query_type: std::any::type_name::<Self>(),
-                }
+                QueryComponentErrorDetail::from::<Self, T>(entity),
             ))
         } else {
             Err(QueryComponentError::MissingReadAccess(
-                QueryComponentErrorDetails {
-                    requested_entity: entity,
-                    requested_component: std::any::type_name::<T>(),
-                    query_type: std::any::type_name::<Self>(),
-                }
+                QueryComponentErrorDetail::from::<Self, T>(entity),
             ))
         }
     }
@@ -1160,8 +1137,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// Returns a mutable reference to the component `T` of the given entity.
     ///
     /// In case of a nonexisting entity, if the entity doesn't have the requested component,
-    /// or if the query doesn't have read access to this component,
-    /// a [`QueryEntityError`] is returned instead.
+    /// or if the query doesn't have write access to this component,
+    /// a [`QueryComponentError`] is returned instead.
     ///
     /// # Example
     ///
@@ -1197,7 +1174,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns a mutable reference to the component `T` of the given entity.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryComponentError`] is returned instead.
+    /// In case of a nonexisting entity, if the entity doesn't have the requested component,
+    /// or if the query doesn't have write access to this component,
+    /// a [`QueryComponentError`] is returned instead.
     ///
     /// # Safety
     ///
@@ -1216,70 +1195,39 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // See the comments on the `force_read_only_component_access` field for more info.
         if self.force_read_only_component_access {
             return Err(QueryComponentError::MissingWriteAccess(
-                QueryComponentErrorDetails {
-                    requested_entity: entity,
-                    requested_component: std::any::type_name::<T>(),
-                    query_type: std::any::type_name::<Self>(),
-                }
+                QueryComponentErrorDetail::from::<Self, T>(entity),
             ));
         }
         let world = self.world;
         let entity_ref = world
             .get_entity(entity)
             .ok_or(QueryComponentError::NoSuchEntity(
-                QueryComponentErrorDetails {
-                    requested_entity: entity,
-                    requested_component: std::any::type_name::<T>(),
-                    query_type: std::any::type_name::<Self>(),
-                }
+                QueryComponentErrorDetail::from::<Self, T>(entity),
             ))?;
-        todo!();
-        let component_id = world
-            .components()
-            .get_id(TypeId::of::<T>())
-            .ok_or(QueryComponentError::MissingComponent(
-                "",
-                QueryComponentErrorDetails {
-                    requested_entity: entity,
-                    requested_component: std::any::type_name::<T>(),
-                    query_type: std::any::type_name::<Self>(),
-                }
-            ))?;
-        todo!();
+        let component_id = world.components().get_id(TypeId::of::<T>()).ok_or(
+            QueryComponentError::MissingComponent(QueryComponentErrorDetail::from::<Self, T>(
+                entity,
+            )),
+        )?;
         let archetype_component = entity_ref
             .archetype()
             .get_archetype_component_id(component_id)
             .ok_or(QueryComponentError::MissingComponent(
-                "",
-                QueryComponentErrorDetails {
-                    requested_entity: entity,
-                    requested_component: std::any::type_name::<T>(),
-                    query_type: std::any::type_name::<Self>(),
-                }
+                QueryComponentErrorDetail::from::<Self, T>(entity),
             ))?;
         if self
             .state
             .archetype_component_access
             .has_write(archetype_component)
         {
-            todo!();
             entity_ref
                 .get_mut_using_ticks::<T>(self.last_run, self.this_run)
                 .ok_or(QueryComponentError::MissingComponent(
-                    "",
-                    QueryComponentErrorDetails {
-                        requested_entity: entity,
-                        requested_component: std::any::type_name::<T>(),
-                        query_type: std::any::type_name::<Self>(),
-                    }
+                    QueryComponentErrorDetail::from::<Self, T>(entity),
                 ))
         } else {
             Err(QueryComponentError::MissingWriteAccess(
-                QueryComponentErrorDetails {
-                    requested_entity: entity,
-                    requested_component: std::any::type_name::<T>(),
-                    query_type: std::any::type_name::<Self>(),
-                }
+                QueryComponentErrorDetail::from::<Self, T>(entity),
             ))
         }
     }
@@ -1535,13 +1483,19 @@ pub enum QueryComponentError {
     /// fn get_missing_read_access_error(query: Query<&OtherComponent>, res: Res<SpecificEntity>) {
     ///     assert_eq!(
     ///         query.get_component::<RequestedComponent>(res.entity),
-    ///         Err(QueryComponentError::MissingReadAccess),
+    ///         Err(QueryComponentError::MissingReadAccess(
+    ///             QueryComponentErrorDetail {
+    ///                requested_entity: res.entity,
+    ///                requested_component: "RequestedComponent",
+    ///                query_type: "bevy_ecs::system::Query<&OtherComponent>",
+    ///             }
+    ///         )),
     ///     );
     ///     println!("query doesn't have read access to RequestedComponent because it does not appear in Query<&OtherComponent>");
     /// }
     /// # bevy_ecs::system::assert_is_system(get_missing_read_access_error);
     /// ```
-    MissingReadAccess(QueryComponentErrorDetails),
+    MissingReadAccess(QueryComponentErrorDetail),
     /// The [`Query`] does not have write access to the requested component.
     ///
     /// This error occurs when the requested component is not included in the original query, or the mutability of the requested component is mismatched with the original query.
@@ -1562,23 +1516,33 @@ pub enum QueryComponentError {
     /// fn get_missing_write_access_error(mut query: Query<&RequestedComponent>, res: Res<SpecificEntity>) {
     ///     assert_eq!(
     ///         query.get_component::<RequestedComponent>(res.entity),
-    ///         Err(QueryComponentError::MissingWriteAccess),
+    ///         Err(QueryComponentError::MissingWriteAccess(
+    ///             QueryComponentErrorDetail {
+    ///                requested_entity: res.entity,
+    ///                requested_component: "RequestedComponent",
+    ///                query_type: "bevy_ecs::system::Query<&RequestedComponent>",
+    ///             }
+    ///         )),
     ///     );
     ///     println!("query doesn't have write access to RequestedComponent because it doesn't have &mut in Query<&RequestedComponent>");
     /// }
     /// # bevy_ecs::system::assert_is_system(get_missing_write_access_error);
     /// ```
-    MissingWriteAccess(QueryComponentErrorDetails),
+    MissingWriteAccess(QueryComponentErrorDetail),
     /// The given [`Entity`] does not have the requested component.
-    MissingComponent(&'static str, QueryComponentErrorDetails),
+    MissingComponent(QueryComponentErrorDetail),
     /// The requested [`Entity`] does not exist.
-    NoSuchEntity(QueryComponentErrorDetails),
+    NoSuchEntity(QueryComponentErrorDetail),
 }
 
+/// Additional information in the context of a [`QueryComponentError`].
 #[derive(Debug, PartialEq, Eq)]
-pub struct QueryComponentErrorDetails {
+pub struct QueryComponentErrorDetail {
+    /// Specific entity which was requested when encountering the error.
     pub requested_entity: Entity,
+    /// Component which was requested when encountering the error.
     pub requested_component: &'static str,
+    /// Representation of the query's type.
     pub query_type: &'static str,
 }
 
@@ -1587,31 +1551,33 @@ impl std::error::Error for QueryComponentError {}
 impl std::fmt::Display for QueryComponentError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            QueryComponentError::MissingReadAccess(
-                QueryComponentErrorDetails{requested_component, query_type, ..}
-            ) => {
+            QueryComponentError::MissingReadAccess(QueryComponentErrorDetail {
+                requested_component,
+                query_type,
+                ..
+            }) => {
                 write!(
                     f,
                     "The query {} does not have read access to the requested component {}.",
-                    requested_component,
-                    query_type
+                    requested_component, query_type
                 )
             }
-            QueryComponentError::MissingWriteAccess(
-                QueryComponentErrorDetails{requested_component, query_type, ..}
-            ) => {
+            QueryComponentError::MissingWriteAccess(QueryComponentErrorDetail {
+                requested_component,
+                query_type,
+                ..
+            }) => {
                 write!(
                     f,
                     "The query {} does not have write access to the requested component {}.",
-                    requested_component,
-                    query_type
+                    requested_component, query_type
                 )
             }
-            QueryComponentError::MissingComponent(
-                component,
-                QueryComponentErrorDetails{requested_entity, requested_component, ..}
-            ) => {
-                todo!();
+            QueryComponentError::MissingComponent(QueryComponentErrorDetail {
+                requested_entity,
+                requested_component,
+                ..
+            }) => {
                 write!(
                     f,
                     "The given entity {} does not have the requested component {}.",
@@ -1619,15 +1585,27 @@ impl std::fmt::Display for QueryComponentError {
                     requested_component
                 )
             }
-            QueryComponentError::NoSuchEntity(
-                QueryComponentErrorDetails{requested_entity, ..}
-            ) => {
+            QueryComponentError::NoSuchEntity(QueryComponentErrorDetail {
+                requested_entity,
+                ..
+            }) => {
                 write!(
                     f,
                     "The requested entity {} does not exist.",
                     requested_entity.index(),
                 )
             }
+        }
+    }
+}
+
+impl QueryComponentErrorDetail {
+    /// Creates a [`QueryComponentErrorDetail`] given a [`Query`], a [`Component`] and an [`Entity`].
+    pub fn from<Query, C: Component>(entity: Entity) -> QueryComponentErrorDetail {
+        QueryComponentErrorDetail {
+            requested_entity: entity,
+            requested_component: std::any::type_name::<C>(),
+            query_type: std::any::type_name::<Self>(),
         }
     }
 }

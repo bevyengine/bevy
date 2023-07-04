@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
-    component::{ComponentId, Tick},
-    entity::Entity,
+    component::{ComponentId, Components, Tick},
+    entity::{Entity, EntityLocation},
     prelude::FromWorld,
     query::{
         Access, BatchingStrategy, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter,
@@ -231,7 +231,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
-    /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
+    /// In case of a nonexisting entity or mismatched components, a [`QueryEntityError`] is returned instead.
+    ///
+    /// This can only be called for read-only access to the component, see [`Self::get_mut`] for write access.
     #[inline]
     pub fn get<'w>(
         &mut self,
@@ -252,7 +254,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
     /// Returns the read-only query results for the given array of [`Entity`].
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// In case of a nonexisting entity or mismatched components, a [`QueryEntityError`] is
     /// returned instead.
     ///
     /// Note that the unlike [`QueryState::get_many_mut`], the entities passed in do not need to be unique.
@@ -302,6 +304,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
     #[inline]
     pub fn get_mut<'w>(
         &mut self,
@@ -447,29 +452,32 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let location = world
             .entities()
             .get(entity)
-            .ok_or(QueryEntityError::NoSuchEntity(
-                QueryEntityErrorDetails {
-                    requested_entity: entity,
-                    query_type: std::any::type_name::<Self>(),
-                }
-            ))?;
-        if !self
-            .matched_archetypes
-            .contains(location.archetype_id.index())
-        {
-            todo!();
-            return Err(QueryEntityError::QueryDoesNotMatch(
-                "", //location.archetype_id?
-                QueryEntityErrorDetails {
-                    requested_entity: entity,
-                    query_type: std::any::type_name::<Self>(),
-                }
-            ));
-        }
+            .ok_or(QueryEntityError::NoSuchEntity(QueryEntityErrorDetail {
+                requested_entity: entity,
+                query_type: std::any::type_name::<Self>(),
+            }))?;
         let archetype = world
             .archetypes()
             .get(location.archetype_id)
             .debug_checked_unwrap();
+
+        if !self
+            .matched_archetypes
+            .contains(location.archetype_id.index())
+        {
+            return Err(QueryEntityError::QueryDoesNotMatch(
+                QueryEntityMismatchDetail::ComponentMismatch(self.get_mismatches_detail(
+                    world.components(),
+                    location,
+                    archetype,
+                )),
+                QueryEntityErrorDetail {
+                    requested_entity: entity,
+                    query_type: std::any::type_name::<Self>(),
+                },
+            ));
+        }
+
         let mut fetch = Q::init_fetch(world, &self.fetch_state, last_run, this_run);
         let mut filter = F::init_fetch(world, &self.filter_state, last_run, this_run);
 
@@ -485,13 +493,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         if F::filter_fetch(&mut filter, entity, location.table_row) {
             Ok(Q::fetch(&mut fetch, entity, location.table_row))
         } else {
-            todo!();
             Err(QueryEntityError::QueryDoesNotMatch(
-                "",
-                QueryEntityErrorDetails {
+                QueryEntityMismatchDetail::ChangeDetectionMismatch,
+                QueryEntityErrorDetail {
                     requested_entity: entity,
                     query_type: std::any::type_name::<Self>(),
-                }
+                },
             ))
         }
     }
@@ -550,10 +557,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             for j in 0..i {
                 if entities[i] == entities[j] {
                     return Err(QueryEntityError::AliasedMutability(
-                        QueryEntityErrorDetails {
+                        QueryEntityErrorDetail {
                             requested_entity: entities[i],
                             query_type: std::any::type_name::<Self>(),
-                        }
+                        },
                     ));
                 }
             }
@@ -1301,28 +1308,114 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             >())),
         }
     }
+
+    /// Gets the reasons an [`Entity`] might not match this query, see [`QueryEntityMismatchDetail`]
+    pub fn get_mismatches_detail(
+        &self,
+        components: &Components,
+        entity_location: EntityLocation,
+        archetype: &Archetype,
+    ) -> Vec<QueryEntityComponentMismatch> {
+        let mut mismatch_details = Vec::new();
+
+        for components_access in self.component_access.filter_sets.iter() {
+            let query_with_components = components_access.with.clone();
+            let query_without_components = components_access.without.clone();
+            let mut query_unmatched_components = query_with_components.clone();
+
+            let mut query_without_components_in_entity = Vec::new();
+            for component_id in archetype.components() {
+                if query_without_components.contains(component_id.index()) {
+                    query_without_components_in_entity.push((
+                        components.get_info(component_id).unwrap().name().to_owned(),
+                        component_id,
+                    ));
+                } else if query_with_components.contains(component_id.index()) {
+                    query_unmatched_components.set(component_id.index(), false);
+                }
+            }
+
+            let query_with_components_not_in_entity = query_unmatched_components
+                .ones()
+                .map(|component_id| {
+                    let component_id = ComponentId::new(component_id);
+                    (
+                        components.get_info(component_id).unwrap().name().to_owned(),
+                        component_id,
+                    )
+                })
+                .collect();
+
+            mismatch_details.push(QueryEntityComponentMismatch {
+                query_with_components_not_in_entity,
+                query_without_components_in_entity,
+                entity_archetype: entity_location.archetype_id,
+                query_with_components,
+                query_without_components,
+            });
+        }
+
+        mismatch_details
+    }
 }
 
 /// An error that occurs when retrieving a specific [`Entity`]'s query result from [`Query`](crate::system::Query) or [`QueryState`].
-// TODO: return the type_name as part of this error
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum QueryEntityError {
-    /// The given [`Entity`]'s components do not match the query.
-    ///
-    /// Either it does not have a requested component, or it has a component which the query filters out.
-    QueryDoesNotMatch(&'static str, QueryEntityErrorDetails),
+    /// The given [`Entity`]'s components do not match the query, see [`QueryEntityMismatchDetail`].
+    QueryDoesNotMatch(QueryEntityMismatchDetail, QueryEntityErrorDetail),
     /// The given [`Entity`] does not exist.
-    NoSuchEntity(QueryEntityErrorDetails),
+    NoSuchEntity(QueryEntityErrorDetail),
     /// The [`Entity`] was requested mutably more than once.
     ///
     /// See [`QueryState::get_many_mut`] for an example.
-    AliasedMutability(QueryEntityErrorDetails),
+    AliasedMutability(QueryEntityErrorDetail),
 }
 
+/// Additional information in the context of a [`QueryEntityError`].
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct QueryEntityErrorDetails {
+pub struct QueryEntityErrorDetail {
+    /// Specific entity which was requested when encountering the error.
     pub requested_entity: Entity,
+    /// Representation of the query's type.
     pub query_type: &'static str,
+}
+
+/// Diagnosis about why an [`Entity`] and a [`Query`](crate::system::Query) or [`QueryState`] don't match.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum QueryEntityMismatchDetail {
+    /// The entity is missing components required by the query,
+    /// or it has components that are filtered out by the query.
+    ComponentMismatch(Vec<QueryEntityComponentMismatch>),
+    /// The entity has the correct components, but some of them are requested
+    /// with change detection ([`Added`](crate::query::Added) or [`Changed`](crate::query::Changed))
+    /// and the component for that entity is not in that change state.
+    ChangeDetectionMismatch,
+}
+
+/// Represents which [`Entity`]'s component do not match a [`Query`](crate::system::Query) or [`QueryState`].
+///
+/// Will be returned automatically with [`QueryEntityMismatchDetail::ComponentMismatch`],
+/// or can be requested manually with [`QueryState::get_mismatch_details_unchecked`].
+///
+/// This is usually used in an array because of a query like `QueryState<A, Or<(With<B>, With<C)>>`
+/// is separated into two queries `QueryState<A, With<B>>` and `QueryState<A, With<B>>`,
+/// in that case a single `QueryEntityMismatchDetail` represents the reasons the entity
+/// doesn't match one of those "sub-queries".
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct QueryEntityComponentMismatch {
+    /// Components that the query requires but the entity doesn't have,
+    /// with a representation of their name.
+    pub query_with_components_not_in_entity: Vec<(String, ComponentId)>,
+    /// Components that the query filters out but the entity have,
+    /// with a representation of their name.
+    pub query_without_components_in_entity: Vec<(String, ComponentId)>,
+    /// [`Archetype`] of the entity, used to retrieve its components.
+    pub entity_archetype: ArchetypeId,
+    /// Components that the query requires.
+    pub query_with_components: FixedBitSet,
+    /// Components that the query filters out.
+    pub query_without_components: FixedBitSet,
 }
 
 impl std::error::Error for QueryEntityError {}
@@ -1331,19 +1424,32 @@ impl fmt::Display for QueryEntityError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             QueryEntityError::QueryDoesNotMatch(
-                components,
-                QueryEntityErrorDetails {requested_entity, query_type}
-            ) => {
-                todo!();
-                write!(f, "The given entity's components do not match the query.")
-            }
-            QueryEntityError::NoSuchEntity(
-                QueryEntityErrorDetails {requested_entity, ..}
-            ) => write!(f, "The requested entity {} does not exist.", requested_entity.index()),
-            QueryEntityError::AliasedMutability(
-                QueryEntityErrorDetails {requested_entity, ..}
-            ) => {
-                write!(f, "The entity {} was requested mutably more than once.", requested_entity.index())
+                QueryEntityMismatchDetail::ComponentMismatch(_),
+                ..,
+            ) => write!(f, "The given entity's components do not match the query."),
+            QueryEntityError::QueryDoesNotMatch(
+                QueryEntityMismatchDetail::ChangeDetectionMismatch,
+                ..,
+            ) => write!(
+                f,
+                "The given entity's components are not in the change state required by the query."
+            ),
+            QueryEntityError::NoSuchEntity(QueryEntityErrorDetail {
+                requested_entity, ..
+            }) => write!(
+                f,
+                "The requested entity {} does not exist.",
+                requested_entity.index()
+            ),
+            QueryEntityError::AliasedMutability(QueryEntityErrorDetail {
+                requested_entity,
+                ..
+            }) => {
+                write!(
+                    f,
+                    "The entity {} was requested mutably more than once.",
+                    requested_entity.index()
+                )
             }
         }
     }
@@ -1351,7 +1457,7 @@ impl fmt::Display for QueryEntityError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::*, query::QueryEntityError, query::QueryEntityErrorDetails};
+    use crate::{prelude::*, query::QueryEntityError, query::QueryEntityErrorDetail};
 
     #[test]
     fn get_many_unchecked_manual_uniqueness() {
@@ -1393,12 +1499,10 @@ mod tests {
                     )
                     .unwrap_err()
             },
-            QueryEntityError::AliasedMutability(
-                QueryEntityErrorDetails {
-                    requested_entity: entities[0],
-                    query_type: "QueryState<Entity>",
-                }
-            )
+            QueryEntityError::AliasedMutability(QueryEntityErrorDetail {
+                requested_entity: entities[0],
+                query_type: "QueryState<Entity>",
+            })
         );
 
         assert_eq!(
@@ -1413,12 +1517,10 @@ mod tests {
                     )
                     .unwrap_err()
             },
-            QueryEntityError::AliasedMutability(
-                QueryEntityErrorDetails {
-                    requested_entity: entities[0],
-                    query_type: "QueryState<Entity>",
-                }
-            )
+            QueryEntityError::AliasedMutability(QueryEntityErrorDetail {
+                requested_entity: entities[0],
+                query_type: "QueryState<Entity>",
+            })
         );
 
         assert_eq!(
@@ -1433,12 +1535,10 @@ mod tests {
                     )
                     .unwrap_err()
             },
-            QueryEntityError::AliasedMutability(
-                QueryEntityErrorDetails {
-                    requested_entity: entities[9],
-                    query_type: "QueryState<Entity>",
-                }
-            )
+            QueryEntityError::AliasedMutability(QueryEntityErrorDetail {
+                requested_entity: entities[9],
+                query_type: "QueryState<Entity>",
+            })
         );
     }
 
@@ -1475,13 +1575,15 @@ mod tests {
 
 /// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`] as a single expected result via
 /// [`get_single`](crate::system::Query::get_single) or [`get_single_mut`](crate::system::Query::get_single_mut).
-/// 
-/// The `&str` inside is a string representation of the `Query` type.
 #[derive(Debug)]
 pub enum QuerySingleError {
     /// No entity fits the query.
+    ///
+    /// Provides a representation of the query's type.
     NoEntities(&'static str),
     /// Multiple entities fit the query.
+    ///
+    /// Provides a representation of the query's type.
     MultipleEntities(&'static str),
 }
 
