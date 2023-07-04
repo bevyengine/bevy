@@ -42,43 +42,36 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         width: Val::Px(200.),
                         border: UiRect::all(Val::Px(2.)),
+                        justify_content: JustifyContent::Center,
+                        border_radius: UiBorderRadius::all(Val::Px(20.)),
                         ..default()
                     },
-                    background_color: Color::rgb(0.65, 0.65, 0.65).into(),
+                    border_color: Color::rgb(0.65, 0.65, 0.65).into(),
+                    background_color: Color::rgb(0.15, 0.15, 0.15).into(),
                     ..default()
                 })
                 .with_children(|parent| {
                     // left vertical fill (content)
-                    parent
-                        .spawn(NodeBundle {
-                            style: Style {
-                                width: Val::Percent(100.),
-                                ..default()
+
+                    // text
+                    parent.spawn((
+                        TextBundle::from_section(
+                            "Text Example",
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 30.0,
+                                color: Color::WHITE,
                             },
-                            background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                        )
+                        .with_style(Style {
+                            margin: UiRect::all(Val::Px(5.)),
                             ..default()
-                        })
-                        .with_children(|parent| {
-                            // text
-                            parent.spawn((
-                                TextBundle::from_section(
-                                    "Text Example",
-                                    TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 30.0,
-                                        color: Color::WHITE,
-                                    },
-                                )
-                                .with_style(Style {
-                                    margin: UiRect::all(Val::Px(5.)),
-                                    ..default()
-                                }),
-                                // Because this is a distinct label widget and
-                                // not button/list item text, this is necessary
-                                // for accessibility to treat the text accordingly.
-                                Label,
-                            ));
-                        });
+                        }),
+                        // Because this is a distinct label widget and
+                        // not button/list item text, this is necessary
+                        // for accessibility to treat the text accordingly.
+                        Label,
+                    ));
                 });
             // right vertical fill
             parent
@@ -114,6 +107,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 align_self: AlignSelf::Stretch,
                                 height: Val::Percent(50.),
                                 overflow: Overflow::clip_y(),
+                                margin: UiRect::axes(Val::Px(10.), Val::Px(5.)),
+                                border_radius: UiBorderRadius::all(Val::Px(20.)),
                                 ..default()
                             },
                             background_color: Color::rgb(0.10, 0.10, 0.10).into(),
@@ -154,32 +149,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 });
                         });
                 });
-            parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Px(200.0),
-                        height: Val::Px(200.0),
-                        position_type: PositionType::Absolute,
-                        left: Val::Px(210.),
-                        bottom: Val::Px(10.),
-                        border: UiRect::all(Val::Px(20.)),
-                        ..default()
-                    },
-                    border_color: Color::GREEN.into(),
-                    background_color: Color::rgb(0.4, 0.4, 1.).into(),
+            parent.spawn(NodeBundle {
+                style: Style {
+                    width: Val::Px(200.0),
+                    height: Val::Px(200.0),
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(210.),
+                    bottom: Val::Px(10.),
+                    border: UiRect::all(Val::Px(20.)),
+                    border_radius: UiBorderRadius::all(Val::Px(40.)),
                     ..default()
-                })
-                .with_children(|parent| {
-                    parent.spawn(NodeBundle {
-                        style: Style {
-                            width: Val::Percent(100.0),
-                            height: Val::Percent(100.0),
-                            ..default()
-                        },
-                        background_color: Color::rgb(0.8, 0.8, 1.).into(),
-                        ..default()
-                    });
-                });
+                },
+                border_color: Color::rgb(0.4, 0.4, 1.).into(),
+                background_color: Color::rgb(0.8, 0.8, 1.).into(),
+                ..default()
+            });
+
             // render order test: reddest in the back, whitest in the front (flex center)
             parent
                 .spawn(NodeBundle {
@@ -189,6 +174,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         position_type: PositionType::Absolute,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
+                        border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                         ..default()
                     },
                     ..default()
@@ -199,6 +185,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             style: Style {
                                 width: Val::Px(100.0),
                                 height: Val::Px(100.0),
+                                left: Val::Px(-10.),
+                                bottom: Val::Px(-10.),
+                                border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                                 ..default()
                             },
                             background_color: Color::rgb(1.0, 0.0, 0.).into(),
@@ -211,8 +200,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
-                                    left: Val::Px(20.),
+                                    left: Val::Px(30.),
                                     bottom: Val::Px(20.),
+                                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.3, 0.3).into(),
@@ -223,8 +213,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
-                                    left: Val::Px(40.),
-                                    bottom: Val::Px(40.),
+                                    left: Val::Px(70.),
+                                    bottom: Val::Px(50.),
+                                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.5, 0.5).into(),
@@ -235,8 +226,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
-                                    left: Val::Px(60.),
-                                    bottom: Val::Px(60.),
+                                    left: Val::Px(110.),
+                                    bottom: Val::Px(80.),
+                                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.7, 0.7).into(),
@@ -248,8 +240,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
-                                    left: Val::Px(80.),
-                                    bottom: Val::Px(80.),
+                                    left: Val::Px(150.),
+                                    bottom: Val::Px(110.),
+                                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                                     ..default()
                                 },
                                 background_color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
@@ -265,6 +258,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         position_type: PositionType::Absolute,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::FlexStart,
+                        border_radius: UiBorderRadius::all(Val::Px(40.)),
                         ..default()
                     },
                     ..default()

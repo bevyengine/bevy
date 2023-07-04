@@ -54,6 +54,9 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                     style: Style {
                         width: Val::Px(40.0),
                         height: Val::Px(40.0),
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        border_radius: UiBorderRadius::all(Val::Px(10.)),
                         ..default()
                     },
                     background_color: Color::RED.into(),

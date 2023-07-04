@@ -89,25 +89,50 @@ fn setup(mut commands: Commands) {
                 style: Style {
                     width: Val::Px(10.),
                     height: Val::Px(10.),
+                    border_radius: UiBorderRadius::all(Val::Px(5.)),
                     ..Default::default()
                 },
                 background_color: Color::YELLOW.into(),
                 ..Default::default()
             })
             .id();
+        let border = borders[i % borders.len()];
+        let border_radius = UiBorderRadius::px(
+            if border.right != Val::Px(0.) && border.top != Val::Px(0.) {
+                f32::MAX
+            } else {
+                0.
+            },
+            if border.right != Val::Px(0.) && border.bottom != Val::Px(0.) {
+                f32::MAX
+            } else {
+                0.
+            },
+            if border.left != Val::Px(0.) && border.bottom != Val::Px(0.) {
+                f32::MAX
+            } else {
+                0.
+            },
+            if border.left != Val::Px(0.) && border.top != Val::Px(0.) {
+                f32::MAX
+            } else {
+                0.
+            },
+        );
         let bordered_node = commands
             .spawn(NodeBundle {
                 style: Style {
                     width: Val::Px(50.),
                     height: Val::Px(50.),
-                    border: borders[i % borders.len()],
+                    border,
                     margin: UiRect::all(Val::Px(2.)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
+                    border_radius,
                     ..Default::default()
                 },
-                background_color: Color::BLUE.into(),
-                border_color: Color::WHITE.with_a(0.5).into(),
+                background_color: Color::MAROON.into(),
+                border_color: Color::CRIMSON.into(),
                 ..Default::default()
             })
             .add_child(inner_spot)

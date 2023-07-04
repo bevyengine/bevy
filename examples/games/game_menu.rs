@@ -399,6 +399,8 @@ mod menu {
             width: Val::Px(250.0),
             height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
+            border_radius: UiBorderRadius::all(Val::Px(20.)),
+            border: UiRect::all(Val::Px(5.)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -437,9 +439,12 @@ mod menu {
                         style: Style {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
+                            border_radius: UiBorderRadius::all(Val::Percent(10.)),
+                            border: UiRect::all(Val::Px(10.)),
                             ..default()
                         },
                         background_color: Color::CRIMSON.into(),
+                        border_color: Color::MAROON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -468,6 +473,7 @@ mod menu {
                                 ButtonBundle {
                                     style: button_style.clone(),
                                     background_color: NORMAL_BUTTON.into(),
+                                    border_color: Color::MAROON.into(),
                                     ..default()
                                 },
                                 MenuButtonAction::Play,
@@ -489,6 +495,7 @@ mod menu {
                                 ButtonBundle {
                                     style: button_style.clone(),
                                     background_color: NORMAL_BUTTON.into(),
+                                    border_color: Color::MAROON.into(),
                                     ..default()
                                 },
                                 MenuButtonAction::Settings,
@@ -510,6 +517,7 @@ mod menu {
                                 ButtonBundle {
                                     style: button_style,
                                     background_color: NORMAL_BUTTON.into(),
+                                    border_color: Color::MAROON.into(),
                                     ..default()
                                 },
                                 MenuButtonAction::Quit,
@@ -698,6 +706,7 @@ mod menu {
             width: Val::Px(200.0),
             height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
+            border_radius: UiBorderRadius::max(),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()

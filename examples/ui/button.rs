@@ -75,6 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         justify_content: JustifyContent::Center,
                         // vertically center child text
                         align_items: AlignItems::Center,
+                        border_radius: UiBorderRadius::all(Val::Px(10.)),
                         ..default()
                     },
                     border_color: BorderColor(Color::BLACK),

@@ -575,6 +575,38 @@ pub struct Style {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
     pub grid_column: GridPlacement,
+
+    /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly rounded corners
+    /// or specify different radii for each corner. If a given radius exceeds half the length of the smallest dimension between the node's height or width,
+    /// the radius will calculated as half the smallest dimension.
+    ///
+    /// Elliptical nodes are not supported yet. Percentage values are based on the node's smallest dimension, either width or height.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ui::{Style, UiRect, UiBorderRadius, Val};
+    /// let style = Style {
+    ///     // Set a uniform border radius of 10 logical pixels
+    ///     border_radius: UiBorderRadius::all(Val::Px(10.)),
+    ///     ..Default::default()
+    /// };
+    /// let style = Style {
+    ///     border_radius: UiBorderRadius {
+    ///         // The top left corner will be rounded with a radius of 10 logical pixels.
+    ///         top_left: Val::Px(10.),
+    ///         // Percentage values are based on the node's smallest dimension, either width or height.
+    ///         top_right: Val::Percent(20.),
+    ///         // Viewport coordinates can also be used.
+    ///         bottom_left: Val::Vw(10.),
+    ///         // The bottom right corner will be unrounded.
+    ///         ..Default::default()
+    ///     },
+    ///     ..Default::default()
+    /// };
+    /// ```
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
+    pub border_radius: UiBorderRadius,
 }
 
 impl Style {
@@ -617,6 +649,7 @@ impl Style {
         grid_auto_columns: Vec::new(),
         grid_column: GridPlacement::DEFAULT,
         grid_row: GridPlacement::DEFAULT,
+        border_radius: UiBorderRadius::DEFAULT,
     };
 }
 
@@ -1680,6 +1713,178 @@ pub enum ZIndex {
 impl Default for ZIndex {
     fn default() -> Self {
         Self::Local(0)
+    }
+}
+
+/// Radii for rounded corner edges.
+/// * A corner set to a 0 value will be right angled.
+/// * The value is clamped to between 0 and half the length of the shortest side of the node before being used.
+/// * `Val::AUTO` is resolved to `Val::Px(0.)`.
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(PartialEq)]
+pub struct UiBorderRadius {
+    pub top_left: Val,
+    pub top_right: Val,
+    pub bottom_left: Val,
+    pub bottom_right: Val,
+}
+
+impl Default for UiBorderRadius {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl UiBorderRadius {
+    pub const DEFAULT: Self = Self {
+        top_left: Val::Px(0.),
+        top_right: Val::Px(0.),
+        bottom_left: Val::Px(0.),
+        bottom_right: Val::Px(0.),
+    };
+
+    #[inline]
+    /// Uniform curvature.
+    pub fn all(radius: Val) -> Self {
+        Self {
+            top_right: radius,
+            bottom_right: radius,
+            bottom_left: radius,
+            top_left: radius,
+        }
+    }
+
+    #[inline]
+    /// Maximum curvature. The Ui Node will take a capsule shape or circular if width and height are equal.
+    pub fn max() -> Self {
+        Self::all(Val::Px(f32::MAX))
+    }
+
+    #[inline]
+    pub fn new(top_right: Val, bottom_right: Val, bottom_left: Val, top_left: Val) -> Self {
+        Self {
+            top_right,
+            bottom_right,
+            bottom_left,
+            top_left,
+        }
+    }
+
+    #[inline]
+    /// Sets the radii to logical pixel values.
+    pub fn px(top_right: f32, bottom_right: f32, bottom_left: f32, top_left: f32) -> Self {
+        Self {
+            top_right: Val::Px(top_right),
+            bottom_right: Val::Px(bottom_right),
+            bottom_left: Val::Px(bottom_left),
+            top_left: Val::Px(top_left),
+        }
+    }
+
+    #[inline]
+    /// Sets the radii to percentage values.
+    pub fn percent(top_right: f32, bottom_right: f32, bottom_left: f32, top_left: f32) -> Self {
+        Self {
+            top_right: Val::Px(top_right),
+            bottom_right: Val::Px(bottom_right),
+            bottom_left: Val::Px(bottom_left),
+            top_left: Val::Px(top_left),
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the top right corner.
+    /// Remaining corners will be right-angled.
+    pub fn top_right(radius: Val) -> Self {
+        Self {
+            top_right: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the bottom right corner.
+    /// Remaining corners will be right-angled.
+    pub fn bottom_right(radius: Val) -> Self {
+        Self {
+            bottom_right: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the bottom left corner.
+    /// Remaining corners will be right-angled.
+    pub fn bottom_left(radius: Val) -> Self {
+        Self {
+            bottom_left: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the top left corner.
+    /// Remaining corners will be right-angled.
+    pub fn top_left(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the top left and bottom left corners.
+    /// Remaining corners will be right-angled.
+    pub fn left(radius: Val) -> Self {
+        Self {
+            bottom_left: radius,
+            top_left: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the top right and bottom right corners.
+    /// Remaining corners will be right-angled.
+    pub fn right(radius: Val) -> Self {
+        Self {
+            bottom_right: radius,
+            top_right: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the top left and top right corners.
+    /// Remaining corners will be right-angled.
+    pub fn top(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            top_right: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the bottom left and bottom right corners.
+    /// Remaining corners will be right-angled.
+    pub fn bottom(radius: Val) -> Self {
+        Self {
+            bottom_left: radius,
+            bottom_right: radius,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<UiBorderRadius> for [Val; 4] {
+    fn from(value: UiBorderRadius) -> Self {
+        [
+            value.top_right,
+            value.bottom_right,
+            value.bottom_left,
+            value.top_left,
+        ]
     }
 }
 

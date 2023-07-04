@@ -86,11 +86,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             style: Style {
                                 flex_direction: FlexDirection::Column,
                                 align_items: AlignItems::Stretch,
-                                padding: UiRect::all(Val::Px(10.)),
+                                border: UiRect::all(Val::Px(10.)),
                                 margin: UiRect::top(Val::Px(50.)),
+                                border_radius: UiBorderRadius::all(Val::Px(25.)),
                                 ..Default::default()
                             },
-                            background_color: Color::YELLOW.into(),
+                            border_color: Color::YELLOW.into(),
+                            background_color: Color::BLACK.into(),
                             ..Default::default()
                         })
                         .with_children(|parent| {
@@ -114,6 +116,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                 flex_basis: Val::Percent(100.0),
                 align_self: AlignSelf::Stretch,
                 padding: UiRect::all(Val::Px(10.)),
+                border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                 ..Default::default()
             },
             background_color: Color::YELLOW.into(),
@@ -127,6 +130,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                         width: Val::Percent(100.),
                         height: Val::Px(100.),
                         padding: UiRect::all(Val::Px(4.)),
+                        border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                         ..Default::default()
                     },
                     background_color: Color::BLACK.into(),
@@ -136,6 +140,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                     parent.spawn((
                         NodeBundle {
                             style: Style {
+                                border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                                 ..Default::default()
                             },
                             background_color: Color::WHITE.into(),
@@ -163,7 +168,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                 align_items: AlignItems::Stretch,
                 ..Default::default()
             },
-            background_color: Color::BLACK.into(),
+            //background_color: Color::BLACK.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -175,7 +180,6 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                         padding: UiRect::all(Val::Px(2.)),
                         ..Default::default()
                     },
-                    //background_color: Color::RED.into(),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -244,6 +248,7 @@ fn spawn_button(
                     justify_content: JustifyContent::Center,
                     border: UiRect::all(Val::Px(2.)),
                     margin: UiRect::horizontal(Val::Px(2.)),
+                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                     ..Default::default()
                 },
                 background_color: if active {
@@ -263,6 +268,7 @@ fn spawn_button(
                     style: Style {
                         width: Val::Px(100.),
                         justify_content: JustifyContent::Center,
+                        border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
                         ..Default::default()
                     },
                     background_color: if active {
