@@ -7,19 +7,21 @@ struct VertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
     @location(2) @interpolate(flat) size: vec2<f32>,
-    @location(3) @interpolate(flat) mode: u32,
+    @location(3) @interpolate(flat) flags: u32,
     @location(4) @interpolate(flat) radius: vec4<f32>,    
     @location(5) @interpolate(flat) border: vec4<f32>,    
     @location(6) border_color: vec4<f32>,
     @builtin(position) position: vec4<f32>,
 };
 
+
+
 @vertex
 fn vertex(
     @location(0) vertex_position: vec3<f32>,
     @location(1) vertex_uv: vec2<f32>,
     @location(2) vertex_color: vec4<f32>,
-    @location(3) mode: u32,
+    @location(3) flags: u32,
     @location(4) radius: vec4<f32>,
     @location(5) border: vec4<f32>,
     @location(6) size: vec2<f32>,
@@ -30,7 +32,7 @@ fn vertex(
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
     out.color = vertex_color;
     out.border_color = border_color;
-    out.mode = mode;
+    out.flags = flags;
     out.radius = radius;
     out.size = size;
     out.border = border;
@@ -94,20 +96,27 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    var color = select(in.color, in.color * textureSample(sprite_texture, sprite_sampler, in.uv), in.mode == 0u);
-    let point = (in.uv - vec2<f32>(0.4999)) * in.size;
-    // distance from internal border
+    var color = select(in.color, in.color * textureSample(sprite_texture, sprite_sampler, in.uv), in.flags == 0u);
+
+    // This is a hack. Multiplying by 0.49999 instead of 0.5 stops lines moving across a pixel when they go directly through the center. Might be a better way to fix this?
+    let point = (in.uv - vec2<f32>(0.49999)) * in.size;
+
+    // Distance from internal border. Positive values inside.
     let internal_distance = sd_inset_rounded_box(point, in.size, in.radius, in.border);
-    // distance from external border
+
+    // Distance from external border. Positive values inside.
     let external_distance = sd_rounded_box(point, in.size, in.radius);
     
     if internal_distance <= 0.0 {
+        // point inside inner boundary of border
         return color;
     }
     
-    if external_distance <= 0.0 {
+    if external_distance < 0.0 {
+        // point in border
         return in.border_color;
     }
 
+    // point outside outer boundary of border
     return vec4<f32>(0.0);
 }

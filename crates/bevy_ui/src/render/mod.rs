@@ -11,7 +11,7 @@ pub use render_pass::*;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
 };
-use crate::{ContentSize, Style, Val};
+use crate::{Style, Val};
 use crate::{UiBorderRadius, UiScale, UiTextureAtlasImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -319,7 +319,7 @@ pub fn extract_uinodes(
                 &GlobalTransform,
                 &Style,
                 &BackgroundColor,
-                &BorderColor,
+                Option<&BorderColor>,
                 Option<&Parent>,
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
@@ -344,7 +344,7 @@ pub fn extract_uinodes(
             global_transform,
             style,
             background_color,
-            border_color,
+            maybe_border_color,
             parent,
             visibility,
             clip,
@@ -361,14 +361,14 @@ pub fn extract_uinodes(
                 (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
             };
 
-            // Skip invisible borders
-            if !visibility.is_visible()
-                || border_color.0.a() == 0.0
+            if !visibility.is_visible()    
                 || node.size().x <= 0.
                 || node.size().y <= 0.
             {
                 continue;
             }
+
+            let border_color = maybe_border_color.map_or(Color::NONE, |background_color| background_color.0);
 
             // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
             // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
@@ -392,7 +392,6 @@ pub fn extract_uinodes(
 
             let extracted_node = ExtractedUiNode {
                 stack_index,
-                // This translates the uinode's transform to the center of the current border rectangle
                 transform,
                 color: background_color.0,
                 rect: Rect {
@@ -406,7 +405,7 @@ pub fn extract_uinodes(
                 flip_y,
                 border_radius,
                 border: [left, top, right, bottom],
-                border_color: border_color.0,
+                border_color,
             };
             extracted_uinodes.uinodes.push(extracted_node);
         }
@@ -551,7 +550,7 @@ struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
-    pub mode: u32,
+    pub flags: u32,
     pub radius: [f32; 4],
     pub border: [f32; 4],
     pub size: [f32; 2],
@@ -621,7 +620,7 @@ pub fn prepare_uinodes(
     }
 
     for extracted_uinode in &extracted_uinodes.uinodes {
-        let mode = if is_textured(&extracted_uinode.image) {
+        let flags = if is_textured(&extracted_uinode.image) {
             if current_batch_image.id() != extracted_uinode.image.id() {
                 if is_textured(&current_batch_image) && start != end {
                     commands.spawn(UiBatch {
@@ -742,7 +741,7 @@ pub fn prepare_uinodes(
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color,
-                mode,
+                flags,
                 radius: extracted_uinode.border_radius,
                 border: extracted_uinode.border,
                 size: extracted_uinode
