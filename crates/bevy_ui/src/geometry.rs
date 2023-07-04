@@ -329,7 +329,7 @@ impl UiRect {
     /// ```
     /// # use bevy_ui::{UiRect, Val};
     /// #
-    /// let ui_rect = UiRect::all(Val::Vw(25.)).with_left(Val::Px(10.);
+    /// let ui_rect = UiRect::all(Val::Vw(25.)).with_left(Val::Px(10.));
     /// assert_eq!(ui_rect.left, Val::Vw(10.));
     /// assert_eq!(ui_rect.right, Val::Px(25.));
     /// assert_eq!(ui_rect.top, Val::Vw(25.));
@@ -348,7 +348,7 @@ impl UiRect {
     /// ```
     /// # use bevy_ui::{UiRect, Val};
     /// #
-    /// let ui_rect = UiRect::all(Val::Vw(25.)).with_right(Val::Px(10.);
+    /// let ui_rect = UiRect::all(Val::Vw(25.)).with_right(Val::Px(10.));
     /// assert_eq!(ui_rect.left, Val::Vw(25.));
     /// assert_eq!(ui_rect.right, Val::Px(10.));
     /// assert_eq!(ui_rect.top, Val::Vw(25.));
@@ -367,7 +367,7 @@ impl UiRect {
     /// ```
     /// # use bevy_ui::{UiRect, Val};
     /// #
-    /// let ui_rect = UiRect::all(Val::Vw(25.)).with_top(Val::Px(10.);
+    /// let ui_rect = UiRect::all(Val::Vw(25.)).with_top(Val::Px(10.));
     /// assert_eq!(ui_rect.left, Val::Vw(25.));
     /// assert_eq!(ui_rect.right, Val::Vw(25.));
     /// assert_eq!(ui_rect.top, Val::Px(10.));
@@ -386,7 +386,7 @@ impl UiRect {
     /// ```
     /// # use bevy_ui::{UiRect, Val};
     /// #
-    /// let ui_rect = UiRect::all(Val::Vw(25.)).with_bottom(Val::Px(10.);
+    /// let ui_rect = UiRect::all(Val::Vw(25.)).with_bottom(Val::Px(10.));
     /// assert_eq!(ui_rect.left, Val::Vw(25.));
     /// assert_eq!(ui_rect.right, Val::Vw(25.));
     /// assert_eq!(ui_rect.top, Val::Vw(25.));
