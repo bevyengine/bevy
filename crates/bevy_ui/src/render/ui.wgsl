@@ -14,8 +14,6 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
 };
 
-
-
 @vertex
 fn vertex(
     @location(0) vertex_position: vec3<f32>,
@@ -41,6 +39,7 @@ fn vertex(
 
 @group(1) @binding(0)
 var sprite_texture: texture_2d<f32>;
+
 @group(1) @binding(1)
 var sprite_sampler: sampler;
 
