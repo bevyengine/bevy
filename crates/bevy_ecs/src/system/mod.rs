@@ -511,7 +511,7 @@ mod tests {
         },
         system::{
             adapter::new, Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
-            QueryComponentError, QueryComponentErrorDetails, Res, ResMut, Resource, System,
+            QueryComponentError, QueryComponentErrorDetail, Res, ResMut, Resource, System,
             SystemState,
         },
         world::{FromWorld, World},
@@ -1727,7 +1727,7 @@ mod tests {
         run_system(&mut world, move |q: Query<&mut W<u32>>| {
             let mut rq = q.to_readonly();
             assert_eq!(
-                QueryComponentError::MissingWriteAccess(QueryComponentErrorDetails {
+                QueryComponentError::MissingWriteAccess(QueryComponentErrorDetail {
                     requested_entity: entity,
                     requested_component: "W<u32>",
                     query_type: "Query<'_, '_, &W<u32>>",
