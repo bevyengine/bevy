@@ -4,7 +4,7 @@ use std::fmt;
 use std::num::ParseIntError;
 
 use crate::Reflect;
-use access::{Access, AccessRef};
+use access::Access;
 use thiserror::Error;
 
 type ParseResult<T> = Result<T, ReflectPathParseError>;
@@ -291,7 +291,7 @@ pub struct ParsedPath(
     /// index of the start of the access within the parsed path string.
     ///
     /// The index is mainly used for more helpful error reporting.
-    Box<[(Access, usize)]>,
+    Box<[(Access<'static>, usize)]>,
 );
 
 impl ParsedPath {
@@ -343,7 +343,17 @@ impl ParsedPath {
     pub fn parse(string: &str) -> Result<Self, ReflectPathError<'_>> {
         let mut parts = Vec::new();
         for (access, idx) in PathParser::new(string) {
-            parts.push((access?.to_owned(), idx));
+            parts.push((access?.into_owned(), idx));
+        }
+        Ok(Self(parts.into_boxed_slice()))
+    }
+
+    /// Similar to [`Self::parse`] but only works on `&'static str`
+    /// and does not allocate per named field.
+    pub fn parse_static(string: &'static str) -> Result<Self, ReflectPathError<'_>> {
+        let mut parts = Vec::new();
+        for (access, idx) in PathParser::new(string) {
+            parts.push((access?, idx));
         }
         Ok(Self(parts.into_boxed_slice()))
     }
@@ -359,7 +369,7 @@ impl ParsedPath {
     ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
         let mut current = root;
         for (access, current_index) in self.0.iter() {
-            current = access.as_ref().element(current, *current_index)?;
+            current = access.element(current, *current_index)?;
         }
         Ok(current)
     }
@@ -375,7 +385,7 @@ impl ParsedPath {
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
         let mut current = root;
         for (access, current_index) in self.0.iter() {
-            current = access.as_ref().element_mut(current, *current_index)?;
+            current = access.element_mut(current, *current_index)?;
         }
         Ok(current)
     }
@@ -471,15 +481,15 @@ impl<'a> PathParser<'a> {
         Some(ident)
     }
 
-    fn token_to_access(&mut self, token: Token<'a>) -> ParseResult<AccessRef<'a>> {
+    fn token_to_access(&mut self, token: Token<'a>) -> ParseResult<Access<'a>> {
         let current_offset = self.index;
         match token {
             Token::Dot => {
                 if let Some(Token::Ident(value)) = self.next_token() {
                     value
                         .parse::<usize>()
-                        .map(AccessRef::TupleIndex)
-                        .or(Ok(AccessRef::Field(value)))
+                        .map(Access::TupleIndex)
+                        .or(Ok(Access::Field(value.into())))
                 } else {
                     Err(ReflectPathParseError::ExpectedIdent {
                         offset: current_offset,
@@ -488,7 +498,7 @@ impl<'a> PathParser<'a> {
             }
             Token::CrossHatch => {
                 if let Some(Token::Ident(value)) = self.next_token() {
-                    Ok(AccessRef::FieldIndex(value.parse::<usize>()?))
+                    Ok(Access::FieldIndex(value.parse::<usize>()?))
                 } else {
                     Err(ReflectPathParseError::ExpectedIdent {
                         offset: current_offset,
@@ -497,7 +507,7 @@ impl<'a> PathParser<'a> {
             }
             Token::OpenBracket => {
                 let access = if let Some(Token::Ident(value)) = self.next_token() {
-                    AccessRef::ListIndex(value.parse::<usize>()?)
+                    Access::ListIndex(value.parse::<usize>()?)
                 } else {
                     return Err(ReflectPathParseError::ExpectedIdent {
                         offset: current_offset,
@@ -519,14 +529,14 @@ impl<'a> PathParser<'a> {
             }),
             Token::Ident(value) => value
                 .parse::<usize>()
-                .map(AccessRef::TupleIndex)
-                .or(Ok(AccessRef::Field(value))),
+                .map(Access::TupleIndex)
+                .or(Ok(Access::Field(value.into()))),
         }
     }
 }
 
 impl<'a> Iterator for PathParser<'a> {
-    type Item = (ParseResult<AccessRef<'a>>, usize);
+    type Item = (ParseResult<Access<'a>>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         let token = self.next_token()?;
@@ -615,7 +625,7 @@ mod tests {
     }
 
     fn access_field(field: &'static str) -> Access {
-        Access::Field(field.to_string().into_boxed_str())
+        Access::Field(field.into())
     }
 
     #[test]
@@ -778,7 +788,7 @@ mod tests {
                 offset: 2,
                 error: AccessError(access::Error::Access {
                     ty: TypeShape::Struct,
-                    access: AccessRef::Field("notreal"),
+                    access: access_field("notreal"),
                 }),
             }
         );
