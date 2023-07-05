@@ -588,8 +588,18 @@ pub struct UiBatch {
     pub z: f32,
 }
 
-const TEXTURED_QUAD: u32 = 0;
-const UNTEXTURED_QUAD: u32 = 1;
+const UNTEXTURED_QUAD: u32 = 0;
+const TEXTURED_QUAD: u32 = 1;
+const CORNERS: [u32; 4] = [
+    // top left
+    0,
+    // top right
+    2,
+    // bottom right
+    2 | 4,
+    // bottom left
+    4,
+];
 
 pub fn prepare_uinodes(
     mut commands: Commands,
@@ -739,7 +749,7 @@ pub fn prepare_uinodes(
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color,
-                flags,
+                flags: flags | CORNERS[i],
                 radius: extracted_uinode.border_radius,
                 border: extracted_uinode.border,
                 size: extracted_uinode

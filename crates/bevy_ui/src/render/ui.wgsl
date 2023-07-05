@@ -1,5 +1,7 @@
 #import bevy_render::view  View
 
+const TEXTURED_QUAD = 1u;
+
 @group(0) @binding(0)
 var<uniform> view: View;
 
@@ -95,27 +97,42 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    var color = select(in.color, in.color * textureSample(sprite_texture, sprite_sampler, in.uv), in.flags == 0u);
+    var internal_color = select(in.color, in.color * textureSample(sprite_texture, sprite_sampler, in.uv), (in.flags & TEXTURED_QUAD) != 0u);
 
-    // This is a hack. Multiplying by 0.49999 instead of 0.5 stops lines moving across a pixel when they go directly through the center. Might be a better way to fix this?
+    // Multiplying by 0.49999 instead of 0.5 is a hack that stops borders stepping across a pixel when they go directly through the center. Should be a better way to fix this?
     let point = (in.uv - vec2<f32>(0.49999)) * in.size;
+
+    // Distance from external border. Positive values inside.
+    let external_distance = sd_rounded_box(point, in.size, in.radius);
 
     // Distance from internal border. Positive values inside.
     let internal_distance = sd_inset_rounded_box(point, in.size, in.radius, in.border);
 
-    // Distance from external border. Positive values inside.
-    let external_distance = sd_rounded_box(point, in.size, in.radius);
+    // Distance from border, positive values inside border.
+    let border = max(-internal_distance, external_distance);
+
+    // Distance from interior, positive values inside interior.
+    let interior = max(internal_distance, external_distance);
     
-    if internal_distance <= 0.0 {
-        // point inside inner boundary of border
-        return color;
-    }
-    
-    if external_distance < 0.0 {
-        // point in border
-        return in.border_color;
+    // Distance from exterior, positive values outside node.
+    let exterior = -external_distance;
+
+    // Anti-aliasing
+    let fborder = 0.5 * fwidth(border);
+    let fexternal = 0.5 * fwidth(external_distance);
+    let p = smoothstep(-fborder, fborder, border);
+    let q = smoothstep(-fexternal, fexternal, external_distance);
+
+    if interior < exterior {
+        if border < exterior {
+            return mix(in.border_color, internal_color, p);
+        } else {
+            let a = mix(0., internal_color.a, p);
+            return vec4<f32>(internal_color.xyz, a);
+        }
     }
 
-    // point outside outer boundary of border
-    return vec4<f32>(0.0);
+    var boundary_color = select(internal_color, in.border_color, border < interior);
+    let a = mix(boundary_color.a, 0., q);
+    return vec4<f32>(boundary_color.xyz, a);
 }
