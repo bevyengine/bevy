@@ -1904,11 +1904,11 @@ pub struct UiNodeShadow {
 
 impl Default for UiNodeShadow {
     fn default() -> Self {
-        Self { 
-            x_offset: Val::VMin(1.), 
-            y_offset: Val::VMin(1.), 
-            scale: Vec2::splat(1.1), 
-            color: Color::BLACK, 
+        Self {
+            x_offset: Val::VMin(1.),
+            y_offset: Val::VMin(1.),
+            scale: Vec2::splat(1.1),
+            color: Color::BLACK,
         }
     }
 }

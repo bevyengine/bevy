@@ -11,7 +11,7 @@ pub use render_pass::*;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
 };
-use crate::{Style, Val, UiNodeShadow};
+use crate::{Style, UiNodeShadow, Val};
 use crate::{UiBorderRadius, UiScale, UiTextureAtlasImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -316,8 +316,8 @@ fn resolve_shadow_offset(
     viewport_size: Vec2,
     ui_scale: f64,
 ) -> Vec2 {
-    [(x, node_size.x), (y, node_size.y)].map(|(value, size)| {
-        match value {
+    [(x, node_size.x), (y, node_size.y)]
+        .map(|(value, size)| match value {
             Val::Auto => 0.,
             Val::Px(px) => ui_scale as f32 * px,
             Val::Percent(percent) => percent / 100. * size,
@@ -325,8 +325,8 @@ fn resolve_shadow_offset(
             Val::Vh(percent) => (viewport_size.y * percent / 100.).max(0.),
             Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
             Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
-        }
-    }).into()
+        })
+        .into()
 }
 
 pub fn extract_uinodes(
@@ -414,8 +414,13 @@ pub fn extract_uinodes(
             );
 
             if let Some(shadow) = maybe_shadow {
-                let offset = resolve_shadow_offset(shadow.x_offset, shadow.y_offset, node.size(), viewport_size, ui_scale.scale);
-                println!("{offset}");
+                let offset = resolve_shadow_offset(
+                    shadow.x_offset,
+                    shadow.y_offset,
+                    node.size(),
+                    viewport_size,
+                    ui_scale.scale,
+                );
                 let extracted_node = ExtractedUiNode {
                     stack_index,
                     transform: transform * Mat4::from_translation(offset.extend(0.)),
