@@ -27,11 +27,11 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_winit|winit window and input backend|
-|multi-threaded|Enables use of multithreading throughout the engine. Does nothing on WASM platforms.|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |filesystem_watcher|Enable watching file system for asset hot reload|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
+|multi-threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files|
 |vorbis|OGG/VORBIS audio format support|
