@@ -11,7 +11,7 @@ pub use render_pass::*;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
 };
-use crate::{Style, Val};
+use crate::{Style, Val, UiNodeShadow};
 use crate::{UiBorderRadius, UiScale, UiTextureAtlasImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -161,6 +161,7 @@ pub struct ExtractedUiNode {
     pub border_radius: [f32; 4],
     pub border: [f32; 4],
     pub border_color: Color,
+    pub is_shadow: bool,
 }
 
 #[derive(Resource, Default)]
@@ -263,6 +264,7 @@ pub fn extract_atlas_uinodes(
                 ),
                 border: [0.; 4],
                 border_color: Color::NONE,
+                is_shadow: false,
             });
         }
     }
@@ -306,6 +308,27 @@ fn resolve_border_radius(
     })
 }
 
+#[inline]
+fn resolve_shadow_offset(
+    x: Val,
+    y: Val,
+    node_size: Vec2,
+    viewport_size: Vec2,
+    ui_scale: f64,
+) -> Vec2 {
+    [(x, node_size.x), (y, node_size.y)].map(|(value, size)| {
+        match value {
+            Val::Auto => 0.,
+            Val::Px(px) => ui_scale as f32 * px,
+            Val::Percent(percent) => percent / 100. * size,
+            Val::Vw(percent) => (viewport_size.x * percent / 100.).max(0.),
+            Val::Vh(percent) => (viewport_size.y * percent / 100.).max(0.),
+            Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
+            Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
+        }
+    }).into()
+}
+
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
@@ -324,6 +347,7 @@ pub fn extract_uinodes(
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
                 Option<&UiImage>,
+                Option<&UiNodeShadow>,
             ),
             //Without<ContentSize>,
         >,
@@ -349,6 +373,7 @@ pub fn extract_uinodes(
             visibility,
             clip,
             maybe_image,
+            maybe_shadow,
         )) = uinode_query.get(*entity)
         {
             let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
@@ -388,6 +413,30 @@ pub fn extract_uinodes(
                 ui_scale.scale,
             );
 
+            if let Some(shadow) = maybe_shadow {
+                let offset = resolve_shadow_offset(shadow.x_offset, shadow.y_offset, node.size(), viewport_size, ui_scale.scale);
+                println!("{offset}");
+                let extracted_node = ExtractedUiNode {
+                    stack_index,
+                    transform: transform * Mat4::from_translation(offset.extend(0.)),
+                    color: shadow.color,
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: node.size() * shadow.scale,
+                    },
+                    image: image.clone_weak(),
+                    atlas_size: None,
+                    clip: clip.map(|clip| clip.clip),
+                    flip_x,
+                    flip_y,
+                    border_radius,
+                    border: [left, top, right, bottom],
+                    border_color: Color::RED,
+                    is_shadow: true,
+                };
+                extracted_uinodes.uinodes.push(extracted_node);
+            }
+
             let extracted_node = ExtractedUiNode {
                 stack_index,
                 transform,
@@ -404,6 +453,7 @@ pub fn extract_uinodes(
                 border_radius,
                 border: [left, top, right, bottom],
                 border_color,
+                is_shadow: false,
             };
             extracted_uinodes.uinodes.push(extracted_node);
         }
@@ -536,6 +586,7 @@ pub fn extract_text_uinodes(
                     border_radius: [0.; 4],
                     border: [0.; 4],
                     border_color: Color::NONE,
+                    is_shadow: false,
                 });
             }
         }
@@ -632,7 +683,7 @@ pub fn prepare_uinodes(
     }
 
     for extracted_uinode in &extracted_uinodes.uinodes {
-        let flags = if is_textured(&extracted_uinode.image) {
+        let mut flags = if is_textured(&extracted_uinode.image) {
             if current_batch_image.id() != extracted_uinode.image.id() {
                 if is_textured(&current_batch_image) && start != end {
                     commands.spawn(UiBatch {
@@ -748,6 +799,9 @@ pub fn prepare_uinodes(
         };
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
+        if extracted_uinode.is_shadow {
+            flags |= shader_flags::BOX_SHADOW;
+        }
         for i in 0..4 {
             let ui_vertex = UiVertex {
                 position: positions_clipped[i].into(),

@@ -139,6 +139,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         var rect_dist = 1.0 - sigmoid(sd_rounded_box(in.point,in.size,in.radius));
         let color = in.color.rgb;
         return vec4(color, in.color.a * rect_dist * 1.42);
+        //return vec4<f32>(1.0);
     }
 
     if interior < exterior {
