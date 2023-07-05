@@ -143,6 +143,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let q = smoothstep(-fexternal, fexternal, external_distance);
 
     if (in.flags & BOX_SHADOW) != 0u {
+        // copied from kayak
         var rect_dist = 1.0 - sigmoid(sd_rounded_box(in.point,in.size - in.border.x * 2.0, in.radius));
         let color = in.color.rgb;
         return vec4(color, in.color.a * rect_dist * 1.42);
