@@ -50,20 +50,21 @@ fn setup(
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn((AtlasImageBundle {
-                style: Style {
-                    width: Val::Px(256.),
-                    height: Val::Px(256.),
-                    border: UiRect::all(Val::Px(16.)),
-                    border_radius: UiBorderRadius::all(Val::Px(16.)),
+            parent.spawn((
+                AtlasImageBundle {
+                    style: Style {
+                        width: Val::Px(256.),
+                        height: Val::Px(256.),
+                        border: UiRect::all(Val::Px(16.)),
+                        border_radius: UiBorderRadius::all(Val::Px(16.)),
+                        ..default()
+                    },
+                    texture_atlas: texture_atlas_handle,
+                    texture_atlas_image: UiTextureAtlasImage::default(),
                     ..default()
                 },
-                texture_atlas: texture_atlas_handle,
-                texture_atlas_image: UiTextureAtlasImage::default(),
-                ..default()
-            },
-            BorderColor(Color::RED)
-        ));
+                BorderColor(Color::RED),
+            ));
             parent.spawn(TextBundle::from_sections([
                 TextSection::new("press ".to_string(), text_style.clone()),
                 TextSection::new(

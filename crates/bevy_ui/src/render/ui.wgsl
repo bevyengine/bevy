@@ -22,7 +22,6 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
 };
 
-
 @vertex
 fn vertex(
     @location(0) vertex_position: vec3<f32>,

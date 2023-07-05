@@ -16,7 +16,7 @@ use crate::{UiBorderRadius, UiScale, UiTextureAtlasImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles, Vec4};
+use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
@@ -228,11 +228,7 @@ fn resolve_shadow_offset(
 }
 
 #[inline]
-fn clamp_corner(
-    r: f32,
-    size: Vec2,
-    offset: Vec2
-) -> f32 {
+fn clamp_corner(r: f32, size: Vec2, offset: Vec2) -> f32 {
     let s = 0.5 * size + offset;
     let sm = s.x.min(s.y);
     return r.min(sm);
@@ -253,7 +249,6 @@ fn clamp_radius(
     ]
 }
 
-
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
@@ -262,22 +257,20 @@ pub fn extract_uinodes(
     ui_scale: Extract<Res<UiScale>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
-        Query<
-            (
-                &Node,
-                &GlobalTransform,
-                &Style,
-                &BackgroundColor,
-                Option<&BorderColor>,
-                Option<&Parent>,
-                &ComputedVisibility,
-                Option<&CalculatedClip>,
-                Option<&UiNodeShadow>,
-                Option<&UiImage>,
-                Option<&Handle<TextureAtlas>>,
-                Option<&UiTextureAtlasImage>,
-            )
-        >,
+        Query<(
+            &Node,
+            &GlobalTransform,
+            &Style,
+            &BackgroundColor,
+            Option<&BorderColor>,
+            Option<&Parent>,
+            &ComputedVisibility,
+            Option<&CalculatedClip>,
+            Option<&UiNodeShadow>,
+            Option<&UiImage>,
+            Option<&Handle<TextureAtlas>>,
+            Option<&UiTextureAtlasImage>,
+        )>,
     >,
     parent_node_query: Extract<Query<&Node, With<Parent>>>,
 ) {
@@ -312,8 +305,19 @@ pub fn extract_uinodes(
                 } else {
                     image.texture.clone_weak()
                 };
-                (texture, image.flip_x, image.flip_y, None, Rect { max: uinode.size(), ..Default::default() })
-            } else if let (Some(texture_atlas_handle), Some(atlas_image)) = (maybe_atlas, maybe_atlas_image) {
+                (
+                    texture,
+                    image.flip_x,
+                    image.flip_y,
+                    None,
+                    Rect {
+                        max: uinode.size(),
+                        ..Default::default()
+                    },
+                )
+            } else if let (Some(texture_atlas_handle), Some(atlas_image)) =
+                (maybe_atlas, maybe_atlas_image)
+            {
                 texture_atlases.get(texture_atlas_handle)
                 .map_or(
                     (DEFAULT_IMAGE_HANDLE.typed(), false, false, None, Rect { max: uinode.size(), ..Default::default() }),
@@ -337,13 +341,21 @@ pub fn extract_uinodes(
                         Rect {
                             min: atlas_rect.min * scale,
                             max: atlas_rect.max * scale,
-                        },                     
-                    )
-                })
+                        },
+                    )})
             } else {
-                (DEFAULT_IMAGE_HANDLE.typed(), false, false, None, Rect { max: uinode.size(), ..Default::default() })
+                (
+                    DEFAULT_IMAGE_HANDLE.typed(),
+                    false,
+                    false,
+                    None,
+                    Rect {
+                        max: uinode.size(),
+                        ..Default::default()
+                    },
+                )
             };
-                    
+
             if !visibility.is_visible() || uinode.size().x <= 0. || uinode.size().y <= 0. {
                 continue;
             }
@@ -373,11 +385,7 @@ pub fn extract_uinodes(
                 ui_scale.scale,
             );
 
-            let border_radius = clamp_radius(
-                border_radius,
-                uinode.size(),
-                border.into(),
-            );
+            let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
 
             if let Some(shadow) = maybe_shadow {
                 let shadow_blur_radius = 10.;
@@ -402,7 +410,12 @@ pub fn extract_uinodes(
                     flip_x,
                     flip_y,
                     border_radius,
-                    border: [shadow_blur_radius, shadow_blur_radius, shadow_blur_radius, shadow_blur_radius],
+                    border: [
+                        shadow_blur_radius,
+                        shadow_blur_radius,
+                        shadow_blur_radius,
+                        shadow_blur_radius,
+                    ],
                     border_color: Color::RED,
                     is_shadow: true,
                 };
