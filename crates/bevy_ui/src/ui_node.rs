@@ -1798,6 +1798,16 @@ impl UiBorderRadius {
     }
 
     #[inline]
+    /// Sets the radius for the top left corner.
+    /// Remaining corners will be right-angled.
+    pub fn top_left(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
     /// Sets the radius for the top right corner.
     /// Remaining corners will be right-angled.
     pub fn top_right(radius: Val) -> Self {
@@ -1823,16 +1833,6 @@ impl UiBorderRadius {
     pub fn bottom_left(radius: Val) -> Self {
         Self {
             bottom_left: radius,
-            ..Default::default()
-        }
-    }
-
-    #[inline]
-    /// Sets the radius for the top left corner.
-    /// Remaining corners will be right-angled.
-    pub fn top_left(radius: Val) -> Self {
-        Self {
-            top_left: radius,
             ..Default::default()
         }
     }
