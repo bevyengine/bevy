@@ -22,6 +22,7 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
 };
 
+
 @vertex
 fn vertex(
     @location(0) vertex_position: vec3<f32>,
@@ -41,12 +42,19 @@ fn vertex(
     out.color = vertex_color;
     out.border_color = border_color;
     out.flags = flags;
+    //let clamped_radius = clamp_radius(radius, size, border);
     out.radius = radius;
     out.size = size;
     out.border = border;
+    var point = 0.49999 * size;
+    if (flags & RIGHT_VERTEX) == 0u {
+        point.x *= -1.;
+    }
+    if (flags & BOTTOM_VERTEX) == 0u {
+        point.y *= -1.;
+    }
+    out.point = point;
 
-    // Multiplying by 0.49999 instead of 0.5 is a hack that stops borders stepping across a pixel when they go directly through the center. Should be a better way to fix this?
-    out.point = (vertex_uv - vec2<f32>(0.49999)) * size;
     return out;
 }
 
@@ -124,7 +132,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let border = max(-internal_distance, external_distance);
 
     // Distance from interior, positive values inside interior.
-    let interior = max(internal_distance, external_distance);
+    let interior = internal_distance; // max(internal_distance, external_distance);
     
     // Distance from exterior, positive values outside node.
     let exterior = -external_distance;
@@ -136,7 +144,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let q = smoothstep(-fexternal, fexternal, external_distance);
 
     if (in.flags & BOX_SHADOW) != 0u {
-        var rect_dist = 1.0 - sigmoid(sd_rounded_box(in.point,in.size,in.radius));
+        var rect_dist = 1.0 - sigmoid(sd_rounded_box(in.point,in.size - in.border.x * 2.0, in.radius));
         let color = in.color.rgb;
         return vec4(color, in.color.a * rect_dist * 1.42);
     }
