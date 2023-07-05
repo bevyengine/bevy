@@ -1,4 +1,6 @@
 use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
+#[cfg(target_arch = "wasm32")]
+use std::sync::Arc;
 
 thread_local! {
     static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
@@ -56,8 +58,8 @@ pub struct TaskPool {}
 
 impl TaskPool {
     /// Just create a new `ThreadExecutor` for wasm
-    pub fn get_thread_executor() -> Rc<ThreadExecutor<'static>> {
-        Rc::new(ThreadExecutor::new())
+    pub fn get_thread_executor() -> Arc<ThreadExecutor<'static>> {
+        Arc::new(ThreadExecutor::new())
     }
 
     /// Create a `TaskPool` with the default configuration.
