@@ -17,6 +17,7 @@ struct VertexOutput {
     @location(4) @interpolate(flat) radius: vec4<f32>,    
     @location(5) @interpolate(flat) border: vec4<f32>,    
     @location(6) border_color: vec4<f32>,
+    // position relative to the center of the rectangle
     @location(7) point: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };
@@ -27,7 +28,9 @@ fn vertex(
     @location(1) vertex_uv: vec2<f32>,
     @location(2) vertex_color: vec4<f32>,
     @location(3) flags: u32,
+    // x = top right, y = bottom right, z = bottom left, w = top left
     @location(4) radius: vec4<f32>,
+    // x = left width, y = top width, z = right width, w = bottom width
     @location(5) border: vec4<f32>,
     @location(6) size: vec2<f32>,
     @location(7) border_color: vec4<f32>,
