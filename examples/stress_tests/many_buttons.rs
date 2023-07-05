@@ -3,7 +3,7 @@
 //! To start the demo without text run
 //! `cargo run --example many_buttons --release no-text`
 //!
-//! //! To start the demo without borders run
+//! To start the demo without borders run
 //! `cargo run --example many_buttons --release no-borders`
 //!
 //| To do a full layout update each frame run
