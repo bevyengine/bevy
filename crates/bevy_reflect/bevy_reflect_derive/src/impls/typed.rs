@@ -49,9 +49,7 @@ pub(crate) enum TypedProperty {
 }
 
 pub(crate) fn impl_type_path(meta: &ReflectMeta) -> proc_macro2::TokenStream {
-    // Use `WhereClauseOptions::new_minimal` here so we don't enforce reflection bounds,
-    // ensuring the impl applies in the most cases possible.
-    let where_clause_options = match WhereClauseOptions::new_minimal(meta) {
+    let where_clause_options = match WhereClauseOptions::new_type_path(meta) {
         Ok(options) => options,
         Err(err) => return err.into_compile_error().into(),
     };

@@ -9,11 +9,12 @@ use crate::utility;
 use bevy_macro_utils::fq_std::{FQAny, FQOption};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
+use std::collections::HashSet;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Expr, LitBool, Meta, Path};
+use syn::{Expr, Generics, LitBool, Meta, Path};
 
 // The "special" trait idents that are used internally for reflection.
 // Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
@@ -30,6 +31,9 @@ const FROM_REFLECT_ATTR: &str = "from_reflect";
 
 // Attributes for `TypePath` implementation
 const TYPE_PATH_ATTR: &str = "type_path";
+
+// Attributes for `Reflect` implementation
+const IGNORE_PARAMS_ATTR: &str = "ignore_params";
 
 // The error message to show when a trait/type is specified multiple times
 const CONFLICTING_TYPE_DATA_MESSAGE: &str = "conflicting type data registration";
@@ -211,6 +215,7 @@ pub(crate) struct ReflectTraits {
     partial_eq: TraitImpl,
     from_reflect_attrs: FromReflectAttrs,
     type_path_attrs: TypePathAttrs,
+    ignored_params: HashSet<Ident>,
     idents: Vec<Ident>,
 }
 
@@ -222,13 +227,11 @@ impl ReflectTraits {
         let mut traits = ReflectTraits::default();
         for meta in &metas {
             match meta {
-                // Handles `#[reflect( Hash, Default, ... )]`
+                // Handles `#[reflect( Debug, PartialEq, Hash, SomeTrait )]`
                 Meta::Path(path) => {
-                    // Get the first ident in the path (hopefully the path only contains one and not `std::hash::Hash`)
-                    let Some(segment) = path.segments.iter().next() else {
+                    let Some(ident) = path.get_ident() else {
                         continue;
                     };
-                    let ident = &segment.ident;
                     let ident_name = ident.to_string();
 
                     // Track the span where the trait is implemented for future errors
@@ -255,37 +258,41 @@ impl ReflectTraits {
                         }
                     }
                 }
-                // Handles `#[reflect( Hash(custom_hash_fn) )]`
-                Meta::List(list) => {
-                    // Get the first ident in the path (hopefully the path only contains one and not `std::hash::Hash`)
-                    let Some(segment) = list.path.segments.iter().next() else {
-                        continue;
-                    };
-
-                    let ident = segment.ident.to_string();
-
-                    // Track the span where the trait is implemented for future errors
-                    let span = ident.span();
-
+                // Handles `#[reflect(ignore_params(T, U))]`
+                Meta::List(list) if list.path.is_ident(IGNORE_PARAMS_ATTR) => {
+                    let params: Punctuated<Ident, Comma> =
+                        list.parse_args_with(Punctuated::parse_separated_nonempty)?;
+                    traits.ignored_params.extend(params);
+                }
+                // Handles `#[reflect( Debug(custom_debug_fn) )]`
+                Meta::List(list) if list.path.is_ident(DEBUG_ATTR) => {
+                    let ident = list.path.get_ident().unwrap();
                     list.parse_nested_meta(|meta| {
-                        // This should be the path of the custom function
-                        let trait_func_ident = TraitImpl::Custom(meta.path, span);
-                        match ident.as_str() {
-                            DEBUG_ATTR => {
-                                traits.debug.merge(trait_func_ident)?;
-                            }
-                            PARTIAL_EQ_ATTR => {
-                                traits.partial_eq.merge(trait_func_ident)?;
-                            }
-                            HASH_ATTR => {
-                                traits.hash.merge(trait_func_ident)?;
-                            }
-                            _ => {
-                                return Err(syn::Error::new(span, "Can only use custom functions for special traits (i.e. `Hash`, `PartialEq`, `Debug`)"));
-                            }
-                        }
-                        Ok(())
+                        let trait_func_ident = TraitImpl::Custom(meta.path, ident.span());
+                        traits.debug.merge(trait_func_ident)
                     })?;
+                }
+                // Handles `#[reflect( PartialEq(custom_partial_eq_fn) )]`
+                Meta::List(list) if list.path.is_ident(PARTIAL_EQ_ATTR) => {
+                    let ident = list.path.get_ident().unwrap();
+                    list.parse_nested_meta(|meta| {
+                        let trait_func_ident = TraitImpl::Custom(meta.path, ident.span());
+                        traits.partial_eq.merge(trait_func_ident)
+                    })?;
+                }
+                // Handles `#[reflect( Hash(custom_hash_fn) )]`
+                Meta::List(list) if list.path.is_ident(HASH_ATTR) => {
+                    let ident = list.path.get_ident().unwrap();
+                    list.parse_nested_meta(|meta| {
+                        let trait_func_ident = TraitImpl::Custom(meta.path, ident.span());
+                        traits.hash.merge(trait_func_ident)
+                    })?;
+                }
+                Meta::List(list) => {
+                    return Err(syn::Error::new_spanned(
+                        list,
+                        format!("expected one of [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}, {IGNORE_PARAMS_ATTR:?}]")
+                    ));
                 }
                 Meta::NameValue(pair) => {
                     if pair.path.is_ident(FROM_REFLECT_ATTR) {
@@ -402,6 +409,10 @@ impl ReflectTraits {
         }
     }
 
+    pub fn ignore_param(&self, param: &Ident) -> bool {
+        self.ignored_params.contains(param)
+    }
+
     /// Merges the trait implementations of this [`ReflectTraits`] with another one.
     ///
     /// An error is returned if the two [`ReflectTraits`] have conflicting implementations.
@@ -411,10 +422,43 @@ impl ReflectTraits {
         self.partial_eq.merge(other.partial_eq)?;
         self.from_reflect_attrs.merge(other.from_reflect_attrs)?;
         self.type_path_attrs.merge(other.type_path_attrs)?;
+        self.ignored_params.extend(other.ignored_params);
         for ident in other.idents {
             add_unique_ident(&mut self.idents, ident)?;
         }
         Ok(())
+    }
+
+    /// Validates that any ignored type parameters are valid for the given set of generics.
+    pub fn validate_ignored_params(&self, generics: &Generics) -> Result<(), syn::Error> {
+        if self.ignored_params.is_empty() {
+            return Ok(());
+        }
+
+        let mut params = self.ignored_params.clone();
+
+        for param in generics.type_params() {
+            params.remove(&param.ident);
+        }
+
+        if params.is_empty() {
+            return Ok(());
+        }
+
+        let mut errors: Option<syn::Error> = None;
+        for param in params {
+            let err = syn::Error::new_spanned(
+                &param,
+                format!("`{}` is not a valid type parameter", param),
+            );
+            if let Some(error) = &mut errors {
+                error.combine(err);
+            } else {
+                errors = Some(err);
+            }
+        }
+
+        Err(errors.unwrap())
     }
 }
 

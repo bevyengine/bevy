@@ -21,7 +21,6 @@ mod documentation;
 mod enum_utility;
 mod field_attributes;
 mod from_reflect;
-mod generics;
 mod impls;
 mod reflect_value;
 mod registration;
@@ -31,7 +30,6 @@ mod type_path;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
-use crate::generics::ReflectGenerics;
 use container_attributes::ReflectTraits;
 use derive_data::ReflectTypePath;
 use proc_macro::TokenStream;
@@ -72,6 +70,17 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 ///
 /// This is often used with traits that have been marked by the [`#[reflect_trait]`](macro@reflect_trait)
 /// macro in order to register the type's implementation of that trait.
+///
+/// ## `#[reflect(ignore_params(T, U, ...))]`
+///
+/// This derive macro will automatically add the necessary bounds to any generic type parameters
+/// in order to make them compatible with reflection.
+/// However, this may not always be desired and some type paramters are not meant to be reflected
+/// (i.e. their usages in fields are ignored or they're only used for their associated types).
+///
+/// Using this attribute, type parameters can opt out of receiving these automatic bounds.
+/// Note that they will receive the bounds that are still considered absolutely necessary,
+/// such as `Send`, `Sync`, `Any`, and `TypePath`.
 ///
 /// ### Default Registrations
 ///
@@ -390,14 +399,10 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let type_path = if def.type_path.leading_colon.is_none() && def.custom_path.is_none() {
         ReflectTypePath::Primitive(default_name)
     } else {
-        let generics = match ReflectGenerics::new(&def.generics) {
-            Ok(generics) => generics,
-            Err(err) => return err.into_compile_error().into(),
-        };
         ReflectTypePath::External {
             path: &def.type_path,
             custom_path: def.custom_path.map(|path| path.into_path(default_name)),
-            generics,
+            generics: &def.generics,
         }
     };
 
@@ -531,14 +536,10 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     {
         ReflectTypePath::Primitive(default_name)
     } else {
-        let generics = match ReflectGenerics::new(&def.generics) {
-            Ok(generics) => generics,
-            Err(err) => return err.into_compile_error().into(),
-        };
         ReflectTypePath::External {
             path: &def.type_path,
             custom_path: def.custom_path.map(|alias| alias.into_path(default_name)),
-            generics,
+            generics: &def.generics,
         }
     };
 
@@ -600,11 +601,6 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
             ref generics,
         } => {
             let default_name = &path.segments.last().unwrap().ident;
-
-            let generics = match ReflectGenerics::new(generics) {
-                Ok(generics) => generics,
-                Err(err) => return err.into_compile_error().into(),
-            };
 
             ReflectTypePath::External {
                 path,

@@ -1,7 +1,6 @@
 //! General-purpose utility functions for internal usage within this crate.
 
 use crate::derive_data::ReflectMeta;
-use crate::generics::GenericParamAttr;
 use bevy_macro_utils::{
     fq_std::{FQAny, FQOption, FQSend, FQSync},
     BevyManifest,
@@ -92,26 +91,38 @@ impl Default for WhereClauseOptions {
 }
 
 impl WhereClauseOptions {
-    /// Create [`WhereClauseOptions`] for a struct or enum type.
+    /// Create [`WhereClauseOptions`] for a reflected struct or enum type.
     pub fn new(meta: &ReflectMeta) -> Result<Self, syn::Error> {
         let bevy_reflect_path = meta.bevy_reflect_path();
-        let is_from_reflect = meta.from_reflect().should_auto_derive();
+
+        let active_bound = if meta.from_reflect().should_auto_derive() {
+            quote!(#bevy_reflect_path::FromReflect)
+        } else {
+            quote!(#bevy_reflect_path::Reflect)
+        };
+
+        let type_path_bound = if meta.traits().type_path_attrs().should_auto_derive() {
+            Some(quote!(#bevy_reflect_path::TypePath +))
+        } else {
+            None
+        };
 
         Self::new_with_bounds(
             meta,
-            |_, _| {
-                if is_from_reflect {
-                    Some(quote!(#bevy_reflect_path::FromReflect))
-                } else {
-                    Some(quote!(#bevy_reflect_path::Reflect))
-                }
-            },
-            |_, _| None,
+            |_| Some(quote!(#type_path_bound #active_bound)),
+            |_| Some(quote!(#type_path_bound #FQAny + #FQSend + #FQSync)),
         )
     }
 
-    pub fn new_minimal(meta: &ReflectMeta) -> Result<Self, syn::Error> {
-        Self::new_with_bounds(meta, |_, _| None, |_, _| None)
+    /// Create [`WhereClauseOptions`] with the minimum bounds needed to fulfill `TypePath`.
+    pub fn new_type_path(meta: &ReflectMeta) -> Result<Self, syn::Error> {
+        let bevy_reflect_path = meta.bevy_reflect_path();
+
+        Self::new_with_bounds(
+            meta,
+            |_| Some(quote!(#bevy_reflect_path::TypePath)),
+            |_| Some(quote!(#bevy_reflect_path::TypePath + #FQAny + #FQSend + #FQSync)),
+        )
     }
 
     /// Create [`WhereClauseOptions`] for a struct or enum type.
@@ -120,39 +131,22 @@ impl WhereClauseOptions {
     /// custom trait bounds for each field.
     pub fn new_with_bounds(
         meta: &ReflectMeta,
-        active_bounds: impl Fn(&TypeParam, &GenericParamAttr) -> Option<proc_macro2::TokenStream>,
-        ignored_bounds: impl Fn(&TypeParam, &GenericParamAttr) -> Option<proc_macro2::TokenStream>,
+        active_bounds: impl Fn(&TypeParam) -> Option<proc_macro2::TokenStream>,
+        ignored_bounds: impl Fn(&TypeParam) -> Option<proc_macro2::TokenStream>,
     ) -> Result<Self, syn::Error> {
-        let bevy_reflect_path = meta.bevy_reflect_path();
-
         let mut options = WhereClauseOptions::default();
 
-        for (param, attrs) in meta.type_path().generics().type_params() {
+        for param in meta.type_path().generics().type_params() {
             let ident = param.ident.clone();
+            let ignored = meta.traits().ignore_param(&ident);
 
-            if attrs.ignore {
-                let custom_bounds = ignored_bounds(param, attrs).map(|bounds| quote!(+ #bounds));
-
-                let type_path_bound = if meta.traits().type_path_attrs().should_auto_derive() {
-                    Some(quote!(#bevy_reflect_path::TypePath +))
-                } else {
-                    None
-                };
-
-                let bounds = quote!(#type_path_bound #FQAny + #FQSend + #FQSync #custom_bounds);
+            if ignored {
+                let bounds = ignored_bounds(param).unwrap_or_default();
 
                 options.ignored_types.push(ident);
                 options.ignored_trait_bounds.push(bounds);
             } else {
-                let custom_bounds = active_bounds(param, attrs).map(|bounds| quote!(+ #bounds));
-
-                let type_path_bound = if meta.traits().type_path_attrs().should_auto_derive() {
-                    Some(quote!(#bevy_reflect_path::TypePath))
-                } else {
-                    None
-                };
-
-                let bounds = quote!(#type_path_bound #custom_bounds);
+                let bounds = active_bounds(param).unwrap_or_default();
 
                 options.active_types.push(ident);
                 options.active_trait_bounds.push(bounds);
@@ -167,8 +161,8 @@ impl WhereClauseOptions {
 ///
 /// This is mostly used to add additional bounds to reflected objects with generic types.
 /// For reflection purposes, we usually have:
-/// * `active_trait_bounds: Reflect`
-/// * `ignored_trait_bounds: Any + Send + Sync`
+/// * `active_trait_bounds`: `Reflect + TypePath` or `FromReflect + TypePath`
+/// * `ignored_trait_bounds`: `TypePath + Any + Send + Sync`
 ///
 /// # Arguments
 ///
@@ -191,8 +185,8 @@ impl WhereClauseOptions {
 /// The `extend_where_clause` function will yield the following `where` clause:
 /// ```ignore (bevy_reflect is not accessible from this crate)
 /// where
-///     T: Reflect,  // active_trait_bounds
-///     U: Any + Send + Sync,  // ignored_trait_bounds
+///     T: Reflect + TypePath,  // active_trait_bounds
+///     U: TypePath + Any + Send + Sync,  // ignored_trait_bounds
 /// ```
 pub(crate) fn extend_where_clause(
     where_clause: Option<&WhereClause>,

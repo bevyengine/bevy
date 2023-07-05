@@ -5,7 +5,6 @@ use crate::utility::{StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
-use crate::generics::ReflectGenerics;
 use crate::serialization::SerializationDataDef;
 use crate::{
     utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
@@ -14,7 +13,7 @@ use crate::{
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Ident, LitStr, Meta, Path,
+    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Meta, Path,
     PathSegment, Type, TypeParam, Variant,
 };
 
@@ -257,10 +256,12 @@ impl<'a> ReflectDerive<'a> {
             _ => (),
         }
 
+        traits.validate_ignored_params(&input.generics)?;
+
         let type_path = ReflectTypePath::Internal {
             ident: &input.ident,
             custom_path,
-            generics: ReflectGenerics::new(&input.generics)?,
+            generics: &input.generics,
         };
 
         let meta = ReflectMeta::new(type_path, traits);
@@ -584,7 +585,7 @@ pub(crate) enum ReflectTypePath<'a> {
     External {
         path: &'a Path,
         custom_path: Option<Path>,
-        generics: ReflectGenerics,
+        generics: &'a Generics,
     },
     /// The name of a type relative to its scope.
     ///
@@ -597,7 +598,7 @@ pub(crate) enum ReflectTypePath<'a> {
     Internal {
         ident: &'a Ident,
         custom_path: Option<Path>,
-        generics: ReflectGenerics,
+        generics: &'a Generics,
     },
     /// Any [`Type`] with only a defined `type_path` and `short_type_path`.
     #[allow(dead_code)]
@@ -647,10 +648,18 @@ impl<'a> ReflectTypePath<'a> {
     ///
     /// [primitive]: ReflectTypePath::Primitive
     /// [anonymous]: ReflectTypePath::Anonymous
-    pub fn generics(&self) -> &ReflectGenerics {
+    pub fn generics(&self) -> &'a Generics {
+        // Use a constant because we need to return a reference of at least 'a.
+        const EMPTY_GENERICS: &Generics = &Generics {
+            gt_token: None,
+            lt_token: None,
+            where_clause: None,
+            params: Punctuated::new(),
+        };
+
         match self {
             Self::Internal { generics, .. } | Self::External { generics, .. } => generics,
-            _ => ReflectGenerics::EMPTY,
+            _ => EMPTY_GENERICS,
         }
     }
 
@@ -662,8 +671,9 @@ impl<'a> ReflectTypePath<'a> {
         // (which all have to be 'static anyway).
         !self
             .generics()
-            .params()
-            .all(|(param, _)| matches!(param, GenericParam::Lifetime(_)))
+            .params
+            .iter()
+            .all(|param| matches!(param, GenericParam::Lifetime(_)))
     }
 
     /// Returns the path interpreted as a [`Path`].
@@ -731,10 +741,10 @@ impl<'a> ReflectTypePath<'a> {
     ///
     /// The `ty_generic_fn` param maps [`TypeParam`]s to [`StringExpr`]s.
     fn reduce_generics(
-        generics: &ReflectGenerics,
+        generics: &Generics,
         mut ty_generic_fn: impl FnMut(&TypeParam) -> StringExpr,
     ) -> StringExpr {
-        let mut params = generics.params().filter_map(|(param, _)| match param {
+        let mut params = generics.params.iter().filter_map(|param| match param {
             GenericParam::Type(type_param) => Some(ty_generic_fn(type_param)),
             GenericParam::Const(const_param) => {
                 let ident = &const_param.ident;

@@ -1866,7 +1866,41 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_allow_ignored_params() {
         #[derive(Reflect)]
-        struct Foo<#[reflect(ignore)] T>(String, #[reflect(ignore)] PhantomData<T>);
+        #[reflect(ignore_params(T))]
+        struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
+
+        #[derive(TypePath)]
+        struct Bar;
+
+        #[derive(Reflect)]
+        struct Baz {
+            a: Foo<Bar>,
+            b: Foo<usize>,
+        }
+    }
+
+    #[test]
+    fn should_allow_ignored_params_wtih_assoc_type() {
+        trait Trait {
+            type Assoc: FromReflect + TypePath;
+        }
+
+        // We don't need `T` to be `Reflect` since we only care about `T::Assoc`
+        #[derive(Reflect)]
+        #[reflect(ignore_params(T))]
+        struct Foo<T: Trait>(T::Assoc);
+
+        #[derive(TypePath)]
+        struct Bar;
+
+        impl Trait for Bar {
+            type Assoc = usize;
+        }
+
+        #[derive(Reflect)]
+        struct Baz {
+            a: Foo<Bar>,
+        }
     }
 
     #[test]
@@ -1905,7 +1939,8 @@ bevy_reflect::tests::Test {
     fn can_opt_out_type_path() {
         #[derive(Reflect)]
         #[reflect(type_path = false)]
-        struct Foo<#[reflect(ignore)] T> {
+        #[reflect(ignore_params(T))]
+        struct Foo<T> {
             #[reflect(ignore)]
             _marker: PhantomData<T>,
         }

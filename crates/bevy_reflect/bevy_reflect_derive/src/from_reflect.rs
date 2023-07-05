@@ -28,7 +28,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> Result<proc_macro2::TokenStream,
     let bevy_reflect_path = meta.bevy_reflect_path();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_from_reflect_clause =
-        extend_where_clause(where_clause, &WhereClauseOptions::new(meta)?);
+        extend_where_clause(where_clause, &WhereClauseOptions::new_type_path(meta)?);
     Ok(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {

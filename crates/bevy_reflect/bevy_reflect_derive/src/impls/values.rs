@@ -21,7 +21,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> Result<proc_macro2::TokenStream,
     #[cfg(not(feature = "documentation"))]
     let with_docs: Option<proc_macro2::TokenStream> = None;
 
-    let where_clause_options = WhereClauseOptions::new(meta)?;
+    let where_clause_options = WhereClauseOptions::new_type_path(meta)?;
     let typed_impl = impl_typed(
         meta,
         &where_clause_options,
