@@ -92,7 +92,7 @@ impl Default for WhereClauseOptions {
 
 impl WhereClauseOptions {
     /// Create [`WhereClauseOptions`] for a reflected struct or enum type.
-    pub fn new(meta: &ReflectMeta) -> Result<Self, syn::Error> {
+    pub fn new(meta: &ReflectMeta) -> Self {
         let bevy_reflect_path = meta.bevy_reflect_path();
 
         let active_bound = if meta.from_reflect().should_auto_derive() {
@@ -115,7 +115,7 @@ impl WhereClauseOptions {
     }
 
     /// Create [`WhereClauseOptions`] with the minimum bounds needed to fulfill `TypePath`.
-    pub fn new_type_path(meta: &ReflectMeta) -> Result<Self, syn::Error> {
+    pub fn new_type_path(meta: &ReflectMeta) -> Self {
         let bevy_reflect_path = meta.bevy_reflect_path();
 
         Self::new_with_bounds(
@@ -133,7 +133,7 @@ impl WhereClauseOptions {
         meta: &ReflectMeta,
         active_bounds: impl Fn(&TypeParam) -> Option<proc_macro2::TokenStream>,
         ignored_bounds: impl Fn(&TypeParam) -> Option<proc_macro2::TokenStream>,
-    ) -> Result<Self, syn::Error> {
+    ) -> Self {
         let mut options = WhereClauseOptions::default();
 
         for param in meta.type_path().generics().type_params() {
@@ -153,7 +153,7 @@ impl WhereClauseOptions {
             }
         }
 
-        Ok(options)
+        options
     }
 }
 

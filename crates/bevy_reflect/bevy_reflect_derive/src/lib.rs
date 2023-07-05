@@ -210,10 +210,6 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
         ),
     };
 
-    let reflect_impls = reflect_impls.unwrap_or_else(syn::Error::into_compile_error);
-    let from_reflect_impl =
-        from_reflect_impl.map(|impls| impls.unwrap_or_else(syn::Error::into_compile_error));
-
     TokenStream::from(quote! {
         const _: () = {
             #reflect_impls
@@ -264,8 +260,7 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
         ReflectDerive::TupleStruct(struct_data) => from_reflect::impl_tuple_struct(&struct_data),
         ReflectDerive::Enum(meta) => from_reflect::impl_enum(&meta),
         ReflectDerive::Value(meta) => from_reflect::impl_value(&meta),
-    }
-    .unwrap_or_else(syn::Error::into_compile_error);
+    };
 
     TokenStream::from(quote! {
         const _: () = {
@@ -411,9 +406,8 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     #[cfg(feature = "documentation")]
     let meta = meta.with_docs(documentation::Documentation::from_attributes(&def.attrs));
 
-    let reflect_impls = impls::impl_value(&meta).unwrap_or_else(syn::Error::into_compile_error);
-    let from_reflect_impl =
-        from_reflect::impl_value(&meta).unwrap_or_else(syn::Error::into_compile_error);
+    let reflect_impls = impls::impl_value(&meta);
+    let from_reflect_impl = from_reflect::impl_value(&meta);
 
     TokenStream::from(quote! {
         const _: () = {
@@ -474,10 +468,8 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
                     .into();
             }
 
-            let impl_struct =
-                impls::impl_struct(&struct_data).unwrap_or_else(syn::Error::into_compile_error);
-            let impl_from_struct = from_reflect::impl_struct(&struct_data)
-                .unwrap_or_else(syn::Error::into_compile_error);
+            let impl_struct = impls::impl_struct(&struct_data);
+            let impl_from_struct = from_reflect::impl_struct(&struct_data);
 
             quote! {
                 #impl_struct
@@ -544,8 +536,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     };
 
     let from_reflect_impl =
-        from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()))
-            .unwrap_or_else(syn::Error::into_compile_error);
+        from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()));
 
     TokenStream::from(quote! {
         const _: () = {

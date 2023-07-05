@@ -485,7 +485,7 @@ impl<'a> ReflectStruct<'a> {
         &self.fields
     }
 
-    pub fn where_clause_options(&self) -> Result<WhereClauseOptions, syn::Error> {
+    pub fn where_clause_options(&self) -> WhereClauseOptions {
         WhereClauseOptions::new(self.meta())
     }
 }
@@ -509,7 +509,7 @@ impl<'a> ReflectEnum<'a> {
         &self.variants
     }
 
-    pub fn where_clause_options(&self) -> Result<WhereClauseOptions, syn::Error> {
+    pub fn where_clause_options(&self) -> WhereClauseOptions {
         WhereClauseOptions::new(self.meta())
     }
 }

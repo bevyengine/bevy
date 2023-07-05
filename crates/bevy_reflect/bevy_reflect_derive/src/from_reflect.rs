@@ -10,38 +10,32 @@ use quote::{quote, ToTokens};
 use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
 
 /// Implements `FromReflect` for the given struct
-pub(crate) fn impl_struct(
-    reflect_struct: &ReflectStruct,
-) -> Result<proc_macro2::TokenStream, syn::Error> {
+pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
     impl_struct_internal(reflect_struct, false)
 }
 
 /// Implements `FromReflect` for the given tuple struct
-pub(crate) fn impl_tuple_struct(
-    reflect_struct: &ReflectStruct,
-) -> Result<proc_macro2::TokenStream, syn::Error> {
+pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
     impl_struct_internal(reflect_struct, true)
 }
 
-pub(crate) fn impl_value(meta: &ReflectMeta) -> Result<proc_macro2::TokenStream, syn::Error> {
+pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_from_reflect_clause =
-        extend_where_clause(where_clause, &WhereClauseOptions::new_type_path(meta)?);
-    Ok(quote! {
+        extend_where_clause(where_clause, &WhereClauseOptions::new_type_path(meta));
+    quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
                 #FQOption::Some(#FQClone::clone(<dyn #FQAny>::downcast_ref::<#type_path #ty_generics>(<dyn #bevy_reflect_path::Reflect>::as_any(reflect))?))
             }
         }
-    })
+    }
 }
 
 /// Implements `FromReflect` for the given enum type
-pub(crate) fn impl_enum(
-    reflect_enum: &ReflectEnum,
-) -> Result<proc_macro2::TokenStream, syn::Error> {
+pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream {
     let fqoption = FQOption.into_token_stream();
 
     let enum_path = reflect_enum.meta().type_path();
@@ -57,9 +51,9 @@ pub(crate) fn impl_enum(
 
     // Add FromReflect bound for each active field
     let where_from_reflect_clause =
-        extend_where_clause(where_clause, &WhereClauseOptions::new(reflect_enum.meta())?);
+        extend_where_clause(where_clause, &WhereClauseOptions::new(reflect_enum.meta()));
 
-    Ok(quote! {
+    quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #enum_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(#ref_value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
@@ -72,7 +66,7 @@ pub(crate) fn impl_enum(
                 }
             }
         }
-    })
+    }
 }
 
 /// Container for a struct's members (field name or index) and their
@@ -88,7 +82,7 @@ impl MemberValuePair {
 fn impl_struct_internal(
     reflect_struct: &ReflectStruct,
     is_tuple: bool,
-) -> Result<proc_macro2::TokenStream, syn::Error> {
+) -> proc_macro2::TokenStream {
     let fqoption = FQOption.into_token_stream();
 
     let struct_path = reflect_struct.meta().type_path();
@@ -138,10 +132,10 @@ fn impl_struct_internal(
     // Add FromReflect bound for each active field
     let where_from_reflect_clause = extend_where_clause(
         where_clause,
-        &WhereClauseOptions::new(reflect_struct.meta())?,
+        &WhereClauseOptions::new(reflect_struct.meta()),
     );
 
-    Ok(quote! {
+    quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_path #ty_generics #where_from_reflect_clause {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
                 if let #bevy_reflect_path::ReflectRef::#ref_struct_type(#ref_struct) = #bevy_reflect_path::Reflect::reflect_ref(reflect) {
@@ -151,7 +145,7 @@ fn impl_struct_internal(
                 }
             }
         }
-    })
+    }
 }
 
 /// Get the collection of ignored field definitions

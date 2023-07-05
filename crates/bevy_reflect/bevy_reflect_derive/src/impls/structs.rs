@@ -5,9 +5,7 @@ use bevy_macro_utils::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
-pub(crate) fn impl_struct(
-    reflect_struct: &ReflectStruct,
-) -> Result<proc_macro2::TokenStream, syn::Error> {
+pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
     let fqoption = FQOption.into_token_stream();
 
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
@@ -80,7 +78,7 @@ pub(crate) fn impl_struct(
         }
     };
 
-    let where_clause_options = reflect_struct.where_clause_options()?;
+    let where_clause_options = reflect_struct.where_clause_options();
     let typed_impl = impl_typed(
         reflect_struct.meta(),
         &where_clause_options,
@@ -103,7 +101,7 @@ pub(crate) fn impl_struct(
 
     let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 
-    Ok(quote! {
+    quote! {
         #get_type_registration_impl
 
         #typed_impl
@@ -239,5 +237,5 @@ pub(crate) fn impl_struct(
 
             #debug_fn
         }
-    })
+    }
 }

@@ -6,9 +6,7 @@ use quote::{quote, ToTokens};
 use syn::{Index, Member};
 
 /// Implements `TupleStruct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
-pub(crate) fn impl_tuple_struct(
-    reflect_struct: &ReflectStruct,
-) -> Result<proc_macro2::TokenStream, syn::Error> {
+pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
     let fqoption = FQOption.into_token_stream();
 
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
@@ -22,7 +20,7 @@ pub(crate) fn impl_tuple_struct(
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let where_clause_options = reflect_struct.where_clause_options()?;
+    let where_clause_options = reflect_struct.where_clause_options();
     let get_type_registration_impl = reflect_struct.get_type_registration(&where_clause_options);
 
     let hash_fn = reflect_struct
@@ -94,7 +92,7 @@ pub(crate) fn impl_tuple_struct(
 
     let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 
-    Ok(quote! {
+    quote! {
         #get_type_registration_impl
 
         #typed_impl
@@ -208,5 +206,5 @@ pub(crate) fn impl_tuple_struct(
 
             #debug_fn
         }
-    })
+    }
 }

@@ -7,9 +7,7 @@ use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::Fields;
 
-pub(crate) fn impl_enum(
-    reflect_enum: &ReflectEnum,
-) -> Result<proc_macro2::TokenStream, syn::Error> {
+pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
     let enum_path = reflect_enum.meta().type_path();
 
@@ -17,7 +15,7 @@ pub(crate) fn impl_enum(
     let ref_index = Ident::new("__index_param", Span::call_site());
     let ref_value = Ident::new("__value_param", Span::call_site());
 
-    let where_clause_options = reflect_enum.where_clause_options()?;
+    let where_clause_options = reflect_enum.where_clause_options();
 
     let EnumImpls {
         variant_info,
@@ -96,7 +94,7 @@ pub(crate) fn impl_enum(
 
     let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 
-    Ok(quote! {
+    quote! {
         #get_type_registration_impl
 
         #typed_impl
@@ -285,7 +283,7 @@ pub(crate) fn impl_enum(
 
             #debug_fn
         }
-    })
+    }
 }
 
 struct EnumImpls {
