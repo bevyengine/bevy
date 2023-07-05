@@ -49,9 +49,12 @@ pub(crate) enum TypedProperty {
 }
 
 pub(crate) fn impl_type_path(meta: &ReflectMeta) -> proc_macro2::TokenStream {
-    // Use `WhereClauseOptions::new_value` here so we don't enforce reflection bounds,
+    // Use `WhereClauseOptions::new_minimal` here so we don't enforce reflection bounds,
     // ensuring the impl applies in the most cases possible.
-    let where_clause_options = &WhereClauseOptions::new_value(meta);
+    let where_clause_options = match WhereClauseOptions::new_minimal(meta) {
+        Ok(options) => options,
+        Err(err) => return err.into_compile_error().into(),
+    };
 
     if !meta.traits().type_path_attrs().should_auto_derive() {
         return proc_macro2::TokenStream::new();
@@ -102,7 +105,7 @@ pub(crate) fn impl_type_path(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
 
     // Add Typed bound for each active field
-    let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
+    let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 
     quote! {
         #primitive_assert

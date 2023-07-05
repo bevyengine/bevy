@@ -1864,19 +1864,48 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
+    fn should_allow_ignored_params() {
+        #[derive(Reflect)]
+        struct Foo<#[reflect(ignore)] T>(String, #[reflect(ignore)] PhantomData<T>);
+    }
+
+    #[test]
     fn recursive_typed_storage_does_not_hang() {
         #[derive(Reflect)]
         struct Recurse<T>(T);
 
         let _ = <Recurse<Recurse<()>> as Typed>::type_info();
         let _ = <Recurse<Recurse<()>> as TypePath>::type_path();
+
+        #[derive(Reflect)]
+        struct SelfRecurse {
+            recurse: Vec<SelfRecurse>,
+        }
+
+        let _ = <SelfRecurse as Typed>::type_info();
+        let _ = <SelfRecurse as TypePath>::type_path();
+
+        #[derive(Reflect)]
+        enum RecurseA {
+            Recurse(RecurseB),
+        }
+
+        #[derive(Reflect)]
+        struct RecurseB {
+            vector: Vec<RecurseA>,
+        }
+
+        let _ = <RecurseA as Typed>::type_info();
+        let _ = <RecurseA as TypePath>::type_path();
+        let _ = <RecurseB as Typed>::type_info();
+        let _ = <RecurseB as TypePath>::type_path();
     }
 
     #[test]
     fn can_opt_out_type_path() {
         #[derive(Reflect)]
         #[reflect(type_path = false)]
-        struct Foo<T> {
+        struct Foo<#[reflect(ignore)] T> {
             #[reflect(ignore)]
             _marker: PhantomData<T>,
         }

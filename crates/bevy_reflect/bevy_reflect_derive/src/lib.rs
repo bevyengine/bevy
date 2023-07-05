@@ -21,6 +21,7 @@ mod documentation;
 mod enum_utility;
 mod field_attributes;
 mod from_reflect;
+mod generics;
 mod impls;
 mod reflect_value;
 mod registration;
@@ -30,6 +31,7 @@ mod type_path;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
+use crate::generics::ReflectGenerics;
 use container_attributes::ReflectTraits;
 use derive_data::ReflectTypePath;
 use proc_macro::TokenStream;
@@ -199,6 +201,10 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
         ),
     };
 
+    let reflect_impls = reflect_impls.unwrap_or_else(syn::Error::into_compile_error);
+    let from_reflect_impl =
+        from_reflect_impl.map(|impls| impls.unwrap_or_else(syn::Error::into_compile_error));
+
     TokenStream::from(quote! {
         const _: () = {
             #reflect_impls
@@ -249,7 +255,8 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
         ReflectDerive::TupleStruct(struct_data) => from_reflect::impl_tuple_struct(&struct_data),
         ReflectDerive::Enum(meta) => from_reflect::impl_enum(&meta),
         ReflectDerive::Value(meta) => from_reflect::impl_value(&meta),
-    };
+    }
+    .unwrap_or_else(syn::Error::into_compile_error);
 
     TokenStream::from(quote! {
         const _: () = {
@@ -383,10 +390,14 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let type_path = if def.type_path.leading_colon.is_none() && def.custom_path.is_none() {
         ReflectTypePath::Primitive(default_name)
     } else {
+        let generics = match ReflectGenerics::new(&def.generics) {
+            Ok(generics) => generics,
+            Err(err) => return err.into_compile_error().into(),
+        };
         ReflectTypePath::External {
             path: &def.type_path,
             custom_path: def.custom_path.map(|path| path.into_path(default_name)),
-            generics: &def.generics,
+            generics,
         }
     };
 
@@ -395,8 +406,9 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     #[cfg(feature = "documentation")]
     let meta = meta.with_docs(documentation::Documentation::from_attributes(&def.attrs));
 
-    let reflect_impls = impls::impl_value(&meta);
-    let from_reflect_impl = from_reflect::impl_value(&meta);
+    let reflect_impls = impls::impl_value(&meta).unwrap_or_else(syn::Error::into_compile_error);
+    let from_reflect_impl =
+        from_reflect::impl_value(&meta).unwrap_or_else(syn::Error::into_compile_error);
 
     TokenStream::from(quote! {
         const _: () = {
@@ -457,8 +469,10 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
                     .into();
             }
 
-            let impl_struct = impls::impl_struct(&struct_data);
-            let impl_from_struct = from_reflect::impl_struct(&struct_data);
+            let impl_struct =
+                impls::impl_struct(&struct_data).unwrap_or_else(syn::Error::into_compile_error);
+            let impl_from_struct = from_reflect::impl_struct(&struct_data)
+                .unwrap_or_else(syn::Error::into_compile_error);
 
             quote! {
                 #impl_struct
@@ -517,15 +531,20 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     {
         ReflectTypePath::Primitive(default_name)
     } else {
+        let generics = match ReflectGenerics::new(&def.generics) {
+            Ok(generics) => generics,
+            Err(err) => return err.into_compile_error().into(),
+        };
         ReflectTypePath::External {
             path: &def.type_path,
             custom_path: def.custom_path.map(|alias| alias.into_path(default_name)),
-            generics: &def.generics,
+            generics,
         }
     };
 
     let from_reflect_impl =
-        from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()));
+        from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()))
+            .unwrap_or_else(syn::Error::into_compile_error);
 
     TokenStream::from(quote! {
         const _: () = {
@@ -581,6 +600,11 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
             ref generics,
         } => {
             let default_name = &path.segments.last().unwrap().ident;
+
+            let generics = match ReflectGenerics::new(generics) {
+                Ok(generics) => generics,
+                Err(err) => return err.into_compile_error().into(),
+            };
 
             ReflectTypePath::External {
                 path,

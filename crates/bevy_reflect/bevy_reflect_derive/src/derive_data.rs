@@ -5,6 +5,7 @@ use crate::utility::{StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
+use crate::generics::ReflectGenerics;
 use crate::serialization::SerializationDataDef;
 use crate::{
     utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
@@ -13,7 +14,7 @@ use crate::{
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Meta, Path,
+    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Ident, LitStr, Meta, Path,
     PathSegment, Type, TypeParam, Variant,
 };
 
@@ -259,7 +260,7 @@ impl<'a> ReflectDerive<'a> {
         let type_path = ReflectTypePath::Internal {
             ident: &input.ident,
             custom_path,
-            generics: &input.generics,
+            generics: ReflectGenerics::new(&input.generics)?,
         };
 
         let meta = ReflectMeta::new(type_path, traits);
@@ -483,8 +484,8 @@ impl<'a> ReflectStruct<'a> {
         &self.fields
     }
 
-    pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
+    pub fn where_clause_options(&self) -> Result<WhereClauseOptions, syn::Error> {
+        WhereClauseOptions::new(self.meta())
     }
 }
 
@@ -507,22 +508,8 @@ impl<'a> ReflectEnum<'a> {
         &self.variants
     }
 
-    /// Get an iterator of fields which are exposed to the reflection API
-    pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.variants()
-            .iter()
-            .flat_map(|variant| variant.active_fields())
-    }
-
-    /// Get an iterator of fields which are ignored by the reflection API
-    pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.variants()
-            .iter()
-            .flat_map(|variant| variant.ignored_fields())
-    }
-
-    pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
+    pub fn where_clause_options(&self) -> Result<WhereClauseOptions, syn::Error> {
+        WhereClauseOptions::new(self.meta())
     }
 }
 
@@ -597,7 +584,7 @@ pub(crate) enum ReflectTypePath<'a> {
     External {
         path: &'a Path,
         custom_path: Option<Path>,
-        generics: &'a Generics,
+        generics: ReflectGenerics,
     },
     /// The name of a type relative to its scope.
     ///
@@ -610,7 +597,7 @@ pub(crate) enum ReflectTypePath<'a> {
     Internal {
         ident: &'a Ident,
         custom_path: Option<Path>,
-        generics: &'a Generics,
+        generics: ReflectGenerics,
     },
     /// Any [`Type`] with only a defined `type_path` and `short_type_path`.
     #[allow(dead_code)]
@@ -660,17 +647,10 @@ impl<'a> ReflectTypePath<'a> {
     ///
     /// [primitive]: ReflectTypePath::Primitive
     /// [anonymous]: ReflectTypePath::Anonymous
-    pub fn generics(&self) -> &'a Generics {
-        // Use a constant because we need to return a reference of at least 'a.
-        const EMPTY_GENERICS: &Generics = &Generics {
-            gt_token: None,
-            lt_token: None,
-            where_clause: None,
-            params: Punctuated::new(),
-        };
+    pub fn generics(&self) -> &ReflectGenerics {
         match self {
             Self::Internal { generics, .. } | Self::External { generics, .. } => generics,
-            _ => EMPTY_GENERICS,
+            _ => ReflectGenerics::EMPTY,
         }
     }
 
@@ -682,9 +662,8 @@ impl<'a> ReflectTypePath<'a> {
         // (which all have to be 'static anyway).
         !self
             .generics()
-            .params
-            .iter()
-            .all(|param| matches!(param, GenericParam::Lifetime(_)))
+            .params()
+            .all(|(param, _)| matches!(param, GenericParam::Lifetime(_)))
     }
 
     /// Returns the path interpreted as a [`Path`].
@@ -752,10 +731,10 @@ impl<'a> ReflectTypePath<'a> {
     ///
     /// The `ty_generic_fn` param maps [`TypeParam`]s to [`StringExpr`]s.
     fn reduce_generics(
-        generics: &Generics,
+        generics: &ReflectGenerics,
         mut ty_generic_fn: impl FnMut(&TypeParam) -> StringExpr,
     ) -> StringExpr {
-        let mut params = generics.params.iter().filter_map(|param| match param {
+        let mut params = generics.params().filter_map(|(param, _)| match param {
             GenericParam::Type(type_param) => Some(ty_generic_fn(type_param)),
             GenericParam::Const(const_param) => {
                 let ident = &const_param.ident;
