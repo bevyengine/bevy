@@ -233,7 +233,7 @@
 //!
 //! The [`GetPath`] trait allows accessing arbitrary nested fields of a [`Reflect`] type.
 //!
-//! Using [`GetPath`], it is possible to use a path strings to access a specific field
+//! Using `GetPath`, it is possible to use a path string to access a specific field
 //! of a reflected type.
 //!
 //! ```
@@ -251,8 +251,6 @@
 //!   &123,
 //! );
 //! ```
-//!
-//! Check the [`GetPath`] documentation for more details.
 //!
 //! # Type Registration
 //!

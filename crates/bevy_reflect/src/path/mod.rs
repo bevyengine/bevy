@@ -14,7 +14,7 @@ type ParseResult<T> = Result<T, ReflectPathParseError>;
 #[error(transparent)]
 pub struct AccessError<'a>(access::Error<'a>);
 
-/// A parse error for a path string query.
+/// A parse error for a path string.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ReflectPathParseError {
     #[error("expected an identifier at offset {offset}")]
@@ -558,7 +558,7 @@ mod tests {
     use super::*;
     use crate as bevy_reflect;
     use crate::*;
-    use access::Type;
+    use access::TypeShape;
 
     #[derive(Reflect)]
     struct A {
@@ -777,7 +777,7 @@ mod tests {
             ReflectPathError::InvalidAccess {
                 offset: 2,
                 error: AccessError(access::Error::Access {
-                    ty: Type::Struct,
+                    ty: TypeShape::Struct,
                     access: AccessRef::Field("notreal"),
                 }),
             }
@@ -788,8 +788,8 @@ mod tests {
             ReflectPathError::InvalidAccess {
                 offset: 13,
                 error: AccessError(access::Error::Enum {
-                    actual: Type::Unit,
-                    expected: Type::Tuple
+                    actual: TypeShape::Unit,
+                    expected: TypeShape::Tuple
                 }),
             }
         );
@@ -804,8 +804,8 @@ mod tests {
             ReflectPathError::InvalidAccess {
                 offset: 2,
                 error: AccessError(access::Error::Type {
-                    actual: Type::Struct,
-                    expected: Type::List
+                    actual: TypeShape::Struct,
+                    expected: TypeShape::List
                 }),
             }
         );
@@ -815,8 +815,8 @@ mod tests {
             ReflectPathError::InvalidAccess {
                 offset: 2,
                 error: AccessError(access::Error::Type {
-                    actual: Type::List,
-                    expected: Type::Struct
+                    actual: TypeShape::List,
+                    expected: TypeShape::Struct
                 }),
             }
         );
