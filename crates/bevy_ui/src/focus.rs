@@ -35,8 +35,10 @@ use smallvec::SmallVec;
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum Interaction {
-    /// The node has been clicked
-    Clicked,
+    /// The node has been pressed.
+    ///
+    /// Note: This does not capture click/press-release action.
+    Pressed,
     /// The node has been hovered over
     Hovered,
     /// Nothing has happened
@@ -154,7 +156,7 @@ pub fn ui_focus_system(
     if mouse_released {
         for node in node_query.iter_mut() {
             if let Some(mut interaction) = node.interaction {
-                if *interaction == Interaction::Clicked {
+                if *interaction == Interaction::Pressed {
                     *interaction = Interaction::None;
                 }
             }
@@ -255,15 +257,15 @@ pub fn ui_focus_system(
         .collect::<Vec<Entity>>()
         .into_iter();
 
-    // set Clicked or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
+    // set Pressed or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
     // the iteration will stop on it because it "captures" the interaction.
     let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
-                // only consider nodes with Interaction "clickable"
-                if *interaction != Interaction::Clicked {
-                    *interaction = Interaction::Clicked;
+                // only consider nodes with Interaction "pressed"
+                if *interaction != Interaction::Pressed {
+                    *interaction = Interaction::Pressed;
                     // if the mouse was simultaneously released, reset this Interaction in the next
                     // frame
                     if mouse_released {
@@ -279,7 +281,7 @@ pub fn ui_focus_system(
             FocusPolicy::Block => {
                 break;
             }
-            FocusPolicy::Pass => { /* allow the next node to be hovered/clicked */ }
+            FocusPolicy::Pass => { /* allow the next node to be hovered/pressed */ }
         }
     }
     // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain in
@@ -287,8 +289,8 @@ pub fn ui_focus_system(
     let mut iter = node_query.iter_many_mut(hovered_nodes);
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
-            // don't reset clicked nodes because they're handled separately
-            if *interaction != Interaction::Clicked {
+            // don't reset pressed nodes because they're handled separately
+            if *interaction != Interaction::Pressed {
                 interaction.set_if_neq(Interaction::None);
             }
         }
