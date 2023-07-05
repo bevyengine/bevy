@@ -190,19 +190,16 @@ pub trait GetPath {
     ///
     /// To retrieve a statically typed reference, use
     /// [`path`][GetPath::path].
-    fn reflect_path<'r, 'p>(
-        &'r self,
-        path: &'p str,
-    ) -> Result<&'r dyn Reflect, ReflectPathError<'p>>;
+    fn reflect_path<'p>(&self, path: &'p str) -> Result<&dyn Reflect, ReflectPathError<'p>>;
 
     /// Returns a mutable reference to the value specified by `path`.
     ///
     /// To retrieve a statically typed mutable reference, use
     /// [`path_mut`][GetPath::path_mut].
-    fn reflect_path_mut<'r, 'p>(
-        &'r mut self,
+    fn reflect_path_mut<'p>(
+        &mut self,
         path: &'p str,
-    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>>;
+    ) -> Result<&mut dyn Reflect, ReflectPathError<'p>>;
 
     /// Returns a statically typed reference to the value specified by `path`.
     ///
@@ -211,7 +208,7 @@ pub trait GetPath {
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
     /// [`DynamicStruct`]: crate::DynamicStruct
-    fn path<'r, 'p, T: Reflect>(&'r self, path: &'p str) -> Result<&'r T, ReflectPathError<'p>> {
+    fn path<'p, T: Reflect>(&self, path: &'p str) -> Result<&T, ReflectPathError<'p>> {
         self.reflect_path(path).and_then(|p| {
             p.downcast_ref::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
@@ -225,10 +222,7 @@ pub trait GetPath {
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
     /// [`DynamicStruct`]: crate::DynamicStruct
-    fn path_mut<'r, 'p, T: Reflect>(
-        &'r mut self,
-        path: &'p str,
-    ) -> Result<&'r mut T, ReflectPathError<'p>> {
+    fn path_mut<'p, T: Reflect>(&mut self, path: &'p str) -> Result<&mut T, ReflectPathError<'p>> {
         self.reflect_path_mut(path).and_then(|p| {
             p.downcast_mut::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
@@ -237,40 +231,34 @@ pub trait GetPath {
 }
 
 impl<T: Reflect> GetPath for T {
-    fn reflect_path<'r, 'p>(
-        &'r self,
-        path: &'p str,
-    ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
+    fn reflect_path<'p>(&self, path: &'p str) -> Result<&dyn Reflect, ReflectPathError<'p>> {
         (self as &dyn Reflect).reflect_path(path)
     }
 
-    fn reflect_path_mut<'r, 'p>(
-        &'r mut self,
+    fn reflect_path_mut<'p>(
+        &mut self,
         path: &'p str,
-    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
+    ) -> Result<&mut dyn Reflect, ReflectPathError<'p>> {
         (self as &mut dyn Reflect).reflect_path_mut(path)
     }
 }
 
 impl GetPath for dyn Reflect {
-    fn reflect_path<'r, 'p>(
-        &'r self,
-        path: &'p str,
-    ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
+    fn reflect_path<'p>(&self, path: &'p str) -> Result<&dyn Reflect, ReflectPathError<'p>> {
         let mut current: &dyn Reflect = self;
-        for (access, current_index) in PathParser::new(path) {
-            current = access?.element(current, current_index)?;
+        for (access, offset) in PathParser::new(path) {
+            current = access?.element(current, offset)?;
         }
         Ok(current)
     }
 
-    fn reflect_path_mut<'r, 'p>(
-        &'r mut self,
+    fn reflect_path_mut<'p>(
+        &mut self,
         path: &'p str,
-    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
+    ) -> Result<&mut dyn Reflect, ReflectPathError<'p>> {
         let mut current: &mut dyn Reflect = self;
-        for (access, current_index) in PathParser::new(path) {
-            current = access?.element_mut(current, current_index)?;
+        for (access, offset) in PathParser::new(path) {
+            current = access?.element_mut(current, offset)?;
         }
         Ok(current)
     }
@@ -342,8 +330,8 @@ impl ParsedPath {
     ///
     pub fn parse(string: &str) -> Result<Self, ReflectPathError<'_>> {
         let mut parts = Vec::new();
-        for (access, idx) in PathParser::new(string) {
-            parts.push((access?.into_owned(), idx));
+        for (access, offset) in PathParser::new(string) {
+            parts.push((access?.into_owned(), offset));
         }
         Ok(Self(parts.into_boxed_slice()))
     }
@@ -352,8 +340,8 @@ impl ParsedPath {
     /// and does not allocate per named field.
     pub fn parse_static(string: &'static str) -> Result<Self, ReflectPathError<'_>> {
         let mut parts = Vec::new();
-        for (access, idx) in PathParser::new(string) {
-            parts.push((access?, idx));
+        for (access, offset) in PathParser::new(string) {
+            parts.push((access?, offset));
         }
         Ok(Self(parts.into_boxed_slice()))
     }
@@ -368,8 +356,8 @@ impl ParsedPath {
         root: &'r dyn Reflect,
     ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
         let mut current = root;
-        for (access, current_index) in self.0.iter() {
-            current = access.element(current, *current_index)?;
+        for (access, offset) in self.0.iter() {
+            current = access.element(current, *offset)?;
         }
         Ok(current)
     }
@@ -384,8 +372,8 @@ impl ParsedPath {
         root: &'r mut dyn Reflect,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
         let mut current = root;
-        for (access, current_index) in self.0.iter() {
-            current = access.element_mut(current, *current_index)?;
+        for (access, offset) in self.0.iter() {
+            current = access.element_mut(current, *offset)?;
         }
         Ok(current)
     }
