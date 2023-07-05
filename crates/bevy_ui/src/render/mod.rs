@@ -11,12 +11,12 @@ pub use render_pass::*;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
 };
-use crate::{ContentSize, Style, Val};
+use crate::{Style, UiNodeShadow, Val};
 use crate::{UiBorderRadius, UiScale, UiTextureAtlasImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
@@ -81,8 +81,6 @@ pub fn build_ui_render(app: &mut App) {
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
-                extract_atlas_uinodes.after(RenderUiSystem::ExtractNode),
-                extract_uinode_borders.after(RenderUiSystem::ExtractNode),
                 #[cfg(feature = "bevy_text")]
                 extract_text_uinodes.after(RenderUiSystem::ExtractNode),
             ),
@@ -161,112 +159,13 @@ pub struct ExtractedUiNode {
     pub flip_y: bool,
     pub border_radius: [f32; 4],
     pub border: [f32; 4],
-    pub invert: bool,
+    pub border_color: Color,
+    pub is_shadow: bool,
 }
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
-}
-
-pub fn extract_atlas_uinodes(
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
-    images: Extract<Res<Assets<Image>>>,
-    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    ui_scale: Extract<Res<UiScale>>,
-    ui_stack: Extract<Res<UiStack>>,
-    uinode_query: Extract<
-        Query<
-            (
-                &Node,
-                &GlobalTransform,
-                &BackgroundColor,
-                &ComputedVisibility,
-                Option<&CalculatedClip>,
-                &Handle<TextureAtlas>,
-                &UiTextureAtlasImage,
-                &Style,
-            ),
-            Without<UiImage>,
-        >,
-    >,
-) {
-    let viewport_size = windows
-        .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(Vec2::ZERO);
-
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((
-            uinode,
-            transform,
-            color,
-            visibility,
-            clip,
-            texture_atlas_handle,
-            atlas_image,
-            style,
-        )) = uinode_query.get(*entity)
-        {
-            // Skip invisible and completely transparent nodes
-            if !visibility.is_visible() || color.0.a() == 0.0 {
-                continue;
-            }
-
-            let (mut atlas_rect, mut atlas_size, image) =
-                if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-                    let atlas_rect = *texture_atlas
-                        .textures
-                        .get(atlas_image.index)
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "Atlas index {:?} does not exist for texture atlas handle {:?}.",
-                                atlas_image.index,
-                                texture_atlas_handle.id(),
-                            )
-                        });
-                    (
-                        atlas_rect,
-                        texture_atlas.size,
-                        texture_atlas.texture.clone(),
-                    )
-                } else {
-                    // Atlas not present in assets resource (should this warn the user?)
-                    continue;
-                };
-
-            // Skip loading images
-            if !images.contains(&image) {
-                continue;
-            }
-
-            let scale = uinode.size() / atlas_rect.size();
-            atlas_rect.min *= scale;
-            atlas_rect.max *= scale;
-            atlas_size *= scale;
-
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                stack_index,
-                transform: transform.compute_matrix(),
-                color: color.0,
-                rect: atlas_rect,
-                clip: clip.map(|clip| clip.clip),
-                image,
-                atlas_size: Some(atlas_size),
-                flip_x: atlas_image.flip_x,
-                flip_y: atlas_image.flip_y,
-                border_radius: resolve_border_radius(
-                    &style.border_radius,
-                    uinode.calculated_size,
-                    viewport_size,
-                    ui_scale.scale,
-                ),
-                invert: false,
-                border: [0.; 4],
-            });
-        }
-    }
 }
 
 #[inline]
@@ -307,28 +206,75 @@ fn resolve_border_radius(
     })
 }
 
-pub fn extract_uinode_borders(
+#[inline]
+fn resolve_shadow_offset(
+    x: Val,
+    y: Val,
+    node_size: Vec2,
+    viewport_size: Vec2,
+    ui_scale: f64,
+) -> Vec2 {
+    [(x, node_size.x), (y, node_size.y)]
+        .map(|(value, size)| match value {
+            Val::Auto => 0.,
+            Val::Px(px) => ui_scale as f32 * px,
+            Val::Percent(percent) => percent / 100. * size,
+            Val::Vw(percent) => (viewport_size.x * percent / 100.).max(0.),
+            Val::Vh(percent) => (viewport_size.y * percent / 100.).max(0.),
+            Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
+            Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
+        })
+        .into()
+}
+
+#[inline]
+fn clamp_corner(r: f32, size: Vec2, offset: Vec2) -> f32 {
+    let s = 0.5 * size + offset;
+    let sm = s.x.min(s.y);
+    return r.min(sm);
+}
+
+#[inline]
+fn clamp_radius(
+    [top_right, bottom_right, bottom_left, top_left]: [f32; 4],
+    size: Vec2,
+    border: Vec4,
+) -> [f32; 4] {
+    let s = size - border.xy() - border.zw();
+    [
+        clamp_corner(top_right, s, border.zy()),
+        clamp_corner(bottom_right, s, border.zw()),
+        clamp_corner(bottom_left, s, border.xw()),
+        clamp_corner(top_left, s, border.xy()),
+    ]
+}
+
+pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
+    images: Extract<Res<Assets<Image>>>,
+    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     ui_scale: Extract<Res<UiScale>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
-        Query<
-            (
-                &Node,
-                &GlobalTransform,
-                &Style,
-                &BorderColor,
-                Option<&Parent>,
-                &ComputedVisibility,
-                Option<&CalculatedClip>,
-            ),
-            Without<ContentSize>,
-        >,
+        Query<(
+            &Node,
+            &GlobalTransform,
+            &Style,
+            &BackgroundColor,
+            Option<&BorderColor>,
+            Option<&Parent>,
+            &ComputedVisibility,
+            Option<&CalculatedClip>,
+            Option<&UiNodeShadow>,
+            Option<&UiImage>,
+            Option<&Handle<TextureAtlas>>,
+            Option<&UiTextureAtlasImage>,
+        )>,
     >,
     parent_node_query: Extract<Query<&Node, With<Parent>>>,
 ) {
-    let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
+    extracted_uinodes.uinodes.clear();
 
     let viewport_size = windows
         .get_single()
@@ -337,17 +283,85 @@ pub fn extract_uinode_borders(
         * ui_scale.scale as f32;
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((node, global_transform, style, border_color, parent, visibility, clip)) =
-            uinode_query.get(*entity)
+        if let Ok((
+            uinode,
+            global_transform,
+            style,
+            background_color,
+            maybe_border_color,
+            parent,
+            visibility,
+            clip,
+            maybe_shadow,
+            maybe_image,
+            maybe_atlas,
+            maybe_atlas_image,
+        )) = uinode_query.get(*entity)
         {
-            // Skip invisible borders
-            if !visibility.is_visible()
-                || border_color.0.a() == 0.0
-                || node.size().x <= 0.
-                || node.size().y <= 0.
+            let (image, flip_x, flip_y, atlas_size, rect) = if let Some(image) = maybe_image {
+                // Skip loading images
+                let texture = if !images.contains(&image.texture) {
+                    DEFAULT_IMAGE_HANDLE.typed()
+                } else {
+                    image.texture.clone_weak()
+                };
+                (
+                    texture,
+                    image.flip_x,
+                    image.flip_y,
+                    None,
+                    Rect {
+                        max: uinode.size(),
+                        ..Default::default()
+                    },
+                )
+            } else if let (Some(texture_atlas_handle), Some(atlas_image)) =
+                (maybe_atlas, maybe_atlas_image)
             {
+                texture_atlases.get(texture_atlas_handle)
+                .map_or(
+                    (DEFAULT_IMAGE_HANDLE.typed(), false, false, None, Rect { max: uinode.size(), ..Default::default() }),
+                    |texture_atlas| {
+                    let atlas_rect = *texture_atlas
+                                .textures
+                                .get(atlas_image.index)
+                                .unwrap_or_else(|| {
+                                    panic!(
+                                        "Atlas index {:?} does not exist for texture atlas handle {:?}.",
+                                        atlas_image.index,
+                                        texture_atlas_handle.id(),
+                                    )
+                                });
+                    let scale = uinode.size() / atlas_rect.size();
+                    (
+                        texture_atlas.texture.clone(),
+                        atlas_image.flip_x,
+                        atlas_image.flip_y,
+                        Some(texture_atlas.size * scale),
+                        Rect {
+                            min: atlas_rect.min * scale,
+                            max: atlas_rect.max * scale,
+                        },
+                    )})
+            } else {
+                (
+                    DEFAULT_IMAGE_HANDLE.typed(),
+                    false,
+                    false,
+                    None,
+                    Rect {
+                        max: uinode.size(),
+                        ..Default::default()
+                    },
+                )
+            };
+
+            if !visibility.is_visible() || uinode.size().x <= 0. || uinode.size().y <= 0. {
                 continue;
             }
+
+            let border_color =
+                maybe_border_color.map_or(Color::NONE, |background_color| background_color.0);
 
             // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
             // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
@@ -360,105 +374,71 @@ pub fn extract_uinode_borders(
             let top = resolve_border_thickness(style.border.top, parent_width, viewport_size);
             let bottom = resolve_border_thickness(style.border.bottom, parent_width, viewport_size);
 
+            let border = [left, top, right, bottom];
+
             let transform = global_transform.compute_matrix();
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                stack_index,
-                // This translates the uinode's transform to the center of the current border rectangle
-                transform,
-                color: border_color.0,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: node.size(),
-                },
-                image: image.clone_weak(),
-                atlas_size: None,
-                clip: clip.map(|clip| clip.clip),
-                flip_x: false,
-                flip_y: false,
-                border_radius: resolve_border_radius(
-                    &style.border_radius,
-                    node.calculated_size,
+
+            let border_radius = resolve_border_radius(
+                &style.border_radius,
+                uinode.calculated_size,
+                viewport_size,
+                ui_scale.scale,
+            );
+
+            let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
+
+            if let Some(shadow) = maybe_shadow {
+                let shadow_blur_radius = 10.;
+                let offset = resolve_shadow_offset(
+                    shadow.x_offset,
+                    shadow.y_offset,
+                    uinode.size(),
                     viewport_size,
                     ui_scale.scale,
-                ),
-                invert: true,
-                border: [left, top, right, bottom],
-            });
-        }
-    }
-}
-
-pub fn extract_uinodes(
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
-    images: Extract<Res<Assets<Image>>>,
-    ui_stack: Extract<Res<UiStack>>,
-    ui_scale: Extract<Res<UiScale>>,
-    uinode_query: Extract<
-        Query<
-            (
-                &Node,
-                &GlobalTransform,
-                &BackgroundColor,
-                Option<&UiImage>,
-                &ComputedVisibility,
-                Option<&CalculatedClip>,
-                &Style,
-            ),
-            Without<UiTextureAtlasImage>,
-        >,
-    >,
-) {
-    extracted_uinodes.uinodes.clear();
-
-    let viewport_size = windows
-        .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(Vec2::ZERO)
-        * ui_scale.scale as f32;
-
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip, style)) =
-            uinode_query.get(*entity)
-        {
-            // Skip invisible and completely transparent nodes
-            if !visibility.is_visible() || color.0.a() == 0.0 {
-                continue;
+                );
+                let extracted_node = ExtractedUiNode {
+                    stack_index,
+                    transform: transform * Mat4::from_translation(offset.extend(0.)),
+                    color: shadow.color,
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.size() * shadow.scale + Vec2::splat(2. * shadow_blur_radius),
+                    },
+                    image: image.clone_weak(),
+                    atlas_size: None,
+                    clip: clip.map(|clip| clip.clip),
+                    flip_x,
+                    flip_y,
+                    border_radius,
+                    border: [
+                        shadow_blur_radius,
+                        shadow_blur_radius,
+                        shadow_blur_radius,
+                        shadow_blur_radius,
+                    ],
+                    border_color: Color::RED,
+                    is_shadow: true,
+                };
+                extracted_uinodes.uinodes.push(extracted_node);
             }
 
-            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-                // Skip loading images
-                if !images.contains(&image.texture) {
-                    continue;
-                }
-                (image.texture.clone_weak(), image.flip_x, image.flip_y)
-            } else {
-                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
-            };
-
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
+            let extracted_node = ExtractedUiNode {
                 stack_index,
-                transform: transform.compute_matrix(),
-                color: color.0,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
-                },
+                transform,
+                color: background_color.0,
+                rect,
+                image: image.clone_weak(),
+                atlas_size,
                 clip: clip.map(|clip| clip.clip),
-                image,
-                atlas_size: None,
                 flip_x,
                 flip_y,
-                border_radius: resolve_border_radius(
-                    &style.border_radius,
-                    uinode.calculated_size,
-                    viewport_size,
-                    ui_scale.scale,
-                ),
-                invert: false,
-                border: [0.; 4],
-            });
-        };
+                border_radius,
+                border,
+                border_color,
+                is_shadow: false,
+            };
+            extracted_uinodes.uinodes.push(extracted_node);
+        }
     }
 }
 
@@ -586,8 +566,9 @@ pub fn extract_text_uinodes(
                     flip_x: false,
                     flip_y: false,
                     border_radius: [0.; 4],
-                    invert: false,
                     border: [0.; 4],
+                    border_color: Color::NONE,
+                    is_shadow: false,
                 });
             }
         }
@@ -595,20 +576,22 @@ pub fn extract_text_uinodes(
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
 struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
-    pub mode: u32,
+    pub flags: u32,
     pub radius: [f32; 4],
     pub border: [f32; 4],
     pub size: [f32; 2],
+    pub border_color: [f32; 4],
 }
 
 #[derive(Resource)]
 pub struct UiMeta {
     vertices: BufferVec<UiVertex>,
+    indices: BufferVec<u32>,
     view_bind_group: Option<BindGroup>,
 }
 
@@ -616,6 +599,7 @@ impl Default for UiMeta {
     fn default() -> Self {
         Self {
             vertices: BufferVec::new(BufferUsages::VERTEX),
+            indices: BufferVec::new(BufferUsages::INDEX),
             view_bind_group: None,
         }
     }
@@ -637,8 +621,22 @@ pub struct UiBatch {
     pub z: f32,
 }
 
-const TEXTURED_QUAD: u32 = 0;
-const UNTEXTURED_QUAD: u32 = 1;
+pub mod shader_flags {
+    pub const UNTEXTURED_QUAD: u32 = 0;
+    pub const TEXTURED_QUAD: u32 = 1;
+    pub const BOX_SHADOW: u32 = 2;
+    pub const DISABLE_AA: u32 = 4;
+    pub const CORNERS: [u32; 4] = [
+        // top left
+        0,
+        // top right
+        8,
+        // bottom right
+        8 | 16,
+        // bottom left
+        16,
+    ];
+}
 
 pub fn prepare_uinodes(
     mut commands: Commands,
@@ -648,6 +646,7 @@ pub fn prepare_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
 ) {
     ui_meta.vertices.clear();
+    ui_meta.indices.clear();
 
     // sort by ui stack index, starting from the deepest node
     extracted_uinodes
@@ -658,6 +657,7 @@ pub fn prepare_uinodes(
     let mut end = 0;
     let mut current_batch_image = DEFAULT_IMAGE_HANDLE.typed();
     let mut last_z = 0.0;
+    let mut vertex_index = 0;
 
     #[inline]
     fn is_textured(image: &Handle<Image>) -> bool {
@@ -665,7 +665,7 @@ pub fn prepare_uinodes(
     }
 
     for extracted_uinode in &extracted_uinodes.uinodes {
-        let mode = if is_textured(&extracted_uinode.image) {
+        let mut flags = if is_textured(&extracted_uinode.image) {
             if current_batch_image.id() != extracted_uinode.image.id() {
                 if is_textured(&current_batch_image) && start != end {
                     commands.spawn(UiBatch {
@@ -677,11 +677,11 @@ pub fn prepare_uinodes(
                 }
                 current_batch_image = extracted_uinode.image.clone_weak();
             }
-            TEXTURED_QUAD
+            shader_flags::TEXTURED_QUAD
         } else {
             // Untextured `UiBatch`es are never spawned within the loop.
             // If all the `extracted_uinodes` are untextured a single untextured UiBatch will be spawned after the loop terminates.
-            UNTEXTURED_QUAD
+            shader_flags::UNTEXTURED_QUAD
         };
 
         let mut uinode_rect = extracted_uinode.rect;
@@ -781,23 +781,33 @@ pub fn prepare_uinodes(
         };
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
-        for i in QUAD_INDICES {
-            ui_meta.vertices.push(UiVertex {
+        if extracted_uinode.is_shadow {
+            flags |= shader_flags::BOX_SHADOW;
+        }
+        for i in 0..4 {
+            let ui_vertex = UiVertex {
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color,
-                mode: if extracted_uinode.invert { 2 } else { mode },
+                flags: flags | shader_flags::CORNERS[i],
                 radius: extracted_uinode.border_radius,
                 border: extracted_uinode.border,
                 size: extracted_uinode
                     .atlas_size
                     .unwrap_or_else(|| transformed_rect_size.xy())
                     .into(),
-            });
+                border_color: extracted_uinode.border_color.as_linear_rgba_f32(),
+            };
+            ui_meta.vertices.push(ui_vertex);
         }
 
+        for &index in QUAD_INDICES.iter() {
+            ui_meta.indices.push(vertex_index + index as u32);
+        }
+        vertex_index += 4;
+
         last_z = extracted_uinode.transform.w_axis[2];
-        end += QUAD_INDICES.len() as u32;
+        end += 6;
     }
 
     // if start != end, there is one last batch to process
@@ -810,6 +820,7 @@ pub fn prepare_uinodes(
     }
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
+    ui_meta.indices.write_buffer(&render_device, &render_queue)
 }
 
 #[derive(Resource, Default)]

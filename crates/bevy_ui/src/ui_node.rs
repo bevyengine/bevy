@@ -1745,13 +1745,18 @@ impl UiBorderRadius {
 
     #[inline]
     /// Uniform curvature.
-    pub fn all(radius: Val) -> Self {
+    pub const fn all(radius: Val) -> Self {
         Self {
             top_right: radius,
             bottom_right: radius,
             bottom_left: radius,
             top_left: radius,
         }
+    }
+
+    #[inline]
+    pub const fn zero() -> Self {
+        Self::DEFAULT
     }
 
     #[inline]
@@ -1885,6 +1890,26 @@ impl From<UiBorderRadius> for [Val; 4] {
             value.bottom_left,
             value.top_left,
         ]
+    }
+}
+
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default)]
+pub struct UiNodeShadow {
+    pub x_offset: Val,
+    pub y_offset: Val,
+    pub scale: Vec2,
+    pub color: Color,
+}
+
+impl Default for UiNodeShadow {
+    fn default() -> Self {
+        Self {
+            x_offset: Val::VMin(1.),
+            y_offset: Val::VMin(1.),
+            scale: Vec2::splat(1.1),
+            color: Color::BLACK,
+        }
     }
 }
 
