@@ -15,10 +15,7 @@ struct VertexOutput {
     @location(2) @interpolate(flat) size: vec2<f32>,
     @location(3) @interpolate(flat) flags: u32,
     @location(4) @interpolate(flat) radius: vec4<f32>,    
-    @location(5) @interpolate(flat) border: vec4<f32>,    
-    @location(6) border_color: vec4<f32>,
-    // position relative to the center of the rectangle
-    @location(7) point: vec2<f32>,
+    @location(5) @interpolate(flat) thickness: vec4<f32>,    
     @builtin(position) position: vec4<f32>,
 };
 
@@ -30,8 +27,7 @@ fn vertex(
     @location(3) flags: u32,
     // x = top right, y = bottom right, z = bottom left, w = top left
     @location(4) radius: vec4<f32>,
-    // x = left width, y = top width, z = right width, w = bottom width
-    @location(5) border: vec4<f32>,
+    @location(5) thickness: vec4<f32>,
     @location(6) size: vec2<f32>,
     @location(7) border_color: vec4<f32>,
 ) -> VertexOutput {
@@ -43,10 +39,7 @@ fn vertex(
     out.flags = flags;
     out.radius = radius;
     out.size = size;
-    out.border = border;
-
-    // Multiplying by 0.49999 instead of 0.5 is a hack that stops borders stepping across a pixel when they go directly through the center. Should be a better way to fix this?
-    out.point = (vertex_uv - vec2<f32>(0.49999)) * size;
+    out.thickness = thickness;
     return out;
 }
 
@@ -112,45 +105,24 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    var internal_color = select(in.color, in.color * textureSample(sprite_texture, sprite_sampler, in.uv), (in.flags & TEXTURED_QUAD) != 0u);
-
-    // Distance from external border. Positive values inside.
-    let external_distance = sd_rounded_box(in.point, in.size, in.radius);
-
-    // Distance from internal border. Positive values inside.
-    let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
-
-    // Distance from border, positive values inside border.
-    let border = max(-internal_distance, external_distance);
-
-    // Distance from interior, positive values inside interior.
-    let interior = max(internal_distance, external_distance);
-    
-    // Distance from exterior, positive values outside node.
-    let exterior = -external_distance;
-
-    // Anti-aliasing
-    let fborder = 0.5 * fwidth(border);
-    let fexternal = 0.5 * fwidth(external_distance);
-    let p = smoothstep(-fborder, fborder, border);
-    let q = smoothstep(-fexternal, fexternal, external_distance);
-
-    if (in.flags & BOX_SHADOW) != 0u {
-        var rect_dist = 1.0 - sigmoid(sd_rounded_box(in.point,in.size,in.radius));
-        let color = in.color.rgb;
-        return vec4(color, in.color.a * rect_dist * 1.42);
-    }
-
-    if interior < exterior {
-        if border < exterior {
-            return mix(in.border_color, internal_color, p);
-        } else {
-            let a = mix(0., internal_color.a, p);
-            return vec4<f32>(internal_color.rgb, a);
+    // textureSample can only be called in unform control flow, not inside an if branch.
+    var color = textureSample(sprite_texture, sprite_sampler, in.uv);    
+    let point = (in.uv - vec2<f32>(0.5, 0.5)) * in.size;
+    switch in.mode {
+        // Textured rect
+        case default, 0u: {
+            let distance = sd_rounded_rect(point, in.size, in.radius);
+            return mix(in.color * color, vec4<f32>(0.0), smoothstep(-1.0, 1.0, distance));
+        }
+        // Untextured rect
+        case 1u: {
+            let distance = sd_rounded_rect(point, in.size, in.radius);
+            return mix(in.color, vec4<f32>(0.0), smoothstep(-1.0, 1.0, distance));
+        }
+        // Untextured border
+        case 2u: {
+            let distance = sd_rounded_border(point, in.size, in.radius, in.thickness);
+            return mix(in.color, vec4<f32>(0.0), smoothstep(-1.0, 1.0, distance));
         }
     }
-
-    var boundary_color = select(internal_color, in.border_color, border < interior);
-    let a = mix(boundary_color.a, 0., q);
-    return vec4<f32>(boundary_color.rgb, a);
 }

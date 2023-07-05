@@ -1893,6 +1893,15 @@ impl From<UiBorderRadius> for [Val; 4] {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(PartialEq)]
+pub struct UiNodeShadow {
+    offset_x: Val,
+    offset_y: Val,
+    scale: f32,
+    color: Color,
+}
+
 #[cfg(test)]
 mod tests {
     use crate::ValArithmeticError;
