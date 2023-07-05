@@ -588,18 +588,22 @@ pub struct UiBatch {
     pub z: f32,
 }
 
-const UNTEXTURED_QUAD: u32 = 0;
-const TEXTURED_QUAD: u32 = 1;
-const CORNERS: [u32; 4] = [
-    // top left
-    0,
-    // top right
-    2,
-    // bottom right
-    2 | 4,
-    // bottom left
-    4,
-];
+pub mod shader_flags {
+    pub const UNTEXTURED_QUAD: u32 = 0;
+    pub const TEXTURED_QUAD: u32 = 1;
+    pub const BOX_SHADOW: u32 = 2;
+    pub const DISABLE_AA: u32 = 4;
+    pub const CORNERS: [u32; 4] = [
+        // top left
+        0,
+        // top right
+        8,
+        // bottom right
+        8 | 16,
+        // bottom left
+        8,
+    ];
+}
 
 pub fn prepare_uinodes(
     mut commands: Commands,
@@ -640,11 +644,11 @@ pub fn prepare_uinodes(
                 }
                 current_batch_image = extracted_uinode.image.clone_weak();
             }
-            TEXTURED_QUAD
+            shader_flags::TEXTURED_QUAD
         } else {
             // Untextured `UiBatch`es are never spawned within the loop.
             // If all the `extracted_uinodes` are untextured a single untextured UiBatch will be spawned after the loop terminates.
-            UNTEXTURED_QUAD
+            shader_flags::UNTEXTURED_QUAD
         };
 
         let mut uinode_rect = extracted_uinode.rect;
@@ -749,7 +753,7 @@ pub fn prepare_uinodes(
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color,
-                flags: flags | CORNERS[i],
+                flags: flags | shader_flags::CORNERS[i],
                 radius: extracted_uinode.border_radius,
                 border: extracted_uinode.border,
                 size: extracted_uinode
