@@ -606,6 +606,7 @@ impl Plugin for AnimationPlugin {
         app.add_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
+            .register_type::<PlayingAnimation>()
             .add_systems(
                 PostUpdate,
                 animation_player.before(TransformSystem::TransformPropagate),

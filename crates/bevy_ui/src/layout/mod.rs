@@ -301,7 +301,7 @@ pub fn ui_layout_system(
     // compute layouts
     ui_surface.compute_window_layouts();
 
-    let physical_to_logical_factor = 1. / logical_to_physical_factor;
+    let physical_to_logical_factor = 1. / scale_factor;
 
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 

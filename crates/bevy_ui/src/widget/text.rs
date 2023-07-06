@@ -184,7 +184,8 @@ fn queue_text(
             // With `NoWrap` set, no constraints are placed on the width of the text.
             Vec2::splat(f32::INFINITY)
         } else {
-            node.physical_size(scale_factor)
+            // `scale_factor` is already multiplied by `UiScale`
+            node.physical_size(scale_factor, 1.)
         };
 
         match text_pipeline.queue_text(
