@@ -149,21 +149,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 });
                         });
                 });
-            parent.spawn(NodeBundle {
-                style: Style {
-                    width: Val::Px(200.0),
-                    height: Val::Px(200.0),
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(210.),
-                    bottom: Val::Px(10.),
-                    border: UiRect::all(Val::Px(20.)),
-                    border_radius: UiBorderRadius::all(Val::Px(40.)),
+            parent.spawn((
+                NodeBundle {
+                    style: Style {
+                        width: Val::Px(200.0),
+                        height: Val::Px(200.0),
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(210.),
+                        bottom: Val::Px(10.),
+                        border: UiRect::all(Val::Px(20.)),
+                        border_radius: UiBorderRadius::all(Val::Px(40.)),
+                        ..default()
+                    },
+                    border_color: Color::rgb(0.4, 0.4, 1.).into(),
+                    background_color: Color::rgb(0.8, 0.8, 1.).into(),
                     ..default()
                 },
-                border_color: Color::rgb(0.4, 0.4, 1.).into(),
-                background_color: Color::rgb(0.8, 0.8, 1.).into(),
-                ..default()
-            });
+                UiNodeShadow {
+                    ..Default::default()
+                },
+            ));
 
             // render order test: reddest in the back, whitest in the front (flex center)
             parent
@@ -181,73 +186,99 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
-                                width: Val::Px(100.0),
-                                height: Val::Px(100.0),
-                                left: Val::Px(-10.),
-                                bottom: Val::Px(-10.),
-                                border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
+                        .spawn((
+                            NodeBundle {
+                                style: Style {
+                                    width: Val::Px(100.0),
+                                    height: Val::Px(100.0),
+                                    left: Val::Px(-10.),
+                                    bottom: Val::Px(-10.),
+                                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
+                                    ..default()
+                                },
+                                background_color: Color::rgb(1.0, 0.0, 0.).into(),
                                 ..default()
                             },
-                            background_color: Color::rgb(1.0, 0.0, 0.).into(),
-                            ..default()
-                        })
+                            UiNodeShadow {
+                                ..Default::default()
+                            },
+                        ))
                         .with_children(|parent| {
-                            parent.spawn(NodeBundle {
-                                style: Style {
-                                    // Take the size of the parent node.
-                                    width: Val::Percent(100.0),
-                                    height: Val::Percent(100.0),
-                                    position_type: PositionType::Absolute,
-                                    left: Val::Px(30.),
-                                    bottom: Val::Px(20.),
-                                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
+                            parent.spawn((
+                                NodeBundle {
+                                    style: Style {
+                                        // Take the size of the parent node.
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        position_type: PositionType::Absolute,
+                                        left: Val::Px(30.),
+                                        bottom: Val::Px(20.),
+                                        border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
+                                        ..default()
+                                    },
+                                    background_color: Color::rgb(1.0, 0.3, 0.3).into(),
                                     ..default()
                                 },
-                                background_color: Color::rgb(1.0, 0.3, 0.3).into(),
-                                ..default()
-                            });
-                            parent.spawn(NodeBundle {
-                                style: Style {
-                                    width: Val::Percent(100.0),
-                                    height: Val::Percent(100.0),
-                                    position_type: PositionType::Absolute,
-                                    left: Val::Px(70.),
-                                    bottom: Val::Px(50.),
-                                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
+                                UiNodeShadow {
+                                    ..Default::default()
+                                },
+                            ));
+                            parent.spawn((
+                                NodeBundle {
+                                    style: Style {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        position_type: PositionType::Absolute,
+                                        left: Val::Px(70.),
+                                        bottom: Val::Px(50.),
+                                        border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
+                                        ..default()
+                                    },
+                                    background_color: Color::rgb(1.0, 0.5, 0.5).into(),
                                     ..default()
                                 },
-                                background_color: Color::rgb(1.0, 0.5, 0.5).into(),
-                                ..default()
-                            });
-                            parent.spawn(NodeBundle {
-                                style: Style {
-                                    width: Val::Percent(100.0),
-                                    height: Val::Percent(100.0),
-                                    position_type: PositionType::Absolute,
-                                    left: Val::Px(110.),
-                                    bottom: Val::Px(80.),
-                                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
+                                UiNodeShadow {
+                                    ..Default::default()
+                                },
+                            ));
+                            parent.spawn((
+                                NodeBundle {
+                                    style: Style {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        position_type: PositionType::Absolute,
+                                        left: Val::Px(110.),
+                                        bottom: Val::Px(80.),
+                                        border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
+                                        ..default()
+                                    },
+                                    background_color: Color::rgb(1.0, 0.7, 0.7).into(),
                                     ..default()
                                 },
-                                background_color: Color::rgb(1.0, 0.7, 0.7).into(),
-                                ..default()
-                            });
+                                UiNodeShadow {
+                                    ..Default::default()
+                                },
+                            ));
                             // alpha test
-                            parent.spawn(NodeBundle {
-                                style: Style {
-                                    width: Val::Percent(100.0),
-                                    height: Val::Percent(100.0),
-                                    position_type: PositionType::Absolute,
-                                    left: Val::Px(150.),
-                                    bottom: Val::Px(110.),
-                                    border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
+                            parent.spawn((
+                                NodeBundle {
+                                    style: Style {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        position_type: PositionType::Absolute,
+                                        left: Val::Px(150.),
+                                        bottom: Val::Px(110.),
+                                        border_radius: UiBorderRadius::all(Val::Px(f32::MAX)),
+                                        ..default()
+                                    },
+                                    background_color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
                                     ..default()
                                 },
-                                background_color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
-                                ..default()
-                            });
+                                UiNodeShadow {
+                                    color: Color::rgba(0.9, 0.8, 0.8, 0.05),
+                                    ..Default::default()
+                                },
+                            ));
                         });
                 });
             // bevy logo (flex center)
