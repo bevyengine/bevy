@@ -396,7 +396,7 @@ pub fn extract_uinodes(
                 }
                 (image.texture.clone_weak(), image.flip_x, image.flip_y)
             } else {
-                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+                (DEFAULT_IMAGE_HANDLE.typed(), false, false)
             };
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
