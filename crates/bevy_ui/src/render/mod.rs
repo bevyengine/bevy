@@ -398,7 +398,7 @@ pub fn extract_uinodes(
             } else {
                 (DEFAULT_IMAGE_HANDLE.typed(), false, false)
             };
-            
+
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
