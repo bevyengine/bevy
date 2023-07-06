@@ -189,6 +189,12 @@ impl<'a> From<PathBuf> for AssetPath<'a> {
     }
 }
 
+impl<'a> From<Cow<'a, Path>> for AssetPath<'a> {
+    fn from(path: Cow<'a, Path>) -> Self {
+        AssetPath { path, label: None }
+    }
+}
+
 impl<'a> From<String> for AssetPath<'a> {
     fn from(asset_path: String) -> Self {
         let mut parts = asset_path.splitn(2, '#');
