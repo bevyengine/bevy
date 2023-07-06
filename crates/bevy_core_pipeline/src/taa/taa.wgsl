@@ -10,8 +10,8 @@
 const DEFAULT_HISTORY_BLEND_RATE: f32 = 0.1; // Default blend rate to use when no confidence in history
 const MIN_HISTORY_BLEND_RATE: f32 = 0.015; // Minimum blend rate allowed, to ensure at least some of the current sample is used
 
-#import bevy_core_pipeline::fullscreen_vertex_shader
-#import bevy_core_pipeline::fxaa_functions
+#import bevy_core_pipeline::fullscreen_vertex_shader  FullscreenVertexOutput
+#import bevy_core_pipeline::fxaa_functions fxaa
 
 @group(0) @binding(0) var view_target: texture_2d<f32>;
 @group(0) @binding(1) var history: texture_2d<f32>;
@@ -23,8 +23,6 @@ const MIN_HISTORY_BLEND_RATE: f32 = 0.015; // Minimum blend rate allowed, to ens
 // Settings for FXAA EXTREME 
 const EDGE_THRESHOLD_MIN: f32 = 0.0078;
 const EDGE_THRESHOLD_MAX: f32 = 0.031;
-const FXAA_ITERATIONS: i32 = 12; //default is 12
-const FXAA_SUBPIXEL_QUALITY: f32 = 0.75;
 
 struct Output {
     @location(0) view_target: vec4<f32>,
@@ -145,7 +143,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
        texel_center.y < -0.5 || 
        texel_center.x > texture_size.x + 0.5 || 
        texel_center.y > texture_size.y + 0.5 {
-        current_color = fxaa(view_target, linear_sampler, uv, texel_size).rgb;
+        current_color = fxaa(view_target, linear_sampler, uv, texel_size, EDGE_THRESHOLD_MIN, EDGE_THRESHOLD_MAX).rgb;
 #ifdef TONEMAP
         current_color = tonemap(current_color);
 #endif

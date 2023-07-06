@@ -8,6 +8,9 @@
 //
 // Tweaks by mrDIMAS - https://github.com/FyroxEngine/Fyrox/blob/master/src/renderer/shaders/fxaa_fs.glsl
 
+const FXAA_ITERATIONS: i32 = 12; //default is 12
+const FXAA_SUBPIXEL_QUALITY: f32 = 0.75;
+
 // #define QUALITY(q) ((q) < 5 ? 1.0 : ((q) > 5 ? ((q) < 10 ? 2.0 : ((q) < 11 ? 4.0 : 8.0)) : 1.5))
 fn QUALITY(q: i32) -> f32 {
     switch (q) {
@@ -25,7 +28,14 @@ fn rgb2luma(rgb: vec3<f32>) -> f32 {
 }
 
 // Performs FXAA post-process anti-aliasing as described in the Nvidia FXAA white paper and the associated shader code.
-fn fxaa(view_target: texture_2d<f32>, linear_sampler: sampler, texCoord: vec2<f32>, inverseScreenSize: vec2<f32>) -> vec4<f32> {
+fn fxaa(
+    view_target: texture_2d<f32>, 
+    linear_sampler: sampler, 
+    texCoord: vec2<f32>, 
+    inverseScreenSize: vec2<f32>,
+    edge_threshold_min: f32,
+    edge_threshold_max: f32,
+) -> vec4<f32> {
     let centerSample = textureSampleLevel(view_target, linear_sampler, texCoord, 0.0);
     let colorCenter = centerSample.rgb;
 
@@ -46,7 +56,7 @@ fn fxaa(view_target: texture_2d<f32>, linear_sampler: sampler, texCoord: vec2<f3
     let lumaRange = lumaMax - lumaMin;
 
     // If the luma variation is lower that a threshold (or if we are in a really dark area), we are not on an edge, don't perform any AA.
-    if (lumaRange < max(EDGE_THRESHOLD_MIN, lumaMax * EDGE_THRESHOLD_MAX)) {
+    if (lumaRange < max(edge_threshold_min, lumaMax * edge_threshold_max)) {
         return centerSample;
     }
 
