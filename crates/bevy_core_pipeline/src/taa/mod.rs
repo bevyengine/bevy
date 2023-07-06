@@ -2,7 +2,7 @@ use crate::{
     core_3d::{self, CORE_3D},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
-    prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass, ViewPrepassTextures},
+    prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
@@ -22,20 +22,16 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState,
-        MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
-        RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
-        SamplerDescriptor, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureSampleType, TextureUsages, TextureViewDimension,
+        BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
+        ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState,
+        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
+        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
-    view::{
-        prepare_view_uniforms, ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset,
-        ViewUniforms,
-    },
+    view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
@@ -96,29 +92,12 @@ impl Plugin for TemporalAntiAliasPlugin {
 }
 
 /// Bundle to apply temporal anti-aliasing.
-#[derive(Bundle)]
+#[derive(Bundle, Default)]
 pub struct TemporalAntiAliasBundle {
     pub settings: TemporalAntiAliasSettings,
     pub jitter: TemporalJitter,
     pub depth_prepass: DepthPrepass,
-    pub normal_prepass: NormalPrepass,
     pub motion_vector_prepass: MotionVectorPrepass,
-}
-
-impl Default for TemporalAntiAliasBundle {
-    fn default() -> Self {
-        Self {
-            settings: Default::default(),
-            jitter: Default::default(),
-            depth_prepass: DepthPrepass {
-                keep_last_frame_depth: true,
-            },
-            normal_prepass: NormalPrepass {
-                keep_last_frame_normal: true,
-            },
-            motion_vector_prepass: Default::default(),
-        }
-    }
 }
 
 /// Component to apply temporal anti-aliasing to a 3D perspective camera.
@@ -137,8 +116,7 @@ impl Default for TemporalAntiAliasBundle {
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects
 /// * Thin geometry, lighting detail, or texture lines may flicker or disappear
-/// * Slightly blurs the image, leading to a softer look. This can be alleviated with
-/// [`crate::contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings`].
+/// * Slightly blurs the image, leading to a softer look (using an additional sharpening pass can reduce this)
 ///
 /// Because TAA blends past frames with the current frame, when the frames differ too much
 /// (such as with fast moving objects or camera cuts), ghosting artifacts may occur.
@@ -148,9 +126,8 @@ impl Default for TemporalAntiAliasBundle {
 /// # Usage Notes
 ///
 /// Requires that you add [`TemporalAntiAliasPlugin`] to your app,
-/// and add the [`DepthPrepass`] with `keep_last_frame_depth` set to true,
-/// [`NormalPrepass`] with `keep_last_frame_depth` set to true,
-/// [`MotionVectorPrepass`], and [`TemporalJitter`] components to your camera.
+/// and add the [`DepthPrepass`], [`MotionVectorPrepass`], and [`TemporalJitter`]
+/// components to your camera.
 ///
 /// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
@@ -172,21 +149,11 @@ pub struct TemporalAntiAliasSettings {
     /// After setting this to true, it will automatically be toggled
     /// back to false after one frame.
     pub reset: bool,
-
-    /// When enabled differing reprojected depths will trigger disocclusion
-    pub depth_disocclusion_check: bool,
-
-    /// When enabled differing reprojected normals will trigger disocclusion
-    pub normal_disocclusion_check: bool,
 }
 
 impl Default for TemporalAntiAliasSettings {
     fn default() -> Self {
-        Self {
-            reset: true,
-            depth_disocclusion_check: false,
-            normal_disocclusion_check: false,
-        }
+        Self { reset: true }
     }
 }
 
@@ -200,47 +167,31 @@ impl ViewNode for TAANode {
         &'static TAAHistoryTextures,
         &'static ViewPrepassTextures,
         &'static TAAPipelineId,
-        &'static ViewUniformOffset,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (
-            camera,
-            view_target,
-            taa_history_textures,
-            prepass_textures,
-            taa_pipeline_id,
-            view_uniform_offset,
-        ): QueryItem<Self::ViewQuery>,
+        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
+            Self::ViewQuery,
+        >,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let (Some(pipelines), Some(pipeline_cache), Some(view_uniforms)) = (
+        let (Some(pipelines), Some(pipeline_cache)) = (
             world.get_resource::<TAAPipeline>(),
             world.get_resource::<PipelineCache>(),
-            world.get_resource::<ViewUniforms>(),
         ) else {
-            return Ok(());
-        };
-        let Some(view_binding) = view_uniforms.uniforms.binding() else {
             return Ok(());
         };
         let (
             Some(taa_pipeline),
             Some(prepass_motion_vectors_texture),
             Some(prepass_depth_texture),
-            Some(prepass_last_frame_depth_texture),
-            Some(prepass_normals_texture),
-            Some(prepass_last_frame_normals_texture),
         ) = (
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
             &prepass_textures.motion_vectors,
             &prepass_textures.depth,
-            &prepass_textures.last_frame_depth,
-            &prepass_textures.normal,
-            &prepass_textures.last_frame_normal,
         ) else {
             return Ok(());
         };
@@ -255,54 +206,32 @@ impl ViewNode for TAANode {
                     entries: &[
                         BindGroupEntry {
                             binding: 0,
-                            resource: view_binding,
-                        },
-                        BindGroupEntry {
-                            binding: 1,
                             resource: BindingResource::TextureView(view_target.source),
                         },
                         BindGroupEntry {
-                            binding: 2,
+                            binding: 1,
                             resource: BindingResource::TextureView(
                                 &taa_history_textures.read.default_view,
                             ),
                         },
                         BindGroupEntry {
-                            binding: 3,
+                            binding: 2,
                             resource: BindingResource::TextureView(
                                 &prepass_motion_vectors_texture.default_view,
                             ),
                         },
                         BindGroupEntry {
-                            binding: 4,
+                            binding: 3,
                             resource: BindingResource::TextureView(
                                 &prepass_depth_texture.default_view,
                             ),
                         },
                         BindGroupEntry {
-                            binding: 5,
-                            resource: BindingResource::TextureView(
-                                &prepass_last_frame_depth_texture.default_view,
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 6,
-                            resource: BindingResource::TextureView(
-                                &prepass_normals_texture.default_view,
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 7,
-                            resource: BindingResource::TextureView(
-                                &prepass_last_frame_normals_texture.default_view,
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 8,
+                            binding: 4,
                             resource: BindingResource::Sampler(&pipelines.nearest_sampler),
                         },
                         BindGroupEntry {
-                            binding: 9,
+                            binding: 5,
                             resource: BindingResource::Sampler(&pipelines.linear_sampler),
                         },
                     ],
@@ -326,7 +255,7 @@ impl ViewNode for TAANode {
                 depth_stencil_attachment: None,
             });
             taa_pass.set_render_pipeline(taa_pipeline);
-            taa_pass.set_bind_group(0, &taa_bind_group, &[view_uniform_offset.offset]);
+            taa_pass.set_bind_group(0, &taa_bind_group, &[]);
             if let Some(viewport) = camera.viewport.as_ref() {
                 taa_pass.set_camera_viewport(viewport);
             }
@@ -365,20 +294,9 @@ impl FromWorld for TAAPipeline {
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("taa_bind_group_layout"),
                 entries: &[
-                    // View
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(ViewUniform::min_size()),
-                        },
-                        count: None,
-                    },
                     // View target (read)
                     BindGroupLayoutEntry {
-                        binding: 1,
+                        binding: 0,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Texture {
                             sample_type: TextureSampleType::Float { filterable: true },
@@ -389,7 +307,7 @@ impl FromWorld for TAAPipeline {
                     },
                     // TAA History (read)
                     BindGroupLayoutEntry {
-                        binding: 2,
+                        binding: 1,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Texture {
                             sample_type: TextureSampleType::Float { filterable: true },
@@ -400,7 +318,7 @@ impl FromWorld for TAAPipeline {
                     },
                     // Motion Vectors
                     BindGroupLayoutEntry {
-                        binding: 3,
+                        binding: 2,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Texture {
                             sample_type: TextureSampleType::Float { filterable: true },
@@ -411,43 +329,10 @@ impl FromWorld for TAAPipeline {
                     },
                     // Depth
                     BindGroupLayoutEntry {
-                        binding: 4,
+                        binding: 3,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Texture {
                             sample_type: TextureSampleType::Depth,
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    // Last Frame Depth
-                    BindGroupLayoutEntry {
-                        binding: 5,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Depth,
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    // Normals
-                    BindGroupLayoutEntry {
-                        binding: 6,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    // Last Frame Normals
-                    BindGroupLayoutEntry {
-                        binding: 7,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
                             view_dimension: TextureViewDimension::D2,
                             multisampled: false,
                         },
@@ -455,14 +340,14 @@ impl FromWorld for TAAPipeline {
                     },
                     // Nearest sampler
                     BindGroupLayoutEntry {
-                        binding: 8,
+                        binding: 4,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                         count: None,
                     },
                     // Linear sampler
                     BindGroupLayoutEntry {
-                        binding: 9,
+                        binding: 5,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler(SamplerBindingType::Filtering),
                         count: None,
@@ -482,8 +367,6 @@ impl FromWorld for TAAPipeline {
 struct TAAPipelineKey {
     hdr: bool,
     reset: bool,
-    depth_disocclusion_check: bool,
-    normal_disocclusion_check: bool,
 }
 
 impl SpecializedRenderPipeline for TAAPipeline {
@@ -501,14 +384,6 @@ impl SpecializedRenderPipeline for TAAPipeline {
 
         if key.reset {
             shader_defs.push("RESET".into());
-        }
-
-        if key.depth_disocclusion_check {
-            shader_defs.push("DEPTH_DISOCCLUSION_CHECK".into());
-        }
-
-        if key.normal_disocclusion_check {
-            shader_defs.push("NORMAL_DISOCCLUSION_CHECK".into());
         }
 
         RenderPipelineDescriptor {
@@ -541,27 +416,19 @@ impl SpecializedRenderPipeline for TAAPipeline {
 }
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
-    let mut cameras_3d = main_world.query_filtered::<(
-        Entity,
-        &Camera,
-        &Projection,
-        &DepthPrepass,
-        &NormalPrepass,
-        &mut TemporalAntiAliasSettings,
-    ), (
-        With<Camera3d>,
-        With<TemporalJitter>,
-        With<MotionVectorPrepass>,
-    )>();
+    let mut cameras_3d = main_world
+        .query_filtered::<(Entity, &Camera, &Projection, &mut TemporalAntiAliasSettings), (
+            With<Camera3d>,
+            With<TemporalJitter>,
+            With<DepthPrepass>,
+            With<MotionVectorPrepass>,
+        )>();
 
-    for (entity, camera, camera_projection, depth_prepass, normal_prepass, mut taa_settings) in
+    for (entity, camera, camera_projection, mut taa_settings) in
         cameras_3d.iter_mut(&mut main_world)
     {
-        if camera.is_active
-            && matches!(camera_projection, Projection::Perspective(_))
-            && depth_prepass.keep_last_frame_depth
-            && normal_prepass.keep_last_frame_normal
-        {
+        let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
+        if camera.is_active && has_perspective_projection {
             commands.get_or_spawn(entity).insert(taa_settings.clone());
             taa_settings.reset = false;
         }
@@ -662,8 +529,6 @@ fn prepare_taa_pipelines(
         let mut pipeline_key = TAAPipelineKey {
             hdr: view.hdr,
             reset: taa_settings.reset,
-            depth_disocclusion_check: taa_settings.depth_disocclusion_check,
-            normal_disocclusion_check: taa_settings.normal_disocclusion_check,
         };
         let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key.clone());
 

@@ -26,7 +26,6 @@ pub const CORE_3D: &str = graph::NAME;
 
 use std::cmp::Reverse;
 
-use bevy_core::FrameCount;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
@@ -301,11 +300,11 @@ pub fn extract_camera_prepass_phase(
                 ));
             }
 
-            if let Some(depth_prepass) = depth_prepass {
-                entity.insert(*depth_prepass);
+            if depth_prepass.is_some() {
+                entity.insert(DepthPrepass);
             }
-            if let Some(normal_prepass) = normal_prepass {
-                entity.insert(*normal_prepass);
+            if normal_prepass.is_some() {
+                entity.insert(NormalPrepass);
             }
             if motion_vector_prepass.is_some() {
                 entity.insert(MotionVectorPrepass);
@@ -379,7 +378,6 @@ pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
-    frame_count: Res<FrameCount>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
         (
@@ -395,10 +393,8 @@ pub fn prepare_prepass_textures(
         ),
     >,
 ) {
-    let mut depth_textures_1 = HashMap::default();
-    let mut normal_textures_1 = HashMap::default();
-    let mut depth_textures_2 = HashMap::default();
-    let mut normal_textures_2 = HashMap::default();
+    let mut depth_textures = HashMap::default();
+    let mut normal_textures = HashMap::default();
     let mut motion_vectors_textures = HashMap::default();
     for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
@@ -411,12 +407,12 @@ pub fn prepare_prepass_textures(
             height: physical_target_size.y,
         };
 
-        let cached_depth_texture_1 = depth_prepass.is_some().then(|| {
-            depth_textures_1
+        let cached_depth_texture = depth_prepass.is_some().then(|| {
+            depth_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     let descriptor = TextureDescriptor {
-                        label: Some("prepass_depth_texture_1"),
+                        label: Some("prepass_depth_texture"),
                         size,
                         mip_level_count: 1,
                         sample_count: msaa.samples(),
@@ -432,38 +428,14 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let cached_depth_texture_2 = depth_prepass
-            .filter(|dp| dp.keep_last_frame_depth)
-            .is_some()
-            .then(|| {
-                depth_textures_2
-                    .entry(camera.target.clone())
-                    .or_insert_with(|| {
-                        let descriptor = TextureDescriptor {
-                            label: Some("prepass_depth_texture_2"),
-                            size,
-                            mip_level_count: 1,
-                            sample_count: msaa.samples(),
-                            dimension: TextureDimension::D2,
-                            format: DEPTH_PREPASS_FORMAT,
-                            usage: TextureUsages::COPY_DST
-                                | TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
-                            view_formats: &[],
-                        };
-                        texture_cache.get(&render_device, descriptor)
-                    })
-                    .clone()
-            });
-
-        let cached_normals_texture_1 = normal_prepass.is_some().then(|| {
-            normal_textures_1
+        let cached_normals_texture = normal_prepass.is_some().then(|| {
+            normal_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
                         TextureDescriptor {
-                            label: Some("prepass_normal_texture_1"),
+                            label: Some("prepass_normal_texture"),
                             size,
                             mip_level_count: 1,
                             sample_count: msaa.samples(),
@@ -477,31 +449,6 @@ pub fn prepare_prepass_textures(
                 })
                 .clone()
         });
-
-        let cached_normals_texture_2 = normal_prepass
-            .filter(|np| np.keep_last_frame_normal)
-            .is_some()
-            .then(|| {
-                normal_textures_2
-                    .entry(camera.target.clone())
-                    .or_insert_with(|| {
-                        texture_cache.get(
-                            &render_device,
-                            TextureDescriptor {
-                                label: Some("prepass_normal_texture_2"),
-                                size,
-                                mip_level_count: 1,
-                                sample_count: msaa.samples(),
-                                dimension: TextureDimension::D2,
-                                format: NORMAL_PREPASS_FORMAT,
-                                usage: TextureUsages::RENDER_ATTACHMENT
-                                    | TextureUsages::TEXTURE_BINDING,
-                                view_formats: &[],
-                            },
-                        )
-                    })
-                    .clone()
-            });
 
         let cached_motion_vectors_texture = motion_vector_prepass.is_some().then(|| {
             motion_vectors_textures
@@ -525,24 +472,11 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        if frame_count.0 % 2 == 0 {
-            commands.entity(entity).insert(ViewPrepassTextures {
-                depth: cached_depth_texture_1,
-                last_frame_depth: cached_depth_texture_2,
-                normal: cached_normals_texture_1,
-                last_frame_normal: cached_normals_texture_2,
-                motion_vectors: cached_motion_vectors_texture,
-                size,
-            });
-        } else {
-            commands.entity(entity).insert(ViewPrepassTextures {
-                depth: cached_depth_texture_2,
-                last_frame_depth: cached_depth_texture_1,
-                normal: cached_normals_texture_2,
-                last_frame_normal: cached_normals_texture_1,
-                motion_vectors: cached_motion_vectors_texture,
-                size,
-            });
-        }
+        commands.entity(entity).insert(ViewPrepassTextures {
+            depth: cached_depth_texture,
+            normal: cached_normals_texture,
+            motion_vectors: cached_motion_vectors_texture,
+            size,
+        });
     }
 }
