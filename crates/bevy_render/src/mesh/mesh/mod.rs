@@ -91,7 +91,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Common points of confusion
 ///
 /// - UV maps in Bevy start at the top-left, see [`ATTRIBUTE_UV_0`](Mesh::ATTRIBUTE_UV_0),
-/// other APIs can have other conventions, OpenGL starts at bottom-left.
+/// other APIs can have other conventions, `OpenGL` starts at bottom-left.
 /// - It is possible and sometimes useful for multiple vertices to have the same
 /// [position attribute](Mesh::ATTRIBUTE_POSITION) value,
 /// it's a common technique in 3D modelling for complex UV mapping or other calculations.
