@@ -1,4 +1,5 @@
 #import bevy_core_pipeline::fullscreen_vertex_shader
+#import bevy_core_pipeline::fxaa_functions
 
 @group(0) @binding(0)
 var view_target: texture_2d<f32>;
@@ -50,12 +51,10 @@ var linear_sampler: sampler;
 const FXAA_ITERATIONS: i32 = 12; //default is 12
 const FXAA_SUBPIXEL_QUALITY: f32 = 0.75;
 
-#import bevy_core_pipeline::fxaa_functions
-
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let resolution = vec2<f32>(textureDimensions(view_target));
     let inverseScreenSize = 1.0 / resolution.xy;
     let texCoord = in.position.xy * inverseScreenSize;
-    return fxaa(texCoord, inverseScreenSize);
+    return fxaa(view_target, linear_sampler, texCoord, inverseScreenSize);
 }

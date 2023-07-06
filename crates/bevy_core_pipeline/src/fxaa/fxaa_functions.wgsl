@@ -25,11 +25,7 @@ fn rgb2luma(rgb: vec3<f32>) -> f32 {
 }
 
 // Performs FXAA post-process anti-aliasing as described in the Nvidia FXAA white paper and the associated shader code.
-fn fxaa(texCoord: vec2<f32>, inverseScreenSize: vec2<f32>) -> vec4<f32> {
-    //let resolution = vec2<f32>(textureDimensions(view_target));
-    //let inverseScreenSize = 1.0 / resolution.xy;
-    //let texCoord = in.position.xy * inverseScreenSize;
-
+fn fxaa(view_target: texture_2d<f32>, linear_sampler: sampler, texCoord: vec2<f32>, inverseScreenSize: vec2<f32>) -> vec4<f32> {
     let centerSample = textureSampleLevel(view_target, linear_sampler, texCoord, 0.0);
     let colorCenter = centerSample.rgb;
 
