@@ -6,7 +6,7 @@ use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     token::Comma,
-    Data, DataStruct, Error, Fields, LitInt, LitStr, Meta, Result,
+    Data, DataStruct, Error, Fields, LitInt, LitStr, Meta, MetaList, Result,
 };
 
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
@@ -636,39 +636,46 @@ const VISIBILITY_COMPUTE: Symbol = Symbol("compute");
 const VISIBILITY_ALL: Symbol = Symbol("all");
 const VISIBILITY_NONE: Symbol = Symbol("none");
 
-fn get_visibility_flag_value(meta: Meta) -> Result<ShaderStageVisibility> {
-    let mut visibility = VisibilityFlags::vertex_fragment();
+fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibility> {
+    let mut flags = Vec::new();
 
-    use syn::Meta::Path;
-    match meta {
-        // Parse `#[visibility(all)]`.
-        Path(path) if path == VISIBILITY_ALL => {
-            return Ok(ShaderStageVisibility::All)
+    meta_list.parse_nested_meta(|meta| {
+        flags.push(meta.path);
+        Ok(())
+    })?;
+
+    if flags.is_empty() {
+        return Err(Error::new_spanned(
+            meta_list,
+            "Invalid visibility format. Must be `visibility(flags)`, flags can be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
+        ));
+    }
+
+    if flags.len() == 1 {
+        if let Some(flag) = flags.get(0) {
+            if flag == VISIBILITY_ALL {
+                return Ok(ShaderStageVisibility::All);
+            } else if flag == VISIBILITY_NONE {
+                return Ok(ShaderStageVisibility::None);
+            }
         }
-        // Parse `#[visibility(none)]`.
-        Path(path) if path == VISIBILITY_NONE => {
-            return Ok(ShaderStageVisibility::None)
-        }
-        // Parse `#[visibility(vertex, ...)]`.
-        Path(path) if path == VISIBILITY_VERTEX => {
+    }
+
+    let mut visibility = VisibilityFlags::default();
+
+    for flag in flags {
+        if flag == VISIBILITY_VERTEX {
             visibility.vertex = true;
-        }
-        // Parse `#[visibility(fragment, ...)]`.
-        Path(path) if path == VISIBILITY_FRAGMENT => {
+        } else if flag == VISIBILITY_FRAGMENT {
             visibility.fragment = true;
-        }
-        // Parse `#[visibility(compute, ...)]`.
-        Path(path) if path == VISIBILITY_COMPUTE => {
+        } else if flag == VISIBILITY_COMPUTE {
             visibility.compute = true;
+        } else {
+            return Err(Error::new_spanned(
+                flag,
+                "Not a valid visibility flag. Must be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
+            ));
         }
-        Path(path) => return Err(Error::new_spanned(
-            path,
-            "Not a valid visibility flag. Must be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
-        )),
-        _ => return Err(Error::new_spanned(
-            meta,
-            "Invalid visibility format: `visibility(...)`.",
-        )),
     }
 
     Ok(ShaderStageVisibility::Flags(visibility))
@@ -794,7 +801,7 @@ fn get_texture_attrs(metas: Vec<Meta>) -> Result<TextureAttrs> {
             }
             // Parse #[texture(0, visibility(...))].
             List(m) if m.path == VISIBILITY => {
-                visibility = get_visibility_flag_value(Meta::Path(m.path))?;
+                visibility = get_visibility_flag_value(&m)?;
             }
             NameValue(m) => {
                 return Err(Error::new_spanned(
@@ -910,7 +917,7 @@ fn get_sampler_attrs(metas: Vec<Meta>) -> Result<SamplerAttrs> {
             }
             // Parse #[sampler(0, visibility(...))].
             List(m) if m.path == VISIBILITY => {
-                visibility = get_visibility_flag_value(Meta::Path(m.path))?;
+                visibility = get_visibility_flag_value(&m)?;
             }
             NameValue(m) => {
                 return Err(Error::new_spanned(
@@ -966,7 +973,7 @@ fn get_storage_binding_attr(metas: Vec<Meta>) -> Result<StorageAttrs> {
         match meta {
             // Parse #[storage(0, visibility(...))].
             List(m) if m.path == VISIBILITY => {
-                visibility = get_visibility_flag_value(Meta::Path(m.path))?;
+                visibility = get_visibility_flag_value(&m)?;
             }
             Path(path) if path == READ_ONLY => {
                 read_only = true;

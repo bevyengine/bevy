@@ -46,7 +46,7 @@ impl ReflectIgnoreBehavior {
 }
 
 /// A container for attributes defined on a reflected type's field.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct ReflectFieldAttr {
     /// Determines how this field should be ignored if at all.
     pub ignore: ReflectIgnoreBehavior,
@@ -55,7 +55,7 @@ pub(crate) struct ReflectFieldAttr {
 }
 
 /// Controls how the default value is determined for a field.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) enum DefaultBehavior {
     /// Field is required.
     #[default]

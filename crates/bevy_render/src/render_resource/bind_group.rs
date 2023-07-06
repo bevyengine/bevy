@@ -334,3 +334,35 @@ where
         self.into()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate as bevy_render;
+    use bevy_asset::Handle;
+
+    #[test]
+    fn texture_visibility() {
+        #[derive(AsBindGroup)]
+        pub struct TextureVisibilityTest {
+            #[texture(0, visibility(all))]
+            pub all: Handle<Image>,
+            #[texture(1, visibility(none))]
+            pub none: Handle<Image>,
+            #[texture(2, visibility(fragment))]
+            pub fragment: Handle<Image>,
+            #[texture(3, visibility(vertex))]
+            pub vertex: Handle<Image>,
+            #[texture(4, visibility(compute))]
+            pub compute: Handle<Image>,
+            #[texture(5, visibility(vertex, fragment))]
+            pub vertex_fragment: Handle<Image>,
+            #[texture(6, visibility(vertex, compute))]
+            pub vertex_compute: Handle<Image>,
+            #[texture(7, visibility(fragment, compute))]
+            pub fragment_compute: Handle<Image>,
+            #[texture(8, visibility(vertex, fragment, compute))]
+            pub vertex_fragment_compute: Handle<Image>,
+        }
+    }
+}

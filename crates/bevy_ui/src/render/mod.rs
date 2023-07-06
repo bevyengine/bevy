@@ -4,7 +4,6 @@ mod render_pass;
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::{ExtractSchedule, Render};
-#[cfg(feature = "bevy_text")]
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -33,7 +32,6 @@ use bevy_render::{
     Extract, RenderApp, RenderSet,
 };
 use bevy_sprite::SpriteAssetEvents;
-#[cfg(feature = "bevy_text")]
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
@@ -411,7 +409,7 @@ pub fn extract_uinodes(
                 }
                 (image.texture.clone_weak(), image.flip_x, image.flip_y)
             } else {
-                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+                (DEFAULT_IMAGE_HANDLE.typed(), false, false)
             };
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
@@ -577,6 +575,7 @@ struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
+    pub mode: u32,
 }
 
 #[derive(Resource)]
@@ -610,6 +609,9 @@ pub struct UiBatch {
     pub z: f32,
 }
 
+const TEXTURED_QUAD: u32 = 0;
+const UNTEXTURED_QUAD: u32 = 1;
+
 pub fn prepare_uinodes(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -626,20 +628,33 @@ pub fn prepare_uinodes(
 
     let mut start = 0;
     let mut end = 0;
-    let mut current_batch_handle = Default::default();
+    let mut current_batch_image = DEFAULT_IMAGE_HANDLE.typed();
     let mut last_z = 0.0;
+
+    #[inline]
+    fn is_textured(image: &Handle<Image>) -> bool {
+        image.id() != DEFAULT_IMAGE_HANDLE.id()
+    }
+
     for extracted_uinode in &extracted_uinodes.uinodes {
-        if current_batch_handle != extracted_uinode.image {
-            if start != end {
-                commands.spawn(UiBatch {
-                    range: start..end,
-                    image: current_batch_handle,
-                    z: last_z,
-                });
-                start = end;
+        let mode = if is_textured(&extracted_uinode.image) {
+            if current_batch_image.id() != extracted_uinode.image.id() {
+                if is_textured(&current_batch_image) && start != end {
+                    commands.spawn(UiBatch {
+                        range: start..end,
+                        image: current_batch_image,
+                        z: last_z,
+                    });
+                    start = end;
+                }
+                current_batch_image = extracted_uinode.image.clone_weak();
             }
-            current_batch_handle = extracted_uinode.image.clone_weak();
-        }
+            TEXTURED_QUAD
+        } else {
+            // Untextured `UiBatch`es are never spawned within the loop.
+            // If all the `extracted_uinodes` are untextured a single untextured UiBatch will be spawned after the loop terminates.
+            UNTEXTURED_QUAD
+        };
 
         let mut uinode_rect = extracted_uinode.rect;
 
@@ -697,7 +712,7 @@ pub fn prepare_uinodes(
                 continue;
             }
         }
-        let uvs = if current_batch_handle.id() == DEFAULT_IMAGE_HANDLE.id() {
+        let uvs = if mode == UNTEXTURED_QUAD {
             [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
         } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
@@ -742,6 +757,7 @@ pub fn prepare_uinodes(
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color,
+                mode,
             });
         }
 
@@ -753,7 +769,7 @@ pub fn prepare_uinodes(
     if start != end {
         commands.spawn(UiBatch {
             range: start..end,
-            image: current_batch_handle,
+            image: current_batch_image,
             z: last_z,
         });
     }

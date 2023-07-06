@@ -6,7 +6,7 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, ManualTextureViews, TemporalJitter},
+    camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
@@ -50,8 +50,7 @@ impl Plugin for ViewPlugin {
             .register_type::<ColorGrading>()
             .init_resource::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized
-            .add_plugin(ExtractResourcePlugin::<Msaa>::default())
-            .add_plugin(VisibilityPlugin);
+            .add_plugins((ExtractResourcePlugin::<Msaa>::default(), VisibilityPlugin));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -174,6 +173,7 @@ pub struct ViewUniform {
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
     color_grading: ColorGrading,
+    mip_bias: f32,
 }
 
 #[derive(Resource, Default)]
@@ -353,11 +353,16 @@ pub fn prepare_view_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut view_uniforms: ResMut<ViewUniforms>,
-    views: Query<(Entity, &ExtractedView, Option<&TemporalJitter>)>,
+    views: Query<(
+        Entity,
+        &ExtractedView,
+        Option<&TemporalJitter>,
+        Option<&MipBias>,
+    )>,
 ) {
     view_uniforms.uniforms.clear();
 
-    for (entity, camera, temporal_jitter) in &views {
+    for (entity, camera, temporal_jitter, mip_bias) in &views {
         let viewport = camera.viewport.as_vec4();
         let unjittered_projection = camera.projection;
         let mut projection = unjittered_projection;
@@ -384,6 +389,7 @@ pub fn prepare_view_uniforms(
                 world_position: camera.transform.translation(),
                 viewport,
                 color_grading: camera.color_grading,
+                mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
             }),
         };
 

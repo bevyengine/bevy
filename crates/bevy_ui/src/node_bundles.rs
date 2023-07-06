@@ -1,7 +1,9 @@
 //! This module contains basic node bundles used to build UIs
 
+#[cfg(feature = "bevy_text")]
+use crate::widget::TextFlags;
 use crate::{
-    widget::{Button, TextFlags, UiImageSize},
+    widget::{Button, UiImageSize},
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
     UiTextureAtlasImage, ZIndex,
 };
@@ -13,7 +15,7 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
+use bevy_text::{BreakLineOn, Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -254,6 +256,13 @@ impl TextBundle {
     /// Returns this [`TextBundle`] with a new [`BackgroundColor`].
     pub const fn with_background_color(mut self, color: Color) -> Self {
         self.background_color = BackgroundColor(color);
+        self
+    }
+
+    /// Returns this [`TextBundle`] with soft wrapping disabled.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
+    pub const fn with_no_wrap(mut self) -> Self {
+        self.text.linebreak_behavior = BreakLineOn::NoWrap;
         self
     }
 }

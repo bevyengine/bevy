@@ -81,7 +81,7 @@ impl Default for UiScale {
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
+        app.add_plugins(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
@@ -144,7 +144,7 @@ impl Plugin for UiPlugin {
             ),
         );
         #[cfg(feature = "bevy_text")]
-        app.add_plugin(accessibility::AccessibilityPlugin);
+        app.add_plugins(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
             let system = widget::update_image_content_size_system.before(UiSystem::Layout);
             // Potential conflicts: `Assets<Image>`
