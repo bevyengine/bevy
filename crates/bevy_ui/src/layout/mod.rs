@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
-use bevy_math::Vec2;
+use bevy_math::{Vec2, Vec3};
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
@@ -316,9 +316,12 @@ pub fn ui_layout_system(
         if node.calculated_size != new_size {
             node.calculated_size = new_size;
         }
-        let mut new_position = transform.translation;
-        new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-        new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
+        let mut new_position = Vec3::new(
+            to_logical(layout.location.x + layout.size.width / 2.0),
+            to_logical(layout.location.y + layout.size.height / 2.0),
+            0.,
+        );
+
         if let Some(parent) = parent {
             if let Ok(parent_layout) = ui_surface.get_layout(**parent) {
                 new_position.x -= to_logical(parent_layout.size.width / 2.0);
