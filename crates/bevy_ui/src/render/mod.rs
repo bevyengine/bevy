@@ -8,11 +8,11 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::UiTextureAtlasImage;
 use crate::{
-    prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
+    prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
+    Style, UiImage, UiScale, UiStack, UiTextureAtlasImage, Val,
 };
-use crate::{ContentSize, Style, Val};
+
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -170,7 +170,6 @@ pub fn extract_atlas_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<
@@ -258,6 +257,7 @@ fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) 
 pub fn extract_uinode_borders(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
+    ui_scale: Extract<Res<UiScale>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<
@@ -277,10 +277,13 @@ pub fn extract_uinode_borders(
 ) {
     let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
 
-    let viewport_size = windows
+    let ui_logical_viewport_size = windows
         .get_single()
         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(Vec2::ZERO);
+        .unwrap_or(Vec2::ZERO)
+        // The logical window resolutin returned by `Window` only takes into account the window scale factor and not `UiScale`,
+        // so we have to divide by `UiScale` to get the size of the UI viewport.
+        / ui_scale.scale as f32;
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((node, global_transform, style, border_color, parent, visibility, clip)) =
@@ -300,11 +303,21 @@ pub fn extract_uinode_borders(
             let parent_width = parent
                 .and_then(|parent| parent_node_query.get(parent.get()).ok())
                 .map(|parent_node| parent_node.size().x)
-                .unwrap_or(viewport_size.x);
-            let left = resolve_border_thickness(style.border.left, parent_width, viewport_size);
-            let right = resolve_border_thickness(style.border.right, parent_width, viewport_size);
-            let top = resolve_border_thickness(style.border.top, parent_width, viewport_size);
-            let bottom = resolve_border_thickness(style.border.bottom, parent_width, viewport_size);
+                .unwrap_or(ui_logical_viewport_size.x);
+            let left =
+                resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
+            let right = resolve_border_thickness(
+                style.border.right,
+                parent_width,
+                ui_logical_viewport_size,
+            );
+            let top =
+                resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
+            let bottom = resolve_border_thickness(
+                style.border.bottom,
+                parent_width,
+                ui_logical_viewport_size,
+            );
 
             // Calculate the border rects, ensuring no overlap.
             // The border occupies the space between the node's bounding rect and the node's bounding rect inset in each direction by the node's corresponding border value.
@@ -433,8 +446,10 @@ pub struct DefaultCameraView(pub Entity);
 
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
+    ui_scale: Extract<Res<UiScale>>,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
+    let scale = (ui_scale.scale as f32).recip();
     for (entity, camera, camera_ui) in &query {
         // ignore cameras with disabled ui
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
@@ -446,8 +461,14 @@ pub fn extract_default_ui_camera_view<T: Component>(
             camera.physical_viewport_size(),
         ) {
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
-            let projection_matrix =
-                Mat4::orthographic_rh(0.0, logical_size.x, logical_size.y, 0.0, 0.0, UI_CAMERA_FAR);
+            let projection_matrix = Mat4::orthographic_rh(
+                0.0,
+                logical_size.x * scale,
+                logical_size.y * scale,
+                0.0,
+                0.0,
+                UI_CAMERA_FAR,
+            );
             let default_camera_view = commands
                 .spawn(ExtractedView {
                     projection: projection_matrix,
@@ -481,6 +502,7 @@ pub fn extract_text_uinodes(
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_stack: Extract<Res<UiStack>>,
+    ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -495,10 +517,11 @@ pub fn extract_text_uinodes(
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
-        .map(|window| window.resolution.scale_factor() as f32)
-        .unwrap_or(1.0);
+        .map(|window| window.resolution.scale_factor())
+        .unwrap_or(1.0)
+        * ui_scale.scale;
 
-    let inverse_scale_factor = scale_factor.recip();
+    let inverse_scale_factor = (scale_factor as f32).recip();
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =

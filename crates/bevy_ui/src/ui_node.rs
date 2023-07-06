@@ -29,12 +29,12 @@ impl Node {
         self.calculated_size
     }
 
-    /// Returns the size of the node in physical pixels based on the given scale factor.
+    /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
     #[inline]
-    pub fn physical_size(&self, scale_factor: f64) -> Vec2 {
+    pub fn physical_size(&self, scale_factor: f64, ui_scale: f64) -> Vec2 {
         Vec2::new(
-            (self.calculated_size.x as f64 * scale_factor) as f32,
-            (self.calculated_size.y as f64 * scale_factor) as f32,
+            (self.calculated_size.x as f64 * scale_factor * ui_scale) as f32,
+            (self.calculated_size.y as f64 * scale_factor * ui_scale) as f32,
         )
     }
 
@@ -46,16 +46,21 @@ impl Node {
 
     /// Returns the physical pixel coordinates of the UI node, based on its [`GlobalTransform`] and the scale factor.
     #[inline]
-    pub fn physical_rect(&self, transform: &GlobalTransform, scale_factor: f64) -> Rect {
+    pub fn physical_rect(
+        &self,
+        transform: &GlobalTransform,
+        scale_factor: f64,
+        ui_scale: f64,
+    ) -> Rect {
         let rect = self.logical_rect(transform);
         Rect {
             min: Vec2::new(
-                (rect.min.x as f64 * scale_factor) as f32,
-                (rect.min.y as f64 * scale_factor) as f32,
+                (rect.min.x as f64 * scale_factor * ui_scale) as f32,
+                (rect.min.y as f64 * scale_factor * ui_scale) as f32,
             ),
             max: Vec2::new(
-                (rect.max.x as f64 * scale_factor) as f32,
-                (rect.max.y as f64 * scale_factor) as f32,
+                (rect.max.x as f64 * scale_factor * ui_scale) as f32,
+                (rect.max.y as f64 * scale_factor * ui_scale) as f32,
             ),
         }
     }
