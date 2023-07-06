@@ -14,8 +14,8 @@ use std::path::Path;
 
 /// A loader for an asset source.
 ///
-/// Types implementing this trait are used by the asset server to load assets into their respective
-/// asset storages.
+/// Types implementing this trait are used by the [`AssetServer`] to load assets
+/// into their respective asset storages.
 pub trait AssetLoader: Send + Sync + 'static {
     /// Processes the asset in an asynchronous closure.
     fn load<'a>(
