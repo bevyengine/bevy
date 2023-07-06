@@ -137,7 +137,7 @@ impl Mesh {
         MeshVertexAttribute::new("Vertex_Uv", 2, VertexFormat::Float32x2);
 
     /// The direction of the vertex tangent. Used for normal mapping.
-    /// Usually generated with [`generate_tangents`].
+    /// Usually generated with [`generate_tangents`](Mesh::generate_tangents).
     pub const ATTRIBUTE_TANGENT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Tangent", 3, VertexFormat::Float32x4);
 
