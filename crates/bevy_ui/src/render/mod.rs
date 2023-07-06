@@ -36,7 +36,6 @@ use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
@@ -583,7 +582,8 @@ const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 pub struct UiBatch {
     pub range: Range<u32>,
     pub image: Handle<Image>,
-    pub z: f32,
+    /// We don't use the stack index as a sort key because multiple `ExtractedUiNodes` can have the same stack index.
+    pub order: u32,
 }
 
 const TEXTURED_QUAD: u32 = 0;
@@ -606,7 +606,7 @@ pub fn prepare_uinodes(
     let mut start = 0;
     let mut end = 0;
     let mut current_batch_image = DEFAULT_IMAGE_HANDLE.typed();
-    let mut last_z = 0.0;
+    let mut batch_order = 0;
 
     #[inline]
     fn is_textured(image: &Handle<Image>) -> bool {
@@ -620,8 +620,9 @@ pub fn prepare_uinodes(
                     commands.spawn(UiBatch {
                         range: start..end,
                         image: current_batch_image,
-                        z: last_z,
+                        order: batch_order,
                     });
+                    batch_order += 1;
                     start = end;
                 }
                 current_batch_image = extracted_uinode.image.clone_weak();
@@ -738,7 +739,6 @@ pub fn prepare_uinodes(
             });
         }
 
-        last_z = extracted_uinode.transform.w_axis[2];
         end += QUAD_INDICES.len() as u32;
     }
 
@@ -747,7 +747,7 @@ pub fn prepare_uinodes(
         commands.spawn(UiBatch {
             range: start..end,
             image: current_batch_image,
-            z: last_z,
+            order: batch_order,
         });
     }
 
@@ -825,7 +825,7 @@ pub fn queue_uinodes(
                     draw_function: draw_ui_function,
                     pipeline,
                     entity,
-                    sort_key: FloatOrd(batch.z),
+                    sort_key: batch.order,
                 });
             }
         }
