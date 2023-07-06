@@ -30,8 +30,7 @@ fn main() {
     App::new()
         .insert_resource(Msaa::Off)
         .insert_resource(CameraMovementSettings::default())
-        .add_plugins(DefaultPlugins)
-        .add_plugin(TemporalAntiAliasPlugin)
+        .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
         .run();

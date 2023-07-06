@@ -1,8 +1,9 @@
-#ifdef GIZMO_3D
-    #import bevy_pbr::mesh_view_bindings
-#else
-    #import bevy_sprite::mesh2d_view_bindings
-#endif
+// TODO use common view binding
+#import bevy_render::view View
+
+@group(0) @binding(0)
+var<uniform> view: View;
+
 
 struct LineGizmoUniform {
     line_width: f32,

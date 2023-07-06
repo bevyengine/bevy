@@ -12,6 +12,7 @@ mod parallax;
 mod pbr_material;
 mod prepass;
 mod render;
+mod ssao;
 
 pub use alpha::*;
 pub use bundle::*;
@@ -23,6 +24,7 @@ pub use parallax::*;
 pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
+pub use ssao::*;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -38,6 +40,7 @@ pub mod prelude {
         material::{Material, MaterialPlugin},
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
+        ssao::ScreenSpaceAmbientOcclusionPlugin,
     };
 }
 
@@ -179,17 +182,21 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
-            .add_plugin(MeshRenderPlugin)
-            .add_plugin(MaterialPlugin::<StandardMaterial> {
-                prepass_enabled: self.prepass_enabled,
-                ..Default::default()
-            })
-            .add_plugin(EnvironmentMapPlugin)
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
-            .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
+            .add_plugins((
+                MeshRenderPlugin,
+                MaterialPlugin::<StandardMaterial> {
+                    prepass_enabled: self.prepass_enabled,
+                    ..Default::default()
+                },
+                ScreenSpaceAmbientOcclusionPlugin,
+                EnvironmentMapPlugin,
+                ExtractResourcePlugin::<AmbientLight>::default(),
+                FogPlugin,
+            ))
             .configure_sets(
                 PostUpdate,
                 (
@@ -199,7 +206,6 @@ impl Plugin for PbrPlugin {
                 )
                     .chain(),
             )
-            .add_plugin(FogPlugin)
             .add_systems(
                 PostUpdate,
                 (

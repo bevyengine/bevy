@@ -23,15 +23,17 @@ const WORKGROUP_SIZE: u32 = 8;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                // uncomment for unthrottled FPS
-                // present_mode: bevy::window::PresentMode::AutoNoVsync,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    // uncomment for unthrottled FPS
+                    // present_mode: bevy::window::PresentMode::AutoNoVsync,
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(GameOfLifeComputePlugin)
+            GameOfLifeComputePlugin,
+        ))
         .add_systems(Startup, setup)
         .run();
 }
@@ -70,7 +72,7 @@ impl Plugin for GameOfLifeComputePlugin {
     fn build(&self, app: &mut App) {
         // Extract the game of life image resource from the main world into the render world
         // for operation on by the compute shader and display on the sprite.
-        app.add_plugin(ExtractResourcePlugin::<GameOfLifeImage>::default());
+        app.add_plugins(ExtractResourcePlugin::<GameOfLifeImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
         render_app.add_systems(Render, queue_bind_group.in_set(RenderSet::Queue));
 

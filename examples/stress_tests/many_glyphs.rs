@@ -14,15 +14,17 @@ use bevy::{
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            present_mode: PresentMode::AutoNoVsync,
+    app.add_plugins((
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: PresentMode::Immediate,
+                ..default()
+            }),
             ..default()
         }),
-        ..default()
-    }))
-    .add_plugin(FrameTimeDiagnosticsPlugin)
-    .add_plugin(LogDiagnosticsPlugin::default())
+        FrameTimeDiagnosticsPlugin,
+        LogDiagnosticsPlugin::default(),
+    ))
     .add_systems(Startup, setup);
 
     if std::env::args().any(|arg| arg == "recompute-text") {

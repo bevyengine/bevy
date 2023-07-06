@@ -1,6 +1,4 @@
-use bevy_reflect::{
-    FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
-};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{AHasher, RandomState};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -10,8 +8,8 @@ use std::{
 };
 
 /// Represents a path to an asset in the file system.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq, Hash, Serialize, Deserialize, FromReflect)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize, Reflect)]
+#[reflect(Debug, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     path: Cow<'a, Path>,
     label: Option<Cow<'a, str>>,
