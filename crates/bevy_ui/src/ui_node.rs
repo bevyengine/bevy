@@ -1597,7 +1597,6 @@ impl UiTextureAtlasImage {
     }
 }
 
-
 /// The border color of the UI node.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
