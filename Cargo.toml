@@ -2005,12 +2005,12 @@ category = "Window"
 wasm = true
 
 [[example]]
-name = "low_power"
-path = "examples/window/low_power.rs"
+name = "run_control"
+path = "examples/window/run_control.rs"
 
-[package.metadata.example.low_power]
-name = "Low Power"
-description = "Demonstrates settings to reduce power use for bevy applications"
+[package.metadata.example.run_control]
+name = "Run Control"
+description = "Demonstration of controlling the run of an application"
 category = "Window"
 wasm = true
 

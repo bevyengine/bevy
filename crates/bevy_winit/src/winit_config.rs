@@ -45,7 +45,7 @@ pub struct WinitSettings {
     pub allow_tick_skip: bool,
     /// Limit on the frequency at which schedule `render_schedule_label` runs per second.
     /// Even if this is set to a higher value, the monitor refresh rate will be capped.
-    /// 
+    ///
     /// Redrawing will not be performed unless requested for each frame.
     /// Redraw requests are made when:
     ///
