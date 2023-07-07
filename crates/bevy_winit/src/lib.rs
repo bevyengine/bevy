@@ -64,6 +64,12 @@ use crate::converters::convert_winit_theme;
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
+#[allow(missing_docs)]
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{WinitHandler, WinitSettings};
+}
+
 // Does anyone know the safe value?
 const FALLBACK_REFRESH_RATE: f64 = 30.;
 
