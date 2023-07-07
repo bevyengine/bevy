@@ -5,9 +5,9 @@ use crate::{
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_utils::{Duration, Instant};
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "browser"))]
 use std::{cell::RefCell, rc::Rc};
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "browser"))]
 use wasm_bindgen::{prelude::*, JsCast};
 
 /// Determines the method used to run an [`App`]'s [`Schedule`](bevy_ecs::schedule::Schedule).
@@ -114,7 +114,7 @@ impl Plugin for ScheduleRunnerPlugin {
                         Ok(None)
                     };
 
-                    #[cfg(not(target_arch = "wasm32"))]
+                    #[cfg(any(not(target_arch = "wasm32"), not(feature = "browser")))]
                     {
                         while let Ok(delay) = tick(&mut app, wait) {
                             if let Some(delay) = delay {
@@ -123,7 +123,7 @@ impl Plugin for ScheduleRunnerPlugin {
                         }
                     }
 
-                    #[cfg(target_arch = "wasm32")]
+                    #[cfg(all(target_arch = "wasm32", feature = "browser"))]
                     {
                         fn set_timeout(f: &Closure<dyn FnMut()>, dur: Duration) {
                             web_sys::window()

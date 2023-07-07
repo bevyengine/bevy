@@ -56,6 +56,7 @@ default = [
   "tonemapping_luts",
   "default_font",
   "webgl2",
+  "browser",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -243,6 +244,9 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 
 # Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm
 webgl2 = ["bevy_internal/webgl"]
+
+# When compiling for WebAssembly, enable support for web features
+browser = ["bevy_internal/browser"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.0-dev", default-features = false, optional = true }

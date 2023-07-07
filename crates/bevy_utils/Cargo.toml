@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [features]
 detailed_trace = []
+browser = ["dep:getrandom"]
 
 [dependencies]
 ahash = "0.8.3"
@@ -22,4 +23,4 @@ petgraph = "0.6"
 thiserror = "1.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = {version = "0.2.0", features = ["js"]}
+getrandom = { version = "0.2.0", features = ["js"], optional = true }
