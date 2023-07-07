@@ -195,12 +195,24 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
     }
 }
 
-pub(crate) fn cleanup_finished_audio(
+pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
     mut commands: Commands,
-    query_nonspatial_despawn: Query<(Entity, &AudioSink), With<PlaybackDespawnMarker>>,
-    query_spatial_despawn: Query<(Entity, &SpatialAudioSink), With<PlaybackDespawnMarker>>,
-    query_nonspatial_remove: Query<(Entity, &AudioSink), With<PlaybackRemoveMarker>>,
-    query_spatial_remove: Query<(Entity, &SpatialAudioSink), With<PlaybackRemoveMarker>>,
+    query_nonspatial_despawn: Query<
+        (Entity, &AudioSink),
+        (With<PlaybackDespawnMarker>, With<Handle<T>>),
+    >,
+    query_spatial_despawn: Query<
+        (Entity, &SpatialAudioSink),
+        (With<PlaybackDespawnMarker>, With<Handle<T>>),
+    >,
+    query_nonspatial_remove: Query<
+        (Entity, &AudioSink),
+        (With<PlaybackRemoveMarker>, With<Handle<T>>),
+    >,
+    query_spatial_remove: Query<
+        (Entity, &SpatialAudioSink),
+        (With<PlaybackRemoveMarker>, With<Handle<T>>),
+    >,
 ) {
     for (entity, sink) in &query_nonspatial_despawn {
         if sink.sink.as_ref().unwrap().empty() {
@@ -216,14 +228,16 @@ pub(crate) fn cleanup_finished_audio(
         if sink.sink.as_ref().unwrap().empty() {
             commands
                 .entity(entity)
-                .remove::<(AudioBundle, AudioSink, PlaybackRemoveMarker)>();
+                .remove::<(AudioSourceBundle<T>, AudioSink, PlaybackRemoveMarker)>();
         }
     }
     for (entity, sink) in &query_spatial_remove {
         if sink.sink.as_ref().unwrap().empty() {
-            commands
-                .entity(entity)
-                .remove::<(SpatialAudioBundle, SpatialAudioSink, PlaybackRemoveMarker)>();
+            commands.entity(entity).remove::<(
+                SpatialAudioSourceBundle<T>,
+                SpatialAudioSink,
+                PlaybackRemoveMarker,
+            )>();
         }
     }
 }

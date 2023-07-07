@@ -69,8 +69,7 @@ impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(self.global_volume)
             .configure_set(PostUpdate, AudioPlaySet.run_if(audio_output_available))
-            .init_resource::<AudioOutput>()
-            .add_systems(PostUpdate, cleanup_finished_audio.in_set(AudioPlaySet));
+            .init_resource::<AudioOutput>();
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
         {
@@ -89,6 +88,8 @@ impl AddAudioSource for App {
         self.add_asset::<T>().add_systems(
             PostUpdate,
             play_queued_audio_system::<T>.in_set(AudioPlaySet),
-        )
+        );
+        self.add_systems(PostUpdate, cleanup_finished_audio::<T>.in_set(AudioPlaySet));
+        self
     }
 }
