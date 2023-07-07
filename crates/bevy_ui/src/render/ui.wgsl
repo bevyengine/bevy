@@ -70,24 +70,8 @@ fn sigmoid(t: f32) -> f32 {
 }
 
 fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>) -> f32 {
-    let top_left_radius = radius.x;
-    let top_right_radius = radius.y;
-    let bottom_right_radius = radius.z;
-    let bottom_left_radius = radius.w;
-    var r: f32 = top_left_radius;
-    if 0.0 < point.x {
-        if 0.0 < point.y {
-            r = bottom_right_radius;
-        } else {
-            r = top_right_radius;
-        }
-    } else {
-        if 0.0 < point.y {
-            r = bottom_left_radius;
-        } else {
-            r = top_left_radius;
-        }
-    }
+    let rs = select(radius.xy, radius.zw, 0.0 < point.y);
+    let r = select(rs.x, rs.y, 0.0 < point.x);
     let q = abs(point) - 0.5 * size + r;
     return length(max(q, vec2(0.0, 0.0))) + min(max(q.x, q.y), 0.0) - r;
 }
