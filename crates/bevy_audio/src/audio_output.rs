@@ -1,6 +1,6 @@
 use crate::{
-    AudioBundle, Decodable, GlobalVolume, PlaybackMode, PlaybackSettings, SpatialAudioBundle,
-    SpatialAudioSink, SpatialSettings, Volume,
+    AudioSourceBundle, Decodable, GlobalVolume, PlaybackMode, PlaybackSettings, SpatialAudioSink,
+    SpatialAudioSourceBundle, SpatialSettings, Volume,
 };
 use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::prelude::*;

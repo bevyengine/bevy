@@ -12,7 +12,10 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        AudioBundle::from_audio(asset_server.load("sounds/Windless Slopes.ogg")),
+        AudioBundle {
+            source: asset_server.load("sounds/Windless Slopes.ogg"),
+            ..default()
+        },
         MyMusic,
     ));
 }

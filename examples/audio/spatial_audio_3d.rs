@@ -30,9 +30,11 @@ fn setup(
             ..default()
         },
         Emitter,
-        AudioBundle::from_audio(asset_server.load("sounds/Windless Slopes.ogg"))
-            .with_settings(PlaybackSettings::LOOP)
-            .with_spatial(SpatialSettings::new(Transform::IDENTITY, gap, Vec3::ZERO)),
+        SpatialAudioBundle {
+            source: asset_server.load("sounds/Windless Slopes.ogg"),
+            settings: PlaybackSettings::LOOP,
+            spatial: SpatialSettings::new(Transform::IDENTITY, gap, Vec3::ZERO),
+        },
     ));
 
     // left ear

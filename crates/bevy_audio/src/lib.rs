@@ -33,8 +33,9 @@ mod sinks;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, Decodable, GlobalVolume,
-        PlaybackSettings, SpatialAudioBundle, SpatialAudioSink, SpatialSettings,
+        AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle, Decodable,
+        GlobalVolume, PlaybackSettings, SpatialAudioBundle, SpatialAudioSink,
+        SpatialAudioSourceBundle, SpatialSettings,
     };
 }
 

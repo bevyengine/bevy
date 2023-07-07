@@ -187,6 +187,12 @@ impl GlobalVolume {
     }
 }
 
+/// Bundle for playing a standard bevy audio asset
+pub type AudioBundle = AudioSourceBundle<AudioSource>;
+
+/// Bundle for playing a standard bevy audio asset with a 3D position
+pub type SpatialAudioBundle = SpatialAudioSourceBundle<AudioSource>;
+
 /// Bundle for playing a sound.
 ///
 /// Insert this bundle onto an entity to trigger a sound source to begin playing.
@@ -196,8 +202,8 @@ impl GlobalVolume {
 ///
 /// When Bevy begins the audio playback, an [`AudioSink`][crate::AudioSink] component will be
 /// added to the entity. You can use that component to control the audio settings during playback.
-#[derive(Bundle, Default)]
-pub struct AudioBundle<Source = AudioSource>
+#[derive(Bundle)]
+pub struct AudioSourceBundle<Source = AudioSource>
 where
     Source: Asset + Decodable,
 {
@@ -210,50 +216,11 @@ where
     pub settings: PlaybackSettings,
 }
 
-impl AudioBundle<AudioSource> {
-    /// Create an [`AudioBundle`] from a standard Bevy audio source.
-    ///
-    /// Use this if you are loading an audio file asset in the formats supported by Bevy.
-    pub fn from_audio(handle: Handle<AudioSource>) -> Self {
-        AudioBundle {
-            source: handle,
+impl<T: Decodable + Asset> Default for AudioSourceBundle<T> {
+    fn default() -> Self {
+        Self {
+            source: Default::default(),
             settings: Default::default(),
-        }
-    }
-}
-
-impl<Source> AudioBundle<Source>
-where
-    Source: Asset + Decodable,
-{
-    /// Create an [`AudioBundle`] from a generic source asset type
-    ///
-    /// Use this if you have a custom source of audio data (not a regular audio file asset loaded by Bevy).
-    ///
-    /// Don't forget to register your custom type: `app.add_audio_source::<MySource>()`!
-    pub fn from_custom_audio(handle: Handle<Source>) -> Self {
-        AudioBundle {
-            source: handle,
-            settings: Default::default(),
-        }
-    }
-
-    /// Configure the initial playback settings.
-    ///
-    /// The audio will start playing with these settings, when the source data is available.
-    pub fn with_settings(mut self, settings: PlaybackSettings) -> Self {
-        self.settings = settings;
-        self
-    }
-
-    /// Enable 3D spatial audio playback with the given configuration.
-    ///
-    /// Converts this bundle into a [`SpatialAudioBundle`].
-    pub fn with_spatial(self, spatial: SpatialSettings) -> SpatialAudioBundle<Source> {
-        SpatialAudioBundle {
-            source: self.source,
-            settings: self.settings,
-            spatial,
         }
     }
 }
@@ -269,7 +236,7 @@ where
 /// component will be added to the entity. You can use that component to control the audio
 /// settings during playback.
 #[derive(Bundle)]
-pub struct SpatialAudioBundle<Source = AudioSource>
+pub struct SpatialAudioSourceBundle<Source = AudioSource>
 where
     Source: Asset + Decodable,
 {
