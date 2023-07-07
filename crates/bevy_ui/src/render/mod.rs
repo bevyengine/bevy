@@ -188,21 +188,18 @@ fn resolve_border_radius(
     viewport_size: Vec2,
     ui_scale: f64,
 ) -> [f32; 4] {
+    let max_radius = 0.5 * node_size.min_element() * ui_scale as f32;
     <[Val; 4]>::from(values).map(|value| {
-        let px_val = match value {
+        match value {
             Val::Auto => 0.,
-            Val::Px(px) => ui_scale as f32 * px.max(0.),
-            Val::Percent(percent) => (node_size.min_element() * percent / 100.).max(0.),
-            Val::Vw(percent) => (viewport_size.x * percent / 100.).max(0.),
-            Val::Vh(percent) => (viewport_size.y * percent / 100.).max(0.),
-            Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
-            Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
-        };
-        if px_val <= 0. {
-            0.
-        } else {
-            px_val.min(0.5 * node_size.min_element()) * ui_scale as f32
+            Val::Px(px) => ui_scale as f32 * px,
+            Val::Percent(percent) => node_size.min_element() * percent / 100.,
+            Val::Vw(percent) => viewport_size.x * percent / 100.,
+            Val::Vh(percent) => viewport_size.y * percent / 100.,
+            Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
+            Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
         }
+        .clamp(0., max_radius)
     })
 }
 
@@ -219,10 +216,10 @@ fn resolve_shadow_offset(
             Val::Auto => 0.,
             Val::Px(px) => ui_scale as f32 * px,
             Val::Percent(percent) => percent / 100. * size,
-            Val::Vw(percent) => (viewport_size.x * percent / 100.).max(0.),
-            Val::Vh(percent) => (viewport_size.y * percent / 100.).max(0.),
-            Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
-            Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
+            Val::Vw(percent) => viewport_size.x * percent / 100.,
+            Val::Vh(percent) => viewport_size.y * percent / 100.,
+            Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
+            Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
         })
         .into()
 }
@@ -236,16 +233,16 @@ fn clamp_corner(r: f32, size: Vec2, offset: Vec2) -> f32 {
 
 #[inline]
 fn clamp_radius(
-    [top_right, bottom_right, bottom_left, top_left]: [f32; 4],
+    [top_left, top_right, bottom_right, bottom_left]: [f32; 4],
     size: Vec2,
     border: Vec4,
 ) -> [f32; 4] {
     let s = size - border.xy() - border.zw();
     [
+        clamp_corner(top_left, s, border.xy()),
         clamp_corner(top_right, s, border.zy()),
         clamp_corner(bottom_right, s, border.zw()),
         clamp_corner(bottom_left, s, border.xw()),
-        clamp_corner(top_left, s, border.xy()),
     ]
 }
 

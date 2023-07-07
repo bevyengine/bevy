@@ -1736,64 +1736,64 @@ impl Default for UiBorderRadius {
 }
 
 impl UiBorderRadius {
-    pub const DEFAULT: Self = Self {
+    pub const DEFAULT: Self = Self::ZERO;
+
+    /// Zero curvature. All the corners will be right angled.
+    pub const ZERO: Self = Self {
         top_left: Val::Px(0.),
         top_right: Val::Px(0.),
-        bottom_left: Val::Px(0.),
         bottom_right: Val::Px(0.),
+        bottom_left: Val::Px(0.),
+    };
+
+    /// Maximum curvature. The Ui Node will take a capsule shape or circular if width and height are equal.
+    pub const MAX: Self = Self {
+        top_left: Val::Px(f32::MAX),
+        top_right: Val::Px(f32::MAX),
+        bottom_right: Val::Px(f32::MAX),
+        bottom_left: Val::Px(f32::MAX),
     };
 
     #[inline]
-    /// Uniform curvature.
+    /// Set all four corners to the same curvature.
     pub const fn all(radius: Val) -> Self {
         Self {
-            top_right: radius,
-            bottom_right: radius,
-            bottom_left: radius,
             top_left: radius,
+            top_right: radius,
+            bottom_left: radius,
+            bottom_right: radius,
         }
     }
 
     #[inline]
-    pub const fn zero() -> Self {
-        Self::DEFAULT
-    }
-
-    #[inline]
-    /// Maximum curvature. The Ui Node will take a capsule shape or circular if width and height are equal.
-    pub fn max() -> Self {
-        Self::all(Val::Px(f32::MAX))
-    }
-
-    #[inline]
-    pub fn new(top_right: Val, bottom_right: Val, bottom_left: Val, top_left: Val) -> Self {
+    pub fn new(top_left: Val, top_right: Val, bottom_right: Val, bottom_left: Val) -> Self {
         Self {
+            top_left,
             top_right,
             bottom_right,
             bottom_left,
-            top_left,
         }
     }
 
     #[inline]
     /// Sets the radii to logical pixel values.
-    pub fn px(top_right: f32, bottom_right: f32, bottom_left: f32, top_left: f32) -> Self {
+    pub fn px(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
         Self {
+            top_left: Val::Px(top_left),
             top_right: Val::Px(top_right),
             bottom_right: Val::Px(bottom_right),
             bottom_left: Val::Px(bottom_left),
-            top_left: Val::Px(top_left),
         }
     }
 
     #[inline]
     /// Sets the radii to percentage values.
-    pub fn percent(top_right: f32, bottom_right: f32, bottom_left: f32, top_left: f32) -> Self {
+    pub fn percent(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
         Self {
+            top_left: Val::Px(top_left),
             top_right: Val::Px(top_right),
             bottom_right: Val::Px(bottom_right),
             bottom_left: Val::Px(bottom_left),
-            top_left: Val::Px(top_left),
         }
     }
 
@@ -1842,8 +1842,8 @@ impl UiBorderRadius {
     /// Remaining corners will be right-angled.
     pub fn left(radius: Val) -> Self {
         Self {
-            bottom_left: radius,
             top_left: radius,
+            bottom_left: radius,
             ..Default::default()
         }
     }
@@ -1853,8 +1853,8 @@ impl UiBorderRadius {
     /// Remaining corners will be right-angled.
     pub fn right(radius: Val) -> Self {
         Self {
-            bottom_right: radius,
             top_right: radius,
+            bottom_right: radius,
             ..Default::default()
         }
     }
@@ -1885,10 +1885,10 @@ impl UiBorderRadius {
 impl From<UiBorderRadius> for [Val; 4] {
     fn from(value: UiBorderRadius) -> Self {
         [
+            value.top_left,
             value.top_right,
             value.bottom_right,
             value.bottom_left,
-            value.top_left,
         ]
     }
 }
@@ -1896,17 +1896,26 @@ impl From<UiBorderRadius> for [Val; 4] {
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 pub struct UiShadow {
+    /// x translation of the shadow relative to the uinode
+    ///
+    /// percentage values are based on the width of the uinode
     pub x_offset: Val,
+    /// y translation of the shadow relative to the uinode
+    ///
+    /// percentage values are based on the height of the uinode
     pub y_offset: Val,
+    /// The size of the uinode is multiplied by `scale` to find the size of the shadow
     pub scale: Vec2,
+    /// The color of the shadow
     pub color: Color,
 }
 
+// Probably no really good choices for defaults, might need a resource holding a global shadow default setting.
 impl Default for UiShadow {
     fn default() -> Self {
         Self {
-            x_offset: Val::VMin(3.),
-            y_offset: Val::VMin(3.),
+            x_offset: Val::Px(16.0),
+            y_offset: Val::Px(16.0),
             scale: Vec2::ONE,
             color: Color::BLACK.with_a(0.5),
         }

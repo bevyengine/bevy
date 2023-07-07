@@ -28,10 +28,13 @@ fn vertex(
     @location(1) vertex_uv: vec2<f32>,
     @location(2) vertex_color: vec4<f32>,
     @location(3) flags: u32,
-    // x = top right, y = bottom right, z = bottom left, w = top left
+
+    // radius.x = top left radius, .y = top right, .z = bottom right, .w = bottom left
     @location(4) radius: vec4<f32>,
-    // x = left width, y = top width, z = right width, w = bottom width
+
+    // border.x = left width, .y = top, .z = right, .w = bottom
     @location(5) border: vec4<f32>,
+
     @location(6) size: vec2<f32>,
     @location(7) border_color: vec4<f32>,
 ) -> VertexOutput {
@@ -41,7 +44,6 @@ fn vertex(
     out.color = vertex_color;
     out.border_color = border_color;
     out.flags = flags;
-    //let clamped_radius = clamp_radius(radius, size, border);
     out.radius = radius;
     out.size = size;
     out.border = border;
@@ -68,10 +70,10 @@ fn sigmoid(t: f32) -> f32 {
 }
 
 fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>) -> f32 {
-    let top_right_radius = radius.x;
-    let bottom_right_radius = radius.y;
-    let bottom_left_radius = radius.z;
-    let top_left_radius = radius.w;
+    let top_left_radius = radius.x;
+    let top_right_radius = radius.y;
+    let bottom_right_radius = radius.z;
+    let bottom_left_radius = radius.w;
     var r: f32 = top_left_radius;
     if 0.0 < point.x {
         if 0.0 < point.y {
@@ -97,17 +99,17 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 
     var r = radius;
 
-    // top right corner 
-    r.x = r.x - max(inset.z, inset.y);
+    // top left corner
+    r.x = r.x - max(inset.x, inset.y);
+
+    // top right corner
+    r.y = r.y - max(inset.z, inset.y);
 
     // bottom right corner
-    r.y = r.y - max(inset.z, inset.w);
+    r.z = r.z - max(inset.z, inset.w); 
 
     // bottom left corner
-    r.z = r.z - max(inset.x, inset.w); 
-
-    // top left corner
-    r.w = r.w - max(inset.x, inset.y);
+    r.w = r.w - max(inset.z, inset.w);
 
     let half_size = inner_size * 0.5;
     let min = min(half_size.x, half_size.y);
