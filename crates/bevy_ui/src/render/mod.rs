@@ -295,6 +295,10 @@ pub fn extract_uinodes(
             maybe_atlas_image,
         )) = uinode_query.get(*entity)
         {
+            if !visibility.is_visible() || uinode.size().x <= 0. || uinode.size().y <= 0. {
+                continue;
+            }
+
             let (image, flip_x, flip_y, atlas_size, rect) = if let Some(image) = maybe_image {
                 // Skip loading images
                 let texture = if !images.contains(&image.texture) {
@@ -353,9 +357,6 @@ pub fn extract_uinodes(
                 )
             };
 
-            if !visibility.is_visible() || uinode.size().x <= 0. || uinode.size().y <= 0. {
-                continue;
-            }
 
             let border_color =
                 maybe_border_color.map_or(Color::NONE, |background_color| background_color.0);
@@ -738,9 +739,9 @@ pub fn prepare_uinodes(
             }
         }
         let uvs = {
-            // if mode == UNTEXTURED_QUAD {
-            //     [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
-            // } else {
+            if !is_textured(&current_batch_image) {
+                [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
+            } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
             if extracted_uinode.flip_x {
                 std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
@@ -775,7 +776,7 @@ pub fn prepare_uinodes(
                 ),
             ]
             .map(|pos| pos / atlas_extent)
-        };
+        }};
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
         if extracted_uinode.is_shadow {
@@ -789,10 +790,7 @@ pub fn prepare_uinodes(
                 flags: flags | shader_flags::CORNERS[i],
                 radius: extracted_uinode.border_radius,
                 border: extracted_uinode.border,
-                size: extracted_uinode
-                    .atlas_size
-                    .unwrap_or_else(|| transformed_rect_size.xy())
-                    .into(),
+                size: transformed_rect_size.xy().into(),
                 border_color: extracted_uinode.border_color.as_linear_rgba_f32(),
             };
             ui_meta.vertices.push(ui_vertex);

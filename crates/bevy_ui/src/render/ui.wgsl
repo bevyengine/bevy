@@ -109,7 +109,7 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
     r.z = r.z - max(inset.z, inset.w); 
 
     // bottom left corner
-    r.w = r.w - max(inset.z, inset.w);
+    r.w = r.w - max(inset.x, inset.w);
 
     let half_size = inner_size * 0.5;
     let min = min(half_size.x, half_size.y);
