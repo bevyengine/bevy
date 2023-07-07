@@ -92,6 +92,7 @@ fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>) -> f32 {
     return length(max(q, vec2(0.0, 0.0))) + min(max(q.x, q.y), 0.0) - r;
 }
 
+#ifdef ALWAYS_CURVE_INNER_BORDER
 fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, inset: vec4<f32>) -> f32 {
     let inner_size = size - inset.xy - inset.zw;
     let inner_center = inset.xy + 0.5 * inner_size - 0.5 *size;
@@ -118,6 +119,52 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 
     return sd_rounded_box(inner_point, inner_size, r);
 }
+#endif
+
+fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, inset: vec4<f32>) -> f32 {
+    let inner_size = size - inset.xy - inset.zw;
+    let inner_center = inset.xy + 0.5 * inner_size - 0.5 *size;
+    let inner_point = point - inner_center;
+
+    var r = radius;
+
+    
+    if 0. < min(inset.x, inset.y) || inset.x + inset.y <= 0. {
+        // top left corner
+        r.x = r.x - max(inset.x, inset.y);
+    } else {
+        r.x = 0.;
+    }
+
+    if 0. < min(inset.z, inset.y) || inset.z + inset.y <= 0.{
+        // top right corner
+        r.y = r.y - max(inset.z, inset.y);
+    } else {
+        r.y = 0.;
+    }
+
+    if 0. < min(inset.z, inset.w) || inset.z + inset.w <= 0. {
+        // bottom right corner
+        r.z = r.z - max(inset.z, inset.w); 
+    } else {
+        r.z = 0.;
+    }
+
+    if 0. < min(inset.x, inset.w) || inset.x + inset.w <= 0. {
+        // bottom left corner
+        r.w = r.w - max(inset.x, inset.w);
+    } else {
+        r.w = 0.;
+    }
+
+    let half_size = inner_size * 0.5;
+    let min = min(half_size.x, half_size.y);
+    
+    r = min(max(r, vec4<f32>(0.0)), vec4<f32>(min));
+
+    return sd_rounded_box(inner_point, inner_size, r);
+}
+
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
