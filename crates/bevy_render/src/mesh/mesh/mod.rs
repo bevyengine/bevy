@@ -81,7 +81,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// used in a `PbrBundle` with a square bevy logo texture, with added axis, points,
 /// lines and text for clarity.
 ///
-/// ## Other exampless
+/// ## Other examples
 ///
 /// For further visualization, explanation, and examples, see the built-in Bevy examples,
 /// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_render/src/mesh/shape).
@@ -104,7 +104,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh.
 /// [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
 /// because simple meshes are smooth and they don't require complex light calculations.
-/// - Vertex winding order: by default, `StandardMaterial.cull_mode` is [`Some(Face::Front)`](crate::render_resource::Face),
+/// - Vertex winding order: by default, `StandardMaterial.cull_mode` is [`Some(Face::Back)`](crate::render_resource::Face),
 /// which means that Bevy would *only* render the "front" of each triangle, which
 /// is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 ///
