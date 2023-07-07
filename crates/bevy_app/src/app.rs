@@ -280,50 +280,33 @@ impl App {
     ///
     /// Panics if called from `Plugin::build()`, because it would prevent other plugins to properly build.
     pub fn run(&mut self) {
-        #[cfg(feature = "trace")]
-        let _bevy_app_run_span = info_span!("bevy_app").entered();
-
-        let mut app = std::mem::replace(self, App::empty());
-        if app.building_plugin_depth > 0 {
+        if self.building_plugin_depth > 0 {
             panic!("App::run() was called from within Plugin::build(), which is not allowed.");
         }
 
-        let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
-        (runner)(app);
-    }
+        #[cfg(feature = "trace")]
+        let _bevy_app_run_span = info_span!("bevy_app").entered();
 
-    /// Check that [`Plugin::ready`] of all plugins returns true. This is usually called by the
-    /// event loop, but can be useful for situations where you want to use [`App::update`]
-    pub fn ready(&self) -> bool {
-        for plugin in &self.plugin_registry {
-            if !plugin.ready(self) {
-                return false;
-            }
+        while !self.plugin_registry.iter().all(|plugin| plugin.ready(self)) {
+            #[cfg(not(target_arch = "wasm32"))]
+            bevy_tasks::tick_global_task_pools_on_main_thread();
         }
-        true
-    }
 
-    /// Run [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
-    /// plugins are [`App::ready`], but can be useful for situations where you want to use
-    /// [`App::update`].
-    pub fn finish(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
         let plugin_registry = std::mem::take(&mut self.plugin_registry);
+        self.building_plugin_depth += 1;
         for plugin in &plugin_registry {
             plugin.finish(self);
         }
-        self.plugin_registry = plugin_registry;
-    }
-
-    /// Run [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
-    /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
-    pub fn cleanup(&mut self) {
-        // temporarily remove the plugin registry to run each plugin's setup function on app.
-        let plugin_registry = std::mem::take(&mut self.plugin_registry);
         for plugin in &plugin_registry {
             plugin.cleanup(self);
         }
+        self.building_plugin_depth -= 1;
         self.plugin_registry = plugin_registry;
+
+        let runner = std::mem::replace(&mut self.runner, Box::new(run_once));
+        let app = std::mem::replace(self, App::empty());
+        (runner)(app);
     }
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
@@ -963,13 +946,6 @@ impl App {
 }
 
 fn run_once(mut app: App) {
-    while !app.ready() {
-        #[cfg(not(target_arch = "wasm32"))]
-        bevy_tasks::tick_global_task_pools_on_main_thread();
-    }
-    app.finish();
-    app.cleanup();
-
     app.update();
 }
 
