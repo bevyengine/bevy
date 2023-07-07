@@ -165,7 +165,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     background_color: Color::rgb(0.8, 0.8, 1.).into(),
                     ..default()
                 },
-                UiNodeShadow {
+                UiShadow {
                     ..Default::default()
                 },
             ));
@@ -199,7 +199,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 background_color: Color::rgb(1.0, 0.0, 0.).into(),
                                 ..default()
                             },
-                            UiNodeShadow {
+                            UiShadow {
                                 ..Default::default()
                             },
                         ))
@@ -219,7 +219,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     background_color: Color::rgb(1.0, 0.3, 0.3).into(),
                                     ..default()
                                 },
-                                UiNodeShadow {
+                                UiShadow {
                                     ..Default::default()
                                 },
                             ));
@@ -237,7 +237,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     background_color: Color::rgb(1.0, 0.5, 0.5).into(),
                                     ..default()
                                 },
-                                UiNodeShadow {
+                                UiShadow {
                                     ..Default::default()
                                 },
                             ));
@@ -255,7 +255,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     background_color: Color::rgb(1.0, 0.7, 0.7).into(),
                                     ..default()
                                 },
-                                UiNodeShadow {
+                                UiShadow {
                                     ..Default::default()
                                 },
                             ));
@@ -274,7 +274,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     background_color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
                                     ..default()
                                 },
-                                UiNodeShadow {
+                                UiShadow {
                                     color: Color::rgba(0.9, 0.8, 0.8, 0.05),
                                     ..Default::default()
                                 },

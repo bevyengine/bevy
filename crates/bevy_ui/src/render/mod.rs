@@ -11,7 +11,7 @@ pub use render_pass::*;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
 };
-use crate::{Style, UiNodeShadow, Val};
+use crate::{Style, UiShadow, Val};
 use crate::{UiBorderRadius, UiScale, UiTextureAtlasImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -266,7 +266,7 @@ pub fn extract_uinodes(
             Option<&Parent>,
             &ComputedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiNodeShadow>,
+            Option<&UiShadow>,
             Option<&UiImage>,
             Option<&Handle<TextureAtlas>>,
             Option<&UiTextureAtlasImage>,

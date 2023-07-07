@@ -1895,14 +1895,14 @@ impl From<UiBorderRadius> for [Val; 4] {
 
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default)]
-pub struct UiNodeShadow {
+pub struct UiShadow {
     pub x_offset: Val,
     pub y_offset: Val,
     pub scale: Vec2,
     pub color: Color,
 }
 
-impl Default for UiNodeShadow {
+impl Default for UiShadow {
     fn default() -> Self {
         Self {
             x_offset: Val::VMin(3.),
