@@ -13,10 +13,10 @@
 //! }
 //!
 //! fn play_background_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
-//!     commands.spawn(
-//!         AudioBundle::from_audio_source(asset_server.load("background_audio.ogg"))
-//!             .with_settings(PlaybackSettings::LOOP)
-//!     );
+//!     commands.spawn(AudioBundle {
+//!         source: asset_server.load("background_audio.ogg"),
+//!         settings: PlaybackSettings::LOOP,
+//!     });
 //! }
 //! ```
 
