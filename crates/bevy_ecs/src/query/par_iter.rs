@@ -1,5 +1,4 @@
 use crate::{component::Tick, world::unsafe_world_cell::UnsafeWorldCell};
-use bevy_tasks::ComputeTaskPool;
 use std::ops::Range;
 
 use super::{QueryItem, QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery};
@@ -34,6 +33,8 @@ pub struct BatchingStrategy {
     /// increase the scheduling overhead for the iteration.
     ///
     /// Defaults to 1.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     pub batches_per_thread: usize,
 }
 
@@ -155,7 +156,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
         }
         #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
         {
-            let thread_count = ComputeTaskPool::get().thread_num();
+            let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
             if thread_count <= 1 {
                 self.state.for_each_unchecked_manual(
                     self.world,
@@ -177,6 +178,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
         }
     }
 
+    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
         if self.batching_strategy.batch_size_limits.is_empty() {
             return self.batching_strategy.batch_size_limits.start;
