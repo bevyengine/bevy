@@ -59,7 +59,7 @@ impl<'g, N, E: 'g, G: Graph<N, E>, I: Iterator<Item = EdgeRef<'g, E>>>
         visitor: fn(&'g G, NodeIdx) -> I,
     ) -> iters::NodesByIdxMut<'g, N, NodeIdx, Self> {
         unsafe {
-            // SAFETY: We know `NodesByIdxMut` doesn't intercept (deletes nodes) at all.
+            // SAFETY: `BreadthFirstSearch` assueres that every node gets visited only once
             let ptr: *mut G = &mut *graph;
             let inner = Self::custom(&*ptr, start, visitor);
 
@@ -86,7 +86,7 @@ impl<'g, N, E: 'g, G: Graph<N, E>> BreadthFirstSearch<'g, N, E, G, G::OutgoingEd
     #[inline]
     pub fn new_mut(graph: &'g mut G, start: NodeIdx) -> iters::NodesByIdxMut<'g, N, NodeIdx, Self> {
         unsafe {
-            // SAFETY: We know `NodesByIdxMut` doesn't intercept (deletes nodes) at all.
+            // SAFETY: `BreadthFirstSearch` assueres that every node gets visited only once
             let ptr: *mut G = &mut *graph;
             let inner = Self::new(&*ptr, start);
 
