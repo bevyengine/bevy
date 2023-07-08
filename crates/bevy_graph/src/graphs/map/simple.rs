@@ -135,7 +135,11 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
     }
 
     fn contains_edge_between(&self, src: NodeIdx, dst: NodeIdx) -> bool {
-        self.adjacencies[src].outgoing().contains_key(&dst)
+        if let Some(a) = self.adjacencies.get(src) {
+            a.outgoing().contains_key(&dst)
+        } else {
+            false
+        }
     }
 
     fn remove_node(&mut self, index: NodeIdx) -> Option<N> {

@@ -233,9 +233,7 @@ pub trait Graph<N, E> {
 
     /// Returns `true` if an edge between the specified nodes exists.
     ///
-    /// # Panics
-    ///
-    /// Panics if `src` or `dst` do not exist.
+    /// NOTE: When `src` or `dst` node isn't present, `false` will be returned.
     fn contains_edge_between(&self, src: NodeIdx, dst: NodeIdx) -> bool;
 
     /// Removes the specified node from the graph, returning its value if it existed.

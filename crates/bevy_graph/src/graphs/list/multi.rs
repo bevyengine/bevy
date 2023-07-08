@@ -134,9 +134,14 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
     }
 
     fn contains_edge_between(&self, src: NodeIdx, dst: NodeIdx) -> bool {
-        match self.adjacencies.get(src).unwrap().outgoing().get_value(dst) {
-            Some(adjacencies) => !adjacencies.is_empty(),
-            None => false,
+        if let Some(a1) = self.adjacencies.get(src) {
+            if let Some(a2) = a1.outgoing().get_value(dst) {
+                !a2.is_empty()
+            } else {
+                false
+            }
+        } else {
+            false
         }
     }
 
