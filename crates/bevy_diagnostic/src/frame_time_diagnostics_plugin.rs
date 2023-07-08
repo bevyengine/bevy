@@ -17,7 +17,7 @@ impl Plugin for FrameTimeDiagnosticsPlugin {
         .register_diagnostic(
             Diagnostic::new(Self::FRAME_COUNT, "frame_count", 1).with_smoothing_factor(0.0),
         )
-        .add_systems(Update, Self::diagnostic_system);
+        .add_systems(FrameReady, Self::diagnostic_system);
     }
 }
 

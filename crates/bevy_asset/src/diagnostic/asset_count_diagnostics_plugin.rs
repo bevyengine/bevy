@@ -21,7 +21,7 @@ impl<T: Asset> Default for AssetCountDiagnosticsPlugin<T> {
 impl<T: Asset> Plugin for AssetCountDiagnosticsPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, Self::setup_system)
-            .add_systems(Update, Self::diagnostic_system);
+            .add_systems(FrameReady, Self::diagnostic_system);
     }
 }
 

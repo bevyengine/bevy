@@ -2,7 +2,7 @@ mod render_layers;
 
 pub use render_layers::*;
 
-use bevy_app::{Plugin, PostUpdate};
+use bevy_app::{FrameReady, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
@@ -213,10 +213,10 @@ impl Plugin for VisibilityPlugin {
 
         app
             // We add an AABB component in CalculateBounds, which must be ready on the same frame.
-            .add_systems(PostUpdate, apply_deferred.in_set(CalculateBoundsFlush))
-            .configure_set(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
+            .add_systems(FrameReady, apply_deferred.in_set(CalculateBoundsFlush))
+            .configure_set(FrameReady, CalculateBoundsFlush.after(CalculateBounds))
             .add_systems(
-                PostUpdate,
+                FrameReady,
                 (
                     calculate_bounds.in_set(CalculateBounds),
                     update_frusta::<OrthographicProjection>

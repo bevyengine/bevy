@@ -12,7 +12,7 @@ use crate::render_resource::resource_macros::*;
 render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
-#[derive(Resource, Clone)]
+#[derive(Debug, Resource, Clone)]
 pub struct RenderDevice {
     device: ErasedRenderDevice,
 }

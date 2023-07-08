@@ -3,7 +3,7 @@ use crate::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
-use bevy_app::{Plugin, PostUpdate};
+use bevy_app::{FrameReady, Plugin};
 use bevy_asset::Handle;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::Children;
@@ -28,7 +28,7 @@ impl Plugin for MorphPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.register_type::<MorphWeights>()
             .register_type::<MeshMorphWeights>()
-            .add_systems(PostUpdate, inherit_weights);
+            .add_systems(FrameReady, inherit_weights);
     }
 }
 

@@ -64,7 +64,7 @@ impl Plugin for AudioPlugin {
             .add_asset::<SpatialAudioSink>()
             .init_resource::<Audio<AudioSource>>()
             .insert_resource(self.global_volume)
-            .add_systems(PostUpdate, play_queued_audio_system::<AudioSource>);
+            .add_systems(FrameReady, play_queued_audio_system::<AudioSource>);
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
         app.init_asset_loader::<AudioLoader>();
@@ -80,6 +80,6 @@ impl AddAudioSource for App {
         self.add_asset::<T>()
             .init_resource::<Audio<T>>()
             .init_resource::<AudioOutput<T>>()
-            .add_systems(PostUpdate, play_queued_audio_system::<T>)
+            .add_systems(FrameReady, play_queued_audio_system::<T>)
     }
 }

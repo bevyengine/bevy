@@ -47,8 +47,8 @@ pub use loader::*;
 pub use path::*;
 pub use reflect::*;
 
-use bevy_app::{prelude::*, UpdateFlowOrder};
-use bevy_ecs::schedule::ScheduleLabel;
+use bevy_app::prelude::*;
+use bevy_ecs::{schedule::ScheduleLabel, world::World};
 use bevy_utils::Duration;
 
 /// Asset storages are updated.
@@ -132,7 +132,6 @@ impl Plugin for AssetPlugin {
         app.register_type::<HandleId>();
         app.register_type::<AssetPath>();
 
-        app.add_systems(PreUpdate, asset_server::free_unused_assets_system);
         app.init_schedule(LoadAssets);
         app.init_schedule(AssetEvents);
 
@@ -141,9 +140,10 @@ impl Plugin for AssetPlugin {
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
         app.add_systems(LoadAssets, io::filesystem_watcher_system);
-
-        let mut order = app.world.resource_mut::<UpdateFlowOrder>();
-        order.insert_after(First, LoadAssets);
-        order.insert_after(PostUpdate, AssetEvents);
+        app.add_systems(LoadAssets, asset_server::free_unused_assets_system);
+        app.add_systems(FrameReady, |world: &mut World| {
+            world.run_schedule(LoadAssets);
+            world.run_schedule(AssetEvents);
+        });
     }
 }

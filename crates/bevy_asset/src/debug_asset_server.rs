@@ -76,7 +76,7 @@ impl Plugin for DebugAssetServerPlugin {
             watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
         });
         app.insert_non_send_resource(DebugAssetApp(debug_asset_app));
-        app.add_systems(Update, run_debug_asset_app);
+        app.add_systems(FrameReady, run_debug_asset_app);
     }
 }
 

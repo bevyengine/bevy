@@ -254,6 +254,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
     }
 }
 
+#[derive(Debug)]
 pub struct ScreenshotPreparedState {
     pub texture: Texture,
     pub buffer: Buffer,

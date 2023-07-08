@@ -58,6 +58,7 @@ pub struct TextureView {
     value: ErasedTextureView,
 }
 
+#[derive(Debug)]
 pub struct SurfaceTexture {
     value: ErasedSurfaceTexture,
 }

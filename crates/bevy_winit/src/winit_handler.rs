@@ -84,7 +84,7 @@ impl WinitHandler {
     }
 
     /// Requests frame redraw.
-    /// 
+    ///
     /// If called during redrawing, the next redraw is reserved.
     pub fn redraw(&mut self) {
         if let Err(e) = self.proxy.get().send_event(HandleEvent::RequestRedraw) {
