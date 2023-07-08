@@ -46,14 +46,11 @@ default = [
   "bevy_ui",
   "png",
   "hdr",
-  "ktx2",
-  "zstd",
   "vorbis",
   "x11",
   "filesystem_watcher",
   "bevy_gizmos",
   "android_shared_stdcxx",
-  "tonemapping_luts",
   "default_font",
   "webgl2",
 ]
@@ -83,7 +80,15 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr"]
 
 # Adds PBR rendering
-bevy_pbr = ["bevy_internal/bevy_pbr", "bevy_asset", "bevy_render", "bevy_core_pipeline"]
+bevy_pbr = [
+  "bevy_internal/bevy_pbr",
+  "bevy_asset",
+  "bevy_render",
+  "bevy_core_pipeline",
+  "ktx2",
+  "tonemapping_luts",
+  "zstd",
+]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]
