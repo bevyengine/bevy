@@ -11,7 +11,8 @@ categories = ["game-engines", "data-structures"]
 
 [features]
 trace = []
-default = ["bevy_reflect"]
+multi-threaded = ["bevy_tasks/multi-threaded"]
+default = ["bevy_reflect", "multi-threaded"]
 
 [dependencies]
 bevy_ptr = { path = "../bevy_ptr", version = "0.11.0-dev" }

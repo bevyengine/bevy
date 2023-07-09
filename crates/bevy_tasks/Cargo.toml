@@ -8,6 +8,10 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+multi-threaded = []
+default = ["multi-threaded"]
+
 [dependencies]
 futures-lite = "1.4.0"
 async-executor = "1.3.0"
