@@ -126,16 +126,13 @@ pub struct Window {
     /// Note: This does not stop the program from fullscreening/setting
     /// the size programmatically.
     pub resizable: bool,
-    /// Enables and disables window control buttons.
+    /// Specifies which window control buttons should be enabled.
     ///
     /// ## Platform-specific
     ///
     /// **`iOS`**, **`Android`**, and the **`Web`** do not have window control buttons.
     ///
-    /// macOS note: When `resizable` is set to `false` the maximize button will be
-    /// disabled regardless of the value of the `EnabledButtons` struct. Additionaly, when
-    /// `resizable` is set to `true` the window will be maximized when its bar is double-clicked
-    /// regardless of whether the maximize button is enabled or not.
+    /// On some **`Linux`** environments these values have no effect.
     pub enabled_buttons: EnabledButtons,
     /// Should the window have decorations enabled?
     ///
@@ -976,6 +973,13 @@ pub enum WindowTheme {
     Dark,
 }
 
+/// Specifies which [`Window`] control buttons should be enabled.
+///
+/// ## Platform-specific
+///
+/// **`iOS`**, **`Android`**, and the **`Web`** do not have window control buttons.  
+///
+/// On some **`Linux`** environments these values have no effect.
 #[derive(Debug, Copy, Clone, PartialEq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -984,8 +988,17 @@ pub enum WindowTheme {
 )]
 #[reflect(Debug, PartialEq, Default)]
 pub struct EnabledButtons {
+    /// Enables the functionality of the minimize button.
     pub minimize: bool,
+    /// Enables the functionality of the maximize button.
+    ///
+    /// macOS note: When [`Window`] `resizable` member is set to `false`
+    /// the maximize button will be disabled regardless of this value.
+    /// Additionaly, when `resizable` is set to `true` the window will
+    /// be maximized when its bar is double-clicked regardless of whether
+    /// the maximize button is enabled or not.
     pub maximize: bool,
+    /// Enables the functionality of the close button.
     pub close: bool,
 }
 
