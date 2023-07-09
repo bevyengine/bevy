@@ -1,6 +1,6 @@
 [package]
 name = "bevy_utils"
-version = "0.11.0-dev"
+version = "0.11.0"
 edition = "2021"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -17,7 +17,7 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 uuid = { version = "1.1", features = ["v4", "serde"] }
 hashbrown = { version = "0.14", features = ["serde"] }
-bevy_utils_proc_macros = {version = "0.11.0-dev", path = "macros"}
+bevy_utils_proc_macros = {version = "0.11.0", path = "macros"}
 petgraph = "0.6"
 thiserror = "1.0"
 
