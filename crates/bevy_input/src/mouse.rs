@@ -7,6 +7,7 @@ use bevy_ecs::{
 };
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
+use bevy_utils::Instant;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -33,6 +34,8 @@ pub struct MouseButtonInput {
     pub state: ButtonState,
     /// Window that received the input.
     pub window: Entity,
+    /// Time at which the input occurred.
+    pub time: Instant,
 }
 
 /// A button on a mouse device.
@@ -82,6 +85,8 @@ pub enum MouseButton {
 pub struct MouseMotion {
     /// The change in the position of the pointing device since the last event was sent.
     pub delta: Vec2,
+    /// Time at which the input occurred.
+    pub time: Instant,
 }
 
 /// The scroll unit.
@@ -129,6 +134,8 @@ pub struct MouseWheel {
     pub y: f32,
     /// Window that received the input.
     pub window: Entity,
+    /// Time at which the input occurred.
+    pub time: Instant,
 }
 
 /// Updates the [`Input<MouseButton>`] resource with the latest [`MouseButtonInput`] events.

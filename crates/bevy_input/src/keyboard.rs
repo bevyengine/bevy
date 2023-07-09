@@ -6,6 +6,7 @@ use bevy_ecs::{
     system::ResMut,
 };
 use bevy_reflect::Reflect;
+use bevy_utils::Instant;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -35,6 +36,8 @@ pub struct KeyboardInput {
     pub state: ButtonState,
     /// Window that received the input.
     pub window: Entity,
+    /// Time at which the input occurred.
+    pub time: Instant,
 }
 
 /// Updates the [`Input<KeyCode>`] resource with the latest [`KeyboardInput`] events.
