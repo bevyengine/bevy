@@ -131,6 +131,11 @@ pub struct Window {
     /// ## Platform-specific
     ///
     /// **`iOS`**, **`Android`**, and the **`Web`** do not have window control buttons.
+    ///
+    /// macOS note: When `resizable` is set to `false` the maximize button will be
+    /// disabled regardless of the value of the `EnabledButtons` struct. Additionaly, when
+    /// `resizable` is set to `true` the window will be maximized when its bar is double-clicked
+    /// regardless of whether the maximize button is enabled or not.
     pub enabled_buttons: EnabledButtons,
     /// Should the window have decorations enabled?
     ///
