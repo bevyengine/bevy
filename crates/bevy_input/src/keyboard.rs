@@ -37,7 +37,8 @@ pub struct KeyboardInput {
     /// Window that received the input.
     pub window: Entity,
     /// Time at which the input occurred.
-    pub time: Instant,
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    pub time: Option<Instant>,
 }
 
 /// Updates the [`Input<KeyCode>`] resource with the latest [`KeyboardInput`] events.

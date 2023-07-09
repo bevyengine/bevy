@@ -50,7 +50,8 @@ pub struct TouchInput {
     /// The unique identifier of the finger.
     pub id: u64,
     /// Time at which the input occurred.
-    pub time: Instant,
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    pub time: Option<Instant>,
 }
 
 /// A force description of a [`Touch`](crate::touch::Touch) input.

@@ -134,7 +134,8 @@ pub struct CursorMoved {
     /// The cursor position in logical pixels.
     pub position: Vec2,
     /// Time at which the input occurred.
-    pub time: Instant,
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    pub time: Option<Instant>,
 }
 
 /// An event that is sent whenever the user's cursor enters a window.

@@ -35,7 +35,8 @@ pub struct MouseButtonInput {
     /// Window that received the input.
     pub window: Entity,
     /// Time at which the input occurred.
-    pub time: Instant,
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    pub time: Option<Instant>,
 }
 
 /// A button on a mouse device.
@@ -86,7 +87,8 @@ pub struct MouseMotion {
     /// The change in the position of the pointing device since the last event was sent.
     pub delta: Vec2,
     /// Time at which the input occurred.
-    pub time: Instant,
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    pub time: Option<Instant>,
 }
 
 /// The scroll unit.
@@ -135,7 +137,8 @@ pub struct MouseWheel {
     /// Window that received the input.
     pub window: Entity,
     /// Time at which the input occurred.
-    pub time: Instant,
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    pub time: Option<Instant>,
 }
 
 /// Updates the [`Input<MouseButton>`] resource with the latest [`MouseButtonInput`] events.
