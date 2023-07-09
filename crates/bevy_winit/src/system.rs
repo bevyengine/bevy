@@ -23,7 +23,10 @@ use winit::{
 use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
 use crate::{
     accessibility::{AccessKitAdapters, WinitActionHandlers},
-    converters::{self, convert_window_level, convert_window_theme, convert_winit_theme},
+    converters::{
+        self, convert_enabled_buttons, convert_window_level, convert_window_theme,
+        convert_winit_theme,
+    },
     get_best_videomode, get_fitting_videomode, WinitWindows,
 };
 
@@ -220,6 +223,10 @@ pub(crate) fn changed_window(
                 && window.resizable != winit_window.is_resizable()
             {
                 winit_window.set_resizable(window.resizable);
+            }
+
+            if window.enabled_buttons != cache.window.enabled_buttons {
+                winit_window.set_enabled_buttons(convert_enabled_buttons(window.enabled_buttons));
             }
 
             if window.resize_constraints != cache.window.resize_constraints {

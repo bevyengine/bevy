@@ -126,13 +126,19 @@ pub struct Window {
     /// Note: This does not stop the program from fullscreening/setting
     /// the size programmatically.
     pub resizable: bool,
+    /// Enables and disables window control buttons.
+    ///
+    /// ## Platform-specific
+    ///
+    /// **`iOS`**, **`Android`**, and the **`Web`** do not have window control buttons.
+    pub enabled_buttons: EnabledButtons,
     /// Should the window have decorations enabled?
     ///
     /// (Decorations are the minimize, maximize, and close buttons on desktop apps)
     ///
-    //  ## Platform-specific
-    //
-    //  **`iOS`**, **`Android`**, and the **`Web`** do not have decorations.
+    /// ## Platform-specific
+    ///
+    /// **`iOS`**, **`Android`**, and the **`Web`** do not have decorations.
     pub decorations: bool,
     /// Should the window be transparent?
     ///
@@ -221,6 +227,7 @@ impl Default for Window {
             ime_enabled: Default::default(),
             ime_position: Default::default(),
             resizable: true,
+            enabled_buttons: Default::default(),
             decorations: true,
             transparent: false,
             focused: true,
@@ -962,4 +969,27 @@ pub enum WindowTheme {
 
     /// Use the dark variant.
     Dark,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Reflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Default)]
+pub struct EnabledButtons {
+    pub minimize: bool,
+    pub maximize: bool,
+    pub close: bool,
+}
+
+impl Default for EnabledButtons {
+    fn default() -> Self {
+        Self {
+            minimize: true,
+            maximize: true,
+            close: true,
+        }
+    }
 }
