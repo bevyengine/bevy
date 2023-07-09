@@ -30,3 +30,4 @@ bitflags = "2.3"
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive"] }
 radsort = "0.1"
+naga_oil = "0.8"

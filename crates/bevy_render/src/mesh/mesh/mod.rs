@@ -3,11 +3,13 @@ pub mod skinning;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
+    prelude::Image,
     primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset},
-    render_resource::{Buffer, VertexBufferLayout},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
+    render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
 };
+use bevy_asset::Handle;
 use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
@@ -35,6 +37,8 @@ pub struct Mesh {
     /// which allows easy stable VertexBuffers (i.e. same buffer order)
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
+    morph_targets: Option<Handle<Image>>,
+    morph_target_names: Option<Vec<String>>,
 }
 
 /// Contains geometry in the form of a mesh.
@@ -129,6 +133,8 @@ impl Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
+            morph_targets: None,
+            morph_target_names: None,
         }
     }
 
@@ -443,6 +449,28 @@ impl Mesh {
         }
 
         None
+    }
+
+    /// Whether this mesh has morph targets.
+    pub fn has_morph_targets(&self) -> bool {
+        self.morph_targets.is_some()
+    }
+
+    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::mesh::morph::MorphTargetImage) for info.
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
+        self.morph_targets = Some(morph_targets);
+    }
+
+    /// Sets the names of each morph target. This should correspond to the order of the morph targets in `set_morph_targets`.
+    pub fn set_morph_target_names(&mut self, names: Vec<String>) {
+        self.morph_target_names = Some(names);
+    }
+
+    /// Gets a list of all morph target names, if they exist.
+    pub fn morph_target_names(&self) -> Option<&[String]> {
+        self.morph_target_names.as_deref()
     }
 }
 
@@ -859,6 +887,7 @@ pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,
     pub vertex_count: u32,
+    pub morph_targets: Option<TextureView>,
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
@@ -879,7 +908,7 @@ pub enum GpuBufferInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
-    type Param = SRes<RenderDevice>;
+    type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
 
     /// Clones the mesh.
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -889,7 +918,7 @@ impl RenderAsset for Mesh {
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
-        render_device: &mut SystemParamItem<Self::Param>,
+        (render_device, images): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
@@ -920,6 +949,9 @@ impl RenderAsset for Mesh {
             buffer_info,
             primitive_topology: mesh.primitive_topology(),
             layout: mesh_vertex_buffer_layout,
+            morph_targets: mesh
+                .morph_targets
+                .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
         })
     }
 }

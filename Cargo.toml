@@ -44,6 +44,7 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "multi-threaded",
   "png",
   "hdr",
   "ktx2",
@@ -198,6 +199,9 @@ filesystem_watcher = ["bevy_internal/filesystem_watcher"]
 
 # Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
+
+# Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.
+multi-threaded = ["bevy_internal/multi-threaded"]
 
 # Wayland display server support
 wayland = ["bevy_internal/wayland"]
@@ -448,6 +452,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "generate_custom_mesh"
+path = "examples/3d/generate_custom_mesh.rs"
+
+[package.metadata.example.generate_custom_mesh]
+name = "Generate Custom Mesh"
+description = "Simple showcase of how to generate a custom mesh with a custom texture"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "anti_aliasing"
 path = "examples/3d/anti_aliasing.rs"
 
@@ -560,7 +574,6 @@ wasm = true
 [[example]]
 name = "tonemapping"
 path = "examples/3d/tonemapping.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.tonemapping]
 name = "Tonemapping"
@@ -743,6 +756,16 @@ path = "examples/animation/animated_fox.rs"
 [package.metadata.example.animated_fox]
 name = "Animated Fox"
 description = "Plays an animation from a skinned glTF"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "morph_targets"
+path = "examples/animation/morph_targets.rs"
+
+[package.metadata.example.morph_targets]
+name = "Morph Targets"
+description = "Plays an animation from a glTF file with meshes with morph targets"
 category = "Animation"
 wasm = true
 

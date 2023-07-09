@@ -442,7 +442,7 @@ fn buttons_handler<T>(
     Target<T>: TargetUpdate + Component,
 {
     for (target, interaction, children) in visibility_button_query.iter_mut() {
-        if matches!(interaction, Interaction::Clicked) {
+        if matches!(interaction, Interaction::Pressed) {
             let mut target_value = left_panel_query.get_mut(target.id).unwrap();
             for &child in children {
                 if let Ok(mut text) = text_query.get_mut(child) {

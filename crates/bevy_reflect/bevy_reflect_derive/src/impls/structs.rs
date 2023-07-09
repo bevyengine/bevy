@@ -2,11 +2,10 @@ use crate::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use crate::impls::{impl_type_path, impl_typed};
 use crate::utility::{extend_where_clause, ident_or_index};
 use crate::ReflectStruct;
-use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
-pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
+pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
     let fqoption = FQOption.into_token_stream();
 
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
@@ -104,7 +103,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
     let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 
-    TokenStream::from(quote! {
+    quote! {
         #get_type_registration_impl
 
         #typed_impl
@@ -245,5 +244,5 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
             #debug_fn
         }
-    })
+    }
 }

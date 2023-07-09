@@ -304,7 +304,7 @@ pub fn ui_layout_system(
     // compute layouts
     ui_surface.compute_window_layouts();
 
-    let inverse_target_scale_factor = 1. / logical_to_physical_factor;
+    let inverse_target_scale_factor = 1. / scale_factor;
 
     fn update_uinode_geometry_recursive(
         entity: Entity,
