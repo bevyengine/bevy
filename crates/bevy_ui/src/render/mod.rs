@@ -281,7 +281,7 @@ pub fn extract_uinode_borders(
         .get_single()
         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
         .unwrap_or(Vec2::ZERO)
-        // The logical window resolutin returned by `Window` only takes into account the window scale factor and not `UiScale`,
+        // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.scale as f32;
 
