@@ -111,7 +111,7 @@ impl<S: States> Deref for State<S> {
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
 #[derive(Resource, Default, Debug)]
-pub struct NextState<S: States>(pub Option<S>);
+pub struct NextState<S: States>(pub(crate) Option<S>);
 
 impl<S: States> NextState<S> {
     /// Tentatively set a planned state transition to `Some(state)`.
