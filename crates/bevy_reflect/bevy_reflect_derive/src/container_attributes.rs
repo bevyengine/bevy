@@ -249,7 +249,7 @@ impl ReflectTraits {
                                 lit: syn::Lit::Bool(lit),
                                 ..
                             }) => {
-                                // Overrride `lit` if this is a `FromReflect` derive.
+                                // Override `lit` if this is a `FromReflect` derive.
                                 // This typically means a user is opting out of the default implementation
                                 // from the `Reflect` derive and using the `FromReflect` derive directly instead.
                                 is_from_reflect_derive

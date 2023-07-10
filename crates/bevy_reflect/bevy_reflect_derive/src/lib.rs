@@ -523,7 +523,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 /// it requires an 'absolute' path definition.
 ///
 /// Specifically, a leading `::` denoting a global path must be specified
-/// or a preceeding `(in my_crate::foo)` to specify the custom path must be used.
+/// or a preceding `(in my_crate::foo)` to specify the custom path must be used.
 ///
 /// # Examples
 ///

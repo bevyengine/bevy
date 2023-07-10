@@ -232,7 +232,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
     {
         let type_id = TypeId::of::<G>();
 
-        // Put in a seperate scope, so `mapping` is dropped before `f`,
+        // Put in a separate scope, so `mapping` is dropped before `f`,
         // since `f` might want to call `get_or_insert` recursively
         // and we don't want a deadlock!
         {
