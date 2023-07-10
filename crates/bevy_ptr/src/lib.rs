@@ -10,12 +10,10 @@ use core::{
 
 /// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is aligned.
 #[derive(Copy, Clone)]
-#[repr(transparent)]
 pub struct Aligned;
 
 /// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is not aligned.
 #[derive(Copy, Clone)]
-#[repr(transparent)]
 pub struct Unaligned;
 
 /// Trait that is only implemented for [`Aligned`] and [`Unaligned`] to work around the lack of ability
