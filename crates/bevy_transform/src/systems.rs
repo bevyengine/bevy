@@ -2,6 +2,7 @@ use crate::components::{GlobalTransform, Transform};
 use bevy_ecs::{
     change_detection::Ref,
     prelude::{Changed, DetectChanges, Entity, Query, With, Without},
+    query::{Added, Or},
     removal_detection::RemovedComponents,
     system::{Local, ParamSet},
 };
@@ -14,7 +15,11 @@ pub fn sync_simple_transforms(
     mut query: ParamSet<(
         Query<
             (&Transform, &mut GlobalTransform),
-            (Changed<Transform>, Without<Parent>, Without<Children>),
+            (
+                Or<(Changed<Transform>, Added<GlobalTransform>)>,
+                Without<Parent>,
+                Without<Children>,
+            ),
         >,
         Query<(Ref<Transform>, &mut GlobalTransform), Without<Children>>,
     )>,
@@ -31,7 +36,7 @@ pub fn sync_simple_transforms(
     let mut query = query.p1();
     let mut iter = query.iter_many_mut(orphaned.iter());
     while let Some((transform, mut global_transform)) = iter.fetch_next() {
-        if !transform.is_changed() {
+        if !transform.is_changed() && !global_transform.is_added() {
             *global_transform = GlobalTransform::from(*transform);
         }
     }
@@ -56,7 +61,7 @@ pub fn propagate_transforms(
     orphaned_entities.sort_unstable();
     root_query.par_iter_mut().for_each_mut(
         |(entity, children, transform, mut global_transform)| {
-            let changed = transform.is_changed() || orphaned_entities.binary_search(&entity).is_ok();
+            let changed = transform.is_changed() || global_transform.is_added() || orphaned_entities.binary_search(&entity).is_ok();
             if changed {
                 *global_transform = GlobalTransform::from(*transform);
             }
@@ -143,7 +148,7 @@ unsafe fn propagate_recursive(
                 return;
             };
 
-        changed |= transform.is_changed();
+        changed |= transform.is_changed() || global_transform.is_added();
         if changed {
             *global_transform = parent.mul_transform(*transform);
         }
