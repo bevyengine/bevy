@@ -11,7 +11,7 @@ pub use render_pass::*;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
 };
-use crate::{Style, UiShadow, Val};
+use crate::{Style, UiShadow, Val, ContentSize};
 use crate::{UiBorderRadius, UiScale, UiTextureAtlasImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -58,6 +58,7 @@ pub const UI_SHADER_HANDLE: HandleUntyped =
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
     ExtractNode,
+    ExtractAtlasNode,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -81,6 +82,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
+                extract_uinode_borders.after(RenderUiSystem::ExtractNode),
                 #[cfg(feature = "bevy_text")]
                 extract_text_uinodes.after(RenderUiSystem::ExtractNode),
             ),
@@ -436,6 +438,101 @@ pub fn extract_uinodes(
                 is_shadow: false,
             };
             extracted_uinodes.uinodes.push(extracted_node);
+        }
+    }
+}
+
+pub fn extract_uinode_borders(
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
+    ui_scale: Extract<Res<UiScale>>,
+    ui_stack: Extract<Res<UiStack>>,
+    uinode_query: Extract<
+        Query<
+            (
+                &Node,
+                &GlobalTransform,
+                &Style,
+                &BorderColor,
+                Option<&Parent>,
+                &ComputedVisibility,
+                Option<&CalculatedClip>,
+            ),
+            Without<ContentSize>,
+        >,
+    >,
+    parent_node_query: Extract<Query<&Node, With<Parent>>>,
+) {
+    let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
+
+    let viewport_size = windows
+        .get_single()
+        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .unwrap_or(Vec2::ZERO)
+        * ui_scale.scale as f32;
+
+    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok((uinode, global_transform, style, border_color, parent, visibility, clip)) =
+            uinode_query.get(*entity)
+        {
+            // Skip invisible borders
+            if !visibility.is_visible()
+                || border_color.0.a() == 0.0
+                || uinode.size().x <= 0.
+                || uinode.size().y <= 0.
+            {
+                continue;
+            }
+
+            // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+            // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+            let parent_width = parent
+                .and_then(|parent| parent_node_query.get(parent.get()).ok())
+                .map(|parent_node| parent_node.size().x)
+                .unwrap_or(viewport_size.x);
+            let left = resolve_border_thickness(style.border.left, parent_width, viewport_size);
+            let right = resolve_border_thickness(style.border.right, parent_width, viewport_size);
+            let top = resolve_border_thickness(style.border.top, parent_width, viewport_size);
+            let bottom = resolve_border_thickness(style.border.bottom, parent_width, viewport_size);
+
+            let border = [left, top, right, bottom];
+
+            let transform = global_transform.compute_matrix();
+
+            let border_radius = resolve_border_radius(
+                &style.border_radius,
+                uinode.calculated_size,
+                viewport_size,
+                ui_scale.scale,
+            );
+
+            let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
+
+            let transform = global_transform.compute_matrix();
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                stack_index,
+                // This translates the uinode's transform to the center of the current border rectangle
+                transform,
+                color: border_color.0,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.size(),
+                },
+                image: image.clone_weak(),
+                atlas_size: None,
+                clip: clip.map(|clip| clip.clip),
+                flip_x: false,
+                flip_y: false,
+                border_radius: resolve_border_radius(
+                    &style.border_radius,
+                    uinode.calculated_size,
+                    viewport_size,
+                    ui_scale.scale,
+                ),
+                border: [left, top, right, bottom],
+                is_shadow: false,
+                border_color: border_color.0
+            });
         }
     }
 }
