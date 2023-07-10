@@ -34,10 +34,10 @@ pub trait AssetLoader: Send + Sync + 'static {
 /// and scripts. In Bevy, an asset is any struct that has an unique type id, as shown below:
 ///
 /// ```rust
-/// use bevy_reflect::TypeUuid;
+/// use bevy_reflect::{TypePath, TypeUuid};
 /// use serde::Deserialize;
 ///
-/// #[derive(Debug, Deserialize, TypeUuid)]
+/// #[derive(Debug, Deserialize, TypeUuid, TypePath)]
 /// #[uuid = "39cadc56-aa9c-4543-8640-a018b74b5052"]
 /// pub struct CustomAsset {
 ///     pub value: i32,
