@@ -571,7 +571,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
                 generics,
             }
         }
-        NamedTypePathDef::Primtive(ref ident) => ReflectTypePath::Primitive(ident),
+        NamedTypePathDef::Primitive(ref ident) => ReflectTypePath::Primitive(ident),
     };
 
     let meta = ReflectMeta::new(type_path, ReflectTraits::default());
