@@ -12,7 +12,7 @@ use bevy_core::Name;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{Quat, Vec3};
-use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
@@ -27,7 +27,7 @@ pub mod prelude {
 }
 
 /// List of keyframes for one of the attribute of a [`Transform`].
-#[derive(Reflect, FromReflect, Clone, Debug)]
+#[derive(Reflect, Clone, Debug)]
 pub enum Keyframes {
     /// Keyframes for rotation.
     Rotation(Vec<Quat>),
@@ -49,7 +49,7 @@ pub enum Keyframes {
 /// Describes how an attribute of a [`Transform`] or [`MorphWeights`] should be animated.
 ///
 /// `keyframe_timestamps` and `keyframes` should have the same length.
-#[derive(Reflect, FromReflect, Clone, Debug)]
+#[derive(Reflect, Clone, Debug)]
 pub struct VariableCurve {
     /// Timestamp for each of the keyframes.
     pub keyframe_timestamps: Vec<f32>,
@@ -58,14 +58,14 @@ pub struct VariableCurve {
 }
 
 /// Path to an entity, with [`Name`]s. Each entity in a path must have a name.
-#[derive(Reflect, FromReflect, Clone, Debug, Hash, PartialEq, Eq, Default)]
+#[derive(Reflect, Clone, Debug, Hash, PartialEq, Eq, Default)]
 pub struct EntityPath {
     /// Parts of the path
     pub parts: Vec<Name>,
 }
 
 /// A list of [`VariableCurve`], and the [`EntityPath`] to which they apply.
-#[derive(Reflect, FromReflect, Clone, TypeUuid, Debug, Default)]
+#[derive(Reflect, Clone, TypeUuid, Debug, Default)]
 #[uuid = "d81b7179-0448-4eb0-89fe-c067222725bf"]
 pub struct AnimationClip {
     curves: Vec<Vec<VariableCurve>>,
@@ -606,6 +606,7 @@ impl Plugin for AnimationPlugin {
         app.add_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
+            .register_type::<PlayingAnimation>()
             .add_systems(
                 PostUpdate,
                 animation_player.before(TransformSystem::TransformPropagate),

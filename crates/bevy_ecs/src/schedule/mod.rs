@@ -239,7 +239,7 @@ mod tests {
                 partially_ordered == [8, 9, 10] || partially_ordered == [10, 8, 9],
                 "partially_ordered must be [8, 9, 10] or [10, 8, 9]"
             );
-            assert!(order.len() == 11, "must have exacty 11 order entries");
+            assert!(order.len() == 11, "must have exactly 11 order entries");
         }
     }
 

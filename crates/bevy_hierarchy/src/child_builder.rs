@@ -289,7 +289,7 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
 
 /// Trait for removing, adding and replacing children and parents of an entity.
 pub trait BuildChildren {
-    /// Takes a clousre which builds children for this entity using [`ChildBuilder`].
+    /// Takes a closure which builds children for this entity using [`ChildBuilder`].
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
     /// Pushes children to the back of the builder's children. For any entities that are
     /// already a child of this one, this method does nothing.
@@ -458,7 +458,7 @@ impl<'w> WorldChildBuilder<'w> {
 
 /// Trait that defines adding, changing and children and parents of an entity directly through the [`World`].
 pub trait BuildWorldChildren {
-    /// Takes a clousre which builds children for this entity using [`WorldChildBuilder`].
+    /// Takes a closure which builds children for this entity using [`WorldChildBuilder`].
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self;
 
     /// Adds a single child.

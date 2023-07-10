@@ -48,7 +48,7 @@ pub struct First;
 
 /// The schedule that contains logic that must run before [`Update`]. For example, a system that reads raw keyboard
 /// input OS events into an `Events` resource. This enables systems in [`Update`] to consume the events from the `Events`
-/// resource without actually knowing about (or taking a direct scheduler dependency on) the "os-level keyboard event sytsem".
+/// resource without actually knowing about (or taking a direct scheduler dependency on) the "os-level keyboard event system".
 ///
 /// [`PreUpdate`] exists to do "engine/plugin preparation work" that ensures the APIs consumed in [`Update`] are "ready".
 /// [`PreUpdate`] abstracts out "pre work implementation details".
