@@ -42,6 +42,8 @@ pub trait AssetLoader: Send + Sync + 'static {
 /// pub struct CustomAsset {
 ///     pub value: i32,
 /// }
+/// # fn is_asset<T: bevy_asset::Asset>() {}
+/// # is_asset::<CustomAsset>();
 /// ```
 ///
 /// See the `assets/custom_asset.rs` example in the repository for more details.
