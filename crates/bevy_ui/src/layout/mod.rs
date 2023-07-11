@@ -18,7 +18,7 @@ use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
-use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
+use taffy::{node::MeasureFunc, prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
 pub struct LayoutContext {
     pub scale_factor: f64,
@@ -275,8 +275,17 @@ pub fn ui_layout_system(
     }
 
     for (entity, mut content_size) in measure_query.iter_mut() {
-        if let Some(measure_func) = content_size.measure_func.take() {
-            ui_surface.update_measure(entity, measure_func);
+        if let Some(measure) = content_size.take() {
+            ui_surface.update_measure(
+                entity,
+                MeasureFunc::Boxed(Box::new(move |Size { width, height }, available| {
+                    let size = measure.measure(width, height, available.width, available.height);
+                    Size {
+                        width: size.x,
+                        height: size.y,
+                    }
+                })),
+            );
         }
     }
 

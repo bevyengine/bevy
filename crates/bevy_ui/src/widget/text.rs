@@ -1,4 +1,4 @@
-use crate::{ContentSize, FixedMeasure, Measure, Node, UiScale};
+use crate::{ContentSize, Node, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
     prelude::{Component, DetectChanges},
@@ -16,7 +16,6 @@ use bevy_text::{
     TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
-use taffy::style::AvailableSpace;
 
 /// Text system flags
 ///
@@ -39,39 +38,7 @@ impl Default for TextFlags {
     }
 }
 
-#[derive(Clone)]
-pub struct TextMeasure {
-    pub info: TextMeasureInfo,
-}
-
-impl Measure for TextMeasure {
-    fn measure(
-        &self,
-        width: Option<f32>,
-        height: Option<f32>,
-        available_width: AvailableSpace,
-        _available_height: AvailableSpace,
-    ) -> Vec2 {
-        let x = width.unwrap_or_else(|| match available_width {
-            AvailableSpace::Definite(x) => x.clamp(self.info.min.x, self.info.max.x),
-            AvailableSpace::MinContent => self.info.min.x,
-            AvailableSpace::MaxContent => self.info.max.x,
-        });
-
-        height
-            .map_or_else(
-                || match available_width {
-                    AvailableSpace::Definite(_) => self.info.compute_size(Vec2::new(x, f32::MAX)),
-                    AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
-                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
-                },
-                |y| Vec2::new(x, y),
-            )
-            .ceil()
-    }
-}
-
-#[inline]
+#[inline(always)]
 fn create_text_measure(
     fonts: &Assets<Font>,
     scale_factor: f64,
@@ -82,9 +49,10 @@ fn create_text_measure(
     match TextMeasureInfo::from_text(&text, fonts, scale_factor) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
-                content_size.set(FixedMeasure { size: measure.max });
+                let size = measure.max;
+                *content_size = ContentSize::Fixed { size };
             } else {
-                content_size.set(TextMeasure { info: measure });
+                *content_size = ContentSize::Text(measure);
             }
 
             // Text measure func created successfully, so set `TextFlags` to schedule a recompute
