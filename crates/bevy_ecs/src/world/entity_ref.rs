@@ -1,3 +1,5 @@
+use crate::component::ComponentDescriptor;
+use crate::relation::{rel, Relation};
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInfo, BundleInserter, DynamicBundle},
@@ -341,6 +343,30 @@ impl<'w> EntityMut<'w> {
         // SAFETY: location matches current entity. `T` matches `bundle_info`
         unsafe {
             self.location = bundle_inserter.insert(self.entity, self.location, bundle);
+        }
+
+        self
+    }
+
+    pub fn add_relation<R: Component>(&mut self, relation: R, target: Entity) -> &mut Self {
+        let change_tick = self.world.change_tick();
+        let relation_id = self.world.init_component::<R>().relation(target);
+        let (bundle_info, _) = self
+            .world
+            .bundles
+            .init_dynamic_info(&mut self.world.components, &[relation_id]);
+        let mut bundle_inserter = bundle_info.get_bundle_inserter(
+            &mut self.world.entities,
+            &mut self.world.archetypes,
+            &mut self.world.components,
+            &mut self.world.storages,
+            self.location.archetype_id,
+            change_tick,
+        );
+
+        unsafe {
+            self.location =
+                bundle_inserter.insert(self.entity, self.location, Relation { relation, target });
         }
 
         self

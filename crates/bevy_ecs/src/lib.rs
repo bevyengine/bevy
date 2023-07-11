@@ -15,6 +15,7 @@ pub mod event;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
+pub mod relation;
 pub mod removal_detection;
 pub mod schedule;
 pub mod storage;
@@ -1722,5 +1723,25 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    #[test]
+    fn spawn_relation() {
+        #[derive(Component)]
+        struct ChildOf;
+
+        let mut world = World::new();
+
+        let parent = world.spawn(()).id();
+        let mut child = world.spawn(());
+        let child = child.add_relation(ChildOf, parent);
+
+        assert!(child.contains_id(
+            child
+                .world()
+                .component_id::<ChildOf>()
+                .unwrap()
+                .relation(parent)
+        ));
     }
 }
