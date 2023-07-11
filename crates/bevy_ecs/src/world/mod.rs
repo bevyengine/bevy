@@ -122,14 +122,6 @@ impl World {
         UnsafeWorldCell::new_readonly(self)
     }
 
-    /// Creates a new [`UnsafeWorldCell`] with read+write access from a [&World](World).
-    /// This is only a temporary measure until every `&World` that is semantically a [`UnsafeWorldCell`]
-    /// has been replaced.
-    #[inline]
-    pub(crate) fn as_unsafe_world_cell_migration_internal(&self) -> UnsafeWorldCell<'_> {
-        UnsafeWorldCell::new_readonly(self)
-    }
-
     /// Retrieves this world's [Entities] collection
     #[inline]
     pub fn entities(&self) -> &Entities {
@@ -249,10 +241,19 @@ impl World {
     /// assert_eq!(position.x, 0.0);
     /// ```
     #[inline]
+    #[track_caller]
     pub fn entity(&self, entity: Entity) -> EntityRef {
-        // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
-        self.get_entity(entity)
-            .unwrap_or_else(|| panic!("Entity {entity:?} does not exist"))
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        fn panic_no_entity(entity: Entity) -> ! {
+            panic!("Entity {entity:?} does not exist");
+        }
+
+        match self.get_entity(entity) {
+            Some(entity) => entity,
+            None => panic_no_entity(entity),
+        }
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
@@ -275,10 +276,19 @@ impl World {
     /// position.x = 1.0;
     /// ```
     #[inline]
+    #[track_caller]
     pub fn entity_mut(&mut self, entity: Entity) -> EntityMut {
-        // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
-        self.get_entity_mut(entity)
-            .unwrap_or_else(|| panic!("Entity {entity:?} does not exist"))
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        fn panic_no_entity(entity: Entity) -> ! {
+            panic!("Entity {entity:?} does not exist");
+        }
+
+        match self.get_entity_mut(entity) {
+            Some(entity) => entity,
+            None => panic_no_entity(entity),
+        }
     }
 
     /// Returns the components of an [`Entity`](crate::entity::Entity) through [`ComponentInfo`](crate::component::ComponentInfo).

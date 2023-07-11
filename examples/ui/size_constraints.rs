@@ -94,13 +94,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..Default::default()
                         })
                         .with_children(|parent| {
-                            for constaint in [
+                            for constraint in [
                                 Constraint::MinWidth,
                                 Constraint::FlexBasis,
                                 Constraint::Width,
                                 Constraint::MaxWidth,
                             ] {
-                                spawn_button_row(parent, constaint, text_style.clone());
+                                spawn_button_row(parent, constraint, text_style.clone());
                             }
                         });
                 });
@@ -306,7 +306,7 @@ fn update_buttons(
     let mut style = bar_query.single_mut();
     for (button_id, interaction, constraint, value) in button_query.iter_mut() {
         match interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 button_activated_event.send(ButtonActivatedEvent(button_id));
                 match constraint {
                     Constraint::FlexBasis => {

@@ -1,6 +1,6 @@
 use crate::{
-    Font, FontAtlasSets, FontAtlasWarning, PositionedGlyph, Text, TextError, TextLayoutInfo,
-    TextPipeline, TextSettings, YAxisOrientation,
+    BreakLineOn, Font, FontAtlasSets, FontAtlasWarning, PositionedGlyph, Text, TextError,
+    TextLayoutInfo, TextPipeline, TextSettings, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_ecs::{
@@ -173,7 +173,11 @@ pub fn update_text2d_layout(
     for (entity, text, bounds, mut text_layout_info) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = Vec2::new(
-                scale_value(bounds.size.x, scale_factor),
+                if text.linebreak_behavior == BreakLineOn::NoWrap {
+                    f32::INFINITY
+                } else {
+                    scale_value(bounds.size.x, scale_factor)
+                },
                 scale_value(bounds.size.y, scale_factor),
             );
 

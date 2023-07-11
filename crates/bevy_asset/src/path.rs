@@ -1,6 +1,4 @@
-use bevy_reflect::{
-    FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
-};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -10,8 +8,8 @@ use std::{
 };
 
 /// Represents a path to an asset in the file system.
-#[derive(Eq, PartialEq, Hash, Clone, Serialize, Deserialize, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq, Hash, Serialize, Deserialize, FromReflect)]
+#[derive(Eq, PartialEq, Hash, Clone, Serialize, Deserialize, Reflect)]
+#[reflect(Debug, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     pub path: Cow<'a, Path>,
     pub label: Option<Cow<'a, str>>,

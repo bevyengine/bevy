@@ -22,7 +22,7 @@ impl Plugin for ColorMaterialPlugin {
             Shader::from_wgsl
         );
 
-        app.add_plugin(Material2dPlugin::<ColorMaterial>::default())
+        app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
             .register_asset_reflect::<ColorMaterial>();
 
         app.world.resource_mut::<Assets<ColorMaterial>>().insert(
@@ -36,7 +36,7 @@ impl Plugin for ColorMaterialPlugin {
 }
 
 /// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2dHandle) with a texture tinted by a uniform color
-#[derive(Asset, AsBindGroup, Reflect, FromReflect, Debug, Clone)]
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[reflect(Default, Debug)]
 #[uniform(0, ColorMaterialUniform)]
 pub struct ColorMaterial {

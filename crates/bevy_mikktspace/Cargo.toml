@@ -1,6 +1,6 @@
 [package]
 name = "bevy_mikktspace"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 authors = ["Benjamin Wasty <benny.wasty@gmail.com>", "David Harvey-Macaulay <alteous@outlook.com>", "Layl Bongers <LaylConway@users.noreply.github.com>"]
 description = "Mikkelsen tangent space algorithm"

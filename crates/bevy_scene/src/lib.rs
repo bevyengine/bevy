@@ -4,6 +4,7 @@ mod bundle;
 mod dynamic_scene;
 mod dynamic_scene_builder;
 mod scene;
+mod scene_filter;
 mod scene_loader;
 mod scene_spawner;
 
@@ -14,13 +15,15 @@ pub use bundle::*;
 pub use dynamic_scene::*;
 pub use dynamic_scene_builder::*;
 pub use scene::*;
+pub use scene_filter::*;
 pub use scene_loader::*;
 pub use scene_spawner::*;
 
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        DynamicScene, DynamicSceneBuilder, DynamicSceneBundle, Scene, SceneBundle, SceneSpawner,
+        DynamicScene, DynamicSceneBuilder, DynamicSceneBundle, Scene, SceneBundle, SceneFilter,
+        SceneSpawner,
     };
 }
 

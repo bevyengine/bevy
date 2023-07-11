@@ -12,7 +12,7 @@ pub use core::cell::UnsafeCell;
 /// This is just an `UnsafeCell`, except it implements `Sync`
 /// if `T` implements `Sync`.
 ///
-/// `UnsafeCell` doesn't implement `Sync`, to prevent accidental mis-use.
+/// `UnsafeCell` doesn't implement `Sync`, to prevent accidental misuse.
 /// You can use `SyncUnsafeCell` instead of `UnsafeCell` to allow it to be
 /// shared between threads, if that's intentional.
 /// Providing proper synchronization is still the task of the user,

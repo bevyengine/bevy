@@ -3,7 +3,7 @@ use bevy_ecs::{
     prelude::EventWriter,
     system::{Res, ResMut, Resource},
 };
-use bevy_reflect::{FromReflect, Reflect, Uuid};
+use bevy_reflect::{Reflect, Uuid};
 use bevy_utils::HashMap;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -15,18 +15,7 @@ use std::{
 };
 
 #[derive(
-    Debug,
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Hash,
-    Ord,
-    PartialOrd,
-    Reflect,
-    FromReflect,
-    Serialize,
-    Deserialize,
+    Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Reflect, Serialize, Deserialize,
 )]
 pub struct AssetIndex {
     pub(crate) generation: u32,

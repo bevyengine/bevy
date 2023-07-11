@@ -2,7 +2,7 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::Reflect;
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
@@ -81,13 +81,15 @@ impl Plugin for TonemappingPlugin {
             app.insert_resource(tonemapping_luts);
         }
 
-        app.add_plugin(ExtractResourcePlugin::<TonemappingLuts>::default());
+        app.add_plugins(ExtractResourcePlugin::<TonemappingLuts>::default());
 
         app.register_type::<Tonemapping>();
         app.register_type::<DebandDither>();
 
-        app.add_plugin(ExtractComponentPlugin::<Tonemapping>::default());
-        app.add_plugin(ExtractComponentPlugin::<DebandDither>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<Tonemapping>::default(),
+            ExtractComponentPlugin::<DebandDither>::default(),
+        ));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -113,17 +115,7 @@ pub struct TonemappingPipeline {
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
 #[derive(
-    Component,
-    Debug,
-    Hash,
-    Clone,
-    Copy,
-    Reflect,
-    Default,
-    ExtractComponent,
-    PartialEq,
-    Eq,
-    FromReflect,
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
@@ -300,17 +292,7 @@ pub fn queue_view_tonemapping_pipelines(
 }
 /// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
 #[derive(
-    Component,
-    Debug,
-    Hash,
-    Clone,
-    Copy,
-    Reflect,
-    Default,
-    ExtractComponent,
-    PartialEq,
-    Eq,
-    FromReflect,
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]

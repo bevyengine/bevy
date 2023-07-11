@@ -33,8 +33,10 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin::default().watch_for_changes()))
-        .add_plugin(PostProcessPlugin)
+        .add_plugins((
+            DefaultPlugins.set(AssetPlugin::default().watch_for_changes()),
+            PostProcessPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, update_settings))
         .run();
@@ -45,18 +47,19 @@ struct PostProcessPlugin;
 
 impl Plugin for PostProcessPlugin {
     fn build(&self, app: &mut App) {
-        app
+        app.add_plugins((
             // The settings will be a component that lives in the main world but will
             // be extracted to the render world every frame.
             // This makes it possible to control the effect from the main world.
             // This plugin will take care of extracting it automatically.
             // It's important to derive [`ExtractComponent`] on [`PostProcessingSettings`]
             // for this plugin to work correctly.
-            .add_plugin(ExtractComponentPlugin::<PostProcessSettings>::default())
+            ExtractComponentPlugin::<PostProcessSettings>::default(),
             // The settings will also be the data used in the shader.
             // This plugin will prepare the component for the GPU by creating a uniform buffer
             // and writing the data to that buffer every frame.
-            .add_plugin(UniformComponentPlugin::<PostProcessSettings>::default());
+            UniformComponentPlugin::<PostProcessSettings>::default(),
+        ));
 
         // We need to get the render app from the main app
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -75,7 +78,7 @@ impl Plugin for PostProcessPlugin {
             // Add a [`Node`] to the [`RenderGraph`]
             // The Node needs to impl FromWorld
             .add_render_graph_node::<PostProcessNode>(
-                // Specifiy the name of the graph, in this case we want the graph for 3d
+                // Specify the name of the graph, in this case we want the graph for 3d
                 core_3d::graph::NAME,
                 // It also needs the name of the node
                 PostProcessNode::NAME,

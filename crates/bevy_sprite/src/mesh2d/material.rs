@@ -148,7 +148,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+            .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

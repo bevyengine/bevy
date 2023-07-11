@@ -37,8 +37,8 @@ use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetProvider, AssetProviders},
     processor::AssetProcessor,
 };
-use bevy_app::{App, AppTypeRegistry, Plugin, PostUpdate, Startup};
-use bevy_ecs::{schedule::IntoSystemConfigs, world::FromWorld};
+use bevy_app::{App, Plugin, PostUpdate, Startup};
+use bevy_ecs::{reflect::AppTypeRegistry, schedule::IntoSystemConfigs, world::FromWorld};
 use bevy_log::error;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use std::{any::TypeId, sync::Arc};
@@ -279,11 +279,32 @@ impl AssetApp for App {
     }
 }
 
+// TODO: having the second parameter on this is not ideal
 #[macro_export]
 macro_rules! load_internal_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.insert($handle, ($loader)(include_str!($path_str)));
+        assets.insert($handle, ($loader)(
+            include_str!($path_str),
+            std::path::Path::new(file!())
+                .parent()
+                .unwrap()
+                .join($path_str)
+                .to_string_lossy()
+        ));
+    }};
+    // we can't support params without variadic arguments, so internal assets with additional params can't be hot-reloaded
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)+) => {{
+        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
+        assets.insert($handle, ($loader)(
+            include_str!($path_str),
+            std::path::Path::new(file!())
+                .parent()
+                .unwrap()
+                .join($path_str)
+                .to_string_lossy(),
+            $($param),+
+        ));
     }};
 }
 
@@ -291,7 +312,18 @@ macro_rules! load_internal_asset {
 macro_rules! load_internal_binary_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.insert($handle, ($loader)(include_bytes!($path_str).as_ref()));
+        assets.insert(
+            $handle,
+            ($loader)(
+                include_bytes!($path_str).as_ref(),
+                std::path::Path::new(file!())
+                    .parent()
+                    .unwrap()
+                    .join($path_str)
+                    .to_string_lossy()
+                    .into(),
+            ),
+        );
     }};
 }
 
@@ -397,12 +429,14 @@ mod tests {
             AssetProviders::default()
                 .with_reader("Test", move || Box::new(gated_memory_reader.clone())),
         )
-        .add_plugin(TaskPoolPlugin::default())
-        .add_plugin(LogPlugin::default())
-        .add_plugin(AssetPlugin::Unprocessed {
-            source: AssetProvider::Custom("Test".to_string()),
-            watch_for_changes: false,
-        });
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            LogPlugin::default(),
+            AssetPlugin::Unprocessed {
+                source: AssetProvider::Custom("Test".to_string()),
+                watch_for_changes: false,
+            },
+        ));
         (app, gate_opener)
     }
 

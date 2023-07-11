@@ -9,8 +9,10 @@ use bevy::{
 /// uniform variable.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<ArrayTextureMaterial>::default())
+        .add_plugins((
+            DefaultPlugins,
+            MaterialPlugin::<ArrayTextureMaterial>::default(),
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, create_array_texture)
         .run();

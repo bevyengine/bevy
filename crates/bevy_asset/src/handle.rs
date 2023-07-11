@@ -3,7 +3,7 @@ use crate::{
     UntypedAssetId,
 };
 use bevy_ecs::prelude::*;
-use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize, Uuid};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize, Uuid};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use std::{
@@ -107,7 +107,7 @@ impl std::fmt::Debug for InternalAssetHandle {
     }
 }
 
-#[derive(Component, Reflect, FromReflect)]
+#[derive(Component, Reflect)]
 #[reflect_value(Component, PartialEq, Hash, Serialize, Deserialize)]
 pub enum Handle<A: Asset> {
     Strong(Arc<InternalAssetHandle>),

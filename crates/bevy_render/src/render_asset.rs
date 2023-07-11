@@ -148,6 +148,10 @@ impl<A: RenderAsset> RenderAssets<A> {
     pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<A::PreparedAsset> {
         self.0.remove(&id.into())
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (AssetId<A>, &A::PreparedAsset)> {
+        self.0.iter().map(|(k, v)| (*k, v))
+    }
 }
 
 /// This system extracts all crated or modified assets of the corresponding [`RenderAsset`] type

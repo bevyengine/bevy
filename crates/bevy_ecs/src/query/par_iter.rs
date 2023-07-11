@@ -1,5 +1,4 @@
-use crate::{component::Tick, world::World};
-use bevy_tasks::ComputeTaskPool;
+use crate::{component::Tick, world::unsafe_world_cell::UnsafeWorldCell};
 use std::ops::Range;
 
 use super::{QueryItem, QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery};
@@ -34,6 +33,8 @@ pub struct BatchingStrategy {
     /// increase the scheduling overhead for the iteration.
     ///
     /// Defaults to 1.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     pub batches_per_thread: usize,
 }
 
@@ -82,7 +83,7 @@ impl BatchingStrategy {
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
 pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
-    pub(crate) world: &'w World,
+    pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<Q, F>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
@@ -147,27 +148,37 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub unsafe fn for_each_unchecked<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
-        &self,
-        func: FN,
-    ) {
-        let thread_count = ComputeTaskPool::get().thread_num();
-        if thread_count <= 1 {
+    unsafe fn for_each_unchecked<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&self, func: FN) {
+        #[cfg(any(target = "wasm32", not(feature = "multi-threaded")))]
+        {
             self.state
                 .for_each_unchecked_manual(self.world, func, self.last_run, self.this_run);
-        } else {
-            // Need a batch size of at least 1.
-            let batch_size = self.get_batch_size(thread_count).max(1);
-            self.state.par_for_each_unchecked_manual(
-                self.world,
-                batch_size,
-                func,
-                self.last_run,
-                self.this_run,
-            );
+        }
+        #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+        {
+            let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
+            if thread_count <= 1 {
+                self.state.for_each_unchecked_manual(
+                    self.world,
+                    func,
+                    self.last_run,
+                    self.this_run,
+                );
+            } else {
+                // Need a batch size of at least 1.
+                let batch_size = self.get_batch_size(thread_count).max(1);
+                self.state.par_for_each_unchecked_manual(
+                    self.world,
+                    batch_size,
+                    func,
+                    self.last_run,
+                    self.this_run,
+                );
+            }
         }
     }
 
+    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
         if self.batching_strategy.batch_size_limits.is_empty() {
             return self.batching_strategy.batch_size_limits.start;
@@ -178,7 +189,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
             "Attempted to run parallel iteration over a query with an empty TaskPool"
         );
         let max_size = if Q::IS_DENSE && F::IS_DENSE {
-            let tables = &self.world.storages().tables;
+            // SAFETY: We only access table metadata.
+            let tables = unsafe { &self.world.world_metadata().storages().tables };
             self.state
                 .matched_table_ids
                 .iter()

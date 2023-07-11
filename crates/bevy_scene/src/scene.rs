@@ -1,9 +1,8 @@
 use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
-use bevy_app::AppTypeRegistry;
 use bevy_asset::Asset;
 use bevy_ecs::{
     entity::EntityMap,
-    reflect::{ReflectComponent, ReflectMapEntities, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
 use bevy_reflect::TypePath;

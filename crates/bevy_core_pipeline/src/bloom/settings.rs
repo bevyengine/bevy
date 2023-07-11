@@ -119,7 +119,7 @@ impl BloomSettings {
         composite_mode: BloomCompositeMode::EnergyConserving,
     };
 
-    /// A preset that's similiar to how older games did bloom.
+    /// A preset that's similar to how older games did bloom.
     pub const OLD_SCHOOL: Self = Self {
         intensity: 0.05,
         low_frequency_boost: 0.7,
@@ -159,7 +159,7 @@ impl Default for BloomSettings {
 /// # Considerations
 /// * Changing these settings creates a physically inaccurate image
 /// * Changing these settings makes it easy to make the final result look worse
-/// * Non-default prefilter settings should be used in conjuction with [`BloomCompositeMode::Additive`]
+/// * Non-default prefilter settings should be used in conjunction with [`BloomCompositeMode::Additive`]
 #[derive(Default, Clone, Reflect)]
 pub struct BloomPrefilterSettings {
     /// Baseline of the quadratic threshold curve (default: 0.0).

@@ -387,7 +387,7 @@ pub struct Cascades {
     pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
 }
 
-#[derive(Clone, Debug, Default, Reflect, FromReflect)]
+#[derive(Clone, Debug, Default, Reflect)]
 pub struct Cascade {
     /// The transform of the light, i.e. the view to world matrix.
     pub(crate) view_transform: Mat4,
@@ -627,7 +627,7 @@ pub enum SimulationLightSystems {
 
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
 /// rendering
-#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Reflect)]
 pub enum ClusterFarZMode {
     /// Calculate the required maximum z-depth based on currently visible lights.
     /// Makes better use of available clusters, speeding up GPU lighting operations
@@ -639,7 +639,7 @@ pub enum ClusterFarZMode {
 }
 
 /// Configure the depth-slicing strategy for clustered forward rendering
-#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Reflect)]
 #[reflect(Default)]
 pub struct ClusterZConfig {
     /// Far `Z` plane of the first depth slice

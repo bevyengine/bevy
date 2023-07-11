@@ -1,6 +1,5 @@
-use bevy_asset::Asset;
+use bevy_ecs::component::Component;
 use bevy_math::Vec3;
-use bevy_reflect::TypePath;
 use bevy_transform::prelude::Transform;
 use rodio::{Sink, SpatialSink};
 
@@ -66,29 +65,13 @@ pub trait AudioSinkPlayback {
     fn empty(&self) -> bool;
 }
 
-/// Asset controlling the playback of a sound
+/// Used to control audio during playback.
 ///
-/// ```
-/// # use bevy_ecs::system::{Local, Res};
-/// # use bevy_asset::{Assets, Handle};
-/// # use bevy_audio::{AudioSink, AudioSinkPlayback};
-/// // Execution of this system should be controlled by a state or input,
-/// // otherwise it would just toggle between play and pause every frame.
-/// fn pause(
-///     audio_sinks: Res<Assets<AudioSink>>,
-///     music_controller: Local<Handle<AudioSink>>,
-/// ) {
-///     if let Some(sink) = audio_sinks.get(&*music_controller) {
-///         if sink.is_paused() {
-///             sink.play()
-///         } else {
-///             sink.pause()
-///         }
-///     }
-/// }
-/// ```
+/// Bevy inserts this component onto your entities when it begins playing an audio source.
+/// Use [`AudioBundle`][crate::AudioBundle] to trigger that to happen.
 ///
-#[derive(Asset, TypePath)]
+/// You can use this component to modify the playback settings while the audio is playing.
+#[derive(Component)]
 pub struct AudioSink {
     // This field is an Option in order to allow us to have a safe drop that will detach the sink.
     // It will never be None during its life
@@ -139,26 +122,13 @@ impl AudioSinkPlayback for AudioSink {
     }
 }
 
-/// Asset controlling the playback of a sound, or the locations of its listener and emitter.
+/// Used to control spatial audio during playback.
 ///
-/// ```
-/// # use bevy_ecs::system::{Local, Res};
-/// # use bevy_asset::{Assets, Handle};
-/// # use bevy_audio::SpatialAudioSink;
-/// # use bevy_math::Vec3;
-/// // Execution of this system should be controlled by a state or input,
-/// // otherwise it would just trigger every frame.
-/// fn pause(
-///     spatial_audio_sinks: Res<Assets<SpatialAudioSink>>,
-///     audio_controller: Local<Handle<SpatialAudioSink>>,
-/// ) {
-///     if let Some(spatial_sink) = spatial_audio_sinks.get(&*audio_controller) {
-///         spatial_sink.set_emitter_position(Vec3::new(1.0, 0.5, 1.0));
-///     }
-/// }
-/// ```
+/// Bevy inserts this component onto your entities when it begins playing an audio source.
+/// Use [`SpatialAudioBundle`][crate::SpatialAudioBundle] to trigger that to happen.
 ///
-#[derive(Asset, TypePath)]
+/// You can use this component to modify the playback settings while the audio is playing.
+#[derive(Component)]
 pub struct SpatialAudioSink {
     // This field is an Option in order to allow us to have a safe drop that will detach the sink.
     // It will never be None during its life

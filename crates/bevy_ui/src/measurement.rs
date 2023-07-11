@@ -4,6 +4,7 @@ use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use std::fmt::Formatter;
 pub use taffy::style::AvailableSpace;
+use taffy::{node::MeasureFunc, prelude::Size as TaffySize};
 
 impl std::fmt::Debug for ContentSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -28,7 +29,7 @@ pub trait Measure: Send + Sync + 'static {
 /// always returns the same size.
 #[derive(Default, Clone)]
 pub struct FixedMeasure {
-    size: Vec2,
+    pub size: Vec2,
 }
 
 impl Measure for FixedMeasure {
@@ -50,33 +51,27 @@ impl Measure for FixedMeasure {
 pub struct ContentSize {
     /// The `Measure` used to compute the intrinsic size
     #[reflect(ignore)]
-    pub(crate) measure_func: Option<taffy::node::MeasureFunc>,
+    pub(crate) measure_func: Option<MeasureFunc>,
 }
 
 impl ContentSize {
     /// Set a `Measure` for this function
     pub fn set(&mut self, measure: impl Measure) {
-        let measure_func =
-            move |size: taffy::prelude::Size<Option<f32>>,
-                  available: taffy::prelude::Size<AvailableSpace>| {
-                let size =
-                    measure.measure(size.width, size.height, available.width, available.height);
-                taffy::prelude::Size {
-                    width: size.x,
-                    height: size.y,
-                }
-            };
-        self.measure_func = Some(taffy::node::MeasureFunc::Boxed(Box::new(measure_func)));
+        let measure_func = move |size: TaffySize<_>, available: TaffySize<_>| {
+            let size = measure.measure(size.width, size.height, available.width, available.height);
+            TaffySize {
+                width: size.x,
+                height: size.y,
+            }
+        };
+        self.measure_func = Some(MeasureFunc::Boxed(Box::new(measure_func)));
     }
 }
 
-#[allow(clippy::derivable_impls)]
 impl Default for ContentSize {
     fn default() -> Self {
         Self {
-            measure_func: Some(taffy::node::MeasureFunc::Raw(|_, _| {
-                taffy::prelude::Size::ZERO
-            })),
+            measure_func: Some(MeasureFunc::Raw(|_, _| TaffySize::ZERO)),
         }
     }
 }

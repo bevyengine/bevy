@@ -1,5 +1,5 @@
 use crate::{Asset, AssetIndex, Handle, UntypedHandle};
-use bevy_reflect::{FromReflect, Reflect, Uuid};
+use bevy_reflect::{Reflect, Uuid};
 use serde::{Deserialize, Serialize};
 use std::{
     any::TypeId,
@@ -7,7 +7,7 @@ use std::{
     hash::Hash,
     marker::PhantomData,
 };
-#[derive(Reflect, FromReflect, Serialize, Deserialize)]
+#[derive(Reflect, Serialize, Deserialize)]
 pub enum AssetId<A: Asset> {
     Index {
         index: AssetIndex,

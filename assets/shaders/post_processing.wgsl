@@ -20,7 +20,7 @@
 // As you can see, the triangle ends up bigger than the screen.
 //
 // You don't need to worry about this too much since bevy will compute the correct UVs for you.
-#import bevy_core_pipeline::fullscreen_vertex_shader
+#import bevy_core_pipeline::fullscreen_vertex_shader FullscreenVertexOutput
 
 @group(0) @binding(0)
 var screen_texture: texture_2d<f32>;

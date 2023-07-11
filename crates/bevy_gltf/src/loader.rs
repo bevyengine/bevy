@@ -20,6 +20,7 @@ use bevy_render::{
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
     color::Color,
     mesh::{
+        morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         Indices, Mesh, MeshVertexAttribute, VertexAttributeValues,
     },
@@ -37,10 +38,12 @@ use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
+    accessor::Iter,
     mesh::{util::ReadIndices, Mode},
     texture::{MagFilter, MinFilter, WrappingMode},
     Material, Node, Primitive,
 };
+use serde::Deserialize;
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},
@@ -72,6 +75,8 @@ pub enum GltfError {
     MissingAnimationSampler(usize),
     #[error("failed to generate tangents: {0}")]
     GenerateTangentsError(#[from] bevy_render::mesh::GenerateTangentsError),
+    #[error("failed to generate morph targets: {0}")]
+    MorphTarget(#[from] bevy_render::mesh::morph::MorphBuildError),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -155,6 +160,8 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
+        use bevy_animation::Keyframes;
+        use gltf::animation::util::ReadOutputs;
         let mut animations = vec![];
         let mut named_animations = HashMap::default();
         let mut animation_roots = HashSet::default();
@@ -185,20 +192,17 @@ async fn load_gltf<'a, 'b, 'c>(
 
                 let keyframes = if let Some(outputs) = reader.read_outputs() {
                     match outputs {
-                        gltf::animation::util::ReadOutputs::Translations(tr) => {
-                            bevy_animation::Keyframes::Translation(tr.map(Vec3::from).collect())
+                        ReadOutputs::Translations(tr) => {
+                            Keyframes::Translation(tr.map(Vec3::from).collect())
                         }
-                        gltf::animation::util::ReadOutputs::Rotations(rots) => {
-                            bevy_animation::Keyframes::Rotation(
-                                rots.into_f32().map(bevy_math::Quat::from_array).collect(),
-                            )
+                        ReadOutputs::Rotations(rots) => Keyframes::Rotation(
+                            rots.into_f32().map(bevy_math::Quat::from_array).collect(),
+                        ),
+                        ReadOutputs::Scales(scale) => {
+                            Keyframes::Scale(scale.map(Vec3::from).collect())
                         }
-                        gltf::animation::util::ReadOutputs::Scales(scale) => {
-                            bevy_animation::Keyframes::Scale(scale.map(Vec3::from).collect())
-                        }
-                        gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => {
-                            warn!("Morph animation property not yet supported");
-                            continue;
+                        ReadOutputs::MorphTargetWeights(weights) => {
+                            Keyframes::Weights(weights.into_f32().collect())
                         }
                     }
                 } else {
@@ -315,10 +319,10 @@ async fn load_gltf<'a, 'b, 'c>(
 
     let mut meshes = vec![];
     let mut named_meshes = HashMap::default();
-    for mesh in gltf.meshes() {
+    for gltf_mesh in gltf.meshes() {
         let mut primitives = vec![];
-        for primitive in mesh.primitives() {
-            let primitive_label = primitive_label(&mesh, &primitive);
+        for primitive in gltf_mesh.primitives() {
+            let primitive_label = primitive_label(&gltf_mesh, &primitive);
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
             let mut mesh = Mesh::new(primitive_topology);
@@ -345,6 +349,27 @@ async fn load_gltf<'a, 'b, 'c>(
                     ReadIndices::U32(is) => Indices::U32(is.collect()),
                 }));
             };
+
+            {
+                let morph_target_reader = reader.read_morph_targets();
+                if morph_target_reader.len() != 0 {
+                    let morph_targets_label = morph_targets_label(&gltf_mesh, &primitive);
+                    let morph_target_image = MorphTargetImage::new(
+                        morph_target_reader.map(PrimitiveMorphAttributesIter),
+                        mesh.count_vertices(),
+                    )?;
+                    let handle =
+                        load_context.add_labeled_asset(morph_targets_label, morph_target_image.0);
+
+                    mesh.set_morph_targets(handle);
+                    let extras = gltf_mesh.extras().as_ref();
+                    if let Option::<MorphTargetNames>::Some(names) =
+                        extras.and_then(|extras| serde_json::from_str(extras.get()).ok())
+                    {
+                        mesh.set_morph_target_names(names.target_names);
+                    }
+                }
+            }
 
             if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
                 && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
@@ -395,13 +420,13 @@ async fn load_gltf<'a, 'b, 'c>(
         }
 
         let handle = load_context.add_labeled_asset(
-            mesh_label(&mesh),
+            mesh_label(&gltf_mesh),
             super::GltfMesh {
                 primitives,
-                extras: get_gltf_extras(mesh.extras()),
+                extras: get_gltf_extras(gltf_mesh.extras()),
             },
         );
-        if let Some(name) = mesh.name() {
+        if let Some(name) = gltf_mesh.name() {
             named_meshes.insert(name.to_string(), handle.clone());
         }
         meshes.push(handle);
@@ -771,6 +796,19 @@ fn load_node(
     // Map node index to entity
     node_index_to_entity_map.insert(gltf_node.index(), node.id());
 
+    if let Some(mesh) = gltf_node.mesh() {
+        if let Some(weights) = mesh.weights() {
+            let first_mesh = if let Some(primitive) = mesh.primitives().next() {
+                let primitive_label = primitive_label(&mesh, &primitive);
+                let handle: Handle<Mesh> = load_context.get_label_handle(&primitive_label);
+                Some(handle)
+            } else {
+                None
+            };
+            node.insert(MorphWeights::new(weights.to_vec(), first_mesh)?);
+        }
+    };
+
     node.with_children(|parent| {
         if let Some(mesh) = gltf_node.mesh() {
             // append primitives
@@ -794,6 +832,20 @@ fn load_node(
                     material: load_context.get_label_handle(&material_label),
                     ..Default::default()
                 });
+                let target_count = primitive.morph_targets().len();
+                if target_count != 0 {
+                    let weights = match mesh.weights() {
+                        Some(weights) => weights.to_vec(),
+                        None => vec![0.0; target_count],
+                    };
+                    // unwrap: the parent's call to `MeshMorphWeights::new`
+                    // means this code doesn't run if it returns an `Err`.
+                    // According to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#morph-targets
+                    // they should all have the same length.
+                    // > All morph target accessors MUST have the same count as
+                    // > the accessors of the original primitive.
+                    mesh_entity.insert(MeshMorphWeights::new(weights).unwrap());
+                }
                 mesh_entity.insert(Aabb::from_min_max(
                     Vec3::from_slice(&bounds.min),
                     Vec3::from_slice(&bounds.max),
@@ -804,9 +856,8 @@ fn load_node(
                         value: extras.get().to_string(),
                     });
                 }
-                if let Some(name) = mesh.name() {
-                    mesh_entity.insert(Name::new(name.to_string()));
-                }
+
+                mesh_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
                 // Mark for adding skinned mesh
                 if let Some(skin) = gltf_node.skin() {
                     entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
@@ -920,6 +971,24 @@ fn mesh_label(mesh: &gltf::Mesh) -> String {
 /// Returns the label for the `mesh` and `primitive`.
 fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
     format!("Mesh{}/Primitive{}", mesh.index(), primitive.index())
+}
+
+fn primitive_name(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
+    let mesh_name = mesh.name().unwrap_or("Mesh");
+    if mesh.primitives().len() > 1 {
+        format!("{}.{}", mesh_name, primitive.index())
+    } else {
+        mesh_name.to_string()
+    }
+}
+
+/// Returns the label for the morph target of `primitive`.
+fn morph_targets_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
+    format!(
+        "Mesh{}/Primitive{}/MorphTargets",
+        mesh.index(),
+        primitive.index()
+    )
 }
 
 /// Returns the label for the `material`.
@@ -1183,6 +1252,38 @@ impl<'a> DataUri<'a> {
             Ok(self.data.as_bytes().to_owned())
         }
     }
+}
+
+pub(super) struct PrimitiveMorphAttributesIter<'s>(
+    pub  (
+        Option<Iter<'s, [f32; 3]>>,
+        Option<Iter<'s, [f32; 3]>>,
+        Option<Iter<'s, [f32; 3]>>,
+    ),
+);
+impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
+    type Item = MorphAttributes;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let position = self.0 .0.as_mut().and_then(|p| p.next());
+        let normal = self.0 .1.as_mut().and_then(|n| n.next());
+        let tangent = self.0 .2.as_mut().and_then(|t| t.next());
+        if position.is_none() && normal.is_none() && tangent.is_none() {
+            return None;
+        }
+
+        Some(MorphAttributes {
+            position: position.map(|p| p.into()).unwrap_or(Vec3::ZERO),
+            normal: normal.map(|n| n.into()).unwrap_or(Vec3::ZERO),
+            tangent: tangent.map(|t| t.into()).unwrap_or(Vec3::ZERO),
+        })
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MorphTargetNames {
+    pub target_names: Vec<String>,
 }
 
 #[cfg(test)]

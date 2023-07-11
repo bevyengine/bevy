@@ -1,6 +1,6 @@
 [package]
 name = "bevy_macro_utils"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"

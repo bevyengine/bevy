@@ -13,10 +13,14 @@ use bevy::{
     window::WindowPlugin,
 };
 
+#[cfg(feature = "animation")]
+mod animation_plugin;
 mod camera_controller_plugin;
+mod morph_viewer_plugin;
 mod scene_viewer_plugin;
 
 use camera_controller_plugin::{CameraController, CameraControllerPlugin};
+use morph_viewer_plugin::MorphViewerPlugin;
 use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 
 fn main() {
@@ -28,7 +32,7 @@ fn main() {
     .insert_resource(AssetProviders::default().with_default_file_source(
         std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
     ))
-    .add_plugins(
+    .add_plugins((
         DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window {
@@ -38,11 +42,15 @@ fn main() {
                 ..default()
             })
             .set(AssetPlugin::default().watch_for_changes()),
-    )
-    .add_plugin(CameraControllerPlugin)
-    .add_plugin(SceneViewerPlugin)
+        CameraControllerPlugin,
+        SceneViewerPlugin,
+        MorphViewerPlugin,
+    ))
     .add_systems(Startup, setup)
     .add_systems(PreUpdate, setup_scene_after_load);
+
+    #[cfg(feature = "animation")]
+    app.add_plugins(animation_plugin::AnimationManipulationPlugin);
 
     app.run();
 }

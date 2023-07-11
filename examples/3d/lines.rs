@@ -15,8 +15,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<LineMaterial>::default())
+        .add_plugins((DefaultPlugins, MaterialPlugin::<LineMaterial>::default()))
         .add_systems(Startup, setup)
         .run();
 }

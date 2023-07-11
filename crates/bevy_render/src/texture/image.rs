@@ -15,7 +15,7 @@ use bevy_asset::Asset;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::Reflect;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use thiserror::Error;
@@ -101,7 +101,7 @@ impl ImageFormat {
     }
 }
 
-#[derive(Asset, Reflect, FromReflect, Debug, Clone)]
+#[derive(Asset, Reflect, Debug, Clone)]
 #[reflect_value]
 pub struct Image {
     pub data: Vec<u8>,
