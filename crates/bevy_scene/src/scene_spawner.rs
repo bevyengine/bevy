@@ -5,7 +5,7 @@ use bevy_ecs::{
     event::{Events, ManualEventReader},
     reflect::AppTypeRegistry,
     system::{Command, Resource},
-    world::{Mut, World},
+    world::{Mut, World}, prelude::Component,
 };
 use bevy_hierarchy::{AddChild, Parent};
 use bevy_utils::{tracing::error, HashMap, HashSet};
@@ -27,6 +27,9 @@ impl InstanceId {
         InstanceId(Uuid::new_v4())
     }
 }
+
+#[derive(Component)]
+pub struct ValidScene;
 
 #[derive(Default, Resource)]
 pub struct SceneSpawner {
@@ -132,6 +135,9 @@ impl SceneSpawner {
             .entry(scene_handle.clone())
             .or_insert_with(Vec::new);
         spawned.push(instance_id);
+
+        world.spawn(ValidScene);
+
         Ok(())
     }
 
@@ -182,6 +188,9 @@ impl SceneSpawner {
                 .entry(scene_handle)
                 .or_insert_with(Vec::new);
             spawned.push(instance_id);
+
+            world.spawn(ValidScene);
+
             Ok(instance_id)
         })
     }
