@@ -74,6 +74,19 @@ pub struct GltfLoader {
     pub(crate) custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
 }
 
+impl GltfLoader {
+    /// Creates a new glTF loader.
+    pub fn new(
+        supported_compressed_formats: CompressedImageFormats,
+        custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
+    ) -> Self {
+        GltfLoader {
+            supported_compressed_formats,
+            custom_vertex_attributes,
+        }
+    }
+}
+
 impl AssetLoader for GltfLoader {
     fn load<'a>(
         &'a self,
