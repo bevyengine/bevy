@@ -3,9 +3,10 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
     event::{Events, ManualEventReader},
+    prelude::Component,
     reflect::AppTypeRegistry,
     system::{Command, Resource},
-    world::{Mut, World}, prelude::Component,
+    world::{Mut, World},
 };
 use bevy_hierarchy::{AddChild, Parent};
 use bevy_utils::{tracing::error, HashMap, HashSet};
