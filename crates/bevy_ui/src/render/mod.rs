@@ -149,6 +149,13 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
     ui_graph
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum NodeType {
+    Rect,
+    Shadow,
+    Border,
+}
+
 pub struct ExtractedUiNode {
     pub stack_index: usize,
     pub transform: Mat4,
@@ -161,8 +168,7 @@ pub struct ExtractedUiNode {
     pub flip_y: bool,
     pub border_radius: [f32; 4],
     pub border: [f32; 4],
-    pub border_color: Color,
-    pub is_shadow: bool,
+    pub node_type: NodeType,
 }
 
 #[derive(Resource, Default)]
@@ -261,8 +267,6 @@ pub fn extract_uinodes(
             &GlobalTransform,
             &Style,
             &BackgroundColor,
-            Option<&BorderColor>,
-            Option<&Parent>,
             &ComputedVisibility,
             Option<&CalculatedClip>,
             Option<&UiShadow>,
@@ -287,8 +291,6 @@ pub fn extract_uinodes(
             global_transform,
             style,
             background_color,
-            maybe_border_color,
-            parent,
             visibility,
             clip,
             maybe_shadow,
@@ -360,22 +362,6 @@ pub fn extract_uinodes(
             };
 
 
-            let border_color =
-                maybe_border_color.map_or(Color::NONE, |background_color| background_color.0);
-
-            // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
-            // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-            let parent_width = parent
-                .and_then(|parent| parent_node_query.get(parent.get()).ok())
-                .map(|parent_node| parent_node.size().x)
-                .unwrap_or(viewport_size.x);
-            let left = resolve_border_thickness(style.border.left, parent_width, viewport_size);
-            let right = resolve_border_thickness(style.border.right, parent_width, viewport_size);
-            let top = resolve_border_thickness(style.border.top, parent_width, viewport_size);
-            let bottom = resolve_border_thickness(style.border.bottom, parent_width, viewport_size);
-
-            let border = [left, top, right, bottom];
-
             let transform = global_transform.compute_matrix();
 
             let border_radius = resolve_border_radius(
@@ -384,8 +370,6 @@ pub fn extract_uinodes(
                 viewport_size,
                 ui_scale.scale,
             );
-
-            let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
 
             if let Some(shadow) = maybe_shadow {
                 let shadow_blur_radius = 10.;
@@ -416,8 +400,7 @@ pub fn extract_uinodes(
                         shadow_blur_radius,
                         shadow_blur_radius,
                     ],
-                    border_color: Color::RED,
-                    is_shadow: true,
+                    node_type: NodeType::Shadow
                 };
                 extracted_uinodes.uinodes.push(extracted_node);
             }
@@ -433,9 +416,8 @@ pub fn extract_uinodes(
                 flip_x,
                 flip_y,
                 border_radius,
-                border,
-                border_color,
-                is_shadow: false,
+                border: [0.; 4],
+                node_type: NodeType::Rect,
             };
             extracted_uinodes.uinodes.push(extracted_node);
         }
@@ -530,8 +512,7 @@ pub fn extract_uinode_borders(
                     ui_scale.scale,
                 ),
                 border: [left, top, right, bottom],
-                is_shadow: false,
-                border_color: border_color.0
+                node_type: NodeType::Border
             });
         }
     }
@@ -661,9 +642,8 @@ pub fn extract_text_uinodes(
                     flip_x: false,
                     flip_y: false,
                     border_radius: [0.; 4],
-                    border: [0.; 4],
-                    border_color: Color::NONE,
-                    is_shadow: false,
+                    border: [0.; 4],                    
+                    node_type: NodeType::Rect,
                 });
             }
         }
@@ -680,7 +660,6 @@ struct UiVertex {
     pub radius: [f32; 4],
     pub border: [f32; 4],
     pub size: [f32; 2],
-    pub border_color: [f32; 4],
 }
 
 #[derive(Resource)]
@@ -731,6 +710,7 @@ pub mod shader_flags {
         // bottom left
         16,
     ];
+    pub const BORDER: u32 = 32;
 }
 
 pub fn prepare_uinodes(
@@ -836,7 +816,7 @@ pub fn prepare_uinodes(
             }
         }
         let uvs = {
-            if !is_textured(&current_batch_image) {
+            if flags == shader_flags::UNTEXTURED_QUAD {
                 [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
             } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
@@ -876,9 +856,12 @@ pub fn prepare_uinodes(
         }};
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
-        if extracted_uinode.is_shadow {
-            flags |= shader_flags::BOX_SHADOW;
+        match extracted_uinode.node_type {    
+            NodeType::Border => flags |= shader_flags::BORDER,
+            NodeType::Shadow => flags |= shader_flags::BOX_SHADOW,
+            _ => {}
         }
+        
         for i in 0..4 {
             let ui_vertex = UiVertex {
                 position: positions_clipped[i].into(),
@@ -888,7 +871,6 @@ pub fn prepare_uinodes(
                 radius: extracted_uinode.border_radius,
                 border: extracted_uinode.border,
                 size: transformed_rect_size.xy().into(),
-                border_color: extracted_uinode.border_color.as_linear_rgba_f32(),
             };
             ui_meta.vertices.push(ui_vertex);
         }
@@ -912,7 +894,7 @@ pub fn prepare_uinodes(
     }
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
-    ui_meta.indices.write_buffer(&render_device, &render_queue)
+    ui_meta.indices.write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Resource, Default)]

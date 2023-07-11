@@ -98,6 +98,11 @@ fn setup(mut commands: Commands) {
             .id();
         let border = borders[i % borders.len()];
         let border_radius = UiBorderRadius::px(
+            if border.left != Val::Px(0.) && border.top != Val::Px(0.) {
+                f32::MAX
+            } else {
+                0.
+            },
             if border.right != Val::Px(0.) && border.top != Val::Px(0.) {
                 f32::MAX
             } else {
@@ -109,11 +114,6 @@ fn setup(mut commands: Commands) {
                 0.
             },
             if border.left != Val::Px(0.) && border.bottom != Val::Px(0.) {
-                f32::MAX
-            } else {
-                0.
-            },
-            if border.left != Val::Px(0.) && border.top != Val::Px(0.) {
                 f32::MAX
             } else {
                 0.

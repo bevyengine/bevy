@@ -85,8 +85,6 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x4,
                 // size
                 VertexFormat::Float32x2,
-                // border color
-                VertexFormat::Float32x4,
             ],
         );
         let shader_defs = Vec::new();
