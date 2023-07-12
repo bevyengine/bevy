@@ -46,7 +46,7 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
 use renderer::{
     sync_render_statistics, RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue,
-    RenderStatistics, RenderStatisticsMutex,
+    RenderStatistics, RenderStatisticsMutex, StatisticsRecorder,
 };
 use wgpu::Instance;
 
@@ -380,6 +380,7 @@ impl Plugin for RenderPlugin {
             render_app
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(PipelineCache::new(device.clone()))
+                .insert_resource(StatisticsRecorder::new(&device, &queue))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)

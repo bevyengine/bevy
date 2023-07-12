@@ -28,32 +28,41 @@ pub fn render_system(world: &mut World) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
     });
+
+    let statistics_recorder = world.remove_resource::<StatisticsRecorder>().unwrap();
+
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
 
-    if let Err(e) = RenderGraphRunner::run(
+    match RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
+        statistics_recorder,
         &render_queue.0,
         world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
         },
     ) {
-        error!("Error running render graph:");
-        {
-            let mut src: &dyn std::error::Error = &e;
-            loop {
-                error!("> {}", src);
-                match src.source() {
-                    Some(s) => src = s,
-                    None => break,
+        Ok(statistics_recorder) => {
+            world.insert_resource(statistics_recorder);
+        }
+        Err(e) => {
+            error!("Error running render graph:");
+            {
+                let mut src: &dyn std::error::Error = &e;
+                loop {
+                    error!("> {}", src);
+                    match src.source() {
+                        Some(s) => src = s,
+                        None => break,
+                    }
                 }
             }
-        }
 
-        panic!("Error running render graph: {e}");
+            panic!("Error running render graph: {e}");
+        }
     }
 
     {
@@ -298,8 +307,7 @@ pub struct RenderContext {
 
 impl RenderContext {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
-    pub fn new(render_device: RenderDevice, queue: &Queue) -> Self {
-        let statistics_recorder = StatisticsRecorder::new(&render_device, queue);
+    pub fn new(render_device: RenderDevice, statistics_recorder: StatisticsRecorder) -> Self {
         Self {
             render_device,
             command_encoder: None,
@@ -311,11 +319,6 @@ impl RenderContext {
     /// Gets the underlying [`RenderDevice`].
     pub fn render_device(&self) -> &RenderDevice {
         &self.render_device
-    }
-
-    /// Gets the underlying [`StatisticsRecorder`].
-    pub fn statistics_encoder(&mut self) -> &mut StatisticsRecorder {
-        &mut self.statistics_recorder
     }
 
     /// Gets the current [`CommandEncoder`].
@@ -368,15 +371,14 @@ impl RenderContext {
 
     /// Downloads [`RenderStatistics`] from GPU, asynchronously calling the callback
     /// when the data is available. Should be caled after `finish`.
-    ///
-    /// If the statistics aren't available, the callback won't be invoked.
     pub fn download_statistics(
-        &mut self,
+        mut self,
         queue: &Queue,
         callback: impl FnOnce(RenderStatistics) + Send + 'static,
-    ) {
+    ) -> StatisticsRecorder {
         self.statistics_recorder
             .download(&self.render_device, queue, callback);
+        self.statistics_recorder
     }
 
     fn flush_encoder(&mut self) {

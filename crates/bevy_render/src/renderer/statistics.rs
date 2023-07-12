@@ -5,7 +5,7 @@ use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_utils::{Duration, HashMap, Instant};
 use parking_lot::Mutex;
 use wgpu::{
-    util::DownloadBuffer, Buffer, BufferDescriptor, BufferUsages, CommandEncoder,
+    util::DownloadBuffer, Buffer, BufferDescriptor, BufferUsages, CommandEncoder, Features,
     PipelineStatisticsTypes, QuerySet, QuerySetDescriptor, QueryType, Queue, RenderPass,
     RenderPassDescriptor,
 };
@@ -54,11 +54,12 @@ struct PassRecord {
 
 /// Records statistics into [`QuerySet`]'s keeping track of the mapping between
 /// render passes and indices to the corresponding statistics in the [`QuerySet`].
+#[derive(Resource)]
 pub struct StatisticsRecorder {
     timestamp_period: f32,
-    timestamps_query_set: QuerySet,
+    timestamps_query_set: Option<QuerySet>,
     num_timestamps: u32,
-    pipeline_statistics_query_set: QuerySet,
+    pipeline_statistics_query_set: Option<QuerySet>,
     num_pipeline_statistics: u32,
     pass_records: HashMap<String, PassRecord>,
     buffer: Option<Buffer>,
@@ -67,20 +68,34 @@ pub struct StatisticsRecorder {
 impl StatisticsRecorder {
     /// Creates the new `StatisticRecorder`
     pub fn new(device: &RenderDevice, queue: &Queue) -> StatisticsRecorder {
-        let timestamp_period = queue.get_timestamp_period();
+        let features = device.features();
 
-        let timestamps_query_set = device.wgpu_device().create_query_set(&QuerySetDescriptor {
-            label: Some("timestamps_query_set"),
-            ty: QueryType::Timestamp,
-            count: MAX_TIMESTAMP_QUERIES,
-        });
+        let timestamp_period = if features.contains(Features::TIMESTAMP_QUERY) {
+            queue.get_timestamp_period()
+        } else {
+            0.0
+        };
+
+        let timestamps_query_set = if features.contains(Features::TIMESTAMP_QUERY_INSIDE_PASSES) {
+            Some(device.wgpu_device().create_query_set(&QuerySetDescriptor {
+                label: Some("timestamps_query_set"),
+                ty: QueryType::Timestamp,
+                count: MAX_TIMESTAMP_QUERIES,
+            }))
+        } else {
+            None
+        };
 
         let pipeline_statistics_query_set =
-            device.wgpu_device().create_query_set(&QuerySetDescriptor {
-                label: Some("pipeline_statistics_query_set"),
-                ty: QueryType::PipelineStatistics(PipelineStatisticsTypes::all()),
-                count: MAX_PIPELINE_STATISTICS,
-            });
+            if features.contains(Features::PIPELINE_STATISTICS_QUERY) {
+                Some(device.wgpu_device().create_query_set(&QuerySetDescriptor {
+                    label: Some("pipeline_statistics_query_set"),
+                    ty: QueryType::PipelineStatistics(PipelineStatisticsTypes::all()),
+                    count: MAX_PIPELINE_STATISTICS,
+                }))
+            } else {
+                None
+            };
 
         StatisticsRecorder {
             timestamp_period,
@@ -93,6 +108,14 @@ impl StatisticsRecorder {
         }
     }
 
+    /// Begins recording statistics for a new frame.
+    pub fn begin_frame(&mut self) {
+        self.num_timestamps = 0;
+        self.num_pipeline_statistics = 0;
+        self.pass_records.clear();
+        self.buffer = None;
+    }
+
     fn pass_record(&mut self, name: &str) -> &mut PassRecord {
         self.pass_records.entry(name.into()).or_default()
     }
@@ -100,22 +123,24 @@ impl StatisticsRecorder {
     fn begin_render_pass(&mut self, pass: &mut RenderPass, name: &str) {
         let begin_instant = Instant::now();
 
-        let begin_timestamp_index = if self.num_timestamps < MAX_TIMESTAMP_QUERIES {
-            let index = self.num_timestamps;
-            pass.write_timestamp(&self.timestamps_query_set, index);
-            self.num_timestamps += 1;
-            Some(index)
-        } else {
-            None
+        let begin_timestamp_index = match &self.timestamps_query_set {
+            Some(set) if self.num_timestamps < MAX_TIMESTAMP_QUERIES => {
+                let index = self.num_timestamps;
+                pass.write_timestamp(set, index);
+                self.num_timestamps += 1;
+                Some(index)
+            }
+            _ => None,
         };
 
-        let pipeline_statistics_index = if self.num_pipeline_statistics < MAX_PIPELINE_STATISTICS {
-            let index = self.num_pipeline_statistics;
-            pass.begin_pipeline_statistics_query(&self.pipeline_statistics_query_set, index);
-            self.num_pipeline_statistics += 1;
-            Some(index)
-        } else {
-            None
+        let pipeline_statistics_index = match &self.pipeline_statistics_query_set {
+            Some(set) if self.num_pipeline_statistics < MAX_PIPELINE_STATISTICS => {
+                let index = self.num_pipeline_statistics;
+                pass.begin_pipeline_statistics_query(set, index);
+                self.num_pipeline_statistics += 1;
+                Some(index)
+            }
+            _ => None,
         };
 
         let record = self.pass_record(name);
@@ -125,13 +150,14 @@ impl StatisticsRecorder {
     }
 
     fn end_render_pass(&mut self, pass: &mut RenderPass, name: &str) {
-        let end_timestamp_index = if self.num_timestamps < MAX_TIMESTAMP_QUERIES {
-            let index = self.num_timestamps;
-            pass.write_timestamp(&self.timestamps_query_set, index);
-            self.num_timestamps += 1;
-            Some(index)
-        } else {
-            None
+        let end_timestamp_index = match &self.timestamps_query_set {
+            Some(set) if self.num_timestamps < MAX_TIMESTAMP_QUERIES => {
+                let index = self.num_timestamps;
+                pass.write_timestamp(set, index);
+                self.num_timestamps += 1;
+                Some(index)
+            }
+            _ => None,
         };
 
         let record = self.pass_record(name);
@@ -161,6 +187,10 @@ impl StatisticsRecorder {
 
     /// Copies data from [`QuerySet`]'s to a buffer, after which it can be downloaded to CPU.
     pub fn resolve(&mut self, encoder: &mut CommandEncoder, device: &RenderDevice) {
+        if self.timestamps_query_set.is_none() && self.pipeline_statistics_query_set.is_none() {
+            return;
+        }
+
         let (buffer_size, pipeline_statistics_offset) = self.buffer_size();
 
         let buffer = device.wgpu_device().create_buffer(&BufferDescriptor {
@@ -170,30 +200,29 @@ impl StatisticsRecorder {
             mapped_at_creation: false,
         });
 
-        if self.num_timestamps > 0 {
-            encoder.resolve_query_set(
-                &self.timestamps_query_set,
-                0..self.num_timestamps,
-                &buffer,
-                0,
-            );
+        match &self.timestamps_query_set {
+            Some(set) if self.num_timestamps > 0 => {
+                encoder.resolve_query_set(&set, 0..self.num_timestamps, &buffer, 0);
+            }
+            _ => {}
         }
 
-        if self.num_pipeline_statistics > 0 {
-            encoder.resolve_query_set(
-                &self.pipeline_statistics_query_set,
-                0..self.num_pipeline_statistics,
-                &buffer,
-                pipeline_statistics_offset,
-            );
+        match &self.pipeline_statistics_query_set {
+            Some(set) if self.num_pipeline_statistics > 0 => {
+                encoder.resolve_query_set(
+                    &set,
+                    0..self.num_pipeline_statistics,
+                    &buffer,
+                    pipeline_statistics_offset,
+                );
+            }
+            _ => {}
         }
 
         self.buffer = Some(buffer);
     }
 
     /// Downloads the statistics from GPU, asynchronously calling the callback when the data is available.
-    ///
-    /// If the statistics aren't available, the callback won't be invoked.
     pub fn download(
         &mut self,
         device: &RenderDevice,
@@ -206,7 +235,23 @@ impl StatisticsRecorder {
         let num_pipeline_statistics = self.num_pipeline_statistics;
         let pass_records = std::mem::take(&mut self.pass_records);
 
-        let Some(buffer) = &self.buffer else { return };
+        let Some(buffer) = &self.buffer else {
+            // we still have cpu timings, so let's use them
+
+            let statistics = pass_records.into_iter().map(|(name, record)| {
+                let mut statistics = RenderPassStatistics::default();
+
+                if let (Some(begin), Some(end)) = (record.begin_instant, record.end_instant) {
+                    statistics.elapsed_cpu = Some(end - begin);
+                }
+
+                (name, statistics)
+            });
+
+            callback(RenderStatistics(statistics.collect()));
+            return;
+        };
+
         DownloadBuffer::read_buffer(device.wgpu_device(), queue, &buffer.slice(..), move |res| {
             let buffer = match res {
                 Ok(v) => v,
@@ -316,9 +361,14 @@ impl std::fmt::Debug for MeasuredRenderPass<'_> {
     }
 }
 
+/// Stores [`RenderStatistics`] shared between render app and main app.
+///
+/// This mutex is locked twice per frame: in `PreUpdate`, during [`sync_render_statistics`],
+/// and after rendering has finished and statistics have been downloaded from GPU.
 #[derive(Debug, Default, Clone, Resource)]
 pub struct RenderStatisticsMutex(pub Arc<Mutex<Option<RenderStatistics>>>);
 
+/// Copies fresh [`RenderStatistics`] from [`RenderStatisticsMutex`].
 pub fn sync_render_statistics(
     mutex: Res<RenderStatisticsMutex>,
     mut statistics: ResMut<RenderStatistics>,

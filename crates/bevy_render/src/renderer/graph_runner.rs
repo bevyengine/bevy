@@ -16,7 +16,7 @@ use crate::{
     renderer::{RenderContext, RenderDevice},
 };
 
-use super::RenderStatisticsMutex;
+use super::{RenderStatisticsMutex, StatisticsRecorder};
 
 pub(crate) struct RenderGraphRunner;
 
@@ -57,11 +57,14 @@ impl RenderGraphRunner {
     pub fn run(
         graph: &RenderGraph,
         render_device: RenderDevice,
+        mut statistics_recorder: StatisticsRecorder,
         queue: &wgpu::Queue,
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
-    ) -> Result<(), RenderGraphRunnerError> {
-        let mut render_context = RenderContext::new(render_device, queue);
+    ) -> Result<StatisticsRecorder, RenderGraphRunnerError> {
+        statistics_recorder.begin_frame();
+
+        let mut render_context = RenderContext::new(render_device, statistics_recorder);
         Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
         finalizer(render_context.command_encoder());
 
@@ -72,11 +75,11 @@ impl RenderGraphRunner {
         }
 
         let render_statistics_mutex = world.resource::<RenderStatisticsMutex>().0.clone();
-        render_context.download_statistics(queue, move |statistics| {
+        let statistics_recorder = render_context.download_statistics(queue, move |statistics| {
             *render_statistics_mutex.lock() = Some(statistics);
         });
 
-        Ok(())
+        Ok(statistics_recorder)
     }
 
     fn run_graph(
