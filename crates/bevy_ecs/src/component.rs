@@ -285,7 +285,11 @@ impl ComponentInfo {
 /// and must not be attempted.
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ComponentId {
+    /// The actual index of the `ComponentId`. This uniquely identifies the component this id refers
+    /// to.
     index: u32,
+    /// An optional index of an `Entity`, which is used for relations. If this is a non-relation
+    /// `ComponentId`, the value of this field is `ComponentId::NO_TARGET`.
     target: u32,
 }
 
