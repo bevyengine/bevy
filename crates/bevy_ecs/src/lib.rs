@@ -1866,4 +1866,44 @@ mod tests {
 
         assert_eq!(eve.get_relation::<Has>(apples).unwrap().0, 23);
     }
+
+    #[test]
+    fn relation_no_entity_collision() {
+        #[derive(Component)]
+        struct Hates;
+
+        let mut world = World::new();
+
+        let john = world.spawn(()).id();
+        let steve = world.spawn(()).id();
+
+        world.entity_mut(john).add_relation(Hates, steve);
+
+        world.despawn(steve);
+
+        let fred = world.spawn(()).id();
+
+        // If the indices are not equal here, this test is not testing for what it should be
+        assert_eq!(fred.index(), steve.index());
+
+        assert!(world.entity(john).contains_relation::<Hates>(steve));
+        assert!(!world.entity(john).contains_relation::<Hates>(fred));
+    }
+
+    #[test]
+    fn relation_components_and_relations_not_the_same() {
+        #[derive(Component)]
+        struct Rel;
+
+        let mut world = World::new();
+
+        let target = world.spawn(()).id();
+        let target2 = world.spawn(()).id();
+        let e = world.spawn(());
+        e.add_relation(Rel, target);
+
+        assert!(e.contains_relation::<Rel>(target));
+        assert!(!e.contains::<Rel>());
+        assert!(!e.contains_relation::<Rel>(target2));
+    }
 }
