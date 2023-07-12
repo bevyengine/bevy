@@ -9,8 +9,10 @@ use bevy_reflect::{impl_reflect_value, ReflectDeserialize, ReflectSerialize, Typ
 mod component;
 mod map_entities;
 mod resource;
+mod entity_commands;
 
 pub use component::{ReflectComponent, ReflectComponentFns};
+pub use entity_commands::EntityCommandsReflectExtension;
 pub use map_entities::ReflectMapEntities;
 pub use resource::{ReflectResource, ReflectResourceFns};
 
