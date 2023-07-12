@@ -31,6 +31,7 @@ The default feature set enables most of the expected features of a game engine, 
 |filesystem_watcher|Enable watching file system for asset hot reload|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
+|multi-threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files|
 |vorbis|OGG/VORBIS audio format support|

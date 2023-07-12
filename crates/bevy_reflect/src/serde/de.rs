@@ -8,7 +8,8 @@ use crate::{
 };
 use erased_serde::Deserializer;
 use serde::de::{
-    self, DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor,
+    self, DeserializeSeed, EnumAccess, Error, IgnoredAny, MapAccess, SeqAccess, VariantAccess,
+    Visitor,
 };
 use serde::Deserialize;
 use std::any::TypeId;
@@ -322,11 +323,17 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
     {
         let registration = map
             .next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
-            .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?;
+            .ok_or_else(|| Error::invalid_length(0, &"a single entry"))?;
+
         let value = map.next_value_seed(TypedReflectDeserializer {
             registration,
             registry: self.registry,
         })?;
+
+        if map.next_key::<IgnoredAny>()?.is_some() {
+            return Err(Error::invalid_length(2, &"a single entry"));
+        }
+
         Ok(value)
     }
 }
@@ -1091,7 +1098,7 @@ mod tests {
     use crate::serde::{TypedReflectDeserializer, UntypedReflectDeserializer};
     use crate::{DynamicEnum, FromReflect, Reflect, ReflectDeserialize, TypeRegistry};
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {
         primitive_value: i8,
         option_value: Option<String>,
@@ -1114,27 +1121,27 @@ mod tests {
         custom_deserialize: CustomDeserialize,
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeStruct {
         foo: i64,
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeTupleStruct(String);
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeUnitStruct;
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeIgnoredStruct {
         #[reflect(ignore)]
         ignored: i32,
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeIgnoredTupleStruct(#[reflect(ignore)] i32);
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq, Deserialize)]
+    #[derive(Reflect, Debug, PartialEq, Deserialize)]
     struct SomeDeserializableStruct {
         foo: i64,
     }
@@ -1142,7 +1149,7 @@ mod tests {
     /// Implements a custom deserialize using `#[reflect(Deserialize)]`.
     ///
     /// For testing purposes, this is just the auto-generated one from deriving.
-    #[derive(Reflect, FromReflect, Debug, PartialEq, Deserialize)]
+    #[derive(Reflect, Debug, PartialEq, Deserialize)]
     #[reflect(Deserialize)]
     struct CustomDeserialize {
         value: usize,
@@ -1150,7 +1157,7 @@ mod tests {
         inner_struct: SomeDeserializableStruct,
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     enum SomeEnum {
         Unit,
         NewType(usize),
@@ -1158,7 +1165,7 @@ mod tests {
         Struct { foo: String },
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     enum SomeIgnoredEnum {
         Tuple(#[reflect(ignore)] f32, #[reflect(ignore)] f32),
         Struct {
@@ -1304,7 +1311,7 @@ mod tests {
 
     #[test]
     fn should_deserialized_typed() {
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        #[derive(Reflect, Debug, PartialEq)]
         struct Foo {
             bar: i32,
         }
@@ -1330,7 +1337,7 @@ mod tests {
 
     #[test]
     fn should_deserialize_option() {
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        #[derive(Reflect, Debug, PartialEq)]
         struct OptionTest {
             none: Option<()>,
             simple: Option<String>,

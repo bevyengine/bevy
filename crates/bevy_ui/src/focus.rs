@@ -1,4 +1,4 @@
-use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiStack};
+use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiScale, UiStack};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -10,9 +10,7 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
-use bevy_reflect::{
-    FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
-};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ComputedVisibility};
 use bevy_transform::components::GlobalTransform;
 
@@ -34,13 +32,13 @@ use smallvec::SmallVec;
 ///
 /// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
 /// which fully collapses it during layout calculations.
-#[derive(
-    Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, FromReflect, Serialize, Deserialize,
-)]
-#[reflect(Component, FromReflect, Serialize, Deserialize, PartialEq)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum Interaction {
-    /// The node has been clicked
-    Clicked,
+    /// The node has been pressed.
+    ///
+    /// Note: This does not capture click/press-release action.
+    Pressed,
     /// The node has been hovered over
     Hovered,
     /// Nothing has happened
@@ -72,11 +70,10 @@ impl Default for Interaction {
     PartialEq,
     Debug,
     Reflect,
-    FromReflect,
     Serialize,
     Deserialize,
 )]
-#[reflect(Component, FromReflect, Serialize, Deserialize, PartialEq)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub struct RelativeCursorPosition {
     /// Cursor position relative to size and position of the Node.
     pub normalized: Option<Vec2>,
@@ -92,10 +89,8 @@ impl RelativeCursorPosition {
 }
 
 /// Describes whether the node should block interactions with lower nodes
-#[derive(
-    Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, FromReflect, Serialize, Deserialize,
-)]
-#[reflect(Component, FromReflect, Serialize, Deserialize, PartialEq)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum FocusPolicy {
     /// Blocks interaction
     Block,
@@ -143,6 +138,7 @@ pub fn ui_focus_system(
     windows: Query<&Window>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
+    ui_scale: Res<UiScale>,
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
@@ -161,7 +157,7 @@ pub fn ui_focus_system(
     if mouse_released {
         for node in node_query.iter_mut() {
             if let Some(mut interaction) = node.interaction {
-                if *interaction == Interaction::Clicked {
+                if *interaction == Interaction::Pressed {
                     *interaction = Interaction::None;
                 }
             }
@@ -192,7 +188,10 @@ pub fn ui_focus_system(
                 .ok()
                 .and_then(|window| window.cursor_position())
         })
-        .or_else(|| touches_input.first_pressed_position());
+        .or_else(|| touches_input.first_pressed_position())
+        // The cursor position returned by `Window` only takes into account the window scale factor and not `UiScale`.
+        // To convert the cursor position to logical UI viewport coordinates we have to divide it by `UiScale`.
+        .map(|cursor_position| cursor_position / ui_scale.scale as f32);
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
@@ -262,15 +261,15 @@ pub fn ui_focus_system(
         .collect::<Vec<Entity>>()
         .into_iter();
 
-    // set Clicked or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
+    // set Pressed or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
     // the iteration will stop on it because it "captures" the interaction.
     let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
-                // only consider nodes with Interaction "clickable"
-                if *interaction != Interaction::Clicked {
-                    *interaction = Interaction::Clicked;
+                // only consider nodes with Interaction "pressed"
+                if *interaction != Interaction::Pressed {
+                    *interaction = Interaction::Pressed;
                     // if the mouse was simultaneously released, reset this Interaction in the next
                     // frame
                     if mouse_released {
@@ -286,7 +285,7 @@ pub fn ui_focus_system(
             FocusPolicy::Block => {
                 break;
             }
-            FocusPolicy::Pass => { /* allow the next node to be hovered/clicked */ }
+            FocusPolicy::Pass => { /* allow the next node to be hovered/pressed */ }
         }
     }
     // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain in
@@ -294,8 +293,8 @@ pub fn ui_focus_system(
     let mut iter = node_query.iter_many_mut(hovered_nodes);
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
-            // don't reset clicked nodes because they're handled separately
-            if *interaction != Interaction::Clicked {
+            // don't reset pressed nodes because they're handled separately
+            if *interaction != Interaction::Pressed {
                 interaction.set_if_neq(Interaction::None);
             }
         }

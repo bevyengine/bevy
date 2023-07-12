@@ -101,7 +101,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 };
                 Ok(())
             } else {
-                Err(nested.error("Unsuported attribute"))
+                Err(nested.error("Unsupported attribute"))
             }
         })?;
     }

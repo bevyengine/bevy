@@ -2,11 +2,10 @@ use crate::fq_std::{FQAny, FQBox, FQClone, FQOption, FQResult};
 use crate::impls::{impl_type_path, impl_typed};
 use crate::utility::{extend_where_clause, WhereClauseOptions};
 use crate::ReflectMeta;
-use proc_macro::TokenStream;
 use quote::quote;
 
 /// Implements `GetTypeRegistration` and `Reflect` for the given type data.
-pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
+pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
 
@@ -22,7 +21,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     #[cfg(not(feature = "documentation"))]
     let with_docs: Option<proc_macro2::TokenStream> = None;
 
-    let where_clause_options = WhereClauseOptions::type_path_bounds(meta);
+    let where_clause_options = WhereClauseOptions::new_value(meta);
     let typed_impl = impl_typed(
         meta,
         &where_clause_options,
@@ -38,7 +37,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
     let get_type_registration_impl = meta.get_type_registration(&where_clause_options);
 
-    TokenStream::from(quote! {
+    quote! {
         #get_type_registration_impl
 
         #type_path_impl
@@ -125,5 +124,5 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
 
             #debug_fn
         }
-    })
+    }
 }

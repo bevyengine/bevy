@@ -33,13 +33,13 @@ pub enum ExecutorKind {
     ///
     /// Useful if you're dealing with a single-threaded environment, saving your threads for
     /// other things, or just trying minimize overhead.
-    #[cfg_attr(target_arch = "wasm32", default)]
+    #[cfg_attr(any(target_arch = "wasm32", not(feature = "multi-threaded")), default)]
     SingleThreaded,
     /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
     /// immediately after running each system.
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
-    #[cfg_attr(not(target_arch = "wasm32"), default)]
+    #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi-threaded"), default)]
     MultiThreaded,
 }
 

@@ -29,7 +29,7 @@ pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
@@ -56,17 +56,19 @@ pub enum SpriteSystem {
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        let mut shaders = app.world.resource_mut::<Assets<Shader>>();
-        let sprite_shader = Shader::from_wgsl(include_str!("render/sprite.wgsl"));
-        shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
+        load_internal_asset!(
+            app,
+            SPRITE_SHADER_HANDLE,
+            "render/sprite.wgsl",
+            Shader::from_wgsl
+        );
         app.add_asset::<TextureAtlas>()
             .register_asset_reflect::<TextureAtlas>()
             .register_type::<Sprite>()
             .register_type::<TextureAtlasSprite>()
             .register_type::<Anchor>()
             .register_type::<Mesh2dHandle>()
-            .add_plugin(Mesh2dRenderPlugin)
-            .add_plugin(ColorMaterialPlugin)
+            .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
             .add_systems(
                 PostUpdate,
                 calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),

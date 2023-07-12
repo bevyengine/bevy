@@ -3,6 +3,9 @@
 //! To start the demo without text run
 //! `cargo run --example many_buttons --release no-text`
 //!
+//! //! To start the demo without borders run
+//! `cargo run --example many_buttons --release no-borders`
+//!
 //| To do a full layout update each frame run
 //! `cargo run --example many_buttons --release recompute-layout`
 //!
@@ -23,15 +26,17 @@ const FONT_SIZE: f32 = 7.0;
 fn main() {
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            present_mode: PresentMode::AutoNoVsync,
+    app.add_plugins((
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            }),
             ..default()
         }),
-        ..default()
-    }))
-    .add_plugin(FrameTimeDiagnosticsPlugin)
-    .add_plugin(LogDiagnosticsPlugin::default())
+        FrameTimeDiagnosticsPlugin,
+        LogDiagnosticsPlugin::default(),
+    ))
     .add_systems(Startup, setup)
     .add_systems(Update, button_system);
 
@@ -85,22 +90,40 @@ fn setup(mut commands: Commands) {
         })
         .with_children(|commands| {
             let spawn_text = std::env::args().all(|arg| arg != "no-text");
+            let border = if std::env::args().all(|arg| arg != "no-borders") {
+                UiRect::all(Val::Percent(10. / count_f))
+            } else {
+                UiRect::DEFAULT
+            };
             for i in 0..count {
                 for j in 0..count {
                     let color = as_rainbow(j % i.max(1)).into();
-                    spawn_button(commands, color, count_f, i, j, spawn_text);
+                    let border_color = as_rainbow(i % j.max(1)).into();
+                    spawn_button(
+                        commands,
+                        color,
+                        count_f,
+                        i,
+                        j,
+                        spawn_text,
+                        border,
+                        border_color,
+                    );
                 }
             }
         });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn spawn_button(
     commands: &mut ChildBuilder,
-    color: BackgroundColor,
+    background_color: BackgroundColor,
     total: f32,
     i: usize,
     j: usize,
     spawn_text: bool,
+    border: UiRect,
+    border_color: BorderColor,
 ) {
     let width = 90.0 / total;
     let mut builder = commands.spawn((
@@ -112,12 +135,14 @@ fn spawn_button(
                 left: Val::Percent(100.0 / total * j as f32),
                 align_items: AlignItems::Center,
                 position_type: PositionType::Absolute,
+                border,
                 ..default()
             },
-            background_color: color,
+            background_color,
+            border_color,
             ..default()
         },
-        IdleColor(color),
+        IdleColor(background_color),
     ));
 
     if spawn_text {

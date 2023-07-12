@@ -1,13 +1,18 @@
 #[allow(clippy::module_inception)]
 mod camera;
 mod camera_driver_node;
+mod manual_texture_view;
 mod projection;
 
 pub use camera::*;
 pub use camera_driver_node::*;
+pub use manual_texture_view::*;
 pub use projection::*;
 
-use crate::{render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet};
+use crate::{
+    extract_resource::ExtractResourcePlugin, render_graph::RenderGraph, ExtractSchedule, Render,
+    RenderApp, RenderSet,
+};
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoSystemConfigs;
 
@@ -22,9 +27,13 @@ impl Plugin for CameraPlugin {
             .register_type::<ScalingMode>()
             .register_type::<CameraRenderGraph>()
             .register_type::<RenderTarget>()
-            .add_plugin(CameraProjectionPlugin::<Projection>::default())
-            .add_plugin(CameraProjectionPlugin::<OrthographicProjection>::default())
-            .add_plugin(CameraProjectionPlugin::<PerspectiveProjection>::default());
+            .init_resource::<ManualTextureViews>()
+            .add_plugins((
+                CameraProjectionPlugin::<Projection>::default(),
+                CameraProjectionPlugin::<OrthographicProjection>::default(),
+                CameraProjectionPlugin::<PerspectiveProjection>::default(),
+                ExtractResourcePlugin::<ManualTextureViews>::default(),
+            ));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

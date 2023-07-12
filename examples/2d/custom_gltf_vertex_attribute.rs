@@ -22,14 +22,14 @@ fn main() {
             color: Color::WHITE,
             brightness: 1.0 / 5.0f32,
         })
-        .add_plugins(
+        .add_plugins((
             DefaultPlugins.set(
                 GltfPlugin::default()
                     // Map a custom glTF attribute name to a `MeshVertexAttribute`.
                     .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
             ),
-        )
-        .add_plugin(Material2dPlugin::<CustomMaterial>::default())
+            Material2dPlugin::<CustomMaterial>::default(),
+        ))
         .add_systems(Startup, setup)
         .run();
 }
