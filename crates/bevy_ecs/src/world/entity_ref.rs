@@ -419,6 +419,10 @@ impl<'w> EntityMut<'w> {
     ///
     /// This will overwrite previous values of the same relation to the same entity.
     pub fn add_relation<R: Component>(&mut self, relation: R, target: Entity) -> &mut Self {
+        if self.entity == target {
+            panic!("entities are not allowed to have self-referential relationships");
+        }
+
         let change_tick = self.world.change_tick();
         let relation_id = self.world.init_component::<R>().relation(target);
         let (bundle_info, _) = self
