@@ -418,6 +418,9 @@ impl<'w> EntityMut<'w> {
     /// Adds a relation to an entity.
     ///
     /// This will overwrite previous values of the same relation to the same entity.
+    ///
+    /// ## Panics
+    /// Will panic if the target is this entity. Self referential relationships are not allowed.
     pub fn add_relation<R: Component>(&mut self, relation: R, target: Entity) -> &mut Self {
         if self.entity == target {
             panic!("entities are not allowed to have self-referential relationships");
