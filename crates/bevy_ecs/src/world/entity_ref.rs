@@ -436,7 +436,7 @@ impl<'w> EntityMut<'w> {
 
         // SAFETY:
         // - entity exists in the source archetype
-        // - `T` matches `bundle_info`
+        // - `R` matches `bundle_info`
         unsafe {
             self.location = bundle_inserter.insert(self.entity, self.location, relation);
         }
