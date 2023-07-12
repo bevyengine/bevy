@@ -1,6 +1,6 @@
-use ab_glyph::{Font as _, FontArc, Glyph, PxScaleFont, ScaleFont as _};
+use ab_glyph::{Font as _, FontArc, Glyph, ScaleFont as _, PxScaleFont};
 use bevy_asset::{Assets, Handle};
-use bevy_math::{Rect, Vec2};
+use bevy_math::{Vec2, Rect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::tracing::warn;
