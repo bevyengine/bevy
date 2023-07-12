@@ -4,6 +4,14 @@ use bevy_reflect::Reflect;
 use bevy_utils::HashMap;
 
 /// An axis-aligned bounding box.
+///
+/// Used as a component on an entity to determine if it should be rendered by a
+/// [`Camera`](crate::camera::Camera) entity if it intersects with its [`Frustum`].
+///
+/// It will be added automatically to entities with a [`Handle<Mesh>`](crate::mesh::Mesh)
+/// component using [`calculate_bounds`](crate::view::visibility::calculate_bounds),
+/// except if the entity has a [`NoFrustumCulling`](crate::view::visibility::NoFrustumCulling)
+/// component.
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Aabb {
@@ -81,11 +89,29 @@ impl Sphere {
     }
 }
 
-/// A bisecting plane that partitions 3D space into two regions.
+/// A region of 3D space, specifically a closed set which border is a bisecting 2D plane.
+/// This bisecting plane is partitionning 3D space into two "infinite" regions,
+/// the half-space is one of those regions and includes the bisecting plane.
 ///
-/// Each instance of this type is characterized by the bisecting plane's unit normal and distance from the origin along the normal.
-/// Any point `p` is considered to be within the `HalfSpace` when the distance is positive,
-/// meaning: if the equation `n.p + d > 0` is satisfied.
+/// Each instance of this type is characterized by:
+/// - the bisecting plane's unit normal, normalized and pointing "inside" the half-space,
+/// - the distance from the bisecting plane to the origin of 3D space along the normal,
+///
+/// The distance can also be seen as:
+/// - the distance from the origin of 3D space to the bisecting plane along the inverse of the normal,
+/// - the opposite of the distance from the origin of 3D space to the bisecting plane along the normal.
+///
+/// Any point `p` is considered to be within the `HalfSpace` when the length of the projection
+/// of p on the normal is greater or equal than the opposite of the distance,
+/// meaning: if the equation `n.p + d >= 0` is satisfied,
+/// where `n` is the normal, `d` the distance, and `n.p` is a dot product.
+///
+/// For example, the half-space containing all the points with a z-coordinate lesser
+/// or equal than `8.0` would be defined by: `HalfSpace::new(Vec3::NEG_Z.extend(-8.0))`.
+/// It includes all the points from the bisecting plane towards `NEG_Z`, and the distance
+/// from the plane to the origin is `-8.0` along `NEG_Z`.
+///
+/// It is used to define a [`Frustum`].
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HalfSpace {
     normal_d: Vec4,
@@ -94,7 +120,7 @@ pub struct HalfSpace {
 impl HalfSpace {
     /// Constructs a `HalfSpace` from a 4D vector whose first 3 components
     /// represent the bisecting plane's unit normal, and the last component signifies
-    /// the distance from the origin to the plane along the normal.
+    /// the distance from the plane to the origin along the normal.
     /// The constructor ensures the normal vector is normalized and the distance is appropriately scaled.
     #[inline]
     pub fn new(normal_d: Vec4) -> Self {
@@ -109,8 +135,9 @@ impl HalfSpace {
         Vec3A::from(self.normal_d)
     }
 
-    /// Returns the distance from the origin to the bisecting plane along the plane's unit normal vector.
-    /// This distance helps determine the position of a point `p` on the bisecting plane, as per the equation `n.p + d = 0`.
+    /// Returns the distance from the bisecting plane to the origin along the plane's unit normal vector.
+    /// This distance helps determine the position of a point `p` relative to the
+    /// bisecting plane, as per the equation `n.p + d >= 0`.
     #[inline]
     pub fn d(&self) -> f32 {
         self.normal_d.w
@@ -123,9 +150,21 @@ impl HalfSpace {
     }
 }
 
-/// A frustum made up of the 6 defining half spaces.
-/// Half spaces are ordered left, right, top, bottom, near, far.
-/// The normal vectors of the half spaces point towards the interior of the frustum.
+/// A frustum defined as the intersection of 6 [`HalfSpace`].
+/// Usually a six sided polyhedron with sides inside the bisecting planes of the half-spaces.
+///
+/// Half spaces are ordered left, right, top, bottom, near, far. The normal vectors
+/// of the half-spaces point towards the interior of the frustum.
+///
+/// A frustum component is used on an entity with a [`Camera`](crate::camera::Camera)
+/// component to determine which entities will be considered for rendering
+/// by this camera, all entities with an [`Aabb`] component that does not intersect
+/// with the frustum will not be rendered, and not be used in rendering computations.
+///
+/// The frustum component is typically added by adding a bundle, either the `Camera2dBundle`
+/// or the `Camera3dBundle`, and is typically updated automatically using
+/// [`update_frusta`](crate::view::visibility::update_frusta) from the
+/// [`CameraProjection`](crate::camera::CameraProjection) component of the camera entity.
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Frustum {

@@ -193,13 +193,20 @@ impl VisibleEntities {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
+    /// Label for the [`calculate_bounds`] system.
     CalculateBounds,
+    /// Label for the [`apply_deferred`] call after [`VisibilitySystems::CalculateBounds`]
     CalculateBoundsFlush,
+    /// Label for the [`update_frusta<OrthographicProjection>`] system.
     UpdateOrthographicFrusta,
+    /// Label for the [`update_frusta<PerspectiveProjection>`] system.
     UpdatePerspectiveFrusta,
+    /// Label for the [`update_frusta<Projection>`] system.
     UpdateProjectionFrusta,
+    /// Label for the system propagating the [`ComputedVisibility`] in a
+    /// [`hierarchy`](bevy_hierarchy).
     VisibilityPropagate,
-    /// Label for the [`check_visibility()`] system updating each frame the [`ComputedVisibility`]
+    /// Label for the [`check_visibility`] system updating each frame the [`ComputedVisibility`]
     /// of each entity and the [`VisibleEntities`] of each view.
     CheckVisibility,
 }
@@ -253,6 +260,10 @@ impl Plugin for VisibilityPlugin {
     }
 }
 
+/// System calculating and inserting an [`Aabb`] component to entities with a
+/// [`Handle<Mesh>`](Mesh) component and without a [`NoFrustumCulling`] component.
+///
+/// Used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
@@ -267,6 +278,13 @@ pub fn calculate_bounds(
     }
 }
 
+/// System updating the [`Frustum`] component of an entity, typically a [`Camera`],
+/// using its [`GlobalTransform`] and the projection matrix from its [`CameraProjection`]
+/// components.
+///
+/// Used in system sets [`VisibilitySystems::UpdateProjectionFrusta`],
+/// [`VisibilitySystems::UpdatePerspectiveFrusta`], and
+/// [`VisibilitySystems::UpdateOrthographicFrusta`].
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     mut views: Query<(&GlobalTransform, &T, &mut Frustum)>,
 ) {
