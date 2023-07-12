@@ -15,17 +15,31 @@ use super::RenderDevice;
 const MAX_TIMESTAMP_QUERIES: u32 = 256;
 const MAX_PIPELINE_STATISTICS: u32 = 128;
 
+/// Resource which stores statistics for each render pass.
 #[derive(Debug, Default, Clone, Resource)]
 pub struct RenderStatistics(pub HashMap<String, RenderPassStatistics>);
 
+/// Statistics for a single render pass.
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct RenderPassStatistics {
+    /// CPU time spent recording the [`RenderPass`].
     pub elapsed_cpu: Option<Duration>,
+    /// GPU time spent executing commands inside the [`RenderPass`].
     pub elapsed_gpu: Option<Duration>,
+    /// Amount of times the vertex shader is ran.
+    /// Accounts for the vertex cache when doing indexed rendering.
     pub vertex_shader_invocations: Option<u64>,
+    /// Amount of times the clipper is invoked.
+    /// This is also the amount of triangles output by the vertex shader.
     pub clipper_invocations: Option<u64>,
+    /// Amount of primitives that are not culled by the clipper.
+    /// This is the amount of triangles that are actually on screen and will be rasterized and rendered.
     pub clipper_primitives_out: Option<u64>,
+    /// Amount of times the fragment shader is ran.
+    /// Accounts for fragment shaders running in 2x2 blocks in order to get derivatives.
     pub fragment_shader_invocations: Option<u64>,
+    /// Amount of times a compute shader is invoked.
+    /// This will be equivalent to the dispatch count times the workgroup size.
     pub compute_shader_invocations: Option<u64>,
 }
 
@@ -38,6 +52,8 @@ struct PassRecord {
     pipeline_statistics_index: Option<u32>,
 }
 
+/// Records statistics into [`QuerySet`]'s keeping track of the mapping between
+/// render passes and indices to the corresponding statistics in the [`QuerySet`].
 pub struct StatisticsRecorder {
     timestamp_period: f32,
     timestamps_query_set: QuerySet,
@@ -49,6 +65,7 @@ pub struct StatisticsRecorder {
 }
 
 impl StatisticsRecorder {
+    /// Creates the new `StatisticRecorder`
     pub fn new(device: &RenderDevice, queue: &Queue) -> StatisticsRecorder {
         let timestamp_period = queue.get_timestamp_period();
 
@@ -80,7 +97,7 @@ impl StatisticsRecorder {
         self.pass_records.entry(name.into()).or_default()
     }
 
-    pub fn begin_render_pass(&mut self, pass: &mut RenderPass, name: &str) {
+    fn begin_render_pass(&mut self, pass: &mut RenderPass, name: &str) {
         let begin_instant = Instant::now();
 
         let begin_timestamp_index = if self.num_timestamps < MAX_TIMESTAMP_QUERIES {
@@ -107,7 +124,7 @@ impl StatisticsRecorder {
         record.pipeline_statistics_index = pipeline_statistics_index;
     }
 
-    pub fn end_render_pass(&mut self, pass: &mut RenderPass, name: &str) {
+    fn end_render_pass(&mut self, pass: &mut RenderPass, name: &str) {
         let end_timestamp_index = if self.num_timestamps < MAX_TIMESTAMP_QUERIES {
             let index = self.num_timestamps;
             pass.write_timestamp(&self.timestamps_query_set, index);
@@ -142,6 +159,7 @@ impl StatisticsRecorder {
         (buffer_size, pipeline_statistics_offset)
     }
 
+    /// Copies data from [`QuerySet`]'s to a buffer, after which it can be downloaded to CPU.
     pub fn resolve(&mut self, encoder: &mut CommandEncoder, device: &RenderDevice) {
         let (buffer_size, pipeline_statistics_offset) = self.buffer_size();
 
@@ -173,6 +191,9 @@ impl StatisticsRecorder {
         self.buffer = Some(buffer);
     }
 
+    /// Downloads the statistics from GPU, asynchronously calling the callback when the data is available.
+    ///
+    /// If the statistics aren't available, the callback won't be invoked.
     pub fn download(
         &mut self,
         device: &RenderDevice,
@@ -240,6 +261,9 @@ impl StatisticsRecorder {
     }
 }
 
+/// Wrapper around [`RenderPass`] which records pipeline statistics and timings.
+///
+/// [`RenderPassDescriptor`] must have a label, otherwise no statistics will be recorded.
 #[derive(Deref, DerefMut)]
 pub struct MeasuredRenderPass<'a> {
     #[deref]
@@ -249,6 +273,9 @@ pub struct MeasuredRenderPass<'a> {
 }
 
 impl MeasuredRenderPass<'_> {
+    /// Begins recording a render pass, collecting the statistics into the given [`StatisticsRecorder`].
+    ///
+    /// [`RenderPassDescriptor`] must have a label, otherwise no statistics will be recorded.
     pub fn new<'a>(
         encoder: &'a mut CommandEncoder,
         recorder: &'a mut StatisticsRecorder,

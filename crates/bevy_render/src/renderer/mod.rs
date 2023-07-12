@@ -366,6 +366,10 @@ impl RenderContext {
         std::mem::take(&mut self.command_buffers)
     }
 
+    /// Downloads [`RenderStatistics`] from GPU, asynchronously calling the callback
+    /// when the data is available. Should be caled after `finish`.
+    ///
+    /// If the statistics aren't available, the callback won't be invoked.
     pub fn download_statistics(
         &mut self,
         queue: &Queue,
