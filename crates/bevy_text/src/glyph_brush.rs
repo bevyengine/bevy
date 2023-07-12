@@ -1,6 +1,6 @@
-use ab_glyph::{Font as _, FontArc, Glyph, ScaleFont as _, PxScaleFont};
+use ab_glyph::{Font as _, FontArc, Glyph, PxScaleFont, ScaleFont as _};
 use bevy_asset::{Assets, Handle};
-use bevy_math::{Vec2, Rect};
+use bevy_math::{Rect, Vec2};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::tracing::warn;
@@ -10,8 +10,8 @@ use glyph_brush_layout::{
 };
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo,
-    TextAlignment, TextSettings, YAxisOrientation, text,
+    error::TextError, text, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo,
+    TextAlignment, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -126,8 +126,12 @@ impl GlyphBrush {
                 let x = bounds.min.x + size.x / 2.0 - text_bounds.min.x;
 
                 let y = match y_axis_orientation {
-                    YAxisOrientation::BottomToTop => text_bounds.max.y - bounds.max.y + size.y / 2.0,
-                    YAxisOrientation::TopToBottom => bounds.min.y + size.y / 2.0 - text_bounds.min.y,
+                    YAxisOrientation::BottomToTop => {
+                        text_bounds.max.y - bounds.max.y + size.y / 2.0
+                    }
+                    YAxisOrientation::TopToBottom => {
+                        bounds.min.y + size.y / 2.0 - text_bounds.min.y
+                    }
                 };
 
                 let position = adjust.position(Vec2::new(x, y));
@@ -214,10 +218,13 @@ where
         let glyph = &sg.glyph;
         text_bounds = text_bounds.union(Rect {
             min: Vec2::new(glyph.position.x, 0.),
-            max: Vec2::new(glyph.position.x + scaled_font.h_advance(glyph.id), glyph.position.y - scaled_font.descent())
+            max: Vec2::new(
+                glyph.position.x + scaled_font.h_advance(glyph.id),
+                glyph.position.y - scaled_font.descent(),
+            ),
         });
     }
-    
+
     text_bounds.min = text_bounds.min.floor();
     text_bounds.max = text_bounds.max.ceil();
     text_bounds
