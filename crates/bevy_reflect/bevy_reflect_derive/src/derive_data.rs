@@ -384,7 +384,7 @@ impl<'a> ReflectMeta<'a> {
     /// The `FromReflect` attributes on this type.
     #[allow(clippy::wrong_self_convention)]
     pub fn from_reflect(&self) -> &FromReflectAttrs {
-        self.traits.from_reflect()
+        self.traits.from_reflect_attrs()
     }
 
     /// The name of this struct.

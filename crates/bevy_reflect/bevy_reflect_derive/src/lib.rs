@@ -128,6 +128,13 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 ///
 /// Note that in the latter case, `ReflectFromReflect` will no longer be automatically registered.
 ///
+/// ## `#[reflect(type_path = false)]`
+///
+/// This attribute will opt-out of the default `TypePath` implementation.
+///
+/// This is useful for when a type can't or shouldn't implement `TypePath`,
+/// or if a manual implementation is desired.
+///
 /// # Field Attributes
 ///
 /// Along with the container attributes, this macro comes with some attributes that may be applied
