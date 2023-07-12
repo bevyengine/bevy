@@ -415,7 +415,7 @@ impl<'w> EntityMut<'w> {
         self
     }
 
-    /// Adds a [`Relation`] to an entity.
+    /// Adds a relation to an entity.
     ///
     /// This will overwrite previous values of the same relation to the same entity.
     pub fn add_relation<R: Component>(&mut self, relation: R, target: Entity) -> &mut Self {
