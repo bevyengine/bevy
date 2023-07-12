@@ -5,7 +5,6 @@
 pub use bevy_ecs_macros::Bundle;
 use bevy_utils::{HashMap, HashSet};
 
-use crate::relation::Relation;
 use crate::{
     archetype::{
         Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
@@ -203,13 +202,6 @@ impl<C: Component> DynamicBundle for C {
     #[inline]
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
         OwningPtr::make(self, |ptr| func(C::Storage::STORAGE_TYPE, ptr));
-    }
-}
-
-impl<C: Component> DynamicBundle for Relation<C> {
-    #[inline]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-        OwningPtr::make(self.relation, |ptr| func(C::Storage::STORAGE_TYPE, ptr));
     }
 }
 
