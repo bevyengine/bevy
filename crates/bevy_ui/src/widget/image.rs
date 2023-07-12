@@ -1,6 +1,4 @@
-use crate::{
-    measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiScale, UiTextureAtlasImage,
-};
+use crate::{ContentSize, Node, UiImage, UiScale, UiTextureAtlasImage};
 use bevy_asset::{Assets, Handle};
 
 use bevy_ecs::query::Without;
@@ -35,41 +33,6 @@ impl UiImageSize {
     }
 }
 
-#[derive(Clone)]
-/// Used to calculate the size of UI image nodes
-pub struct ImageMeasure {
-    /// The size of the image's texture
-    pub size: Vec2,
-}
-
-impl Measure for ImageMeasure {
-    fn measure(
-        &self,
-        width: Option<f32>,
-        height: Option<f32>,
-        _: AvailableSpace,
-        _: AvailableSpace,
-    ) -> Vec2 {
-        let mut size = self.size;
-        match (width, height) {
-            (None, None) => {}
-            (Some(width), None) => {
-                size.y = width * size.y / size.x;
-                size.x = width;
-            }
-            (None, Some(height)) => {
-                size.x = height * size.x / size.y;
-                size.y = height;
-            }
-            (Some(width), Some(height)) => {
-                size.x = width;
-                size.y = height;
-            }
-        }
-        size
-    }
-}
-
 #[cfg(feature = "bevy_text")]
 type UpdateImageFilter = (With<Node>, Without<bevy_text::Text>);
 #[cfg(not(feature = "bevy_text"))]
@@ -98,10 +61,9 @@ pub fn update_image_content_size_system(
             // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size || combined_scale_factor != *previous_combined_scale_factor {
                 image_size.size = size;
-                content_size.set(ImageMeasure {
-                    // multiply the image size by the scale factor to get the physical size
-                    size: size * combined_scale_factor as f32,
-                });
+                // multiply the image size by the scale factor to get the physical size
+                let size = size * combined_scale_factor as f32;
+                *content_size = ContentSize::Image { size };
             }
         }
     }
@@ -137,10 +99,9 @@ pub fn update_atlas_content_size_system(
             // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size || combined_scale_factor != *previous_combined_scale_factor {
                 image_size.size = size;
-                content_size.set(ImageMeasure {
-                    // multiply the image size by the scale factor to get the physical size
-                    size: size * combined_scale_factor as f32,
-                });
+                // multiply the image size by the scale factor to get the physical size
+                let size = size * combined_scale_factor as f32;
+                *content_size = ContentSize::Image { size };
             }
         }
     }

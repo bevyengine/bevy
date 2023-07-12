@@ -2,76 +2,81 @@ use bevy_ecs::prelude::Component;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
-use std::fmt::Formatter;
+use bevy_text::TextMeasureInfo;
 pub use taffy::style::AvailableSpace;
-use taffy::{node::MeasureFunc, prelude::Size as TaffySize};
 
-impl std::fmt::Debug for ContentSize {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ContentSize").finish()
-    }
+/// The content-inherent size data.
+///
+/// In bevy UI, text and images may control their own size, outside of
+/// the taffy-based layout algorithm.
+///
+/// For example, this keeps track of image pixel sizes (adjusted for UI scale)
+/// and text size.
+///
+/// It is set in `measure_text_system` and `update_image_content_size_system`.
+/// It is read by `ui_layout_system`.
+#[derive(Component, Reflect, Debug, Clone)]
+#[reflect(Component)]
+pub enum ContentSize {
+    Image { size: Vec2 },
+    Text(#[reflect(ignore)] TextMeasureInfo),
+    Fixed { size: Vec2 },
 }
 
-/// A `Measure` is used to compute the size of a ui node
-/// when the size of that node is based on its content.
-pub trait Measure: Send + Sync + 'static {
-    /// Calculate the size of the node given the constraints.
-    fn measure(
+impl ContentSize {
+    /// Take ownership of the `measure`, leaving behind the default
+    //// [`BevyUiMeasure`] of `BevyUiMeasure::Fixed { size: Vec2::ZERO }`.
+    pub fn take(&mut self) -> Option<ContentSize> {
+        if self.is_default() {
+            None
+        } else {
+            Some(std::mem::take(self))
+        }
+    }
+    pub fn is_default(&self) -> bool {
+        matches!(
+            self ,
+            ContentSize::Fixed { size } if size == &Vec2::ZERO
+        )
+    }
+    /// Compute the actual size of this `ContentSize` given the `width` and
+    /// `height` optionaly set bounds and the provided available space.
+    pub fn measure(
         &self,
         width: Option<f32>,
         height: Option<f32>,
         available_width: AvailableSpace,
-        available_height: AvailableSpace,
-    ) -> Vec2;
-}
-
-/// A `FixedMeasure` is a `Measure` that ignores all constraints and
-/// always returns the same size.
-#[derive(Default, Clone)]
-pub struct FixedMeasure {
-    pub size: Vec2,
-}
-
-impl Measure for FixedMeasure {
-    fn measure(
-        &self,
-        _: Option<f32>,
-        _: Option<f32>,
-        _: AvailableSpace,
-        _: AvailableSpace,
+        _available_height: AvailableSpace,
     ) -> Vec2 {
-        self.size
-    }
-}
-
-/// A node with a `ContentSize` component is a node where its size
-/// is based on its content.
-#[derive(Component, Reflect)]
-#[reflect(Component)]
-pub struct ContentSize {
-    /// The `Measure` used to compute the intrinsic size
-    #[reflect(ignore)]
-    pub(crate) measure_func: Option<MeasureFunc>,
-}
-
-impl ContentSize {
-    /// Set a `Measure` for this function
-    pub fn set(&mut self, measure: impl Measure) {
-        let measure_func = move |size: TaffySize<_>, available: TaffySize<_>| {
-            let size = measure.measure(size.width, size.height, available.width, available.height);
-            TaffySize {
-                width: size.x,
-                height: size.y,
+        use AvailableSpace::{Definite, MaxContent, MinContent};
+        match self {
+            ContentSize::Image { size } => match (width, height) {
+                (None, None) => *size,
+                (Some(width), None) => Vec2::new(width, size.y + width * size.y / size.x),
+                (None, Some(height)) => Vec2::new(height * size.x / size.y, height),
+                (Some(width), Some(height)) => Vec2::new(width, height),
+            },
+            ContentSize::Text(text) => {
+                let computed_width = match available_width {
+                    Definite(x) => x.clamp(text.min.x, text.max.x),
+                    MinContent => text.min.x,
+                    MaxContent => text.max.x,
+                };
+                let width = width.unwrap_or(computed_width);
+                let compute_height = || match available_width {
+                    Definite(_) => text.compute_size(Vec2::new(width, f32::MAX)).y,
+                    MinContent => text.min.y,
+                    MaxContent => text.max.y,
+                };
+                Vec2::new(width, height.unwrap_or_else(compute_height))
             }
-        };
-        self.measure_func = Some(MeasureFunc::Boxed(Box::new(measure_func)));
+            ContentSize::Fixed { size } => *size,
+        }
     }
 }
 
 impl Default for ContentSize {
     fn default() -> Self {
-        Self {
-            measure_func: Some(MeasureFunc::Raw(|_, _| TaffySize::ZERO)),
-        }
+        ContentSize::Fixed { size: Vec2::ZERO }
     }
 }
