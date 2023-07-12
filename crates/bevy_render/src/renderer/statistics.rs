@@ -202,7 +202,7 @@ impl StatisticsRecorder {
 
         match &self.timestamps_query_set {
             Some(set) if self.num_timestamps > 0 => {
-                encoder.resolve_query_set(&set, 0..self.num_timestamps, &buffer, 0);
+                encoder.resolve_query_set(set, 0..self.num_timestamps, &buffer, 0);
             }
             _ => {}
         }
@@ -210,7 +210,7 @@ impl StatisticsRecorder {
         match &self.pipeline_statistics_query_set {
             Some(set) if self.num_pipeline_statistics > 0 => {
                 encoder.resolve_query_set(
-                    &set,
+                    set,
                     0..self.num_pipeline_statistics,
                     &buffer,
                     pipeline_statistics_offset,
