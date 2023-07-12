@@ -40,6 +40,12 @@ impl<'a> From<AssetPath<'a>> for HandleId {
     }
 }
 
+impl<'a, 'b> From<&'a AssetPath<'b>> for HandleId {
+    fn from(value: &'a AssetPath<'b>) -> Self {
+        HandleId::AssetPathId(AssetPathId::from(value))
+    }
+}
+
 impl HandleId {
     /// Creates a random id for an asset of type `T`.
     #[inline]
