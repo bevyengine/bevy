@@ -1,6 +1,6 @@
 ﻿use crate::reflect::AppTypeRegistry;
 use crate::system::{Command, EntityCommands, Resource};
-use crate::{ entity::Entity, reflect::ReflectComponent, world::World};
+use crate::{entity::Entity, reflect::ReflectComponent, world::World};
 use bevy_reflect::{Reflect, TypeRegistry};
 use std::marker::PhantomData;
 
@@ -360,7 +360,7 @@ impl<T: Resource + AsRef<TypeRegistry>> Command for InsertReflectedWithRegistry<
 pub struct RemoveReflected {
     /// The entity from which the component will be removed.
     pub entity: Entity,
-    /// The [Component](crate::component::Component) type name that will be used to remove a component 
+    /// The [Component](crate::component::Component) type name that will be used to remove a component
     /// of the same type from the entity.
     pub component_type_name: String,
 }
@@ -389,7 +389,7 @@ pub struct RemoveReflectedWithRegistry<T: Resource + AsRef<TypeRegistry>> {
     /// The entity from which the component will be removed.
     pub entity: Entity,
     pub _t: PhantomData<T>,
-    /// The [Component](crate::component::Component) type name that will be used to remove a component 
+    /// The [Component](crate::component::Component) type name that will be used to remove a component
     /// of the same type from the entity.
     pub component_type_name: String,
 }
