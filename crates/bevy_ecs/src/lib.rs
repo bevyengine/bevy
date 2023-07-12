@@ -1899,7 +1899,7 @@ mod tests {
 
         let target = world.spawn(()).id();
         let target2 = world.spawn(()).id();
-        let e = world.spawn(());
+        let mut e = world.spawn(());
         e.add_relation(Rel, target);
 
         assert!(e.contains_relation::<Rel>(target));
