@@ -328,7 +328,7 @@ impl App {
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
-    /// [`StateTransition`] so that transitions happen before [`Update`] and
+    /// [`StateTransition`] so that transitions happen before [`crate::Update`] and
     /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
     /// initial state.
@@ -579,7 +579,7 @@ impl App {
         self
     }
 
-    /// Boxed variant of [`add_plugin`](App::add_plugin) that can be used from a
+    /// Boxed variant of [`add_plugins`](App::add_plugins) that can be used from a
     /// [`PluginGroup`](super::PluginGroup)
     pub(crate) fn add_boxed_plugin(
         &mut self,
