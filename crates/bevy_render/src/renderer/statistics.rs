@@ -210,21 +210,18 @@ impl StatisticsRecorder {
             let statistics = pass_records.into_iter().map(|(name, record)| {
                 let mut statistics = RenderPassStatistics::default();
 
-                statistics.elapsed_cpu = match (record.begin_instant, record.end_instant) {
-                    (Some(begin), Some(end)) => Some(end - begin),
-                    _ => None,
-                };
+                if let (Some(begin), Some(end)) = (record.begin_instant, record.end_instant) {
+                    statistics.elapsed_cpu = Some(end - begin);
+                }
 
-                statistics.elapsed_gpu =
-                    match (record.begin_timestamp_index, record.end_timestamp_index) {
-                        (Some(begin), Some(end)) => {
-                            let begin = timestamps[begin as usize] as f64;
-                            let end = timestamps[end as usize] as f64;
-                            let nanos = ((end - begin) * (timestamp_period as f64)).round() as u64;
-                            Some(Duration::from_nanos(nanos))
-                        }
-                        _ => None,
-                    };
+                if let (Some(begin), Some(end)) =
+                    (record.begin_timestamp_index, record.end_timestamp_index)
+                {
+                    let begin = timestamps[begin as usize] as f64;
+                    let end = timestamps[end as usize] as f64;
+                    let nanos = ((end - begin) * (timestamp_period as f64)).round() as u64;
+                    statistics.elapsed_gpu = Some(Duration::from_nanos(nanos));
+                }
 
                 if let Some(index) = record.pipeline_statistics_index {
                     let index = (index as usize) * 5;
@@ -261,7 +258,7 @@ impl MeasuredRenderPass<'_> {
         let mut render_pass = encoder.begin_render_pass(&desc);
 
         if let Some(name) = &name {
-            recorder.begin_render_pass(&mut render_pass, name)
+            recorder.begin_render_pass(&mut render_pass, name);
         }
 
         MeasuredRenderPass {
@@ -279,7 +276,7 @@ impl Drop for MeasuredRenderPass<'_> {
         }
 
         if let Some(name) = &self.name {
-            self.recorder.end_render_pass(&mut self.render_pass, &name)
+            self.recorder.end_render_pass(&mut self.render_pass, name);
         }
     }
 }

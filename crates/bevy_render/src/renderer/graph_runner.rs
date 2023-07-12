@@ -72,7 +72,7 @@ impl RenderGraphRunner {
         }
 
         let render_statistics_mutex = world.resource::<RenderStatisticsMutex>().0.clone();
-        render_context.download_statistics(&queue, move |statistics| {
+        render_context.download_statistics(queue, move |statistics| {
             *render_statistics_mutex.lock() = Some(statistics);
         });
 
