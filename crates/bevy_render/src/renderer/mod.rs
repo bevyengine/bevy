@@ -1,10 +1,12 @@
 mod graph_runner;
 mod render_device;
+mod statistics;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
+pub use statistics::*;
 
 use crate::{
     render_graph::RenderGraph,
@@ -291,21 +293,29 @@ pub struct RenderContext {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
     command_buffers: Vec<CommandBuffer>,
+    statistics_recorder: StatisticsRecorder,
 }
 
 impl RenderContext {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
-    pub fn new(render_device: RenderDevice) -> Self {
+    pub fn new(render_device: RenderDevice, queue: &Queue) -> Self {
+        let statistics_recorder = StatisticsRecorder::new(&render_device, queue);
         Self {
             render_device,
             command_encoder: None,
             command_buffers: Vec::new(),
+            statistics_recorder,
         }
     }
 
     /// Gets the underlying [`RenderDevice`].
     pub fn render_device(&self) -> &RenderDevice {
         &self.render_device
+    }
+
+    /// Gets the underlying [`StatisticsRecorder`].
+    pub fn statistics_encoder(&mut self) -> &mut StatisticsRecorder {
+        &mut self.statistics_recorder
     }
 
     /// Gets the current [`CommandEncoder`].
@@ -327,7 +337,8 @@ impl RenderContext {
             self.render_device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         });
-        let render_pass = command_encoder.begin_render_pass(&descriptor);
+        let render_pass =
+            MeasuredRenderPass::new(command_encoder, &mut self.statistics_recorder, descriptor);
         TrackedRenderPass::new(&self.render_device, render_pass)
     }
 
@@ -342,9 +353,26 @@ impl RenderContext {
     }
 
     /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
-    pub fn finish(mut self) -> Vec<CommandBuffer> {
+    pub fn finish(&mut self) -> Vec<CommandBuffer> {
+        let command_encoder = self.command_encoder.get_or_insert_with(|| {
+            self.render_device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+        });
+
+        self.statistics_recorder
+            .resolve(command_encoder, &self.render_device);
+
         self.flush_encoder();
-        self.command_buffers
+        std::mem::take(&mut self.command_buffers)
+    }
+
+    pub fn download_statistics(
+        &mut self,
+        queue: &Queue,
+        callback: impl FnOnce(RenderStatistics) + Send + 'static,
+    ) {
+        self.statistics_recorder
+            .download(&self.render_device, queue, callback);
     }
 
     fn flush_encoder(&mut self) {

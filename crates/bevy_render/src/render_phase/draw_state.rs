@@ -5,11 +5,11 @@ use crate::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
     },
-    renderer::RenderDevice,
+    renderer::{MeasuredRenderPass, RenderDevice},
 };
 use bevy_utils::{default, detailed_trace};
 use std::ops::Range;
-use wgpu::{IndexFormat, RenderPass};
+use wgpu::IndexFormat;
 
 /// Tracks the state of a [`TrackedRenderPass`].
 ///
@@ -101,13 +101,13 @@ impl DrawState {
 /// It is used to set the current [`RenderPipeline`], [`BindGroup`]s and [`Buffer`]s.
 /// After all requirements are specified, draw calls can be issued.
 pub struct TrackedRenderPass<'a> {
-    pass: RenderPass<'a>,
+    pass: MeasuredRenderPass<'a>,
     state: DrawState,
 }
 
 impl<'a> TrackedRenderPass<'a> {
     /// Tracks the supplied render pass.
-    pub fn new(device: &RenderDevice, pass: RenderPass<'a>) -> Self {
+    pub fn new(device: &RenderDevice, pass: MeasuredRenderPass<'a>) -> Self {
         let limits = device.limits();
         let max_bind_groups = limits.max_bind_groups as usize;
         let max_vertex_buffers = limits.max_vertex_buffers as usize;
