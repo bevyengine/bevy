@@ -1726,7 +1726,7 @@ mod tests {
     }
 
     #[test]
-    fn spawn_relation() {
+    fn relation_child_of() {
         #[derive(Component)]
         struct ChildOf;
 
@@ -1736,12 +1736,99 @@ mod tests {
         let mut child = world.spawn(());
         let child = child.add_relation(ChildOf, parent);
 
-        assert!(child.contains_id(
-            child
-                .world()
-                .component_id::<ChildOf>()
-                .unwrap()
-                .relation(parent)
-        ));
+        assert!(child.contains_relation::<ChildOf>(parent));
+    }
+
+    #[test]
+    fn relation_rock_paper_scissors() {
+        #[derive(Component)]
+        struct Beats;
+
+        let mut world = World::new();
+
+        let rock = world.spawn(()).id();
+        let paper = world.spawn(()).id();
+        let scissors = world.spawn(()).id();
+
+        world.entity_mut(rock).add_relation(Beats, scissors);
+        world.entity_mut(paper).add_relation(Beats, rock);
+        world.entity_mut(scissors).add_relation(Beats, paper);
+
+        assert!(world.entity(rock).contains_relation::<Beats>(scissors));
+        assert!(world.entity(paper).contains_relation::<Beats>(rock));
+        assert!(world.entity(scissors).contains_relation::<Beats>(paper));
+    }
+
+    #[test]
+    fn relation_spoke_and_hub() {
+        #[derive(Component)]
+        struct Connected;
+
+        let mut world = World::new();
+
+        let spoke1 = world.spawn(()).id();
+        let spoke2 = world.spawn(()).id();
+        let spoke3 = world.spawn(()).id();
+        let hub = world.spawn(()).id();
+
+        world
+            .entity_mut(spoke1)
+            .add_relation(Connected, hub)
+            .add_relation(Connected, spoke2)
+            .add_relation(Connected, spoke3);
+        world
+            .entity_mut(spoke2)
+            .add_relation(Connected, hub)
+            .add_relation(Connected, spoke1)
+            .add_relation(Connected, spoke3);
+        world
+            .entity_mut(spoke3)
+            .add_relation(Connected, hub)
+            .add_relation(Connected, spoke1)
+            .add_relation(Connected, spoke2);
+        world
+            .entity_mut(hub)
+            .add_relation(Connected, spoke1)
+            .add_relation(Connected, spoke2)
+            .add_relation(Connected, spoke3);
+
+        fn permute<T>(slice: &[T], mut for_each: impl FnMut(&T, &T)) {
+            for i in 0..slice.len() {
+                for j in 0..slice.len() {
+                    if i == j {
+                        continue;
+                    }
+
+                    let (lhs, rhs) = (&slice[i], &slice[j]);
+
+                    for_each(lhs, rhs);
+                }
+            }
+        }
+
+        permute(&[hub, spoke1, spoke2, spoke3], |lhs, rhs| {
+            assert!(world.entity(*lhs).contains_relation::<Connected>(*rhs));
+        })
+    }
+
+    #[test]
+    fn relation_eats() {
+        #[derive(Component)]
+        struct Eats(u32);
+
+        let mut world = World::new();
+
+        let adam = world.spawn(()).id();
+        let eve = world.spawn(()).id();
+        let apples = world.spawn(()).id();
+
+        world.entity_mut(adam).add_relation(Eats(2), apples);
+        world.entity_mut(eve).add_relation(Eats(3), apples);
+
+        assert_eq!(
+            world.entity(adam).get_relation::<Eats>(apples).unwrap().0,
+            2
+        );
+        assert_eq!(world.entity(eve).get_relation::<Eats>(apples).unwrap().0, 3);
     }
 }

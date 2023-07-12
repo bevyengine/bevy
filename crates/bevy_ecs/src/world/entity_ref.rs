@@ -102,6 +102,17 @@ impl<'w> EntityRef<'w> {
             .contains_id(component_id)
     }
 
+    /// Returns `true` if the current entity is related to `target` by the given relation.
+    /// Otherwise, this returns false.
+    #[inline]
+    pub fn contains_relation<R: Component>(&self, target: Entity) -> bool {
+        let rel_id = match self.world.component_id::<R>() {
+            Some(id) => id.relation(target),
+            None => return false,
+        };
+        self.contains_id(rel_id)
+    }
+
     /// Returns `true` if the current entity has a component with the type identified by `type_id`.
     /// Otherwise, this returns false.
     ///
@@ -121,6 +132,22 @@ impl<'w> EntityRef<'w> {
     pub fn get<T: Component>(&self) -> Option<&'w T> {
         // SAFETY: &self implies shared access for duration of returned value
         unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
+    }
+
+    /// Gets access to the relation of type `R` for the current entity and target.
+    /// Returns `None` if the entity does not have this relation to that target.
+    #[inline]
+    pub fn get_relation<R: Component>(&'w self, target: Entity) -> Option<&'w R> {
+        let rel_id = self.world.component_id::<R>()?.relation(target);
+
+        // SAFETY:
+        // - &self implies shared access for the duration of the returned value
+        let ptr = unsafe { self.as_unsafe_world_cell_readonly().get_by_id(rel_id)? };
+        // SAFETY:
+        // - The relation is created from the component id of `R`, so the value pointed to must be of
+        // type `R`
+        // - get_by_id should return an aligned pointer for the correct type
+        Some(unsafe { ptr.deref::<R>() })
     }
 
     /// Gets access to the component of type `T` for the current entity,
@@ -271,6 +298,17 @@ impl<'w> EntityMut<'w> {
             .contains_id(component_id)
     }
 
+    /// Returns `true` if the current entity is related to `target` by the given relation.
+    /// Otherwise, this returns false.
+    #[inline]
+    pub fn contains_relation<R: Component>(&self, target: Entity) -> bool {
+        let rel_id = match self.world.component_id::<R>() {
+            Some(id) => id.relation(target),
+            None => return false,
+        };
+        self.contains_id(rel_id)
+    }
+
     /// Returns `true` if the current entity has a component with the type identified by `type_id`.
     /// Otherwise, this returns false.
     ///
@@ -290,6 +328,22 @@ impl<'w> EntityMut<'w> {
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
         // SAFETY: &self implies shared access for duration of returned value
         unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
+    }
+
+    /// Gets access to the relation of type `R` for the current entity and target.
+    /// Returns `None` if the entity does not have this relation to that target.
+    #[inline]
+    pub fn get_relation<R: Component>(&'w self, target: Entity) -> Option<&'w R> {
+        let rel_id = self.world.component_id::<R>()?.relation(target);
+
+        // SAFETY:
+        // - &self implies shared access for the duration of the returned value
+        let ptr = unsafe { self.as_unsafe_world_cell_readonly().get_by_id(rel_id)? };
+        // SAFETY:
+        // - The relation is created from the component id of `R`, so the value pointed to must be of
+        // type `R`
+        // - get_by_id should return an aligned pointer for the correct type
+        Some(unsafe { ptr.deref::<R>() })
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
