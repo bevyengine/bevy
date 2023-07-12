@@ -1807,7 +1807,7 @@ mod tests {
 
         permute(&[hub, spoke1, spoke2, spoke3], |lhs, rhs| {
             assert!(world.entity(*lhs).contains_relation::<Connected>(*rhs));
-        })
+        });
     }
 
     #[test]
