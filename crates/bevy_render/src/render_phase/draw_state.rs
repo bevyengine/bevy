@@ -96,7 +96,7 @@ impl DrawState {
     }
 }
 
-/// A [`RenderPass`], which tracks the current pipeline state to skip redundant operations.
+/// A [`MeasuredRenderPass`], which tracks the current pipeline state to skip redundant operations.
 ///
 /// It is used to set the current [`RenderPipeline`], [`BindGroup`]s and [`Buffer`]s.
 /// After all requirements are specified, draw calls can be issued.
@@ -174,7 +174,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// Assign a vertex buffer to a slot.
     ///
     /// Subsequent calls to [`draw`] and [`draw_indexed`] on this
-    /// [`RenderPass`] will use `buffer` as one of the source vertex buffers.
+    /// [`TrackedRenderPass`] will use `buffer` as one of the source vertex buffers.
     ///
     /// The `slot_index` refers to the index of the matching descriptor in
     /// [`VertexState::buffers`](crate::render_resource::VertexState::buffers).
