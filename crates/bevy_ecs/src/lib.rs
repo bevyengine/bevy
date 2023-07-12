@@ -1831,4 +1831,40 @@ mod tests {
         );
         assert_eq!(world.entity(eve).get_relation::<Eats>(apples).unwrap().0, 3);
     }
+
+    #[test]
+    fn relation_add_overwrite() {
+        #[derive(Component)]
+        struct Has(usize);
+
+        let mut world = World::new();
+
+        let apples = world.spawn(()).id();
+        let oranges = world.spawn(()).id();
+
+        let mut jane = world.spawn(());
+        jane.add_relation(Has(12), apples)
+            .add_relation(Has(20), oranges);
+
+        jane.add_relation(Has(13), apples);
+
+        assert_eq!(jane.get_relation::<Has>(apples).unwrap().0, 13);
+    }
+
+    #[test]
+    fn relation_get_mut() {
+        #[derive(Component)]
+        struct Has(usize);
+
+        let mut world = World::new();
+
+        let apples = world.spawn(()).id();
+        let mut eve = world.spawn(());
+
+        eve.add_relation(Has(24), apples);
+
+        eve.get_relation_mut::<Has>(apples).unwrap().0 -= 1;
+
+        assert_eq!(eve.get_relation::<Has>(apples).unwrap().0, 23);
+    }
 }

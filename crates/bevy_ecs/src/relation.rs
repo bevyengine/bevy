@@ -8,7 +8,10 @@ use crate::prelude::Component;
 /// commands.entity(foo).insert(rel(ChildOf, parent));
 /// ```
 pub struct Relation<C: Component> {
+    /// The kind of relation. For example, `Eats`, `ChildOf`, `Has`, `IsAt`, etc.
     pub relation: C,
+    /// The target of the relation. For `Eats`, this would be what is eaten. For `ChildOf`, this
+    /// would be the parent. For `IsAt`, this would be the location.
     pub target: Entity,
 }
 

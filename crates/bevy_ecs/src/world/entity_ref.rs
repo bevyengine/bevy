@@ -1,5 +1,3 @@
-use crate::component::ComponentDescriptor;
-use crate::relation::{rel, Relation};
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInfo, BundleInserter, DynamicBundle},
@@ -137,7 +135,7 @@ impl<'w> EntityRef<'w> {
     /// Gets access to the relation of type `R` for the current entity and target.
     /// Returns `None` if the entity does not have this relation to that target.
     #[inline]
-    pub fn get_relation<R: Component>(&'w self, target: Entity) -> Option<&'w R> {
+    pub fn get_relation<R: Component>(&self, target: Entity) -> Option<&'_ R> {
         let rel_id = self.world.component_id::<R>()?.relation(target);
 
         // SAFETY:
@@ -333,7 +331,7 @@ impl<'w> EntityMut<'w> {
     /// Gets access to the relation of type `R` for the current entity and target.
     /// Returns `None` if the entity does not have this relation to that target.
     #[inline]
-    pub fn get_relation<R: Component>(&'w self, target: Entity) -> Option<&'w R> {
+    pub fn get_relation<R: Component>(&self, target: Entity) -> Option<&'_ R> {
         let rel_id = self.world.component_id::<R>()?.relation(target);
 
         // SAFETY:
@@ -352,6 +350,21 @@ impl<'w> EntityMut<'w> {
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
         unsafe { self.as_unsafe_world_cell().get_mut() }
+    }
+
+    /// Gets mutable access to the relation of type `R` for the current entity and target.
+    /// Returns `None` if the entity does not have this relation to that target.
+    #[inline]
+    pub fn get_relation_mut<R: Component>(&mut self, target: Entity) -> Option<Mut<'_, R>> {
+        let rel_id = self.world.component_id::<R>()?.relation(target);
+
+        // SAFETY:
+        // - &mut self implies exclusive access for the duration of the returned value
+        let ptr = unsafe { self.as_unsafe_world_cell().get_mut_by_id(rel_id)? };
+        // SAFETY:
+        // - The relation is created from the component id of `R`, so the value pointed to must be of
+        // type `R`
+        Some(unsafe { ptr.with_type::<R>() })
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -402,6 +415,9 @@ impl<'w> EntityMut<'w> {
         self
     }
 
+    /// Adds a [`Relation`] to an entity.
+    ///
+    /// This will overwrite previous values of the same relation to the same entity.
     pub fn add_relation<R: Component>(&mut self, relation: R, target: Entity) -> &mut Self {
         let change_tick = self.world.change_tick();
         let relation_id = self.world.init_component::<R>().relation(target);
@@ -418,9 +434,11 @@ impl<'w> EntityMut<'w> {
             change_tick,
         );
 
+        // SAFETY:
+        // - entity exists in the source archetype
+        // - `T` matches `bundle_info`
         unsafe {
-            self.location =
-                bundle_inserter.insert(self.entity, self.location, Relation { relation, target });
+            self.location = bundle_inserter.insert(self.entity, self.location, relation);
         }
 
         self
