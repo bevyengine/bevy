@@ -1927,6 +1927,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "custom_render_phase"
+path = "examples/shader/custom_render_phase.rs"
+
+[package.metadata.example.custom_render_phase]
+name = "Custom Render Phase"
+description = "An example showcasing how to set up a custom render phase and draw command"
+category = "Shaders"
+wasm = false
+
+
+[[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
 doc-scrape-examples = true
