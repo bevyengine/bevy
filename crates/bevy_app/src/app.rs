@@ -1,4 +1,4 @@
-use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, Startup, StateTransition, Update};
+use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,

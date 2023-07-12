@@ -5,7 +5,6 @@ use crate::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
-        ScheduleLabel,
     },
     system::{BoxedSystem, IntoSystem, System},
 };
