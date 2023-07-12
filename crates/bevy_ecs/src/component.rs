@@ -290,6 +290,9 @@ pub struct ComponentId {
 }
 
 impl ComponentId {
+    /// No target is specified for the [`ComponentId`].
+    ///
+    /// This value is always used for ordinary (non-relation) components.
     const NO_TARGET: u32 = u32::MAX;
 
     /// Creates a new [`ComponentId`].
