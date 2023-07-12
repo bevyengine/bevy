@@ -7,9 +7,9 @@ use crate::{entity::Entity, system::Resource};
 use bevy_reflect::{impl_reflect_value, ReflectDeserialize, ReflectSerialize, TypeRegistryArc};
 
 mod component;
+mod entity_commands;
 mod map_entities;
 mod resource;
-mod entity_commands;
 
 pub use component::{ReflectComponent, ReflectComponentFns};
 pub use entity_commands::EntityCommandsReflectExtension;
