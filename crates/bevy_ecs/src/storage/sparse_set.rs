@@ -397,6 +397,7 @@ macro_rules! impl_sparse_set {
                 })
             }
 
+            #[allow(dead_code)]
             /// Returns an iterator visiting all keys (indices) in arbitrary order.
             pub fn indices(&self) -> impl Iterator<Item = I> + '_ {
                 self.indices.iter().cloned()
@@ -412,6 +413,7 @@ macro_rules! impl_sparse_set {
                 self.dense.iter_mut()
             }
 
+            #[allow(dead_code)]
             /// Returns an iterator visiting all key-value pairs in arbitrary order, with references to the values.
             pub fn iter(&self) -> impl Iterator<Item = (&I, &V)> {
                 self.indices.iter().zip(self.dense.iter())
