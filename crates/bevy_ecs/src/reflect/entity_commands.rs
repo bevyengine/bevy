@@ -1,6 +1,6 @@
 ﻿use crate::reflect::AppTypeRegistry;
 use crate::system::{Command, EntityCommands, Resource};
-use crate::{entity::Entity, reflect::ReflectComponent, world::World};
+use crate::{ entity::Entity, reflect::ReflectComponent, world::World};
 use bevy_reflect::{Reflect, TypeRegistry};
 use std::marker::PhantomData;
 
@@ -14,7 +14,7 @@ pub trait EntityCommandsReflectExtension {
     /// # Panics
     ///
     /// - If the entity doesn't exist.
-    /// - If [`AppTypeRegistry`] does not have the reflection data for the given [`Component`].
+    /// - If [`AppTypeRegistry`] does not have the reflection data for the given [Component](crate::component::Component).
     /// - If the component data is invalid. See [`Reflect::apply`] for further details.
     /// - If [`AppTypeRegistry`] is not present in the [`World`].
     ///
@@ -73,7 +73,7 @@ pub trait EntityCommandsReflectExtension {
     /// # Panics
     ///
     /// - If the entity doesn't exist.
-    /// - If the given [`TypeRegistry`] does not have the reflection data for the given [`Component`].
+    /// - If the given [`TypeRegistry`] does not have the reflection data for the given [Component](crate::component::Component).
     /// - If the component data is invalid. See [`Reflect::apply`] for further details.
     /// - If the given [`Resource`] is not present in the [`World`].
     ///
@@ -295,7 +295,7 @@ impl<'w, 's, 'a> EntityCommandsReflectExtension for EntityCommands<'w, 's, 'a> {
 pub struct InsertReflected {
     /// The entity on which the component will be inserted.
     pub entity: Entity,
-    /// The reflect [`Component`] that will be added to the entity.
+    /// The reflect [Component](crate::component::Component) that will be added to the entity.
     pub component: Box<dyn Reflect>,
 }
 
@@ -327,7 +327,7 @@ pub struct InsertReflectedWithRegistry<T: Resource + AsRef<TypeRegistry>> {
     /// The entity on which the component will be inserted.
     pub entity: Entity,
     pub _t: PhantomData<T>,
-    /// The reflect [`Component`] that will be added to the entity.
+    /// The reflect [Component](crate::component::Component) that will be added to the entity.
     pub component: Box<dyn Reflect>,
 }
 
@@ -360,8 +360,8 @@ impl<T: Resource + AsRef<TypeRegistry>> Command for InsertReflectedWithRegistry<
 pub struct RemoveReflected {
     /// The entity from which the component will be removed.
     pub entity: Entity,
-    /// The boxed reflect [`Component`] that will be used to remove a component of the same type
-    /// from the entity.
+    /// The [Component](crate::component::Component) type name that will be used to remove a component 
+    /// of the same type from the entity.
     pub component_type_name: String,
 }
 
@@ -389,8 +389,8 @@ pub struct RemoveReflectedWithRegistry<T: Resource + AsRef<TypeRegistry>> {
     /// The entity from which the component will be removed.
     pub entity: Entity,
     pub _t: PhantomData<T>,
-    /// The boxed reflect [`Component`] that will be used to remove a component of the same type
-    /// from the entity.
+    /// The [Component](crate::component::Component) type name that will be used to remove a component 
+    /// of the same type from the entity.
     pub component_type_name: String,
 }
 
