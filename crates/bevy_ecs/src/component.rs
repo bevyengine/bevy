@@ -290,7 +290,7 @@ pub struct ComponentId {
 }
 
 impl ComponentId {
-    const NO_TARGET: u32 = 0;
+    const NO_TARGET: u32 = u32::MAX;
 
     /// Creates a new [`ComponentId`].
     ///
