@@ -1924,4 +1924,22 @@ mod tests {
 
         assert!(!access.has_read(rel_id));
     }
+
+    #[test]
+    fn relation_remove() {
+        #[derive(Component)]
+        struct Rel(Box<i32>);
+
+        let mut world = World::new();
+
+        let target = world.spawn(()).id();
+        let mut e = world.spawn(());
+        e.add_relation(Rel(Box::new(12)), target);
+
+        assert!(e.contains_relation::<Rel>(target));
+
+        e.remove_relation::<Rel>(target);
+
+        assert!(!e.contains_relation::<Rel>(target));
+    }
 }

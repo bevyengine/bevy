@@ -752,6 +752,75 @@ impl<'w> EntityMut<'w> {
         self
     }
 
+    /// Removes the relation from this entity.
+    pub fn remove_relation<R: Component>(&mut self, target: Entity) -> &mut Self {
+        let relation_id = self.world.init_component::<R>().relation(target);
+
+        let archetypes = &mut self.world.archetypes;
+        let storages = &mut self.world.storages;
+        let components = &mut self.world.components;
+        let entities = &mut self.world.entities;
+        let removed_components = &mut self.world.removed_components;
+
+        let (bundle_info, _) = self
+            .world
+            .bundles
+            .init_dynamic_info(components, &[relation_id]);
+        let old_location = self.location;
+
+        // SAFETY: `archetype_id` exists because it is referenced in the old `EntityLocation` which is valid,
+        // components exist in `bundle_info` because `Bundles::init_dynamic_info` initializes a `BundleInfo` containing `R`
+        let new_archetype_id = unsafe {
+            remove_bundle_from_archetype(
+                archetypes,
+                storages,
+                components,
+                old_location.archetype_id,
+                bundle_info,
+                true,
+            )
+            .expect("intersections should always return a result")
+        };
+
+        if new_archetype_id == old_location.archetype_id {
+            return self;
+        }
+
+        let old_archetype = &mut archetypes[old_location.archetype_id];
+        let entity = self.entity;
+        for component_id in bundle_info.components().iter().cloned() {
+            if old_archetype.contains(component_id) {
+                removed_components.send(component_id, entity);
+
+                // Make sure to drop components stored in sparse sets.
+                // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
+                if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
+                    storages
+                        .sparse_sets
+                        .get_mut(component_id)
+                        .unwrap()
+                        .remove(entity);
+                }
+            }
+        }
+
+        #[allow(clippy::undocumented_unsafe_blocks)] // TODO: document why this is safe
+        unsafe {
+            Self::move_entity_from_remove::<true>(
+                entity,
+                &mut self.location,
+                old_location.archetype_id,
+                old_location,
+                entities,
+                archetypes,
+                storages,
+                new_archetype_id,
+            );
+        }
+
+        self
+    }
+
     /// Despawns the current entity.
     pub fn despawn(self) {
         debug!("Despawning entity {:?}", self.entity);
