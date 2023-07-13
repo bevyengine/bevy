@@ -390,7 +390,7 @@ impl HandleUntyped {
         Handle {
             handle_type,
             id: self.id,
-            marker: PhantomData::default(),
+            marker: PhantomData,
         }
     }
 }

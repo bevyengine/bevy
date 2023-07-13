@@ -78,7 +78,7 @@ impl<'task> ThreadExecutor<'task> {
         if thread::current().id() == self.thread_id {
             return Some(ThreadExecutorTicker {
                 executor: self,
-                _marker: PhantomData::default(),
+                _marker: PhantomData,
             });
         }
         None
