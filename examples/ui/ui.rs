@@ -149,35 +149,37 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 });
                         });
                 });
-            parent.spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Px(200.0),
-                        height: Val::Px(200.0),
-                        position_type: PositionType::Absolute,
-                        left: Val::Px(210.),
-                        bottom: Val::Px(10.),
-                        border_radius: UiBorderRadius::all(Val::Px(40.)),
-                        padding: UiRect::all(Val::Px(20.)),
+            parent
+                .spawn((
+                    NodeBundle {
+                        style: Style {
+                            width: Val::Px(200.0),
+                            height: Val::Px(200.0),
+                            position_type: PositionType::Absolute,
+                            left: Val::Px(210.),
+                            bottom: Val::Px(10.),
+                            border_radius: UiBorderRadius::all(Val::Px(40.)),
+                            padding: UiRect::all(Val::Px(20.)),
+                            ..default()
+                        },
+                        background_color: Color::rgb(0.4, 0.4, 1.).into(),
                         ..default()
                     },
-                    background_color: Color::rgb(0.4, 0.4, 1.).into(),
-                    ..default()
-                },
-                UiShadow {
-                    ..Default::default()
-                },
-            )).with_children(|parent| {
-                parent.spawn(NodeBundle {
-                    style: Style {
-                        flex_grow: 1.,
-                        border_radius: UiBorderRadius::all(Val::Px(20.)),
-                        ..default()
+                    UiShadow {
+                        ..Default::default()
                     },
-                    background_color: Color::rgb(0.8, 0.8, 1.).into(),
-                    ..default()
+                ))
+                .with_children(|parent| {
+                    parent.spawn(NodeBundle {
+                        style: Style {
+                            flex_grow: 1.,
+                            border_radius: UiBorderRadius::all(Val::Px(20.)),
+                            ..default()
+                        },
+                        background_color: Color::rgb(0.8, 0.8, 1.).into(),
+                        ..default()
+                    });
                 });
-            });
 
             // render order test: reddest in the back, whitest in the front (flex center)
             parent

@@ -11,7 +11,7 @@ pub use render_pass::*;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
 };
-use crate::{Style, UiShadow, Val, ContentSize};
+use crate::{ContentSize, Style, UiShadow, Val};
 use crate::{UiBorderRadius, UiScale, UiTextureAtlasImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -361,7 +361,6 @@ pub fn extract_uinodes(
                 )
             };
 
-
             let transform = global_transform.compute_matrix();
 
             let border_radius = resolve_border_radius(
@@ -400,7 +399,7 @@ pub fn extract_uinodes(
                         shadow_blur_radius,
                         shadow_blur_radius,
                     ],
-                    node_type: NodeType::Shadow
+                    node_type: NodeType::Shadow,
                 };
                 extracted_uinodes.uinodes.push(extracted_node);
             }
@@ -512,7 +511,7 @@ pub fn extract_uinode_borders(
                     ui_scale.scale,
                 ),
                 border: [left, top, right, bottom],
-                node_type: NodeType::Border
+                node_type: NodeType::Border,
             });
         }
     }
@@ -642,7 +641,7 @@ pub fn extract_text_uinodes(
                     flip_x: false,
                     flip_y: false,
                     border_radius: [0.; 4],
-                    border: [0.; 4],                    
+                    border: [0.; 4],
                     node_type: NodeType::Rect,
                 });
             }
@@ -695,9 +694,10 @@ pub struct UiBatch {
     pub z: f32,
 }
 
+/// The values here should match the values for the constants in `ui.wgsl`
 pub mod shader_flags {
-    pub const UNTEXTURED_QUAD: u32 = 0;
-    pub const TEXTURED_QUAD: u32 = 1;
+    pub const UNTEXTURED: u32 = 0;
+    pub const TEXTURED: u32 = 1;
     pub const BOX_SHADOW: u32 = 2;
     pub const DISABLE_AA: u32 = 4;
     pub const CORNERS: [u32; 4] = [
@@ -734,10 +734,7 @@ pub fn prepare_uinodes(
     let mut last_z = 0.0;
     let mut vertex_index = 0;
 
-    #[inline]
-    fn is_textured(image: &Handle<Image>) -> bool {
-        image.id() != DEFAULT_IMAGE_HANDLE.id()
-    }
+    let is_textured = |image: &Handle<Image>| image.id() != DEFAULT_IMAGE_HANDLE.id();
 
     for extracted_uinode in &extracted_uinodes.uinodes {
         let mut flags = if is_textured(&extracted_uinode.image) {
@@ -752,11 +749,11 @@ pub fn prepare_uinodes(
                 }
                 current_batch_image = extracted_uinode.image.clone_weak();
             }
-            shader_flags::TEXTURED_QUAD
+            shader_flags::TEXTURED
         } else {
             // Untextured `UiBatch`es are never spawned within the loop.
             // If all the `extracted_uinodes` are untextured a single untextured UiBatch will be spawned after the loop terminates.
-            shader_flags::UNTEXTURED_QUAD
+            shader_flags::UNTEXTURED
         };
 
         let mut uinode_rect = extracted_uinode.rect;
@@ -816,52 +813,53 @@ pub fn prepare_uinodes(
             }
         }
         let uvs = {
-            if flags == shader_flags::UNTEXTURED_QUAD {
+            if flags == shader_flags::UNTEXTURED {
                 [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
             } else {
-            let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
-            if extracted_uinode.flip_x {
-                std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
-                positions_diff[0].x *= -1.;
-                positions_diff[1].x *= -1.;
-                positions_diff[2].x *= -1.;
-                positions_diff[3].x *= -1.;
+                let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
+                if extracted_uinode.flip_x {
+                    std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
+                    positions_diff[0].x *= -1.;
+                    positions_diff[1].x *= -1.;
+                    positions_diff[2].x *= -1.;
+                    positions_diff[3].x *= -1.;
+                }
+                if extracted_uinode.flip_y {
+                    std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
+                    positions_diff[0].y *= -1.;
+                    positions_diff[1].y *= -1.;
+                    positions_diff[2].y *= -1.;
+                    positions_diff[3].y *= -1.;
+                }
+                [
+                    Vec2::new(
+                        uinode_rect.min.x + positions_diff[0].x,
+                        uinode_rect.min.y + positions_diff[0].y,
+                    ),
+                    Vec2::new(
+                        uinode_rect.max.x + positions_diff[1].x,
+                        uinode_rect.min.y + positions_diff[1].y,
+                    ),
+                    Vec2::new(
+                        uinode_rect.max.x + positions_diff[2].x,
+                        uinode_rect.max.y + positions_diff[2].y,
+                    ),
+                    Vec2::new(
+                        uinode_rect.min.x + positions_diff[3].x,
+                        uinode_rect.max.y + positions_diff[3].y,
+                    ),
+                ]
+                .map(|pos| pos / atlas_extent)
             }
-            if extracted_uinode.flip_y {
-                std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
-                positions_diff[0].y *= -1.;
-                positions_diff[1].y *= -1.;
-                positions_diff[2].y *= -1.;
-                positions_diff[3].y *= -1.;
-            }
-            [
-                Vec2::new(
-                    uinode_rect.min.x + positions_diff[0].x,
-                    uinode_rect.min.y + positions_diff[0].y,
-                ),
-                Vec2::new(
-                    uinode_rect.max.x + positions_diff[1].x,
-                    uinode_rect.min.y + positions_diff[1].y,
-                ),
-                Vec2::new(
-                    uinode_rect.max.x + positions_diff[2].x,
-                    uinode_rect.max.y + positions_diff[2].y,
-                ),
-                Vec2::new(
-                    uinode_rect.min.x + positions_diff[3].x,
-                    uinode_rect.max.y + positions_diff[3].y,
-                ),
-            ]
-            .map(|pos| pos / atlas_extent)
-        }};
+        };
 
         let color = extracted_uinode.color.as_linear_rgba_f32();
-        match extracted_uinode.node_type {    
+        match extracted_uinode.node_type {
             NodeType::Border => flags |= shader_flags::BORDER,
             NodeType::Shadow => flags |= shader_flags::BOX_SHADOW,
             _ => {}
         }
-        
+
         for i in 0..4 {
             let ui_vertex = UiVertex {
                 position: positions_clipped[i].into(),
