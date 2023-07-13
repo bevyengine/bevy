@@ -153,7 +153,8 @@ pub struct VisibilityBundle {
     pub computed: ComputedVisibility,
 }
 
-/// Use this component to opt-out of built-in frustum culling for Mesh entities
+/// Use this component to opt-out of built-in frustum culling for entities, see
+/// [`Frustum`].
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct NoFrustumCulling;
@@ -161,15 +162,12 @@ pub struct NoFrustumCulling;
 /// Collection of entities visible from the current view.
 ///
 /// This component contains all entities which are visible from the currently
-/// rendered view. The collection is updated automatically by the [`check_visibility()`]
-/// system, and renderers can use it to optimize rendering of a particular view, to
+/// rendered view. The collection is updated automatically by the [`VisibilitySystems::CheckVisibility`]
+/// system set, and renderers can use it to optimize rendering of a particular view, to
 /// prevent drawing items not visible from that view.
 ///
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
-///
-/// Currently this component is ignored by the sprite renderer, so sprite rendering
-/// is not optimized per view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
 #[reflect(Component)]
 pub struct VisibleEntities {
@@ -193,7 +191,8 @@ impl VisibleEntities {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
-    /// Label for the [`calculate_bounds`] system.
+    /// Label for the [`calculate_bounds`] and `calculate_bounds_2d` systems,
+    /// calculating and inserting an [`Aabb`] to relevant entities.
     CalculateBounds,
     /// Label for the [`apply_deferred`] call after [`VisibilitySystems::CalculateBounds`]
     CalculateBoundsFlush,

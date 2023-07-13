@@ -6,12 +6,13 @@ use bevy_utils::HashMap;
 /// An axis-aligned bounding box.
 ///
 /// Used as a component on an entity to determine if it should be rendered by a
-/// [`Camera`](crate::camera::Camera) entity if it intersects with its [`Frustum`].
+/// [`Camera`](crate::camera::Camera) entity if it intersects with its [`Frustum`],
+/// in a process called frustum culling.
 ///
-/// It will be added automatically to entities with a [`Handle<Mesh>`](crate::mesh::Mesh)
-/// component using [`calculate_bounds`](crate::view::visibility::calculate_bounds),
-/// except if the entity has a [`NoFrustumCulling`](crate::view::visibility::NoFrustumCulling)
-/// component.
+/// It will be added automatically to entities that could be subject to frustum
+/// culling, and don't have the [`NoFrustumCulling`](crate::view::visibility::NoFrustumCulling)
+/// component, using the systems in
+/// [`CalculateBounds`](crate::view::visibility::VisibilitySystems::CalculateBounds).
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Aabb {
@@ -160,6 +161,9 @@ impl HalfSpace {
 /// component to determine which entities will be considered for rendering
 /// by this camera, all entities with an [`Aabb`] component that does not intersect
 /// with the frustum will not be rendered, and not be used in rendering computations.
+/// 
+/// This process is called frustum culling, and entities can opt out of it using
+/// the [`NoFrustumCulling`](crate::view::visibility::NoFrustumCulling) component.
 ///
 /// The frustum component is typically added by adding a bundle, either the `Camera2dBundle`
 /// or the `Camera3dBundle`, and is typically updated automatically using
