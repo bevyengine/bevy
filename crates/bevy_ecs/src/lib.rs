@@ -1906,4 +1906,22 @@ mod tests {
         assert!(!e.contains::<Rel>());
         assert!(!e.contains_relation::<Rel>(target2));
     }
+
+    #[test]
+    fn relation_can_access_disjoint() {
+        #[derive(Component)]
+        struct Rel;
+
+        let mut world = World::new();
+
+        let target = world.spawn(()).id();
+
+        let rel_id = world.init_component::<Rel>();
+        let rel_target_id = rel_id.relation(target);
+
+        let mut access = crate::query::Access::new();
+        access.add_read(rel_target_id);
+
+        assert!(!access.has_read(rel_id));
+    }
 }
