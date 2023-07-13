@@ -29,7 +29,7 @@ pub fn render_system(world: &mut World) {
         graph.update(world);
     });
 
-    let statistics_recorder = world.remove_resource::<StatisticsRecorder>().unwrap();
+    let statistics_recorder = world.remove_resource::<StatisticsRecorder>();
 
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
@@ -45,9 +45,10 @@ pub fn render_system(world: &mut World) {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
         },
     ) {
-        Ok(statistics_recorder) => {
+        Ok(Some(statistics_recorder)) => {
             world.insert_resource(statistics_recorder);
         }
+        Ok(None) => {}
         Err(e) => {
             error!("Error running render graph:");
             {
@@ -302,12 +303,15 @@ pub struct RenderContext {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
     command_buffers: Vec<CommandBuffer>,
-    statistics_recorder: StatisticsRecorder,
+    statistics_recorder: Option<StatisticsRecorder>,
 }
 
 impl RenderContext {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
-    pub fn new(render_device: RenderDevice, statistics_recorder: StatisticsRecorder) -> Self {
+    pub fn new(
+        render_device: RenderDevice,
+        statistics_recorder: Option<StatisticsRecorder>,
+    ) -> Self {
         Self {
             render_device,
             command_encoder: None,
@@ -340,8 +344,13 @@ impl RenderContext {
             self.render_device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         });
-        let render_pass =
-            MeasuredRenderPass::new(command_encoder, &mut self.statistics_recorder, descriptor);
+
+        let render_pass = MeasuredRenderPass::new(
+            command_encoder,
+            self.statistics_recorder.as_mut(),
+            descriptor,
+        );
+
         TrackedRenderPass::new(&self.render_device, render_pass)
     }
 
@@ -358,13 +367,15 @@ impl RenderContext {
     /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
     ///
     /// When the render statistics become available, `statistics_callback` will be invoked.
-    pub fn finish(mut self) -> (Vec<CommandBuffer>, RenderDevice, StatisticsRecorder) {
+    pub fn finish(mut self) -> (Vec<CommandBuffer>, RenderDevice, Option<StatisticsRecorder>) {
         let command_encoder = self.command_encoder.get_or_insert_with(|| {
             self.render_device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         });
 
-        self.statistics_recorder.resolve(command_encoder);
+        if let Some(recorder) = &mut self.statistics_recorder {
+            recorder.resolve(command_encoder);
+        }
 
         self.flush_encoder();
 

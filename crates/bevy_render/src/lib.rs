@@ -34,7 +34,7 @@ pub mod prelude {
         color::Color,
         mesh::{morph::MorphWeights, shape, Mesh},
         render_resource::Shader,
-        renderer::RenderStatistics,
+        renderer::{RenderPassStatistics, RenderStatistics, RenderStatisticsPlugin},
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
         view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
@@ -44,10 +44,7 @@ pub mod prelude {
 
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
-use renderer::{
-    sync_render_statistics, RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue,
-    RenderStatistics, RenderStatisticsMutex, StatisticsRecorder,
-};
+use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 use wgpu::Instance;
 
 use crate::{
@@ -58,7 +55,7 @@ use crate::{
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, AppLabel, Plugin, PreUpdate, SubApp};
+use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
@@ -274,18 +271,11 @@ impl Plugin for RenderPlugin {
             let mut extract_schedule = Schedule::new();
             extract_schedule.set_apply_final_deferred(false);
 
-            let render_statistics = RenderStatisticsMutex::default();
-
-            app.insert_resource(render_statistics.clone())
-                .add_systems(PreUpdate, sync_render_statistics)
-                .init_resource::<RenderStatistics>();
-
             render_app
                 .add_schedule(ExtractSchedule, extract_schedule)
                 .add_schedule(Render, Render::base_schedule())
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(app.world.resource::<AssetServer>().clone())
-                .insert_resource(render_statistics)
                 .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
                 .add_systems(
                     Render,
@@ -380,7 +370,6 @@ impl Plugin for RenderPlugin {
             render_app
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(PipelineCache::new(device.clone()))
-                .insert_resource(StatisticsRecorder::new(&device, &queue))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)

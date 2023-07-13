@@ -3,6 +3,7 @@ use std::sync::{
     Arc,
 };
 
+use bevy_app::{App, Plugin, PreUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_utils::{Duration, HashMap, Instant};
@@ -13,7 +14,9 @@ use wgpu::{
     RenderPassDescriptor,
 };
 
-use super::RenderDevice;
+use crate::RenderApp;
+
+use super::{RenderDevice, RenderQueue};
 
 // buffer offset must be divisible by 256, so this constant must be divisible by 32 (=256/8)
 const MAX_TIMESTAMP_QUERIES: u32 = 256;
@@ -21,6 +24,33 @@ const MAX_PIPELINE_STATISTICS: u32 = 128;
 
 const TIMESTAMP_SIZE: u64 = 8;
 const PIPELINE_STATISTICS_SIZE: u64 = 40;
+
+/// Enables collecting render pass statistics into [`RenderStatistics`] resource.
+#[derive(Default)]
+pub struct RenderStatisticsPlugin;
+
+impl Plugin for RenderStatisticsPlugin {
+    fn build(&self, app: &mut App) {
+        let render_statistics_mutex = RenderStatisticsMutex::default();
+        app.insert_resource(render_statistics_mutex.clone())
+            .init_resource::<RenderStatistics>()
+            .add_systems(PreUpdate, sync_render_statistics);
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.insert_resource(render_statistics_mutex);
+        }
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        let device = render_app.world.resource::<RenderDevice>();
+        let queue = render_app.world.resource::<RenderQueue>();
+        render_app.insert_resource(StatisticsRecorder::new(device, queue));
+    }
+}
 
 /// Resource which stores statistics for each render pass.
 #[derive(Debug, Default, Clone, Resource)]
@@ -101,8 +131,6 @@ impl StatisticsRecorder {
                 idx += 1;
             }
         }
-
-        dbg!(self.finished_frames.len() + self.submitted_frames.len() + 1);
 
         self.current_frame.begin();
     }
@@ -415,7 +443,7 @@ pub struct MeasuredRenderPass<'a> {
     #[deref]
     render_pass: RenderPass<'a>,
     name: Option<String>,
-    recorder: &'a mut StatisticsRecorder,
+    recorder: Option<&'a mut StatisticsRecorder>,
 }
 
 impl MeasuredRenderPass<'_> {
@@ -424,13 +452,17 @@ impl MeasuredRenderPass<'_> {
     /// [`RenderPassDescriptor`] must have a label, otherwise no statistics will be recorded.
     pub fn new<'a>(
         encoder: &'a mut CommandEncoder,
-        recorder: &'a mut StatisticsRecorder,
+        mut recorder: Option<&'a mut StatisticsRecorder>,
         desc: RenderPassDescriptor<'a, '_>,
     ) -> MeasuredRenderPass<'a> {
-        let name = desc.label.map(|v| v.to_owned());
+        // copy label only if recording is enabled
+        let name = recorder
+            .as_ref()
+            .and_then(|_| desc.label.map(|v| v.to_owned()));
+
         let mut render_pass = encoder.begin_render_pass(&desc);
 
-        if let Some(name) = &name {
+        if let (Some(recorder), Some(name)) = (&mut recorder, &name) {
             recorder.begin_render_pass(&mut render_pass, name);
         }
 
@@ -448,8 +480,8 @@ impl Drop for MeasuredRenderPass<'_> {
             return;
         }
 
-        if let Some(name) = &self.name {
-            self.recorder.end_render_pass(&mut self.render_pass, name);
+        if let (Some(recorder), Some(name)) = (&mut self.recorder, &self.name) {
+            recorder.end_render_pass(&mut self.render_pass, name);
         }
     }
 }

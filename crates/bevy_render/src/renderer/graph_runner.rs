@@ -57,12 +57,14 @@ impl RenderGraphRunner {
     pub fn run(
         graph: &RenderGraph,
         render_device: RenderDevice,
-        mut statistics_recorder: StatisticsRecorder,
+        mut statistics_recorder: Option<StatisticsRecorder>,
         queue: &wgpu::Queue,
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
-    ) -> Result<StatisticsRecorder, RenderGraphRunnerError> {
-        statistics_recorder.begin_frame();
+    ) -> Result<Option<StatisticsRecorder>, RenderGraphRunnerError> {
+        if let Some(recorder) = &mut statistics_recorder {
+            recorder.begin_frame();
+        }
 
         let mut render_context = RenderContext::new(render_device, statistics_recorder);
         Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
@@ -78,10 +80,12 @@ impl RenderGraphRunner {
             (render_device, statistics_recorder)
         };
 
-        let render_statistics_mutex = world.resource::<RenderStatisticsMutex>().0.clone();
-        statistics_recorder.finish_frame(&render_device, move |statistics| {
-            *render_statistics_mutex.lock() = Some(statistics);
-        });
+        if let Some(recorder) = &mut statistics_recorder {
+            let render_statistics_mutex = world.resource::<RenderStatisticsMutex>().0.clone();
+            recorder.finish_frame(&render_device, move |statistics| {
+                *render_statistics_mutex.lock() = Some(statistics);
+            });
+        }
 
         Ok(statistics_recorder)
     }
