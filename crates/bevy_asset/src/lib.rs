@@ -70,6 +70,8 @@ pub struct ChangeWatcher {
     ///
     /// If you have a slow hard drive or expect to reload large assets, you may want to increase
     /// this value.
+    ///
+    /// 200 milliseconds is a safe default value.
     pub delay: Duration,
 }
 
