@@ -203,7 +203,7 @@ impl GlyphPlacementAdjuster {
 
 /// Computes the bounds containing a block of text.
 /// Ignores empty trailing lines.
-pub (crate) fn compute_text_bounds<'a, T>(
+pub(crate) fn compute_text_bounds<'a, T>(
     section_glyphs: &[SectionGlyph],
     get_scaled_font: impl Fn(usize) -> &'a PxScaleFont<T>,
 ) -> bevy_math::Rect
