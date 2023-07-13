@@ -391,8 +391,6 @@ pub fn extract_uinodes(
         >,
     >,
 ) {
-    extracted_uinodes.uinodes.clear();
-
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
@@ -636,7 +634,7 @@ pub fn prepare_uinodes(
         image.id() != DEFAULT_IMAGE_HANDLE.id()
     }
 
-    for extracted_uinode in &extracted_uinodes.uinodes {
+    for extracted_uinode in extracted_uinodes.uinodes.drain(..) {
         let mode = if is_textured(&extracted_uinode.image) {
             if current_batch_image.id() != extracted_uinode.image.id() {
                 if is_textured(&current_batch_image) && start != end {
