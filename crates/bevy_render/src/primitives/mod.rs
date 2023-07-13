@@ -161,7 +161,7 @@ impl HalfSpace {
 /// component to determine which entities will be considered for rendering
 /// by this camera, all entities with an [`Aabb`] component that does not intersect
 /// with the frustum will not be rendered, and not be used in rendering computations.
-/// 
+///
 /// This process is called frustum culling, and entities can opt out of it using
 /// the [`NoFrustumCulling`](crate::view::visibility::NoFrustumCulling) component.
 ///
