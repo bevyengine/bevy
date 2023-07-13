@@ -201,7 +201,7 @@ impl GlyphPlacementAdjuster {
     }
 }
 
-/// Computes the bounds containing a block of text.
+/// Computes the minimal bounding rectangle for a block of text.
 /// Ignores empty trailing lines.
 pub(crate) fn compute_text_bounds<'a, T>(
     section_glyphs: &[SectionGlyph],
