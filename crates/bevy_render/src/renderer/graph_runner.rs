@@ -68,14 +68,18 @@ impl RenderGraphRunner {
         Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
         finalizer(render_context.command_encoder());
 
-        {
+        let (render_device, mut statistics_recorder) = {
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
-            queue.submit(render_context.finish());
-        }
+
+            let (commands, render_device, statistics_recorder) = render_context.finish();
+            queue.submit(commands);
+
+            (render_device, statistics_recorder)
+        };
 
         let render_statistics_mutex = world.resource::<RenderStatisticsMutex>().0.clone();
-        let statistics_recorder = render_context.download_statistics(queue, move |statistics| {
+        statistics_recorder.finish_frame(&render_device, move |statistics| {
             *render_statistics_mutex.lock() = Some(statistics);
         });
 

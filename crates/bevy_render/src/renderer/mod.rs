@@ -356,29 +356,23 @@ impl RenderContext {
     }
 
     /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
-    pub fn finish(&mut self) -> Vec<CommandBuffer> {
+    ///
+    /// When the render statistics become available, `statistics_callback` will be invoked.
+    pub fn finish(mut self) -> (Vec<CommandBuffer>, RenderDevice, StatisticsRecorder) {
         let command_encoder = self.command_encoder.get_or_insert_with(|| {
             self.render_device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         });
 
-        self.statistics_recorder
-            .resolve(command_encoder, &self.render_device);
+        self.statistics_recorder.resolve(command_encoder);
 
         self.flush_encoder();
-        std::mem::take(&mut self.command_buffers)
-    }
 
-    /// Downloads [`RenderStatistics`] from GPU, asynchronously calling the callback
-    /// when the data is available. Should be caled after `finish`.
-    pub fn download_statistics(
-        mut self,
-        queue: &Queue,
-        callback: impl FnOnce(RenderStatistics) + Send + 'static,
-    ) -> StatisticsRecorder {
-        self.statistics_recorder
-            .download(&self.render_device, queue, callback);
-        self.statistics_recorder
+        (
+            self.command_buffers,
+            self.render_device,
+            self.statistics_recorder,
+        )
     }
 
     fn flush_encoder(&mut self) {
