@@ -1,11 +1,15 @@
 #import bevy_render::view  View
 
-const TEXTURED_QUAD = 1u;
+const TEXTURED = 1u;
 const BOX_SHADOW = 2u;
 const DISABLE_AA = 4u;
 const RIGHT_VERTEX = 8u;
 const BOTTOM_VERTEX = 16u;
 const BORDER: u32 = 32u;
+
+fn enabled(flags: u32, mask: u32) -> bool {
+    return (flags & mask) != 0u;
+}
 
 @group(0) @binding(0)
 var<uniform> view: View;
@@ -40,7 +44,7 @@ fn vertex(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
-    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    out.position = view.view_proj * vec4(vertex_position, 1.0);
     out.color = vertex_color;
     out.flags = flags;
     out.radius = radius;
@@ -113,7 +117,7 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
     let half_size = inner_size * 0.5;
     let min = min(half_size.x, half_size.y);
     
-    r = min(max(r, vec4<f32>(0.0)), vec4<f32>(min));
+    r = min(max(r, vec4(0.0)), vec4<f32>(min));
 
     return sd_rounded_box(inner_point, inner_size, r);
 }
@@ -235,20 +239,16 @@ fn draw_test(in: VertexOutput) -> vec4<f32> {
     return RED;
 }
 
-fn enabled(flags: u32, mask: u32) -> bool {
-    return (flags & mask) != 0u;
-}
-
 fn draw_no_aa(in: VertexOutput) -> vec4<f32> {
     let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
-    let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED_QUAD));
+    let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
     // negative value => point inside external border
-    let external_boundary = sd_rounded_box(in.point, in.size, in.radius);
+    let external_distance = sd_rounded_box(in.point, in.size, in.radius);
     // negative value => point inside internal border
-    let internal_boundary = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
+    let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
     // negative value => point inside border
-    let border = max(external_boundary, -internal_boundary);
+    let border = max(external_distance, -internal_distance);
 
     if enabled(in.flags, BOX_SHADOW) {
         // copied from kayak
@@ -265,7 +265,7 @@ fn draw_no_aa(in: VertexOutput) -> vec4<f32> {
         }
     }
 
-    if external_boundary < 0.0 {
+    if external_distance < 0.0 {
         return color;
     }
 
@@ -274,107 +274,56 @@ fn draw_no_aa(in: VertexOutput) -> vec4<f32> {
 
 fn draw(in: VertexOutput) -> vec4<f32> {
     let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
-    let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED_QUAD));
 
-    // negative value => point inside external border
-    let external_boundary = sd_rounded_box(in.point, in.size, in.radius);
-    // negative value => point inside internal border
-    let internal_boundary = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
-    // negative value => point inside border
-    let border = max(external_boundary, -internal_boundary);
+    // Only use the color sampled from the texture if the TEXTURED flag is enabled. 
+    // This allows us to draw both textured and untextured shapes together in the same batch.
+    let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
-    let fborder = fwidth(border);
-    let fexternal = fwidth(external_boundary);
+    // Signed distances. The magnitude is the distance of the point from the edge of the shape.
+    // * Negative values indicate that the point is inside the shape.
+    // * Zero values indicate the point is on on the edge of the shape.
+    // * Positive values indicate the point is outside the shape.
+
+    // Signed distance from the exterior boundary.
+    let external_distance = sd_rounded_box(in.point, in.size, in.radius);
+
+    // Signed distance from the border's internal edge (the signed distance is negative if the point is inside the rect but not on the border).
+    // If the border size is set to zero, this is the same as as the external distance.
+    let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
+
+    // Signed distance from the border (the intersection of the rect with its border)
+    // Points inside the border have negative signed distance. Any point outside the border, whether outside the outside edge, or inside the inner edge have positive signed distance.
+    let border_distance = max(external_distance, -internal_distance);
+
+    // The fwidth function returns an approximation of the rate of change of the signed distance value
+    // that is used to ensure that the smooth alpha transition created by smoothstep occurs over a range of distance values 
+    // that is proportional to how quickly the distance is changing.
+    let fborder = fwidth(border_distance);
+    let fexternal = fwidth(external_distance);
 
     if enabled(in.flags, BOX_SHADOW) {
+        // The item is a shadow
+
         // copied from kayak
         var rect_dist = 1.0 - sigmoid(sd_rounded_box(in.point,in.size - in.border.x * 2.0, in.radius));
-        let color = in.color.rgb;
-        return vec4(color, in.color.a * rect_dist * 1.42);
+        return vec4(in.color.rgb, in.color.a * rect_dist * 1.42);
     }
 
-    if enabled(in.flags, BORDER) {
-        let t = 1. - select(step(0.0, border), smoothstep(0.0, fborder, border), external_boundary < internal_boundary);
+    if enabled(in.flags, BORDER) {   
+        // The item is a border
+
+        // At external edges with no border, border_distance is equal to zero. 
+        // This select statement ensures we only perform anti-aliasing where a non-zero width border is present, otherwise an outline about the external boundary would be drawn even without a border.
+        let t = 1. - select(step(0.0, border_distance), smoothstep(0.0, fborder, border_distance), external_distance < internal_distance);
         return vec4(color.rgb, t * color.a);
     }
-
-    let t = 1. - smoothstep(-fexternal, 0.0, external_boundary);
+    
+    // The item is a rectangle, draw normally with anti-aliasing at the edges
+    let t = 1. - smoothstep(0.0, fexternal, external_distance);
     return vec4(color.rgb, t * color.a);
 }
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    // var color = select(in.color, in.color * textureSample(sprite_texture, sprite_sampler, in.uv), (in.flags & TEXTURED_QUAD) != 0u);
-
-    // // Distance from external border. Positive values outside.
-    // let external_distance = sd_rounded_box(in.point, in.size, in.radius);
-
-    // // Distance from internal border. Positive values inside.
-    // let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
-
-    // // Distance from border, positive values inside border.
-    // let border = max(-internal_distance, external_distance);
-
-    // // Distance from interior, positive values inside interior.
-    // let interior = max(internal_distance, external_distance);
-    
-    // // Distance from exterior, positive values outside node.
-    // let exterior = -external_distance;
-
-    // // Anti-aliasing
-    // let fborder = 0.5 * fwidth(border);
-    // let fexternal = 0.5 * fwidth(external_distance);
-    // let p = smoothstep(-fborder, fborder, border);
-    // let q = smoothstep(-fexternal, fexternal, external_distance);
-
-    // if (in.flags & BOX_SHADOW) != 0u {
-    //     // copied from kayak
-    //     var rect_dist = 1.0 - sigmoid(sd_rounded_box(in.point,in.size - in.border.x * 2.0, in.radius));
-    //     let color = in.color.rgb;
-    //     return vec4(color, in.color.a * rect_dist * 1.42);
-    // }
-
-    // if (in.flags & BORDER) != 0u {
-    //     if 0.0 < external_distance  {
-    //         // outside border
-    //         let t = 1.0 - smoothstep(0.0, 10.0, external_distance);
-    //         return vec4(color.rgb, t * color.a);
-    //         //return vec4<f32>(1.0);
-    //     } else {
-    //         let t = 1.0 - smoothstep(0.0, 10.0, -internal_distance);
-    //         return vec4(color.rgb, t * color.a);
-    //     }
-    // }
-
-    // // if 0. < external_distance {
-    // //     // The point is outside of of the outer border
-    // //     if external_distance < internal_distance {
-    // //         // The closest border edge has non-zero width
-    // //         return vec4<f32>(0.);
-    // //     } else {
-    // //         return vec4(color.rgb, smoothstep(fexternal, 0.0, external_distance));  
-    // //     }
-    // // }
-
-    // // return color;
-
-    //  return vec4<f32>(0.);
-    
-
-    // // if interior < exterior {
-    // //     if border < exterior {
-    // //         return mix(in.border_color, internal_color, p);
-    // //     } else {
-    // //         let a = mix(0., color.a, p);
-    // //         return vec4<f32>(color.rgb, a);
-    // //     }
-    // // }
-
-    // // var boundary_color = select(internal_color, in.border_color, border < interior);
-    // // let a = mix(boundary_color.a, 0., q);
-    // // return vec4<f32>(boundary_color.rgb, a);
-
-    //return white_border(in);
-    // return interior(in);
     return draw(in);
 }

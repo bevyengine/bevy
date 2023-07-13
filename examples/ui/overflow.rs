@@ -85,15 +85,29 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..Default::default()
                             })
                             .with_children(|parent| {
-                                parent.spawn(ImageBundle {
-                                    image: UiImage::new(image.clone()),
+                                parent.spawn(NodeBundle {
                                     style: Style {
                                         min_width: Val::Px(100.),
                                         min_height: Val::Px(100.),
+                                        border: UiRect::all(Val::Px(20.)),
+                                       //border_radius: UiBorderRadius::all(Val::Px(30.)),
+                                        
                                         ..Default::default()
                                     },
-                                    background_color: Color::WHITE.into(),
+                                    border_color: Color::WHITE.into(),
                                     ..Default::default()
+                                }).with_children(|parent| {
+                                    parent.spawn(ImageBundle {
+                                        image: UiImage::new(image.clone()),
+                                        style: Style {
+                                            min_width: Val::Px(100.),
+                                            min_height: Val::Px(100.),
+                                            ..Default::default()
+                                        },
+                                        background_color: Color::WHITE.into(),
+                                        ..Default::default()
+                                    },
+                                    );
                                 });
                             });
                     });
