@@ -65,7 +65,7 @@ impl FixedTime {
 
     /// Expends one `period` of accumulated time.
     ///
-    /// [`Err(FixedUpdateError`)] will be returned if there is
+    /// [`Err(FixedUpdateError)`] will be returned if there is
     /// not enough accumulated time to span an entire period.
     pub fn expend(&mut self) -> Result<(), FixedUpdateError> {
         if let Some(new_value) = self.accumulated.checked_sub(self.period) {
