@@ -99,7 +99,7 @@ impl Plugin for GizmoPlugin {
                     .after(TransformSystem::TransformPropagate),
             );
 
-        // Ensure gizmos from prefious fixed update are cleaned up if no other system
+        // Ensure gizmos from previous fixed update are cleaned up if no other system
         // accesses gizmos during fixed update any more
         #[cfg(feature = "fixed_update")]
         app.add_systems(bevy_app::FixedUpdate, |_: Gizmos| ());
