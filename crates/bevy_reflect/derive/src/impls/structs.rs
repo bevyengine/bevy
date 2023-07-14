@@ -24,11 +24,11 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         .collect::<Vec<String>>();
 
     let FieldAccessors {
-        fields,
         fields_ref,
         fields_mut,
         field_indices,
         field_count,
+        ..
     } = FieldAccessors::new(reflect_struct);
 
     let where_clause_options = reflect_struct.where_clause_options();
@@ -124,7 +124,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicStruct {
                 let mut dynamic: #bevy_reflect_path::DynamicStruct = #FQDefault::default();
                 dynamic.set_represented_type(#bevy_reflect_path::PartialReflect::get_represented_type_info(self));
-                #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::PartialReflect::clone_value(&#fields));)*
+                #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::PartialReflect::clone_value(#fields_ref));)*
                 dynamic
             }
         }

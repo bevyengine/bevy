@@ -12,11 +12,11 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
     let struct_path = reflect_struct.meta().type_path();
 
     let FieldAccessors {
-        fields,
         fields_ref,
         fields_mut,
         field_indices,
         field_count,
+        ..
     } = FieldAccessors::new(reflect_struct);
 
     let where_clause_options = reflect_struct.where_clause_options();
@@ -91,7 +91,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicTupleStruct {
                 let mut dynamic: #bevy_reflect_path::DynamicTupleStruct = #FQDefault::default();
                 dynamic.set_represented_type(#bevy_reflect_path::PartialReflect::get_represented_type_info(self));
-                #(dynamic.insert_boxed(#bevy_reflect_path::PartialReflect::clone_value(&#fields));)*
+                #(dynamic.insert_boxed(#bevy_reflect_path::PartialReflect::clone_value(#fields_ref));)*
                 dynamic
             }
         }

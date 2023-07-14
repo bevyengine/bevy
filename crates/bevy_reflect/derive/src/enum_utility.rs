@@ -79,9 +79,11 @@ pub(crate) trait VariantBuilder: Sized {
     /// * `this`: The identifier of the enum
     /// * `field`: The field to access
     fn on_active_field(&self, this: &Ident, field: VariantField) -> TokenStream {
+        let bevy_reflect_path = self.reflect_enum().meta().bevy_reflect_path();
         let field_accessor = self.access_field(this, field);
 
         let alias = field.alias;
+        let field_ty = field.field.reflected_type();
         let field_constructor = self.construct_field(field);
 
         let construction = match &field.field.attrs.default {
@@ -112,20 +114,8 @@ pub(crate) trait VariantBuilder: Sized {
         };
 
         if field.field.attrs().remote.is_some() {
-            if field.field.attrs().is_remote_generic().unwrap_or_default() {
-                quote! {
-                    // SAFE: The wrapper type should be repr(transparent) over the remote type
-                    unsafe {
-                        ::core::mem::transmute_copy(&#construction)
-                    }
-                }
-            } else {
-                quote! {
-                    // SAFE: The wrapper type should be repr(transparent) over the remote type
-                    unsafe {
-                        ::core::mem::transmute(#construction)
-                    }
-                }
+            quote! {
+                <#field_ty as #bevy_reflect_path::ReflectRemote>::into_remote(#construction)
             }
         } else {
             construction

@@ -6,16 +6,16 @@ use crate::Reflect;
 ///
 /// # Safety
 ///
-/// Remote reflection uses [`transmute`] internally, which is [very unsafe].
-/// To ensure proper safety, it is recommended that this trait not be manually implemented.
-/// Instead, use the [`#[reflect_remote]`](crate::reflect_remote) attribute macro.
+/// It is highly recommended to avoid implementing this trait manually and instead use the
+/// [`#[reflect_remote]`](crate::reflect_remote) attribute macro.
+/// This is because the trait tends to rely on [`transmute`], which is [very unsafe].
 ///
 /// The macro will ensure that the following safety requirements are met:
-/// - `Self` is a single-field tuple struct (i.e. a newtype).
+/// - `Self` is a single-field tuple struct (i.e. a newtype) containing the remote type.
 /// - `Self` is `#[repr(transparent)]` over the remote type.
 ///
-/// Additionally, the macro will generate [`Reflect`] and [`FromReflect`] implementations
-/// that make safe use of `transmute`.
+/// Additionally, the macro will automatically generate [`Reflect`] and [`FromReflect`] implementations,
+/// along with compile-time assertions to validate that the safety requirements have been met.
 ///
 /// # Example
 ///
@@ -42,10 +42,23 @@ use crate::Reflect;
 ///
 /// [reflectable]: Reflect
 /// [`transmute`]: core::mem::transmute
-/// [highly unsafe]: https://doc.rust-lang.org/nomicon/transmutes.html
+/// [very unsafe]: https://doc.rust-lang.org/nomicon/transmutes.html
 /// [`FromReflect`]: crate::FromReflect
-#[allow(unsafe_code)]
-pub unsafe trait ReflectRemote: Reflect {
+pub trait ReflectRemote: Reflect {
     /// The remote type this type represents via reflection.
     type Remote;
+
+    /// Converts a reference of this wrapper to a reference of its remote type.
+    fn as_remote(&self) -> &Self::Remote;
+    /// Converts a mutable reference of this wrapper to a mutable reference of its remote type.
+    fn as_remote_mut(&mut self) -> &mut Self::Remote;
+    /// Converts this wrapper into its remote type.
+    fn into_remote(self) -> Self::Remote;
+
+    /// Converts a reference of the remote type to a reference of this wrapper.
+    fn as_wrapper(remote: &Self::Remote) -> &Self;
+    /// Converts a mutable reference of the remote type to a mutable reference of this wrapper.
+    fn as_wrapper_mut(remote: &mut Self::Remote) -> &mut Self;
+    /// Converts the remote type into this wrapper.
+    fn into_wrapper(remote: Self::Remote) -> Self;
 }

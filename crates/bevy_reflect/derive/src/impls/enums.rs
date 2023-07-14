@@ -4,7 +4,7 @@ use crate::impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_
 use bevy_macro_utils::fq_std::{FQBox, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote;
-use syn::Fields;
+use syn::{Fields, Path};
 
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
@@ -341,18 +341,19 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
             ident: &Ident,
             field: &StructField,
             is_mutable: bool,
+            bevy_reflect_path: &Path,
         ) -> proc_macro2::TokenStream {
-            let ref_token = if is_mutable { quote!(&mut) } else { quote!(&) };
+            let method = if is_mutable {
+                quote!(as_wrapper_mut)
+            } else {
+                quote!(as_wrapper)
+            };
+
             field
                 .attrs
                 .remote
                 .as_ref()
-                .map(|ty| {
-                    quote! {
-                        // SAFE: The wrapper type should be repr(transparent) over the remote type
-                        unsafe { ::core::mem::transmute::<#ref_token _, #ref_token #ty>(#ident) }
-                    }
-                })
+                .map(|ty| quote!(<#ty as #bevy_reflect_path::ReflectRemote>::#method(#ident)))
                 .unwrap_or_else(|| quote!(#ident))
         }
 
@@ -373,8 +374,8 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     let declare_field = syn::Index::from(field.declaration_index);
 
                     let __value = Ident::new("__value", Span::call_site());
-                    let value_ref = process_field_value(&__value, field, false);
-                    let value_mut = process_field_value(&__value, field, true);
+                    let value_ref = process_field_value(&__value, field, false, bevy_reflect_path);
+                    let value_mut = process_field_value(&__value, field, true, bevy_reflect_path);
 
                     enum_field_at.push(quote! {
                         #unit { #declare_field : #__value, .. } if #ref_index == #reflection_index => #FQOption::Some(#value_ref)
@@ -397,8 +398,8 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                         .expect("reflection index should exist for active field");
 
                     let __value = Ident::new("__value", Span::call_site());
-                    let value_ref = process_field_value(&__value, field, false);
-                    let value_mut = process_field_value(&__value, field, true);
+                    let value_ref = process_field_value(&__value, field, false, bevy_reflect_path);
+                    let value_mut = process_field_value(&__value, field, true, bevy_reflect_path);
 
                     enum_field.push(quote! {
                         #unit{ #field_ident: #__value, .. } if #ref_name == #field_name => #FQOption::Some(#value_ref)
