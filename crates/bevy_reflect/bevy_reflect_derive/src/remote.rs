@@ -121,6 +121,13 @@ fn generate_remote_wrapper(input: &DeriveInput, remote_ty: &TypePath) -> proc_ma
     }
 }
 
+/// Generates the implementation of the `ReflectRemote` trait for the given derive data and remote type.
+///
+/// # Note
+///
+/// The `ReflectRemote` trait could likely be made with default method implementations.
+/// However, this makes it really easy for a user to accidentally implement this trait in an unsafe way.
+/// To prevent this, we instead generate the implementation through a macro using this function.
 fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macro2::TokenStream {
     let bevy_reflect_path = input.meta().bevy_reflect_path();
 
@@ -134,8 +141,44 @@ fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macr
 
     quote! {
         // SAFE: The generated wrapper type is guaranteed to be valid and repr(transparent) over the remote type.
-        unsafe impl #impl_generics #bevy_reflect_path::ReflectRemote for #type_path #ty_generics #where_reflect_clause {
+        impl #impl_generics #bevy_reflect_path::ReflectRemote for #type_path #ty_generics #where_reflect_clause {
             type Remote = #remote_ty;
+
+            fn as_remote(&self) -> &Self::Remote {
+                &self.0
+            }
+            fn as_remote_mut(&mut self) -> &mut Self::Remote {
+                &mut self.0
+            }
+            fn into_remote(self) -> Self::Remote
+            {
+                // SAFE: The wrapper type should be repr(transparent) over the remote type
+                unsafe {
+                    ::core::mem::transmute_copy::<Self, Self::Remote>(
+                        // `ManuallyDrop` is used to prevent double-dropping `self`
+                        &::core::mem::ManuallyDrop::new(self)
+                    )
+                }
+            }
+
+            fn as_wrapper(remote: &Self::Remote) -> &Self {
+                // SAFE: The wrapper type should be repr(transparent) over the remote type
+                unsafe { ::core::mem::transmute::<&Self::Remote, &Self>(remote) }
+            }
+            fn as_wrapper_mut(remote: &mut Self::Remote) -> &mut Self {
+                // SAFE: The wrapper type should be repr(transparent) over the remote type
+                unsafe { ::core::mem::transmute::<&mut Self::Remote, &mut Self>(remote) }
+            }
+            fn into_wrapper(remote: Self::Remote) -> Self
+            {
+                // SAFE: The wrapper type should be repr(transparent) over the remote type
+                unsafe {
+                    ::core::mem::transmute_copy::<Self::Remote, Self>(
+                        // `ManuallyDrop` is used to prevent double-dropping `self`
+                        &::core::mem::ManuallyDrop::new(remote)
+                    )
+                }
+            }
         }
     }
 }

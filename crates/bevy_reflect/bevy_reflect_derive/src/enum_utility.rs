@@ -97,20 +97,8 @@ pub(crate) fn get_variant_constructors(
                 };
 
                 if field.attrs.remote.is_some() {
-                    if field.attrs.is_remote_generic().unwrap_or_default() {
-                        quote!{
-                            // SAFE: The wrapper type should be repr(transparent) over the remote type
-                            unsafe {
-                                ::core::mem::transmute_copy(&#resolve_from_reflect)
-                            }
-                        }
-                    } else {
-                        quote! {
-                            // SAFE: The wrapper type should be repr(transparent) over the remote type
-                            unsafe {
-                                ::core::mem::transmute(#resolve_from_reflect)
-                            }
-                        }
+                    quote! {
+                        <#field_ty as #bevy_reflect_path::ReflectRemote>::into_remote(#resolve_from_reflect)
                     }
                 } else {
                     resolve_from_reflect

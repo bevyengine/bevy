@@ -9,8 +9,6 @@ use quote::quote;
 ///
 /// [`transmute`]: core::mem::transmute
 pub(crate) struct FieldAccessors {
-    /// The owned field accessors, such as `self.foo`.
-    pub fields: Vec<proc_macro2::TokenStream>,
     /// The referenced field accessors, such as `&self.foo`.
     pub fields_ref: Vec<proc_macro2::TokenStream>,
     /// The mutably referenced field accessors, such as `&mut self.foo`.
@@ -23,23 +21,12 @@ pub(crate) struct FieldAccessors {
 
 impl FieldAccessors {
     pub fn new(reflect_struct: &ReflectStruct) -> Self {
-        let fields = Self::get_fields(reflect_struct, |field, accessor| {
-            match &field.attrs.remote {
-                Some(wrapper_ty) => {
-                    quote! {
-                        // SAFE: The wrapper type should be repr(transparent) over the remote type
-                        unsafe { ::core::mem::transmute_copy::<_, #wrapper_ty>(&#accessor) }
-                    }
-                }
-                None => accessor,
-            }
-        });
+        let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
         let fields_ref = Self::get_fields(reflect_struct, |field, accessor| {
             match &field.attrs.remote {
                 Some(wrapper_ty) => {
                     quote! {
-                        // SAFE: The wrapper type should be repr(transparent) over the remote type
-                        unsafe { ::core::mem::transmute::<&_, &#wrapper_ty>(&#accessor) }
+                        <#wrapper_ty as #bevy_reflect_path::ReflectRemote>::as_wrapper(&#accessor)
                     }
                 }
                 None => quote!(& #accessor),
@@ -49,19 +36,17 @@ impl FieldAccessors {
             match &field.attrs.remote {
                 Some(wrapper_ty) => {
                     quote! {
-                        // SAFE: The wrapper type should be repr(transparent) over the remote type
-                        unsafe { ::core::mem::transmute::<&mut _, &mut #wrapper_ty>(&mut #accessor) }
+                        <#wrapper_ty as #bevy_reflect_path::ReflectRemote>::as_wrapper_mut(&mut #accessor)
                     }
                 }
                 None => quote!(&mut #accessor),
             }
         });
 
-        let field_count = fields.len();
+        let field_count = fields_ref.len();
         let field_indices = (0..field_count).collect();
 
         Self {
-            fields,
             fields_ref,
             fields_mut,
             field_indices,
