@@ -3,12 +3,14 @@
 use std::{f32::consts::TAU, iter};
 
 use bevy_ecs::{
-    system::{Deferred, Resource, SystemBuffer, SystemMeta, SystemParam},
-    world::World,
+    component::Tick,
+    system::{Resource, SystemBuffer, SystemMeta, SystemParam},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 use bevy_transform::TransformPoint;
+use bevy_utils::default;
 
 type PositionItem = [f32; 3];
 type ColorItem = [f32; 4];
@@ -16,6 +18,13 @@ type ColorItem = [f32; 4];
 const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
 
 #[derive(Resource, Default)]
+pub(crate) struct GizmoStorages {
+    pub frame: GizmoStorage,
+    pub fixed_update_tick: u64,
+    pub fixed_update: GizmoStorage,
+}
+
+#[derive(Default)]
 pub(crate) struct GizmoStorage {
     pub list_positions: Vec<PositionItem>,
     pub list_colors: Vec<ColorItem>,
@@ -28,13 +37,14 @@ pub(crate) struct GizmoStorage {
 /// They are drawn in immediate mode, which means they will be rendered only for
 /// the frames in which they are spawned.
 /// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule to ensure they are drawn.
-#[derive(SystemParam)]
 pub struct Gizmos<'s> {
-    buffer: Deferred<'s, GizmoBuffer>,
+    buffer: &'s mut GizmoBuffer,
 }
 
 #[derive(Default)]
 struct GizmoBuffer {
+    /// Which fixed update tick this belongs to, `None` if this isn't from a fixed update.
+    fixed_time_update: Option<u64>,
     list_positions: Vec<PositionItem>,
     list_colors: Vec<ColorItem>,
     strip_positions: Vec<PositionItem>,
@@ -43,13 +53,75 @@ struct GizmoBuffer {
 
 impl SystemBuffer for GizmoBuffer {
     fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        let mut storage = world.resource_mut::<GizmoStorage>();
+        let mut storages = world.resource_mut::<GizmoStorages>();
+
+        let storage = if let Some(tick) = self.fixed_time_update {
+            // If a new fixed update has begun, clear gizmos from previous fixed update
+            if storages.fixed_update_tick < tick {
+                storages.fixed_update_tick = tick;
+                storages.fixed_update.list_positions.clear();
+                storages.fixed_update.list_colors.clear();
+                storages.fixed_update.strip_positions.clear();
+                storages.fixed_update.strip_colors.clear();
+            }
+            &mut storages.fixed_update
+        } else {
+            &mut storages.frame
+        };
+
         storage.list_positions.append(&mut self.list_positions);
         storage.list_colors.append(&mut self.list_colors);
         storage.strip_positions.append(&mut self.strip_positions);
         storage.strip_colors.append(&mut self.strip_colors);
     }
 }
+
+// Wrap to keep GizmoBuffer hidden
+const _: () = {
+    pub struct Wrap(GizmoBuffer);
+
+    // SAFETY: Only local state is accessed.
+    unsafe impl SystemParam for Gizmos<'_> {
+        type State = Wrap;
+        type Item<'w, 's> = Gizmos<'s>;
+
+        fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+            #[cfg(not(feature = "fixed_update"))]
+            let fixed_time_update = None;
+            #[cfg(feature = "fixed_update")]
+            let fixed_time_update =
+                if world.contains_resource::<bevy_time::fixed_timestep::FixedUpdateScheduleIsCurrentlyRunning>() {
+                    world
+                        .get_resource::<bevy_time::prelude::FixedTime>()
+                        .map(|time| time.times_expended())
+                } else {
+                    None
+                };
+            Wrap(GizmoBuffer {
+                fixed_time_update,
+                list_positions: default(),
+                list_colors: default(),
+                strip_positions: default(),
+                strip_colors: default(),
+            })
+        }
+
+        fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+            state.0.apply(system_meta, world);
+        }
+
+        unsafe fn get_param<'w, 's>(
+            state: &'s mut Self::State,
+            _system_meta: &SystemMeta,
+            _world: UnsafeWorldCell<'w>,
+            _change_tick: Tick,
+        ) -> Self::Item<'w, 's> {
+            Gizmos {
+                buffer: &mut state.0,
+            }
+        }
+    }
+};
 
 impl<'s> Gizmos<'s> {
     /// Draw a line in 3D from `start` to `end`.

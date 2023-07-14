@@ -14,6 +14,9 @@
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```
 //!
+//! With the `fixed_update` feature (enabled by default by the bevy main crate),
+//! gizmos drawn during `FixedUpdate` last until the next fixed update.
+//!
 //! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
 
 use std::mem;
@@ -62,7 +65,7 @@ mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-use gizmos::{GizmoStorage, Gizmos};
+use gizmos::{GizmoStorages, Gizmos};
 
 /// The `bevy_gizmos` prelude.
 pub mod prelude {
@@ -85,7 +88,7 @@ impl Plugin for GizmoPlugin {
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
             .init_resource::<GizmoConfig>()
-            .init_resource::<GizmoStorage>()
+            .init_resource::<GizmoStorages>()
             .add_systems(Last, update_gizmo_meshes)
             .add_systems(
                 PostUpdate,
@@ -95,6 +98,11 @@ impl Plugin for GizmoPlugin {
                 )
                     .after(TransformSystem::TransformPropagate),
             );
+
+        // Ensure gizmos from prefious fixed update are cleaned up if no other system
+        // accesses gizmos during fixed update any more
+        #[cfg(feature = "fixed_update")]
+        app.add_systems(bevy_app::FixedUpdate, |_: Gizmos| ());
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -275,8 +283,23 @@ struct LineGizmoHandles {
 fn update_gizmo_meshes(
     mut line_gizmos: ResMut<Assets<LineGizmo>>,
     mut handles: ResMut<LineGizmoHandles>,
-    mut storage: ResMut<GizmoStorage>,
+    mut storages: ResMut<GizmoStorages>,
 ) {
+    // Combine gizmos for this frame (which get cleared here) with the ones from the last fixed update (which get cleared during system buffer application)
+    let mut storage = mem::take(&mut storages.frame);
+    storage
+        .list_positions
+        .extend_from_slice(&storages.fixed_update.list_positions);
+    storage
+        .list_colors
+        .extend_from_slice(&storages.fixed_update.list_colors);
+    storage
+        .strip_positions
+        .extend_from_slice(&storages.fixed_update.strip_positions);
+    storage
+        .strip_colors
+        .extend_from_slice(&storages.fixed_update.strip_colors);
+
     if storage.list_positions.is_empty() {
         handles.list = None;
     } else if let Some(handle) = handles.list.as_ref() {
