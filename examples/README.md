@@ -176,6 +176,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Asset Dependency](../examples/asset/asset_dependency.rs) | Demonstrates loading assets that depend on other assets
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_io.rs) | Implements a custom asset io loader
