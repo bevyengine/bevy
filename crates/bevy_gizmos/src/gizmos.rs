@@ -5,7 +5,7 @@ use std::{f32::consts::TAU, iter};
 use bevy_app::FixedUpdateScheduleIsCurrentlyRunning;
 use bevy_ecs::{
     component::Tick,
-    system::{Resource, SystemBuffer, SystemMeta, SystemParam},
+    system::{Resource, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
@@ -39,79 +39,63 @@ pub(crate) struct GizmoStorage {
 /// the frames in which they are spawned.
 /// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule to ensure they are drawn.
 pub struct Gizmos<'s> {
-    buffer: &'s mut GizmoBuffer,
-}
-
-#[derive(Default)]
-struct GizmoBuffer {
-    /// Which fixed update tick this belongs to, `None` if this isn't from a fixed update.
-    fixed_time_update: Option<u64>,
-    list_positions: Vec<PositionItem>,
-    list_colors: Vec<ColorItem>,
-    strip_positions: Vec<PositionItem>,
-    strip_colors: Vec<ColorItem>,
-}
-
-impl SystemBuffer for GizmoBuffer {
-    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        let mut storages = world.resource_mut::<GizmoStorages>();
-
-        let storage = if let Some(tick) = self.fixed_time_update {
-            // If a new fixed update has begun, clear gizmos from previous fixed update
-            if storages.fixed_update_tick < tick {
-                storages.fixed_update_tick = tick;
-                storages.fixed_update.list_positions.clear();
-                storages.fixed_update.list_colors.clear();
-                storages.fixed_update.strip_positions.clear();
-                storages.fixed_update.strip_colors.clear();
-            }
-            &mut storages.fixed_update
-        } else {
-            &mut storages.frame
-        };
-
-        storage.list_positions.append(&mut self.list_positions);
-        storage.list_colors.append(&mut self.list_colors);
-        storage.strip_positions.append(&mut self.strip_positions);
-        storage.strip_colors.append(&mut self.strip_colors);
-    }
+    buffer: &'s mut <Self as SystemParam>::State,
 }
 
 // Wrap to keep GizmoBuffer hidden
 const _: () = {
-    pub struct Wrap(GizmoBuffer);
+    #[derive(Default)]
+    pub struct GizmoBuffer {
+        /// Which fixed update tick this belongs to, `None` if this isn't from a fixed update.
+        fixed_time_update: Option<u64>,
+        list_positions: Vec<PositionItem>,
+        list_colors: Vec<ColorItem>,
+        strip_positions: Vec<PositionItem>,
+        strip_colors: Vec<ColorItem>,
+    }
 
     // SAFETY: Only local state is accessed.
     unsafe impl SystemParam for Gizmos<'_> {
-        type State = Wrap;
+        type State = GizmoBuffer;
         type Item<'w, 's> = Gizmos<'s>;
 
-        fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-            let fixed_time_update = world
-                .get_resource::<FixedUpdateScheduleIsCurrentlyRunning>()
-                .map(|current| current.update);
-            Wrap(GizmoBuffer {
-                fixed_time_update,
-                list_positions: default(),
-                list_colors: default(),
-                strip_positions: default(),
-                strip_colors: default(),
-            })
+        fn init_state(_: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+            default()
         }
 
-        fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-            state.0.apply(system_meta, world);
+        fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
+            let mut storages = world.resource_mut::<GizmoStorages>();
+
+            let storage = if let Some(tick) = state.fixed_time_update {
+                // If a new fixed update has begun, clear gizmos from previous fixed update
+                if storages.fixed_update_tick < tick {
+                    storages.fixed_update_tick = tick;
+                    storages.fixed_update.list_positions.clear();
+                    storages.fixed_update.list_colors.clear();
+                    storages.fixed_update.strip_positions.clear();
+                    storages.fixed_update.strip_colors.clear();
+                }
+                &mut storages.fixed_update
+            } else {
+                &mut storages.frame
+            };
+
+            storage.list_positions.append(&mut state.list_positions);
+            storage.list_colors.append(&mut state.list_colors);
+            storage.strip_positions.append(&mut state.strip_positions);
+            storage.strip_colors.append(&mut state.strip_colors);
         }
 
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
             _system_meta: &SystemMeta,
-            _world: UnsafeWorldCell<'w>,
+            world: UnsafeWorldCell<'w>,
             _change_tick: Tick,
         ) -> Self::Item<'w, 's> {
-            Gizmos {
-                buffer: &mut state.0,
-            }
+            state.fixed_time_update = world
+                .get_resource::<FixedUpdateScheduleIsCurrentlyRunning>()
+                .map(|current| current.update);
+            Gizmos { buffer: state }
         }
     }
 };
@@ -247,11 +231,8 @@ impl<'s> Gizmos<'s> {
     pub fn linestrip_gradient(&mut self, points: impl IntoIterator<Item = (Vec3, Color)>) {
         let points = points.into_iter();
 
-        let GizmoBuffer {
-            strip_positions,
-            strip_colors,
-            ..
-        } = &mut *self.buffer;
+        let strip_positions = &mut self.buffer.strip_positions;
+        let strip_colors = &mut self.buffer.strip_colors;
 
         let (min, _) = points.size_hint();
         strip_positions.reserve(min);
