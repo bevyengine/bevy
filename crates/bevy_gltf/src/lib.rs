@@ -40,20 +40,23 @@ impl GltfPlugin {
 
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
+        app.register_type::<GltfExtras>()
+            .add_asset::<Gltf>()
+            .add_asset::<GltfNode>()
+            .add_asset::<GltfPrimitive>()
+            .add_asset::<GltfMesh>();
+    }
+
+    fn finish(&self, app: &mut App) {
         let supported_compressed_formats = match app.world.get_resource::<RenderDevice>() {
             Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
 
-            None => CompressedImageFormats::all(),
+            None => CompressedImageFormats::NONE,
         };
         app.add_asset_loader::<GltfLoader>(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
-        })
-        .register_type::<GltfExtras>()
-        .add_asset::<Gltf>()
-        .add_asset::<GltfNode>()
-        .add_asset::<GltfPrimitive>()
-        .add_asset::<GltfMesh>();
+        });
     }
 }
 
