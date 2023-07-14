@@ -14,9 +14,6 @@
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```
 //!
-//! With the `fixed_update` feature (enabled by default by the bevy main crate),
-//! gizmos drawn during `FixedUpdate` last until the next fixed update.
-//!
 //! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
 
 use std::mem;
