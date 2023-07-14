@@ -5,14 +5,17 @@ use bevy_utils::HashMap;
 
 /// An axis-aligned bounding box.
 ///
-/// Used as a component on an entity to determine if it should be rendered by a
-/// [`Camera`](crate::camera::Camera) entity if it intersects with its [`Frustum`],
-/// in a process called frustum culling.
+/// It represents a box covering the local space occupied by the entity, with faces
+/// orthogonal to the axis. It is used as a component on an entity to determine
+/// if it should be rendered by a [`Camera`](crate::camera::Camera) entity if it
+/// intersects with its [`Frustum`], in a process called frustum culling. 
 ///
 /// It will be added automatically to entities that could be subject to frustum
 /// culling, and don't have the [`NoFrustumCulling`](crate::view::visibility::NoFrustumCulling)
 /// component, using the systems in
 /// [`CalculateBounds`](crate::view::visibility::VisibilitySystems::CalculateBounds).
+/// 
+/// It won't be updated automatically if the space occupied by the entity changes.
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Aabb {
