@@ -100,13 +100,13 @@ impl Plugin for ImagePlugin {
 
     fn finish(&self, app: &mut App) {
         #[cfg(any(
-        feature = "png",
-        feature = "dds",
-        feature = "tga",
-        feature = "jpeg",
-        feature = "bmp",
-        feature = "basis-universal",
-        feature = "ktx2",
+            feature = "png",
+            feature = "dds",
+            feature = "tga",
+            feature = "jpeg",
+            feature = "bmp",
+            feature = "basis-universal",
+            feature = "ktx2",
         ))]
         {
             app.init_asset_loader::<ImageTextureLoader>();
