@@ -74,6 +74,13 @@ pub struct RunFixedUpdateLoop;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedUpdate;
 
+/// Indicates that [`RunFixedUpdateLoop`] is currently active.
+#[derive(Resource)]
+pub struct FixedUpdateScheduleIsCurrentlyRunning {
+    /// Sequentially increasing with each fixed update.
+    pub update: u64,
+}
+
 /// The schedule that contains app logic.
 /// This is run by the [`Main`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]

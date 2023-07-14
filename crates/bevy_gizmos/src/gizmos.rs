@@ -2,6 +2,7 @@
 
 use std::{f32::consts::TAU, iter};
 
+use bevy_app::FixedUpdateScheduleIsCurrentlyRunning;
 use bevy_ecs::{
     component::Tick,
     system::{Resource, SystemBuffer, SystemMeta, SystemParam},
@@ -86,17 +87,9 @@ const _: () = {
         type Item<'w, 's> = Gizmos<'s>;
 
         fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-            #[cfg(not(feature = "fixed_update"))]
-            let fixed_time_update = None;
-            #[cfg(feature = "fixed_update")]
-            let fixed_time_update =
-                if world.contains_resource::<bevy_time::fixed_timestep::FixedUpdateScheduleIsCurrentlyRunning>() {
-                    world
-                        .get_resource::<bevy_time::prelude::FixedTime>()
-                        .map(|time| time.times_expended())
-                } else {
-                    None
-                };
+            let fixed_time_update = world
+                .get_resource::<FixedUpdateScheduleIsCurrentlyRunning>()
+                .map(|current| current.update);
             Wrap(GizmoBuffer {
                 fixed_time_update,
                 list_positions: default(),

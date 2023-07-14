@@ -22,7 +22,7 @@
 //! variants for game simulation, but rather use the value of [`FixedTime`] instead.
 
 use crate::Time;
-use bevy_app::FixedUpdate;
+use bevy_app::{FixedUpdate, FixedUpdateScheduleIsCurrentlyRunning};
 use bevy_ecs::{system::Resource, world::World};
 use bevy_utils::Duration;
 use thiserror::Error;
@@ -114,10 +114,6 @@ impl Default for FixedTime {
     }
 }
 
-/// Indicates that [`run_fixed_update_schedule`] is currently active.
-#[derive(Resource)]
-pub struct FixedUpdateScheduleIsCurrentlyRunning;
-
 /// An error returned when working with [`FixedTime`].
 #[derive(Debug, Error)]
 pub enum FixedUpdateError {
@@ -135,7 +131,9 @@ pub enum FixedUpdateError {
 ///
 /// For more information, see the [module-level documentation](self).
 pub fn run_fixed_update_schedule(world: &mut World) {
-    world.insert_resource(FixedUpdateScheduleIsCurrentlyRunning);
+    world.insert_resource(FixedUpdateScheduleIsCurrentlyRunning {
+        update: world.resource::<FixedTime>().times_expended(),
+    });
 
     // Tick the time
     let delta_time = world.resource::<Time>().delta();

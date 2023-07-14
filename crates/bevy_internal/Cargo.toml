@@ -139,4 +139,4 @@ bevy_text = { path = "../bevy_text", optional = true, version = "0.12.0-dev" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.12.0-dev" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.12.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.12.0-dev" }
-bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.12.0-dev", default-features = false, features = ["fixed_update"] }
+bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.12.0-dev", default-features = false }
