@@ -2,15 +2,21 @@ use crate::{Asset, AssetId};
 use bevy_ecs::event::Event;
 use std::fmt::Debug;
 
+/// Events that occur for a specific [`Asset`], such as "value changed" events and "dependency" events.
 #[derive(Event)]
 pub enum AssetEvent<A: Asset> {
+    /// Emitted whenever an [`Asset`] is added.
     Added { id: AssetId<A> },
+    /// Emitted whenever an [`Asset`] value is modified.
     Modified { id: AssetId<A> },
+    /// Emitted whenever an [`Asset`] is removed.
     Removed { id: AssetId<A> },
+    /// Emitted whenever an [`Asset`] has been fully loaded (including its dependencies and all "recursive dependencies").
     LoadedWithDependencies { id: AssetId<A> },
 }
 
 impl<A: Asset> AssetEvent<A> {
+    /// Returns `true` if this event is [`AssetEvent::LoadedWithDependencies`] and matches the given `id`.
     pub fn is_loaded_with_dependencies(&self, id: impl Into<AssetId<A>>) -> bool {
         let input_id: AssetId<A> = id.into();
         if let AssetEvent::LoadedWithDependencies { id } = self {
@@ -20,6 +26,7 @@ impl<A: Asset> AssetEvent<A> {
         }
     }
 
+    /// Returns `true` if this event is [`AssetEvent::Added`] and matches the given `id`.
     pub fn is_added(&self, id: impl Into<AssetId<A>>) -> bool {
         let input_id: AssetId<A> = id.into();
         if let AssetEvent::Added { id } = self {
@@ -29,6 +36,7 @@ impl<A: Asset> AssetEvent<A> {
         }
     }
 
+    /// Returns `true` if this event is [`AssetEvent::Modified`] and matches the given `id`.
     pub fn is_modified(&self, id: impl Into<AssetId<A>>) -> bool {
         let input_id: AssetId<A> = id.into();
         if let AssetEvent::Modified { id } = self {
@@ -38,6 +46,7 @@ impl<A: Asset> AssetEvent<A> {
         }
     }
 
+    /// Returns `true` if this event is [`AssetEvent::Removed`] and matches the given `id`.
     pub fn is_removed(&self, id: impl Into<AssetId<A>>) -> bool {
         let input_id: AssetId<A> = id.into();
         if let AssetEvent::Removed { id } = self {

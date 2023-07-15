@@ -7,14 +7,28 @@ use std::{
     hash::Hash,
     marker::PhantomData,
 };
+
+/// A unique runtime-only identifier for an [`Asset`]. This is cheap to [`Copy`]/[`Clone`] and is not directly tied to the
+/// lifetime of the Asset. This means it _can_ point to an [`Asset`] that no longer exists.
+///
+/// For an "untyped" / "generic-less" id, see [`UntypedAssetId`].
 #[derive(Reflect, Serialize, Deserialize)]
 pub enum AssetId<A: Asset> {
+    /// A small / efficient runtime identifier that can be used to efficiently look up an asset stored in [`Assets`]. This is
+    /// the "default" identifier used for assets. The alternative(s) (ex: [`AssetId::Uuid`]) will only be used if assets are
+    /// explicitly registered that way.
+    ///
+    /// [`Assets`]: crate::Assets
     Index {
         index: AssetIndex,
         #[reflect(ignore)]
         #[serde(skip_serializing)]
         marker: PhantomData<fn() -> A>,
     },
+    /// A stable-across-runs / const asset identifier. This will only be used if an asset is explicitly registered in [`Assets`]
+    /// with one.
+    ///
+    /// [`Assets`]: crate::Assets
     Uuid {
         // TODO: implement reflect for this or replace it with an unsigned int?
         #[reflect(ignore)]
@@ -39,14 +53,8 @@ impl<A: Asset> AssetId<A> {
         }
     }
 
-    #[inline]
-    pub(crate) fn internal(self) -> InternalAssetId {
-        match self {
-            AssetId::Index { index, .. } => InternalAssetId::Index(index),
-            AssetId::Uuid { uuid } => InternalAssetId::Uuid(uuid),
-        }
-    }
-
+    /// Converts this to an "untyped" / "generic-less" [`Asset`] identifier that stores the type information
+    /// _inside_ the [`UntypedAssetId`].
     #[inline]
     pub fn untyped(self) -> UntypedAssetId {
         match self {
@@ -58,6 +66,14 @@ impl<A: Asset> AssetId<A> {
                 uuid,
                 type_id: TypeId::of::<A>(),
             },
+        }
+    }
+
+    #[inline]
+    pub(crate) fn internal(self) -> InternalAssetId {
+        match self {
+            AssetId::Index { index, .. } => InternalAssetId::Index(index),
+            AssetId::Uuid { uuid } => InternalAssetId::Uuid(uuid),
         }
     }
 }
@@ -229,13 +245,28 @@ impl<A: Asset> From<&UntypedAssetId> for AssetId<A> {
     }
 }
 
+/// An "untyped" / "generic-less" [`Asset`] identifier that behaves much like [`AssetId`], but stores the [`Asset`] type
+/// information at runtime instead of compile-time. This increases the size of the type, but it enables storing asset ids
+/// across asset types together and enables comparisons between them.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum UntypedAssetId {
+    /// A small / efficient runtime identifier that can be used to efficiently look up an asset stored in [`Assets`]. This is
+    /// the "default" identifier used for assets. The alternative(s) (ex: [`UntypedAssetId::Uuid`]) will only be used if assets are
+    /// explicitly registered that way.
+    ///
+    /// [`Assets`]: crate::Assets
     Index { type_id: TypeId, index: AssetIndex },
+    /// A stable-across-runs / const asset identifier. This will only be used if an asset is explicitly registered in [`Assets`]
+    /// with one.
+    ///
+    /// [`Assets`]: crate::Assets
     Uuid { type_id: TypeId, uuid: Uuid },
 }
 
 impl UntypedAssetId {
+    /// Converts this to a "typed" [`AssetId`] without checking the stored type to see if it matches the target `A` [`Asset`] type.
+    /// This should only be called if you are _absolutely certain_ the asset type matches the stored type. And even then, you should
+    /// consider using [`UntypedAssetId::type_debug_checked`] instead.
     #[inline]
     pub fn typed_unchecked<A: Asset>(self) -> AssetId<A> {
         match self {
@@ -247,6 +278,12 @@ impl UntypedAssetId {
         }
     }
 
+    /// Converts this to a "typed" [`AssetId`]. When compiled in debug-mode it will check to see if the stored type
+    /// matches the target `A` [`Asset`] type. When compiled in release-mode, this check will be skipped.
+    ///
+    /// # Panics
+    ///
+    /// Panics if compiled in debug mode and the [`TypeId`] of `A` does not match the stored [`TypeId`].
     #[inline]
     pub fn typed_debug_checked<A: Asset>(self) -> AssetId<A> {
         debug_assert_eq!(
@@ -258,6 +295,11 @@ impl UntypedAssetId {
         self.typed_unchecked()
     }
 
+    /// Converts this to a "typed" [`AssetId`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if the [`TypeId`] of `A` does not match the stored type id.
     #[inline]
     pub fn typed<A: Asset>(self) -> AssetId<A> {
         assert_eq!(
@@ -269,20 +311,21 @@ impl UntypedAssetId {
         self.typed_unchecked()
     }
 
-    #[inline]
-    pub(crate) fn internal(self) -> InternalAssetId {
-        match self {
-            UntypedAssetId::Index { index, .. } => InternalAssetId::Index(index),
-            UntypedAssetId::Uuid { uuid, .. } => InternalAssetId::Uuid(uuid),
-        }
-    }
-
+    /// Returns the stored [`TypeId`] of the referenced [`Asset`].
     #[inline]
     pub fn type_id(&self) -> TypeId {
         match self {
             UntypedAssetId::Index { type_id, .. } | UntypedAssetId::Uuid { type_id, .. } => {
                 *type_id
             }
+        }
+    }
+
+    #[inline]
+    pub(crate) fn internal(self) -> InternalAssetId {
+        match self {
+            UntypedAssetId::Index { index, .. } => InternalAssetId::Index(index),
+            UntypedAssetId::Uuid { uuid, .. } => InternalAssetId::Uuid(uuid),
         }
     }
 }
@@ -344,7 +387,7 @@ pub(crate) enum InternalAssetId {
 
 impl InternalAssetId {
     #[inline]
-    pub fn typed<A: Asset>(self) -> AssetId<A> {
+    pub(crate) fn typed<A: Asset>(self) -> AssetId<A> {
         match self {
             InternalAssetId::Index(index) => AssetId::Index {
                 index,
@@ -355,7 +398,7 @@ impl InternalAssetId {
     }
 
     #[inline]
-    pub fn untyped(self, type_id: TypeId) -> UntypedAssetId {
+    pub(crate) fn untyped(self, type_id: TypeId) -> UntypedAssetId {
         match self {
             InternalAssetId::Index(index) => UntypedAssetId::Index { index, type_id },
             InternalAssetId::Uuid(uuid) => UntypedAssetId::Uuid { uuid, type_id },

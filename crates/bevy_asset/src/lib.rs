@@ -39,19 +39,33 @@ use crate::{
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup};
 use bevy_ecs::{reflect::AppTypeRegistry, schedule::IntoSystemConfigs, world::FromWorld};
-use bevy_log::error;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use std::{any::TypeId, sync::Arc};
 
+/// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetProvider`],
+/// which can be something like a filesystem, a network, etc.
+///
+/// Supports flexible "modes", such as [`AssetPlugin::Processed`] and
+/// [`AssetPlugin::Unprocessed`] that enable using the asset workflow that best suits your project.
 pub enum AssetPlugin {
+    /// Loads assets without any "preprocessing" from the configured asset `source` (defaults to the `assets` folder).
     Unprocessed {
         source: AssetProvider,
         watch_for_changes: bool,
     },
+    /// Loads "processed" assets from a given `destination` source (defaults to the `imported_assets/Default` folder). This should
+    /// generally only be used when distributing apps. Use [`AssetPlugin::ProcessedDev`] to develop apps that process assets,
+    /// then switch to [`AssetPlugin::Processed`] when deploying the apps.
     Processed {
         destination: AssetProvider,
         watch_for_changes: bool,
     },
+    /// Starts an [`AssetProcessor`] in the background that reads assets from the `source` provider (defaults to the `assets` folder),
+    /// processes them according to their [`AssetMeta`], and writes them to the `destination` provider (defaults to the `imported_assets/Default` folder).
+    ///
+    /// By default this will hot reload changes to the `source` provider, resulting in reprocessing the asset and reloading it in the [`App`].
+    ///
+    /// [`AssetMeta`]: crate::meta::AssetMeta
     ProcessedDev {
         source: AssetProvider,
         destination: AssetProvider,
@@ -71,6 +85,7 @@ impl AssetPlugin {
     /// and to allow us to put the "processor transaction log" at `imported_assets/log`
     const DEFAULT_FILE_DESTINATION: &str = "imported_assets/Default";
 
+    /// Returns the default [`AssetPlugin::Processed`] configuration
     pub fn processed() -> Self {
         Self::Processed {
             destination: Default::default(),
@@ -78,6 +93,7 @@ impl AssetPlugin {
         }
     }
 
+    /// Returns the default [`AssetPlugin::ProcessedDev`] configuration
     pub fn processed_dev() -> Self {
         Self::ProcessedDev {
             source: Default::default(),
@@ -86,6 +102,7 @@ impl AssetPlugin {
         }
     }
 
+    /// Returns the default [`AssetPlugin::Unprocessed`] configuration
     pub fn unprocessed() -> Self {
         Self::Unprocessed {
             source: Default::default(),
@@ -93,8 +110,8 @@ impl AssetPlugin {
         }
     }
 
+    /// Enables watching for changes, which will hot-reload assets when they change.
     pub fn watch_for_changes(mut self) -> Self {
-        error!("Watching for changes is not supported yet");
         match &mut self {
             AssetPlugin::Unprocessed {
                 watch_for_changes, ..
@@ -213,9 +230,16 @@ impl AssetDependencyVisitor for Vec<UntypedHandle> {
     }
 }
 
+/// Adds asset-related builder methods to [`App`].
 pub trait AssetApp {
+    /// Registers the given `loader` in the [`App`]'s [`AssetServer`].
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self;
+    /// Initializes the given loader in the [`App`]'s [`AssetServer`].
     fn init_asset_loader<L: AssetLoader + FromWorld>(&mut self) -> &mut Self;
+    /// Initializes the given [`Asset`] in the [`App`] by:
+    /// * Registering the [`Asset`] in the [`AssetServer`]
+    /// * Initializing the [`AssetEvent`] resource for the [`Asset`]
+    /// * Adding other relevant systems and resources for the [`Asset`]
     fn init_asset<A: Asset>(&mut self) -> &mut Self;
     /// Registers the asset type `T` using `[App::register]`,
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
@@ -279,7 +303,7 @@ impl AssetApp for App {
     }
 }
 
-// TODO: having the second parameter on this is not ideal
+/// Loads an "internal" asset by embedding the string stored in the given `path_str` and associates it with the given handle.
 #[macro_export]
 macro_rules! load_internal_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
@@ -308,6 +332,7 @@ macro_rules! load_internal_asset {
     }};
 }
 
+/// Loads an "internal" binary asset by embedding the bytes stored in the given `path_str` and associates it with the given handle.
 #[macro_export]
 macro_rules! load_internal_binary_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{

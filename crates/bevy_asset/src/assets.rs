@@ -14,6 +14,8 @@ use std::{
     sync::{atomic::AtomicU32, Arc},
 };
 
+/// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is optimized for efficient runtime
+/// usage and is not suitable for identifying assets across app runs.
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Reflect, Serialize, Deserialize,
 )]
@@ -22,6 +24,7 @@ pub struct AssetIndex {
     pub(crate) index: u32,
 }
 
+/// Allocates generational [`AssetIndex] values and facilitates their reuse.
 pub(crate) struct AssetIndexAllocator {
     next_index: AtomicU32,
     recycled_queue_sender: Sender<AssetIndex>,
@@ -45,6 +48,8 @@ impl Default for AssetIndexAllocator {
 }
 
 impl AssetIndexAllocator {
+    /// Reserves a new [`AssetIndex`], either by reusing a recycled index (with an incremented generation), or by creating a new index
+    /// by incrementing the global index counter.
     pub fn reserve(&self) -> AssetIndex {
         if let Ok(mut recycled) = self.recycled_queue_receiver.try_recv() {
             recycled.generation += 1;
@@ -60,6 +65,7 @@ impl AssetIndexAllocator {
         }
     }
 
+    /// Queues the given `index` for reuse. This should only be done if the `index` is no longer being used.
     pub fn recycle(&self, index: AssetIndex) {
         self.recycled_queue_sender.send(index).unwrap();
     }
@@ -76,7 +82,8 @@ enum Entry<A: Asset> {
     },
 }
 
-pub struct DenseAssetStorage<A: Asset> {
+/// Stores [`Asset`] values in a Vec-like storage identified by [`AssetIndex].
+pub(crate) struct DenseAssetStorage<A: Asset> {
     storage: Vec<Entry<A>>,
     len: u32,
     allocator: Arc<AssetIndexAllocator>,
@@ -93,20 +100,18 @@ impl<A: Asset> Default for DenseAssetStorage<A> {
 }
 
 impl<A: Asset> DenseAssetStorage<A> {
-    pub(crate) fn get_index_allocator(&self) -> Arc<AssetIndexAllocator> {
-        self.allocator.clone()
-    }
-
-    pub fn len(&self) -> usize {
+    // Returns the number of assets stored.
+    pub(crate) fn len(&self) -> usize {
         self.len as usize
     }
 
-    pub fn is_empty(&self) -> bool {
+    // Returns `true` if there are no assets stored.
+    pub(crate) fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     /// Insert the value at the given index. Returns true if a value already exists (and was replaced)
-    pub fn insert(&mut self, index: AssetIndex, asset: A) -> bool {
+    pub(crate) fn insert(&mut self, index: AssetIndex, asset: A) -> bool {
         self.flush();
         let entry = &mut self.storage[index.index as usize];
         if let Entry::Some { value, generation } = entry {
@@ -125,7 +130,8 @@ impl<A: Asset> DenseAssetStorage<A> {
         }
     }
 
-    pub fn remove(&mut self, index: AssetIndex) -> Option<A> {
+    /// Removes the asset stored at the given [`index`] and returns it as [`Some`] (if the asset exists).
+    pub(crate) fn remove(&mut self, index: AssetIndex) -> Option<A> {
         self.flush();
         let value = match &mut self.storage[index.index as usize] {
             Entry::None => return None,
@@ -145,7 +151,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         value
     }
 
-    pub fn get(&self, index: AssetIndex) -> Option<&A> {
+    pub(crate) fn get(&self, index: AssetIndex) -> Option<&A> {
         let entry = self.storage.get(index.index as usize)?;
         match entry {
             Entry::None => None,
@@ -159,7 +165,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         }
     }
 
-    pub fn get_mut(&mut self, index: AssetIndex) -> Option<&mut A> {
+    pub(crate) fn get_mut(&mut self, index: AssetIndex) -> Option<&mut A> {
         let entry = self.storage.get_mut(index.index as usize)?;
         match entry {
             Entry::None => None,
@@ -173,7 +179,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         }
     }
 
-    pub fn flush(&mut self) {
+    pub(crate) fn flush(&mut self) {
         let new_len = self
             .allocator
             .next_index
@@ -190,8 +196,21 @@ impl<A: Asset> DenseAssetStorage<A> {
             };
         }
     }
+
+    pub(crate) fn get_index_allocator(&self) -> Arc<AssetIndexAllocator> {
+        self.allocator.clone()
+    }
 }
 
+/// Stores [`Asset`] values identified by their [`AssetId`].
+///
+/// Assets identified by [`AssetId::Index`] will be stored in a "dense" vec-like storage. This is more efficient, but it means that
+/// the assets can only be identified at runtime. This is the default behavior.
+///
+/// Assets identified by [`AssetId::Uuid`] will be stored in a hashmap. This is less efficient, but it means that the assets can be referenced
+/// at compile time.
+///
+/// This tracks (and queues) [`AssetEvent`] events whenever changes to the collection occur.
 #[derive(Resource)]
 pub struct Assets<A: Asset> {
     dense_storage: DenseAssetStorage<A>,
@@ -215,10 +234,13 @@ impl<A: Asset> Default for Assets<A> {
 }
 
 impl<A: Asset> Assets<A> {
+    /// Retrieves an [`AssetHandleProvider`] capable of reserving new [`Handle`] values for assets that will be stored in this
+    /// collection.
     pub fn get_handle_provider(&self) -> AssetHandleProvider {
         self.handle_provider.clone()
     }
 
+    /// Inserts the given `asset`, identified by the given `id`. If an asset already exists for `id`, it will be replaced.
     pub fn insert(&mut self, id: impl Into<AssetId<A>>, asset: A) {
         let id: AssetId<A> = id.into();
         match id {
@@ -231,6 +253,7 @@ impl<A: Asset> Assets<A> {
         }
     }
 
+    /// Retrieves an [`Asset`] stored for the given `id` if it exists. If it does not exist, it will be inserted using `insert_fn`.
     // PERF: Optimize this or remove it
     pub fn get_or_insert_with(
         &mut self,
@@ -244,6 +267,7 @@ impl<A: Asset> Assets<A> {
         self.get_mut(id).unwrap()
     }
 
+    /// Returns `true` if the `id` exists in this collection. Otherwise it returns `false`.
     // PERF: Optimize this or remove it
     pub fn contains(&self, id: impl Into<AssetId<A>>) -> bool {
         self.get(id).is_some()
@@ -271,6 +295,8 @@ impl<A: Asset> Assets<A> {
         }
         replaced
     }
+
+    /// Adds the given `asset` and allocates a new strong [`Handle`] for it.
     #[inline]
     pub fn add(&mut self, asset: A) -> Handle<A> {
         let index = self.dense_storage.allocator.reserve();
@@ -281,6 +307,8 @@ impl<A: Asset> Assets<A> {
         )
     }
 
+    /// Retrieves a reference to the [`Asset`] with the given `id`, if its exists.
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
     pub fn get(&self, id: impl Into<AssetId<A>>) -> Option<&A> {
         let id: AssetId<A> = id.into();
@@ -290,6 +318,8 @@ impl<A: Asset> Assets<A> {
         }
     }
 
+    /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if its exists.
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
     pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
         let id: AssetId<A> = id.into();
@@ -300,6 +330,8 @@ impl<A: Asset> Assets<A> {
         }
     }
 
+    /// Removes (and returns) the [`Asset`] with the given `id`, if its exists.
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
         let result = self.remove_untracked(id);
@@ -309,7 +341,8 @@ impl<A: Asset> Assets<A> {
         result
     }
 
-    /// Removes the value without emitting events
+    /// Removes (and returns) the [`Asset`] with the given `id`, if its exists. This skips emitting [`AssetEvent::Removed`].
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
         match id {
@@ -318,14 +351,17 @@ impl<A: Asset> Assets<A> {
         }
     }
 
+    /// Returns `true` if there are no assets in this collection.
     pub fn is_empty(&self) -> bool {
         self.dense_storage.is_empty() && self.hash_map.is_empty()
     }
 
+    /// Returns the number of assets currently stored in the collection.
     pub fn len(&self) -> usize {
         self.dense_storage.len() + self.hash_map.len()
     }
 
+    /// Returns an iterator over the [`AssetId`] of every [`Asset`] stored in this collection.
     pub fn ids(&self) -> impl Iterator<Item = AssetId<A>> + '_ {
         self.dense_storage
             .storage
@@ -347,6 +383,7 @@ impl<A: Asset> Assets<A> {
             .chain(self.hash_map.keys().map(|uuid| AssetId::from(*uuid)))
     }
 
+    /// Returns an iterator over the [`AssetId`] and [`Asset`] ref of every asset in this collection.
     // PERF: this could be accelerated if we implement a skip list. Consider the cost/benefits
     pub fn iter(&self) -> impl Iterator<Item = (AssetId<A>, &A)> {
         self.dense_storage
@@ -373,6 +410,7 @@ impl<A: Asset> Assets<A> {
             )
     }
 
+    /// Returns an iterator over the [`AssetId`] and mutable [`Asset`] ref of every asset in this collection.
     // PERF: this could be accelerated if we implement a skip list. Consider the cost/benefits
     pub fn iter_mut(&mut self) -> AssetsMutIterator<'_, A> {
         AssetsMutIterator {
@@ -382,6 +420,10 @@ impl<A: Asset> Assets<A> {
         }
     }
 
+    /// A system that synchronizes the state of assets in this collection with the [`AssetServer`]. This manages
+    /// [`Handle`] drop events and adds queued [`AssetEvent`] values to their [`Events`] resource.
+    ///
+    /// [`Events`]: bevy_ecs::event::Events
     pub fn track_assets(
         mut assets: ResMut<Self>,
         asset_server: Res<AssetServer>,
@@ -417,6 +459,7 @@ impl<A: Asset> Assets<A> {
     }
 }
 
+/// A mutable iterator over [`Assets`].
 pub struct AssetsMutIterator<'a, A: Asset> {
     queued_events: &'a mut Vec<AssetEvent<A>>,
     dense_storage: Enumerate<std::slice::IterMut<'a, Entry<A>>>,

@@ -12,8 +12,8 @@ use std::{
     sync::Arc,
 };
 
-/// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_
-/// This should _only_ be used for one specific asset type
+/// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_.
+/// This should _only_ be used for one specific asset type.
 #[derive(Clone)]
 pub struct AssetHandleProvider {
     pub(crate) allocator: Arc<AssetIndexAllocator>,
@@ -37,6 +37,14 @@ impl AssetHandleProvider {
             drop_receiver,
         }
     }
+
+    /// Reserves a new strong [`UntypedHandle`] (with a new [`UntypedAssetId`]). The stored [`Asset`] [`TypeId`] in the
+    /// [`UntypedHandle`] will match the [`Asset`] [`TypeId`] assigned to this [`AssetHandleProvider`].
+    pub fn reserve_handle(&self) -> UntypedHandle {
+        let index = self.allocator.reserve();
+        UntypedHandle::Strong(self.get_handle(InternalAssetId::Index(index), false, None, None))
+    }
+
     pub(crate) fn get_handle(
         &self,
         id: InternalAssetId,
@@ -67,13 +75,10 @@ impl AssetHandleProvider {
             meta_transform,
         )
     }
-
-    pub fn reserve_handle(&self) -> UntypedHandle {
-        let index = self.allocator.reserve();
-        UntypedHandle::Strong(self.get_handle(InternalAssetId::Index(index), false, None, None))
-    }
 }
 
+/// The internal "strong" [`Asset`] handle storage for [`Handle::Strong`] and [`UntypedHandle::Strong`]. When this is dropped,
+/// the [`Asset`] will be freed. It also stores some asset metadata for easy access from handles.
 pub struct InternalAssetHandle {
     pub(crate) id: UntypedAssetId,
     pub(crate) asset_server_managed: bool,
@@ -107,10 +112,22 @@ impl std::fmt::Debug for InternalAssetHandle {
     }
 }
 
+/// A strong or weak handle to a specific [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
+/// alive until the [`Handle`] is dropped. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
+/// nor will it keep assets alive.
+///
+/// [`Handle`] can be cloned. If a [`Handle::Strong`] is cloned, the referenced [`Asset`] will not be freed until _all_ instances
+/// of the [`Handle`] are dropped.
+///
+/// [`Handle::Strong`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
 #[derive(Component, Reflect)]
 #[reflect_value(Component, PartialEq, Hash, Serialize, Deserialize)]
 pub enum Handle<A: Asset> {
+    /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
+    /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.  
     Strong(Arc<InternalAssetHandle>),
+    /// A "weak" reference to an [`Asset`]. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
+    /// nor will it keep assets alive.
     Weak(AssetId<A>),
 }
 
@@ -124,11 +141,14 @@ impl<T: Asset> Clone for Handle<T> {
 }
 
 impl<A: Asset> Handle<A> {
+    /// Create a new [`Handle::Weak`] with the given [`u128`] encoding of a [`Uuid`].
     pub const fn weak_from_u128(value: u128) -> Self {
         Handle::Weak(AssetId::Uuid {
             uuid: Uuid::from_u128(value),
         })
     }
+
+    /// Returns the [`AssetId`] of this [`Asset`].
     #[inline]
     pub fn id(&self) -> AssetId<A> {
         match self {
@@ -158,6 +178,7 @@ impl<A: Asset> Handle<A> {
         matches!(self, Handle::Strong(_))
     }
 
+    /// Creates a [`Handle::Weak`] clone of this [`Handle`], which will not keep the referenced [`Asset`] alive.
     #[inline]
     pub fn clone_weak(&self) -> Self {
         match self {
@@ -166,6 +187,9 @@ impl<A: Asset> Handle<A> {
         }
     }
 
+    /// Converts this [`Handle`] to an "untyped" / "generic-less" [`UntypedHandle`], which stores the [`Asset`] type information
+    /// _inside_ [`UntypedHandle`]. This will return [`UntypedHandle::Strong`] for [`Handle::Strong`] and [`UntypedHandle::Weak`] for
+    /// [`Handle::Weak`].  
     #[inline]
     pub fn untyped(self) -> UntypedHandle {
         match self {
@@ -246,6 +270,11 @@ impl<'de, A: Asset> Deserialize<'de> for Handle<A> {
     }
 }
 
+/// An untyped variant of [`Handle`], which internally stores the [`Asset`] type information at runtime
+/// as a [`TypeId`] instead of encoding it in the compile-time type. This allows handles across [`Asset`] types
+/// to be stored together and compared.
+///
+/// See [`Handle`] for more information.
 #[derive(Clone)]
 pub enum UntypedHandle {
     Strong(Arc<InternalAssetHandle>),
@@ -253,6 +282,7 @@ pub enum UntypedHandle {
 }
 
 impl UntypedHandle {
+    /// Returns the [`UntypedAssetId`] for the referenced asset.
     #[inline]
     pub fn id(&self) -> UntypedAssetId {
         match self {
@@ -270,6 +300,7 @@ impl UntypedHandle {
         }
     }
 
+    /// Creates an [`UntypedHandle::Weak`] clone of this [`UntypedHandle`], which will not keep the referenced [`Asset`] alive.
     #[inline]
     pub fn clone_weak(&self) -> UntypedHandle {
         match self {
@@ -278,6 +309,7 @@ impl UntypedHandle {
         }
     }
 
+    /// Returns the [`TypeId`] of the referenced [`Asset`].
     #[inline]
     pub fn type_id(&self) -> TypeId {
         match self {
