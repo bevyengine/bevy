@@ -189,6 +189,12 @@ pub mod gizmos {
     //! ```
     //!
     //! See the documentation on [`Gizmos`](gizmos::Gizmos) for more examples.
+    //!
+    //! Gizmos will only be visible for the upcomming frame, or until the next fixed
+    //! update if drawn during [`FixedUpdate`] as indicated by [`FixedUpdateScheduleIsCurrentlyRunning`].
+    //!
+    //! [`FixedUpdate`]: ::bevy_app::FixedUpdate
+    //! [`FixedUpdateScheduleIsCurrentlyRunning`]: ::bevy_app::FixedUpdateScheduleIsCurrentlyRunning
     pub use bevy_gizmos::*;
 }
 

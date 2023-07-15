@@ -15,10 +15,16 @@
 //! ```
 //!
 //! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
+//!
+//! Gizmos will only be visible for the upcomming frame, or until the next fixed
+//! update if drawn during [`FixedUpdate`] as indicated by [`FixedUpdateScheduleIsCurrentlyRunning`].
+//!
+//! [`FixedUpdate`]: ::bevy_app::FixedUpdate
+//! [`FixedUpdateScheduleIsCurrentlyRunning`]: ::bevy_app::FixedUpdateScheduleIsCurrentlyRunning
 
 use std::mem;
 
-use bevy_app::{Last, Plugin, PostUpdate};
+use bevy_app::{FixedUpdate, Last, Plugin, Update};
 use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_core::cast_slice;
 use bevy_ecs::{
@@ -94,12 +100,10 @@ impl Plugin for GizmoPlugin {
                     draw_all_aabbs.run_if(|config: Res<GizmoConfig>| config.aabb.draw_all),
                 )
                     .after(TransformSystem::TransformPropagate),
-            );
-
-        // Ensure gizmos from previous fixed update are cleaned up if no other system
-        // accesses gizmos during fixed update any more
-        #[cfg(feature = "fixed_update")]
-        app.add_systems(bevy_app::FixedUpdate, |_: Gizmos| ());
+            )
+            // Ensure gizmos from previous fixed update are cleaned up if no other system
+            // accesses gizmos during fixed update any more
+            .add_systems(FixedUpdate, |_: Gizmos| ());
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
