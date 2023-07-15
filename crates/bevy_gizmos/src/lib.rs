@@ -24,7 +24,7 @@
 
 use std::mem;
 
-use bevy_app::{FixedUpdate, Last, Plugin, Update};
+use bevy_app::{FixedUpdate, Last, Plugin, PostUpdate, Update};
 use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_core::cast_slice;
 use bevy_ecs::{

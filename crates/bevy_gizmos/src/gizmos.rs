@@ -3,6 +3,7 @@
 use std::{f32::consts::TAU, iter};
 
 use bevy_app::FixedUpdateScheduleIsCurrentlyRunning;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Tick,
     system::{Resource, SystemMeta, SystemParam},
@@ -38,25 +39,32 @@ pub(crate) struct GizmoStorage {
 /// They are drawn in immediate mode, which means they will be rendered only for
 /// the frames in which they are spawned.
 /// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule to ensure they are drawn.
+#[derive(Deref, DerefMut)]
 pub struct Gizmos<'s> {
-    buffer: &'s mut <Self as SystemParam>::State,
+    buffer: &'s mut GizmoBuffer,
+}
+
+/// Buffer in which gizmos are recorded, usually accessed via the [`Gizmos SystemParam`](Gizmos).
+#[derive(Default)]
+pub struct GizmoBuffer {
+    list_positions: Vec<PositionItem>,
+    list_colors: Vec<ColorItem>,
+    strip_positions: Vec<PositionItem>,
+    strip_colors: Vec<ColorItem>,
 }
 
 // Wrap to keep GizmoBuffer hidden
 const _: () = {
     #[derive(Default)]
-    pub struct GizmoBuffer {
+    pub struct State {
+        buffer: GizmoBuffer,
         /// Which fixed update tick this belongs to, `None` if this isn't from a fixed update.
         fixed_time_update: Option<u64>,
-        list_positions: Vec<PositionItem>,
-        list_colors: Vec<ColorItem>,
-        strip_positions: Vec<PositionItem>,
-        strip_colors: Vec<ColorItem>,
     }
 
     // SAFETY: Only local state is accessed.
     unsafe impl SystemParam for Gizmos<'_> {
-        type State = GizmoBuffer;
+        type State = State;
         type Item<'w, 's> = Gizmos<'s>;
 
         fn init_state(_: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
@@ -80,10 +88,14 @@ const _: () = {
                 &mut storages.frame
             };
 
-            storage.list_positions.append(&mut state.list_positions);
-            storage.list_colors.append(&mut state.list_colors);
-            storage.strip_positions.append(&mut state.strip_positions);
-            storage.strip_colors.append(&mut state.strip_colors);
+            storage
+                .list_positions
+                .append(&mut state.buffer.list_positions);
+            storage.list_colors.append(&mut state.buffer.list_colors);
+            storage
+                .strip_positions
+                .append(&mut state.buffer.strip_positions);
+            storage.strip_colors.append(&mut state.buffer.strip_colors);
         }
 
         unsafe fn get_param<'w, 's>(
@@ -95,12 +107,14 @@ const _: () = {
             state.fixed_time_update = world
                 .get_resource::<FixedUpdateScheduleIsCurrentlyRunning>()
                 .map(|current| current.update);
-            Gizmos { buffer: state }
+            Gizmos {
+                buffer: &mut state.buffer,
+            }
         }
     }
 };
 
-impl<'s> Gizmos<'s> {
+impl GizmoBuffer {
     /// Draw a line in 3D from `start` to `end`.
     ///
     /// This should be called for each frame the line needs to be rendered.
@@ -202,11 +216,10 @@ impl<'s> Gizmos<'s> {
     #[inline]
     pub fn linestrip(&mut self, positions: impl IntoIterator<Item = Vec3>, color: Color) {
         self.extend_strip_positions(positions);
-        let len = self.buffer.strip_positions.len();
-        self.buffer
-            .strip_colors
+        let len = self.strip_positions.len();
+        self.strip_colors
             .resize(len - 1, color.as_linear_rgba_f32());
-        self.buffer.strip_colors.push([f32::NAN; 4]);
+        self.strip_colors.push([f32::NAN; 4]);
     }
 
     /// Draw a line in 3D made of straight segments between the points, with a color gradient.
@@ -231,8 +244,8 @@ impl<'s> Gizmos<'s> {
     pub fn linestrip_gradient(&mut self, points: impl IntoIterator<Item = (Vec3, Color)>) {
         let points = points.into_iter();
 
-        let strip_positions = &mut self.buffer.strip_positions;
-        let strip_colors = &mut self.buffer.strip_colors;
+        let strip_positions = &mut self.strip_positions;
+        let strip_colors = &mut self.strip_colors;
 
         let (min, _) = points.size_hint();
         strip_positions.reserve(min);
@@ -274,9 +287,9 @@ impl<'s> Gizmos<'s> {
         normal: Vec3,
         radius: f32,
         color: Color,
-    ) -> CircleBuilder<'_, 's> {
+    ) -> CircleBuilder<'_> {
         CircleBuilder {
-            gizmos: self,
+            buffer: self,
             position,
             normal,
             radius,
@@ -312,9 +325,9 @@ impl<'s> Gizmos<'s> {
         rotation: Quat,
         radius: f32,
         color: Color,
-    ) -> SphereBuilder<'_, 's> {
+    ) -> SphereBuilder<'_> {
         SphereBuilder {
-            gizmos: self,
+            buffer: self,
             position,
             rotation,
             radius,
@@ -533,12 +546,7 @@ impl<'s> Gizmos<'s> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn circle_2d(
-        &mut self,
-        position: Vec2,
-        radius: f32,
-        color: Color,
-    ) -> Circle2dBuilder<'_, 's> {
+    pub fn circle_2d(&mut self, position: Vec2, radius: f32, color: Color) -> Circle2dBuilder<'_> {
         Circle2dBuilder {
             gizmos: self,
             position,
@@ -584,7 +592,7 @@ impl<'s> Gizmos<'s> {
         arc_angle: f32,
         radius: f32,
         color: Color,
-    ) -> Arc2dBuilder<'_, 's> {
+    ) -> Arc2dBuilder<'_> {
         Arc2dBuilder {
             gizmos: self,
             position,
@@ -617,30 +625,50 @@ impl<'s> Gizmos<'s> {
         self.linestrip_2d([tl, tr, br, bl, tl], color);
     }
 
+    /// Draw all gizmos from another buffer.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::{gizmos::GizmoBuffer, prelude::*};
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Resource)]
+    /// struct Buffer(GizmoBuffer);
+    ///
+    /// fn system(mut gizmos: Gizmos, buffered: Res<Buffer>) {
+    ///     gizmos.submit_buffer(&buffered.0);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn submit_buffer(&mut self, gizmos: &Self) {
+        self.list_positions
+            .extend_from_slice(&gizmos.list_positions);
+        self.list_colors.extend_from_slice(&gizmos.list_colors);
+        self.strip_positions
+            .extend_from_slice(&gizmos.strip_positions);
+        self.strip_colors.extend_from_slice(&gizmos.strip_colors);
+    }
+
     #[inline]
     fn extend_list_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.buffer
-            .list_positions
+        self.list_positions
             .extend(positions.into_iter().map(|vec3| vec3.to_array()));
     }
 
     #[inline]
     fn extend_list_colors(&mut self, colors: impl IntoIterator<Item = Color>) {
-        self.buffer
-            .list_colors
+        self.list_colors
             .extend(colors.into_iter().map(|color| color.as_linear_rgba_f32()));
     }
 
     #[inline]
     fn add_list_color(&mut self, color: Color, count: usize) {
-        self.buffer
-            .list_colors
+        self.list_colors
             .extend(iter::repeat(color.as_linear_rgba_f32()).take(count));
     }
 
     #[inline]
     fn extend_strip_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.buffer.strip_positions.extend(
+        self.strip_positions.extend(
             positions
                 .into_iter()
                 .map(|vec3| vec3.to_array())
@@ -649,9 +677,9 @@ impl<'s> Gizmos<'s> {
     }
 }
 
-/// A builder returned by [`Gizmos::circle`].
-pub struct CircleBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+/// A builder returned by [`GizmoBuffer::circle`].
+pub struct CircleBuilder<'a> {
+    buffer: &'a mut GizmoBuffer,
     position: Vec3,
     normal: Vec3,
     radius: f32,
@@ -659,7 +687,7 @@ pub struct CircleBuilder<'a, 's> {
     segments: usize,
 }
 
-impl CircleBuilder<'_, '_> {
+impl CircleBuilder<'_> {
     /// Set the number of line-segments for this circle.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
@@ -667,18 +695,18 @@ impl CircleBuilder<'_, '_> {
     }
 }
 
-impl Drop for CircleBuilder<'_, '_> {
+impl Drop for CircleBuilder<'_> {
     fn drop(&mut self) {
         let rotation = Quat::from_rotation_arc(Vec3::Z, self.normal);
         let positions = circle_inner(self.radius, self.segments)
             .map(|vec2| (self.position + rotation * vec2.extend(0.)));
-        self.gizmos.linestrip(positions, self.color);
+        self.buffer.linestrip(positions, self.color);
     }
 }
 
-/// A builder returned by [`Gizmos::sphere`].
-pub struct SphereBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+/// A builder returned by [`GizmoBuffer::sphere`].
+pub struct SphereBuilder<'a> {
+    buffer: &'a mut GizmoBuffer,
     position: Vec3,
     rotation: Quat,
     radius: f32,
@@ -686,7 +714,7 @@ pub struct SphereBuilder<'a, 's> {
     circle_segments: usize,
 }
 
-impl SphereBuilder<'_, '_> {
+impl SphereBuilder<'_> {
     /// Set the number of line-segments per circle for this sphere.
     pub fn circle_segments(mut self, segments: usize) -> Self {
         self.circle_segments = segments;
@@ -694,26 +722,26 @@ impl SphereBuilder<'_, '_> {
     }
 }
 
-impl Drop for SphereBuilder<'_, '_> {
+impl Drop for SphereBuilder<'_> {
     fn drop(&mut self) {
         for axis in Vec3::AXES {
-            self.gizmos
+            self.buffer
                 .circle(self.position, self.rotation * axis, self.radius, self.color)
                 .segments(self.circle_segments);
         }
     }
 }
 
-/// A builder returned by [`Gizmos::circle_2d`].
-pub struct Circle2dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+/// A builder returned by [`GizmoBuffer::circle_2d`].
+pub struct Circle2dBuilder<'a> {
+    gizmos: &'a mut GizmoBuffer,
     position: Vec2,
     radius: f32,
     color: Color,
     segments: usize,
 }
 
-impl Circle2dBuilder<'_, '_> {
+impl Circle2dBuilder<'_> {
     /// Set the number of line-segments for this circle.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
@@ -721,16 +749,16 @@ impl Circle2dBuilder<'_, '_> {
     }
 }
 
-impl Drop for Circle2dBuilder<'_, '_> {
+impl Drop for Circle2dBuilder<'_> {
     fn drop(&mut self) {
         let positions = circle_inner(self.radius, self.segments).map(|vec2| (vec2 + self.position));
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
 
-/// A builder returned by [`Gizmos::arc_2d`].
-pub struct Arc2dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+/// A builder returned by [`GizmoBuffer::arc_2d`].
+pub struct Arc2dBuilder<'a> {
+    gizmos: &'a mut GizmoBuffer,
     position: Vec2,
     direction_angle: f32,
     arc_angle: f32,
@@ -739,7 +767,7 @@ pub struct Arc2dBuilder<'a, 's> {
     segments: Option<usize>,
 }
 
-impl Arc2dBuilder<'_, '_> {
+impl Arc2dBuilder<'_> {
     /// Set the number of line-segments for this arc.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = Some(segments);
@@ -747,7 +775,7 @@ impl Arc2dBuilder<'_, '_> {
     }
 }
 
-impl Drop for Arc2dBuilder<'_, '_> {
+impl Drop for Arc2dBuilder<'_> {
     fn drop(&mut self) {
         let segments = match self.segments {
             Some(segments) => segments,
