@@ -50,7 +50,10 @@ use bevy_render::{
     view::RenderLayers,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::{
+    components::{GlobalTransform, Transform},
+    TransformSystem,
+};
 
 pub mod gizmos;
 
@@ -89,7 +92,8 @@ impl Plugin for GizmoPlugin {
                 (
                     draw_aabbs,
                     draw_all_aabbs.run_if(|config: Res<GizmoConfig>| config.aabb.draw_all),
-                ),
+                )
+                    .after(TransformSystem::TransformPropagate),
             );
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
