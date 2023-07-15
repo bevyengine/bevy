@@ -1,6 +1,6 @@
 use super::downsampling_pipeline::BloomUniforms;
 use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
-use bevy_math::{UVec4, Vec4};
+use bevy_math::{URect, UVec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
@@ -196,7 +196,7 @@ impl ExtractComponent for BloomSettings {
             camera.is_active,
             camera.hdr,
         ) {
-            (Some((origin, _)), Some(size), Some(target_size), true, true) => {
+            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true, true) => {
                 let threshold = settings.prefilter_settings.threshold;
                 let threshold_softness = settings.prefilter_settings.threshold_softness;
                 let knee = threshold * threshold_softness.clamp(0.0, 1.0);
