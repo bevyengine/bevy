@@ -332,7 +332,7 @@ impl URect {
 
     /// Returns self as [`IRect`] (i32)
     #[inline]
-    pub fn as_urect(&self) -> IRect {
+    pub fn as_irect(&self) -> IRect {
         IRect::from_corners(self.min.as_ivec2(), self.max.as_ivec2())
     }
 }
