@@ -142,7 +142,16 @@ fn main() {
                 }
             }
 
-            for to_run in examples_to_run {
+            let work_to_do = || {
+                examples_to_run
+                    .iter()
+                    .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
+                    .take(cli.per_page.unwrap_or(usize::MAX))
+            };
+
+            let mut pb = ProgressBar::new(work_to_do().count() as u64);
+
+            for to_run in work_to_do() {
                 let sh = Shell::new().unwrap();
                 let example = &to_run.technical_name;
                 let extra_parameters = extra_parameters.clone();
@@ -179,7 +188,9 @@ fn main() {
                 println!("took {duration:?}");
 
                 thread::sleep(Duration::from_secs(1));
+                pb.inc();
             }
+            pb.finish_print("done");
             if failed_examples.is_empty() {
                 println!("All examples passed!");
             } else {
