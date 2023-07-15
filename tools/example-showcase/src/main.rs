@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Display,
     fs::{self, File},
     io::Write,
     path::{Path, PathBuf},
@@ -8,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use clap::Parser;
+use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use pbr::ProgressBar;
 use toml_edit::Document;
 use xshell::{cmd, Shell};
@@ -21,6 +22,13 @@ struct Args {
 
     #[command(subcommand)]
     action: Action,
+    #[arg(long)]
+    /// Pagination control - page number. To use with --per-page
+    page: Option<usize>,
+
+    #[arg(long)]
+    /// Pagination control - number of examples per page. To use with --page
+    per_page: Option<usize>,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -45,8 +53,8 @@ enum Action {
         /// Path to the folder where the content should be created
         content_folder: String,
     },
-    /// BUild the examples in wasm / WebGPU
-    BuildWebGPUExamples {
+    /// Build the examples in wasm
+    BuildWasmExamples {
         #[arg(long)]
         /// Path to the folder where the content should be created
         content_folder: String,
@@ -58,11 +66,39 @@ enum Action {
         #[arg(long)]
         /// Optimize the wasm file for size with wasm-opt
         optimize_size: bool,
+
+        #[arg(long)]
+        /// Which API to use for rendering
+        api: WebApi,
     },
+}
+
+#[derive(Debug, Copy, Clone, ValueEnum)]
+enum WebApi {
+    Webgl2,
+    Webgpu,
+}
+
+impl Display for WebApi {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WebApi::Webgl2 => write!(f, "webgl2"),
+            WebApi::Webgpu => write!(f, "webgpu"),
+        }
+    }
 }
 
 fn main() {
     let cli = Args::parse();
+
+    if cli.page.is_none() != cli.per_page.is_none() {
+        let mut cmd = Args::command();
+        cmd.error(
+            ErrorKind::MissingRequiredArgument,
+            "page and per-page must be used together",
+        )
+        .exit();
+    }
 
     let profile = cli.profile;
 
@@ -249,11 +285,13 @@ header_message = \"Examples (WebGPU)\"
                     .unwrap();
             }
         }
-        Action::BuildWebGPUExamples {
+        Action::BuildWasmExamples {
             content_folder,
             website_hacks,
             optimize_size,
+            api,
         } => {
+            let api = format!("{}", api);
             let examples_to_build = parse_examples();
 
             let root_path = Path::new(&content_folder);
@@ -282,30 +320,29 @@ header_message = \"Examples (WebGPU)\"
                 cmd!(sh, "sed -i.bak 's/asset_folder: \"assets\"/asset_folder: \"\\/assets\\/examples\\/\"/' crates/bevy_asset/src/lib.rs").run().unwrap();
             }
 
-            let mut pb = ProgressBar::new(
+            let work_to_do = || {
                 examples_to_build
                     .iter()
                     .filter(|to_build| to_build.wasm)
-                    .count() as u64,
-            );
-            for to_build in examples_to_build {
-                if !to_build.wasm {
-                    continue;
-                }
+                    .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
+                    .take(cli.per_page.unwrap_or(usize::MAX))
+            };
 
+            let mut pb = ProgressBar::new(work_to_do().count() as u64);
+            for to_build in work_to_do() {
                 let sh = Shell::new().unwrap();
                 let example = &to_build.technical_name;
                 if optimize_size {
                     cmd!(
                         sh,
-                        "cargo run -p build-wasm-example -- --api webgpu {example} --optimize-size"
+                        "cargo run -p build-wasm-example -- --api {api} {example} --optimize-size"
                     )
                     .run()
                     .unwrap();
                 } else {
                     cmd!(
                         sh,
-                        "cargo run -p build-wasm-example -- --api webgpu {example}"
+                        "cargo run -p build-wasm-example -- --api {api} {example}"
                     )
                     .run()
                     .unwrap();
