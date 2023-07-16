@@ -368,14 +368,14 @@ impl<'a> RenderContext<'a> {
         self.flush_encoders();
 
         let mut command_buffers = Vec::with_capacity(self.command_buffer_queue.len());
-        let mut task_based_command_buffers = ComputeTaskPool::get().scope(|scope| {
+        let mut task_based_command_buffers = ComputeTaskPool::get().scope(|task_pool| {
             for (i, queued_command_buffer) in self.command_buffer_queue.into_iter().enumerate() {
                 match queued_command_buffer {
                     QueuedCommandBuffer::Ready(command_buffer) => {
                         command_buffers.push((i, command_buffer))
                     }
                     QueuedCommandBuffer::Task(command_buffer_generation_task) => {
-                        scope.spawn(async move { (i, command_buffer_generation_task()) });
+                        task_pool.spawn(async move { (i, command_buffer_generation_task()) });
                     }
                 }
             }
