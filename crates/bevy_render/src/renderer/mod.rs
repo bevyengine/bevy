@@ -344,31 +344,29 @@ impl<'a> RenderContext<'a> {
     }
 
     /// Append a function that will generate a [`CommandBuffer`] to the
-    /// command buffer queue.
+    /// command buffer queue, to be ran later.
     ///
     /// If present, this will flush the currently unflushed [`CommandEncoder`]
     /// into a [`CommandBuffer`] into the queue before appending the provided
     /// buffer.
-    pub fn add_deferred_command_buffer<F>(&mut self, command_buffer_generation_task: F)
-    where
-        F: FnOnce() -> CommandBuffer + 'a,
-    {
+    pub fn add_command_buffer_generation_task(
+        &mut self,
+        task: impl FnOnce() -> CommandBuffer + 'a,
+    ) {
         self.flush_encoders();
 
         self.command_buffers
-            .push(QueuedCommandBuffer::Deferred(Box::new(
-                command_buffer_generation_task,
-            )));
+            .push(QueuedCommandBuffer::Task(Box::new(task)));
     }
 
     /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
     ///
-    /// This function will wait until all deferred command buffer generation tasks are complete
+    /// This function will wait until all command buffer generation tasks are complete
     /// by running them in parallel (where supported).
     pub fn finish(mut self) -> Vec<CommandBuffer> {
         self.flush_encoders();
 
-        todo!("Run deferred command buffer generation tasks in parallel, and then generate the final command buffer list")
+        todo!("Run command buffer generation tasks in parallel, and then generate the final command buffer list")
     }
 
     fn flush_encoders(&mut self) {
@@ -381,5 +379,5 @@ impl<'a> RenderContext<'a> {
 
 enum QueuedCommandBuffer<'a> {
     Ready(CommandBuffer),
-    Deferred(Box<dyn FnOnce() -> CommandBuffer + 'a>),
+    Task(Box<dyn FnOnce() -> CommandBuffer + 'a>),
 }

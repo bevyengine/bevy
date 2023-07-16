@@ -149,7 +149,7 @@ impl ViewNode for MainOpaquePass3dNode {
             command_buffer
         };
 
-        render_context.add_deferred_command_buffer(command_buffer_generation_task);
+        render_context.add_command_buffer_generation_task(command_buffer_generation_task);
 
         Ok(())
     }
