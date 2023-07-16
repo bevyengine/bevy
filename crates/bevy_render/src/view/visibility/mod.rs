@@ -205,7 +205,7 @@ pub enum VisibilitySystems {
     /// Label for the system propagating the [`ComputedVisibility`] in a
     /// [`hierarchy`](bevy_hierarchy).
     VisibilityPropagate,
-    /// Label for the [`check_visibility`] system updating each frame the [`ComputedVisibility`]
+    /// Label for the [`check_visibility`] system updating [`ComputedVisibility`]
     /// of each entity and the [`VisibleEntities`] of each view.
     CheckVisibility,
 }
@@ -279,7 +279,7 @@ pub fn calculate_bounds(
 
 /// System updating the [`Frustum`] component of an entity, typically a [`Camera`],
 /// using its [`GlobalTransform`] and the projection matrix from its [`CameraProjection`]
-/// components.
+/// component.
 ///
 /// Used in system sets [`VisibilitySystems::UpdateProjectionFrusta`],
 /// [`VisibilitySystems::UpdatePerspectiveFrusta`], and

@@ -93,13 +93,13 @@ impl Sphere {
     }
 }
 
-/// A region of 3D space, specifically a closed set which border is a bisecting 2D plane.
-/// This bisecting plane is partitionning 3D space into two "infinite" regions,
+/// A region of 3D space, specifically a closed set whose border is a bisecting 2D plane.
+/// This bisecting plane partitions 3D space into two infinite regions,
 /// the half-space is one of those regions and includes the bisecting plane.
 ///
 /// Each instance of this type is characterized by:
 /// - the bisecting plane's unit normal, normalized and pointing "inside" the half-space,
-/// - the distance from the bisecting plane to the origin of 3D space along the normal,
+/// - the signed distance from the bisecting plane to the origin of 3D space along the normal
 ///
 /// The distance can also be seen as:
 /// - the distance from the origin of 3D space to the bisecting plane along the inverse of the normal,
@@ -124,7 +124,7 @@ pub struct HalfSpace {
 impl HalfSpace {
     /// Constructs a `HalfSpace` from a 4D vector whose first 3 components
     /// represent the bisecting plane's unit normal, and the last component signifies
-    /// the distance from the plane to the origin along the normal.
+    /// the signed distance from the plane to the origin along the normal.
     /// The constructor ensures the normal vector is normalized and the distance is appropriately scaled.
     #[inline]
     pub fn new(normal_d: Vec4) -> Self {
@@ -169,7 +169,7 @@ impl HalfSpace {
 /// the [`NoFrustumCulling`](crate::view::visibility::NoFrustumCulling) component.
 ///
 /// The frustum component is typically added by adding a bundle, either the `Camera2dBundle`
-/// or the `Camera3dBundle`, and is typically updated automatically using
+/// or the `Camera3dBundle`, and is typically updated automatically by
 /// [`update_frusta`](crate::view::visibility::update_frusta) from the
 /// [`CameraProjection`](crate::camera::CameraProjection) component of the camera entity.
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
