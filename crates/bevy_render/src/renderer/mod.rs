@@ -2,7 +2,9 @@ mod graph_runner;
 mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
+use bevy_tasks::Task;
 use bevy_utils::tracing::{error, info, info_span};
+use futures_lite::future;
 pub use graph_runner::*;
 pub use render_device::*;
 
@@ -290,7 +292,7 @@ pub async fn initialize_renderer(
 pub struct RenderContext {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
-    command_buffers: Vec<CommandBuffer>,
+    command_buffers: Vec<QueuedCommandBuffer>,
 }
 
 impl RenderContext {
@@ -331,25 +333,66 @@ impl RenderContext {
         TrackedRenderPass::new(&self.render_device, render_pass)
     }
 
-    /// Append a [`CommandBuffer`] to the queue.
+    /// Append a [`CommandBuffer`] to the command buffer queue.
     ///
     /// If present, this will flush the currently unflushed [`CommandEncoder`]
-    /// into a [`CommandBuffer`] into the queue before append the provided
+    /// into a [`CommandBuffer`] into the queue before appending the provided
     /// buffer.
     pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
-        self.flush_encoder();
-        self.command_buffers.push(command_buffer);
+        self.flush_encoders();
+
+        self.command_buffers
+            .push(QueuedCommandBuffer::Ready(command_buffer));
+    }
+
+    /// Append a [`Task`] that will eventually generate a [`CommandBuffer`] to the
+    /// command buffer queue.
+    ///
+    /// If present, this will flush the currently unflushed [`CommandEncoder`]
+    /// into a [`CommandBuffer`] into the queue before appending the provided
+    /// buffer.
+    pub fn add_async_command_buffer(
+        &mut self,
+        command_buffer_generation_task: Task<CommandBuffer>,
+    ) {
+        self.flush_encoders();
+
+        self.command_buffers
+            .push(QueuedCommandBuffer::Async(command_buffer_generation_task));
     }
 
     /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
+    ///
+    /// This function will wait until all async command buffer generation tasks are complete.
     pub fn finish(mut self) -> Vec<CommandBuffer> {
-        self.flush_encoder();
+        self.flush_encoders();
+
         self.command_buffers
+            .into_iter()
+            .map(QueuedCommandBuffer::wait_for_completion)
+            .collect()
     }
 
-    fn flush_encoder(&mut self) {
+    fn flush_encoders(&mut self) {
         if let Some(encoder) = self.command_encoder.take() {
-            self.command_buffers.push(encoder.finish());
+            self.command_buffers
+                .push(QueuedCommandBuffer::Ready(encoder.finish()));
+        }
+    }
+}
+
+enum QueuedCommandBuffer {
+    Ready(CommandBuffer),
+    Async(Task<CommandBuffer>),
+}
+
+impl QueuedCommandBuffer {
+    fn wait_for_completion(self) -> CommandBuffer {
+        match self {
+            Self::Ready(command_buffer) => command_buffer,
+            Self::Async(command_buffer_generation_task) => {
+                future::block_on(command_buffer_generation_task)
+            }
         }
     }
 }
