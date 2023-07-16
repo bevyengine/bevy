@@ -1,76 +1,30 @@
-#![allow(
-    clippy::bool_assert_comparison,
-    clippy::useless_conversion,
-    clippy::redundant_else,
-    clippy::match_same_arms,
-    clippy::semicolon_if_nothing_returned,
-    clippy::explicit_iter_loop,
-    clippy::map_flatten
-)]
+use std::{fs::File, io::Read};
 
 use bevy_mikktspace::{generate_tangents, Geometry};
-use glam::{Vec2, Vec3};
-
-pub type Face = [u32; 3];
-
-#[derive(Debug)]
-struct Vertex {
-    position: Vec3,
-    normal: Vec3,
-    tex_coord: Vec2,
-}
-
-#[derive(Debug, PartialEq)]
-struct Result {
-    tangent: [f32; 3],
-    bi_tangent: [f32; 3],
-    mag_s: f32,
-    mag_t: f32,
-    bi_tangent_preserves_orientation: bool,
-    face: usize,
-    vert: usize,
-}
-
-impl Result {
-    fn new(
-        tangent: [f32; 3],
-        bi_tangent: [f32; 3],
-        mag_s: f32,
-        mag_t: f32,
-        bi_tangent_preserves_orientation: bool,
-        face: usize,
-        vert: usize,
-    ) -> Self {
-        Self {
-            tangent,
-            bi_tangent,
-            mag_s,
-            mag_t,
-            bi_tangent_preserves_orientation,
-            face,
-            vert,
-        }
-    }
-}
+use bytemuck::{bytes_of_mut, cast_slice_mut, Pod, Zeroable};
 
 struct Mesh {
-    faces: Vec<Face>,
     vertices: Vec<Vertex>,
+    indices: Vec<u32>,
 }
 
-struct Context {
-    mesh: Mesh,
-    results: Vec<Result>,
+#[derive(Pod, Zeroable, Default, Debug, Clone, Copy)]
+#[repr(C)]
+struct Vertex {
+    position: [f32; 3],
+    normal: [f32; 3],
+    texture_coords: [f32; 2],
+    tangent: [f32; 3],
 }
 
 fn vertex(mesh: &Mesh, face: usize, vert: usize) -> &Vertex {
-    let vs: &[u32; 3] = &mesh.faces[face];
-    &mesh.vertices[vs[vert] as usize]
+    let index = mesh.indices[(face * 3) + vert];
+    &mesh.vertices[index as usize]
 }
 
-impl Geometry for Context {
+impl Geometry for Mesh {
     fn num_faces(&self) -> usize {
-        self.mesh.faces.len()
+        self.indices.len() / 3
     }
 
     fn num_vertices_of_face(&self, _face: usize) -> usize {
@@ -78,812 +32,101 @@ impl Geometry for Context {
     }
 
     fn position(&self, face: usize, vert: usize) -> [f32; 3] {
-        vertex(&self.mesh, face, vert).position.into()
+        vertex(self, face, vert).position
     }
 
     fn normal(&self, face: usize, vert: usize) -> [f32; 3] {
-        vertex(&self.mesh, face, vert).normal.into()
+        vertex(self, face, vert).normal
     }
 
     fn tex_coord(&self, face: usize, vert: usize) -> [f32; 2] {
-        vertex(&self.mesh, face, vert).tex_coord.into()
+        vertex(self, face, vert).texture_coords
     }
 
     fn set_tangent(
         &mut self,
         tangent: [f32; 3],
-        bi_tangent: [f32; 3],
-        mag_s: f32,
-        mag_t: f32,
-        bi_tangent_preserves_orientation: bool,
+        _bi_tangent: [f32; 3],
+        _mag_s: f32,
+        _mag_t: f32,
+        _bi_tangent_preserves_orientation: bool,
         face: usize,
         vert: usize,
     ) {
-        self.results.push(Result {
-            tangent,
-            bi_tangent,
-            mag_s,
-            mag_t,
-            bi_tangent_preserves_orientation,
-            face,
-            vert,
-        })
+        let index = self.indices[(face * 3) + vert];
+        self.vertices[index as usize].tangent = tangent;
     }
 }
 
-struct ControlPoint {
-    uv: [f32; 2],
-    dir: [f32; 3],
+fn load_mesh(path: &str) -> Mesh {
+    println!("loading mesh data");
+    let mut mesh = Mesh {
+        vertices: Vec::new(),
+        indices: Vec::new(),
+    };
+
+    // Open the file
+    let mut file = File::open(path).unwrap();
+
+    // Read the vertices
+    let mut vertices_len = 0u32;
+    file.read_exact(bytes_of_mut(&mut vertices_len)).unwrap();
+
+    mesh.vertices = vec![Vertex::default(); vertices_len as usize];
+    file.read_exact(cast_slice_mut(&mut mesh.vertices)).unwrap();
+
+    // Read the indices
+    let mut indices_len = 0u32;
+    file.read_exact(bytes_of_mut(&mut indices_len)).unwrap();
+
+    mesh.indices = vec![0; indices_len as usize];
+    file.read_exact(cast_slice_mut(&mut mesh.indices)).unwrap();
+
+    println!("read {} vertices, {} indices", vertices_len, indices_len);
+
+    mesh
 }
 
-impl ControlPoint {
-    fn new(uv: [f32; 2], dir: [f32; 3]) -> Self {
-        Self { uv, dir }
-    }
-}
+fn match_at(path: &str) {
+    // Load the mesh
+    let mut mesh = load_mesh(path);
 
-fn make_cube() -> Mesh {
-    let mut faces = Vec::new();
-    let mut ctl_pts = Vec::new();
-    let mut vertices = Vec::new();
-
-    // +x plane
-    {
-        let base = ctl_pts.len() as u32;
-        faces.push([base, base + 1, base + 4]);
-        faces.push([base + 1, base + 2, base + 4]);
-        faces.push([base + 2, base + 3, base + 4]);
-        faces.push([base + 3, base, base + 4]);
-        ctl_pts.push(ControlPoint::new([0.0, 0.0], [1.0, -1.0, 1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 1.0], [1.0, -1.0, -1.0]));
-        ctl_pts.push(ControlPoint::new([1.0, 1.0], [1.0, 1.0, -1.0]));
-        ctl_pts.push(ControlPoint::new([1.0, 0.0], [1.0, 1.0, 1.0]));
-        ctl_pts.push(ControlPoint::new([0.5, 0.5], [1.0, 0.0, 0.0]));
+    // Store the original reference values, and zero tangents just in case
+    let original = mesh.vertices.clone();
+    for vertex in &mut mesh.vertices {
+        vertex.tangent = [0.0, 0.0, 0.0];
     }
 
-    // -x plane
-    {
-        let base = ctl_pts.len() as u32;
-        faces.push([base, base + 1, base + 4]);
-        faces.push([base + 1, base + 2, base + 4]);
-        faces.push([base + 2, base + 3, base + 4]);
-        faces.push([base + 3, base, base + 4]);
-        ctl_pts.push(ControlPoint::new([1.0, 0.0], [-1.0, 1.0, 1.0]));
-        ctl_pts.push(ControlPoint::new([1.0, 1.0], [-1.0, 1.0, -1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 1.0], [-1.0, -1.0, -1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 0.0], [-1.0, -1.0, 1.0]));
-        ctl_pts.push(ControlPoint::new([0.5, 0.5], [-1.0, 0.0, 0.0]));
-    }
+    // Perform tangent generation
+    println!("generating tangents");
+    generate_tangents(&mut mesh);
 
-    // +y plane
-    {
-        let base = ctl_pts.len() as u32;
-        faces.push([base, base + 1, base + 4]);
-        faces.push([base + 1, base + 2, base + 4]);
-        faces.push([base + 2, base + 3, base + 4]);
-        faces.push([base + 3, base, base + 4]);
-        ctl_pts.push(ControlPoint::new([0.0, 0.0], [1.0, 1.0, 1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 1.0], [1.0, 1.0, -1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 1.0], [-1.0, 1.0, -1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 0.0], [-1.0, 1.0, 1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 0.5], [0.0, 1.0, 0.0]));
+    // Match against original
+    assert!(!original.is_empty());
+    assert_eq!(original.len(), mesh.vertices.len());
+    println!("validating {} tangents", original.len());
+    for (i, original) in original.iter().enumerate() {
+        assert_eq!(original.tangent, mesh.vertices[i].tangent);
     }
-
-    // -y plane
-    {
-        let base = ctl_pts.len() as u32;
-        faces.push([base, base + 1, base + 4]);
-        faces.push([base + 1, base + 2, base + 4]);
-        faces.push([base + 2, base + 3, base + 4]);
-        faces.push([base + 3, base, base + 4]);
-        ctl_pts.push(ControlPoint::new([0.0, 0.0], [-1.0, -1.0, 1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 1.0], [-1.0, -1.0, -1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 1.0], [1.0, -1.0, -1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 0.0], [1.0, -1.0, 1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 0.5], [0.0, -1.0, 0.0]));
-    }
-
-    // +z plane
-    {
-        let base = ctl_pts.len() as u32;
-        faces.push([base, base + 1, base + 4]);
-        faces.push([base + 1, base + 2, base + 4]);
-        faces.push([base + 2, base + 3, base + 4]);
-        faces.push([base + 3, base, base + 4]);
-        ctl_pts.push(ControlPoint::new([0.0, 0.0], [-1.0, 1.0, 1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 1.0], [-1.0, -1.0, 1.0]));
-        ctl_pts.push(ControlPoint::new([1.0, 1.0], [1.0, -1.0, 1.0]));
-        ctl_pts.push(ControlPoint::new([1.0, 0.0], [1.0, 1.0, 1.0]));
-        ctl_pts.push(ControlPoint::new([0.5, 0.5], [0.0, 0.0, 1.0]));
-    }
-
-    // -z plane
-    {
-        let base = ctl_pts.len() as u32;
-        faces.push([base, base + 1, base + 4]);
-        faces.push([base + 1, base + 2, base + 4]);
-        faces.push([base + 2, base + 3, base + 4]);
-        faces.push([base + 3, base, base + 4]);
-        ctl_pts.push(ControlPoint::new([1.0, 0.0], [1.0, 1.0, -1.0]));
-        ctl_pts.push(ControlPoint::new([1.0, 1.0], [1.0, -1.0, -1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 1.0], [-1.0, -1.0, -1.0]));
-        ctl_pts.push(ControlPoint::new([0.0, 0.0], [-1.0, 1.0, -1.0]));
-        ctl_pts.push(ControlPoint::new([0.5, 0.5], [0.0, 0.0, -1.0]));
-    }
-
-    for pt in ctl_pts {
-        let p: Vec3 = pt.dir.into();
-        let n: Vec3 = p.normalize();
-        let t: Vec2 = pt.uv.into();
-        vertices.push(Vertex {
-            position: (p / 2.0).into(),
-            normal: n.into(),
-            tex_coord: t.into(),
-        });
-    }
-
-    Mesh { faces, vertices }
 }
 
 #[test]
-fn cube_tangents_should_equal_reference_values() {
-    let mut context = Context {
-        mesh: make_cube(),
-        results: Vec::new(),
-    };
-    let ret = generate_tangents(&mut context);
-    assert_eq!(true, ret);
+fn match_cube() {
+    match_at("data/cube.bin");
+}
 
-    let expected_results: Vec<Result> = vec![
-        Result::new(
-            [0.40824825, 0.81649655, 0.40824825],
-            [0.40824825, -0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            false,
-            0,
-            0,
-        ),
-        Result::new(
-            [0.40824825, 0.81649655, -0.40824825],
-            [-0.40824825, 0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            false,
-            0,
-            1,
-        ),
-        Result::new(
-            [0.00000000, 1.00000000, 0.00000000],
-            [0.00000000, 0.00000000, -1.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            0,
-            2,
-        ),
-        Result::new(
-            [0.40824825, 0.81649655, -0.40824825],
-            [-0.40824825, 0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            false,
-            1,
-            0,
-        ),
-        Result::new(
-            [-0.40824825, 0.81649655, 0.40824825],
-            [-0.40824825, -0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            false,
-            1,
-            1,
-        ),
-        Result::new(
-            [0.00000000, 1.00000000, 0.00000000],
-            [0.00000000, 0.00000000, -1.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            1,
-            2,
-        ),
-        Result::new(
-            [-0.40824825, 0.81649655, 0.40824825],
-            [-0.40824825, -0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            false,
-            2,
-            0,
-        ),
-        Result::new(
-            [-0.40824825, 0.81649655, -0.40824825],
-            [0.40824825, 0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            false,
-            2,
-            1,
-        ),
-        Result::new(
-            [0.00000000, 1.00000000, 0.00000000],
-            [0.00000000, 0.00000000, -1.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            2,
-            2,
-        ),
-        Result::new(
-            [-0.40824825, 0.81649655, -0.40824825],
-            [0.40824825, 0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            false,
-            3,
-            0,
-        ),
-        Result::new(
-            [0.40824825, 0.81649655, 0.40824825],
-            [0.40824825, -0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            false,
-            3,
-            1,
-        ),
-        Result::new(
-            [0.00000000, 1.00000000, 0.00000000],
-            [0.00000000, 0.00000000, -1.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            3,
-            2,
-        ),
-        Result::new(
-            [0.40824825, 0.81649655, -0.40824825],
-            [-0.40824825, 0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            true,
-            4,
-            0,
-        ),
-        Result::new(
-            [0.40824825, 0.81649655, 0.40824825],
-            [0.40824825, -0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            true,
-            4,
-            1,
-        ),
-        Result::new(
-            [0.00000000, 1.00000000, 0.00000000],
-            [0.00000000, 0.00000000, -1.00000000],
-            1.00000000,
-            1.00000000,
-            true,
-            4,
-            2,
-        ),
-        Result::new(
-            [0.40824825, 0.81649655, 0.40824825],
-            [0.40824825, -0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            true,
-            5,
-            0,
-        ),
-        Result::new(
-            [-0.40824825, 0.81649655, -0.40824825],
-            [0.40824825, 0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            true,
-            5,
-            1,
-        ),
-        Result::new(
-            [0.00000000, 1.00000000, 0.00000000],
-            [0.00000000, 0.00000000, -1.00000000],
-            1.00000000,
-            1.00000000,
-            true,
-            5,
-            2,
-        ),
-        Result::new(
-            [-0.40824825, 0.81649655, -0.40824825],
-            [0.40824825, 0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            true,
-            6,
-            0,
-        ),
-        Result::new(
-            [-0.40824825, 0.81649655, 0.40824825],
-            [-0.40824825, -0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            true,
-            6,
-            1,
-        ),
-        Result::new(
-            [0.00000000, 1.00000000, 0.00000000],
-            [0.00000000, 0.00000000, -1.00000000],
-            1.00000000,
-            1.00000000,
-            true,
-            6,
-            2,
-        ),
-        Result::new(
-            [-0.40824825, 0.81649655, 0.40824825],
-            [-0.40824825, -0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            true,
-            7,
-            0,
-        ),
-        Result::new(
-            [0.40824825, 0.81649655, -0.40824825],
-            [-0.40824825, 0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            true,
-            7,
-            1,
-        ),
-        Result::new(
-            [0.00000000, 1.00000000, 0.00000000],
-            [0.00000000, 0.00000000, -1.00000000],
-            1.00000000,
-            1.00000000,
-            true,
-            7,
-            2,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            8,
-            0,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            8,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            8,
-            2,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            9,
-            0,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            9,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            9,
-            2,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            10,
-            0,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            10,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            10,
-            2,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            11,
-            0,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            11,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            11,
-            2,
-        ),
-        Result::new(
-            [-0.40824825, 0.81649655, 0.40824825],
-            [-0.40824825, -0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            true,
-            12,
-            0,
-        ),
-        Result::new(
-            [-0.40824825, 0.81649655, -0.40824825],
-            [0.40824825, 0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            true,
-            12,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            12,
-            2,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            13,
-            0,
-        ),
-        Result::new(
-            [0.40824825, 0.81649655, -0.40824825],
-            [-0.40824825, 0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            false,
-            13,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            13,
-            2,
-        ),
-        Result::new(
-            [0.40824825, 0.81649655, -0.40824825],
-            [-0.40824825, 0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            false,
-            14,
-            0,
-        ),
-        Result::new(
-            [0.40824825, 0.81649655, 0.40824825],
-            [0.40824825, -0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            false,
-            14,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            14,
-            2,
-        ),
-        Result::new(
-            [0.40824825, 0.81649655, 0.40824825],
-            [0.40824825, -0.40824825, -0.81649655],
-            1.00000000,
-            1.00000000,
-            false,
-            15,
-            0,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            15,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, 1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            15,
-            2,
-        ),
-        Result::new(
-            [0.81649655, 0.40824825, 0.40824825],
-            [-0.40824825, -0.81649655, 0.40824825],
-            1.00000000,
-            1.00000000,
-            false,
-            16,
-            0,
-        ),
-        Result::new(
-            [0.81649655, -0.40824825, 0.40824825],
-            [0.40824825, -0.81649655, -0.40824825],
-            1.00000000,
-            1.00000000,
-            false,
-            16,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, -1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            16,
-            2,
-        ),
-        Result::new(
-            [0.81649655, -0.40824825, 0.40824825],
-            [0.40824825, -0.81649655, -0.40824825],
-            1.00000000,
-            1.00000000,
-            false,
-            17,
-            0,
-        ),
-        Result::new(
-            [0.81649655, 0.40824825, -0.40824825],
-            [-0.40824825, -0.81649655, -0.40824825],
-            1.00000000,
-            1.00000000,
-            false,
-            17,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, -1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            17,
-            2,
-        ),
-        Result::new(
-            [0.81649655, 0.40824825, -0.40824825],
-            [-0.40824825, -0.81649655, -0.40824825],
-            1.00000000,
-            1.00000000,
-            false,
-            18,
-            0,
-        ),
-        Result::new(
-            [0.81649655, -0.40824825, -0.40824825],
-            [0.40824825, -0.81649655, 0.40824825],
-            1.00000000,
-            1.00000000,
-            false,
-            18,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, -1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            18,
-            2,
-        ),
-        Result::new(
-            [0.81649655, -0.40824825, -0.40824825],
-            [0.40824825, -0.81649655, 0.40824825],
-            1.00000000,
-            1.00000000,
-            false,
-            19,
-            0,
-        ),
-        Result::new(
-            [0.81649655, 0.40824825, 0.40824825],
-            [-0.40824825, -0.81649655, 0.40824825],
-            1.00000000,
-            1.00000000,
-            false,
-            19,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, -1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            false,
-            19,
-            2,
-        ),
-        Result::new(
-            [0.81649655, -0.40824825, 0.40824825],
-            [0.40824825, -0.81649655, -0.40824825],
-            1.00000000,
-            1.00000000,
-            true,
-            20,
-            0,
-        ),
-        Result::new(
-            [0.81649655, 0.40824825, 0.40824825],
-            [-0.40824825, -0.81649655, 0.40824825],
-            1.00000000,
-            1.00000000,
-            true,
-            20,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, -1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            true,
-            20,
-            2,
-        ),
-        Result::new(
-            [0.81649655, 0.40824825, 0.40824825],
-            [-0.40824825, -0.81649655, 0.40824825],
-            1.00000000,
-            1.00000000,
-            true,
-            21,
-            0,
-        ),
-        Result::new(
-            [0.81649655, -0.40824825, -0.40824825],
-            [0.40824825, -0.81649655, 0.40824825],
-            1.00000000,
-            1.00000000,
-            true,
-            21,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, -1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            true,
-            21,
-            2,
-        ),
-        Result::new(
-            [0.81649655, -0.40824825, -0.40824825],
-            [0.40824825, -0.81649655, 0.40824825],
-            1.00000000,
-            1.00000000,
-            true,
-            22,
-            0,
-        ),
-        Result::new(
-            [0.81649655, 0.40824825, -0.40824825],
-            [-0.40824825, -0.81649655, -0.40824825],
-            1.00000000,
-            1.00000000,
-            true,
-            22,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, -1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            true,
-            22,
-            2,
-        ),
-        Result::new(
-            [0.81649655, 0.40824825, -0.40824825],
-            [-0.40824825, -0.81649655, -0.40824825],
-            1.00000000,
-            1.00000000,
-            true,
-            23,
-            0,
-        ),
-        Result::new(
-            [0.81649655, -0.40824825, 0.40824825],
-            [0.40824825, -0.81649655, -0.40824825],
-            1.00000000,
-            1.00000000,
-            true,
-            23,
-            1,
-        ),
-        Result::new(
-            [1.00000000, 0.00000000, 0.00000000],
-            [0.00000000, -1.00000000, 0.00000000],
-            1.00000000,
-            1.00000000,
-            true,
-            23,
-            2,
-        ),
-    ];
+#[test]
+fn match_suzanne_flat() {
+    match_at("data/suzanne_flat_tris.bin");
+}
 
-    assert_eq!(expected_results, context.results);
+#[test]
+fn match_suzanne_smooth() {
+    match_at("data/suzanne_smooth_tris.bin");
+}
+
+#[test]
+fn match_suzanne_bad() {
+    // This model intentionally contains bad faces that can't have tangents generated for it
+    match_at("data/suzanne_bad.bin");
 }

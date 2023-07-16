@@ -8,12 +8,12 @@ Requires at least Rust 1.52.1.
 
 ## Examples
 
-### generate
+### cube_tangents
 
 Demonstrates generating tangents for a cube with 4 triangular faces per side.
 
 ```sh
-cargo run --example generate
+cargo run --example cube_tangents
 ```
 
 ## License agreement

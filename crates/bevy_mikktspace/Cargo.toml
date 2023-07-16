@@ -2,7 +2,11 @@
 name = "bevy_mikktspace"
 version = "0.12.0-dev"
 edition = "2021"
-authors = ["Benjamin Wasty <benny.wasty@gmail.com>", "David Harvey-Macaulay <alteous@outlook.com>", "Layl Bongers <LaylConway@users.noreply.github.com>"]
+authors = [
+    "Benjamin Wasty <benny.wasty@gmail.com>",
+    "David Harvey-Macaulay <alteous@outlook.com>",
+    "Layl Bongers <LaylBongers@users.noreply.github.com>",
+]
 description = "Mikkelsen tangent space algorithm"
 documentation = "https://docs.rs/bevy"
 homepage = "https://bevyengine.org"
@@ -12,6 +16,10 @@ keywords = ["bevy", "3D", "graphics", "algorithm", "tangent"]
 
 [dependencies]
 glam = "0.24"
+bitflags = "2.3"
+
+[dev-dependencies]
+bytemuck = { version = "1.13", features = ["derive"] }
 
 [[example]]
-name = "generate"
+name = "cube_tangents"
