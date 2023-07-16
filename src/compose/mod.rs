@@ -244,6 +244,8 @@ pub struct ComposableModule {
 pub struct ComposableModuleDefinition {
     pub name: String,
     // shader text
+    pub raw_source: String,
+    // substituted source, used for error reporting
     pub substituted_source: String,
     // language
     pub language: ShaderLanguage,
@@ -868,7 +870,7 @@ impl Composer {
     // - record any types/vars/constants/functions that are defined within this module
     // - build headers for each supported language
     fn create_composable_module(
-        &self,
+        &mut self,
         module_definition: &ComposableModuleDefinition,
         module_decoration: String,
         shader_defs: &HashMap<String, ShaderDefValue>,
@@ -887,11 +889,11 @@ impl Composer {
             meta: PreprocessorMetaData { imports, .. },
         } = self
             .preprocessor
-            .preprocess(
-                &module_definition.substituted_source,
-                shader_defs,
-                self.validate,
-            )
+            .preprocess(&module_definition.raw_source, shader_defs, self.validate)
+            .map_err(wrap_err)?;
+
+        let source = self
+            .sanitize_and_substitute_shader_string(&source, &imports)
             .map_err(wrap_err)?;
 
         let mut imports: Vec<_> = imports
@@ -1548,6 +1550,7 @@ impl Composer {
 
         let module_set = ComposableModuleDefinition {
             name: module_name.clone(),
+            raw_source: source.to_owned(),
             substituted_source,
             file_path: file_path.to_owned(),
             language,
@@ -1684,6 +1687,7 @@ impl Composer {
 
         let definition = ComposableModuleDefinition {
             name,
+            raw_source: source.to_owned(),
             substituted_source,
             language: shader_type.into(),
             file_path: file_path.to_owned(),

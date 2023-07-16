@@ -1,0 +1,6 @@
+const _naga_oil_mod_MI_memberC: u32 = 2u;
+
+fn main() -> u32 {
+    return _naga_oil_mod_MI_memberC;
+}
+
