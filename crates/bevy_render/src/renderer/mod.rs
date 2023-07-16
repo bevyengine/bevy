@@ -340,7 +340,7 @@ impl<'w> RenderContext<'w> {
     /// into a [`CommandBuffer`] into the queue before appending the provided
     /// buffer.
     pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
-        self.flush_encoders();
+        self.flush_encoder();
 
         self.command_buffer_queue
             .push(QueuedCommandBuffer::Ready(command_buffer));
@@ -358,7 +358,7 @@ impl<'w> RenderContext<'w> {
     ) {
         self.has_command_buffer_generation_task = true;
 
-        self.flush_encoders();
+        self.flush_encoder();
 
         self.command_buffer_queue
             .push(QueuedCommandBuffer::Task(Box::new(task)));
@@ -369,7 +369,7 @@ impl<'w> RenderContext<'w> {
     /// This function will wait until all command buffer generation tasks are complete
     /// by running them in parallel (where supported).
     pub fn finish(mut self) -> Vec<CommandBuffer> {
-        self.flush_encoders();
+        self.flush_encoder();
 
         if self.has_command_buffer_generation_task {
             let mut command_buffers = Vec::with_capacity(self.command_buffer_queue.len());
@@ -400,7 +400,7 @@ impl<'w> RenderContext<'w> {
         }
     }
 
-    fn flush_encoders(&mut self) {
+    fn flush_encoder(&mut self) {
         if let Some(encoder) = self.command_encoder.take() {
             self.command_buffer_queue
                 .push(QueuedCommandBuffer::Ready(encoder.finish()));
