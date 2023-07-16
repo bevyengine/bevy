@@ -7,6 +7,15 @@
 
 #import bevy_pbr::prepass_io as prepass_io
 
+// TODO Griffin using mesh_view_bindings here because of:
+//  ┌─ bevy_pbr\src\prepass\prepass_bindings.wgsl:7:1
+//  │
+//7 │ var<uniform> view: bevy_render::view::View;
+//  │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^ naga::GlobalVariable [36]
+//  │
+//  = Bindings for [36] conflict with other resource
+#import bevy_pbr::mesh_view_bindings view
+ 
 #ifdef PREPASS_FRAGMENT
 @fragment
 fn fragment(
@@ -41,7 +50,7 @@ fn fragment(
 #ifdef VERTEX_UVS
             in.uv,
 #endif // VERTEX_UVS
-            bevy_pbr::prepass_bindings::view.mip_bias,
+            view.mip_bias,
         );
 
         out.normal = vec4(normal * 0.5 + vec3(0.5), 1.0);

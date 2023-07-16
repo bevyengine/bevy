@@ -20,7 +20,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_reflect::{FromReflect, Reflect, TypePath, TypeUuid};
+use bevy_reflect::{Reflect, TypePath, TypeUuid};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResource,
@@ -624,7 +624,7 @@ pub fn queue_material_meshes<M: Material>(
 pub struct DefaultOpaqueRendererMethod(pub OpaqueRendererMethod);
 
 /// Render method used for opaque materials
-#[derive(Default, Clone, Copy, Debug, Reflect, FromReflect)]
+#[derive(Default, Clone, Copy, Debug, Reflect)]
 pub enum OpaqueRendererMethod {
     #[default]
     Forward,
