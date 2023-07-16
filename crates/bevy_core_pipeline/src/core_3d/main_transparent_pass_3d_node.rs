@@ -22,12 +22,12 @@ impl ViewNode for MainTransparentPass3dNode {
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
-    fn run<'w, 'rc: 'w, 'qi: 'w>(
+    fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'rc>,
+        render_context: &mut RenderContext,
         (camera, transparent_phase, target, depth): QueryItem<Self::ViewQuery>,
-        world: &'w World,
+        world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
 

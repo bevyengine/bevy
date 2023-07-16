@@ -71,11 +71,11 @@ impl RenderGraphRunner {
         Ok(())
     }
 
-    fn run_graph(
+    fn run_graph<'w>(
         graph: &RenderGraph,
         graph_name: Option<Cow<'static, str>>,
-        render_context: &mut RenderContext,
-        world: &World,
+        render_context: &mut RenderContext<'w>,
+        world: &'w World,
         inputs: &[SlotValue],
         view_entity: Option<Entity>,
     ) -> Result<(), RenderGraphRunnerError> {

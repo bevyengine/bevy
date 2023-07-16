@@ -59,11 +59,11 @@ impl Node for MsaaWritebackNode {
     fn update(&mut self, world: &mut World) {
         self.cameras.update_archetypes(world);
     }
-    fn run<'w, 'rc: 'w>(
+    fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'rc>,
-        world: &'w World,
+        render_context: &mut RenderContext,
+        world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
         if let Ok((target, blit_pipeline_id)) = self.cameras.get_manual(world, view_entity) {

@@ -24,11 +24,11 @@ impl Node for CameraDriverNode {
     fn update(&mut self, world: &mut World) {
         self.cameras.update_archetypes(world);
     }
-    fn run<'w, 'rc: 'w>(
+    fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'rc>,
-        world: &'w World,
+        render_context: &mut RenderContext,
+        world: &World,
     ) -> Result<(), NodeRunError> {
         let sorted_cameras = world.resource::<SortedCameras>();
         let windows = world.resource::<ExtractedWindows>();

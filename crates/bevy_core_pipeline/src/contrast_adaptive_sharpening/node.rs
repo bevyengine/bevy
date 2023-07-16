@@ -42,11 +42,11 @@ impl Node for CASNode {
         self.query.update_archetypes(world);
     }
 
-    fn run<'w, 'rc: 'w>(
+    fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'rc>,
-        world: &'w World,
+        render_context: &mut RenderContext,
+        world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
         let pipeline_cache = world.resource::<PipelineCache>();

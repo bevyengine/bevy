@@ -40,10 +40,10 @@ impl ViewNode for MainOpaquePass3dNode {
         &'static ViewUniformOffset,
     );
 
-    fn run<'w, 'rc: 'w, 'qi: 'w>(
+    fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'rc>,
+        render_context: &mut RenderContext<'w>,
         (
             camera,
             opaque_phase,
@@ -57,7 +57,7 @@ impl ViewNode for MainOpaquePass3dNode {
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // Run the opaque pass, sorted front-to-back

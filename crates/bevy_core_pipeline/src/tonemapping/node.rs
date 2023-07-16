@@ -32,14 +32,14 @@ impl ViewNode for TonemappingNode {
         &'static Tonemapping,
     );
 
-    fn run<'w, 'rc: 'w, 'qi: 'w>(
+    fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'rc>,
+        render_context: &mut RenderContext,
         (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping): QueryItem<
             Self::ViewQuery,
         >,
-        world: &'w World,
+        world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
         let tonemapping_pipeline = world.resource::<TonemappingPipeline>();

@@ -27,12 +27,12 @@ impl ViewNode for FxaaNode {
         &'static Fxaa,
     );
 
-    fn run<'w, 'rc: 'w, 'qi: 'w>(
+    fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'rc>,
+        render_context: &mut RenderContext,
         (target, pipeline, fxaa): QueryItem<Self::ViewQuery>,
-        world: &'w World,
+        world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
         let fxaa_pipeline = world.resource::<FxaaPipeline>();

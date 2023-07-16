@@ -660,11 +660,11 @@ impl Node for GraphInputNode {
         self.inputs.clone()
     }
 
-    fn run<'w, 'rc: 'w>(
+    fn run(
         &self,
         graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext<'rc>,
-        _world: &'w World,
+        _render_context: &mut RenderContext,
+        _world: &World,
     ) -> Result<(), NodeRunError> {
         for i in 0..graph.inputs().len() {
             let input = graph.inputs()[i].clone();
@@ -714,11 +714,11 @@ mod tests {
             self.outputs.clone()
         }
 
-        fn run<'w, 'rc: 'w>(
+        fn run(
             &self,
             _: &mut RenderGraphContext,
-            _: &mut RenderContext<'rc>,
-            _: &'w World,
+            _: &mut RenderContext,
+            _: &World,
         ) -> Result<(), NodeRunError> {
             Ok(())
         }
@@ -787,11 +787,11 @@ mod tests {
         }
 
         impl Node for MyNode {
-            fn run<'w, 'rc: 'w>(
+            fn run(
                 &self,
                 _: &mut RenderGraphContext,
-                _: &mut RenderContext<'rc>,
-                _: &'w World,
+                _: &mut RenderContext,
+                _: &World,
             ) -> Result<(), NodeRunError> {
                 Ok(())
             }
@@ -856,11 +856,11 @@ mod tests {
     fn test_add_node_edges() {
         struct SimpleNode;
         impl Node for SimpleNode {
-            fn run<'w, 'rc: 'w>(
+            fn run(
                 &self,
                 _graph: &mut RenderGraphContext,
-                _render_context: &mut RenderContext<'rc>,
-                _world: &'w World,
+                _render_context: &mut RenderContext,
+                _world: &World,
             ) -> Result<(), NodeRunError> {
                 Ok(())
             }
