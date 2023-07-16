@@ -57,8 +57,8 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
 image = { version = "0.24", default-features = false }
 
 # misc
-wgpu = { version = "0.16.0", features=["naga"] }
-wgpu-hal = "0.16.0"
+wgpu = { git = "https://github.com/jms55/wgpu", branch = "arc", features = ["naga"] }
+wgpu-hal = { git = "https://github.com/jms55/wgpu", branch = "arc" }
 codespan-reporting = "0.11.0"
 naga = { version = "0.12.0", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
