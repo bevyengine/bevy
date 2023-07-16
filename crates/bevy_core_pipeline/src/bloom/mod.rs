@@ -131,10 +131,10 @@ impl ViewNode for BloomNode {
     // Atypically for a post-processing effect, we do not need to
     // use a secondary texture normally provided by view_target.post_process_write(),
     // instead we write into our own bloom texture and then directly back onto main.
-    fn run<'w, 'rc: 'w>(
+    fn run<'w, 'rc: 'w, 'qi: 'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &'rc mut RenderContext,
+        render_context: &mut RenderContext<'rc>,
         (
             camera,
             view_target,

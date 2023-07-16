@@ -33,10 +33,10 @@ impl ViewNode for PrepassNode {
         &'static ViewPrepassTextures,
     );
 
-    fn run<'w, 'rc: 'w>(
+    fn run<'w, 'rc: 'w, 'qi: 'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &'rc mut RenderContext,
+        render_context: &mut RenderContext<'rc>,
         (
             camera,
             opaque_prepass_phase,

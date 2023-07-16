@@ -27,7 +27,7 @@ impl Node for CameraDriverNode {
     fn run<'w, 'rc: 'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &'rc mut RenderContext,
+        render_context: &mut RenderContext<'rc>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let sorted_cameras = world.resource::<SortedCameras>();

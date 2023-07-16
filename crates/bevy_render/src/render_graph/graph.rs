@@ -663,7 +663,7 @@ impl Node for GraphInputNode {
     fn run<'w, 'rc: 'w>(
         &self,
         graph: &mut RenderGraphContext,
-        _render_context: &'rc mut RenderContext,
+        _render_context: &mut RenderContext<'rc>,
         _world: &'w World,
     ) -> Result<(), NodeRunError> {
         for i in 0..graph.inputs().len() {
@@ -717,7 +717,7 @@ mod tests {
         fn run<'w, 'rc: 'w>(
             &self,
             _: &mut RenderGraphContext,
-            _: &'rc mut RenderContext,
+            _: &mut RenderContext<'rc>,
             _: &'w World,
         ) -> Result<(), NodeRunError> {
             Ok(())
@@ -790,7 +790,7 @@ mod tests {
             fn run<'w, 'rc: 'w>(
                 &self,
                 _: &mut RenderGraphContext,
-                _: &'rc mut RenderContext,
+                _: &mut RenderContext<'rc>,
                 _: &'w World,
             ) -> Result<(), NodeRunError> {
                 Ok(())
@@ -859,7 +859,7 @@ mod tests {
             fn run<'w, 'rc: 'w>(
                 &self,
                 _graph: &mut RenderGraphContext,
-                _render_context: &'rc mut RenderContext,
+                _render_context: &mut RenderContext<'rc>,
                 _world: &'w World,
             ) -> Result<(), NodeRunError> {
                 Ok(())

@@ -25,10 +25,10 @@ impl ViewNode for UpscalingNode {
         Option<&'static ExtractedCamera>,
     );
 
-    fn run<'w, 'rc: 'w>(
+    fn run<'w, 'rc: 'w, 'qi: 'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &'rc mut RenderContext,
+        render_context: &mut RenderContext<'rc>,
         (target, upscaling_target, camera): QueryItem<Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {

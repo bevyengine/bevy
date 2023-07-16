@@ -32,10 +32,10 @@ impl ViewNode for TonemappingNode {
         &'static Tonemapping,
     );
 
-    fn run<'w, 'rc: 'w>(
+    fn run<'w, 'rc: 'w, 'qi: 'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &'rc mut RenderContext,
+        render_context: &mut RenderContext<'rc>,
         (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping): QueryItem<
             Self::ViewQuery,
         >,

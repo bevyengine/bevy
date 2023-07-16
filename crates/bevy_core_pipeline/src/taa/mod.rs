@@ -173,10 +173,10 @@ impl ViewNode for TAANode {
         &'static TAAPipelineId,
     );
 
-    fn run<'w, 'rc: 'w>(
+    fn run<'w, 'rc: 'w, 'qi: 'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &'rc mut RenderContext,
+        render_context: &mut RenderContext<'rc>,
         (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
             Self::ViewQuery,
         >,

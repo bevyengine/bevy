@@ -50,7 +50,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
     fn run<'w, 'rc: 'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &'rc mut RenderContext,
+        render_context: &mut RenderContext<'rc>,
         world: &'w World,
     ) -> Result<(), NodeRunError>;
 }
@@ -303,7 +303,7 @@ impl Node for EmptyNode {
     fn run<'w, 'rc: 'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        _render_context: &'rc mut RenderContext,
+        _render_context: &mut RenderContext<'rc>,
         _world: &'w World,
     ) -> Result<(), NodeRunError> {
         Ok(())
@@ -328,7 +328,7 @@ impl Node for RunGraphOnViewNode {
     fn run<'w, 'rc: 'w>(
         &self,
         graph: &mut RenderGraphContext,
-        _render_context: &'rc mut RenderContext,
+        _render_context: &mut RenderContext<'rc>,
         _world: &'w World,
     ) -> Result<(), NodeRunError> {
         graph.run_sub_graph(self.graph_name.clone(), vec![], Some(graph.view_entity()))?;
@@ -350,11 +350,11 @@ pub trait ViewNode {
     /// Runs the graph node logic, issues draw calls, updates the output slots and
     /// optionally queues up subgraphs for execution. The graph data, input and output values are
     /// passed via the [`RenderGraphContext`].
-    fn run<'w, 'rc: 'w>(
+    fn run<'w, 'rc: 'w, 'qi: 'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &'rc mut RenderContext,
-        view_query: QueryItem<Self::ViewQuery>,
+        render_context: &mut RenderContext<'rc>,
+        view_query: QueryItem<'qi, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError>;
 }
@@ -395,7 +395,7 @@ where
     fn run<'w, 'rc: 'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &'rc mut RenderContext,
+        render_context: &mut RenderContext<'rc>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Ok(view) = self
