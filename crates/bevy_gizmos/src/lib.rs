@@ -232,21 +232,18 @@ fn draw_all_aabbs(
     }
 }
 
-fn gold_kronecker(bits: u64) -> f32 {
+fn gold_kronecker(bits: u32) -> f32 {
     // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
     //
     // See https://en.wikipedia.org/wiki/Low-discrepancy_sequence
     // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
     // so that the closer the numbers are, the larger the difference of their image.
-
-    // (u64::MAX / Φ) rounded down
-    // see https://probablydance.com/2018/06/16/fibonacci-hashing-the-optimization-that-the-world-forgot-or-a-better-alternative-to-integer-modulo/
-    const FRAC_U64MAX_GOLDEN_RATIO: u64 = 11400714819323198485;
-    const RATIO_360: f32 = u64::MAX as f32 / 360.0;
-    bits.wrapping_mul(FRAC_U64MAX_GOLDEN_RATIO) as f32 / RATIO_360
+    const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
+    const RATIO_360: f32 = u32::MAX as f32 / 360.0;
+    bits.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 / RATIO_360
 }
 fn color_from_entity(entity: Entity) -> Color {
-    Color::hsl(gold_kronecker(entity.to_bits()), 1., 0.5)
+    Color::hsl(gold_kronecker(entity.index()), 1., 0.5)
 }
 
 fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
