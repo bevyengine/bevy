@@ -89,6 +89,7 @@ mod sealed {
     pub struct PluginsTupleMarker;
 
     impl<P: Plugin> Plugins<PluginMarker> for P {
+        #[track_caller]
         fn add_to_app(self, app: &mut App) {
             if let Err(AppError::DuplicatePlugin { plugin_name }) =
                 app.add_boxed_plugin(Box::new(self))
@@ -113,6 +114,7 @@ mod sealed {
                 $($plugins: Plugins<$param>),*
             {
                 #[allow(non_snake_case, unused_variables)]
+                #[track_caller]
                 fn add_to_app(self, app: &mut App) {
                     let ($($plugins,)*) = self;
                     $($plugins.add_to_app(app);)*
