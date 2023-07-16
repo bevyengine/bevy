@@ -61,13 +61,13 @@ impl ViewNode for MainOpaquePass3dNode {
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // Run the opaque pass, sorted front-to-back
-        #[cfg(feature = "trace")]
-        let main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
-
         let view_entity = graph.view_entity();
         let render_device = render_context.render_device().clone();
 
         let command_buffer_generation_task = move || {
+            #[cfg(feature = "trace")]
+            let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
+
             let mut command_encoder =
                 render_device.create_command_encoder(&CommandEncoderDescriptor {
                     label: Some("main_opaque_pass_3d_command_encoder"),
@@ -141,12 +141,7 @@ impl ViewNode for MainOpaquePass3dNode {
 
             // Finish the command encoder
             drop(render_pass);
-            let command_buffer = command_encoder.finish();
-
-            #[cfg(feature = "trace")]
-            drop(main_opaque_pass_3d_span);
-
-            command_buffer
+            command_encoder.finish()
         };
 
         render_context.add_command_buffer_generation_task(command_buffer_generation_task);
