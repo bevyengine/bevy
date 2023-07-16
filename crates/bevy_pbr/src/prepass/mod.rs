@@ -33,7 +33,7 @@ use bevy_render::{
         BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType, ColorTargetState,
         ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, DynamicUniformBuffer,
         FragmentState, FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
-        RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef, ShaderStages, ShaderType,
+        RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages, ShaderType,
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
         StencilFaceState, StencilOperation, StencilState, TextureAspect, TextureFormat,
         TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
@@ -51,7 +51,7 @@ use crate::{
     prepare_lights, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
     MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshUniform,
     OpaqueRendererMethod, RenderMaterials, SetDeferredStencilReference, SetMaterialBindGroup,
-    SetMeshBindGroup, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -404,14 +404,6 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as u32,
-        ));
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_CASCADES_PER_LIGHT".to_string(),
-            MAX_CASCADES_PER_LIGHT as u32,
-        ));
         if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
             shader_defs.push("DEPTH_CLAMP_ORTHO".into());
             // PERF: This line forces the "prepass fragment shader" to always run in

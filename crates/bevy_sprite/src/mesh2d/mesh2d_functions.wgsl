@@ -1,5 +1,8 @@
 #define_import_path bevy_sprite::mesh2d_functions
 
+#import bevy_sprite::mesh2d_view_bindings  view
+#import bevy_sprite::mesh2d_bindings       mesh
+
 fn mesh2d_position_local_to_world(model: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
     return model * vertex_position;
 }
