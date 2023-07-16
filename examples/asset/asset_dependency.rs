@@ -1,4 +1,4 @@
-/// This example demonstrates how to handle loading dependency assets.
+//! This example demonstrates how to handle loading dependency assets.
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
     prelude::*,
