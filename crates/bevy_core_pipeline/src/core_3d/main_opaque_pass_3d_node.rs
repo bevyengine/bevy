@@ -13,7 +13,7 @@ use bevy_render::{
         CommandEncoderDescriptor, LoadOp, Operations, PipelineCache,
         RenderPassDepthStencilAttachment, RenderPassDescriptor,
     },
-    renderer::RenderContext,
+    renderer::{RenderContext, RenderDevice},
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 #[cfg(feature = "trace")]
@@ -62,9 +62,7 @@ impl ViewNode for MainOpaquePass3dNode {
     ) -> Result<(), NodeRunError> {
         // Run the opaque pass, sorted front-to-back
         let view_entity = graph.view_entity();
-        let render_device = render_context.render_device().clone();
-
-        let command_buffer_generation_task = move || {
+        render_context.add_command_buffer_generation_task(move |render_device: RenderDevice| {
             #[cfg(feature = "trace")]
             let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
 
@@ -142,9 +140,7 @@ impl ViewNode for MainOpaquePass3dNode {
             // Finish the command encoder
             drop(render_pass);
             command_encoder.finish()
-        };
-
-        render_context.add_command_buffer_generation_task(command_buffer_generation_task);
+        });
 
         Ok(())
     }

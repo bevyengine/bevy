@@ -354,7 +354,7 @@ impl<'w> RenderContext<'w> {
     /// buffer.
     pub fn add_command_buffer_generation_task(
         &mut self,
-        task: impl FnOnce() -> CommandBuffer + 'w + Send,
+        task: impl FnOnce(RenderDevice) -> CommandBuffer + 'w + Send,
     ) {
         self.has_command_buffer_generation_task = true;
 
@@ -381,7 +381,10 @@ impl<'w> RenderContext<'w> {
                             command_buffers.push((i, command_buffer));
                         }
                         QueuedCommandBuffer::Task(command_buffer_generation_task) => {
-                            task_pool.spawn(async move { (i, command_buffer_generation_task()) });
+                            let render_device = self.render_device.clone();
+                            task_pool.spawn(async move {
+                                (i, command_buffer_generation_task(render_device))
+                            });
                         }
                     }
                 }
@@ -410,5 +413,5 @@ impl<'w> RenderContext<'w> {
 
 enum QueuedCommandBuffer<'w> {
     Ready(CommandBuffer),
-    Task(Box<dyn FnOnce() -> CommandBuffer + 'w + Send>),
+    Task(Box<dyn FnOnce(RenderDevice) -> CommandBuffer + 'w + Send>),
 }
