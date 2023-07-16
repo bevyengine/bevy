@@ -239,8 +239,8 @@ fn gold_kronecker(bits: u32) -> f32 {
     // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
     // so that the closer the numbers are, the larger the difference of their image.
     const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
-    const RATIO_360: f32 = u32::MAX as f32 / 360.0;
-    bits.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 / RATIO_360
+    const RATIO_360: f32 = 360.0 / u32::MAX as f32;
+    bits.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360
 }
 fn color_from_entity(entity: Entity) -> Color {
     Color::hsl(gold_kronecker(entity.index()), 1., 0.5)
