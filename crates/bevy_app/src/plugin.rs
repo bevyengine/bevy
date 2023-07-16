@@ -102,6 +102,7 @@ mod sealed {
     }
 
     impl<P: PluginGroup> Plugins<PluginGroupMarker> for P {
+        #[track_caller]
         fn add_to_app(self, app: &mut App) {
             self.build().finish(app);
         }

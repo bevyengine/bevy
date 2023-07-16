@@ -172,6 +172,7 @@ impl PluginGroupBuilder {
     /// # Panics
     ///
     /// Panics if one of the plugin in the group was already added to the application.
+    #[track_caller]
     pub fn finish(mut self, app: &mut App) {
         for ty in &self.order {
             if let Some(entry) = self.plugins.remove(ty) {
