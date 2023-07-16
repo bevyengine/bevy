@@ -1,6 +1,9 @@
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
+use bevy_render::render_phase::TrackedRenderPass;
+use bevy_render::render_resource::CommandEncoderDescriptor;
+use bevy_render::renderer::RenderDevice;
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
@@ -33,18 +36,18 @@ impl ViewNode for PrepassNode {
         &'static ViewPrepassTextures,
     );
 
-    fn run(
+    fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        render_context: &mut RenderContext<'w>,
         (
             camera,
             opaque_prepass_phase,
             alpha_mask_prepass_phase,
             view_depth_texture,
             view_prepass_textures,
-        ): QueryItem<Self::ViewQuery>,
-        world: &World,
+        ): QueryItem<'w, Self::ViewQuery>,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
 
@@ -80,9 +83,14 @@ impl ViewNode for PrepassNode {
             color_attachments.clear();
         }
 
-        {
+        render_context.add_command_buffer_generation_task(move |render_device: RenderDevice| {
+            let mut command_encoder =
+                render_device.create_command_encoder(&CommandEncoderDescriptor {
+                    label: Some("prepass_command_encoder"),
+                });
+
             // Set up the pass descriptor with the depth attachment and optional color attachments
-            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+            let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("prepass"),
                 color_attachments: &color_attachments,
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
@@ -94,6 +102,8 @@ impl ViewNode for PrepassNode {
                     stencil_ops: None,
                 }),
             });
+            let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
@@ -112,16 +122,20 @@ impl ViewNode for PrepassNode {
                 let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
                 alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);
             }
-        }
 
-        if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
-            // Copy depth buffer to texture
-            render_context.command_encoder().copy_texture_to_texture(
-                view_depth_texture.texture.as_image_copy(),
-                prepass_depth_texture.texture.as_image_copy(),
-                view_prepass_textures.size,
-            );
-        }
+            drop(render_pass);
+
+            if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
+                // Copy depth buffer to texture
+                command_encoder.copy_texture_to_texture(
+                    view_depth_texture.texture.as_image_copy(),
+                    prepass_depth_texture.texture.as_image_copy(),
+                    view_prepass_textures.size,
+                );
+            }
+
+            command_encoder.finish()
+        });
 
         Ok(())
     }

@@ -60,9 +60,9 @@ impl ViewNode for MainOpaquePass3dNode {
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        // Run the opaque pass, sorted front-to-back
         let view_entity = graph.view_entity();
         render_context.add_command_buffer_generation_task(move |render_device: RenderDevice| {
+            // Run the opaque pass, sorted front-to-back
             #[cfg(feature = "trace")]
             let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
 

@@ -3,9 +3,12 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::RenderPhase,
-    render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
-    renderer::RenderContext,
+    render_phase::{RenderPhase, TrackedRenderPass},
+    render_resource::{
+        CommandEncoderDescriptor, LoadOp, Operations, RenderPassDepthStencilAttachment,
+        RenderPassDescriptor,
+    },
+    renderer::{RenderContext, RenderDevice},
     view::{ViewDepthTexture, ViewTarget},
 };
 #[cfg(feature = "trace")]
@@ -22,22 +25,25 @@ impl ViewNode for MainTransparentPass3dNode {
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
-    fn run(
+    fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (camera, transparent_phase, target, depth): QueryItem<Self::ViewQuery>,
-        world: &World,
+        render_context: &mut RenderContext<'w>,
+        (camera, transparent_phase, target, depth): QueryItem<'w, Self::ViewQuery>,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
-
-        if !transparent_phase.items.is_empty() {
+        let transparent_phase_render_task = move |render_device: RenderDevice| {
             // Run the transparent pass, sorted back-to-front
-            // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
             let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
 
-            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+            let mut command_encoder =
+                render_device.create_command_encoder(&CommandEncoderDescriptor {
+                    label: Some("main_transparent_pass_3d_command_encoder"),
+                });
+
+            let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
                 color_attachments: &[Some(target.get_color_attachment(Operations {
@@ -59,12 +65,20 @@ impl ViewNode for MainTransparentPass3dNode {
                     stencil_ops: None,
                 }),
             });
+            let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
 
             transparent_phase.render(&mut render_pass, world, view_entity);
+
+            drop(render_pass);
+            command_encoder.finish()
+        };
+
+        if !transparent_phase.items.is_empty() {
+            render_context.add_command_buffer_generation_task(transparent_phase_render_task);
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
