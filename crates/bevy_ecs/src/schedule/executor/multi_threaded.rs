@@ -476,7 +476,7 @@ impl MultiThreadedExecutor {
     /// - `world` must have permission to access the world data
     ///   used by the specified system.
     /// - `update_archetype_component_access` must have been called with `world`
-    ///   on the system assocaited with `system_index`.
+    ///   on the system associated with `system_index`.
     unsafe fn spawn_system_task<'scope>(
         &mut self,
         scope: &Scope<'_, 'scope, ()>,

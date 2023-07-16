@@ -627,7 +627,7 @@ unsafe impl SystemParam for &'_ World {
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        // SAFETY: Read-only access to the entire world was registerd in `init_state`.
+        // SAFETY: Read-only access to the entire world was registered in `init_state`.
         world.world()
     }
 }

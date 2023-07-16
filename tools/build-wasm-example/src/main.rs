@@ -109,7 +109,7 @@ fn main() {
 
         if cli.optimize_size {
             cmd!(sh, "wasm-opt -Oz --output examples/wasm/target/wasm_example_bg.wasm.optimized examples/wasm/target/wasm_example_bg.wasm")
-                .run().expect("Failed to optimize for size. Do you have wasm-opt corretly set up?");
+                .run().expect("Failed to optimize for size. Do you have wasm-opt correctly set up?");
         }
 
         if cli.test {

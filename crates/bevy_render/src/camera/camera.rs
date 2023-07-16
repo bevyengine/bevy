@@ -19,7 +19,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_log::warn;
-use bevy_math::{Mat4, Ray, Rect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
@@ -138,18 +138,18 @@ impl Camera {
         Some((physical_size.as_dvec2() / scale).as_vec2())
     }
 
-    /// The rendered physical bounds (minimum, maximum) of the camera. If the `viewport` field is
+    /// The rendered physical bounds [`URect`] of the camera. If the `viewport` field is
     /// set to [`Some`], this will be the rect of that custom viewport. Otherwise it will default to
     /// the full physical rect of the current [`RenderTarget`].
     #[inline]
-    pub fn physical_viewport_rect(&self) -> Option<(UVec2, UVec2)> {
+    pub fn physical_viewport_rect(&self) -> Option<URect> {
         let min = self
             .viewport
             .as_ref()
             .map(|v| v.physical_position)
             .unwrap_or(UVec2::ZERO);
         let max = min + self.physical_viewport_size()?;
-        Some((min, max))
+        Some(URect { min, max })
     }
 
     /// The rendered logical bounds [`Rect`] of the camera. If the `viewport` field is set to
@@ -157,7 +157,7 @@ impl Camera {
     /// full logical rect of the current [`RenderTarget`].
     #[inline]
     pub fn logical_viewport_rect(&self) -> Option<Rect> {
-        let (min, max) = self.physical_viewport_rect()?;
+        let URect { min, max } = self.physical_viewport_rect()?;
         Some(Rect {
             min: self.to_logical(min)?,
             max: self.to_logical(max)?,
@@ -636,7 +636,14 @@ pub fn extract_cameras(
             continue;
         }
 
-        if let (Some((viewport_origin, _)), Some(viewport_size), Some(target_size)) = (
+        if let (
+            Some(URect {
+                min: viewport_origin,
+                ..
+            }),
+            Some(viewport_size),
+            Some(target_size),
+        ) = (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
             camera.physical_target_size(),

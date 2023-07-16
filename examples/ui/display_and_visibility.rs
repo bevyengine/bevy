@@ -168,7 +168,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..Default::default()
                         });
                     builder.spawn(TextBundle::from_section(
-                        "The UI Node and its descendants will not be visible and will not be alloted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible.",
+                        "The UI Node and its descendants will not be visible and will not be allotted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible.",
                         text_style
                     ));
             });

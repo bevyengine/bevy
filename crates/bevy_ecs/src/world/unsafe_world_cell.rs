@@ -232,13 +232,6 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.world_metadata() }.bundles
     }
 
-    /// Reads the current change tick of this world.
-    #[inline]
-    #[deprecated = "this method has been renamed to `UnsafeWorldCell::change_tick`"]
-    pub fn read_change_tick(self) -> Tick {
-        self.change_tick()
-    }
-
     /// Gets the current change tick of this world.
     #[inline]
     pub fn change_tick(self) -> Tick {

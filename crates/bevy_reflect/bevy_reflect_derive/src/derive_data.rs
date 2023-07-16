@@ -567,7 +567,7 @@ impl<'a> EnumVariant<'a> {
 ///     custom_path: None,
 /// };
 ///
-/// // Eqivalent to "core::marker".
+/// // Equivalent to "core::marker".
 /// let module_path = type_path.module_path();
 /// # Ok::<(), syn::Error>(())
 /// ```
@@ -577,7 +577,7 @@ pub(crate) enum ReflectTypePath<'a> {
     Primitive(&'a Ident),
     /// Using `::my_crate::foo::Bar` syntax.
     ///
-    /// May have a seperate custom path used for the `TypePath` implementation.
+    /// May have a separate custom path used for the `TypePath` implementation.
     External {
         path: &'a Path,
         custom_path: Option<Path>,
@@ -587,7 +587,7 @@ pub(crate) enum ReflectTypePath<'a> {
     ///
     /// The type must be able to be reached with just its name.
     ///
-    /// May have a seperate alias path used for the `TypePath` implementation.
+    /// May have a separate alias path used for the `TypePath` implementation.
     ///
     /// Module and crate are found with [`module_path!()`](core::module_path),
     /// if there is no custom path specified.

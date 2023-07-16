@@ -52,7 +52,7 @@ fn add_to_alignment<T: Pod + Default>(buffer: &mut BufferVec<T>) {
         // This panic is stripped at compile time, due to n, t_size and can_align being const
         panic!(
             "BufferVec should contain only types with a size multiple or divisible by {n}, \
-            {} has a size of {t_size}, which is neiter multiple or divisible by {n}",
+            {} has a size of {t_size}, which is neither multiple or divisible by {n}",
             std::any::type_name::<T>()
         );
     }

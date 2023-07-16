@@ -14,7 +14,7 @@ use crate::{FromType, Reflect};
 /// Additionally, some complex types like `Vec<T>` require that their element types
 /// implement this trait.
 /// The reason for such requirements is that some operations require new data to be constructed,
-/// such as swapping to a new variant or pushing data to a homogenous list.
+/// such as swapping to a new variant or pushing data to a homogeneous list.
 ///
 /// See the [crate-level documentation] to see how this trait can be used.
 ///
