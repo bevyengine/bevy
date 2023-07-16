@@ -39,11 +39,11 @@ impl Node for MainPass2dNode {
         self.query.update_archetypes(world);
     }
 
-    fn run(
+    fn run<'w, 'rc: 'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
+        render_context: &'rc mut RenderContext,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
         let (camera, transparent_phase, target, camera_2d) =

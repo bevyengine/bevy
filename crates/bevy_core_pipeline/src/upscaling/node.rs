@@ -25,12 +25,12 @@ impl ViewNode for UpscalingNode {
         Option<&'static ExtractedCamera>,
     );
 
-    fn run(
+    fn run<'w, 'rc: 'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        render_context: &'rc mut RenderContext,
         (target, upscaling_target, camera): QueryItem<Self::ViewQuery>,
-        world: &World,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();
         let blit_pipeline = world.get_resource::<BlitPipeline>().unwrap();

@@ -173,14 +173,14 @@ impl ViewNode for TAANode {
         &'static TAAPipelineId,
     );
 
-    fn run(
+    fn run<'w, 'rc: 'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        render_context: &'rc mut RenderContext,
         (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
             Self::ViewQuery,
         >,
-        world: &World,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let (Some(pipelines), Some(pipeline_cache)) = (
             world.get_resource::<TAAPipeline>(),

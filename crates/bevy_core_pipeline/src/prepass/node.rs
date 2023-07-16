@@ -33,10 +33,10 @@ impl ViewNode for PrepassNode {
         &'static ViewPrepassTextures,
     );
 
-    fn run(
+    fn run<'w, 'rc: 'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        render_context: &'rc mut RenderContext,
         (
             camera,
             opaque_prepass_phase,
@@ -44,7 +44,7 @@ impl ViewNode for PrepassNode {
             view_depth_texture,
             view_prepass_textures,
         ): QueryItem<Self::ViewQuery>,
-        world: &World,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
 

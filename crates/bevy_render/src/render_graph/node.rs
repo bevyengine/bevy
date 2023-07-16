@@ -47,11 +47,11 @@ pub trait Node: Downcast + Send + Sync + 'static {
     /// Runs the graph node logic, issues draw calls, updates the output slots and
     /// optionally queues up subgraphs for execution. The graph data, input and output values are
     /// passed via the [`RenderGraphContext`].
-    fn run(
+    fn run<'w, 'rc: 'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
+        render_context: &'rc mut RenderContext,
+        world: &'w World,
     ) -> Result<(), NodeRunError>;
 }
 
@@ -300,11 +300,11 @@ impl From<NodeId> for NodeLabel {
 pub struct EmptyNode;
 
 impl Node for EmptyNode {
-    fn run(
+    fn run<'w, 'rc: 'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
-        _world: &World,
+        _render_context: &'rc mut RenderContext,
+        _world: &'w World,
     ) -> Result<(), NodeRunError> {
         Ok(())
     }
@@ -325,11 +325,11 @@ impl RunGraphOnViewNode {
 }
 
 impl Node for RunGraphOnViewNode {
-    fn run(
+    fn run<'w, 'rc: 'w>(
         &self,
         graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
-        _world: &World,
+        _render_context: &'rc mut RenderContext,
+        _world: &'w World,
     ) -> Result<(), NodeRunError> {
         graph.run_sub_graph(self.graph_name.clone(), vec![], Some(graph.view_entity()))?;
         Ok(())
@@ -350,12 +350,12 @@ pub trait ViewNode {
     /// Runs the graph node logic, issues draw calls, updates the output slots and
     /// optionally queues up subgraphs for execution. The graph data, input and output values are
     /// passed via the [`RenderGraphContext`].
-    fn run(
+    fn run<'w, 'rc: 'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        render_context: &'rc mut RenderContext,
         view_query: QueryItem<Self::ViewQuery>,
-        world: &World,
+        world: &'w World,
     ) -> Result<(), NodeRunError>;
 }
 
@@ -392,11 +392,11 @@ where
         self.node.update(world);
     }
 
-    fn run(
+    fn run<'w, 'rc: 'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
+        render_context: &'rc mut RenderContext,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Ok(view) = self
             .view_query

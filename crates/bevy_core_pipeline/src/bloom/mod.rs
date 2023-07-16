@@ -131,10 +131,10 @@ impl ViewNode for BloomNode {
     // Atypically for a post-processing effect, we do not need to
     // use a secondary texture normally provided by view_target.post_process_write(),
     // instead we write into our own bloom texture and then directly back onto main.
-    fn run(
+    fn run<'w, 'rc: 'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        render_context: &'rc mut RenderContext,
         (
             camera,
             view_target,
@@ -145,7 +145,7 @@ impl ViewNode for BloomNode {
             upsampling_pipeline_ids,
             downsampling_pipeline_ids,
         ): QueryItem<Self::ViewQuery>,
-        world: &World,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
