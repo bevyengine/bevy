@@ -18,7 +18,7 @@ use bevy_render::{
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSet,
 };
 
@@ -70,7 +70,6 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![
-            "GIZMO_3D".into(),
             #[cfg(feature = "webgl")]
             "SIXTEEN_BYTE_ALIGNMENT".into(),
         ];
@@ -147,11 +146,20 @@ fn queue_line_gizmos_3d(
     config: Res<GizmoConfig>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>)>,
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
+    mut views: Query<(
+        &ExtractedView,
+        &mut RenderPhase<Transparent3d>,
+        Option<&RenderLayers>,
+    )>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
 
-    for (view, mut transparent_phase) in &mut views {
+    for (view, mut transparent_phase, render_layers) in &mut views {
+        let render_layers = render_layers.copied().unwrap_or_default();
+        if !config.render_layers.intersects(&render_layers) {
+            continue;
+        }
+
         let mesh_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
 

@@ -18,21 +18,25 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
-    audio: Res<Audio>,
-    audio_sinks: Res<Assets<SpatialAudioSink>>,
 ) {
     // Space between the two ears
     let gap = 400.0;
 
-    let music = asset_server.load("sounds/Windless Slopes.ogg");
-    let handle = audio_sinks.get_handle(audio.play_spatial_with_settings(
-        music,
-        PlaybackSettings::LOOP,
-        Transform::IDENTITY,
-        gap / AUDIO_SCALE,
-        Vec3::ZERO,
+    // sound emitter
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Circle::new(15.0).into()).into(),
+            material: materials.add(ColorMaterial::from(Color::BLUE)),
+            transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
+            ..default()
+        },
+        Emitter,
+        SpatialAudioBundle {
+            source: asset_server.load("sounds/Windless Slopes.ogg"),
+            settings: PlaybackSettings::LOOP,
+            spatial: SpatialSettings::new(Transform::IDENTITY, gap / AUDIO_SCALE, Vec3::ZERO),
+        },
     ));
-    commands.insert_resource(AudioController(handle));
 
     // left ear
     commands.spawn(SpriteBundle {
@@ -56,17 +60,6 @@ fn setup(
         ..default()
     });
 
-    // sound emitter
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::new(15.0).into()).into(),
-            material: materials.add(ColorMaterial::from(Color::BLUE)),
-            transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
-            ..default()
-        },
-        Emitter,
-    ));
-
     // camera
     commands.spawn(Camera2dBundle::default());
 }
@@ -74,18 +67,14 @@ fn setup(
 #[derive(Component)]
 struct Emitter;
 
-#[derive(Resource)]
-struct AudioController(Handle<SpatialAudioSink>);
-
 fn update_positions(
-    audio_sinks: Res<Assets<SpatialAudioSink>>,
-    music_controller: Res<AudioController>,
     time: Res<Time>,
-    mut emitter: Query<&mut Transform, With<Emitter>>,
+    mut emitters: Query<(&mut Transform, Option<&SpatialAudioSink>), With<Emitter>>,
 ) {
-    if let Some(sink) = audio_sinks.get(&music_controller.0) {
-        let mut emitter_transform = emitter.single_mut();
+    for (mut emitter_transform, sink) in emitters.iter_mut() {
         emitter_transform.translation.x = time.elapsed_seconds().sin() * 500.0;
-        sink.set_emitter_position(emitter_transform.translation / AUDIO_SCALE);
+        if let Some(sink) = &sink {
+            sink.set_emitter_position(emitter_transform.translation / AUDIO_SCALE);
+        }
     }
 }

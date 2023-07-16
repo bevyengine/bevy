@@ -17,7 +17,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#import bevy_core_pipeline::fullscreen_vertex_shader
+#import bevy_core_pipeline::fullscreen_vertex_shader FullscreenVertexOutput
 
 struct CASUniforms {
     sharpness: f32,

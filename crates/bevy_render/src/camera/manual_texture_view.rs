@@ -5,25 +5,11 @@ use bevy_ecs::system::Resource;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::UVec2;
 use bevy_reflect::prelude::*;
-use bevy_reflect::FromReflect;
 use bevy_utils::HashMap;
 use wgpu::TextureFormat;
 
 /// A unique id that corresponds to a specific [`ManualTextureView`] in the [`ManualTextureViews`] collection.
-#[derive(
-    Default,
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Component,
-    Reflect,
-    FromReflect,
-)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct ManualTextureViewHandle(pub u32);
 

@@ -41,6 +41,7 @@ fn fragment(
 #ifdef VERTEX_UVS
             in.uv,
 #endif // VERTEX_UVS
+            bevy_pbr::prepass_bindings::view.mip_bias,
         );
 
         out.normal = vec4(normal * 0.5 + vec3(0.5), 1.0);
