@@ -51,8 +51,7 @@ struct VertexOutput {
 }
 
 struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
-    @builtin(position) frag_coord: vec4<f32>,
+    @builtin(position) position: vec4<f32>,
 #ifdef VERTEX_UVS
     @location(0) uv: vec2<f32>,
 #endif // VERTEX_UVS

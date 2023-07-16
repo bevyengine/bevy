@@ -10,31 +10,31 @@ const RGB9E5_MAX_VALID_BIASED_EXP = 31u;
 //#define RGB9E5_MANTISSA_VALUES       (1<<RGB9E5_MANTISSA_BITS)
 //#define MAX_RGB9E5_MANTISSA          (RGB9E5_MANTISSA_VALUES-1)
 //#define MAX_RGB9E5                   ((f32(MAX_RGB9E5_MANTISSA))/RGB9E5_MANTISSA_VALUES * (1<<MAX_RGB9E5_EXP))
-//#define EPSILON_RGB9E5               ((1.0/RGB9E5_MANTISSA_VALUES) / (1<<RGB9E5_EXP_BIAS))
+//#define EPSILON_RGB9E5_               ((1.0/RGB9E5_MANTISSA_VALUES) / (1<<RGB9E5_EXP_BIAS))
 
 const MAX_RGB9E5_EXP              = 16u;
 const RGB9E5_MANTISSA_VALUES      = 512u;
 const MAX_RGB9E5_MANTISSA         = 511;
 const MAX_RGB9E5_MANTISSAU        = 511u;
-const MAX_RGB9E5                  = 65408.0;
-const EPSILON_RGB9E5              = 0.000000059604645;
+const MAX_RGB9E5_                  = 65408.0;
+const EPSILON_RGB9E5_              = 0.000000059604645;
 
 
 
-fn floor_log2(x: f32) -> i32 {
+fn floor_log2_(x: f32) -> i32 {
     let f = bitcast<u32>(x);
     let biasedexponent = (f & 0x7F800000u) >> 23u;
     return i32(biasedexponent) - 127;
 }
 
 // https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_shared_exponent.txt
-fn vec3_to_rgb9e5(rgb: vec3<f32>) -> u32 {
-    let rc = clamp(rgb.x, 0.0, MAX_RGB9E5);
-    let gc = clamp(rgb.y, 0.0, MAX_RGB9E5);
-    let bc = clamp(rgb.z, 0.0, MAX_RGB9E5);
+fn vec3_to_rgb9e5_(rgb: vec3<f32>) -> u32 {
+    let rc = clamp(rgb.x, 0.0, MAX_RGB9E5_);
+    let gc = clamp(rgb.y, 0.0, MAX_RGB9E5_);
+    let bc = clamp(rgb.z, 0.0, MAX_RGB9E5_);
 
     let maxrgb = max(rc, max(gc, bc));
-    var exp_shared = max(-RGB9E5_EXP_BIAS - 1, floor_log2(maxrgb)) + 1 + RGB9E5_EXP_BIAS;
+    var exp_shared = max(-RGB9E5_EXP_BIAS - 1, floor_log2_(maxrgb)) + 1 + RGB9E5_EXP_BIAS;
     var denom = exp2(f32(exp_shared - RGB9E5_EXP_BIAS - RGB9E5_MANTISSA_BITS));
 
     let maxm = i32(floor(maxrgb / denom + 0.5));
@@ -55,7 +55,7 @@ fn bitfield_extract(value: u32, offset: u32, bits: u32) -> u32 {
     return (value >> offset) & mask;
 }
 
-fn rgb9e5_to_vec3(v: u32) -> vec3<f32> {
+fn rgb9e5_to_vec3_(v: u32) -> vec3<f32> {
     let exponent = i32(bitfield_extract(v, 27u, RGB9E5_EXPONENT_BITS)) - RGB9E5_EXP_BIAS - RGB9E5_MANTISSA_BITS;
     let scale = exp2(f32(exponent));
 

@@ -1,30 +1,36 @@
 #define_import_path bevy_pbr::pbr_prepass_functions
+#import bevy_pbr::prepass_io as prepass_io
+#import bevy_pbr::prepass_bindings previous_view_proj
+#import bevy_pbr::mesh_view_bindings view
+#import bevy_pbr::pbr_bindings as pbr_bindings
+#import bevy_pbr::pbr_types as pbr_types
+
 
 // Cutoff used for the premultiplied alpha modes BLEND and ADD.
 const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 
 // We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
-fn prepass_alpha_discard(in: FragmentInput) {
+fn prepass_alpha_discard(in: prepass_io::FragmentInput) {
 
 #ifdef MAY_DISCARD
-    var output_color: vec4<f32> = material.base_color;
+    var output_color: vec4<f32> = pbr_bindings::material.base_color;
 
 #ifdef VERTEX_UVS
-    if (material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
-        output_color = output_color * textureSampleBias(base_color_texture, base_color_sampler, in.uv, view.mip_bias);
+    if (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
+        output_color = output_color * textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, in.uv, view.mip_bias);
     }
 #endif // VERTEX_UVS
 
-    let alpha_mode = material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
-        if output_color.a < material.alpha_cutoff {
+    let alpha_mode = pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+        if output_color.a < pbr_bindings::material.alpha_cutoff {
             discard;
         }
-    } else if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD) {
+    } else if (alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD) {
         if output_color.a < PREMULTIPLIED_ALPHA_CUTOFF {
             discard;
         }
-    } else if alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED {
+    } else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED {
         if all(output_color < vec4(PREMULTIPLIED_ALPHA_CUTOFF)) {
             discard;
         }
