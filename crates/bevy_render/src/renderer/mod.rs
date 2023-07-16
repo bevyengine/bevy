@@ -288,13 +288,13 @@ pub async fn initialize_renderer(
 ///
 /// The [`RenderDevice`] is used to create render resources and the
 /// the [`CommandEncoder`] is used to record a series of GPU operations.
-pub struct RenderContext<'a> {
+pub struct RenderContext<'w> {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
-    command_buffer_queue: Vec<QueuedCommandBuffer<'a>>,
+    command_buffer_queue: Vec<QueuedCommandBuffer<'w>>,
 }
 
-impl<'a> RenderContext<'a> {
+impl<'w> RenderContext<'w> {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
     pub fn new(render_device: RenderDevice) -> Self {
         Self {
@@ -319,10 +319,10 @@ impl<'a> RenderContext<'a> {
 
     /// Creates a new [`TrackedRenderPass`] for the context,
     /// configured using the provided `descriptor`.
-    pub fn begin_tracked_render_pass<'b>(
-        &'b mut self,
-        descriptor: RenderPassDescriptor<'b, '_>,
-    ) -> TrackedRenderPass<'b> {
+    pub fn begin_tracked_render_pass<'a>(
+        &'a mut self,
+        descriptor: RenderPassDescriptor<'a, '_>,
+    ) -> TrackedRenderPass<'a> {
         // Cannot use command_encoder() as we need to split the borrow on self
         let command_encoder = self.command_encoder.get_or_insert_with(|| {
             self.render_device
@@ -352,7 +352,7 @@ impl<'a> RenderContext<'a> {
     /// buffer.
     pub fn add_command_buffer_generation_task(
         &mut self,
-        task: impl FnOnce() -> CommandBuffer + 'a + Send,
+        task: impl FnOnce() -> CommandBuffer + 'w + Send,
     ) {
         self.flush_encoders();
 
@@ -393,7 +393,7 @@ impl<'a> RenderContext<'a> {
     }
 }
 
-enum QueuedCommandBuffer<'a> {
+enum QueuedCommandBuffer<'w> {
     Ready(CommandBuffer),
-    Task(Box<dyn FnOnce() -> CommandBuffer + 'a + Send>),
+    Task(Box<dyn FnOnce() -> CommandBuffer + 'w + Send>),
 }
