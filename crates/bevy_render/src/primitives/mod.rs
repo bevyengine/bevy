@@ -6,7 +6,7 @@ use bevy_utils::HashMap;
 /// An axis-aligned bounding box.
 ///
 /// It represents a box covering the local space occupied by the entity, with faces
-/// orthogonal to the axis. It is used as a component on an entity to determine
+/// orthogonal to the local axis. It is used as a component on an entity to determine
 /// if it should be rendered by a [`Camera`](crate::camera::Camera) entity if it
 /// intersects with its [`Frustum`], in a process called frustum culling.
 ///
@@ -99,7 +99,7 @@ impl Sphere {
 ///
 /// Each instance of this type is characterized by:
 /// - the bisecting plane's unit normal, normalized and pointing "inside" the half-space,
-/// - the signed distance from the bisecting plane to the origin of 3D space along the normal
+/// - the signed distance from the bisecting plane to the origin of 3D space along the normal.
 ///
 /// The distance can also be seen as:
 /// - the distance from the origin of 3D space to the bisecting plane along the inverse of the normal,
@@ -107,8 +107,7 @@ impl Sphere {
 ///
 /// Any point `p` is considered to be within the `HalfSpace` when the length of the projection
 /// of p on the normal is greater or equal than the opposite of the distance,
-/// meaning: if the equation `n.p + d >= 0` is satisfied,
-/// where `n` is the normal, `d` the distance, and `n.p` is a dot product.
+/// meaning: if the equation `normal.dot(p) + distance >= 0.` is satisfied.
 ///
 /// For example, the half-space containing all the points with a z-coordinate lesser
 /// or equal than `8.0` would be defined by: `HalfSpace::new(Vec3::NEG_Z.extend(-8.0))`.
@@ -139,9 +138,10 @@ impl HalfSpace {
         Vec3A::from(self.normal_d)
     }
 
-    /// Returns the distance from the bisecting plane to the origin along the plane's unit normal vector.
+    /// Returns the signed distance from the bisecting plane to the origin along
+    /// the plane's unit normal vector.
     /// This distance helps determine the position of a point `p` relative to the
-    /// bisecting plane, as per the equation `n.p + d >= 0`.
+    /// bisecting plane, as per the equation `normal.dot(p) + distance >= 0.`.
     #[inline]
     pub fn d(&self) -> f32 {
         self.normal_d.w
