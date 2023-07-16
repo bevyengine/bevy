@@ -2,9 +2,7 @@ mod graph_runner;
 mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
-use bevy_tasks::Task;
 use bevy_utils::tracing::{error, info, info_span};
-use futures_lite::future;
 pub use graph_runner::*;
 pub use render_device::*;
 
@@ -289,13 +287,13 @@ pub async fn initialize_renderer(
 ///
 /// The [`RenderDevice`] is used to create render resources and the
 /// the [`CommandEncoder`] is used to record a series of GPU operations.
-pub struct RenderContext {
+pub struct RenderContext<'a> {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
-    command_buffers: Vec<QueuedCommandBuffer>,
+    command_buffers: Vec<QueuedCommandBuffer<'a>>,
 }
 
-impl RenderContext {
+impl<'a> RenderContext<'a> {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
     pub fn new(render_device: RenderDevice) -> Self {
         Self {
@@ -320,7 +318,7 @@ impl RenderContext {
 
     /// Creates a new [`TrackedRenderPass`] for the context,
     /// configured using the provided `descriptor`.
-    pub fn begin_tracked_render_pass<'a>(
+    pub fn begin_tracked_render_pass(
         &'a mut self,
         descriptor: RenderPassDescriptor<'a, '_>,
     ) -> TrackedRenderPass<'a> {
@@ -345,32 +343,32 @@ impl RenderContext {
             .push(QueuedCommandBuffer::Ready(command_buffer));
     }
 
-    /// Append a [`Task`] that will eventually generate a [`CommandBuffer`] to the
+    /// Append a function that will generate a [`CommandBuffer`] to the
     /// command buffer queue.
     ///
     /// If present, this will flush the currently unflushed [`CommandEncoder`]
     /// into a [`CommandBuffer`] into the queue before appending the provided
     /// buffer.
-    pub fn add_async_command_buffer(
-        &mut self,
-        command_buffer_generation_task: Task<CommandBuffer>,
-    ) {
+    pub fn add_deferred_command_buffer<F>(&mut self, command_buffer_generation_task: F)
+    where
+        F: FnOnce() -> CommandBuffer + 'a,
+    {
         self.flush_encoders();
 
         self.command_buffers
-            .push(QueuedCommandBuffer::Async(command_buffer_generation_task));
+            .push(QueuedCommandBuffer::Deferred(Box::new(
+                command_buffer_generation_task,
+            )));
     }
 
     /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
     ///
-    /// This function will wait until all async command buffer generation tasks are complete.
+    /// This function will wait until all deferred command buffer generation tasks are complete
+    /// by running them in parallel (where supported).
     pub fn finish(mut self) -> Vec<CommandBuffer> {
         self.flush_encoders();
 
-        self.command_buffers
-            .into_iter()
-            .map(QueuedCommandBuffer::wait_for_completion)
-            .collect()
+        todo!("Run deferred command buffer generation tasks in parallel, and then generate the final command buffer list")
     }
 
     fn flush_encoders(&mut self) {
@@ -381,18 +379,7 @@ impl RenderContext {
     }
 }
 
-enum QueuedCommandBuffer {
+enum QueuedCommandBuffer<'a> {
     Ready(CommandBuffer),
-    Async(Task<CommandBuffer>),
-}
-
-impl QueuedCommandBuffer {
-    fn wait_for_completion(self) -> CommandBuffer {
-        match self {
-            Self::Ready(command_buffer) => command_buffer,
-            Self::Async(command_buffer_generation_task) => {
-                future::block_on(command_buffer_generation_task)
-            }
-        }
-    }
+    Deferred(Box<dyn FnOnce() -> CommandBuffer + 'a>),
 }
