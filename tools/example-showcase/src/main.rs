@@ -52,6 +52,10 @@ enum Action {
         #[arg(long)]
         /// Path to the folder where the content should be created
         content_folder: String,
+
+        #[arg(value_enum, long, default_value_t = WebApi::Webgl2)]
+        /// Which API to use for rendering
+        api: WebApi,
     },
     /// Build the examples in wasm
     BuildWasmExamples {
@@ -67,7 +71,7 @@ enum Action {
         /// Optimize the wasm file for size with wasm-opt
         optimize_size: bool,
 
-        #[arg(long)]
+        #[arg(value_enum, long)]
         /// Which API to use for rendering
         api: WebApi,
     },
@@ -204,7 +208,10 @@ fn main() {
                 exit(1);
             }
         }
-        Action::BuildWebsiteList { content_folder } => {
+        Action::BuildWebsiteList {
+            content_folder,
+            api,
+        } => {
             let examples_to_run = parse_examples();
 
             let root_path = Path::new(&content_folder);
@@ -212,9 +219,10 @@ fn main() {
             let _ = fs::create_dir_all(root_path);
 
             let mut index = File::create(root_path.join("_index.md")).unwrap();
-            index
-                .write_all(
-                    "+++
+            if matches!(api, WebApi::Webgpu) {
+                index
+                    .write_all(
+                        "+++
 title = \"Bevy Examples in WebGPU\"
 template = \"examples-webgpu.html\"
 sort_by = \"weight\"
@@ -222,9 +230,24 @@ sort_by = \"weight\"
 [extra]
 header_message = \"Examples (WebGPU)\"
 +++"
-                    .as_bytes(),
-                )
-                .unwrap();
+                        .as_bytes(),
+                    )
+                    .unwrap();
+            } else {
+                index
+                    .write_all(
+                        "+++
+title = \"Bevy Examples in WebGL2\"
+template = \"examples.html\"
+sort_by = \"weight\"
+
+[extra]
+header_message = \"Examples (WebGL2)\"
++++"
+                        .as_bytes(),
+                    )
+                    .unwrap();
+            }
 
             let mut categories = HashMap::new();
             for to_show in examples_to_run {
@@ -264,32 +287,48 @@ weight = {}
                         format!(
                             "+++
 title = \"{}\"
-template = \"example-webgpu.html\"
+template = \"example{}.html\"
 weight = {}
 description = \"{}\"
 
 [extra]
 technical_name = \"{}\"
-link = \"{}/{}\"
+link = \"/examples{}/{}/{}\"
 image = \"../static/screenshots/{}/{}.png\"
-code_path = \"content/examples-webgpu/{}\"
+code_path = \"content/examples{}/{}\"
 github_code_path = \"{}\"
-header_message = \"Examples (WebGPU)\"
+header_message = \"Examples ({})\"
 +++",
                             to_show.name,
+                            match api {
+                                WebApi::Webgpu => "-webgpu",
+                                WebApi::Webgl2 => "",
+                            },
                             categories.get(&to_show.category).unwrap(),
                             to_show.description.replace('"', "'"),
                             &to_show.technical_name.replace('_', "-"),
+                            match api {
+                                WebApi::Webgpu => "-webgpu",
+                                WebApi::Webgl2 => "",
+                            },
                             &to_show.category,
                             &to_show.technical_name.replace('_', "-"),
                             &to_show.category,
                             &to_show.technical_name,
+                            match api {
+                                WebApi::Webgpu => "-webgpu",
+                                WebApi::Webgl2 => "",
+                            },
                             code_path
                                 .components()
                                 .skip(1)
                                 .collect::<PathBuf>()
                                 .display(),
                             &to_show.path,
+                            match api {
+                                WebApi::Webgpu => "WebGPU",
+                                WebApi::Webgl2 => "WebGL2",
+                            },
                         )
                         .as_bytes(),
                     )
