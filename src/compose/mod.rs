@@ -243,10 +243,8 @@ pub struct ComposableModule {
 #[derive(Debug)]
 pub struct ComposableModuleDefinition {
     pub name: String,
-    // shader text
+    // shader text (with auto bindings replaced - we do this on module add as we only want to do it once to avoid burning slots)
     pub raw_source: String,
-    // substituted source, used for error reporting
-    pub substituted_source: String,
     // language
     pub language: ShaderLanguage,
     // source path for error display
@@ -1351,7 +1349,7 @@ impl Composer {
     ) -> Result<ComposableModule, ComposerError> {
         let imports = self
             .preprocessor
-            .preprocess(&module_set.substituted_source, shader_defs, self.validate)
+            .preprocess(&module_set.raw_source, shader_defs, self.validate)
             .map_err(|inner| ComposerError {
                 inner,
                 source: ErrSource::Module {
@@ -1530,16 +1528,6 @@ impl Composer {
         );
 
         let substituted_source = self.set_auto_bindings(source);
-        let substituted_source = self
-            .sanitize_and_substitute_shader_string(&substituted_source, &imports)
-            .map_err(|e| ComposerError {
-                inner: e,
-                source: ErrSource::Constructing {
-                    path: file_path.to_owned(),
-                    source: source.to_owned(),
-                    offset: 0,
-                },
-            })?;
 
         let mut effective_defs = HashSet::new();
         for import in &imports {
@@ -1579,8 +1567,7 @@ impl Composer {
 
         let module_set = ComposableModuleDefinition {
             name: module_name.clone(),
-            raw_source: source.to_owned(),
-            substituted_source,
+            raw_source: substituted_source,
             file_path: file_path.to_owned(),
             language,
             effective_defs: effective_defs.into_iter().collect(),
@@ -1717,8 +1704,7 @@ impl Composer {
 
         let definition = ComposableModuleDefinition {
             name,
-            raw_source: source.to_owned(),
-            substituted_source,
+            raw_source: substituted_source,
             language: shader_type.into(),
             file_path: file_path.to_owned(),
             module_index: 0,
@@ -1736,7 +1722,7 @@ impl Composer {
                 inner: e.inner,
                 source: ErrSource::Constructing {
                     path: definition.file_path.to_owned(),
-                    source: definition.substituted_source.to_owned(),
+                    source: definition.raw_source.to_owned(),
                     offset: e.source.offset(),
                 },
             })?;
@@ -1829,7 +1815,7 @@ impl Composer {
                             match module_index {
                                 0 => ErrSource::Constructing {
                                     path: file_path.to_owned(),
-                                    source: definition.substituted_source,
+                                    source: definition.raw_source,
                                     offset: composable.start_offset,
                                 },
                                 _ => {
