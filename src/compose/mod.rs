@@ -423,8 +423,31 @@ impl Composer {
         undecor.to_string()
     }
 
+    fn set_auto_bindings(&mut self, source: &str) -> String {
+        // replace @binding(auto) with an incrementing index
+        struct AutoBindingReplacer<'a> {
+            auto: &'a mut u32,
+        }
+
+        impl<'a> regex::Replacer for AutoBindingReplacer<'a> {
+            fn replace_append(&mut self, _: &regex::Captures<'_>, dst: &mut String) {
+                dst.push_str(&format!("@binding({})", self.auto));
+                *self.auto += 1;
+            }
+        }
+
+        let substituted_source = self.auto_binding_regex.replace_all(
+            source,
+            AutoBindingReplacer {
+                auto: &mut self.auto_binding_index,
+            },
+        );
+
+        substituted_source.into_owned()
+    }
+
     fn sanitize_and_substitute_shader_string(
-        &mut self,
+        &self,
         source: &str,
         imports: &[ImportDefWithOffset],
     ) -> Result<String, ComposerErrorInner> {
@@ -508,26 +531,7 @@ impl Composer {
         }
         substituted_source = item_substituted_source;
 
-        // replace @binding(auto) with an incrementing index
-        struct AutoBindingReplacer<'a> {
-            auto: &'a mut u32,
-        }
-
-        impl<'a> regex::Replacer for AutoBindingReplacer<'a> {
-            fn replace_append(&mut self, _: &regex::Captures<'_>, dst: &mut String) {
-                dst.push_str(&format!("@binding({})", self.auto));
-                *self.auto += 1;
-            }
-        }
-
-        let substituted_source = self.auto_binding_regex.replace_all(
-            &substituted_source,
-            AutoBindingReplacer {
-                auto: &mut self.auto_binding_index,
-            },
-        );
-
-        Ok(substituted_source.into_owned())
+        Ok(substituted_source)
     }
 
     fn naga_to_string(
@@ -692,7 +696,11 @@ impl Composer {
             .naga_to_string(&mut header_module.into(), language, name)
             .map_err(|inner| ComposerError {
                 inner,
-                source: ErrSource::Module(name.to_owned(), 0),
+                source: ErrSource::Module {
+                    name: name.to_owned(),
+                    offset: 0,
+                    defs: shader_defs.clone(),
+                },
             })?;
         module_string.push_str(&composed_header);
 
@@ -712,7 +720,11 @@ impl Composer {
                 debug!("full err'd source file: \n---\n{}\n---", module_string);
                 ComposerError {
                     inner: ComposerErrorInner::WgslParseError(e),
-                    source: ErrSource::Module(name.to_owned(), start_offset),
+                    source: ErrSource::Module {
+                        name: name.to_owned(),
+                        offset: start_offset,
+                        defs: shader_defs.clone(),
+                    },
                 }
             })?,
             ShaderLanguage::Glsl => naga::front::glsl::Frontend::default()
@@ -727,7 +739,11 @@ impl Composer {
                     debug!("full err'd source file: \n---\n{}\n---", module_string);
                     ComposerError {
                         inner: ComposerErrorInner::GlslParseError(e),
-                        source: ErrSource::Module(name.to_owned(), start_offset),
+                        source: ErrSource::Module {
+                            name: name.to_owned(),
+                            offset: start_offset,
+                            defs: shader_defs.clone(),
+                        },
                     }
                 })?,
         };
@@ -880,7 +896,11 @@ impl Composer {
         let wrap_err = |inner: ComposerErrorInner| -> ComposerError {
             ComposerError {
                 inner,
-                source: ErrSource::Module(module_definition.name.to_owned(), 0),
+                source: ErrSource::Module {
+                    name: module_definition.name.to_owned(),
+                    offset: 0,
+                    defs: shader_defs.clone(),
+                },
             }
         };
 
@@ -1022,7 +1042,11 @@ impl Composer {
         let wrap_err = |inner: ComposerErrorInner| -> ComposerError {
             ComposerError {
                 inner,
-                source: ErrSource::Module(module_definition.name.to_owned(), start_offset),
+                source: ErrSource::Module {
+                    name: module_definition.name.to_owned(),
+                    offset: start_offset,
+                    defs: shader_defs.clone(),
+                },
             }
         };
 
@@ -1330,7 +1354,11 @@ impl Composer {
             .preprocess(&module_set.substituted_source, shader_defs, self.validate)
             .map_err(|inner| ComposerError {
                 inner,
-                source: ErrSource::Module(module_set.name.to_owned(), 0),
+                source: ErrSource::Module {
+                    name: module_set.name.to_owned(),
+                    offset: 0,
+                    defs: shader_defs.clone(),
+                },
             })?
             .meta
             .imports;
@@ -1501,8 +1529,9 @@ impl Composer {
                 }),
         );
 
+        let substituted_source = self.set_auto_bindings(source);
         let substituted_source = self
-            .sanitize_and_substitute_shader_string(source, &imports)
+            .sanitize_and_substitute_shader_string(&substituted_source, &imports)
             .map_err(|e| ComposerError {
                 inner: e,
                 source: ErrSource::Constructing {
@@ -1633,8 +1662,9 @@ impl Composer {
             })?;
 
         let name = name.unwrap_or_default();
+        let substituted_source = self.set_auto_bindings(source);
         let substituted_source = self
-            .sanitize_and_substitute_shader_string(source, &imports)
+            .sanitize_and_substitute_shader_string(&substituted_source, &imports)
             .map_err(|inner| ComposerError {
                 inner,
                 source: ErrSource::Constructing {
@@ -1812,7 +1842,11 @@ impl Composer {
                                         .get_module(&shader_defs)
                                         .unwrap()
                                         .start_offset;
-                                    ErrSource::Module(module_name, offset)
+                                    ErrSource::Module {
+                                        name: module_name,
+                                        offset,
+                                        defs: shader_defs.clone(),
+                                    }
                                 }
                             }
                         }

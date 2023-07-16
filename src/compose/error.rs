@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{borrow::Cow, collections::HashMap, ops::Range};
 
 use codespan_reporting::{
     diagnostic::{Diagnostic, Label},
@@ -8,12 +8,19 @@ use codespan_reporting::{
 use thiserror::Error;
 use tracing::trace;
 
-use super::Composer;
+use super::{
+    preprocess::{PreprocessOutput, PreprocessorMetaData},
+    Composer, ShaderDefValue,
+};
 use crate::{compose::SPAN_SHIFT, redirect::RedirectError};
 
 #[derive(Debug)]
 pub enum ErrSource {
-    Module(String, usize),
+    Module {
+        name: String,
+        offset: usize,
+        defs: HashMap<String, ShaderDefValue>,
+    },
     Constructing {
         path: String,
         source: String,
@@ -24,21 +31,38 @@ pub enum ErrSource {
 impl ErrSource {
     pub fn path<'a>(&'a self, composer: &'a Composer) -> &'a String {
         match self {
-            ErrSource::Module(c, _) => &composer.module_sets.get(c).unwrap().file_path,
+            ErrSource::Module { name, .. } => &composer.module_sets.get(name).unwrap().file_path,
             ErrSource::Constructing { path, .. } => path,
         }
     }
 
-    pub fn source<'a>(&'a self, composer: &'a Composer) -> &'a String {
+    pub fn source<'a>(&'a self, composer: &'a Composer) -> Cow<'a, String> {
         match self {
-            ErrSource::Module(c, _) => &composer.module_sets.get(c).unwrap().substituted_source,
-            ErrSource::Constructing { source, .. } => source,
+            ErrSource::Module { name, defs, .. } => {
+                let raw_source = &composer.module_sets.get(name).unwrap().raw_source;
+                let Ok(PreprocessOutput {
+                    preprocessed_source: source,
+                    meta: PreprocessorMetaData { imports, .. },
+                }) = composer
+                    .preprocessor
+                    .preprocess(raw_source, defs, composer.validate)
+                    else {
+                        return Default::default()
+                    };
+
+                let Ok(source) = composer
+                    .sanitize_and_substitute_shader_string(&source, &imports)
+                    else { return Default::default() };
+
+                Cow::Owned(source)
+            }
+            ErrSource::Constructing { source, .. } => Cow::Borrowed(source),
         }
     }
 
     pub fn offset(&self) -> usize {
         match self {
-            ErrSource::Module(_, offset) | ErrSource::Constructing { offset, .. } => *offset,
+            ErrSource::Module { offset, .. } | ErrSource::Constructing { offset, .. } => *offset,
         }
     }
 }
@@ -159,7 +183,7 @@ impl ComposerError {
                 ..((rng.end & ((1 << SPAN_SHIFT) - 1)).saturating_sub(source_offset))
         };
 
-        let files = SimpleFile::new(path, source);
+        let files = SimpleFile::new(path, source.as_str());
         let config = term::Config::default();
         #[cfg(test)]
         let mut writer = term::termcolor::NoColor::new(Vec::new());
