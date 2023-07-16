@@ -2,6 +2,7 @@ mod graph_runner;
 mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
+use bevy_tasks::ComputeTaskPool;
 use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
@@ -290,7 +291,7 @@ pub async fn initialize_renderer(
 pub struct RenderContext<'a> {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
-    command_buffers: Vec<QueuedCommandBuffer<'a>>,
+    command_buffer_queue: Vec<QueuedCommandBuffer<'a>>,
 }
 
 impl<'a> RenderContext<'a> {
@@ -299,7 +300,7 @@ impl<'a> RenderContext<'a> {
         Self {
             render_device,
             command_encoder: None,
-            command_buffers: Vec::new(),
+            command_buffer_queue: Vec::new(),
         }
     }
 
@@ -339,7 +340,7 @@ impl<'a> RenderContext<'a> {
     pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
         self.flush_encoders();
 
-        self.command_buffers
+        self.command_buffer_queue
             .push(QueuedCommandBuffer::Ready(command_buffer));
     }
 
@@ -351,27 +352,42 @@ impl<'a> RenderContext<'a> {
     /// buffer.
     pub fn add_command_buffer_generation_task(
         &mut self,
-        task: impl FnOnce() -> CommandBuffer + 'a,
+        task: impl FnOnce() -> CommandBuffer + 'a + Send,
     ) {
         self.flush_encoders();
 
-        self.command_buffers
+        self.command_buffer_queue
             .push(QueuedCommandBuffer::Task(Box::new(task)));
     }
 
-    /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
+    /// Finalizes and returns the queue of [`CommandBuffer`]s.
     ///
     /// This function will wait until all command buffer generation tasks are complete
     /// by running them in parallel (where supported).
     pub fn finish(mut self) -> Vec<CommandBuffer> {
         self.flush_encoders();
 
-        todo!("Run command buffer generation tasks in parallel, and then generate the final command buffer list")
+        let mut command_buffers = Vec::with_capacity(self.command_buffer_queue.len());
+        let mut task_based_command_buffers = ComputeTaskPool::get().scope(|scope| {
+            for (i, queued_command_buffer) in self.command_buffer_queue.into_iter().enumerate() {
+                match queued_command_buffer {
+                    QueuedCommandBuffer::Ready(command_buffer) => {
+                        command_buffers.push((i, command_buffer))
+                    }
+                    QueuedCommandBuffer::Task(command_buffer_generation_task) => {
+                        scope.spawn(async move { (i, command_buffer_generation_task()) });
+                    }
+                }
+            }
+        });
+        command_buffers.append(&mut task_based_command_buffers);
+        command_buffers.sort_unstable_by_key(|(i, _)| *i);
+        command_buffers.into_iter().map(|(_, cb)| cb).collect()
     }
 
     fn flush_encoders(&mut self) {
         if let Some(encoder) = self.command_encoder.take() {
-            self.command_buffers
+            self.command_buffer_queue
                 .push(QueuedCommandBuffer::Ready(encoder.finish()));
         }
     }
@@ -379,5 +395,5 @@ impl<'a> RenderContext<'a> {
 
 enum QueuedCommandBuffer<'a> {
     Ready(CommandBuffer),
-    Task(Box<dyn FnOnce() -> CommandBuffer + 'a>),
+    Task(Box<dyn FnOnce() -> CommandBuffer + 'a + Send>),
 }
