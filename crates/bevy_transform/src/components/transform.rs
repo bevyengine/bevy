@@ -5,8 +5,8 @@ use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
 use std::ops::Mul;
 
-/// Describe the position of an entity. If the entity has a parent, the position is relative
-/// to its parent position.
+/// Describe the position of an entity in space. If the entity has a parent,
+/// the position is relative to its parent position.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
@@ -15,10 +15,10 @@ use std::ops::Mul;
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
-/// [`Transform`] is the position of an entity relative to its parent position, or the reference
-/// frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+/// [`Transform`] is the local position of an entity in space relative to its parent position,
+/// or the global position relative to the main reference frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
 ///
-/// [`GlobalTransform`] is the position of an entity relative to the reference frame.
+/// [`GlobalTransform`] is the global position of an entity in space relative to the main reference frame.
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).

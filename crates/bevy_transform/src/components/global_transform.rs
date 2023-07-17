@@ -5,7 +5,8 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat4, Quat, Vec3, Vec3A};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-/// Describe the position of an entity relative to the reference frame.
+/// Describe the absolute position of an entity in space,
+/// relative to the main reference frame.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
 /// * [`GlobalTransform`] is fully managed by bevy, you cannot mutate it, use
@@ -16,10 +17,10 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
-/// [`Transform`] is the position of an entity relative to its parent position, or the reference
-/// frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+/// [`Transform`] is the local position of an entity in space relative to its parent position,
+/// or the global position relative to the main reference frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
 ///
-/// [`GlobalTransform`] is the position of an entity relative to the reference frame.
+/// [`GlobalTransform`] is the global position of an entity in space relative to the main reference frame.
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
