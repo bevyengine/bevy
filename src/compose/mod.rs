@@ -1485,6 +1485,8 @@ impl Composer {
             });
         }
 
+        let substituted_source = self.sanitize_and_set_auto_bindings(source);
+
         let (
             PreprocessorMetaData {
                 name: module_name,
@@ -1493,7 +1495,7 @@ impl Composer {
             _,
         ) = self
             .preprocessor
-            .get_preprocessor_metadata(source, false)
+            .get_preprocessor_metadata(&substituted_source, false)
             .map_err(|inner| ComposerError {
                 inner,
                 source: ErrSource::Constructing {
@@ -1547,7 +1549,7 @@ impl Composer {
                     ),
                     source: ErrSource::Constructing {
                         path: file_path.to_owned(),
-                        source: source.to_owned(),
+                        source: substituted_source.to_owned(),
                         offset: 0,
                     },
                 })?;
@@ -1625,14 +1627,16 @@ impl Composer {
             additional_imports,
         } = desc;
 
+        let sanitized_source = self.sanitize_and_set_auto_bindings(source);
+
         let (_, defines) = self
             .preprocessor
-            .get_preprocessor_metadata(source, true)
+            .get_preprocessor_metadata(&sanitized_source, true)
             .map_err(|inner| ComposerError {
                 inner,
                 source: ErrSource::Constructing {
                     path: file_path.to_owned(),
-                    source: source.to_owned(),
+                    source: sanitized_source.to_owned(),
                     offset: 0,
                 },
             })?;
@@ -1643,25 +1647,24 @@ impl Composer {
             meta: PreprocessorMetaData { name, imports },
         } = self
             .preprocessor
-            .preprocess(source, &shader_defs, false)
+            .preprocess(&sanitized_source, &shader_defs, false)
             .map_err(|inner| ComposerError {
                 inner,
                 source: ErrSource::Constructing {
                     path: file_path.to_owned(),
-                    source: source.to_owned(),
+                    source: sanitized_source.to_owned(),
                     offset: 0,
                 },
             })?;
 
         let name = name.unwrap_or_default();
-        let substituted_source = self.sanitize_and_set_auto_bindings(source);
         let substituted_source = self
-            .substitute_shader_string(&substituted_source, &imports)
+            .substitute_shader_string(&sanitized_source, &imports)
             .map_err(|inner| ComposerError {
                 inner,
                 source: ErrSource::Constructing {
                     path: file_path.to_owned(),
-                    source: source.to_owned(),
+                    source: sanitized_source.to_owned(),
                     offset: 0,
                 },
             })?;
@@ -1683,7 +1686,7 @@ impl Composer {
                                 },
                                 source: ErrSource::Constructing {
                                     path: file_path.to_owned(),
-                                    source: substituted_source,
+                                    source: sanitized_source.to_owned(),
                                     offset: 0,
                                 },
                             });
@@ -1695,7 +1698,7 @@ impl Composer {
                     inner: ComposerErrorInner::ImportNotFound(import_name.clone(), offset),
                     source: ErrSource::Constructing {
                         path: file_path.to_owned(),
-                        source: substituted_source,
+                        source: sanitized_source,
                         offset: 0,
                     },
                 });
