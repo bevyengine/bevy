@@ -1542,7 +1542,7 @@ impl Composer {
                     ),
                     source: ErrSource::Constructing {
                         path: file_path.to_owned(),
-                        source: substituted_source.clone(),
+                        source: source.to_owned(),
                         offset: 0,
                     },
                 })?;
