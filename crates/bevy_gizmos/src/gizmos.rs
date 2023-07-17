@@ -25,7 +25,7 @@ pub(crate) struct GizmoStorage {
 
 /// A [`SystemParam`](bevy_ecs::system::SystemParam) for drawing gizmos.
 ///
-/// They are drawned in immediate mode, which means they will be rendered only for
+/// They are drawn in immediate mode, which means they will be rendered only for
 /// the frames in which they are defined.
 #[derive(SystemParam)]
 pub struct Gizmos<'s> {
