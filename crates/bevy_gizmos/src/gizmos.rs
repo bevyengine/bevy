@@ -136,7 +136,7 @@ impl<'s> Gizmos<'s> {
         self.line_gradient(start, start + vector, start_color, end_color);
     }
 
-    /// Draw lines in 3D between a list of points for the current frame.
+    /// Draw a line in 3D made of straight segments between the points for the current frame.
     ///
     /// This should be called for each frame the lines need to be rendered.
     ///
@@ -239,7 +239,7 @@ impl<'s> Gizmos<'s> {
         }
     }
 
-    /// Draw a wireframe sphere in 3D made out of 3 circles for the current frame.
+    /// Draw a wireframe sphere in 3D made out of 3 circles around the axes for the current frame.
     ///
     /// This should be called for each frame the sphere needs to be rendered.
     ///
