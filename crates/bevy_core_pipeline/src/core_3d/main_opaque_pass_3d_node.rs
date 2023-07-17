@@ -61,6 +61,16 @@ impl ViewNode for MainOpaquePass3dNode {
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
+
+        let color_attachment = target.get_color_attachment(Operations {
+            load: match camera_3d.clear_color {
+                ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
+                ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                ClearColorConfig::None => LoadOp::Load,
+            },
+            store: true,
+        });
+
         render_context.add_command_buffer_generation_task(move |render_device: RenderDevice| {
             // Run the opaque pass, sorted front-to-back
             #[cfg(feature = "trace")]
@@ -76,16 +86,7 @@ impl ViewNode for MainOpaquePass3dNode {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass loads the color
                 // buffer as well as writing to it.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: match camera_3d.clear_color {
-                        ClearColorConfig::Default => {
-                            LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                        }
-                        ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                        ClearColorConfig::None => LoadOp::Load,
-                    },
-                    store: true,
-                }))],
+                color_attachments: &[Some(color_attachment)],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it

@@ -33,6 +33,12 @@ impl ViewNode for MainTransparentPass3dNode {
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
+
+        let color_attachment = target.get_color_attachment(Operations {
+            load: LoadOp::Load,
+            store: true,
+        });
+
         let transparent_phase_render_task = move |render_device: RenderDevice| {
             // Run the transparent pass, sorted back-to-front
             #[cfg(feature = "trace")]
@@ -46,10 +52,7 @@ impl ViewNode for MainTransparentPass3dNode {
             let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                }))],
+                color_attachments: &[Some(color_attachment)],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: For the transparent pass we load the depth buffer. There should be no
