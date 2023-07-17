@@ -1534,8 +1534,6 @@ impl Composer {
                 }),
         );
 
-        let substituted_source = self.sanitize_and_set_auto_bindings(source);
-
         let mut effective_defs = HashSet::new();
         for import in &imports {
             // we require modules already added so that we can capture the shader_defs that may impact us by impacting our dependencies
