@@ -129,34 +129,3 @@ fn sample_shadow_map(light_local: vec2<f32>, depth: f32, array_index: i32) -> f3
     return sample_shadow_map_hardware(light_local, depth, array_index);
 #endif
 }
-
-fn sample_directional_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
-    let light = &view_bindings::lights.directional_lights[light_id];
-    let cascade = &(*light).cascades[cascade_index];
-
-    // The normal bias is scaled to the texel size.
-    let normal_offset = (*light).shadow_normal_bias * (*cascade).texel_size * surface_normal.xyz;
-    let depth_offset = (*light).shadow_depth_bias * (*light).direction_to_light.xyz;
-    let offset_position = vec4<f32>(frag_position.xyz + normal_offset + depth_offset, frag_position.w);
-
-    let offset_position_clip = (*cascade).view_projection * offset_position;
-    if (offset_position_clip.w <= 0.0) {
-        return 1.0;
-    }
-    let offset_position_ndc = offset_position_clip.xyz / offset_position_clip.w;
-    // No shadow outside the orthographic projection volume
-    if (any(offset_position_ndc.xy < vec2<f32>(-1.0)) || offset_position_ndc.z < 0.0
-            || any(offset_position_ndc > vec3<f32>(1.0))) {
-        return 1.0;
-    }
-
-    // compute texture coordinates for shadow lookup, compensating for the Y-flip difference
-    // between the NDC and texture coordinates
-    let flip_correction = vec2<f32>(0.5, -0.5);
-    let light_local = offset_position_ndc.xy * flip_correction + vec2<f32>(0.5, 0.5);
-
-    let depth = offset_position_ndc.z;
-
-    let array_index = i32((*light).depth_texture_base_index + cascade_index);
-    return sample_shadow_map(light_local, depth, array_index);
-}
