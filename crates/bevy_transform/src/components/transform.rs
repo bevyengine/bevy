@@ -18,7 +18,7 @@ use std::ops::Mul;
 /// [`Transform`] is the local position of an entity in space relative to its parent position,
 /// or the global position relative to the main reference frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
 ///
-/// [`GlobalTransform`] is the global position of an entity in space relative to the main reference frame.
+/// [`GlobalTransform`] is the absolute position of an entity in space, relative to the main reference frame.
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
