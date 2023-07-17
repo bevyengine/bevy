@@ -155,6 +155,11 @@ pub struct VisibilityBundle {
 
 /// Use this component to opt-out of built-in frustum culling for entities, see
 /// [`Frustum`].
+///
+/// It can be used for example:
+/// - when a [`Mesh`] is updated but its [`Aabb`] is not, which might happen with animations,
+/// - when using some light effects, like wanting a [`Mesh`] out of the [`Frustum`]
+/// to appear in the reflection of a [`Mesh`] within.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct NoFrustumCulling;
@@ -259,10 +264,10 @@ impl Plugin for VisibilityPlugin {
     }
 }
 
-/// System calculating and inserting an [`Aabb`] component to entities with a
+/// Computes and adds an [`Aabb`] component to entities with a
 /// [`Handle<Mesh>`](Mesh) component and without a [`NoFrustumCulling`] component.
 ///
-/// Used in system set [`VisibilitySystems::CalculateBounds`].
+/// This system is used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
@@ -277,11 +282,9 @@ pub fn calculate_bounds(
     }
 }
 
-/// System updating the [`Frustum`] component of an entity, typically a [`Camera`],
-/// using its [`GlobalTransform`] and the projection matrix from its [`CameraProjection`]
-/// component.
+/// Updates [`Frustum`].
 ///
-/// Used in system sets [`VisibilitySystems::UpdateProjectionFrusta`],
+/// This system is used in system sets [`VisibilitySystems::UpdateProjectionFrusta`],
 /// [`VisibilitySystems::UpdatePerspectiveFrusta`], and
 /// [`VisibilitySystems::UpdateOrthographicFrusta`].
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
@@ -359,9 +362,9 @@ fn propagate_recursive(
     Ok(())
 }
 
-/// System updating the visibility of entities each frame.
+/// Updates the visibility of entities each frame.
 ///
-/// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each frame, it updates the
+/// This system is part of the [`VisibilitySystems::CheckVisibility`] set. Each frame, it updates the
 /// [`ComputedVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
 /// for that view.
 pub fn check_visibility(
