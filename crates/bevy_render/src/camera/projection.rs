@@ -53,9 +53,6 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
 /// to recompute the camera projection matrix of the [`Camera`] component attached to
 /// the same entity as the component implementing this trait.
 ///
-/// Components implementing this trait include: [`Projection`], [`PerspectiveProjection`]
-/// and [`OrthographicProjection`].
-///
 /// [`Camera`]: crate::camera::Camera
 pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;

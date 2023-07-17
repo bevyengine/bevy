@@ -114,7 +114,7 @@ impl Sphere {
 /// It includes all the points from the bisecting plane towards `NEG_Z`, and the distance
 /// from the plane to the origin is `-8.0` along `NEG_Z`.
 ///
-/// It is used to define a [`Frustum`].
+/// It is used to define a [`Frustum`], and for light computation.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HalfSpace {
     normal_d: Vec4,
