@@ -1,5 +1,6 @@
 #import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::mesh_bindings
+#import bevy_pbr::mesh_vertex_output MeshVertexOutput
 
 @group(1) @binding(0)
 var test_texture_1d: texture_1d<f32>;
@@ -31,9 +32,5 @@ var test_texture_3d: texture_3d<f32>;
 @group(1) @binding(11)
 var test_texture_3d_sampler: sampler;
 
-struct FragmentInput {
-    #import bevy_pbr::mesh_vertex_output
-};
-
 @fragment
-fn fragment(in: FragmentInput) {}
+fn fragment(in: MeshVertexOutput) {}

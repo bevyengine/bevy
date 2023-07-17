@@ -1,4 +1,4 @@
-use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, Startup, StateTransition, Update};
+use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
@@ -64,7 +64,7 @@ pub struct App {
     /// the application's event loop and advancing the [`Schedule`].
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
-    pub runner: Box<dyn Fn(App) + Send>, // Send bound is required to make App Send
+    pub runner: Box<dyn FnOnce(App) + Send>, // Send bound is required to make App Send
     /// The schedule that systems are added to by default.
     ///
     /// The schedule that runs the main loop of schedule execution.
@@ -328,7 +328,7 @@ impl App {
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
-    /// [`StateTransition`] so that transitions happen before [`Update`] and
+    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and
     /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
     /// initial state.
@@ -355,30 +355,6 @@ impl App {
         // gracefully if they aren't present.
 
         self
-    }
-
-    /// Adds a system to the default system set and schedule of the app's [`Schedules`].
-    ///
-    /// Refer to the [system module documentation](bevy_ecs::system) to see how a system
-    /// can be defined.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # fn my_system() {}
-    /// # let mut app = App::new();
-    /// #
-    /// app.add_system(my_system);
-    /// ```
-    #[deprecated(
-        since = "0.11.0",
-        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Update, your_system).`"
-    )]
-    pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_systems(Update, system)
     }
 
     /// Adds a system to the given schedule in this app's [`Schedules`].
@@ -414,59 +390,6 @@ impl App {
         }
 
         self
-    }
-
-    /// Adds a system to [`Startup`].
-    ///
-    /// These systems will run exactly once, at the start of the [`App`]'s lifecycle.
-    /// To add a system that runs every frame, see [`add_system`](Self::add_system).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// fn my_startup_system(_commands: Commands) {
-    ///     println!("My startup system");
-    /// }
-    ///
-    /// App::new()
-    ///     .add_systems(Startup, my_startup_system);
-    /// ```
-    #[deprecated(
-        since = "0.11.0",
-        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Startup, your_system).`"
-    )]
-    pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_systems(Startup, system)
-    }
-
-    /// Adds a collection of systems to [`Startup`].
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # let mut app = App::new();
-    /// # fn startup_system_a() {}
-    /// # fn startup_system_b() {}
-    /// # fn startup_system_c() {}
-    /// #
-    /// app.add_systems(Startup, (
-    ///     startup_system_a,
-    ///     startup_system_b,
-    ///     startup_system_c,
-    /// ));
-    /// ```
-    #[deprecated(
-        since = "0.11.0",
-        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Startup, your_system).`"
-    )]
-    pub fn add_startup_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_systems(Startup, systems.into_configs())
     }
 
     /// Configures a system set in the default schedule, adding the set if it does not exist.
@@ -651,48 +574,12 @@ impl App {
     /// App::new()
     ///     .set_runner(my_runner);
     /// ```
-    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static + Send) -> &mut Self {
+    pub fn set_runner(&mut self, run_fn: impl FnOnce(App) + 'static + Send) -> &mut Self {
         self.runner = Box::new(run_fn);
         self
     }
 
-    /// Adds a single [`Plugin`].
-    ///
-    /// One of Bevy's core principles is modularity. All Bevy engine features are implemented
-    /// as [`Plugin`]s. This includes internal features like the renderer.
-    ///
-    /// Bevy also provides a few sets of default [`Plugin`]s. See [`add_plugins`](Self::add_plugins).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// #
-    /// # // Dummies created to avoid using `bevy_log`,
-    /// # // which pulls in too many dependencies and breaks rust-analyzer
-    /// # pub mod bevy_log {
-    /// #     use bevy_app::prelude::*;
-    /// #     #[derive(Default)]
-    /// #     pub struct LogPlugin;
-    /// #     impl Plugin for LogPlugin{
-    /// #        fn build(&self, app: &mut App) {}
-    /// #     }
-    /// # }
-    /// App::new().add_plugin(bevy_log::LogPlugin::default());
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if the plugin was already added to the application.
-    #[deprecated(since = "0.11.0", note = "Please use `add_plugins` instead.")]
-    pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
-    where
-        T: Plugin,
-    {
-        self.add_plugins(plugin)
-    }
-
-    /// Boxed variant of [`add_plugin`](App::add_plugin) that can be used from a
+    /// Boxed variant of [`add_plugins`](App::add_plugins) that can be used from a
     /// [`PluginGroup`](super::PluginGroup)
     pub(crate) fn add_boxed_plugin(
         &mut self,
@@ -946,7 +833,7 @@ impl App {
     pub fn edit_schedule(
         &mut self,
         label: impl ScheduleLabel,
-        mut f: impl FnMut(&mut Schedule),
+        f: impl FnOnce(&mut Schedule),
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 

@@ -43,7 +43,6 @@ pub mod prelude {
 
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
-pub use once_cell;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 use wgpu::Instance;
 

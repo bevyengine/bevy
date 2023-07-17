@@ -174,13 +174,6 @@ impl Schedule {
         }
     }
 
-    /// Add a system to the schedule.
-    #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
-    pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.graph.add_systems_inner(system.into_configs(), false);
-        self
-    }
-
     /// Add a collection of systems to the schedule.
     pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.graph.add_systems_inner(systems.into_configs(), false);
@@ -745,10 +738,6 @@ impl ScheduleGraph {
     ) -> Result<(), ScheduleBuildError> {
         for set in &graph_info.sets {
             self.check_set(id, &**set)?;
-        }
-
-        if let Some(base_set) = &graph_info.base_set {
-            self.check_set(id, &**base_set)?;
         }
 
         Ok(())

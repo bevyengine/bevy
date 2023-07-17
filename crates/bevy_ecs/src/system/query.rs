@@ -426,7 +426,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn iter(&self) -> QueryIter<'_, 's, Q::ReadOnly, F::ReadOnly> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
-        // - The query is read-only, so it can be aliased even if it was originaly mutable.
+        // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
             self.state
                 .as_readonly()
@@ -492,7 +492,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ) -> QueryCombinationIter<'_, 's, Q::ReadOnly, F::ReadOnly, K> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
-        // - The query is read-only, so it can be aliased even if it was originaly mutable.
+        // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
             self.state.as_readonly().iter_combinations_unchecked_manual(
                 self.world,
@@ -578,7 +578,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     {
         // SAFETY:
         // - `self.world` has permission to access the required components.
-        // - The query is read-only, so it can be aliased even if it was originaly mutable.
+        // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
             self.state.as_readonly().iter_many_unchecked_manual(
                 entities,
@@ -734,7 +734,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn for_each<'this>(&'this self, f: impl FnMut(ROQueryItem<'this, Q>)) {
         // SAFETY:
         // - `self.world` has permission to access the required components.
-        // - The query is read-only, so it can be aliased even if it was originaly mutable.
+        // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
             self.state.as_readonly().for_each_unchecked_manual(
                 self.world,

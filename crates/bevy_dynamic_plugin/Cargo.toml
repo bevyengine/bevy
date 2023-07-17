@@ -1,6 +1,6 @@
 [package]
 name = "bevy_dynamic_plugin"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Provides dynamic plugin loading capabilities for non-wasm platforms"
 homepage = "https://bevyengine.org"
@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.11.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
 
 # other
 libloading = { version = "0.8" }

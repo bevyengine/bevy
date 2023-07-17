@@ -406,7 +406,9 @@ impl AddAsset for App {
     }
 }
 
-/// Loads an internal asset.
+/// Loads an internal asset from a project source file.
+/// the file and its path are passed to the loader function, together with any additional parameters.
+/// the resulting asset is stored in the app's asset server.
 ///
 /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
 /// using the conventional API. See [`DebugAssetServerPlugin`](crate::debug_asset_server::DebugAssetServerPlugin).
@@ -427,20 +429,59 @@ macro_rules! load_internal_asset {
             );
         }
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.set_untracked($handle, ($loader)(include_str!($path_str)));
+        assets.set_untracked(
+            $handle,
+            ($loader)(
+                include_str!($path_str),
+                std::path::Path::new(file!())
+                .parent()
+                .unwrap()
+                .join($path_str)
+                .to_string_lossy(),
+            )
+        );
+    }};
+    // we can't support params without variadic arguments, so internal assets with additional params can't be hot-reloaded
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)+) => {{
+        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
+        assets.set_untracked(
+            $handle,
+            ($loader)(
+                include_str!($path_str),
+                std::path::Path::new(file!())
+                    .parent()
+                    .unwrap()
+                    .join($path_str)
+                    .to_string_lossy(),
+                $($param),+
+            ),
+        );
     }};
 }
 
-/// Loads an internal asset.
+/// Loads an internal asset from a project source file.
+/// the file and its path are passed to the loader function, together with any additional parameters.
+/// the resulting asset is stored in the app's asset server.
 ///
 /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
 /// using the conventional API. See `DebugAssetServerPlugin`.
 #[cfg(not(feature = "debug_asset_server"))]
 #[macro_export]
 macro_rules! load_internal_asset {
-    ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)*) => {{
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.set_untracked($handle, ($loader)(include_str!($path_str)));
+        assets.set_untracked(
+            $handle,
+            ($loader)(
+                include_str!($path_str),
+                std::path::Path::new(file!())
+                    .parent()
+                    .unwrap()
+                    .join($path_str)
+                    .to_string_lossy(),
+                $($param),*
+            ),
+        );
     }};
 }
 
@@ -465,7 +506,18 @@ macro_rules! load_internal_binary_asset {
             );
         }
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.set_untracked($handle, ($loader)(include_bytes!($path_str).as_ref()));
+        assets.set_untracked(
+            $handle,
+            ($loader)(
+                include_bytes!($path_str).as_ref(),
+                std::path::Path::new(file!())
+                    .parent()
+                    .unwrap()
+                    .join($path_str)
+                    .to_string_lossy()
+                    .into(),
+            ),
+        );
     }};
 }
 
@@ -478,7 +530,18 @@ macro_rules! load_internal_binary_asset {
 macro_rules! load_internal_binary_asset {
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.set_untracked($handle, ($loader)(include_bytes!($path_str).as_ref()));
+        assets.set_untracked(
+            $handle,
+            ($loader)(
+                include_bytes!($path_str).as_ref(),
+                std::path::Path::new(file!())
+                    .parent()
+                    .unwrap()
+                    .join($path_str)
+                    .to_string_lossy()
+                    .into(),
+            ),
+        );
     }};
 }
 
@@ -496,7 +559,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins((
             bevy_core::TaskPoolPlugin::default(),
-            bevy_core::TypeRegistrationPlugin::default(),
+            bevy_core::TypeRegistrationPlugin,
             crate::AssetPlugin::default(),
         ));
         app.add_asset::<MyAsset>();

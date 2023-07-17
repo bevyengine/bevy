@@ -1,11 +1,14 @@
 #define_import_path bevy_pbr::shadows
 
-#import bevy_pbr::shadow_sampling
+#import bevy_pbr::mesh_view_types  POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
+#import bevy_pbr::mesh_view_bindings as view_bindings
+#import bevy_pbr::utils  hsv2rgb
+#import bevy_pbr::shadow_sampling sample_shadow_map, sample_directional_cascade
 
 const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
 
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
-    let light = &point_lights.data[light_id];
+    let light = &view_bindings::point_lights.data[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
     // we can get the worldspace depth by taking the largest absolute axis
@@ -40,14 +43,14 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     // mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
     // from LOD 0.
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
-    return textureSampleCompare(point_shadow_textures, point_shadow_textures_sampler, frag_ls * flip_z, depth);
+    return textureSampleCompare(view_bindings::point_shadow_textures, view_bindings::point_shadow_textures_sampler, frag_ls * flip_z, depth);
 #else
-    return textureSampleCompareLevel(point_shadow_textures, point_shadow_textures_sampler, frag_ls * flip_z, i32(light_id), depth);
+    return textureSampleCompareLevel(view_bindings::point_shadow_textures, view_bindings::point_shadow_textures_sampler, frag_ls * flip_z, i32(light_id), depth);
 #endif
 }
 
 fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
-    let light = &point_lights.data[light_id];
+    let light = &view_bindings::point_lights.data[light_id];
 
     let surface_to_light = (*light).position_radius.xyz - frag_position.xyz;
 
@@ -94,11 +97,11 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
     // 0.1 must match POINT_LIGHT_NEAR_Z
     let depth = 0.1 / -projected_position.z;
 
-    return sample_shadow_map(shadow_uv, depth, i32(light_id) + lights.spot_light_shadowmap_offset);
+    return sample_shadow_map(shadow_uv, depth, i32(light_id) + view_bindings::lights.spot_light_shadowmap_offset);
 }
 
 fn get_cascade_index(light_id: u32, view_z: f32) -> u32 {
-    let light = &lights.directional_lights[light_id];
+    let light = &view_bindings::lights.directional_lights[light_id];
 
     for (var i: u32 = 0u; i < (*light).num_cascades; i = i + 1u) {
         if (-view_z < (*light).cascades[i].far_bound) {
@@ -109,7 +112,7 @@ fn get_cascade_index(light_id: u32, view_z: f32) -> u32 {
 }
 
 fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>, view_z: f32) -> f32 {
-    let light = &lights.directional_lights[light_id];
+    let light = &view_bindings::lights.directional_lights[light_id];
     let cascade_index = get_cascade_index(light_id, view_z);
 
     if (cascade_index >= (*light).num_cascades) {

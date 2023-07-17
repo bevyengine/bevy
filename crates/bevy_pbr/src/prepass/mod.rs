@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, PreUpdate, Update};
+use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -31,8 +31,8 @@ use bevy_render::{
         BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
         DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState, PipelineCache,
-        PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef,
-        ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+        PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages,
+        ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
         SpecializedMeshPipelines, StencilFaceState, StencilState, TextureSampleType,
         TextureViewDimension, VertexState,
     },
@@ -47,7 +47,7 @@ use bevy_utils::tracing::error;
 use crate::{
     prepare_lights, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
     MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials,
-    SetMaterialBindGroup, SetMeshBindGroup, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    SetMaterialBindGroup, SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -141,9 +141,15 @@ where
 
         if no_prepass_plugin_loaded {
             app.insert_resource(AnyPrepassPluginLoaded)
-                .add_systems(Update, update_previous_view_projections)
                 // At the start of each frame, last frame's GlobalTransforms become this frame's PreviousGlobalTransforms
-                .add_systems(PreUpdate, update_mesh_previous_global_transforms);
+                // and last frame's view projection matrices become this frame's PreviousViewProjections
+                .add_systems(
+                    PreUpdate,
+                    (
+                        update_mesh_previous_global_transforms,
+                        update_previous_view_projections,
+                    ),
+                );
         }
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -373,14 +379,6 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as u32,
-        ));
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_CASCADES_PER_LIGHT".to_string(),
-            MAX_CASCADES_PER_LIGHT as u32,
-        ));
         if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
             shader_defs.push("DEPTH_CLAMP_ORTHO".into());
             // PERF: This line forces the "prepass fragment shader" to always run in

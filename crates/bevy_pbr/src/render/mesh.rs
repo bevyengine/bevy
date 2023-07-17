@@ -86,7 +86,17 @@ impl Plugin for MeshRenderPlugin {
             app,
             MESH_VIEW_TYPES_HANDLE,
             "mesh_view_types.wgsl",
-            Shader::from_wgsl
+            Shader::from_wgsl_with_defs,
+            vec![
+                ShaderDefVal::UInt(
+                    "MAX_DIRECTIONAL_LIGHTS".into(),
+                    MAX_DIRECTIONAL_LIGHTS as u32
+                ),
+                ShaderDefVal::UInt(
+                    "MAX_CASCADES_PER_LIGHT".into(),
+                    MAX_CASCADES_PER_LIGHT as u32,
+                )
+            ]
         );
         load_internal_asset!(
             app,
@@ -719,15 +729,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("VERTEX_NORMALS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
         }
-
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as u32,
-        ));
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_CASCADES_PER_LIGHT".to_string(),
-            MAX_CASCADES_PER_LIGHT as u32,
-        ));
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());

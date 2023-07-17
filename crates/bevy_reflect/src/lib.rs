@@ -197,16 +197,17 @@
 //! To resolve this issue, we'll need to convert the dynamic type to the concrete one.
 //! This is where [`FromReflect`] comes in.
 //!
-//! `FromReflect` is a derivable trait that allows an instance of a type to be generated from a
+//! `FromReflect` is a trait that allows an instance of a type to be generated from a
 //! dynamic representation— even partial ones.
 //! And since the [`FromReflect::from_reflect`] method takes the data by reference,
 //! this can be used to effectively clone data (to an extent).
 //!
-//! This trait can be derived on any type whose fields and sub-elements also implement `FromReflect`.
+//! It is automatically implemented when [deriving `Reflect`] on a type unless opted out of
+//! using `#[reflect(from_reflect = false)]` on the item.
 //!
 //! ```
 //! # use bevy_reflect::{Reflect, FromReflect};
-//! #[derive(Reflect, FromReflect)]
+//! #[derive(Reflect)]
 //! struct MyStruct {
 //!   foo: i32
 //! }
@@ -218,8 +219,12 @@
 //! let value = <MyStruct as FromReflect>::from_reflect(&*cloned).unwrap(); // OK!
 //! ```
 //!
-//! With the derive macro, fields can be ignored or given default values for when a field is missing
-//! in the passed value.
+//! When deriving, all active fields and sub-elements must also implement `FromReflect`.
+//!
+//! Fields can be given default values for when a field is missing in the passed value or even ignored.
+//! Ignored fields must either implement [`Default`] or have a default function specified
+//! using `#[reflect(default = "path::to::function")]`.
+//!
 //! See the [derive macro documentation](derive@crate::FromReflect) for details.
 //!
 //! All primitives and simple types implement `FromReflect` by relying on their [`Default`] implementation.
@@ -324,7 +329,7 @@
 //! #     serde::{ReflectSerializer, UntypedReflectDeserializer},
 //! #     Reflect, FromReflect, TypeRegistry
 //! # };
-//! #[derive(Reflect, FromReflect, PartialEq, Debug)]
+//! #[derive(Reflect, PartialEq, Debug)]
 //! struct MyStruct {
 //!   foo: i32
 //! }
@@ -417,6 +422,7 @@
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
 //! [derive macro documentation]: derive@crate::Reflect
+//! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData
 //! [`ReflectDefault`]: std_traits::ReflectDefault
 //! [object-safe]: https://doc.rust-lang.org/reference/items/traits.html#object-safety
@@ -700,8 +706,7 @@ mod tests {
 
     #[test]
     fn should_call_from_reflect_dynamically() {
-        #[derive(Reflect, FromReflect)]
-        #[reflect(FromReflect)]
+        #[derive(Reflect)]
         struct MyStruct {
             foo: usize,
         }
@@ -736,7 +741,7 @@ mod tests {
 
     #[test]
     fn from_reflect_should_use_default_field_attributes() {
-        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        #[derive(Reflect, Eq, PartialEq, Debug)]
         struct MyStruct {
             // Use `Default::default()`
             // Note that this isn't an ignored field
@@ -766,7 +771,7 @@ mod tests {
 
     #[test]
     fn from_reflect_should_use_default_variant_field_attributes() {
-        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        #[derive(Reflect, Eq, PartialEq, Debug)]
         enum MyEnum {
             Foo(#[reflect(default)] String),
             Bar {
@@ -799,7 +804,7 @@ mod tests {
 
     #[test]
     fn from_reflect_should_use_default_container_attribute() {
-        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        #[derive(Reflect, Eq, PartialEq, Debug)]
         #[reflect(Default)]
         struct MyStruct {
             foo: String,
@@ -829,7 +834,7 @@ mod tests {
 
     #[test]
     fn reflect_complex_patch() {
-        #[derive(Reflect, Eq, PartialEq, Debug, FromReflect)]
+        #[derive(Reflect, Eq, PartialEq, Debug)]
         #[reflect(PartialEq)]
         struct Foo {
             a: u32,
@@ -843,13 +848,13 @@ mod tests {
             h: [u32; 2],
         }
 
-        #[derive(Reflect, Eq, PartialEq, Clone, Debug, FromReflect)]
+        #[derive(Reflect, Eq, PartialEq, Clone, Debug)]
         #[reflect(PartialEq)]
         struct Bar {
             x: u32,
         }
 
-        #[derive(Reflect, Eq, PartialEq, Debug, FromReflect)]
+        #[derive(Reflect, Eq, PartialEq, Debug)]
         struct Baz(String);
 
         let mut hash_map = HashMap::default();
@@ -1280,7 +1285,7 @@ mod tests {
 
         // Struct (generic)
         #[derive(Reflect)]
-        struct MyGenericStruct<T: Reflect + TypePath> {
+        struct MyGenericStruct<T> {
             foo: T,
             bar: usize,
         }
@@ -1474,6 +1479,7 @@ mod tests {
     #[test]
     fn should_permit_higher_ranked_lifetimes() {
         #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
         struct TestStruct {
             #[reflect(ignore)]
             _hrl: for<'a> fn(&'a str) -> &'a str,
@@ -1846,6 +1852,15 @@ bevy_reflect::tests::should_reflect_debug::Test {
         let foo: &dyn Reflect = &foo;
 
         assert_eq!("123", format!("{:?}", foo));
+    }
+
+    #[test]
+    fn recursive_typed_storage_does_not_hang() {
+        #[derive(Reflect)]
+        struct Recurse<T>(T);
+
+        let _ = <Recurse<Recurse<()>> as Typed>::type_info();
+        let _ = <Recurse<Recurse<()>> as TypePath>::type_path();
     }
 
     #[cfg(feature = "glam")]

@@ -1,20 +1,23 @@
 #define_import_path bevy_pbr::shadow_sampling
 
-fn sample_shadow_map_hardware_2x2(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
-    // Do the lookup, using HW PCF and comparison
+#import bevy_pbr::mesh_view_bindings as view_bindings
+#import bevy_pbr::utils PI
+
+fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+    // Do the lookup, using HW 2x2 PCF and comparison
     // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
     // sampler to avoid use of implicit derivatives causing possible undefined behavior.
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
     return textureSampleCompareLevel(
-        directional_shadow_textures,
-        directional_shadow_textures_sampler,
+        view_bindings::directional_shadow_textures,
+        view_bindings::directional_shadow_textures_sampler,
         light_local,
         depth
     );
 #else
     return textureSampleCompareLevel(
-        directional_shadow_textures,
-        directional_shadow_textures_sampler,
+        view_bindings::directional_shadow_textures,
+        view_bindings::directional_shadow_textures_sampler,
         light_local,
         array_index,
         depth
@@ -23,8 +26,8 @@ fn sample_shadow_map_hardware_2x2(light_local: vec2<f32>, depth: f32, array_inde
 }
 
 // https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1
-fn sample_shadow_map_castano_13(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
-    let shadow_map_size = vec2<f32>(textureDimensions(directional_shadow_textures));
+fn sample_shadow_map_castano_thirteen(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+    let shadow_map_size = vec2<f32>(textureDimensions(view_bindings::directional_shadow_textures));
     let inv_shadow_map_size = 1.0 / shadow_map_size;
 
     let uv = light_local * shadow_map_size;
@@ -52,24 +55,24 @@ fn sample_shadow_map_castano_13(light_local: vec2<f32>, depth: f32, array_index:
 
     var sum = 0.0;
 
-    sum += uw0 * vw0 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u0, v0) * inv_shadow_map_size), depth, array_index);
-    sum += uw1 * vw0 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u1, v0) * inv_shadow_map_size), depth, array_index);
-    sum += uw2 * vw0 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u2, v0) * inv_shadow_map_size), depth, array_index);
+    sum += uw0 * vw0 * sample_shadow_map_hardware(base_uv + (vec2(u0, v0) * inv_shadow_map_size), depth, array_index);
+    sum += uw1 * vw0 * sample_shadow_map_hardware(base_uv + (vec2(u1, v0) * inv_shadow_map_size), depth, array_index);
+    sum += uw2 * vw0 * sample_shadow_map_hardware(base_uv + (vec2(u2, v0) * inv_shadow_map_size), depth, array_index);
 
-    sum += uw0 * vw1 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u0, v1) * inv_shadow_map_size), depth, array_index);
-    sum += uw1 * vw1 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u1, v1) * inv_shadow_map_size), depth, array_index);
-    sum += uw2 * vw1 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u2, v1) * inv_shadow_map_size), depth, array_index);
+    sum += uw0 * vw1 * sample_shadow_map_hardware(base_uv + (vec2(u0, v1) * inv_shadow_map_size), depth, array_index);
+    sum += uw1 * vw1 * sample_shadow_map_hardware(base_uv + (vec2(u1, v1) * inv_shadow_map_size), depth, array_index);
+    sum += uw2 * vw1 * sample_shadow_map_hardware(base_uv + (vec2(u2, v1) * inv_shadow_map_size), depth, array_index);
 
-    sum += uw0 * vw2 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u0, v2) * inv_shadow_map_size), depth, array_index);
-    sum += uw1 * vw2 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u1, v2) * inv_shadow_map_size), depth, array_index);
-    sum += uw2 * vw2 * sample_shadow_map_hardware_2x2(base_uv + (vec2(u2, v2) * inv_shadow_map_size), depth, array_index);
+    sum += uw0 * vw2 * sample_shadow_map_hardware(base_uv + (vec2(u0, v2) * inv_shadow_map_size), depth, array_index);
+    sum += uw1 * vw2 * sample_shadow_map_hardware(base_uv + (vec2(u1, v2) * inv_shadow_map_size), depth, array_index);
+    sum += uw2 * vw2 * sample_shadow_map_hardware(base_uv + (vec2(u2, v2) * inv_shadow_map_size), depth, array_index);
 
     return sum * (1.0 / 144.0);
 }
 
 // https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
 fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
-    let frame = f32(globals.frame_count % 64u);
+    let frame = f32(view_bindings::globals.frame_count % 64u);
     let xy = pixel_coordinates + 5.588238 * frame;
     return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
 }
@@ -85,8 +88,8 @@ const sample_offsets: array<vec2<f32>, 8> = array<vec2<f32>, 8>(
     vec2<f32>(-0.1768, -0.1768),
     vec2<f32>( 0.1250,  0.0000),
 );
-fn sample_shadow_map_jimenez_14(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
-    let shadow_map_size = vec2<f32>(textureDimensions(directional_shadow_textures));
+fn sample_shadow_map_jimenez_fourteen(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+    let shadow_map_size = vec2<f32>(textureDimensions(view_bindings::directional_shadow_textures));
 
     let random_angle = 2.0 * PI * interleaved_gradient_noise(light_local * shadow_map_size);
     let m = vec2(sin(random_angle), cos(random_angle));
@@ -106,29 +109,29 @@ fn sample_shadow_map_jimenez_14(light_local: vec2<f32>, depth: f32, array_index:
     let sample_offset8 = (rotation_matrix * sample_offsets[7]) * scale;
 
     var sum = 0.0;
-    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset1, depth, array_index);
-    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset2, depth, array_index);
-    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset3, depth, array_index);
-    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset4, depth, array_index);
-    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset5, depth, array_index);
-    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset6, depth, array_index);
-    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset7, depth, array_index);
-    sum += sample_shadow_map_hardware_2x2(light_local + sample_offset8, depth, array_index);
+    sum += sample_shadow_map_hardware(light_local + sample_offset1, depth, array_index);
+    sum += sample_shadow_map_hardware(light_local + sample_offset2, depth, array_index);
+    sum += sample_shadow_map_hardware(light_local + sample_offset3, depth, array_index);
+    sum += sample_shadow_map_hardware(light_local + sample_offset4, depth, array_index);
+    sum += sample_shadow_map_hardware(light_local + sample_offset5, depth, array_index);
+    sum += sample_shadow_map_hardware(light_local + sample_offset6, depth, array_index);
+    sum += sample_shadow_map_hardware(light_local + sample_offset7, depth, array_index);
+    sum += sample_shadow_map_hardware(light_local + sample_offset8, depth, array_index);
     return sum / 8.0;
 }
 
 fn sample_shadow_map(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
 #ifdef SHADOW_FILTER_METHOD_CASTANO_13
-    return sample_shadow_map_castano_13(light_local, depth, array_index);
+    return sample_shadow_map_castano_thirteen(light_local, depth, array_index);
 #else ifdef SHADOW_FILTER_METHOD_JIMENEZ_14
-    return sample_shadow_map_jimenez_14(light_local, depth, array_index);
+    return sample_shadow_map_jimenez_fourteen(light_local, depth, array_index);
 #else
-    return sample_shadow_map_hardware_2x2(light_local, depth, array_index);
+    return sample_shadow_map_hardware(light_local, depth, array_index);
 #endif
 }
 
 fn sample_directional_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
-    let light = &lights.directional_lights[light_id];
+    let light = &view_bindings::lights.directional_lights[light_id];
     let cascade = &(*light).cascades[cascade_index];
 
     // The normal bias is scaled to the texel size.

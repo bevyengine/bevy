@@ -1,6 +1,6 @@
 [package]
 name = "bevy_gltf"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Bevy Engine GLTF loading"
 homepage = "https://bevyengine.org"
@@ -10,22 +10,22 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_animation = { path = "../bevy_animation", version = "0.11.0-dev", optional = true }
-bevy_app = { path = "../bevy_app", version = "0.11.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.11.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.11.0-dev" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.11.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.11.0-dev" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.11.0-dev" }
-bevy_log = { path = "../bevy_log", version = "0.11.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.11.0-dev" }
-bevy_pbr = { path = "../bevy_pbr", version = "0.11.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev", features = ["bevy"] }
-bevy_render = { path = "../bevy_render", version = "0.11.0-dev" }
-bevy_scene = { path = "../bevy_scene", version = "0.11.0-dev", features = ["bevy_render"] }
-bevy_transform = { path = "../bevy_transform", version = "0.11.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.11.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
+bevy_animation = { path = "../bevy_animation", version = "0.12.0-dev", optional = true }
+bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.12.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.12.0-dev" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.12.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.12.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.12.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.12.0-dev" }
+bevy_pbr = { path = "../bevy_pbr", version = "0.12.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev", features = ["bevy"] }
+bevy_render = { path = "../bevy_render", version = "0.12.0-dev" }
+bevy_scene = { path = "../bevy_scene", version = "0.12.0-dev", features = ["bevy_render"] }
+bevy_transform = { path = "../bevy_transform", version = "0.12.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 
 # other
 gltf = { version = "1.0.0", default-features = false, features = [
