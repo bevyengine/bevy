@@ -12,8 +12,8 @@ use bevy_utils::HashMap;
 /// occupied by this entity, with faces orthogonal to its local axis.
 ///
 /// This component is notably used during "frustum culling", a process to determine
-/// if the entity should be rendered by a [`Camera`] entity if its bounding box
-/// with its [`Frustum`].
+/// if an entity should be rendered by a [`Camera`] if its bounding box intersects
+/// with the camera's [`Frustum`].
 ///
 /// It will be added automatically by the systems in [`CalculateBounds`] to entities that:
 /// - could be subject to frustum culling, for example with a [`Handle<Mesh>`]
