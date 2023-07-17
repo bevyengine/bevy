@@ -3,14 +3,17 @@ use bevy_math::{Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
 use bevy_reflect::Reflect;
 use bevy_utils::HashMap;
 
-/// An axis-aligned bounding box.
+/// An axis-aligned bounding box, defined by:
+/// - a center,
+/// - the distances from the center to each faces along the axis,
+/// the faces are orthogonal to the axis.
 ///
-/// It represents a box covering the local space occupied by the entity, with faces
-/// orthogonal to the local axis.
+/// It is typically used as a component on an entity to represent the local space
+/// occupied by this entity, with faces orthogonal to its local axis.
 ///
-/// It is typically used as a component on an entity during "frustum culling",
-/// a process to determine if the entity should be rendered by a [`Camera`]
-/// entity if it intersects with its [`Frustum`].
+/// This component is notably used during "frustum culling", a process to determine
+/// if the entity should be rendered by a [`Camera`] entity if its bounding box
+/// with its [`Frustum`].
 ///
 /// It will be added automatically by the systems in [`CalculateBounds`] to entities that:
 /// - could be subject to frustum culling, for example with a [`Handle<Mesh>`]
