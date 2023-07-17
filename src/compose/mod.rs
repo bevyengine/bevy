@@ -462,6 +462,7 @@ impl Composer {
         let mut item_substituted_source = String::default();
         let mut current_word = String::default();
         let mut line_is_directive = None;
+        let mut is_valid_import_substitution_point = true;
 
         for char in substituted_source.chars() {
             if !current_word.is_empty() {
@@ -473,7 +474,7 @@ impl Composer {
                 let mut output = &current_word;
 
                 // substitute current word if we are not writing a directive (e.g. `#import xyz`)
-                if line_is_directive != Some(true) {
+                if is_valid_import_substitution_point {
                     if let Some(replacement) = imported_items.get(&current_word) {
                         output = replacement;
                     }
@@ -502,6 +503,14 @@ impl Composer {
                 current_word.push(char);
             } else {
                 item_substituted_source.push(char);
+                // we should only substitute global names
+                // '.' -> avoid substituting members with name == import item
+                // '@' -> avoid substituting annotations
+                if char == '.' || char == '@' {
+                    is_valid_import_substitution_point = false;
+                } else {
+                    is_valid_import_substitution_point = !line_is_directive.unwrap_or(false);
+                }
             }
         }
         substituted_source = item_substituted_source;

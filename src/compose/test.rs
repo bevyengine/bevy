@@ -968,6 +968,46 @@ mod test {
         output_eq!(wgsl, "tests/expected/dup_struct_import.txt");
     }
 
+    #[test]
+    fn item_sub_point() {
+        let mut composer = Composer::default();
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/item_sub_point/mod.wgsl"),
+                file_path: "tests/item_sub_point/mod.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        let module = composer
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/item_sub_point/top.wgsl"),
+                file_path: "tests/item_sub_point/top.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        let info = naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::default(),
+        )
+        .validate(&module)
+        .unwrap();
+        let wgsl = naga::back::wgsl::write_string(
+            &module,
+            &info,
+            naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
+        )
+        .unwrap();
+
+        // let mut f = std::fs::File::create("item_sub_point.txt").unwrap();
+        // f.write_all(wgsl.as_bytes()).unwrap();
+        // drop(f);
+
+        output_eq!(wgsl, "tests/expected/item_sub_point.txt");
+    }
+
     // actually run a shader and extract the result
     // needs the composer to contain a module called "test_module", with a function called "entry_point" returning an f32.
     fn test_shader(composer: &mut Composer) -> f32 {
