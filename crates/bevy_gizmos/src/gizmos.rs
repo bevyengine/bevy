@@ -27,6 +27,7 @@ pub(crate) struct GizmoStorage {
 ///
 /// They are drawn in immediate mode, which means they will be rendered only for
 /// the frames in which they are defined.
+/// They should be defined before the [`Last`](bevy_app::Last) schedule.
 #[derive(SystemParam)]
 pub struct Gizmos<'s> {
     buffer: Deferred<'s, GizmoBuffer>,
@@ -53,7 +54,7 @@ impl SystemBuffer for GizmoBuffer {
 impl<'s> Gizmos<'s> {
     /// Draw a line in 3D from `start` to `end` for the current frame.
     ///
-    /// This should be called every frame when the line needs to be rendered.
+    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -73,7 +74,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line in 3D with a color gradient from `start` to `end` for the current frame.
     ///
-    /// This should be called every frame when the line needs to be rendered.
+    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -93,7 +94,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line in 3D from `start` to `start + vector` for the current frame.
     ///
-    /// This should be called every frame when the line needs to be rendered.
+    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -112,7 +113,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line in 3D with a color gradient from `start` to `start + vector` for the current frame.
     ///
-    /// This should be called every frame when the line needs to be rendered.
+    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -137,7 +138,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw lines in 3D between a list of points for the current frame.
     ///
-    /// This should be called every frame when the lines need to be rendered.
+    /// This should be called for each frame the lines need to be rendered.
     ///
     /// # Example
     /// ```
@@ -161,7 +162,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw lines in 3D between a list of points with a color gradient for the current frame.
     ///
-    /// This should be called every frame when the lines need to be rendered.
+    /// This should be called for each frame the lines need to be rendered.
     ///
     /// # Example
     /// ```
@@ -202,7 +203,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a circle in 3D at `position` with the flat side facing `normal` for the current frame.
     ///
-    /// This should be called every frame when the circle needs to be rendered.
+    /// This should be called for each frame the circle needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -240,7 +241,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a wireframe sphere in 3D made out of 3 circles for the current frame.
     ///
-    /// This should be called every frame when the sphere needs to be rendered.
+    /// This should be called for each frame the sphere needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -278,7 +279,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a wireframe rectangle in 3D for the current frame.
     ///
-    /// This should be called every frame when the rectangle needs to be rendered.
+    /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -298,7 +299,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a wireframe cube in 3D for the current frame.
     ///
-    /// This should be called every frame when the cube needs to be rendered.
+    /// This should be called for each frame the cube needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -333,7 +334,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line in 2D from `start` to `end` for the current frame.
     ///
-    /// This should be called every frame when the line needs to be rendered.
+    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -352,7 +353,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line in 2D with a color gradient from `start` to `end` for the current frame.
     ///
-    /// This should be called every frame when the line needs to be rendered.
+    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -377,7 +378,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw lines in 2D between a list of points for the current frame.
     ///
-    /// This should be called every frame when the lines need to be rendered.
+    /// This should be called for each frame the lines need to be rendered.
     ///
     /// # Example
     /// ```
@@ -396,7 +397,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw lines in 2D between a list of points with a color gradient for the current frame.
     ///
-    /// This should be called every frame when the lines need to be rendered.
+    /// This should be called for each frame the lines need to be rendered.
     ///
     /// # Example
     /// ```
@@ -423,7 +424,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line in 2D from `start` to `start + vector` for the current frame.
     ///
-    /// This should be called every frame when the line needs to be rendered.
+    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -442,7 +443,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a line in 2D with a color gradient from `start` to `start + vector` for the current frame.
     ///
-    /// This should be called every frame when the line needs to be rendered.
+    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -467,7 +468,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a circle in 2D for the current frame.
     ///
-    /// This should be called every frame when the circle needs to be rendered.
+    /// This should be called for each frame the circle needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -503,7 +504,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw an arc, which is a part of the circumference of a circle, in 2D, for the current frame.
     ///
-    /// This should be called every frame when the arc needs to be rendered.
+    /// This should be called for each frame the arc needs to be rendered.
     ///
     /// # Arguments
     /// - `position` sets the center of this circle.
@@ -550,7 +551,7 @@ impl<'s> Gizmos<'s> {
 
     /// Draw a wireframe rectangle in 2D for the current frame.
     ///
-    /// This should be called every frame when the rectangle needs to be rendered.
+    /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Example
     /// ```
