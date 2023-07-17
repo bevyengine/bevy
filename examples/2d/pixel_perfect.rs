@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
+        .insert_resource(Msaa::Off)
         .add_plugins(DefaultPlugins.set(
             // This sets image filtering to nearest
             // This is done to prevent textures with low resolution (e.g. pixel art) from being blurred
