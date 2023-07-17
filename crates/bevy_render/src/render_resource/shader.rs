@@ -303,7 +303,7 @@ pub enum ShaderImport {
 }
 
 impl ShaderImport {
-    pub fn module_name<'a>(&'a self) -> Cow<'a, String> {
+    pub fn module_name(&self) -> Cow<'_, String> {
         match self {
             ShaderImport::AssetPath(s) => Cow::Owned(format!("\"{s}\"")),
             ShaderImport::Custom(s) => Cow::Borrowed(s),
