@@ -1,0 +1,17 @@
+struct _naga_oil_mod_NVXWI_memberFrag {
+    fragment: f32,
+}
+
+fn _naga_oil_mod_NVXWI_memberfragment(f_1: _naga_oil_mod_NVXWI_memberFrag) -> f32 {
+    return (f_1.fragment * 2.0);
+}
+
+@fragment 
+fn main() -> @location(0) f32 {
+    var f: _naga_oil_mod_NVXWI_memberFrag;
+
+    f.fragment = 3.0;
+    let _e3: _naga_oil_mod_NVXWI_memberFrag = f;
+    let _e4: f32 = _naga_oil_mod_NVXWI_memberfragment(_e3);
+    return _e4;
+}
