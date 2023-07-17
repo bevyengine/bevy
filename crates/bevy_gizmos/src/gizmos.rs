@@ -24,6 +24,9 @@ pub(crate) struct GizmoStorage {
 }
 
 /// A [`SystemParam`](bevy_ecs::system::SystemParam) for drawing gizmos.
+///
+/// They are drawned in immediate mode, which means they will be rendered only for
+/// the frames in which they are defined.
 #[derive(SystemParam)]
 pub struct Gizmos<'s> {
     buffer: Deferred<'s, GizmoBuffer>,
@@ -48,7 +51,9 @@ impl SystemBuffer for GizmoBuffer {
 }
 
 impl<'s> Gizmos<'s> {
-    /// Draw a line from `start` to `end`.
+    /// Draw a line in 3D from `start` to `end` for the current frame.
+    ///
+    /// This should be called every frame when the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -66,7 +71,9 @@ impl<'s> Gizmos<'s> {
         self.add_list_color(color, 2);
     }
 
-    /// Draw a line with a color gradient from `start` to `end`.
+    /// Draw a line in 3D with a color gradient from `start` to `end` for the current frame.
+    ///
+    /// This should be called every frame when the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -84,7 +91,9 @@ impl<'s> Gizmos<'s> {
         self.extend_list_colors([start_color, end_color]);
     }
 
-    /// Draw a line from `start` to `start + vector`.
+    /// Draw a line in 3D from `start` to `start + vector` for the current frame.
+    ///
+    /// This should be called every frame when the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -101,7 +110,9 @@ impl<'s> Gizmos<'s> {
         self.line(start, start + vector, color);
     }
 
-    /// Draw a line with a color gradient from `start` to `start + vector`.
+    /// Draw a line in 3D with a color gradient from `start` to `start + vector` for the current frame.
+    ///
+    /// This should be called every frame when the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -124,7 +135,9 @@ impl<'s> Gizmos<'s> {
         self.line_gradient(start, start + vector, start_color, end_color);
     }
 
-    /// Draw lines between a list of points.
+    /// Draw lines in 3D between a list of points for the current frame.
+    ///
+    /// This should be called every frame when the lines need to be rendered.
     ///
     /// # Example
     /// ```
@@ -146,7 +159,9 @@ impl<'s> Gizmos<'s> {
         self.buffer.strip_colors.push([f32::NAN; 4]);
     }
 
-    /// Draw lines between a list of points with a color gradient.
+    /// Draw lines in 3D between a list of points with a color gradient for the current frame.
+    ///
+    /// This should be called every frame when the lines need to be rendered.
     ///
     /// # Example
     /// ```
@@ -185,7 +200,9 @@ impl<'s> Gizmos<'s> {
         strip_colors.push([f32::NAN; 4]);
     }
 
-    /// Draw a circle at `position` with the flat side facing `normal`.
+    /// Draw a circle in 3D at `position` with the flat side facing `normal` for the current frame.
+    ///
+    /// This should be called every frame when the circle needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -221,7 +238,9 @@ impl<'s> Gizmos<'s> {
         }
     }
 
-    /// Draw a wireframe sphere made out of 3 circles.
+    /// Draw a wireframe sphere in 3D made out of 3 circles for the current frame.
+    ///
+    /// This should be called every frame when the sphere needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -257,7 +276,9 @@ impl<'s> Gizmos<'s> {
         }
     }
 
-    /// Draw a wireframe rectangle.
+    /// Draw a wireframe rectangle in 3D for the current frame.
+    ///
+    /// This should be called every frame when the rectangle needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -275,7 +296,9 @@ impl<'s> Gizmos<'s> {
         self.linestrip([tl, tr, br, bl, tl], color);
     }
 
-    /// Draw a wireframe cube.
+    /// Draw a wireframe cube in 3D for the current frame.
+    ///
+    /// This should be called every frame when the cube needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -308,7 +331,9 @@ impl<'s> Gizmos<'s> {
         self.add_list_color(color, 6);
     }
 
-    /// Draw a line from `start` to `end`.
+    /// Draw a line in 2D from `start` to `end` for the current frame.
+    ///
+    /// This should be called every frame when the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -325,7 +350,9 @@ impl<'s> Gizmos<'s> {
         self.line(start.extend(0.), end.extend(0.), color);
     }
 
-    /// Draw a line with a color gradient from `start` to `end`.
+    /// Draw a line in 2D with a color gradient from `start` to `end` for the current frame.
+    ///
+    /// This should be called every frame when the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -348,7 +375,9 @@ impl<'s> Gizmos<'s> {
         self.line_gradient(start.extend(0.), end.extend(0.), start_color, end_color);
     }
 
-    /// Draw lines between a list of points.
+    /// Draw lines in 2D between a list of points for the current frame.
+    ///
+    /// This should be called every frame when the lines need to be rendered.
     ///
     /// # Example
     /// ```
@@ -365,7 +394,9 @@ impl<'s> Gizmos<'s> {
         self.linestrip(positions.into_iter().map(|vec2| vec2.extend(0.)), color);
     }
 
-    /// Draw lines between a list of points with a color gradient.
+    /// Draw lines in 2D between a list of points with a color gradient for the current frame.
+    ///
+    /// This should be called every frame when the lines need to be rendered.
     ///
     /// # Example
     /// ```
@@ -390,7 +421,9 @@ impl<'s> Gizmos<'s> {
         );
     }
 
-    /// Draw a line from `start` to `start + vector`.
+    /// Draw a line in 2D from `start` to `start + vector` for the current frame.
+    ///
+    /// This should be called every frame when the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -407,7 +440,9 @@ impl<'s> Gizmos<'s> {
         self.line_2d(start, start + vector, color);
     }
 
-    /// Draw a line with a color gradient from `start` to `start + vector`.
+    /// Draw a line in 2D with a color gradient from `start` to `start + vector` for the current frame.
+    ///
+    /// This should be called every frame when the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -430,7 +465,9 @@ impl<'s> Gizmos<'s> {
         self.line_gradient_2d(start, start + vector, start_color, end_color);
     }
 
-    /// Draw a circle.
+    /// Draw a circle in 2D for the current frame.
+    ///
+    /// This should be called every frame when the circle needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -464,7 +501,9 @@ impl<'s> Gizmos<'s> {
         }
     }
 
-    /// Draw an arc, which is a part of the circumference of a circle.
+    /// Draw an arc, which is a part of the circumference of a circle, in 2D, for the current frame.
+    ///
+    /// This should be called every frame when the arc needs to be rendered.
     ///
     /// # Arguments
     /// - `position` sets the center of this circle.
@@ -509,7 +548,9 @@ impl<'s> Gizmos<'s> {
         }
     }
 
-    /// Draw a wireframe rectangle.
+    /// Draw a wireframe rectangle in 2D for the current frame.
+    ///
+    /// This should be called every frame when the rectangle needs to be rendered.
     ///
     /// # Example
     /// ```
