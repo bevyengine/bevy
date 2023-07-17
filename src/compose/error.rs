@@ -39,7 +39,7 @@ impl ErrSource {
     pub fn source<'a>(&'a self, composer: &'a Composer) -> Cow<'a, String> {
         match self {
             ErrSource::Module { name, defs, .. } => {
-                let raw_source = &composer.module_sets.get(name).unwrap().raw_source;
+                let raw_source = &composer.module_sets.get(name).unwrap().sanitized_source;
                 let Ok(PreprocessOutput {
                     preprocessed_source: source,
                     meta: PreprocessorMetaData { imports, .. },
@@ -51,7 +51,7 @@ impl ErrSource {
                     };
 
                 let Ok(source) = composer
-                    .sanitize_and_substitute_shader_string(&source, &imports)
+                    .substitute_shader_string(&source, &imports)
                     else { return Default::default() };
 
                 Cow::Owned(source)

@@ -244,7 +244,7 @@ pub struct ComposableModule {
 pub struct ComposableModuleDefinition {
     pub name: String,
     // shader text (with auto bindings replaced - we do this on module add as we only want to do it once to avoid burning slots)
-    pub raw_source: String,
+    pub sanitized_source: String,
     // language
     pub language: ShaderLanguage,
     // source path for error display
@@ -421,7 +421,12 @@ impl Composer {
         undecor.to_string()
     }
 
-    fn set_auto_bindings(&mut self, source: &str) -> String {
+    fn sanitize_and_set_auto_bindings(&mut self, source: &str) -> String {
+        let mut substituted_source = source.replace("\r\n", "\n").replace('\r', "\n");
+        if !substituted_source.ends_with('\n') {
+            substituted_source.push('\n');
+        }
+
         // replace @binding(auto) with an incrementing index
         struct AutoBindingReplacer<'a> {
             auto: &'a mut u32,
@@ -435,7 +440,7 @@ impl Composer {
         }
 
         let substituted_source = self.auto_binding_regex.replace_all(
-            source,
+            &substituted_source,
             AutoBindingReplacer {
                 auto: &mut self.auto_binding_index,
             },
@@ -444,21 +449,17 @@ impl Composer {
         substituted_source.into_owned()
     }
 
-    fn sanitize_and_substitute_shader_string(
+    fn substitute_shader_string(
         &self,
         source: &str,
         imports: &[ImportDefWithOffset],
     ) -> Result<String, ComposerErrorInner> {
-        let mut substituted_source = source.replace("\r\n", "\n").replace('\r', "\n");
-        if !substituted_source.ends_with('\n') {
-            substituted_source.push('\n');
-        }
-
         // sort imports by decreasing length so we don't accidentally replace substrings of a longer import
         let mut imports = imports.to_vec();
         imports.sort_by_key(|import| usize::MAX - import.definition.as_name().len());
 
         let mut imported_items = HashMap::new();
+        let mut substituted_source = source.to_owned();
 
         for import in imports {
             match import.definition.items {
@@ -907,11 +908,15 @@ impl Composer {
             meta: PreprocessorMetaData { imports, .. },
         } = self
             .preprocessor
-            .preprocess(&module_definition.raw_source, shader_defs, self.validate)
+            .preprocess(
+                &module_definition.sanitized_source,
+                shader_defs,
+                self.validate,
+            )
             .map_err(wrap_err)?;
 
         let source = self
-            .sanitize_and_substitute_shader_string(&source, &imports)
+            .substitute_shader_string(&source, &imports)
             .map_err(wrap_err)?;
 
         let mut imports: Vec<_> = imports
@@ -1349,7 +1354,7 @@ impl Composer {
     ) -> Result<ComposableModule, ComposerError> {
         let imports = self
             .preprocessor
-            .preprocess(&module_set.raw_source, shader_defs, self.validate)
+            .preprocess(&module_set.sanitized_source, shader_defs, self.validate)
             .map_err(|inner| ComposerError {
                 inner,
                 source: ErrSource::Module {
@@ -1527,7 +1532,7 @@ impl Composer {
                 }),
         );
 
-        let substituted_source = self.set_auto_bindings(source);
+        let substituted_source = self.sanitize_and_set_auto_bindings(source);
 
         let mut effective_defs = HashSet::new();
         for import in &imports {
@@ -1567,7 +1572,7 @@ impl Composer {
 
         let module_set = ComposableModuleDefinition {
             name: module_name.clone(),
-            raw_source: substituted_source,
+            sanitized_source: substituted_source,
             file_path: file_path.to_owned(),
             language,
             effective_defs: effective_defs.into_iter().collect(),
@@ -1649,9 +1654,9 @@ impl Composer {
             })?;
 
         let name = name.unwrap_or_default();
-        let substituted_source = self.set_auto_bindings(source);
+        let substituted_source = self.sanitize_and_set_auto_bindings(source);
         let substituted_source = self
-            .sanitize_and_substitute_shader_string(&substituted_source, &imports)
+            .substitute_shader_string(&substituted_source, &imports)
             .map_err(|inner| ComposerError {
                 inner,
                 source: ErrSource::Constructing {
@@ -1704,7 +1709,7 @@ impl Composer {
 
         let definition = ComposableModuleDefinition {
             name,
-            raw_source: substituted_source,
+            sanitized_source: substituted_source,
             language: shader_type.into(),
             file_path: file_path.to_owned(),
             module_index: 0,
@@ -1722,7 +1727,7 @@ impl Composer {
                 inner: e.inner,
                 source: ErrSource::Constructing {
                     path: definition.file_path.to_owned(),
-                    source: definition.raw_source.to_owned(),
+                    source: definition.sanitized_source.to_owned(),
                     offset: e.source.offset(),
                 },
             })?;
@@ -1815,7 +1820,7 @@ impl Composer {
                             match module_index {
                                 0 => ErrSource::Constructing {
                                     path: file_path.to_owned(),
-                                    source: definition.raw_source,
+                                    source: definition.sanitized_source,
                                     offset: composable.start_offset,
                                 },
                                 _ => {
