@@ -443,6 +443,81 @@ impl Color {
         self
     }
 
+    /// Get hue in sRGB colorspace.
+    pub fn h(&self) -> f32 {
+        match self.as_hsla() {
+            Color::Hsla { hue, .. } => hue,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Get saturation in sRGB colorspace.
+    pub fn s(&self) -> f32 {
+        match self.as_hsla() {
+            Color::Hsla { saturation, .. } => saturation,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Get lightness in sRGB colorspace.
+    pub fn l(&self) -> f32 {
+        match self.as_hsla() {
+            Color::Hsla { lightness, .. } => lightness,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Set hue in sRGB colorspace.
+    pub fn set_h(&mut self, h: f32) -> &mut Self {
+        *self = self.as_hsla();
+        match self {
+            Color::Hsla { hue, .. } => *hue = h,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Returns this color with hue set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_h(mut self, h: f32) -> Self {
+        self.set_h(h);
+        self
+    }
+
+    /// Set saturation in sRGB colorspace.
+    pub fn set_s(&mut self, s: f32) -> &mut Self {
+        *self = self.as_hsla();
+        match self {
+            Color::Hsla { saturation, .. } => *saturation = s,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Returns this color with saturation set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_s(mut self, s: f32) -> Self {
+        self.set_s(s);
+        self
+    }
+
+    /// Set lightness in sRGB colorspace.
+    pub fn set_l(&mut self, l: f32) -> &mut Self {
+        *self = self.as_hsla();
+        match self {
+            Color::Hsla { lightness, .. } => *lightness = l,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Returns this color with lightness set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_l(mut self, l: f32) -> Self {
+        self.set_l(l);
+        self
+    }
+
     /// Get alpha.
     #[inline(always)]
     pub fn a(&self) -> f32 {
