@@ -1,6 +1,6 @@
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityMapper, MapEntities},
+    entity::{Entity, EntityMap, MapEntities},
     reflect::{ReflectComponent, ReflectMapEntities},
     world::{FromWorld, World},
 };
@@ -36,8 +36,8 @@ impl FromWorld for Parent {
 }
 
 impl MapEntities for Parent {
-    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
-        self.0 = entity_mapper.get_or_reserve(self.0);
+    fn map_entities(&mut self, entity_map: &EntityMap) {
+        self.0 = entity_map.get_or_placeholder(self.0);
     }
 }
 

@@ -1,6 +1,6 @@
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityMapper, MapEntities},
+    entity::{Entity, EntityMap, MapEntities},
     prelude::FromWorld,
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
@@ -21,9 +21,9 @@ use std::ops::Deref;
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 impl MapEntities for Children {
-    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
+    fn map_entities(&mut self, entity_map: &EntityMap) {
         for entity in &mut self.0 {
-            *entity = entity_mapper.get_or_reserve(*entity);
+            *entity = entity_map.get_or_placeholder(*entity);
         }
     }
 }

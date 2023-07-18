@@ -623,25 +623,6 @@ impl Entities {
         self.meta.get_unchecked_mut(index as usize).location = location;
     }
 
-    /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
-    /// `index` will count `generation` starting from the prior `generation` + the specified
-    /// value + 1.
-    ///
-    /// Does nothing if no entity with this `index` has been allocated yet.
-    pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
-        if (index as usize) >= self.meta.len() {
-            return false;
-        }
-
-        let meta = &mut self.meta[index as usize];
-        if meta.location.archetype_id == ArchetypeId::INVALID {
-            meta.generation += generations;
-            true
-        } else {
-            false
-        }
-    }
-
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
     /// Returns `None` if this [`Entity`] is outside of the range of currently reserved Entities
     ///
@@ -884,30 +865,5 @@ mod tests {
 
         const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000).generation();
         assert_eq!(0x00dd_00ff, C4);
-    }
-
-    #[test]
-    fn reserve_generations() {
-        let mut entities = Entities::new();
-        let entity = entities.alloc();
-        entities.free(entity);
-
-        assert!(entities.reserve_generations(entity.index, 1));
-    }
-
-    #[test]
-    fn reserve_generations_and_alloc() {
-        const GENERATIONS: u32 = 10;
-
-        let mut entities = Entities::new();
-        let entity = entities.alloc();
-        entities.free(entity);
-
-        assert!(entities.reserve_generations(entity.index, GENERATIONS));
-
-        // The very next entity allocated should be a further generation on the same index
-        let next_entity = entities.alloc();
-        assert_eq!(next_entity.index(), entity.index());
-        assert!(next_entity.generation > entity.generation + GENERATIONS);
     }
 }
