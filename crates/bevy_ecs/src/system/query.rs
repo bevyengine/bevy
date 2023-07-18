@@ -183,6 +183,52 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 ///
 /// An alternative to this idiom is to wrap the conflicting queries into a [`ParamSet`](super::ParamSet).
 ///
+/// ## Whole Entity Access
+///
+/// [`EntityRef`]s can be fetched from a query. This will give read-only access to any component on the entity,
+/// and can be use to dynamically fetch any component without baking it into the query type. Due to this global
+/// access to the entity, this will block any other system from parallelizing with it. As such these queries
+/// should be sparingly used.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # fn system(
+/// query: Query<(EntityRef, &ComponentA)>
+/// # ) {}
+/// # bevy_ecs::system::assert_is_system(system);
+/// ```
+///
+/// As `EntityRef` can read any component on an entity, a query using it will conflict with *any* mutable
+/// access. It is strongly advised to couple `EntityRef` queries with the use of either `With`/`Without`
+/// filters or `ParamSets`. This also limits the scope of the query, which will improve iteration performance
+/// and also allows it to parallelize with other non-conflicting systems.
+///
+/// ```should_panic
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # fn system(
+/// // This will panic!
+/// query: Query<(EntityRef, &mut ComponentA)>
+/// # ) {}
+/// # bevy_ecs::system::assert_system_does_not_conflict(system);
+/// ```
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # #[derive(Component)]
+/// # struct ComponentB;
+/// # fn system(
+/// // This will not panic.
+/// query_a: Query<EntityRef, With<ComponentA>>,
+/// query_b: Query<&mut ComponentB, Without<ComponentA>>,
+/// # ) {}
+/// # bevy_ecs::system::assert_system_does_not_conflict(system);
+/// ```
+///
 /// # Accessing query items
 ///
 /// The following table summarizes the behavior of the safe methods that can be used to get query items.
@@ -248,6 +294,7 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// [`Changed`]: crate::query::Changed
 /// [components]: crate::component::Component
 /// [entity identifiers]: crate::entity::Entity
+/// [`EntityRef`]: crate::world::EntityRef
 /// [`for_each`]: Self::for_each
 /// [`for_each_mut`]: Self::for_each_mut
 /// [`get`]: Self::get
@@ -379,7 +426,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn iter(&self) -> QueryIter<'_, 's, Q::ReadOnly, F::ReadOnly> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
-        // - The query is read-only, so it can be aliased even if it was originaly mutable.
+        // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
             self.state
                 .as_readonly()
@@ -445,7 +492,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ) -> QueryCombinationIter<'_, 's, Q::ReadOnly, F::ReadOnly, K> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
-        // - The query is read-only, so it can be aliased even if it was originaly mutable.
+        // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
             self.state.as_readonly().iter_combinations_unchecked_manual(
                 self.world,
@@ -531,7 +578,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     {
         // SAFETY:
         // - `self.world` has permission to access the required components.
-        // - The query is read-only, so it can be aliased even if it was originaly mutable.
+        // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
             self.state.as_readonly().iter_many_unchecked_manual(
                 entities,
@@ -687,7 +734,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn for_each<'this>(&'this self, f: impl FnMut(ROQueryItem<'this, Q>)) {
         // SAFETY:
         // - `self.world` has permission to access the required components.
-        // - The query is read-only, so it can be aliased even if it was originaly mutable.
+        // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
             self.state.as_readonly().for_each_unchecked_manual(
                 self.world,

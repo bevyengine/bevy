@@ -168,7 +168,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..Default::default()
                         });
                     builder.spawn(TextBundle::from_section(
-                        "The UI Node and its descendants will not be visible and will not be alloted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible.",
+                        "The UI Node and its descendants will not be visible and will not be allotted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible.",
                         text_style
                     ));
             });
@@ -442,7 +442,7 @@ fn buttons_handler<T>(
     Target<T>: TargetUpdate + Component,
 {
     for (target, interaction, children) in visibility_button_query.iter_mut() {
-        if matches!(interaction, Interaction::Clicked) {
+        if matches!(interaction, Interaction::Pressed) {
             let mut target_value = left_panel_query.get_mut(target.id).unwrap();
             for &child in children {
                 if let Ok(mut text) = text_query.get_mut(child) {

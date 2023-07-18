@@ -13,8 +13,10 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<FallbackTestMaterial>::default())
+        .add_plugins((
+            DefaultPlugins,
+            MaterialPlugin::<FallbackTestMaterial>::default(),
+        ))
         .add_systems(Startup, setup)
         .run();
 }

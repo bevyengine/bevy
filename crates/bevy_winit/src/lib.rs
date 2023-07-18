@@ -41,8 +41,8 @@ use bevy_utils::{
 use bevy_window::{
     exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
     ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
-    WindowCloseRequested, WindowCreated, WindowFocused, WindowMoved, WindowResized,
-    WindowScaleFactorChanged, WindowThemeChanged,
+    WindowCloseRequested, WindowCreated, WindowDestroyed, WindowFocused, WindowMoved,
+    WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
 };
 
 #[cfg(target_os = "android")]
@@ -99,10 +99,10 @@ impl Plugin for WinitPlugin {
                 ),
             );
 
-        app.add_plugin(AccessibilityPlugin);
+        app.add_plugins(AccessibilityPlugin);
 
         #[cfg(target_arch = "wasm32")]
-        app.add_plugin(CanvasParentResizePlugin);
+        app.add_plugins(CanvasParentResizePlugin);
 
         #[cfg(not(target_arch = "wasm32"))]
         let mut create_window_system_state: SystemState<(
@@ -231,6 +231,7 @@ struct WindowEvents<'w> {
     window_focused: EventWriter<'w, WindowFocused>,
     window_moved: EventWriter<'w, WindowMoved>,
     window_theme_changed: EventWriter<'w, WindowThemeChanged>,
+    window_destroyed: EventWriter<'w, WindowDestroyed>,
 }
 
 #[derive(SystemParam)]
@@ -636,6 +637,11 @@ pub fn winit_runner(mut app: App) {
                         window_events.window_theme_changed.send(WindowThemeChanged {
                             window: window_entity,
                             theme: convert_winit_theme(theme),
+                        });
+                    }
+                    WindowEvent::Destroyed => {
+                        window_events.window_destroyed.send(WindowDestroyed {
+                            window: window_entity,
                         });
                     }
                     _ => {}

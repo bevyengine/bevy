@@ -1,10 +1,14 @@
-//! An example for debugging viewport coordinates
-
+//! A simple example for debugging viewport coordinates
+//!
+//! This example creates two uinode trees, one using viewport coordinates and one using pixel coordinates,
+//! and then switches between them once per second using the `Display` style property.
+//! If there are no problems both layouts should be identical, except for the color of the margin changing which is used to signal that the displayed uinode tree has changed
+//! (red for viewport, yellow for pixel).
 use bevy::prelude::*;
 
 const PALETTE: [Color; 10] = [
-    Color::ORANGE,
-    Color::BLUE,
+    Color::RED,
+    Color::YELLOW,
     Color::WHITE,
     Color::BEIGE,
     Color::CYAN,
@@ -15,7 +19,7 @@ const PALETTE: [Color; 10] = [
     Color::BLACK,
 ];
 
-#[derive(Default, Debug, Hash, Eq, PartialEq, Clone, States)]
+#[derive(Component, Default, PartialEq)]
 enum Coords {
     #[default]
     Viewport,
@@ -24,66 +28,66 @@ enum Coords {
 
 fn main() {
     App::new()
+        .insert_resource(UiScale { scale: 2.0 })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                resolution: [800., 600.].into(),
+                resolution: [1600., 1200.].into(),
                 title: "Viewport Coordinates Debug".to_string(),
                 resizable: false,
                 ..Default::default()
             }),
             ..Default::default()
         }))
-        .add_state::<Coords>()
         .add_systems(Startup, setup)
-        .add_systems(OnEnter(Coords::Viewport), spawn_with_viewport_coords)
-        .add_systems(OnEnter(Coords::Pixel), spawn_with_pixel_coords)
-        .add_systems(OnExit(Coords::Viewport), despawn_nodes)
-        .add_systems(OnExit(Coords::Pixel), despawn_nodes)
         .add_systems(Update, update)
         .run();
 }
 
-fn despawn_nodes(mut commands: Commands, query: Query<Entity, With<Node>>) {
-    for entity in query.iter() {
-        commands.entity(entity).despawn();
-    }
-}
-
 fn update(
     mut timer: Local<f32>,
+    mut visible_tree: Local<Coords>,
     time: Res<Time>,
-    state: Res<State<Coords>>,
-    mut next_state: ResMut<NextState<Coords>>,
+    mut coords_style_query: Query<(&Coords, &mut Style)>,
 ) {
-    *timer += time.delta_seconds();
-    if 1. <= *timer {
-        *timer = 0.;
-        next_state.set(if *state.get() == Coords::Viewport {
-            Coords::Pixel
-        } else {
-            Coords::Viewport
-        });
+    *timer -= time.delta_seconds();
+    if *timer <= 0. {
+        *timer = 1.;
+        *visible_tree = match *visible_tree {
+            Coords::Viewport => Coords::Pixel,
+            Coords::Pixel => Coords::Viewport,
+        };
+        for (coords, mut style) in coords_style_query.iter_mut() {
+            style.display = if *coords == *visible_tree {
+                Display::Flex
+            } else {
+                Display::None
+            };
+        }
     }
 }
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
+    spawn_with_viewport_coords(&mut commands);
+    spawn_with_pixel_coords(&mut commands);
 }
 
-fn spawn_with_viewport_coords(mut commands: Commands) {
+fn spawn_with_viewport_coords(commands: &mut Commands) {
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Vw(100.),
-                height: Val::Vh(100.),
-                border: UiRect::axes(Val::Vw(5.), Val::Vh(5.)),
-                flex_wrap: FlexWrap::Wrap,
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Vw(100.),
+                    height: Val::Vh(100.),
+                    border: UiRect::axes(Val::Vw(5.), Val::Vh(5.)),
+                    flex_wrap: FlexWrap::Wrap,
+                    ..default()
+                },
+                border_color: PALETTE[0].into(),
                 ..default()
             },
-            background_color: PALETTE[0].into(),
-            border_color: PALETTE[1].into(),
-            ..default()
-        })
+            Coords::Viewport,
+        ))
         .with_children(|builder| {
             builder.spawn(NodeBundle {
                 style: Style {
@@ -155,20 +159,22 @@ fn spawn_with_viewport_coords(mut commands: Commands) {
         });
 }
 
-fn spawn_with_pixel_coords(mut commands: Commands) {
+fn spawn_with_pixel_coords(commands: &mut Commands) {
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Px(800.),
-                height: Val::Px(600.),
-                border: UiRect::axes(Val::Px(40.), Val::Px(30.)),
-                flex_wrap: FlexWrap::Wrap,
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Px(800.),
+                    height: Val::Px(600.),
+                    border: UiRect::axes(Val::Px(40.), Val::Px(30.)),
+                    flex_wrap: FlexWrap::Wrap,
+                    ..default()
+                },
+                border_color: PALETTE[1].into(),
                 ..default()
             },
-            background_color: PALETTE[1].into(),
-            border_color: PALETTE[0].into(),
-            ..default()
-        })
+            Coords::Pixel,
+        ))
         .with_children(|builder| {
             builder.spawn(NodeBundle {
                 style: Style {

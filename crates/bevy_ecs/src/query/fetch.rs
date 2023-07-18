@@ -5,7 +5,7 @@ use crate::{
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, Mut, Ref, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, EntityRef, Mut, Ref, World},
 };
 pub use bevy_ecs_macros::WorldQuery;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -460,13 +460,6 @@ pub type QueryItem<'w, Q> = <Q as WorldQuery>::Item<'w>;
 /// The read-only variant of the item type returned when a [`WorldQuery`] is iterated over immutably
 pub type ROQueryItem<'w, Q> = QueryItem<'w, <Q as WorldQuery>::ReadOnly>;
 
-/// The `Fetch` of a [`WorldQuery`], which is used to store state for each archetype/table.
-#[deprecated = "use <Q as WorldQuery>::Fetch<'w> instead"]
-pub type QueryFetch<'w, Q> = <Q as WorldQuery>::Fetch<'w>;
-/// The read-only `Fetch` of a [`WorldQuery`], which is used to store state for each archetype/table.
-#[deprecated = "use <<Q as WorldQuery>::ReadOnly as WorldQuery>::Fetch<'w> instead"]
-pub type ROQueryFetch<'w, Q> = <<Q as WorldQuery>::ReadOnly as WorldQuery>::Fetch<'w>;
-
 /// SAFETY: no component or archetype access
 unsafe impl WorldQuery for Entity {
     type Fetch<'w> = ();
@@ -536,6 +529,89 @@ unsafe impl WorldQuery for Entity {
 /// SAFETY: access is read only
 unsafe impl ReadOnlyWorldQuery for Entity {}
 
+/// SAFETY: `Self` is the same as `Self::ReadOnly`
+unsafe impl<'a> WorldQuery for EntityRef<'a> {
+    type Fetch<'w> = &'w World;
+    type Item<'w> = EntityRef<'w>;
+    type ReadOnly = Self;
+    type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    const IS_DENSE: bool = true;
+
+    const IS_ARCHETYPAL: bool = true;
+
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        _state: &Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        // SAFE: EntityRef has permission to access the whole world immutably thanks to update_component_access and update_archetype_component_access
+        world.world()
+    }
+
+    unsafe fn clone_fetch<'w>(world: &Self::Fetch<'w>) -> Self::Fetch<'w> {
+        world
+    }
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _archetype: &'w Archetype,
+        _table: &Table,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        world: &mut Self::Fetch<'w>,
+        entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+        // SAFETY: `fetch` must be called with an entity that exists in the world
+        unsafe { world.get_entity(entity).debug_checked_unwrap() }
+    }
+
+    fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+        assert!(
+            !access.access().has_any_write(),
+            "EntityRef conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+        );
+        access.read_all();
+    }
+
+    fn update_archetype_component_access(
+        _state: &Self::State,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
+        for component_id in archetype.components() {
+            access.add_read(archetype.get_archetype_component_id(component_id).unwrap());
+        }
+    }
+
+    fn init_state(_world: &mut World) {}
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+}
+
+/// SAFETY: access is read only
+unsafe impl<'a> ReadOnlyWorldQuery for EntityRef<'a> {}
+
 #[doc(hidden)]
 pub struct ReadFetch<'w, T> {
     // T::Storage = TableStorage
@@ -579,7 +655,6 @@ unsafe impl<T: Component> WorldQuery for &T {
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
                     // Note that we do not actually access any components in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
-                    .unsafe_world()
                     .storages()
                     .sparse_sets
                     .get(component_id)
@@ -727,7 +802,6 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
                     // SAFETY: See &T::init_fetch.
-                    .unsafe_world()
                     .storages()
                     .sparse_sets
                     .get(component_id)
@@ -891,7 +965,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
                     // SAFETY: See &T::init_fetch.
-                    .unsafe_world()
                     .storages()
                     .sparse_sets
                     .get(component_id)

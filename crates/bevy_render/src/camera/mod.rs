@@ -28,10 +28,12 @@ impl Plugin for CameraPlugin {
             .register_type::<CameraRenderGraph>()
             .register_type::<RenderTarget>()
             .init_resource::<ManualTextureViews>()
-            .add_plugin(CameraProjectionPlugin::<Projection>::default())
-            .add_plugin(CameraProjectionPlugin::<OrthographicProjection>::default())
-            .add_plugin(CameraProjectionPlugin::<PerspectiveProjection>::default())
-            .add_plugin(ExtractResourcePlugin::<ManualTextureViews>::default());
+            .add_plugins((
+                CameraProjectionPlugin::<Projection>::default(),
+                CameraProjectionPlugin::<OrthographicProjection>::default(),
+                CameraProjectionPlugin::<PerspectiveProjection>::default(),
+                ExtractResourcePlugin::<ManualTextureViews>::default(),
+            ));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

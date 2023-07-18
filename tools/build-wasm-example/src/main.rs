@@ -4,7 +4,7 @@ use clap::{Parser, ValueEnum};
 use xshell::{cmd, Shell};
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
-enum Api {
+enum WebApi {
     Webgl2,
     Webgpu,
 }
@@ -26,9 +26,9 @@ struct Args {
     /// Stop after this number of frames
     frames: Option<usize>,
 
-    #[arg(value_enum, short, long, default_value_t = Api::Webgl2)]
+    #[arg(value_enum, short, long, default_value_t = WebApi::Webgl2)]
     /// Browser API to use for rendering
-    api: Api,
+    api: WebApi,
 
     #[arg(short, long)]
     /// Optimize the wasm file for size with wasm-opt
@@ -50,8 +50,8 @@ fn main() {
     }
 
     match cli.api {
-        Api::Webgl2 => (),
-        Api::Webgpu => {
+        WebApi::Webgl2 => (),
+        WebApi::Webgpu => {
             features.push("animation");
             features.push("bevy_asset");
             features.push("bevy_audio");
@@ -95,7 +95,7 @@ fn main() {
             sh,
             "cargo build {parameters...} --profile release --target wasm32-unknown-unknown --example {example}"
         );
-        if matches!(cli.api, Api::Webgpu) {
+        if matches!(cli.api, WebApi::Webgpu) {
             cmd = cmd.env("RUSTFLAGS", "--cfg=web_sys_unstable_apis");
         }
         cmd.run().expect("Error building example");
@@ -109,7 +109,7 @@ fn main() {
 
         if cli.optimize_size {
             cmd!(sh, "wasm-opt -Oz --output examples/wasm/target/wasm_example_bg.wasm.optimized examples/wasm/target/wasm_example_bg.wasm")
-                .run().expect("Failed to optimize for size. Do you have wasm-opt corretly set up?");
+                .run().expect("Failed to optimize for size. Do you have wasm-opt correctly set up?");
         }
 
         if cli.test {

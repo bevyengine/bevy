@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -44,6 +44,7 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "multi-threaded",
   "png",
   "hdr",
   "ktx2",
@@ -95,7 +96,7 @@ bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
 
 # Provides text functionality
-bevy_text = ["bevy_internal/bevy_text"]
+bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
 
 # A custom ECS-driven UI framework
 bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite"]
@@ -199,6 +200,9 @@ filesystem_watcher = ["bevy_internal/filesystem_watcher"]
 # Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
 
+# Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.
+multi-threaded = ["bevy_internal/multi-threaded"]
+
 # Wayland display server support
 wayland = ["bevy_internal/wayland"]
 
@@ -248,8 +252,8 @@ pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 webgl2 = ["bevy_internal/webgl"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.0-dev", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.11.0-dev", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0-dev", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.12.0-dev", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.4"
@@ -451,6 +455,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "generate_custom_mesh"
+path = "examples/3d/generate_custom_mesh.rs"
+
+[package.metadata.example.generate_custom_mesh]
+name = "Generate Custom Mesh"
+description = "Simple showcase of how to generate a custom mesh with a custom texture"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "anti_aliasing"
 path = "examples/3d/anti_aliasing.rs"
 
@@ -563,7 +577,6 @@ wasm = true
 [[example]]
 name = "tonemapping"
 path = "examples/3d/tonemapping.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.tonemapping]
 name = "Tonemapping"
@@ -756,6 +769,16 @@ path = "examples/animation/animated_fox.rs"
 [package.metadata.example.animated_fox]
 name = "Animated Fox"
 description = "Plays an animation from a skinned glTF"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "morph_targets"
+path = "examples/animation/morph_targets.rs"
+
+[package.metadata.example.morph_targets]
+name = "Morph Targets"
+description = "Plays an animation from a glTF file with meshes with morph targets"
 category = "Animation"
 wasm = true
 

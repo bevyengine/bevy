@@ -45,7 +45,7 @@ pub struct Core2dPlugin;
 impl Plugin for Core2dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera2d>()
-            .add_plugin(ExtractComponentPlugin::<Camera2d>::default());
+            .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,

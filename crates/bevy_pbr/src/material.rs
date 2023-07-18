@@ -197,7 +197,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+            .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -224,10 +224,10 @@ where
         }
 
         // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
-        app.add_plugin(PrepassPipelinePlugin::<M>::default());
+        app.add_plugins(PrepassPipelinePlugin::<M>::default());
 
         if self.prepass_enabled {
-            app.add_plugin(PrepassPlugin::<M>::default());
+            app.add_plugins(PrepassPlugin::<M>::default());
         }
     }
 
@@ -483,6 +483,9 @@ pub fn queue_material_meshes<M: Material>(
                     let mut mesh_key =
                         MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                             | view_key;
+                    if mesh.morph_targets.is_some() {
+                        mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+                    }
                     match material.properties.alpha_mode {
                         AlphaMode::Blend => {
                             mesh_key |= MeshPipelineKey::BLEND_ALPHA;

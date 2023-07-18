@@ -11,22 +11,14 @@ use crate::{
 use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
 };
-use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
-use bevy_utils::HashSet;
-use bevy_utils::{Duration, Instant};
+use bevy_reflect_derive::impl_reflect_value;
 use std::fmt;
 use std::{
     any::Any,
     borrow::Cow,
     collections::VecDeque,
-    ffi::OsString,
     hash::{BuildHasher, Hash, Hasher},
-    num::{
-        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
-        NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
-    },
-    ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 impl_reflect_value!(bool(
@@ -220,47 +212,6 @@ impl_reflect_value!(::std::ffi::OsString(
 ));
 #[cfg(not(any(unix, windows)))]
 impl_reflect_value!(::std::ffi::OsString(Debug, Hash, PartialEq));
-
-impl_from_reflect_value!(bool);
-impl_from_reflect_value!(char);
-impl_from_reflect_value!(u8);
-impl_from_reflect_value!(u16);
-impl_from_reflect_value!(u32);
-impl_from_reflect_value!(u64);
-impl_from_reflect_value!(u128);
-impl_from_reflect_value!(usize);
-impl_from_reflect_value!(i8);
-impl_from_reflect_value!(i16);
-impl_from_reflect_value!(i32);
-impl_from_reflect_value!(i64);
-impl_from_reflect_value!(i128);
-impl_from_reflect_value!(isize);
-impl_from_reflect_value!(f32);
-impl_from_reflect_value!(f64);
-impl_from_reflect_value!(String);
-impl_from_reflect_value!(PathBuf);
-impl_from_reflect_value!(OsString);
-impl_from_reflect_value!(HashSet<T: TypePath + Hash + Eq + Clone + Send + Sync>);
-impl_from_reflect_value!(Range<T: TypePath + Clone + Send + Sync>);
-impl_from_reflect_value!(RangeInclusive<T: TypePath + Clone + Send + Sync>);
-impl_from_reflect_value!(RangeFrom<T: TypePath + Clone + Send + Sync>);
-impl_from_reflect_value!(RangeTo<T: TypePath + Clone + Send + Sync>);
-impl_from_reflect_value!(RangeToInclusive<T: TypePath + Clone + Send + Sync>);
-impl_from_reflect_value!(RangeFull);
-impl_from_reflect_value!(Duration);
-impl_from_reflect_value!(Instant);
-impl_from_reflect_value!(NonZeroI128);
-impl_from_reflect_value!(NonZeroU128);
-impl_from_reflect_value!(NonZeroIsize);
-impl_from_reflect_value!(NonZeroUsize);
-impl_from_reflect_value!(NonZeroI64);
-impl_from_reflect_value!(NonZeroU64);
-impl_from_reflect_value!(NonZeroU32);
-impl_from_reflect_value!(NonZeroI32);
-impl_from_reflect_value!(NonZeroI16);
-impl_from_reflect_value!(NonZeroU16);
-impl_from_reflect_value!(NonZeroU8);
-impl_from_reflect_value!(NonZeroI8);
 
 macro_rules! impl_reflect_for_veclike {
     ($ty:path, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
@@ -1256,7 +1207,7 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
     }
 
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-        // into_owned() is not uneccessary here because it avoids cloning whenever you have a Cow::Owned already
+        // into_owned() is not unnecessary here because it avoids cloning whenever you have a Cow::Owned already
         #[allow(clippy::unnecessary_to_owned)]
         self.into_owned()
             .into_iter()
@@ -1737,7 +1688,7 @@ mod tests {
 
     #[test]
     fn option_should_from_reflect() {
-        #[derive(Reflect, FromReflect, PartialEq, Debug)]
+        #[derive(Reflect, PartialEq, Debug)]
         struct Foo(usize);
 
         let expected = Some(Foo(123));
@@ -1748,7 +1699,7 @@ mod tests {
 
     #[test]
     fn option_should_apply() {
-        #[derive(Reflect, FromReflect, PartialEq, Debug)]
+        #[derive(Reflect, PartialEq, Debug)]
         struct Foo(usize);
 
         // === None on None === //

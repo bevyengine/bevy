@@ -121,6 +121,11 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes.contains(index.sparse_set_index())
     }
 
+    /// Returns `true` if this accesses anything mutably.
+    pub fn has_any_write(&self) -> bool {
+        !self.writes.is_clear()
+    }
+
     /// Sets this as having access to all indexed elements (i.e. `&World`).
     pub fn read_all(&mut self) {
         self.reads_all = true;

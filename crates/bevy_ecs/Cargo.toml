@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Bevy Engine's entity component system"
 homepage = "https://bevyengine.org"
@@ -11,14 +11,15 @@ categories = ["game-engines", "data-structures"]
 
 [features]
 trace = []
-default = ["bevy_reflect"]
+multi-threaded = ["bevy_tasks/multi-threaded"]
+default = ["bevy_reflect", "multi-threaded"]
 
 [dependencies]
-bevy_ptr = { path = "../bevy_ptr", version = "0.11.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev", optional = true }
-bevy_tasks = { path = "../bevy_tasks", version = "0.11.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
-bevy_ecs_macros = { path = "macros", version = "0.11.0-dev" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.12.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev", optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
+bevy_ecs_macros = { path = "macros", version = "0.12.0-dev" }
 
 async-channel = "1.4"
 event-listener = "2.5"

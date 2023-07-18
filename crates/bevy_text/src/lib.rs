@@ -111,7 +111,7 @@ impl Plugin for TextPlugin {
             app,
             DEFAULT_FONT_HANDLE,
             "FiraMono-subset.ttf",
-            |bytes: &[u8]| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
+            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
     }
 }

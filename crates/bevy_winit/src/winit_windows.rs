@@ -345,7 +345,9 @@ pub fn winit_window_position(
             if let Some(monitor) = maybe_monitor {
                 let screen_size = monitor.size();
 
-                let scale_factor = resolution.base_scale_factor();
+                // We use the monitors scale factor here since WindowResolution.scale_factor
+                // is not yet populated when windows are created at plugin setup
+                let scale_factor = monitor.scale_factor();
 
                 // Logical to physical window size
                 let (width, height): (u32, u32) =

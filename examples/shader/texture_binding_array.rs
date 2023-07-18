@@ -16,12 +16,13 @@ use std::{num::NonZeroU32, process::exit};
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()));
-
-    app.add_plugin(GpuFeatureSupportChecker)
-        .add_plugin(MaterialPlugin::<BindlessMaterial>::default())
-        .add_systems(Startup, setup)
-        .run();
+    app.add_plugins((
+        DefaultPlugins.set(ImagePlugin::default_nearest()),
+        GpuFeatureSupportChecker,
+        MaterialPlugin::<BindlessMaterial>::default(),
+    ))
+    .add_systems(Startup, setup)
+    .run();
 }
 
 const MAX_TEXTURE_COUNT: usize = 16;
