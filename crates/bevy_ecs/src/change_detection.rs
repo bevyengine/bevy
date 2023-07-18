@@ -1066,7 +1066,8 @@ mod tests {
 
     #[test]
     fn mut_untyped_to_reflect() {
-        let (last_change_tick, change_tick) = (2, 3);
+        let last_run = Tick::new(2);
+        let this_run = Tick::new(3);
         let mut component_ticks = ComponentTicks {
             added: Tick::new(1),
             changed: Tick::new(2),
@@ -1074,8 +1075,8 @@ mod tests {
         let ticks = TicksMut {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
-            last_change_tick,
-            change_tick,
+            last_run,
+            this_run,
         };
 
         let mut value: i32 = 5;
