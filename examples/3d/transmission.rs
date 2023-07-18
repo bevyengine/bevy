@@ -46,7 +46,7 @@ fn main() {
     // Sadly, it's not available under WebGL.
     #[cfg(any(not(feature = "webgl2"), not(target_arch = "wasm32")))]
     app.insert_resource(Msaa::Off)
-        .add_plugin(TemporalAntiAliasPlugin);
+        .add_plugins(TemporalAntiAliasPlugin);
 
     app.run();
 }
