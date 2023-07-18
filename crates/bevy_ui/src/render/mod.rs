@@ -821,7 +821,10 @@ pub fn queue_uinodes(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &ui_pipeline,
-                UiPipelineKey { hdr: view.hdr, msaa_samples: msaa.samples() },
+                UiPipelineKey {
+                    hdr: view.hdr,
+                    msaa_samples: msaa.samples(),
+                },
             );
             for (entity, batch) in &ui_batches {
                 image_bind_groups
