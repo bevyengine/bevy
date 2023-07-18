@@ -17,7 +17,7 @@ use crate::CursorIcon;
 /// Currently this is assumed to only exist on 1 entity at a time.
 ///
 /// [`WindowPlugin`](crate::WindowPlugin) will spawn a [`Window`] entity
-/// with this component if [`WindowPlugin`](crate::WindowPlugin::primary_window)
+/// with this component if [`primary_window`](crate::WindowPlugin::primary_window)
 /// is `Some`.
 #[derive(Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect)]
 #[reflect(Component)]
