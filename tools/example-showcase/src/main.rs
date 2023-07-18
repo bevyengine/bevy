@@ -53,7 +53,7 @@ enum Action {
         /// Path to the folder where the content should be created
         content_folder: String,
 
-        #[arg(value_enum, long, default_value_t = WebApi::Webgl2)]
+        #[arg(value_enum, long, default_value_t = WebApi::Webgpu)]
         /// Which API to use for rendering
         api: WebApi,
     },
