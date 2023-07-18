@@ -18,7 +18,7 @@ use winit::{
 
 use crate::{
     accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers},
-    converters::convert_window_level,
+    converters::{convert_window_level, convert_window_theme},
 };
 
 /// A resource which maps window entities to [`winit`] library windows.
@@ -92,6 +92,7 @@ impl WinitWindows {
 
         winit_window_builder = winit_window_builder
             .with_window_level(convert_window_level(window.window_level))
+            .with_theme(window.window_theme.map(convert_window_theme))
             .with_resizable(window.resizable)
             .with_decorations(window.decorations)
             .with_transparent(window.transparent);
@@ -344,7 +345,9 @@ pub fn winit_window_position(
             if let Some(monitor) = maybe_monitor {
                 let screen_size = monitor.size();
 
-                let scale_factor = resolution.base_scale_factor();
+                // We use the monitors scale factor here since WindowResolution.scale_factor
+                // is not yet populated when windows are created at plugin setup
+                let scale_factor = monitor.scale_factor();
 
                 // Logical to physical window size
                 let (width, height): (u32, u32) =

@@ -717,8 +717,8 @@ impl Entities {
         }
     }
 
-    // Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return None
-    // unless they are later populated with a valid archetype.
+    /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
+    /// unless they are later populated with a valid archetype.
     pub fn flush_as_invalid(&mut self) {
         // SAFETY: as per `flush` safety docs, the archetype id can be set to [`ArchetypeId::INVALID`] if
         // the [`Entity`] has not been assigned to an [`Archetype`][crate::archetype::Archetype], which is the case here
@@ -905,7 +905,7 @@ mod tests {
 
         assert!(entities.reserve_generations(entity.index, GENERATIONS));
 
-        // The very next entitiy allocated should be a further generation on the same index
+        // The very next entity allocated should be a further generation on the same index
         let next_entity = entities.alloc();
         assert_eq!(next_entity.index(), entity.index());
         assert!(next_entity.generation > entity.generation + GENERATIONS);

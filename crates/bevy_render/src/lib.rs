@@ -32,7 +32,7 @@ pub mod prelude {
     pub use crate::{
         camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
         color::Color,
-        mesh::{shape, Mesh},
+        mesh::{morph::MorphWeights, shape, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
@@ -43,13 +43,12 @@ pub mod prelude {
 
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
-pub use once_cell;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 use wgpu::Instance;
 
 use crate::{
     camera::CameraPlugin,
-    mesh::MeshPlugin,
+    mesh::{morph::MorphPlugin, MeshPlugin},
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::WgpuSettings,
@@ -72,39 +71,39 @@ pub struct RenderPlugin {
 
 /// The labels of the default App rendering sets.
 ///
-/// The sets run in the order listed, with [`apply_system_buffers`] inserted between each set.
+/// The sets run in the order listed, with [`apply_deferred`] inserted between each set.
 ///
-/// The `*Flush` sets are assigned to the copy of [`apply_system_buffers`]
+/// The `*Flush` sets are assigned to the copy of [`apply_deferred`]
 /// that runs immediately after the matching system set.
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderSet {
-    /// The copy of [`apply_system_buffers`] that runs at the beginning of this schedule.
+    /// The copy of [`apply_deferred`] that runs at the beginning of this schedule.
     /// This is used for applying the commands from the [`ExtractSchedule`]
     ExtractCommands,
     /// Prepare render resources from the extracted data for the GPU.
     Prepare,
-    /// The copy of [`apply_system_buffers`] that runs immediately after [`Prepare`](RenderSet::Prepare).
+    /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
     PrepareFlush,
     /// Create [`BindGroups`](render_resource::BindGroup) that depend on
     /// [`Prepare`](RenderSet::Prepare) data and queue up draw calls to run during the
     /// [`Render`](RenderSet::Render) step.
     Queue,
-    /// The copy of [`apply_system_buffers`] that runs immediately after [`Queue`](RenderSet::Queue).
+    /// The copy of [`apply_deferred`] that runs immediately after [`Queue`](RenderSet::Queue).
     QueueFlush,
     // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
     /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
     PhaseSort,
-    /// The copy of [`apply_system_buffers`] that runs immediately after [`PhaseSort`](RenderSet::PhaseSort).
+    /// The copy of [`apply_deferred`] that runs immediately after [`PhaseSort`](RenderSet::PhaseSort).
     PhaseSortFlush,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.
     Render,
-    /// The copy of [`apply_system_buffers`] that runs immediately after [`Render`](RenderSet::Render).
+    /// The copy of [`apply_deferred`] that runs immediately after [`Render`](RenderSet::Render).
     RenderFlush,
     /// Cleanup render resources here.
     Cleanup,
-    /// The copy of [`apply_system_buffers`] that runs immediately after [`Cleanup`](RenderSet::Cleanup).
+    /// The copy of [`apply_deferred`] that runs immediately after [`Cleanup`](RenderSet::Cleanup).
     CleanupFlush,
 }
 
@@ -116,7 +115,7 @@ impl Render {
     /// Sets up the base structure of the rendering [`Schedule`].
     ///
     /// The sets defined in this enum are configured to run in order,
-    /// and a copy of [`apply_system_buffers`] is inserted into each `*Flush` set.
+    /// and a copy of [`apply_deferred`] is inserted into each `*Flush` set.
     pub fn base_schedule() -> Schedule {
         use RenderSet::*;
 
@@ -124,11 +123,11 @@ impl Render {
 
         // Create "stage-like" structure using buffer flushes + ordering
         schedule.add_systems((
-            apply_system_buffers.in_set(PrepareFlush),
-            apply_system_buffers.in_set(QueueFlush),
-            apply_system_buffers.in_set(PhaseSortFlush),
-            apply_system_buffers.in_set(RenderFlush),
-            apply_system_buffers.in_set(CleanupFlush),
+            apply_deferred.in_set(PrepareFlush),
+            apply_deferred.in_set(QueueFlush),
+            apply_deferred.in_set(PhaseSortFlush),
+            apply_deferred.in_set(RenderFlush),
+            apply_deferred.in_set(CleanupFlush),
         ));
 
         schedule.configure_sets(
@@ -158,7 +157,7 @@ impl Render {
 /// running the next frame while rendering the current frame.
 ///
 /// This schedule is run on the main world, but its buffers are not applied
-/// via [`Schedule::apply_system_buffers`](bevy_ecs::schedule::Schedule) until it is returned to the render world.
+/// via [`Schedule::apply_deferred`](bevy_ecs::schedule::Schedule) until it is returned to the render world.
 #[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash)]
 pub struct ExtractSchedule;
 
@@ -269,7 +268,7 @@ impl Plugin for RenderPlugin {
             render_app.main_schedule_label = Box::new(Render);
 
             let mut extract_schedule = Schedule::new();
-            extract_schedule.set_apply_final_buffers(false);
+            extract_schedule.set_apply_final_deferred(false);
 
             render_app
                 .add_schedule(ExtractSchedule, extract_schedule)
@@ -329,12 +328,15 @@ impl Plugin for RenderPlugin {
             }));
         }
 
-        app.add_plugin(ValidParentCheckPlugin::<view::ComputedVisibility>::default())
-            .add_plugin(WindowRenderPlugin)
-            .add_plugin(CameraPlugin)
-            .add_plugin(ViewPlugin)
-            .add_plugin(MeshPlugin)
-            .add_plugin(GlobalsPlugin);
+        app.add_plugins((
+            ValidParentCheckPlugin::<view::ComputedVisibility>::default(),
+            WindowRenderPlugin,
+            CameraPlugin,
+            ViewPlugin,
+            MeshPlugin,
+            GlobalsPlugin,
+            MorphPlugin,
+        ));
 
         app.register_type::<color::Color>()
             .register_type::<primitives::Aabb>()
@@ -404,6 +406,6 @@ fn apply_extract_commands(render_world: &mut World) {
         schedules
             .get_mut(&ExtractSchedule)
             .unwrap()
-            .apply_system_buffers(render_world);
+            .apply_deferred(render_world);
     });
 }

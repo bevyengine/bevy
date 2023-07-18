@@ -53,7 +53,11 @@ use bevy_render::{
 use bevy_utils::{FloatOrd, HashMap};
 
 use crate::{
-    prepass::{node::PrepassNode, DepthPrepass},
+    prepass::{
+        node::PrepassNode, AlphaMask3dPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
+        Opaque3dPrepass, ViewPrepassTextures, DEPTH_PREPASS_FORMAT, MOTION_VECTOR_PREPASS_FORMAT,
+        NORMAL_PREPASS_FORMAT,
+    },
     skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
     upscaling::UpscalingNode,
@@ -65,8 +69,7 @@ impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera3d>()
             .register_type::<Camera3dDepthLoadOp>()
-            .add_plugin(SkyboxPlugin)
-            .add_plugin(ExtractComponentPlugin::<Camera3d>::default());
+            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()));
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -77,16 +80,24 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
+            .init_resource::<DrawFunctions<Opaque3dPrepass>>()
+            .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
+            .add_systems(ExtractSchedule, extract_camera_prepass_phase)
             .add_systems(
                 Render,
                 (
                     prepare_core_3d_depth_textures
                         .in_set(RenderSet::Prepare)
                         .after(bevy_render::view::prepare_windows),
+                    prepare_prepass_textures
+                        .in_set(RenderSet::Prepare)
+                        .after(bevy_render::view::prepare_windows),
                     sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
                 ),
             );
 
@@ -257,6 +268,50 @@ pub fn extract_core_3d_camera_phases(
     }
 }
 
+// Extract the render phases for the prepass
+pub fn extract_camera_prepass_phase(
+    mut commands: Commands,
+    cameras_3d: Extract<
+        Query<
+            (
+                Entity,
+                &Camera,
+                Option<&DepthPrepass>,
+                Option<&NormalPrepass>,
+                Option<&MotionVectorPrepass>,
+            ),
+            With<Camera3d>,
+        >,
+    >,
+) {
+    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass) in cameras_3d.iter()
+    {
+        if camera.is_active {
+            let mut entity = commands.get_or_spawn(entity);
+
+            if depth_prepass.is_some()
+                || normal_prepass.is_some()
+                || motion_vector_prepass.is_some()
+            {
+                entity.insert((
+                    RenderPhase::<Opaque3dPrepass>::default(),
+                    RenderPhase::<AlphaMask3dPrepass>::default(),
+                ));
+            }
+
+            if depth_prepass.is_some() {
+                entity.insert(DepthPrepass);
+            }
+            if normal_prepass.is_some() {
+                entity.insert(NormalPrepass);
+            }
+            if motion_vector_prepass.is_some() {
+                entity.insert(MotionVectorPrepass);
+            }
+        }
+    }
+}
+
 pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -313,6 +368,114 @@ pub fn prepare_core_3d_depth_textures(
         commands.entity(entity).insert(ViewDepthTexture {
             texture: cached_texture.texture,
             view: cached_texture.default_view,
+        });
+    }
+}
+
+// Prepares the textures used by the prepass
+pub fn prepare_prepass_textures(
+    mut commands: Commands,
+    mut texture_cache: ResMut<TextureCache>,
+    msaa: Res<Msaa>,
+    render_device: Res<RenderDevice>,
+    views_3d: Query<
+        (
+            Entity,
+            &ExtractedCamera,
+            Option<&DepthPrepass>,
+            Option<&NormalPrepass>,
+            Option<&MotionVectorPrepass>,
+        ),
+        (
+            With<RenderPhase<Opaque3dPrepass>>,
+            With<RenderPhase<AlphaMask3dPrepass>>,
+        ),
+    >,
+) {
+    let mut depth_textures = HashMap::default();
+    let mut normal_textures = HashMap::default();
+    let mut motion_vectors_textures = HashMap::default();
+    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass) in &views_3d {
+        let Some(physical_target_size) = camera.physical_target_size else {
+            continue;
+        };
+
+        let size = Extent3d {
+            depth_or_array_layers: 1,
+            width: physical_target_size.x,
+            height: physical_target_size.y,
+        };
+
+        let cached_depth_texture = depth_prepass.is_some().then(|| {
+            depth_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    let descriptor = TextureDescriptor {
+                        label: Some("prepass_depth_texture"),
+                        size,
+                        mip_level_count: 1,
+                        sample_count: msaa.samples(),
+                        dimension: TextureDimension::D2,
+                        format: DEPTH_PREPASS_FORMAT,
+                        usage: TextureUsages::COPY_DST
+                            | TextureUsages::RENDER_ATTACHMENT
+                            | TextureUsages::TEXTURE_BINDING,
+                        view_formats: &[],
+                    };
+                    texture_cache.get(&render_device, descriptor)
+                })
+                .clone()
+        });
+
+        let cached_normals_texture = normal_prepass.is_some().then(|| {
+            normal_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("prepass_normal_texture"),
+                            size,
+                            mip_level_count: 1,
+                            sample_count: msaa.samples(),
+                            dimension: TextureDimension::D2,
+                            format: NORMAL_PREPASS_FORMAT,
+                            usage: TextureUsages::RENDER_ATTACHMENT
+                                | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
+                        },
+                    )
+                })
+                .clone()
+        });
+
+        let cached_motion_vectors_texture = motion_vector_prepass.is_some().then(|| {
+            motion_vectors_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("prepass_motion_vectors_textures"),
+                            size,
+                            mip_level_count: 1,
+                            sample_count: msaa.samples(),
+                            dimension: TextureDimension::D2,
+                            format: MOTION_VECTOR_PREPASS_FORMAT,
+                            usage: TextureUsages::RENDER_ATTACHMENT
+                                | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
+                        },
+                    )
+                })
+                .clone()
+        });
+
+        commands.entity(entity).insert(ViewPrepassTextures {
+            depth: cached_depth_texture,
+            normal: cached_normals_texture,
+            motion_vectors: cached_motion_vectors_texture,
+            size,
         });
     }
 }

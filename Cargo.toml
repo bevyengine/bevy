@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
-rust-version = "1.67.0"
+rust-version = "1.70.0"
 
 [workspace]
 exclude = [
@@ -44,6 +44,7 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "multi-threaded",
   "png",
   "hdr",
   "ktx2",
@@ -95,7 +96,7 @@ bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
 
 # Provides text functionality
-bevy_text = ["bevy_internal/bevy_text"]
+bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
 
 # A custom ECS-driven UI framework
 bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite"]
@@ -199,6 +200,9 @@ filesystem_watcher = ["bevy_internal/filesystem_watcher"]
 # Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
 
+# Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.
+multi-threaded = ["bevy_internal/multi-threaded"]
+
 # Wayland display server support
 wayland = ["bevy_internal/wayland"]
 
@@ -245,8 +249,8 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 webgl2 = ["bevy_internal/webgl"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.0-dev", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.11.0-dev", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0-dev", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.12.0-dev", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.4"
@@ -448,6 +452,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "generate_custom_mesh"
+path = "examples/3d/generate_custom_mesh.rs"
+
+[package.metadata.example.generate_custom_mesh]
+name = "Generate Custom Mesh"
+description = "Simple showcase of how to generate a custom mesh with a custom texture"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "anti_aliasing"
 path = "examples/3d/anti_aliasing.rs"
 
@@ -518,6 +532,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "ssao"
+path = "examples/3d/ssao.rs"
+
+[package.metadata.example.ssao]
+name = "Screen Space Ambient Occlusion"
+description = "A scene showcasing screen space ambient occlusion"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "spotlight"
 path = "examples/3d/spotlight.rs"
 
@@ -550,7 +574,6 @@ wasm = true
 [[example]]
 name = "tonemapping"
 path = "examples/3d/tonemapping.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.tonemapping]
 name = "Tonemapping"
@@ -716,7 +739,7 @@ path = "examples/3d/wireframe.rs"
 name = "Wireframe"
 description = "Showcases wireframe rendering"
 category = "3D Rendering"
-wasm = true
+wasm = false
 
 [[example]]
 name = "no_prepass"
@@ -733,6 +756,16 @@ path = "examples/animation/animated_fox.rs"
 [package.metadata.example.animated_fox]
 name = "Animated Fox"
 description = "Plays an animation from a skinned glTF"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "morph_targets"
+path = "examples/animation/morph_targets.rs"
+
+[package.metadata.example.morph_targets]
+name = "Morph Targets"
+description = "Plays an animation from a glTF file with meshes with morph targets"
 category = "Animation"
 wasm = true
 
@@ -1043,12 +1076,12 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "apply_system_buffers"
-path = "examples/ecs/apply_system_buffers.rs"
+name = "apply_deferred"
+path = "examples/ecs/apply_deferred.rs"
 
-[package.metadata.example.apply_system_buffers]
+[package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
-description = "Show how to use `apply_system_buffers` system"
+description = "Show how to use `apply_deferred` system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1763,12 +1796,32 @@ wasm = true
 
 # UI (User Interface)
 [[example]]
+name = "borders"
+path = "examples/ui/borders.rs"
+
+[package.metadata.example.borders]
+name = "Borders"
+description = "Demonstrates how to create a node with a border"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "button"
 path = "examples/ui/button.rs"
 
 [package.metadata.example.button]
 name = "Button"
 description = "Illustrates creating and updating a button"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "display_and_visibility"
+path = "examples/ui/display_and_visibility.rs"
+
+[package.metadata.example.display_and_visibility]
+name = "Display and Visibility"
+description = "Demonstrates how Display and Visibility work in the UI."
 category = "UI (User Interface)"
 wasm = true
 
@@ -1923,6 +1976,26 @@ description = "Illustrates how to scale the UI"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "ui_texture_atlas"
+path = "examples/ui/ui_texture_atlas.rs"
+
+[package.metadata.example.ui_texture_atlas]
+name = "UI Texture Atlas"
+description = "Illustrates how to use TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "viewport_debug"
+path = "examples/ui/viewport_debug.rs"
+
+[package.metadata.example.viewport_debug]
+name = "Viewport Debug"
+description = "An example for debugging viewport coordinates"
+category = "UI (User Interface)"
+wasm = true
+
 # Window
 [[example]]
 name = "clear_color"
@@ -2011,6 +2084,13 @@ hidden = true
 [[example]]
 name = "window_resizing"
 path = "examples/window/window_resizing.rs"
+
+[[example]]
+name = "fallback_image"
+path = "examples/shader/fallback_image.rs"
+
+[package.metadata.example.fallback_image]
+hidden = true
 
 [package.metadata.example.window_resizing]
 name = "Window Resizing"

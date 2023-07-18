@@ -5,15 +5,59 @@ use std::ops::Not;
 use crate::component::{self, ComponentId};
 use crate::query::Access;
 use crate::system::{CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System};
+use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::world::World;
 
-pub type BoxedCondition = Box<dyn ReadOnlySystem<In = (), Out = bool>>;
+/// A type-erased run condition stored in a [`Box`].
+pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 
 /// A system that determines if one or more scheduled systems should run.
 ///
-/// Implemented for functions and closures that convert into [`System<In=(), Out=bool>`](crate::system::System)
+/// Implemented for functions and closures that convert into [`System<Out=bool>`](crate::system::System)
 /// with [read-only](crate::system::ReadOnlySystemParam) parameters.
-pub trait Condition<Marker>: sealed::Condition<Marker> {
+///
+/// # Examples
+/// A condition that returns true every other time it's called.
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// fn every_other_time() -> impl Condition<()> {
+///     IntoSystem::into_system(|mut flag: Local<bool>| {
+///         *flag = !*flag;
+///         *flag
+///     })
+/// }
+///
+/// # #[derive(Resource)] struct DidRun(bool);
+/// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
+/// # let mut schedule = Schedule::new();
+/// schedule.add_systems(my_system.run_if(every_other_time()));
+/// # let mut world = World::new();
+/// # world.insert_resource(DidRun(false));
+/// # schedule.run(&mut world);
+/// # assert!(world.resource::<DidRun>().0);
+/// # world.insert_resource(DidRun(false));
+/// # schedule.run(&mut world);
+/// # assert!(!world.resource::<DidRun>().0);
+/// ```
+///
+/// A condition that takes a bool as an input and returns it unchanged.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// fn identity() -> impl Condition<(), bool> {
+///     IntoSystem::into_system(|In(x)| x)
+/// }
+///
+/// # fn always_true() -> bool { true }
+/// # let mut schedule = Schedule::new();
+/// # #[derive(Resource)] struct DidRun(bool);
+/// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
+/// schedule.add_systems(my_system.run_if(always_true.pipe(identity())));
+/// # let mut world = World::new();
+/// # world.insert_resource(DidRun(false));
+/// # schedule.run(&mut world);
+/// # assert!(world.resource::<DidRun>().0);
+pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and_then` return `true`.
     ///
@@ -58,7 +102,7 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
     ///
     /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
-    fn and_then<M, C: Condition<M>>(self, and_then: C) -> AndThen<Self::System, C::System> {
+    fn and_then<M, C: Condition<M, In>>(self, and_then: C) -> AndThen<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(and_then);
         let name = format!("{} && {}", a.name(), b.name());
@@ -105,7 +149,7 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     /// # app.run(&mut world);
     /// # assert!(world.resource::<C>().0);
     /// ```
-    fn or_else<M, C: Condition<M>>(self, or_else: C) -> OrElse<Self::System, C::System> {
+    fn or_else<M, C: Condition<M, In>>(self, or_else: C) -> OrElse<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(or_else);
         let name = format!("{} || {}", a.name(), b.name());
@@ -113,28 +157,29 @@ pub trait Condition<Marker>: sealed::Condition<Marker> {
     }
 }
 
-impl<Marker, F> Condition<Marker> for F where F: sealed::Condition<Marker> {}
+impl<Marker, In, F> Condition<Marker, In> for F where F: sealed::Condition<Marker, In> {}
 
 mod sealed {
     use crate::system::{IntoSystem, ReadOnlySystem};
 
-    pub trait Condition<Marker>:
-        IntoSystem<(), bool, Marker, System = Self::ReadOnlySystem>
+    pub trait Condition<Marker, In>:
+        IntoSystem<In, bool, Marker, System = Self::ReadOnlySystem>
     {
         // This associated type is necessary to let the compiler
         // know that `Self::System` is `ReadOnlySystem`.
-        type ReadOnlySystem: ReadOnlySystem<In = (), Out = bool>;
+        type ReadOnlySystem: ReadOnlySystem<In = In, Out = bool>;
     }
 
-    impl<Marker, F> Condition<Marker> for F
+    impl<Marker, In, F> Condition<Marker, In> for F
     where
-        F: IntoSystem<(), bool, Marker>,
+        F: IntoSystem<In, bool, Marker>,
         F::System: ReadOnlySystem,
     {
         type ReadOnlySystem = F::System;
     }
 }
 
+/// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
     use std::borrow::Cow;
 
@@ -201,7 +246,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// app.add_systems(
-    ///     // `resource_exsists` will only return true if the given resource exsists in the world
+    ///     // `resource_exists` will only return true if the given resource exists in the world
     ///     my_system.run_if(resource_exists::<Counter>()),
     /// );
     ///
@@ -279,7 +324,7 @@ pub mod common_conditions {
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists_and_equals` will only return true
-    ///     // if the given resource exsists and equals the given value
+    ///     // if the given resource exists and equals the given value
     ///     my_system.run_if(resource_exists_and_equals(Counter(0))),
     /// );
     ///
@@ -377,7 +422,7 @@ pub mod common_conditions {
     ///     my_system.run_if(
     ///         resource_changed::<Counter>()
     ///         // By default detecting changes will also trigger if the resource was
-    ///         // just added, this won't work with my example so I will addd a second
+    ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
     ///         .and_then(not(resource_added::<Counter>()))
     ///     ),
@@ -426,11 +471,11 @@ pub mod common_conditions {
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists_and_changed` will only return true if the
-    ///     // given resource exsists and was just changed (or added)
+    ///     // given resource exists and was just changed (or added)
     ///     my_system.run_if(
     ///         resource_exists_and_changed::<Counter>()
     ///         // By default detecting changes will also trigger if the resource was
-    ///         // just added, this won't work with my example so I will addd a second
+    ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
     ///         .and_then(not(resource_added::<Counter>()))
     ///     ),
@@ -492,7 +537,7 @@ pub mod common_conditions {
     ///     my_system.run_if(
     ///         resource_changed_or_removed::<Counter>()
     ///         // By default detecting changes will also trigger if the resource was
-    ///         // just added, this won't work with my example so I will addd a second
+    ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
     ///         .and_then(not(resource_added::<Counter>()))
     ///     ),
@@ -620,7 +665,7 @@ pub mod common_conditions {
     ///
     /// app.add_systems(
     ///     // `state_exists` will only return true if the
-    ///     // given state exsists
+    ///     // given state exists
     ///     my_system.run_if(state_exists::<GameState>()),
     /// );
     ///
@@ -719,7 +764,7 @@ pub mod common_conditions {
     ///
     /// app.add_systems((
     ///     // `state_exists_and_equals` will only return true if the
-    ///     // given state exsists and equals the given value
+    ///     // given state exists and equals the given value
     ///     play_system.run_if(state_exists_and_equals(GameState::Playing)),
     ///     pause_system.run_if(state_exists_and_equals(GameState::Paused)),
     /// ));
@@ -833,6 +878,7 @@ pub mod common_conditions {
     ///     my_system.run_if(on_event::<MyEvent>()),
     /// );
     ///
+    /// #[derive(Event)]
     /// struct MyEvent;
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
@@ -902,7 +948,7 @@ pub mod common_conditions {
         // Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
         // due to Bevy having a specialized implementation for events.
-        move |mut removals: RemovedComponents<T>| !removals.iter().count() != 0
+        move |mut removals: RemovedComponents<T>| removals.iter().count() != 0
     }
 
     /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
@@ -990,7 +1036,7 @@ where
         self.condition.is_exclusive()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         // SAFETY: The inner condition system asserts its own safety.
         !self.condition.run_unsafe(input, world)
     }
@@ -999,15 +1045,15 @@ where
         !self.condition.run(input, world)
     }
 
-    fn apply_buffers(&mut self, world: &mut World) {
-        self.condition.apply_buffers(world);
+    fn apply_deferred(&mut self, world: &mut World) {
+        self.condition.apply_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut World) {
         self.condition.initialize(world);
     }
 
-    fn update_archetype_component_access(&mut self, world: &World) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         self.condition.update_archetype_component_access(world);
     }
 
@@ -1090,6 +1136,7 @@ mod tests {
     use crate::schedule::{common_conditions::not, State, States};
     use crate::system::Local;
     use crate::{change_detection::ResMut, schedule::Schedule, world::World};
+    use bevy_ecs_macros::Event;
     use bevy_ecs_macros::Resource;
 
     #[derive(Resource, Default)]
@@ -1196,6 +1243,9 @@ mod tests {
     #[derive(Component)]
     struct TestComponent;
 
+    #[derive(Event)]
+    struct TestEvent;
+
     fn test_system() {}
 
     // Ensure distributive_run_if compiles with the common conditions.
@@ -1213,7 +1263,7 @@ mod tests {
                 .distributive_run_if(state_exists::<TestState>())
                 .distributive_run_if(in_state(TestState::A))
                 .distributive_run_if(state_changed::<TestState>())
-                .distributive_run_if(on_event::<u8>())
+                .distributive_run_if(on_event::<TestEvent>())
                 .distributive_run_if(any_with_component::<TestComponent>())
                 .distributive_run_if(not(run_once())),
         );

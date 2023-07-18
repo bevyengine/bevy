@@ -3,6 +3,7 @@ use xshell::{cmd, Shell};
 use bitflags::bitflags;
 
 bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     struct Check: u32 {
         const FORMAT = 0b00000001;
         const CLIPPY = 0b00000010;

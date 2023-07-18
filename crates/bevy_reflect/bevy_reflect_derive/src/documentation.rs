@@ -9,7 +9,7 @@ use syn::{Attribute, Expr, ExprLit, Lit, Meta};
 ///
 /// When converted to a [`TokenStream`], this will output an `Option<String>`
 /// containing the collection of doc comments.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct Documentation {
     docs: Vec<String>,
 }

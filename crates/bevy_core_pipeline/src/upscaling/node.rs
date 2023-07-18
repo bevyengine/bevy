@@ -47,7 +47,7 @@ impl ViewNode for UpscalingNode {
             LoadOp::Clear(Default::default())
         };
 
-        let upscaled_texture = target.main_texture();
+        let upscaled_texture = target.main_texture_view();
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {

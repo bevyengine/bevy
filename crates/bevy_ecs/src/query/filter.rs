@@ -4,7 +4,7 @@ use crate::{
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
-    world::World,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
@@ -51,7 +51,13 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
     #[inline]
-    unsafe fn init_fetch(_world: &World, _state: &ComponentId, _last_run: Tick, _this_run: Tick) {}
+    unsafe fn init_fetch(
+        _world: UnsafeWorldCell,
+        _state: &ComponentId,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) {
+    }
 
     unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
 
@@ -148,7 +154,13 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
     #[inline]
-    unsafe fn init_fetch(_world: &World, _state: &ComponentId, _last_run: Tick, _this_run: Tick) {}
+    unsafe fn init_fetch(
+        _world: UnsafeWorldCell,
+        _state: &ComponentId,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) {
+    }
 
     unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
 
@@ -268,7 +280,7 @@ macro_rules! impl_query_filter_tuple {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
             #[inline]
-            unsafe fn init_fetch<'w>(world: &'w World, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
                 ($(OrFetch {
                     fetch: $filter::init_fetch(world, $filter, last_run, this_run),
@@ -412,12 +424,18 @@ macro_rules! impl_tick_filter {
             }
 
             #[inline]
-            unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(
+                world: UnsafeWorldCell<'w>,
+                &id: &ComponentId,
+                last_run: Tick,
+                this_run: Tick
+            ) -> Self::Fetch<'w> {
                 Self::Fetch::<'w> {
                     table_ticks: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
                         .then(|| {
-                            world.storages()
+                            world.unsafe_world()
+                                 .storages()
                                  .sparse_sets
                                  .get(id)
                                  .debug_checked_unwrap()

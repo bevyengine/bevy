@@ -8,6 +8,7 @@ mod input;
 pub mod keyboard;
 pub mod mouse;
 pub mod touch;
+pub mod touchpad;
 
 pub use axis::*;
 pub use input::*;
@@ -27,13 +28,14 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::Reflect;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{
     mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseScrollUnit,
     MouseWheel,
 };
 use touch::{touch_screen_input_system, ForceTouch, TouchInput, TouchPhase, Touches};
+use touchpad::{TouchpadMagnify, TouchpadRotate};
 
 use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
@@ -67,6 +69,8 @@ impl Plugin for InputPlugin {
             .add_event::<MouseWheel>()
             .init_resource::<Input<MouseButton>>()
             .add_systems(PreUpdate, mouse_button_input_system.in_set(InputSystem))
+            .add_event::<TouchpadMagnify>()
+            .add_event::<TouchpadRotate>()
             // gamepad
             .add_event::<GamepadConnectionEvent>()
             .add_event::<GamepadButtonChangedEvent>()
@@ -112,6 +116,10 @@ impl Plugin for InputPlugin {
             .register_type::<MouseScrollUnit>()
             .register_type::<MouseWheel>();
 
+        // Register touchpad types
+        app.register_type::<TouchpadMagnify>()
+            .register_type::<TouchpadRotate>();
+
         // Register touch types
         app.register_type::<TouchInput>()
             .register_type::<ForceTouch>()
@@ -132,7 +140,7 @@ impl Plugin for InputPlugin {
 }
 
 /// The current "press" state of an element
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Reflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",

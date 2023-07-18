@@ -401,7 +401,10 @@ pub struct Res<'w, T: ?Sized + Resource> {
 }
 
 impl<'w, T: Resource> Res<'w, T> {
-    // no it shouldn't clippy
+    /// Copies a reference to a resource.
+    ///
+    /// Note that unless you actually need an instance of `Res<T>`, you should
+    /// prefer to just convert it to `&T` which can be freely copied.
     #[allow(clippy::should_implement_trait)]
     pub fn clone(this: &Self) -> Self {
         Self {
@@ -539,8 +542,49 @@ pub struct Ref<'a, T: ?Sized> {
 }
 
 impl<'a, T: ?Sized> Ref<'a, T> {
+    /// Returns the reference wrapped by this type. The reference is allowed to outlive `self`, which makes this method more flexible than simply borrowing `self`.
     pub fn into_inner(self) -> &'a T {
         self.value
+    }
+
+    /// Map `Ref` to a different type using `f`.
+    ///
+    /// This doesn't do anything else than call `f` on the wrapped value.
+    /// This is equivalent to [`Mut::map_unchanged`].
+    pub fn map<U: ?Sized>(self, f: impl FnOnce(&T) -> &U) -> Ref<'a, U> {
+        Ref {
+            value: f(self.value),
+            ticks: self.ticks,
+        }
+    }
+
+    /// Create a new `Ref` using provided values.
+    ///
+    /// This is an advanced feature, `Ref`s are designed to be _created_ by
+    /// engine-internal code and _consumed_ by end-user code.
+    ///
+    /// - `value` - The value wrapped by `Ref`.
+    /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
+    /// - `changed` - A [`Tick`] that stores the last time the wrapped value was changed.
+    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
+    ///    as a reference to determine whether the wrapped value is newly added or changed.
+    /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
+    pub fn new(
+        value: &'a T,
+        added: &'a Tick,
+        changed: &'a Tick,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Ref<'a, T> {
+        Ref {
+            value,
+            ticks: Ticks {
+                added,
+                changed,
+                last_run,
+                this_run,
+            },
+        }
     }
 }
 

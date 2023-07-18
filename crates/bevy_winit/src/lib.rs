@@ -31,6 +31,7 @@ use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
+    touchpad::{TouchpadMagnify, TouchpadRotate},
 };
 use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::{
@@ -40,8 +41,8 @@ use bevy_utils::{
 use bevy_window::{
     exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
     ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
-    WindowCloseRequested, WindowCreated, WindowFocused, WindowMoved, WindowResized,
-    WindowScaleFactorChanged,
+    WindowCloseRequested, WindowCreated, WindowDestroyed, WindowFocused, WindowMoved,
+    WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
 };
 
 #[cfg(target_os = "android")]
@@ -54,11 +55,13 @@ use winit::{
 
 use crate::accessibility::{AccessKitAdapters, AccessibilityPlugin, WinitActionHandlers};
 
+use crate::converters::convert_winit_theme;
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
+/// [`AndroidApp`] provides an interface to query the application state as well as monitor events (for example lifecycle and input events)
 #[cfg(target_os = "android")]
-pub static ANDROID_APP: once_cell::sync::OnceCell<AndroidApp> = once_cell::sync::OnceCell::new();
+pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::new();
 
 /// A [`Plugin`] that utilizes [`winit`] for window creation and event loop management.
 #[derive(Default)]
@@ -96,10 +99,10 @@ impl Plugin for WinitPlugin {
                 ),
             );
 
-        app.add_plugin(AccessibilityPlugin);
+        app.add_plugins(AccessibilityPlugin);
 
         #[cfg(target_arch = "wasm32")]
-        app.add_plugin(CanvasParentResizePlugin);
+        app.add_plugins(CanvasParentResizePlugin);
 
         #[cfg(not(target_arch = "wasm32"))]
         let mut create_window_system_state: SystemState<(
@@ -227,6 +230,8 @@ struct WindowEvents<'w> {
     window_backend_scale_factor_changed: EventWriter<'w, WindowBackendScaleFactorChanged>,
     window_focused: EventWriter<'w, WindowFocused>,
     window_moved: EventWriter<'w, WindowMoved>,
+    window_theme_changed: EventWriter<'w, WindowThemeChanged>,
+    window_destroyed: EventWriter<'w, WindowDestroyed>,
 }
 
 #[derive(SystemParam)]
@@ -234,6 +239,8 @@ struct InputEvents<'w> {
     keyboard_input: EventWriter<'w, KeyboardInput>,
     character_input: EventWriter<'w, ReceivedCharacter>,
     mouse_button_input: EventWriter<'w, MouseButtonInput>,
+    touchpad_magnify_input: EventWriter<'w, TouchpadMagnify>,
+    touchpad_rotate_input: EventWriter<'w, TouchpadRotate>,
     mouse_wheel_input: EventWriter<'w, MouseWheel>,
     touch_input: EventWriter<'w, TouchInput>,
     ime_input: EventWriter<'w, Ime>,
@@ -448,7 +455,7 @@ pub fn winit_runner(mut app: App) {
                     WindowEvent::KeyboardInput { ref input, .. } => {
                         input_events
                             .keyboard_input
-                            .send(converters::convert_keyboard_input(input));
+                            .send(converters::convert_keyboard_input(input, window_entity));
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let physical_position = DVec2::new(position.x, position.y);
@@ -477,7 +484,18 @@ pub fn winit_runner(mut app: App) {
                         input_events.mouse_button_input.send(MouseButtonInput {
                             button: converters::convert_mouse_button(button),
                             state: converters::convert_element_state(state),
+                            window: window_entity,
                         });
+                    }
+                    WindowEvent::TouchpadMagnify { delta, .. } => {
+                        input_events
+                            .touchpad_magnify_input
+                            .send(TouchpadMagnify(delta as f32));
+                    }
+                    WindowEvent::TouchpadRotate { delta, .. } => {
+                        input_events
+                            .touchpad_rotate_input
+                            .send(TouchpadRotate(delta));
                     }
                     WindowEvent::MouseWheel { delta, .. } => match delta {
                         event::MouseScrollDelta::LineDelta(x, y) => {
@@ -485,6 +503,7 @@ pub fn winit_runner(mut app: App) {
                                 unit: MouseScrollUnit::Line,
                                 x,
                                 y,
+                                window: window_entity,
                             });
                         }
                         event::MouseScrollDelta::PixelDelta(p) => {
@@ -492,6 +511,7 @@ pub fn winit_runner(mut app: App) {
                                 unit: MouseScrollUnit::Pixel,
                                 x: p.x as f32,
                                 y: p.y as f32,
+                                window: window_entity,
                             });
                         }
                     },
@@ -613,6 +633,17 @@ pub fn winit_runner(mut app: App) {
                             window: window_entity,
                         }),
                     },
+                    WindowEvent::ThemeChanged(theme) => {
+                        window_events.window_theme_changed.send(WindowThemeChanged {
+                            window: window_entity,
+                            theme: convert_winit_theme(theme),
+                        });
+                    }
+                    WindowEvent::Destroyed => {
+                        window_events.window_destroyed.send(WindowDestroyed {
+                            window: window_entity,
+                        });
+                    }
                     _ => {}
                 }
 

@@ -1,4 +1,4 @@
-///! This example illustrates how to resize windows, and how to respond to a window being resized.
+//! This example illustrates how to resize windows, and how to respond to a window being resized.
 use bevy::{prelude::*, window::WindowResized};
 
 fn main() {

@@ -12,7 +12,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::{Reflect, TypePath, TypeUuid};
 use bevy_render::{
     mesh::{Mesh, MeshVertexAttribute},
     renderer::RenderDevice,
@@ -58,7 +58,7 @@ impl Plugin for GltfPlugin {
 }
 
 /// Representation of a loaded glTF file.
-#[derive(Debug, TypeUuid)]
+#[derive(Debug, TypeUuid, TypePath)]
 #[uuid = "5c7d5f8a-f7b0-4e45-a09e-406c0372fea2"]
 pub struct Gltf {
     pub scenes: Vec<Handle<Scene>>,
@@ -78,7 +78,7 @@ pub struct Gltf {
 
 /// A glTF node with all of its child nodes, its [`GltfMesh`],
 /// [`Transform`](bevy_transform::prelude::Transform) and an optional [`GltfExtras`].
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "dad74750-1fd6-460f-ac51-0a7937563865"]
 pub struct GltfNode {
     pub children: Vec<GltfNode>,
@@ -89,7 +89,7 @@ pub struct GltfNode {
 
 /// A glTF mesh, which may consist of multiple [`GltfPrimitives`](GltfPrimitive)
 /// and an optional [`GltfExtras`].
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "8ceaec9a-926a-4f29-8ee3-578a69f42315"]
 pub struct GltfMesh {
     pub primitives: Vec<GltfPrimitive>,
@@ -97,7 +97,7 @@ pub struct GltfMesh {
 }
 
 /// Part of a [`GltfMesh`] that consists of a [`Mesh`], an optional [`StandardMaterial`] and [`GltfExtras`].
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "cbfca302-82fd-41cb-af77-cab6b3d50af1"]
 pub struct GltfPrimitive {
     pub mesh: Handle<Mesh>,

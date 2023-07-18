@@ -34,7 +34,7 @@ pub enum WindowSystem {
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ScreenshotPlugin);
+        app.add_plugins(ScreenshotPlugin);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -377,7 +377,7 @@ pub fn prepare_windows(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: surface_configuration.format,
+                format: surface_configuration.format.add_srgb_suffix(),
                 usage: TextureUsages::RENDER_ATTACHMENT
                     | TextureUsages::COPY_SRC
                     | TextureUsages::TEXTURE_BINDING,

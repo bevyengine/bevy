@@ -1,21 +1,23 @@
 //! Shows various text layout options.
 
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                present_mode: PresentMode::AutoNoVsync,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin)
+            FrameTimeDiagnosticsPlugin,
+        ))
         .add_systems(Startup, infotext_system)
         .add_systems(Update, change_text_system)
         .run();
@@ -135,7 +137,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn change_text_system(
     time: Res<Time>,
-    diagnostics: Res<Diagnostics>,
+    diagnostics: Res<DiagnosticsStore>,
     mut query: Query<&mut Text, With<TextChanges>>,
 ) {
     for mut text in &mut query {

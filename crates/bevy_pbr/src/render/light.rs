@@ -216,6 +216,12 @@ pub struct GpuLights {
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
+
+//NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
+// when loading the wgsl "pbr_functions.wgsl" in the function apply_fog.
+#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
+#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 4;
@@ -829,7 +835,7 @@ pub fn prepare_lights(
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
             position_radius: light.transform.translation().extend(light.radius),
-            flags: flags.bits,
+            flags: flags.bits(),
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
             spot_light_tan_angle,
@@ -876,7 +882,7 @@ pub fn prepare_lights(
             color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * intensity,
             // direction is negated to be ready for N.L
             dir_to_light: light.transform.back(),
-            flags: flags.bits,
+            flags: flags.bits(),
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
             num_cascades: num_cascades as u32,
@@ -1603,16 +1609,19 @@ pub fn queue_shadows<M: Material>(
                         let mut mesh_key =
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                                 | MeshPipelineKey::DEPTH_PREPASS;
+                        if mesh.morph_targets.is_some() {
+                            mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+                        }
                         if is_directional_light {
                             mesh_key |= MeshPipelineKey::DEPTH_CLAMP_ORTHO;
                         }
                         let alpha_mode = material.properties.alpha_mode;
                         match alpha_mode {
-                            AlphaMode::Mask(_) => {
-                                mesh_key |= MeshPipelineKey::ALPHA_MASK;
-                            }
-                            AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add => {
-                                mesh_key |= MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA;
+                            AlphaMode::Mask(_)
+                            | AlphaMode::Blend
+                            | AlphaMode::Premultiplied
+                            | AlphaMode::Add => {
+                                mesh_key |= MeshPipelineKey::MAY_DISCARD;
                             }
                             _ => {}
                         }

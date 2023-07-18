@@ -1,7 +1,7 @@
 use std::f32::consts::TAU;
 
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::PresentMode,
 };
@@ -10,22 +10,20 @@ const SYSTEM_COUNT: u32 = 10;
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            title: "Many Debug Lines".to_string(),
-            present_mode: PresentMode::AutoNoVsync,
+    app.add_plugins((
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Many Debug Lines".to_string(),
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            }),
             ..default()
         }),
-        ..default()
-    }))
-    .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        FrameTimeDiagnosticsPlugin,
+    ))
     .insert_resource(Config {
         line_count: 50_000,
         fancy: false,
-    })
-    .insert_resource(GizmoConfig {
-        on_top: false,
-        ..default()
     })
     .add_systems(Startup, setup)
     .add_systems(Update, (input, ui_system));
@@ -90,7 +88,7 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnostics>) {
+fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
     let mut text = query.single_mut();
 
     let Some(fps) = diag.get(FrameTimeDiagnosticsPlugin::FPS).and_then(|fps| fps.smoothed()) else {

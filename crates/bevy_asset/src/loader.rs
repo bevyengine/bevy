@@ -5,6 +5,7 @@ use crate::{
 use anyhow::Error;
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
+use bevy_reflect::TypePath;
 use bevy_reflect::{TypeUuid, TypeUuidDynamic};
 use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
@@ -33,27 +34,29 @@ pub trait AssetLoader: Send + Sync + 'static {
 /// and scripts. In Bevy, an asset is any struct that has an unique type id, as shown below:
 ///
 /// ```rust
-/// use bevy_reflect::TypeUuid;
+/// use bevy_reflect::{TypePath, TypeUuid};
 /// use serde::Deserialize;
 ///
-/// #[derive(Debug, Deserialize, TypeUuid)]
+/// #[derive(Debug, Deserialize, TypeUuid, TypePath)]
 /// #[uuid = "39cadc56-aa9c-4543-8640-a018b74b5052"]
 /// pub struct CustomAsset {
 ///     pub value: i32,
 /// }
+/// # fn is_asset<T: bevy_asset::Asset>() {}
+/// # is_asset::<CustomAsset>();
 /// ```
 ///
 /// See the `assets/custom_asset.rs` example in the repository for more details.
 ///
 /// In order to load assets into your game you must either add them manually to an asset storage
 /// with [`Assets::add`] or load them from the filesystem with [`AssetServer::load`].
-pub trait Asset: TypeUuid + AssetDynamic {}
+pub trait Asset: TypeUuid + TypePath + AssetDynamic {}
 
 /// An untyped version of the [`Asset`] trait.
 pub trait AssetDynamic: Downcast + TypeUuidDynamic + Send + Sync + 'static {}
 impl_downcast!(AssetDynamic);
 
-impl<T> Asset for T where T: TypeUuid + AssetDynamic + TypeUuidDynamic {}
+impl<T> Asset for T where T: TypeUuid + TypePath + AssetDynamic + TypeUuidDynamic {}
 
 impl<T> AssetDynamic for T where T: Send + Sync + 'static + TypeUuidDynamic {}
 
