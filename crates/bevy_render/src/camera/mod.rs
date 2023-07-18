@@ -35,13 +35,13 @@ impl Plugin for CameraPlugin {
                 ExtractResourcePlugin::<ManualTextureViews>::default(),
             ));
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<SortedCameras>()
                 .add_systems(ExtractSchedule, extract_cameras)
                 .add_systems(Render, sort_cameras.in_set(RenderSet::ManageViews));
-            let camera_driver_node = CameraDriverNode::new(&mut render_app.world);
-            let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
+            let camera_driver_node = CameraDriverNode::new(render_app.world_mut());
+            let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
             render_graph.add_node(crate::main_graph::node::CAMERA_DRIVER, camera_driver_node);
         }
     }

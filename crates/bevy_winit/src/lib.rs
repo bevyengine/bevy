@@ -169,7 +169,7 @@ impl Plugin for WinitPlugin {
                 NonSendMut<AccessKitAdapters>,
                 ResMut<WinitActionHandlers>,
                 ResMut<AccessibilityRequested>,
-            )> = SystemState::from_world(&mut app.world);
+            )> = SystemState::from_world(app.world_mut());
 
             #[cfg(target_arch = "wasm32")]
             let mut create_window_system_state: SystemState<(
@@ -181,7 +181,7 @@ impl Plugin for WinitPlugin {
                 ResMut<WinitActionHandlers>,
                 ResMut<AccessibilityRequested>,
                 ResMut<CanvasParentResizeEventChannel>,
-            )> = SystemState::from_world(&mut app.world);
+            )> = SystemState::from_world(app.world_mut());
 
             #[cfg(not(target_arch = "wasm32"))]
             let (
@@ -192,7 +192,7 @@ impl Plugin for WinitPlugin {
                 adapters,
                 handlers,
                 accessibility_requested,
-            ) = create_window_system_state.get_mut(&mut app.world);
+            ) = create_window_system_state.get_mut(app.world_mut());
 
             #[cfg(target_arch = "wasm32")]
             let (
@@ -204,7 +204,7 @@ impl Plugin for WinitPlugin {
                 handlers,
                 accessibility_requested,
                 event_channel,
-            ) = create_window_system_state.get_mut(&mut app.world);
+            ) = create_window_system_state.get_mut(app.world_mut());
 
             create_windows(
                 &event_loop,
@@ -219,7 +219,7 @@ impl Plugin for WinitPlugin {
                 event_channel,
             );
 
-            create_window_system_state.apply(&mut app.world);
+            create_window_system_state.apply(app.world_mut());
         }
 
         // `winit`'s windows are bound to the event loop that created them, so the event loop must
@@ -350,13 +350,13 @@ impl Default for WinitAppRunnerState {
 /// `EventLoop`.
 pub fn winit_runner(mut app: App) {
     let mut event_loop = app
-        .world
+        .world_mut()
         .remove_non_send_resource::<EventLoop<()>>()
         .unwrap();
 
-    let return_from_run = app.world.resource::<WinitSettings>().return_from_run;
+    let return_from_run = app.world().resource::<WinitSettings>().return_from_run;
 
-    app.world
+    app.world_mut()
         .insert_non_send_resource(event_loop.create_proxy());
 
     let mut runner_state = WinitAppRunnerState::default();
@@ -366,14 +366,14 @@ pub fn winit_runner(mut app: App) {
     let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
 
     let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<&Window>)> =
-        SystemState::new(&mut app.world);
+        SystemState::new(app.world_mut());
 
     let mut event_writer_system_state: SystemState<(
         WindowAndInputEventWriters,
         NonSend<WinitWindows>,
         Query<(&mut Window, &mut CachedWindow)>,
         NonSend<AccessKitAdapters>,
-    )> = SystemState::new(&mut app.world);
+    )> = SystemState::new(app.world_mut());
 
     #[cfg(not(target_arch = "wasm32"))]
     let mut create_window_system_state: SystemState<(
@@ -384,7 +384,7 @@ pub fn winit_runner(mut app: App) {
         NonSendMut<AccessKitAdapters>,
         ResMut<WinitActionHandlers>,
         ResMut<AccessibilityRequested>,
-    )> = SystemState::from_world(&mut app.world);
+    )> = SystemState::from_world(app.world_mut());
 
     #[cfg(target_arch = "wasm32")]
     let mut create_window_system_state: SystemState<(
@@ -396,7 +396,7 @@ pub fn winit_runner(mut app: App) {
         ResMut<WinitActionHandlers>,
         ResMut<AccessibilityRequested>,
         ResMut<CanvasParentResizeEventChannel>,
-    )> = SystemState::from_world(&mut app.world);
+    )> = SystemState::from_world(app.world_mut());
 
     // setup up the event loop
     let event_handler = move |event: Event<()>,
@@ -414,7 +414,7 @@ pub fn winit_runner(mut app: App) {
                 app.cleanup();
             }
 
-            if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
+            if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
                 if app_exit_event_reader.read(app_exit_events).last().is_some() {
                     *control_flow = ControlFlow::Exit;
                     return;
@@ -436,7 +436,7 @@ pub fn winit_runner(mut app: App) {
                             adapters,
                             handlers,
                             accessibility_requested,
-                        ) = create_window_system_state.get_mut(&mut app.world);
+                        ) = create_window_system_state.get_mut(app.world_mut());
 
                         #[cfg(target_arch = "wasm32")]
                         let (
@@ -448,7 +448,7 @@ pub fn winit_runner(mut app: App) {
                             handlers,
                             accessibility_requested,
                             event_channel,
-                        ) = create_window_system_state.get_mut(&mut app.world);
+                        ) = create_window_system_state.get_mut(app.world_mut());
 
                         create_windows(
                             event_loop,
@@ -463,7 +463,7 @@ pub fn winit_runner(mut app: App) {
                             event_channel,
                         );
 
-                        create_window_system_state.apply(&mut app.world);
+                        create_window_system_state.apply(app.world_mut());
                     }
                 }
                 _ => {
@@ -478,7 +478,7 @@ pub fn winit_runner(mut app: App) {
                 event, window_id, ..
             } => {
                 let (mut event_writers, winit_windows, mut windows, access_kit_adapters) =
-                    event_writer_system_state.get_mut(&mut app.world);
+                    event_writer_system_state.get_mut(app.world_mut());
 
                 let Some(window_entity) = winit_windows.get_window_entity(window_id) else {
                     warn!(
@@ -726,20 +726,20 @@ pub fn winit_runner(mut app: App) {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
-                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(app.world_mut());
                 event_writers.mouse_motion.send(MouseMotion {
                     delta: Vec2::new(x as f32, y as f32),
                 });
             }
             event::Event::Suspended => {
-                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(app.world_mut());
                 event_writers.lifetime.send(ApplicationLifetime::Suspended);
                 // Mark the state as `WillSuspend`. This will let the schedule run one last time
                 // before actually suspending to let the application react
                 runner_state.active = ActiveState::WillSuspend;
             }
             event::Event::Resumed => {
-                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(app.world_mut());
                 match runner_state.active {
                     ActiveState::NotYetStarted => {
                         event_writers.lifetime.send(ApplicationLifetime::Started);
@@ -754,9 +754,9 @@ pub fn winit_runner(mut app: App) {
                     // Get windows that are cached but without raw handles. Those window were already created, but got their
                     // handle wrapper removed when the app was suspended.
                     let mut query = app
-                        .world
+                        .world_mut()
                         .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
-                    if let Ok((entity, window)) = query.get_single(&app.world) {
+                    if let Ok((entity, window)) = query.get_single(app.world()) {
                         use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
                         let window = window.clone();
 
@@ -768,7 +768,7 @@ pub fn winit_runner(mut app: App) {
                             mut adapters,
                             mut handlers,
                             accessibility_requested,
-                        ) = create_window_system_state.get_mut(&mut app.world);
+                        ) = create_window_system_state.get_mut(app.world_mut());
 
                         let winit_window = winit_windows.create_window(
                             event_loop,
@@ -784,7 +784,7 @@ pub fn winit_runner(mut app: App) {
                             display_handle: winit_window.raw_display_handle(),
                         };
 
-                        app.world.entity_mut(entity).insert(wrapper);
+                        app.world_mut().entity_mut(entity).insert(wrapper);
                     }
                     *control_flow = ControlFlow::Poll;
                 }
@@ -797,14 +797,18 @@ pub fn winit_runner(mut app: App) {
                         {
                             // Remove the `RawHandleWrapper` from the primary window.
                             // This will trigger the surface destruction.
-                            let mut query =
-                                app.world.query_filtered::<Entity, With<PrimaryWindow>>();
-                            let entity = query.single(&app.world);
-                            app.world.entity_mut(entity).remove::<RawHandleWrapper>();
+                            let mut query = app
+                                .world_mut()
+                                .query_filtered::<Entity, With<PrimaryWindow>>();
+                            let entity = query.single(app.world());
+                            app.world_mut()
+                                .entity_mut(entity)
+                                .remove::<RawHandleWrapper>();
                             *control_flow = ControlFlow::Wait;
                         }
                     }
-                    let (config, windows) = focused_windows_state.get(&app.world);
+
+                    let (config, windows) = focused_windows_state.get(app.world());
                     let focused = windows.iter().any(|window| window.focused);
                     let should_update = match config.update_mode(focused) {
                         UpdateMode::Continuous | UpdateMode::Reactive { .. } => {
@@ -831,7 +835,7 @@ pub fn winit_runner(mut app: App) {
                         app.update();
 
                         // decide when to run the next update
-                        let (config, windows) = focused_windows_state.get(&app.world);
+                        let (config, windows) = focused_windows_state.get(app.world());
                         let focused = windows.iter().any(|window| window.focused);
                         match config.update_mode(focused) {
                             UpdateMode::Continuous => *control_flow = ControlFlow::Poll,
@@ -848,7 +852,7 @@ pub fn winit_runner(mut app: App) {
                         }
 
                         if let Some(app_redraw_events) =
-                            app.world.get_resource::<Events<RequestRedraw>>()
+                            app.world().get_resource::<Events<RequestRedraw>>()
                         {
                             if redraw_event_reader.read(app_redraw_events).last().is_some() {
                                 runner_state.redraw_requested = true;
@@ -856,7 +860,8 @@ pub fn winit_runner(mut app: App) {
                             }
                         }
 
-                        if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
+                        if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>()
+                        {
                             if app_exit_event_reader.read(app_exit_events).last().is_some() {
                                 *control_flow = ControlFlow::Exit;
                             }
@@ -874,7 +879,7 @@ pub fn winit_runner(mut app: App) {
                         adapters,
                         handlers,
                         accessibility_requested,
-                    ) = create_window_system_state.get_mut(&mut app.world);
+                    ) = create_window_system_state.get_mut(app.world_mut());
 
                     #[cfg(target_arch = "wasm32")]
                     let (
@@ -886,7 +891,7 @@ pub fn winit_runner(mut app: App) {
                         handlers,
                         accessibility_requested,
                         event_channel,
-                    ) = create_window_system_state.get_mut(&mut app.world);
+                    ) = create_window_system_state.get_mut(app.world_mut());
 
                     create_windows(
                         event_loop,
@@ -901,7 +906,7 @@ pub fn winit_runner(mut app: App) {
                         event_channel,
                     );
 
-                    create_window_system_state.apply(&mut app.world);
+                    create_window_system_state.apply(app.world_mut());
                 }
             }
             _ => (),

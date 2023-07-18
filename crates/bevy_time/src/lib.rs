@@ -63,11 +63,11 @@ impl Plugin for TimePlugin {
 
         #[cfg(feature = "bevy_ci_testing")]
         if let Some(ci_testing_config) = app
-            .world
+            .world()
             .get_resource::<bevy_app::ci_testing::CiTestingConfig>()
         {
             if let Some(frame_time) = ci_testing_config.frame_time {
-                app.world
+                app.world_mut()
                     .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
                         frame_time,
                     )));

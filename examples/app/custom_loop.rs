@@ -11,7 +11,7 @@ fn my_runner(mut app: App) {
     println!("Type stuff into the console");
     for line in io::stdin().lines() {
         {
-            let mut input = app.world.resource_mut::<Input>();
+            let mut input = app.world_mut().resource_mut::<Input>();
             input.0 = line.unwrap();
         }
         app.update();

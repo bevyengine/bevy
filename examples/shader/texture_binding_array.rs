@@ -33,11 +33,11 @@ impl Plugin for GpuFeatureSupportChecker {
     fn build(&self, _app: &mut App) {}
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        let render_device = render_app.world.resource::<RenderDevice>();
+        let render_device = render_app.world().resource::<RenderDevice>();
 
         // Check if the device support the required feature. If not, exit the example.
         // In a real application, you should setup a fallback for the missing feature

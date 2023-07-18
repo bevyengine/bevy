@@ -121,7 +121,7 @@ impl Plugin for AssetPlugin {
         let embedded = EmbeddedAssetRegistry::default();
         {
             let mut sources = app
-                .world
+                .world_mut()
                 .get_resource_or_insert_with::<AssetSourceBuilders>(Default::default);
             sources.init_default_source(
                 &self.file_path,
@@ -137,7 +137,7 @@ impl Plugin for AssetPlugin {
             }
             match self.mode {
                 AssetMode::Unprocessed => {
-                    let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
+                    let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                     let sources = builders.build_sources(watch, false);
                     app.insert_resource(AssetServer::new(
                         sources,
@@ -148,7 +148,7 @@ impl Plugin for AssetPlugin {
                 AssetMode::Processed => {
                     #[cfg(feature = "asset_processor")]
                     {
-                        let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
+                        let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                         let processor = AssetProcessor::new(&mut builders);
                         let mut sources = builders.build_sources(false, watch);
                         sources.gate_on_processor(processor.data.clone());
@@ -164,7 +164,7 @@ impl Plugin for AssetPlugin {
                     }
                     #[cfg(not(feature = "asset_processor"))]
                     {
-                        let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
+                        let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                         let sources = builders.build_sources(false, watch);
                         app.insert_resource(AssetServer::new(
                             sources,
@@ -185,7 +185,7 @@ impl Plugin for AssetPlugin {
             )
             .add_systems(UpdateAssets, server::handle_internal_asset_events);
 
-        let mut order = app.world.resource_mut::<MainScheduleOrder>();
+        let mut order = app.world_mut().resource_mut::<MainScheduleOrder>();
         order.insert_after(First, UpdateAssets);
         order.insert_after(PostUpdate, AssetEvents);
     }
@@ -282,20 +282,24 @@ pub trait AssetApp {
 
 impl AssetApp for App {
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self {
-        self.world.resource::<AssetServer>().register_loader(loader);
+        self.world()
+            .resource::<AssetServer>()
+            .register_loader(loader);
         self
     }
 
     fn init_asset_loader<L: AssetLoader + FromWorld>(&mut self) -> &mut Self {
-        let loader = L::from_world(&mut self.world);
+        let loader = L::from_world(self.world_mut());
         self.register_asset_loader(loader)
     }
 
     fn init_asset<A: Asset>(&mut self) -> &mut Self {
         let assets = Assets::<A>::default();
-        self.world.resource::<AssetServer>().register_asset(&assets);
-        if self.world.contains_resource::<AssetProcessor>() {
-            let processor = self.world.resource::<AssetProcessor>();
+        self.world()
+            .resource::<AssetServer>()
+            .register_asset(&assets);
+        if self.world().contains_resource::<AssetProcessor>() {
+            let processor = self.world().resource::<AssetProcessor>();
             // The processor should have its own handle provider separate from the Asset storage
             // to ensure the id spaces are entirely separate. Not _strictly_ necessary, but
             // desirable.
@@ -319,7 +323,7 @@ impl AssetApp for App {
     where
         A: Asset + Reflect + FromReflect + GetTypeRegistration,
     {
-        let type_registry = self.world.resource::<AppTypeRegistry>();
+        let type_registry = self.world().resource::<AppTypeRegistry>();
         {
             let mut type_registry = type_registry.write();
 
@@ -333,21 +337,21 @@ impl AssetApp for App {
     }
 
     fn preregister_asset_loader<L: AssetLoader>(&mut self, extensions: &[&str]) -> &mut Self {
-        self.world
+        self.world_mut()
             .resource_mut::<AssetServer>()
             .preregister_loader::<L>(extensions);
         self
     }
 
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self {
-        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
+        if let Some(asset_processor) = self.world().get_resource::<AssetProcessor>() {
             asset_processor.register_processor(processor);
         }
         self
     }
 
     fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self {
-        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
+        if let Some(asset_processor) = self.world().get_resource::<AssetProcessor>() {
             asset_processor.set_default_processor::<P>(extension);
         }
         self
@@ -359,13 +363,13 @@ impl AssetApp for App {
         source: AssetSourceBuilder,
     ) -> &mut Self {
         let id = id.into();
-        if self.world.get_resource::<AssetServer>().is_some() {
+        if self.world().get_resource::<AssetServer>().is_some() {
             error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
         }
 
         {
             let mut sources = self
-                .world
+                .world_mut()
                 .get_resource_or_insert_with(AssetSourceBuilders::default);
             sources.insert(id, source);
         }
@@ -521,7 +525,7 @@ mod tests {
     fn run_app_until(app: &mut App, mut predicate: impl FnMut(&mut World) -> Option<()>) {
         for _ in 0..LARGE_ITERATION_COUNT {
             app.update();
-            if (predicate)(&mut app.world).is_some() {
+            if (predicate)(app.world_mut()).is_some() {
                 return;
             }
         }
@@ -607,13 +611,13 @@ mod tests {
             .init_resource::<StoredEvents>()
             .register_asset_loader(CoolTextLoader)
             .add_systems(Update, store_asset_events);
-        let asset_server = app.world.resource::<AssetServer>().clone();
+        let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
-        let entity = app.world.spawn(handle).id();
+        let entity = app.world_mut().spawn(handle).id();
         app.update();
         {
-            let a_text = get::<CoolText>(&app.world, a_id);
+            let a_text = get::<CoolText>(app.world(), a_id);
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert!(a_text.is_none(), "a's asset should not exist yet");
             assert_eq!(a_load, LoadState::Loading, "a should still be loading");
@@ -795,27 +799,27 @@ mod tests {
         });
 
         {
-            let mut texts = app.world.resource_mut::<Assets<CoolText>>();
+            let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
             let a = texts.get_mut(a_id).unwrap();
             a.text = "Changed".to_string();
         }
 
-        app.world.despawn(entity);
+        app.world_mut().despawn(entity);
         app.update();
         assert_eq!(
-            app.world.resource::<Assets<CoolText>>().len(),
+            app.world().resource::<Assets<CoolText>>().len(),
             0,
             "CoolText asset entities should be despawned when no more handles exist"
         );
         app.update();
         // this requires a second update because the parent asset was freed in the previous app.update()
         assert_eq!(
-            app.world.resource::<Assets<SubText>>().len(),
+            app.world().resource::<Assets<SubText>>().len(),
             0,
             "SubText asset entities should be despawned when no more handles exist"
         );
-        let events = app.world.remove_resource::<StoredEvents>().unwrap();
-        let id_results = app.world.remove_resource::<IdResults>().unwrap();
+        let events = app.world_mut().remove_resource::<StoredEvents>().unwrap();
+        let id_results = app.world_mut().remove_resource::<IdResults>().unwrap();
         let expected_events = vec![
             AssetEvent::Added { id: a_id },
             AssetEvent::LoadedWithDependencies {
@@ -905,7 +909,7 @@ mod tests {
         let (mut app, gate_opener) = test_app(dir);
         app.init_asset::<CoolText>()
             .register_asset_loader(CoolTextLoader);
-        let asset_server = app.world.resource::<AssetServer>().clone();
+        let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
         {
@@ -921,7 +925,7 @@ mod tests {
             );
         }
 
-        app.world.spawn(handle);
+        app.world_mut().spawn(handle);
         gate_opener.open(a_path);
         gate_opener.open(b_path);
         gate_opener.open(c_path);
@@ -998,7 +1002,7 @@ mod tests {
 
         let id = {
             let handle = {
-                let mut texts = app.world.resource_mut::<Assets<CoolText>>();
+                let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
                 texts.add(CoolText {
                     text: hello.clone(),
                     embedded: empty.clone(),
@@ -1011,7 +1015,7 @@ mod tests {
 
             {
                 let text = app
-                    .world
+                    .world()
                     .resource::<Assets<CoolText>>()
                     .get(&handle)
                     .unwrap();
@@ -1022,16 +1026,16 @@ mod tests {
         // handle is dropped
         app.update();
         assert!(
-            app.world.resource::<Assets<CoolText>>().get(id).is_none(),
+            app.world().resource::<Assets<CoolText>>().get(id).is_none(),
             "asset has no handles, so it should have been dropped last update"
         );
         // remove event is emitted
         app.update();
-        let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
+        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![AssetEvent::Added { id }, AssetEvent::Removed { id }];
         assert_eq!(events, expected_events);
 
-        let dep_handle = app.world.resource::<AssetServer>().load(dep_path);
+        let dep_handle = app.world().resource::<AssetServer>().load(dep_path);
         let a = CoolText {
             text: "a".to_string(),
             embedded: empty,
@@ -1039,19 +1043,19 @@ mod tests {
             dependencies: vec![dep_handle.clone()],
             sub_texts: Vec::new(),
         };
-        let a_handle = app.world.resource::<AssetServer>().load_asset(a);
+        let a_handle = app.world().resource::<AssetServer>().load_asset(a);
         app.update();
         // TODO: ideally it doesn't take two updates for the added event to emit
         app.update();
 
-        let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
+        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![AssetEvent::Added { id: a_handle.id() }];
         assert_eq!(events, expected_events);
 
         gate_opener.open(dep_path);
         loop {
             app.update();
-            let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
+            let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
             if events.is_empty() {
                 continue;
             }
@@ -1065,7 +1069,7 @@ mod tests {
             break;
         }
         app.update();
-        let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
+        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![AssetEvent::Added {
             id: dep_handle.id(),
         }];
@@ -1112,7 +1116,7 @@ mod tests {
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
-        let asset_server = app.world.resource::<AssetServer>().clone();
+        let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<LoadedFolder> = asset_server.load_folder("text");
         gate_opener.open(a_path);
         gate_opener.open(b_path);
@@ -1178,6 +1182,6 @@ mod tests {
         });
 
         // running schedule does not error on ambiguity between the 2 uses_assets systems
-        app.world.run_schedule(Update);
+        app.world_mut().run_schedule(Update);
     }
 }

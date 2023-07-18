@@ -25,13 +25,15 @@ impl Plugin for ColorMaterialPlugin {
         app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
             .register_asset_reflect::<ColorMaterial>();
 
-        app.world.resource_mut::<Assets<ColorMaterial>>().insert(
-            Handle::<ColorMaterial>::default(),
-            ColorMaterial {
-                color: Color::rgb(1.0, 0.0, 1.0),
-                ..Default::default()
-            },
-        );
+        app.world_mut()
+            .resource_mut::<Assets<ColorMaterial>>()
+            .insert(
+                Handle::<ColorMaterial>::default(),
+                ColorMaterial {
+                    color: Color::rgb(1.0, 0.0, 1.0),
+                    ..Default::default()
+                },
+            );
     }
 }
 

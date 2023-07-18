@@ -86,9 +86,8 @@ impl Plugin for FxaaPlugin {
         app.register_type::<Fxaa>();
         app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
@@ -114,9 +113,8 @@ impl Plugin for FxaaPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
         render_app.init_resource::<FxaaPipeline>();
     }
