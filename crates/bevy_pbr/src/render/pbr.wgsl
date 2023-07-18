@@ -109,6 +109,8 @@ fn fragment(
             thickness *= textureSample(pbr_bindings::thickness_texture, pbr_bindings::thickness_sampler, uv).g;
         }
 #endif
+        // scale the thickness by the average length of basis vectors for the transform matrix
+        // this is a rough way to approximate the average “scale” applied to the mesh as a single scalar
         thickness *= (length(mesh.model[0].xyz) + length(mesh.model[1].xyz) + length(mesh.model[2].xyz)) / 3.0;
         pbr_input.material.thickness = thickness;
 
