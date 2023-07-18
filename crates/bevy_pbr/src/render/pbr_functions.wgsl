@@ -254,10 +254,10 @@ fn pbr(
             // F0 = vec3<f32>(0.0)
             var transmitted_shadow: f32 = 1.0;
             if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
-                    && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                transmitted_shadow = fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
+                    && (point_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                transmitted_shadow = shadows::fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
             }
-            let light_contrib = point_light(diffuse_transmissive_lobe_world_position.xyz, light_id, 1.0, 1.0, -in.N, -in.V, vec3<f32>(0.0), vec3<f32>(0.0), vec2<f32>(0.1), diffuse_transmissive_color);
+            let light_contrib = lighting::point_light(diffuse_transmissive_lobe_world_position.xyz, light_id, 1.0, 1.0, -in.N, -in.V, vec3<f32>(0.0), vec3<f32>(0.0), vec2<f32>(0.1), diffuse_transmissive_color);
             transmitted_light += light_contrib * transmitted_shadow;
         }
     }
@@ -286,10 +286,10 @@ fn pbr(
             // F0 = vec3<f32>(0.0)
             var transmitted_shadow: f32 = 1.0;
             if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
-                    && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                transmitted_shadow = fetch_spot_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
+                    && (point_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                transmitted_shadow = shadows::fetch_spot_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
             }
-            let light_contrib = spot_light(diffuse_transmissive_lobe_world_position.xyz, light_id, 1.0, 1.0, -in.N, -in.V, vec3<f32>(0.0), vec3<f32>(0.0), vec2<f32>(0.1), diffuse_transmissive_color);
+            let light_contrib = lighting::spot_light(diffuse_transmissive_lobe_world_position.xyz, light_id, 1.0, 1.0, -in.N, -in.V, vec3<f32>(0.0), vec3<f32>(0.0), vec2<f32>(0.1), diffuse_transmissive_color);
             transmitted_light += light_contrib * transmitted_shadow;
         }
     }
@@ -320,10 +320,10 @@ fn pbr(
             // F0 = vec3<f32>(0.0)
             var transmitted_shadow: f32 = 1.0;
             if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
-                    && (lights.directional_lights[i].flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                transmitted_shadow = fetch_directional_shadow(i, diffuse_transmissive_lobe_world_position, -in.world_normal, view_z);
+                    && (lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                transmitted_shadow = shadows::fetch_directional_shadow(i, diffuse_transmissive_lobe_world_position, -in.world_normal, view_z);
             }
-            let light_contrib = directional_light(i, 1.0, 1.0, -in.N, -in.V, vec3<f32>(0.0), vec3<f32>(0.0), vec2<f32>(0.1), diffuse_transmissive_color);
+            let light_contrib = lighting::directional_light(i, 1.0, 1.0, -in.N, -in.V, vec3<f32>(0.0), vec3<f32>(0.0), vec2<f32>(0.1), diffuse_transmissive_color);
             transmitted_light += light_contrib * transmitted_shadow;
         }
     }
@@ -340,7 +340,7 @@ fn pbr(
         // NdotV = 1.0;
         // F0 = vec3<f32>(0.0)
         // occlusion = vec3<f32>(1.0)
-        transmitted_light += ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
+        transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
     }
 
     // Environment map light (indirect)
@@ -368,7 +368,7 @@ fn pbr(
             refract(in.V, -in.N, 1.0 / ior) * thickness // add refracted vector scaled by thickness, towards exit point
         ); // normalize to find exit point view vector
 
-        let transmitted_environment_light = environment_map_light(perceptual_roughness, roughness, diffuse_transmissive_color, 1.0, vec2<f32>(0.1), -in.N, T, vec3<f32>(0.16));
+        let transmitted_environment_light = bevy_pbr::environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_transmissive_color, 1.0, vec2<f32>(0.1), -in.N, T, vec3<f32>(0.16));
         transmitted_light += transmitted_environment_light.diffuse;
         transmitted_environment_light_specular = transmitted_environment_light.specular;
     }
@@ -381,7 +381,7 @@ fn pbr(
     let emissive_light = emissive.rgb * output_color.a;
 
     if transmission > 0.0 {
-        transmitted_light += transmissive_light(in.world_position, in.frag_coord.xyz, in.N, in.V, ior, thickness, perceptual_roughness, transmissive_color, transmitted_environment_light_specular).rgb;
+        transmitted_light += bevy_pbr::lighting::transmissive_light(in.world_position, in.frag_coord.xyz, in.N, in.V, ior, thickness, perceptual_roughness, transmissive_color, transmitted_environment_light_specular).rgb;
     }
 
     if in.material.attenuation_distance < (1.0 / 0.0) /* f32::INFINITY */ {
@@ -393,7 +393,7 @@ fn pbr(
         attenuation_fog.be = pow(1.0 - in.material.attenuation_color.rgb, vec3<f32>(E)) / in.material.attenuation_distance;
         // TODO: Add the subsurface scattering factor below
         // attenuation_fog.bi = /* ... */
-        transmitted_light = atmospheric_fog(
+        transmitted_light = fog::atmospheric_fog(
             attenuation_fog, vec4<f32>(transmitted_light, 1.0), thickness,
             vec3<f32>(0.0) // TODO: Pass in (pre-attenuated) scatterd light contribution here
         ).rgb;

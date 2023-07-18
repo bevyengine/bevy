@@ -287,7 +287,7 @@ fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32
 
 fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
     // Calculate distance, used to scale roughness transmission blur
-    let distance = length(view.world_position - world_position.xyz);
+    let distance = length(view_bindings::view.world_position - world_position.xyz);
 
     // Calculate the ratio between refaction indexes. Assume air/vacuum for the space outside the mesh
     let eta = 1.0 / ior;
@@ -304,7 +304,7 @@ fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<
     let exit_position = world_position.xyz + T * thickness;
 
     // Transform exit_position into clip space
-    let clip_exit_position = view.view_proj * vec4<f32>(exit_position, 1.0);
+    let clip_exit_position = view_bindings::view.view_proj * vec4<f32>(exit_position, 1.0);
 
     // Scale / offset position so that coordinate is in right space for sampling transmissive background texture
     let offset_position = (clip_exit_position.xy / clip_exit_position.w) * vec2<f32>(0.5, -0.5) + 0.5;
@@ -408,15 +408,15 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
 
 #ifdef PREPASS_DEPTH_SUPPORTED
         // Use depth prepass data to reject values that are in front of the current fragment
-        if (prepass_depth(vec4<f32>(modified_offset_position * view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z) {
+        if (bevy_pbr::prepass_utils::prepass_depth(vec4<f32>(modified_offset_position * view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z) {
             continue;
         }
 #endif
 
         // Sample the view transmission texture at the offset position + noise offset, to get the background color
         let sample = textureSample(
-            view_transmission_texture,
-            view_transmission_sampler,
+            bevy_pbr::mesh_view_bindings::view_transmission_texture,
+            bevy_pbr::mesh_view_bindings::view_transmission_sampler,
             modified_offset_position,
         );
 

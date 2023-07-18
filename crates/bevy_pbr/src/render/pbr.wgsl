@@ -95,18 +95,18 @@ fn fragment(
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
-        var transmission: f32 = material.transmission;
+        var transmission: f32 = pbr_bindings::material.transmission;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_TRANSMISSION_TEXTURE_BIT) != 0u) {
-            transmission *= textureSample(transmission_texture, transmission_sampler, uv).r;
+        if ((pbr_bindings::material.flags & STANDARD_MATERIAL_FLAGS_TRANSMISSION_TEXTURE_BIT) != 0u) {
+            transmission *= textureSample(pbr_bindings::transmission_texture, pbr_bindings::transmission_sampler, uv).r;
         }
 #endif
         pbr_input.material.transmission = transmission;
 
-        var thickness: f32 = material.thickness;
+        var thickness: f32 = pbr_bindings::material.thickness;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT) != 0u) {
-            thickness *= textureSample(thickness_texture, thickness_sampler, uv).g;
+        if ((pbr_bindings::material.flags & STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT) != 0u) {
+            thickness *= textureSample(pbr_bindings::thickness_texture, pbr_bindings::thickness_sampler, uv).g;
         }
 #endif
         thickness *= (length(mesh.model[0].xyz) + length(mesh.model[1].xyz) + length(mesh.model[2].xyz)) / 3.0;
@@ -114,8 +114,8 @@ fn fragment(
 
         var diffuse_transmission = material.diffuse_transmission;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT) != 0u) {
-            diffuse_transmission *= textureSample(diffuse_transmission_texture, diffuse_transmission_sampler, uv).a;
+        if ((pbr_bindings::material.flags & STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT) != 0u) {
+            diffuse_transmission *= textureSample(pbr_bindings::diffuse_transmission_texture, pbr_bindings::diffuse_transmission_sampler, uv).a;
         }
 #endif
         pbr_input.material.diffuse_transmission = diffuse_transmission;
