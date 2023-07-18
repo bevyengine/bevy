@@ -18,7 +18,7 @@
 
 use std::mem;
 
-use bevy_app::{Last, Plugin, Update};
+use bevy_app::{Last, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_core::cast_slice;
 use bevy_ecs::{
@@ -88,7 +88,7 @@ impl Plugin for GizmoPlugin {
             .init_resource::<GizmoStorage>()
             .add_systems(Last, update_gizmo_meshes)
             .add_systems(
-                Update,
+                PostUpdate,
                 (
                     draw_aabbs,
                     draw_all_aabbs.run_if(|config: Res<GizmoConfig>| config.aabb.draw_all),
