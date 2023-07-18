@@ -112,7 +112,7 @@ fn fragment(
         thickness *= (length(mesh.model[0].xyz) + length(mesh.model[1].xyz) + length(mesh.model[2].xyz)) / 3.0;
         pbr_input.material.thickness = thickness;
 
-        var diffuse_transmission = material.diffuse_transmission;
+        var diffuse_transmission = pbr_bindings::material.diffuse_transmission;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT) != 0u) {
             diffuse_transmission *= textureSample(pbr_bindings::diffuse_transmission_texture, pbr_bindings::diffuse_transmission_sampler, uv).a;

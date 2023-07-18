@@ -1,5 +1,6 @@
 #define_import_path bevy_pbr::lighting
 
+#import bevy_pbr::prepass_utils as prepass_utils
 #import bevy_pbr::utils PI
 #import bevy_pbr::mesh_view_types as view_types
 #import bevy_pbr::mesh_view_bindings as view_bindings
@@ -320,7 +321,7 @@ fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<
 // https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
 fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
 #ifdef TAA
-    let frame = f32(globals.frame_count % 64u);
+    let frame = f32(view_bindings::globals.frame_count % 64u);
     let xy = pixel_coordinates + 5.588238 * frame;
 #else
     // Don't vary noise per frame if TAA is not enabled
@@ -345,7 +346,7 @@ const MAX_TRANSMISSIVE_TAPS = 16;
 
 fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, perceptual_roughness: f32, distance: f32) -> vec4<f32> {
     // Calculate view aspect ratio, used to scale offset so that it's proportionate
-    let aspect = view.viewport.z / view.viewport.w;
+    let aspect = view_bindings::view.viewport.z / view_bindings::view.viewport.w;
 
     // Calculate how “blurry” the transmission should be.
     // Blur is more or less eyeballed to look approximately “right”, since the “correct”
@@ -365,7 +366,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     let random_angle = interleaved_gradient_noise(frag_coord.xy);
 #ifdef TAA
     // Alternating pixel mesh: 0 or 1 on even/odd pixels, alternates every frame
-    let pixel_mesh = (i32(frag_coord.x) + i32(frag_coord.y) + i32(globals.frame_count)) % 2;
+    let pixel_mesh = (i32(frag_coord.x) + i32(frag_coord.y) + i32(view_bindings::globals.frame_count)) % 2;
 #else
     // Alternating pixel mesh: 0 or 1 on even/odd pixels
     let pixel_mesh = (i32(frag_coord.x) + i32(frag_coord.y)) % 2;
@@ -408,15 +409,15 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
 
 #ifdef PREPASS_DEPTH_SUPPORTED
         // Use depth prepass data to reject values that are in front of the current fragment
-        if (bevy_pbr::prepass_utils::prepass_depth(vec4<f32>(modified_offset_position * view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z) {
+        if prepass_utils::prepass_depth(vec4<f32>(modified_offset_position * view_bindings::view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
             continue;
         }
 #endif
 
         // Sample the view transmission texture at the offset position + noise offset, to get the background color
         let sample = textureSample(
-            bevy_pbr::mesh_view_bindings::view_transmission_texture,
-            bevy_pbr::mesh_view_bindings::view_transmission_sampler,
+            view_bindings::view_transmission_texture,
+            view_bindings::view_transmission_sampler,
             modified_offset_position,
         );
 
