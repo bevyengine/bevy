@@ -27,7 +27,7 @@ pub(crate) struct GizmoStorage {
 ///
 /// They are drawn in immediate mode, which means they will be rendered only for
 /// the frames in which they are defined.
-/// They should be defined before the [`Last`](bevy_app::Last) schedule.
+/// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule to ensure they are drawn.
 #[derive(SystemParam)]
 pub struct Gizmos<'s> {
     buffer: Deferred<'s, GizmoBuffer>,
