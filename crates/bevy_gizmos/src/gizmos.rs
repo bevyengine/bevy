@@ -53,7 +53,7 @@ pub struct GizmoBuffer {
     strip_colors: Vec<ColorItem>,
 }
 
-// Wrap to keep GizmoBuffer hidden
+// Wrap to keep State hidden
 const _: () = {
     #[derive(Default)]
     pub struct State {
