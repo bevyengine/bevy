@@ -769,8 +769,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) {
-            shader_defs.push("DEPTH_TEXTURE_LOAD_SUPPORTED".into());
-            shader_defs.push("DEPTH_TEXTURE_MULTISAMPLED_SUPPORTED".into());
+            shader_defs.push("PREPASS_DEPTH_SUPPORTED".into());
         }
 
         if cfg!(feature = "pbr_transmission_textures") {

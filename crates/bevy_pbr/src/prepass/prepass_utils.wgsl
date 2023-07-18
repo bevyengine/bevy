@@ -3,25 +3,15 @@
 #import bevy_pbr::mesh_view_bindings as view_bindings
 
 #ifndef DEPTH_PREPASS
-#ifdef DEPTH_TEXTURE_LOAD_SUPPORTED
+#ifdef PREPASS_DEPTH_SUPPORTED
+fn prepass_depth(frag_coord: vec4<f32>, sample_index: u32) -> f32 {
 #ifdef MULTISAMPLED
-#ifdef DEPTH_TEXTURE_MULTISAMPLED_SUPPORTED
-
-#define PREPASS_DEPTH_SUPPORTED
-fn prepass_depth(frag_coord: vec4<f32>, sample_index: u32) -> f32 {
     return textureLoad(view_bindings::depth_prepass_texture, vec2<i32>(frag_coord.xy), i32(sample_index));
-}
-
-#endif // DEPTH_TEXTURE_MULTISAMPLED_SUPPORTED
 #else // MULTISAMPLED
-
-#define PREPASS_DEPTH_SUPPORTED
-fn prepass_depth(frag_coord: vec4<f32>, sample_index: u32) -> f32 {
     return textureLoad(view_bindings::depth_prepass_texture, vec2<i32>(frag_coord.xy), 0);
-}
-
 #endif // MULTISAMPLED
-#endif // DEPTH_TEXTURE_LOAD_SUPPORTED
+}
+#endif // PREPASS_DEPTH_SUPPORTED
 #endif // DEPTH_PREPASS
 
 #ifndef NORMAL_PREPASS
