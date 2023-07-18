@@ -40,9 +40,10 @@ impl Default for WindowPlugin {
 pub struct WindowPlugin {
     /// Settings for the primary window.
     ///
-    /// By default [`WindowPlugin::primary_window`] resolves to `Some<PrimaryWindow>`
-    /// which spawns marker component [`PrimaryWindow`](PrimaryWindow).
-    /// To run without a primary window set [`WindowPlugin::primary_window`] to `None`.
+    /// `Some(custom_window)` will spawn an entity with `custom_window` and [`PrimaryWindow`] as components.
+    /// `None` will not spawn a primary window.
+    ///
+    /// Defaults to `Some(Window::default())`.
     ///
     /// Note that if there are no windows the App will exit (by default) due to
     /// [`exit_on_all_closed`].
