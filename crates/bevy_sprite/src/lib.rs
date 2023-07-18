@@ -72,7 +72,7 @@ impl Plugin for SpritePlugin {
                 calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
             );
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ImageBindGroups>()
                 .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
@@ -100,7 +100,7 @@ impl Plugin for SpritePlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<SpritePipeline>();
         }
     }

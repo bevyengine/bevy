@@ -25,7 +25,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
 
-    /// Has the plugin finished it's setup? This can be useful for plugins that needs something
+    /// Has the plugin finished its setup? This can be useful for plugins that needs something
     /// asynchronous to happen before they can finish their setup, like renderer initialization.
     /// Once the plugin is ready, [`finish`](Plugin::finish) should be called.
     fn ready(&self, _app: &App) -> bool {
@@ -59,6 +59,26 @@ pub trait Plugin: Downcast + Any + Send + Sync {
 }
 
 impl_downcast!(Plugin);
+
+/// Plugins state in the application
+#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
+pub enum PluginsState {
+    /// Plugins are being added.
+    Adding,
+    /// All plugins already added are ready.
+    Ready,
+    /// Finish has been executed for all plugins added.
+    Finished,
+    /// Cleanup has been executed for all plugins added.
+    Cleaned,
+}
+
+/// A dummy plugin that's to temporarily occupy an entry in an app's plugin registry.
+pub(crate) struct PlaceholderPlugin;
+
+impl Plugin for PlaceholderPlugin {
+    fn build(&self, _app: &mut App) {}
+}
 
 /// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
 /// It is used for dynamically loading plugins.

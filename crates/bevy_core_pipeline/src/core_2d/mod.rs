@@ -48,11 +48,9 @@ impl Plugin for Core2dPlugin {
         app.register_type::<Camera2d>()
             .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
-
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)

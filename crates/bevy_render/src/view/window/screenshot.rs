@@ -137,13 +137,13 @@ impl Plugin for ScreenshotPlugin {
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>();
         }
 
         #[cfg(feature = "bevy_ci_testing")]
         if app
-            .world
+            .world()
             .contains_resource::<bevy_app::ci_testing::CiTestingConfig>()
         {
             app.add_systems(bevy_app::Update, ci_testing_screenshot_at);
