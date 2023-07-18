@@ -19,10 +19,14 @@ use std::{
 };
 use thiserror::Error;
 
+/// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
+/// should be loaded.
 pub trait AssetLoader: Send + Sync + 'static {
+    /// The top level [`Asset`] loaded by this [`AssetLoader`].
     type Asset: crate::Asset;
+    /// The settings type used by this [`AssetLoader`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
-    /// Processes the asset in an asynchronous closure.
+    /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
@@ -34,8 +38,9 @@ pub trait AssetLoader: Send + Sync + 'static {
     fn extensions(&self) -> &[&str];
 }
 
+/// Provides type-erased access to an [`AssetLoader`].
 pub trait ErasedAssetLoader: Send + Sync + 'static {
-    /// Processes the asset in an asynchronous closure.
+    /// Asynchronously loads the asset(s) from the bytes provided by [`Reader`].
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
@@ -45,35 +50,29 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
+    /// Deserializes metadata from the input `meta` bytes into the appropriate type (erased as [`Box<dyn AssetMetaDyn>`]).
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
+    /// Returns the default meta value for the [`AssetLoader`] (erased as [`Box<dyn AssetMetaDyn>`]).
     fn default_meta(&self) -> Box<dyn AssetMetaDyn>;
+    /// Returns the type_name of the [`AssetLoader`].
     fn type_name(&self) -> &'static str;
+    /// Returns the [`TypeId`] of the [`AssetLoader`].
     fn type_id(&self) -> TypeId;
+    /// Returns the type_name of the top-level [`Asset`] loaded by the [`AssetLoader`].
     fn asset_type_name(&self) -> &'static str;
+    /// Returns the [`TypeId`] of the top-level [`Asset`] loaded by the [`AssetLoader`].
     fn asset_type_id(&self) -> TypeId;
 }
 
+/// An error encountered during [`AssetLoader::load`].
 #[derive(Error, Debug)]
 pub enum AssetLoaderError {
+    /// Any error that occurs during load.
     #[error(transparent)]
     Load(#[from] anyhow::Error),
+    /// A failure to deserialize metadata during load.
     #[error(transparent)]
     DeserializeMeta(#[from] DeserializeMetaError),
-}
-
-#[derive(Error, Debug)]
-#[error("Failed to load dependency {dependency:?} {error}")]
-pub struct LoadDirectError {
-    pub dependency: AssetPath<'static>,
-    pub error: AssetLoadError,
-}
-
-#[derive(Error, Debug)]
-pub enum DeserializeMetaError {
-    #[error("Failed to deserialize asset meta: {0:?}")]
-    DeserializeSettings(#[from] SpannedError),
-    #[error("Failed to deserialize minimal asset meta: {0:?}")]
-    DeserializeMinimal(SpannedError),
 }
 
 impl<L> ErasedAssetLoader for L
@@ -137,6 +136,10 @@ pub(crate) struct LabeledAsset {
     pub(crate) handle: UntypedHandle,
 }
 
+/// The successful result of an [`AssetLoader::load`] call. This contains the loaded "root" asset and any other "labeled" assets produced
+/// by the loader. It also holds the input [`AssetMeta`] (if it exists) and tracks dependencies:
+/// * normal dependencies: dependencies that must be loaded as part of this asset load (ex: assets a given asset has handles to).
+/// * Loader dependencies: dependencies whose actual asset values are used during the load process
 pub struct LoadedAsset<A: Asset> {
     pub(crate) value: A,
     pub(crate) path: Option<AssetPath<'static>>,
@@ -174,6 +177,7 @@ impl<A: Asset> From<A> for LoadedAsset<A> {
     }
 }
 
+/// A "type erased / boxed" counterpart to [`LoadedAsset`]. This is used in places where the loaded type is not statically known.
 pub struct ErasedLoadedAsset {
     pub(crate) value: Box<dyn AssetContainer>,
     pub(crate) path: Option<AssetPath<'static>>,
@@ -197,23 +201,29 @@ impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
 }
 
 impl ErasedLoadedAsset {
+    /// Cast (and take ownership) of the [`Asset`] value of the given type. This will return [`Some`] if
+    /// the stored type matches `A` and [`None`] if it does not.
     pub fn take<A: Asset>(self) -> Option<A> {
         self.value.downcast::<A>().map(|a| *a).ok()
     }
 
+    /// Retrieves a reference to the internal [`Asset`] type, if it matches the type `A`. Otherwise returns [`None`].
     pub fn get<A: Asset>(&self) -> Option<&A> {
         self.value.downcast_ref::<A>()
     }
 
+    /// Retrieves the [`TypeId`] of the stored [`Asset`] type.
     pub fn asset_type_id(&self) -> TypeId {
         (*self.value).type_id()
     }
 
+    /// Retrieves the asset path for this loaded [`Asset`], if it has one.
     pub fn path(&self) -> Option<&AssetPath<'static>> {
         self.path.as_ref()
     }
 }
 
+/// A type erased container for an [`Asset`] value that is capable of inserting the [`Asset`] into a [`World`]'s [`Assets`] collection.
 pub trait AssetContainer: Downcast + Any + Send + Sync + 'static {
     fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World);
 }
@@ -226,6 +236,25 @@ impl<A: Asset> AssetContainer for A {
     }
 }
 
+/// An error that occurs when attempting to call [`LoadContext::load_direct`]
+#[derive(Error, Debug)]
+#[error("Failed to load dependency {dependency:?} {error}")]
+pub struct LoadDirectError {
+    pub dependency: AssetPath<'static>,
+    pub error: AssetLoadError,
+}
+
+/// An error that occurs while deserializing [`AssetMeta`].
+#[derive(Error, Debug)]
+pub enum DeserializeMetaError {
+    #[error("Failed to deserialize asset meta: {0:?}")]
+    DeserializeSettings(#[from] SpannedError),
+    #[error("Failed to deserialize minimal asset meta: {0:?}")]
+    DeserializeMinimal(SpannedError),
+}
+
+/// A context that provides access to assets in [`AssetLoader`]s, tracks dependencies, and collects asset load state.
+/// Any asset state accessed by [`LoadContext`] will be tracked and stored for use in dependency events and asset preprocessing.
 pub struct LoadContext<'a> {
     asset_server: &'a AssetServer,
     should_load_dependencies: bool,
@@ -238,6 +267,7 @@ pub struct LoadContext<'a> {
 }
 
 impl<'a> LoadContext<'a> {
+    /// Creates a new [`LoadContext`] instance.
     pub(crate) fn new(
         asset_server: &'a AssetServer,
         asset_path: AssetPath<'static>,
@@ -257,11 +287,11 @@ impl<'a> LoadContext<'a> {
 
     /// Begins a new labeled asset load. Use the returned [`LoadContext`] to load
     /// dependencies for the new asset and call [`LoadContext::finish`] to finalize the asset load.
-    /// When finished, make sure you call [`Self::add_labled_asset`] to add the results back to the parent
+    /// When finished, make sure you call [`LoadContext::add_labled_asset`] to add the results back to the parent
     /// context.
-    /// Prefer [`Self::labeled_asset_scope`] when possible, which will automatically add
+    /// Prefer [`LoadContext::labeled_asset_scope`] when possible, which will automatically add
     /// the labeled [`LoadContext`] back to the parent context.
-    /// [`Self::begin_labeled_asset`] exists largely to enable parallel asset loading.
+    /// [`LoadContext::begin_labeled_asset`] exists largely to enable parallel asset loading.
     pub fn begin_labeled_asset(&self, label: String) -> LoadContext {
         LoadContext::new(
             self.asset_server,
@@ -271,6 +301,12 @@ impl<'a> LoadContext<'a> {
         )
     }
 
+    /// Creates a new [`LoadContext`] for the given `label`. The `load` function is responsible for loading an [`Asset`] of
+    /// type `A`. `load` will be called immediately and the result will be used to finalize the [`LoadContext`], resulting in a new
+    /// [`LoadedAsset`], which is registered under the `label` label.
+    ///
+    /// This exists to remove the need to manually call [`LoadContext::begin_labeled_asset`] and then manually register the
+    /// result with [`LoadContext::add_labeled_asset`].
     pub fn labeled_asset_scope<A: Asset>(
         &mut self,
         label: String,
@@ -282,6 +318,7 @@ impl<'a> LoadContext<'a> {
         self.add_loaded_labeled_asset(loaded_asset)
     }
 
+    /// This will add the given `asset` as a "labeled [`Asset`]" with the `label` label.
     pub fn add_labeled_asset<A: Asset>(&mut self, label: String, asset: A) -> Handle<A> {
         self.labeled_asset_scope(label, |_| asset)
     }
@@ -311,11 +348,14 @@ impl<'a> LoadContext<'a> {
         returned_handle
     }
 
+    /// Returns `true` if an asset with the label `label` exists in this context.
     pub fn has_labeled_asset(&self, label: &str) -> bool {
         let path = self.asset_path.with_label(label);
         self.asset_server.get_handle_untyped(path).is_some()
     }
 
+    /// "Finishes" this context by populating the final [`Asset`] value (and the erased [`AssetMeta`] value, if it exists).
+    /// The relevant asset metadata collected in this context will be stored in the returned [`LoadedAsset`].
     pub fn finish<A: Asset>(self, value: A, meta: Option<Box<dyn AssetMetaDyn>>) -> LoadedAsset<A> {
         LoadedAsset {
             value,
@@ -381,6 +421,9 @@ impl<'a> LoadContext<'a> {
         handle
     }
 
+    /// Loads the [`Asset`] of type `A` at the given `path` with the given [`AssetLoader::Settings`] settings `S`. This is a "deferred"
+    /// load. If the settings type `S` does not match the settings expected by `A`'s asset loader, an error will be printed to the log
+    /// and the asset load will fail.  
     pub fn load_with_settings<'b, A: Asset, S: Settings + Default>(
         &mut self,
         path: impl Into<AssetPath<'b>>,
@@ -402,6 +445,9 @@ impl<'a> LoadContext<'a> {
         handle
     }
 
+    /// Returns a handle to an asset of type `A` with the label `label`. This [`LoadContext`] must produce an asset of the
+    /// given type and the given label or the dependencies of this asset will never be considered "fully loaded". However you
+    /// can call this method before _or_ after adding the labeled asset.
     pub fn get_label_handle<A: Asset>(&mut self, label: &str) -> Handle<A> {
         let path = self.asset_path.with_label(label);
         let handle = self
@@ -412,6 +458,16 @@ impl<'a> LoadContext<'a> {
         handle
     }
 
+    /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
+    /// returning. Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
+    /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
+    /// "load dependency".
+    ///
+    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadAndSave`] preprocessor,
+    /// changing a "load dependency" will result in re-processing of the asset.
+    ///
+    /// [`Process`]: crate::processor::Process
+    /// [`LoadAndSave`]: crate::processor::LoadAndSave
     pub async fn load_direct<'b>(
         &mut self,
         path: impl Into<AssetPath<'b>>,
@@ -450,6 +506,7 @@ impl<'a> LoadContext<'a> {
     }
 }
 
+/// An error produced when calling [`LoadContext::read_asset_bytes`]
 #[derive(Error, Debug)]
 pub enum ReadAssetBytesError {
     #[error(transparent)]
