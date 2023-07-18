@@ -1008,6 +1008,81 @@ mod test {
         output_eq!(wgsl, "tests/expected/item_sub_point.txt");
     }
 
+    #[test]
+    fn conditional_import() {
+        let mut composer = Composer::default();
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/conditional_import/mod_a.wgsl"),
+                file_path: "tests/conditional_import/mod_a.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/conditional_import/mod_b.wgsl"),
+                file_path: "tests/conditional_import/mod_b.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        let module_a = composer
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/conditional_import/top.wgsl"),
+                file_path: "tests/conditional_import/top.wgsl",
+                shader_defs: HashMap::from_iter([("USE_A".to_owned(), ShaderDefValue::Bool(true))]),
+                ..Default::default()
+            })
+            .unwrap();
+
+        let info = naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::default(),
+        )
+        .validate(&module_a)
+        .unwrap();
+        let wgsl = naga::back::wgsl::write_string(
+            &module_a,
+            &info,
+            naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
+        )
+        .unwrap();
+
+        // let mut f = std::fs::File::create("conditional_import_a.txt").unwrap();
+        // f.write_all(wgsl.as_bytes()).unwrap();
+        // drop(f);
+
+        output_eq!(wgsl, "tests/expected/conditional_import_a.txt");
+
+        let module_b = composer
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/conditional_import/top.wgsl"),
+                file_path: "tests/conditional_import/top.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        let info = naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::default(),
+        )
+        .validate(&module_b)
+        .unwrap();
+        let wgsl = naga::back::wgsl::write_string(
+            &module_b,
+            &info,
+            naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
+        )
+        .unwrap();
+
+        // let mut f = std::fs::File::create("conditional_import_b.txt").unwrap();
+        // f.write_all(wgsl.as_bytes()).unwrap();
+        // drop(f);
+
+        output_eq!(wgsl, "tests/expected/conditional_import_b.txt");
+    }
+
     // actually run a shader and extract the result
     // needs the composer to contain a module called "test_module", with a function called "entry_point" returning an f32.
     fn test_shader(composer: &mut Composer) -> f32 {
