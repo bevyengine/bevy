@@ -5,35 +5,62 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat4, Quat, Vec3, Vec3A};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-/// Describe the absolute position of an entity in space,
+/// Describe the absolute transform (translation, rotation, scale) of an entity in space,
 /// relative to the main reference frame.
 ///
+/// ## Usage
+///
 /// * To place or move an entity, you should set its [`Transform`].
+/// * To get the absolute transform of an entity, you should get its [`GlobalTransform`],
+/// after [`TransformPropagate`] or [`PostUpdate`] to avoid a 1 frame lag.
+///   * You can use [`compute_transform`] to get the global `translation`, `rotation` and `scale`.
 /// * [`GlobalTransform`] is fully managed by bevy, you cannot mutate it, use
-///   [`Transform`] instead.
-/// * To get the global transform of an entity, you should get its [`GlobalTransform`].
-/// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
-///   * You may use the [`TransformBundle`](crate::TransformBundle) to guarantee this.
+///   [`Transform`] instead, the [`GlobalTransform`] will be automatically updated with [`TransformPropagate`].
+///   * You may use the [`TransformBundle`](crate::TransformBundle) to guarantee
+/// an entity has both components.
+///
+/// ## `translation`, `rotation` and `scale`
+///
+/// [`GlobalTransform`] represents:
+/// - The position of an entity in space, defined as a `translation` from the origin,
+/// [`Vec3::ZERO`]. The unit doesn't have a predefined meaning, but the convention
+/// is usually to use `1.0` is equivalent to 1 meter.
+/// - The `rotation` of an entity in space, [`Quat::IDENTITY`] representing the rotation
+/// where [`Vec3::Z`] is forward and [`Vec3::Y`] is up.
+/// - The `scale` of an entity, `1.0` representing the "size values" of the entity
+/// matching the main reference frame coordinates.
+/// It can be seen as a ratio of the main reference frame length unit to
+/// the entity's length unit.
+/// For example if the scale is `1.0` for a `Mesh`, its vertices position attribute
+/// have the same unit than the values used inside `translation`.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
-/// [`Transform`] is the local position of an entity in space relative to its parent position,
-/// or the global position relative to the main reference frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+/// [`Transform`] is the local transform of an entity in space relative to its parent transform,
+/// or the global transform relative to the main reference frame if it doesn't have a [`Parent`].
 ///
-/// [`GlobalTransform`] is the absolute position of an entity in space, relative to the main reference frame.
+/// [`GlobalTransform`] is the absolute transform of an entity in space, relative to the main reference frame.
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
-/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
-///
-/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
-/// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
-/// before the [`GlobalTransform`] is updated.
+/// [`TransformPropagate`].
+/// Those systems run during [`PostUpdate`].
+/// If you update the [`Transform`] of an entity in this schedule or after,
+/// you may notice a 1 frame lag before the [`GlobalTransform`] is updated.
 ///
 /// # Examples
 ///
-/// - [`transform`]
+/// - The [`transform example`], or the other examples in the [`transforms folder`],
+/// to learn how to use the [`Transform`] of an entity.
+/// - The [`parenting example`], to learn how [`Transform`] behaves in a hierarchy.
 ///
-/// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
+/// [`compute_transform`]: GlobalTransform::compute_transform
+/// [`TransformBundle`]: crate::TransformBundle
+/// [`TransformPropagate`]: crate::TransformSystem::TransformPropagate
+/// [`PostUpdate`]: bevy_app::PostUpdate
+/// [`Parent`]: bevy_hierarchy::Parent
+/// [`transform example`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
+/// [`transforms folder`]: https://github.com/bevyengine/bevy/tree/latest/examples/transforms
+/// [`parenting example`]: https://bevyengine.org/examples/3d/parenting/
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq)]
