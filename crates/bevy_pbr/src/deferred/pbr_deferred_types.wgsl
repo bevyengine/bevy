@@ -31,7 +31,7 @@ fn mesh_mat_flags_from_deferred_flags(deferred_flags: u32) -> vec2<u32> {
 // could possibly go down to oct20 if the space is needed 
 
 fn octa_wrap(v: vec2<f32>) -> vec2<f32> {
-    return (1.0 - abs(v.yx)) * sign(v.xy);
+    return (1.0 - abs(v.yx)) * select(vec2(-1.0), vec2(1.0), v.xy >= vec2(0.0));
 }
 
 fn octa_encode(n: vec3<f32>) -> vec2<f32> {
