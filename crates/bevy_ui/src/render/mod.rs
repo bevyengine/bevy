@@ -168,6 +168,7 @@ pub struct ExtractedUiNodes {
 }
 
 impl ExtractedUiNodes {
+    /// Retrieves the next empty `ExtractedUiNode` buffer. If none exists, creates one before returning it.
     pub fn next_buffer(&mut self) -> &mut Vec<ExtractedUiNode> {
         let empty_index = self.uinodes.iter().position(|uinodes| uinodes.is_empty());
         match empty_index {
