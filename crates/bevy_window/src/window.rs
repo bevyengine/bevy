@@ -146,6 +146,10 @@ pub struct Window {
     /// You should also set the window `composite_alpha_mode` to `CompositeAlphaMode::PostMultiplied`.
     pub transparent: bool,
     /// Get/set whether the window is focused.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Android / iOS / X11 / Wayland: Can't be spawned unfocused.
     pub focused: bool,
     /// Where should the window appear relative to other overlapping window.
     ///
