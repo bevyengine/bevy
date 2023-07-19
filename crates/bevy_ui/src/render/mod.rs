@@ -168,7 +168,7 @@ pub struct ExtractedUiNodes {
 }
 
 impl ExtractedUiNodes {
-    pub fn get(&mut self) -> &mut Vec<ExtractedUiNode> {
+    pub fn next_buffer(&mut self) -> &mut Vec<ExtractedUiNode> {
         let empty_index = self.uinodes.iter().position(|uinodes| uinodes.is_empty());
         match empty_index {
             Some(idx) => &mut self.uinodes[idx],
@@ -200,7 +200,7 @@ pub fn extract_atlas_uinodes(
         >,
     >,
 ) {
-    let out = extracted_uinodes.get();
+    let out = extracted_uinodes.next_buffer();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, visibility, clip, texture_atlas_handle, atlas_image)) =
             uinode_query.get(*entity)
@@ -290,7 +290,7 @@ pub fn extract_uinode_borders(
     >,
     parent_node_query: Extract<Query<&Node, With<Parent>>>,
 ) {
-    let out = extracted_uinodes.get();
+    let out = extracted_uinodes.next_buffer();
     let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
 
     let ui_logical_viewport_size = windows
@@ -407,7 +407,7 @@ pub fn extract_uinodes(
         >,
     >,
 ) {
-    let out = extracted_uinodes.get();
+    let out = extracted_uinodes.next_buffer();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
@@ -536,7 +536,7 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
-    let out = extracted_uinodes.get();
+    let out = extracted_uinodes.next_buffer();
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
