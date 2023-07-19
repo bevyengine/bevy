@@ -1,8 +1,8 @@
 use crate::{
     io::{AssetReaderError, Reader},
     meta::{
-        loader_settings_meta_transform, AssetHash, AssetMeta, AssetMetaDyn,
-        AssetMetaProcessedInfoMinimal, Settings,
+        loader_settings_meta_transform, AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal,
+        Settings,
     },
     path::AssetPath,
     Asset, AssetLoadError, AssetServer, Assets, Handle, UntypedAssetId, UntypedHandle,
@@ -387,7 +387,7 @@ impl<'a> LoadContext<'a> {
             // NOTE: ensure meta is read while the asset bytes reader is still active to ensure transactionality
             // See `ProcessorGatdReader` for more info
             let meta_bytes = self.asset_server.reader().read_meta_bytes(path).await?;
-            let minimal: AssetMetaProcessedInfoMinimal = ron::de::from_bytes(&meta_bytes)
+            let minimal: ProcessedInfoMinimal = ron::de::from_bytes(&meta_bytes)
                 .map_err(DeserializeMetaError::DeserializeMinimal)?;
             let processed_info = minimal
                 .processed_info

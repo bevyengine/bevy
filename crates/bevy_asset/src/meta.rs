@@ -7,11 +7,22 @@ use serde::{Deserialize, Serialize};
 pub const META_FORMAT_VERSION: &str = "1.0";
 pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
 
+/// Asset metadata that informs how an [`Asset`] should be handled by the asset system.
+///
+/// `L` is the [`AssetLoader`] (if one is configured) for the [`AssetAction`]. This can be `()` if it is not required.
+/// `P` is the [`Process`] processor, if one is configured for the [`AssetAction`]. This can be `()` if it is not required.
 #[derive(Serialize, Deserialize)]
 pub struct AssetMeta<L: AssetLoader, P: Process> {
+    /// The version of the meta format being used. This will change whenever a breaking change is made to
+    /// the meta format.
     pub meta_format_version: String,
+    /// Information produced by the [`AssetProcessor`] _after_ processing this asset.
+    /// This will only exist alongside processed versions of assets. You should not manually set it in your asset source files.
+    ///
+    /// [`AssetProcessor`]: crate::processor::AssetProcessor
     #[serde(skip_serializing_if = "Option::is_none")]
     pub processed_info: Option<ProcessedInfo>,
+    /// How to handle this asset in the asset system. See [`AssetAction`].
     pub asset: AssetAction<L::Settings, P::Settings>,
 }
 
@@ -24,19 +35,25 @@ impl<L: AssetLoader, P: Process> AssetMeta<L, P> {
         }
     }
 
+    /// Deserializes the given serialized byte representation of the asset meta.
     pub fn deserialize(bytes: &[u8]) -> Result<Self, DeserializeMetaError> {
         Ok(ron::de::from_bytes(bytes)?)
     }
 }
 
+/// Configures how an asset source file should be handled by the asset system.
 #[derive(Serialize, Deserialize)]
 pub enum AssetAction<LoaderSettings, ProcessSettings> {
     /// Load the asset with the given loader and settings
+    /// See [`AssetLoader`].
     Load {
         loader: String,
         settings: LoaderSettings,
     },
-    /// Process the asset with the given processor and settings
+    /// Process the asset with the given processor and settings.
+    /// See [`Process`] and [`AssetProcessor`].
+    ///
+    /// [`AssetProcessor`]: crate::processor::AssetProcessor
     Process {
         processor: String,
         settings: ProcessSettings,
@@ -45,27 +62,41 @@ pub enum AssetAction<LoaderSettings, ProcessSettings> {
     Ignore,
 }
 
+/// Info produced by the [`AssetProcessor`] for a given processed asset. This is used to determine if an
+/// asset source file (or its dependencies) has changed.
+///
+/// [`AssetProcessor`]: crate::processor::AssetProcessor
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct ProcessedInfo {
     /// A hash of the asset bytes and the asset .meta data
     pub hash: AssetHash,
     /// A hash of the asset bytes, the asset .meta data, and the `full_hash` of every process_dependency
     pub full_hash: AssetHash,
+    /// Information about the "process dependencies" used to process this asset.
     pub process_dependencies: Vec<ProcessDependencyInfo>,
 }
 
+/// Information about a dependency used to process an asset. This is used to determine whether an asset's "process dependency"
+/// has changed.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProcessDependencyInfo {
     pub full_hash: AssetHash,
     pub path: AssetPath<'static>,
 }
 
-/// This exists to
+/// This is a minimal counterpart to [`AssetMeta`] that exists to speed up (or enable) serialization in cases where the whole [`AssetMeta`] isn't
+/// necessary.
+// PERF:
+// Currently, this is used when retrieving asset loader and processor information (when the actual type is not known yet). This could probably
+// be replaced (and made more efficient) by a custom deserializer that reads the loader/processor information _first_, then deserializes the contents
+// using a type registry.
 #[derive(Serialize, Deserialize)]
 pub struct AssetMetaMinimal {
     pub asset: AssetActionMinimal,
 }
 
+/// This is a minimal counterpart to [`AssetAction`] that exists to speed up (or enable) serialization in cases where the whole [`AssetActionMinimal`]
+/// isn't necessary.
 #[derive(Serialize, Deserialize)]
 pub enum AssetActionMinimal {
     Load { loader: String },
@@ -73,16 +104,25 @@ pub enum AssetActionMinimal {
     Ignore,
 }
 
+/// This is a minimal counterpart to [`ProcessedInfo`] that exists to speed up serialization in cases where the whole [`ProcessedInfo`] isn't
+/// necessary.
 #[derive(Serialize, Deserialize)]
-pub struct AssetMetaProcessedInfoMinimal {
+pub struct ProcessedInfoMinimal {
     pub processed_info: Option<ProcessedInfo>,
 }
 
+/// A dynamic type-erased counterpart to [`AssetMeta`] that enables passing around and interacting with [`AssetMeta`] without knowing
+/// its type.
 pub trait AssetMetaDyn: Downcast + Send + Sync {
+    /// Returns a reference to the [`AssetLoader`] settings, if they exist.
     fn loader_settings(&self) -> Option<&dyn Settings>;
+    /// Returns a mutable reference to the [`AssetLoader`] settings, if they exist.
     fn loader_settings_mut(&mut self) -> Option<&mut dyn Settings>;
+    /// Serializes the internal [`AssetMeta`].
     fn serialize(&self) -> Vec<u8>;
+    /// Returns a reference to the [`ProcessedInfo`] if it exists.
     fn processed_info(&self) -> &Option<ProcessedInfo>;
+    /// Returns a mutable reference to the [`ProcessedInfo`] if it exists.
     fn processed_info_mut(&mut self) -> &mut Option<ProcessedInfo>;
 }
 
@@ -116,6 +156,9 @@ impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
 
 impl_downcast!(AssetMetaDyn);
 
+/// Settings used by the asset system, such as by [`AssetLoader`], [`Process`], and [`AssetSaver`]
+///
+/// [`AssetSaver`]: crate::saver::AssetSaver
 pub trait Settings: Downcast + Send + Sync + 'static {}
 
 impl<T: 'static> Settings for T where T: Send + Sync {}

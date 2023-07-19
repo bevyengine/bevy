@@ -11,7 +11,7 @@ use crate::{
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
-        AssetMetaDyn, AssetMetaMinimal, AssetMetaProcessedInfoMinimal, ProcessedInfo,
+        AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
     AssetLoadError, AssetLoaderError, AssetPath, AssetServer, DeserializeMetaError,
     LoadDirectError, MissingAssetLoaderForExtensionError,
@@ -330,7 +330,7 @@ impl AssetProcessor {
             if let Some(info) = asset_infos.get_mut(&asset_path) {
                 match self.destination_reader().read_meta_bytes(path).await {
                     Ok(meta_bytes) => {
-                        match ron::de::from_bytes::<AssetMetaProcessedInfoMinimal>(&meta_bytes) {
+                        match ron::de::from_bytes::<ProcessedInfoMinimal>(&meta_bytes) {
                             Ok(minimal) => {
                                 debug!(
                                     "Populated processed info for asset {path:?} {:?}",
