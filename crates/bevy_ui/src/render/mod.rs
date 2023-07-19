@@ -678,7 +678,7 @@ pub fn prepare_uinodes(
         }
 
         if n == usize::MAX {
-            return None;
+            None
         } else {
             let (current, drain) = &mut drains[n];
             let next = drain.next();
