@@ -336,6 +336,10 @@ impl Window {
 /// Please note that if the window is resizable, then when the window is
 /// maximized it may have a size outside of these limits. The functionality
 /// required to disable maximizing is not yet exposed by winit.
+
+///
+/// Constraints will be validated using [`WindowResizeConstraints::check_constraints`]
+/// before being used.
 #[derive(Debug, Clone, Copy, PartialEq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -369,6 +373,15 @@ impl WindowResizeConstraints {
     /// Checks if the constraints are valid.
     ///
     /// Will output warnings if it isn't.
+    ///
+    /// Values under `1.` or `NaN` will be set back to `1.`.
+    ///
+    /// Having an upper ("max") constraint higher than the corresponding lower ("min")
+    /// constraint will show a warning and set the upper constraint value to the lower one.
+    ///
+    /// If a `max_width` is specified (different from [`f32::INFINITY`]), a `max_height`
+    /// should be specified too, and vice versa, because of how `Winit` operates.
+    /// If only one is specified, a warning will be shown and both will be set to [`f32::INFINITY`].
     #[must_use]
     pub fn check_constraints(&self) -> Self {
         let WindowResizeConstraints {
@@ -377,6 +390,7 @@ impl WindowResizeConstraints {
             mut max_width,
             mut max_height,
         } = self;
+
         min_width = min_width.max(1.);
         min_height = min_height.max(1.);
         if max_width < min_width {
@@ -393,6 +407,26 @@ impl WindowResizeConstraints {
             );
             max_height = min_height;
         }
+
+        if (max_width.is_finite() && max_height.is_infinite())
+            || (max_width.is_infinite() && max_height.is_finite())
+        {
+            let (finite, finite_value, infinite) = if max_width.is_finite() {
+                let value = max_width;
+                max_width = f32::INFINITY;
+                ("width", value, "height")
+            } else {
+                let value = max_height;
+                max_height = f32::INFINITY;
+                ("height", value, "width")
+            };
+            warn!(
+                "The maximum {} is specified (value: {}) but the maximum {} is not (infinite). \
+                The {} constraint will be ignored, no maximum constraint will be set.",
+                finite, finite_value, infinite, finite
+            );
+        }
+
         WindowResizeConstraints {
             min_width,
             min_height,

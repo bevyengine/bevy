@@ -12,7 +12,7 @@ use bevy_utils::{tracing::warn, HashMap};
 use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution};
 
 use winit::{
-    dpi::{LogicalSize, PhysicalPosition},
+    dpi::{LogicalSize, PhysicalPosition, Size},
     monitor::MonitorHandle,
 };
 
@@ -97,24 +97,15 @@ impl WinitWindows {
             .with_decorations(window.decorations)
             .with_transparent(window.transparent);
 
-        let constraints = window.resize_constraints.check_constraints();
-        let min_inner_size = LogicalSize {
-            width: constraints.min_width,
-            height: constraints.min_height,
-        };
-        let max_inner_size = LogicalSize {
-            width: constraints.max_width,
-            height: constraints.max_height,
-        };
+        let (min_inner_size, max_inner_size) = get_inner_size_constraints(window);
 
-        let winit_window_builder =
-            if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
-                winit_window_builder
-                    .with_min_inner_size(min_inner_size)
-                    .with_max_inner_size(max_inner_size)
-            } else {
-                winit_window_builder.with_min_inner_size(min_inner_size)
-            };
+        let winit_window_builder = if let Some(max_inner_size) = max_inner_size {
+            winit_window_builder
+                .with_min_inner_size(min_inner_size)
+                .with_max_inner_size(max_inner_size)
+        } else {
+            winit_window_builder.with_min_inner_size(min_inner_size)
+        };
 
         #[allow(unused_mut)]
         let mut winit_window_builder = winit_window_builder.with_title(window.title.as_str());
@@ -372,6 +363,37 @@ pub fn winit_window_position(
             Some(PhysicalPosition::new(position[0] as f64, position[1] as f64).cast::<i32>())
         }
     }
+}
+
+pub(crate) fn get_inner_size_constraints(window: &Window) -> (Size, Option<Size>) {
+    let constraints = window.resize_constraints.check_constraints();
+    let min_inner_size = LogicalSize {
+        width: constraints.min_width,
+        height: constraints.min_height,
+    };
+    let max_inner_size = LogicalSize {
+        width: constraints.max_width,
+        height: constraints.max_height,
+    };
+
+    let (min_inner_size, max_inner_size): (Size, Size) =
+        if let Some(sf) = window.resolution.scale_factor_override() {
+            (
+                min_inner_size.to_physical::<f64>(sf).into(),
+                max_inner_size.to_physical::<f64>(sf).into(),
+            )
+        } else {
+            (min_inner_size.into(), max_inner_size.into())
+        };
+
+    (
+        min_inner_size,
+        if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
+            Some(max_inner_size)
+        } else {
+            None
+        },
+    )
 }
 
 // WARNING: this only works under the assumption that wasm runtime is single threaded
