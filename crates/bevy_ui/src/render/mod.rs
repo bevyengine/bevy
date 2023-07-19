@@ -41,7 +41,6 @@ use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
-use std::vec::Drain;
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -645,11 +644,6 @@ pub fn prepare_uinodes(
 ) {
     ui_meta.vertices.clear();
 
-    // // sort by ui stack index, starting from the deepest node
-    // extracted_uinodes
-    //     .uinodes
-    //     .sort_by_key(|node| node.stack_index);
-
     let mut start = 0;
     let mut end = 0;
     let mut current_batch_image = DEFAULT_IMAGE_HANDLE.typed();
@@ -660,19 +654,21 @@ pub fn prepare_uinodes(
         image.id() != DEFAULT_IMAGE_HANDLE.id()
     }
 
-    let mut nodeys: Vec<_> =
-        extracted_uinodes.uinodes.iter_mut()
+    let mut drains: Vec<_> = extracted_uinodes
+        .uinodes
+        .iter_mut()
         .map(|uinodes| {
             let mut d = uinodes.drain(..);
             let first = d.next();
             (first, d)
-        }).collect();
-    
-    fn next(nodeys: &mut Vec<(Option<ExtractedUiNode>, Drain<'_, ExtractedUiNode>)>) -> Option<ExtractedUiNode> {
+        })
+        .collect();
+
+    let mut next_extracted_node = move || {
         let mut min_stack_index = usize::MAX;
         let mut n = usize::MAX;
 
-        for (i, (node, drainer)) in nodeys.iter_mut().enumerate() {
+        for (i, (node, _)) in drains.iter_mut().enumerate() {
             if let Some(node) = node {
                 if node.stack_index < min_stack_index {
                     n = i;
@@ -683,19 +679,16 @@ pub fn prepare_uinodes(
 
         if n == usize::MAX {
             return None;
+        } else {
+            let (current, drain) = &mut drains[n];
+            let next = drain.next();
+            let out = current.take();
+            *current = next;
+            out
         }
+    };
 
-        let (node, nodey) = &mut nodeys[n];
-        let next = nodey.next();
-        let out = node.take();
-        *node = next;
-        out
-
-
-    }
-    
-    while let Some(extracted_uinode) = next(&mut nodeys) {
-    //for extracted_uinode in extracted_uinodes {
+    while let Some(extracted_uinode) = next_extracted_node() {
         let mode = if is_textured(&extracted_uinode.image) {
             if current_batch_image.id() != extracted_uinode.image.id() {
                 if is_textured(&current_batch_image) && start != end {
