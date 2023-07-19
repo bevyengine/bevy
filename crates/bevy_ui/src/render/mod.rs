@@ -41,6 +41,7 @@ use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
+use std::vec::Drain;
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -164,7 +165,20 @@ pub struct ExtractedUiNode {
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    pub uinodes: Vec<ExtractedUiNode>,
+    pub uinodes: Vec<Vec<ExtractedUiNode>>,
+}
+
+impl ExtractedUiNodes {
+    pub fn get(&mut self) -> &mut Vec<ExtractedUiNode> {
+        let empty_index = self.uinodes.iter().position(|uinodes| uinodes.is_empty());
+        match empty_index {
+            Some(idx) => &mut self.uinodes[idx],
+            None => {
+                self.uinodes.push(vec![]);
+                self.uinodes.last_mut().unwrap()
+            }
+        }
+    }
 }
 
 pub fn extract_atlas_uinodes(
@@ -187,6 +201,7 @@ pub fn extract_atlas_uinodes(
         >,
     >,
 ) {
+    let out = extracted_uinodes.get();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, visibility, clip, texture_atlas_handle, atlas_image)) =
             uinode_query.get(*entity)
@@ -228,7 +243,7 @@ pub fn extract_atlas_uinodes(
             atlas_rect.max *= scale;
             atlas_size *= scale;
 
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
+            out.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
                 color: color.0,
@@ -276,6 +291,7 @@ pub fn extract_uinode_borders(
     >,
     parent_node_query: Extract<Query<&Node, With<Parent>>>,
 ) {
+    let out = extracted_uinodes.get();
     let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
 
     let ui_logical_viewport_size = windows
@@ -353,7 +369,7 @@ pub fn extract_uinode_borders(
 
             for edge in border_rects {
                 if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
-                    extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    out.push(ExtractedUiNode {
                         stack_index,
                         // This translates the uinode's transform to the center of the current border rectangle
                         transform: transform * Mat4::from_translation(edge.center().extend(0.)),
@@ -392,6 +408,7 @@ pub fn extract_uinodes(
         >,
     >,
 ) {
+    let out = extracted_uinodes.get();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
@@ -411,7 +428,7 @@ pub fn extract_uinodes(
                 (DEFAULT_IMAGE_HANDLE.typed(), false, false)
             };
 
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
+            out.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
                 color: color.0,
@@ -520,6 +537,7 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
+    let out = extracted_uinodes.get();
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
@@ -558,7 +576,7 @@ pub fn extract_text_uinodes(
                 let mut rect = atlas.textures[atlas_info.glyph_index];
                 rect.min *= inverse_scale_factor;
                 rect.max *= inverse_scale_factor;
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                out.push(ExtractedUiNode {
                     stack_index,
                     transform: transform
                         * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
@@ -627,10 +645,10 @@ pub fn prepare_uinodes(
 ) {
     ui_meta.vertices.clear();
 
-    // sort by ui stack index, starting from the deepest node
-    extracted_uinodes
-        .uinodes
-        .sort_by_key(|node| node.stack_index);
+    // // sort by ui stack index, starting from the deepest node
+    // extracted_uinodes
+    //     .uinodes
+    //     .sort_by_key(|node| node.stack_index);
 
     let mut start = 0;
     let mut end = 0;
@@ -642,7 +660,42 @@ pub fn prepare_uinodes(
         image.id() != DEFAULT_IMAGE_HANDLE.id()
     }
 
-    for extracted_uinode in extracted_uinodes.uinodes.drain(..) {
+    let mut nodeys: Vec<_> =
+        extracted_uinodes.uinodes.iter_mut()
+        .map(|uinodes| {
+            let mut d = uinodes.drain(..);
+            let first = d.next();
+            (first, d)
+        }).collect();
+    
+    fn next(nodeys: &mut Vec<(Option<ExtractedUiNode>, Drain<'_, ExtractedUiNode>)>) -> Option<ExtractedUiNode> {
+        let mut min_stack_index = usize::MAX;
+        let mut n = usize::MAX;
+
+        for (i, (node, drainer)) in nodeys.iter_mut().enumerate() {
+            if let Some(node) = node {
+                if node.stack_index < min_stack_index {
+                    n = i;
+                    min_stack_index = node.stack_index;
+                }
+            }
+        }
+
+        if n == usize::MAX {
+            return None;
+        }
+
+        let (node, nodey) = &mut nodeys[n];
+        let next = nodey.next();
+        let out = node.take();
+        *node = next;
+        out
+
+
+    }
+    
+    while let Some(extracted_uinode) = next(&mut nodeys) {
+    //for extracted_uinode in extracted_uinodes {
         let mode = if is_textured(&extracted_uinode.image) {
             if current_batch_image.id() != extracted_uinode.image.id() {
                 if is_textured(&current_batch_image) && start != end {
