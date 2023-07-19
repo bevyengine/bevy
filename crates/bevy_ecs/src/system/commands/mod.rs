@@ -5,14 +5,13 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    system::{IntoSystem, RunSystem, RunSystemById},
+    system::{IntoSystem, RunSystem},
     world::{FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
-use std::any::TypeId;
 use std::marker::PhantomData;
 
 use super::{Deferred, Resource, SystemBuffer, SystemMeta};
@@ -532,13 +531,6 @@ impl<'w, 's> Commands<'w, 's> {
         system: S,
     ) {
         self.queue.push(RunSystem::new(system));
-    }
-
-    /// Run the systems corresponding to the label stored in the provided [`Callback`]
-    ///
-    /// Calls [`SystemRegistry::run_callback`](crate::SystemRegistry::run_callback).
-    pub fn run_system_by_id(&mut self, system_id: TypeId) {
-        self.queue.push(RunSystemById::new(system_id));
     }
 
     /// Pushes a generic [`Command`] to the command queue.

@@ -79,16 +79,11 @@ pub struct SystemRegistry {
 }
 
 impl SystemRegistry {
-    /// Registers a system in the [`SystemRegistry`], so then it can be later run.
+    /// Registers a system in the [`SystemRegistry`], so it can be run later.
     ///
     /// Repeatedly registering a system will have no effect.
-    ///
-    /// When [`run_systems_by_label`](SystemRegistry::run_systems_by_label) is called,
-    /// all registered systems that match that label will be evaluated (in insertion order).
-    ///
-    /// To provide explicit label(s), use [`register_system_with_labels`](SystemRegistry::register_system_with_labels).
     #[inline]
-    pub fn register<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> TypeId {
+    fn register<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> TypeId {
         let type_id = TypeId::of::<S>();
         self.systems
             .entry(type_id)
@@ -99,26 +94,20 @@ impl SystemRegistry {
     /// Runs the supplied system on the [`World`] a single time.
     ///
     /// You do not need to register systems before they are run in this way.
-    /// Instead, systems will be automatically registered according to their [`SystemTypeSet`] the first time this method is called on them.
+    /// Instead, systems will be automatically registered according to their [`TypeId`] the first time this method is called on them.
     ///
     /// System state will be reused between runs, ensuring that [`Local`](crate::system::Local) variables and change detection works correctly.
-    ///
-    /// If, via manual system registration, you have somehow managed to insert more than one system with the same [`SystemTypeSet`],
-    /// only the first will be run.
     pub fn run<M, S: IntoSystem<(), (), M> + 'static>(&mut self, world: &mut World, system: S) {
         let id = self.register(system);
         self.run_by_id(world, id)
             .expect("System was registered before running");
     }
 
-    /// Run the systems corresponding to the label stored in the provided [`Callback`]
+    /// Run the system by its [`TypeId`]
     ///
-    /// Systems must be registered before they can be run by their label,
-    /// including via this method.
-    ///
-    /// Systems will be run sequentially in registration order if more than one registered system matches the provided label.
+    /// Systems must be registered before they can be run.
     #[inline]
-    pub fn run_by_id(&mut self, world: &mut World, id: TypeId) -> Result<(), SystemRegistryError> {
+    fn run_by_id(&mut self, world: &mut World, id: TypeId) -> Result<(), SystemRegistryError> {
         match self.systems.get_mut(&id) {
             Some((initialized, matching_system)) => {
                 if !*initialized {
@@ -135,37 +124,20 @@ impl SystemRegistry {
 }
 
 impl World {
-    #[inline]
-    pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> TypeId {
-        self.resource_mut::<SystemRegistry>().register(system)
-    }
-
     /// Runs the supplied system on the [`World`] a single time.
     ///
     /// Calls [`SystemRegistry::run_system`].
     #[inline]
     pub fn run_system<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
-        let _ = self.get_resource::<SystemRegistry>().expect(
-            "SystemRegistry not found: Nested and recursive one-shot systems are not supported.",
-        );
+        if !self.contains_resource::<SystemRegistry>() {
+            panic!(
+                "SystemRegistry not found: Nested and recursive one-shot systems are not supported"
+            );
+        }
 
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
             registry.run(world, system);
         });
-    }
-
-    /// Run the systems corresponding to the set stored in the provided [`Callback`]
-    ///
-    /// Calls [`SystemRegistry::run_callback`].
-    #[inline]
-    pub fn run_system_by_id(&mut self, id: TypeId) -> Result<(), SystemRegistryError> {
-        let _ = self.get_resource::<SystemRegistry>().expect(
-            "SystemRegistry not found: Nested and recursive one-shot systems are not supported.",
-        );
-
-        self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_by_id(world, id)
-        })
     }
 }
 
@@ -194,35 +166,6 @@ impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
     #[inline]
     fn apply(self, world: &mut World) {
         world.run_system(self.system);
-    }
-}
-
-/// The [`Command`] type for [`SystemRegistry::run_systems_by_label`]
-#[derive(Debug, Clone)]
-pub struct RunSystemById {
-    pub system_id: TypeId,
-}
-
-impl RunSystemById {
-    pub fn new(system_id: TypeId) -> Self {
-        Self { system_id }
-    }
-}
-
-impl Command for RunSystemById {
-    #[inline]
-    fn apply(self, world: &mut World) {
-        let _ = world.get_resource::<SystemRegistry>().expect(
-            "SystemRegistry not found: Nested and recursive one-shot systems are not supported.",
-        );
-
-        world.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry
-                .run_by_id(world, self.system_id)
-                // Ideally this error should be handled more gracefully,
-                // but that's blocked on a full error handling solution for commands
-                .unwrap();
-        });
     }
 }
 
