@@ -1,9 +1,15 @@
 //! Traits used by label implementations
 
-use std::{
-    any::Any,
-    hash::{Hash, Hasher},
-};
+use std::any::{Any, TypeId};
+use std::collections::hash_map::DefaultHasher;
+use std::fmt::Debug;
+use std::hash::{Hash, Hasher};
+use std::sync::{OnceLock, RwLock};
+
+use crate::{default, HashMap};
+
+type Interner = RwLock<HashMap<UniqueValue, &'static str>>;
+static INTERNER: OnceLock<Interner> = OnceLock::new();
 
 /// An object safe version of [`Eq`]. This trait is automatically implemented
 /// for any `'static` type that implements `Eq`.
@@ -60,90 +66,40 @@ where
     }
 }
 
-/// Macro to define a new label trait
+/// The [`TypeId`](std::any::TypeId) of a value and its [`DynHash`] output
+/// when hashed with the [`DefaultHasher`].
 ///
-/// # Example
+/// This is expected to have sufficient entropy to be different for each value.
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
+struct UniqueValue(TypeId, u64);
+
+impl UniqueValue {
+    fn of<T: DynHash + ?Sized>(value: &T) -> Self {
+        let mut hasher = DefaultHasher::new();
+        value.dyn_hash(&mut hasher);
+        let hash = hasher.finish();
+
+        Self(TypeId::of::<T>(), hash)
+    }
+}
+
+/// Returns a reference to the interned `Debug` string of `value`.
 ///
-/// ```
-/// # use bevy_utils::define_boxed_label;
-/// define_boxed_label!(MyNewLabelTrait);
-/// ```
-#[macro_export]
-macro_rules! define_boxed_label {
-    ($label_trait_name:ident) => {
-        /// A strongly-typed label.
-        pub trait $label_trait_name: 'static + Send + Sync + ::std::fmt::Debug {
-            /// Return's the [TypeId] of this label, or the the ID of the
-            /// wrappped label type for `Box<dyn
-            #[doc = stringify!($label_trait_name)]
-            /// >`
-            ///
-            /// [TypeId]: std::any::TypeId
-            fn inner_type_id(&self) -> ::std::any::TypeId {
-                std::any::TypeId::of::<Self>()
-            }
+/// If the string has not been interned, it will be allocated in a [`Box`] and leaked, but
+/// subsequent calls with the same `value` will return the same reference.
+pub fn intern_debug_string<T>(value: &T) -> &'static str
+where
+    T: Debug + DynHash + ?Sized,
+{
+    let key = UniqueValue::of(value);
+    let mut map = INTERNER.get_or_init(default).write().unwrap();
+    let str = *map.entry(key).or_insert_with(|| {
+        let string = format!("{:?}", value);
+        let str: &'static str = Box::leak(string.into_boxed_str());
+        str
+    });
 
-            /// Clones this `
-            #[doc = stringify!($label_trait_name)]
-            /// `
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name>;
-
-            /// Casts this value to a form where it can be compared with other type-erased values.
-            fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq;
-
-            /// Feeds this value into the given [`Hasher`].
-            ///
-            /// [`Hasher`]: std::hash::Hasher
-            fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher);
-        }
-
-        impl PartialEq for dyn $label_trait_name {
-            fn eq(&self, other: &Self) -> bool {
-                self.as_dyn_eq().dyn_eq(other.as_dyn_eq())
-            }
-        }
-
-        impl Eq for dyn $label_trait_name {}
-
-        impl ::std::hash::Hash for dyn $label_trait_name {
-            fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
-                self.dyn_hash(state);
-            }
-        }
-
-        impl ::std::convert::AsRef<dyn $label_trait_name> for dyn $label_trait_name {
-            #[inline]
-            fn as_ref(&self) -> &Self {
-                self
-            }
-        }
-
-        impl Clone for Box<dyn $label_trait_name> {
-            fn clone(&self) -> Self {
-                self.dyn_clone()
-            }
-        }
-
-        impl $label_trait_name for Box<dyn $label_trait_name> {
-            fn inner_type_id(&self) -> ::std::any::TypeId {
-                (**self).inner_type_id()
-            }
-
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
-                // Be explicit that we want to use the inner value
-                // to avoid infinite recursion.
-                (**self).dyn_clone()
-            }
-
-            fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq {
-                (**self).as_dyn_eq()
-            }
-
-            fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher) {
-                (**self).dyn_hash(state);
-            }
-        }
-    };
+    str
 }
 
 /// Macro to define a new label trait
@@ -168,49 +124,66 @@ macro_rules! define_label {
         $(#[$id_attr:meta])*
         $id_name:ident $(,)?
     ) => {
-        $(#[$id_attr])*
-        #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-        pub struct $id_name(::core::any::TypeId, &'static str);
-
-        impl ::core::fmt::Debug for $id_name {
-            fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-                write!(f, "{}", self.1)
+        $(#[$label_attr])*
+        pub trait $label_name: bevy_utils::label::DynHash + ::std::fmt::Debug + Send + Sync + 'static {
+            /// Returns the unique, type-elided identifier for `self`.
+            fn as_label(&self) -> $id_name {
+                $id_name::of(self)
             }
         }
 
-        $(#[$label_attr])*
-        pub trait $label_name: 'static {
-            /// Converts this type into an opaque, strongly-typed label.
-            fn as_label(&self) -> $id_name {
-                let id = self.type_id();
-                let label = self.as_str();
-                $id_name(id, label)
+        $(#[$id_attr])*
+        #[derive(Clone, Copy, Eq)]
+        pub struct $id_name(&'static str);
+
+        impl $id_name {
+            /// Returns the [`
+            #[doc = stringify!($id_name)]
+            ///`] of the [`
+            #[doc = stringify!($label_name)]
+            ///`].
+            pub fn of<T>(label: &T) -> $id_name
+            where
+                T: $label_name + ?Sized,
+            {
+                $id_name(bevy_utils::label::intern_debug_string(label))
             }
-            /// Returns the [`TypeId`] used to differentiate labels.
-            fn type_id(&self) -> ::core::any::TypeId {
-                ::core::any::TypeId::of::<Self>()
+        }
+
+        impl ::std::cmp::PartialEq for $id_name {
+            fn eq(&self, other: &Self) -> bool {
+                ::std::ptr::eq(self.0, other.0)
             }
-            /// Returns the representation of this label as a string literal.
-            ///
-            /// In cases where you absolutely need a label to be determined at runtime,
-            /// you can use [`Box::leak`] to get a `'static` reference.
-            fn as_str(&self) -> &'static str;
+        }
+
+        impl ::std::hash::Hash for $id_name {
+            fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+                ::std::ptr::hash(self.0, state);
+            }
+        }
+
+        impl ::std::fmt::Debug for $id_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                self.0.fmt(f)
+            }
         }
 
         impl $label_name for $id_name {
             fn as_label(&self) -> Self {
                 *self
             }
-            fn type_id(&self) -> ::core::any::TypeId {
-                self.0
-            }
-            fn as_str(&self) -> &'static str {
-                self.1
+        }
+
+        impl ::std::convert::AsRef<dyn $label_name> for $id_name {
+            #[inline]
+            fn as_ref(&self) -> &dyn $label_name {
+                self
             }
         }
 
-        impl $label_name for &'static str {
-            fn as_str(&self) -> Self {
+        impl ::std::convert::AsRef<dyn $label_name> for dyn $label_name {
+            #[inline]
+            fn as_ref(&self) -> &dyn $label_name {
                 self
             }
         }

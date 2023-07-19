@@ -23,11 +23,7 @@ pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStrea
     );
 
     (quote! {
-        impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
-            fn dyn_clone(&self) -> std::boxed::Box<dyn #trait_path> {
-                std::boxed::Box::new(std::clone::Clone::clone(self))
-            }
-        }
+        impl #impl_generics #trait_path for #ident #ty_generics #where_clause {}
     })
     .into()
 }

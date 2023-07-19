@@ -7,6 +7,7 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::World,
     query::Access,
+    schedule::SystemSetUntyped,
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -226,7 +227,7 @@ where
         self.b.set_last_run(last_run);
     }
 
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+    fn default_system_sets(&self) -> Vec<SystemSetUntyped> {
         let mut default_sets = self.a.default_system_sets();
         default_sets.append(&mut self.b.default_system_sets());
         default_sets

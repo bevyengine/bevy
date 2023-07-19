@@ -265,7 +265,7 @@ impl Plugin for RenderPlugin {
             app.init_resource::<ScratchMainWorld>();
 
             let mut render_app = App::empty();
-            render_app.main_schedule_label = Box::new(Render);
+            render_app.main_schedule_label = Render.as_label();
 
             let mut extract_schedule = Schedule::new();
             extract_schedule.set_apply_final_deferred(false);

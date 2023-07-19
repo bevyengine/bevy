@@ -5,61 +5,147 @@ use std::marker::PhantomData;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
-use bevy_utils::define_boxed_label;
 use bevy_utils::label::DynHash;
 
 use crate::system::{
     ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
 };
 
-define_boxed_label!(ScheduleLabel);
-
-/// A shorthand for `Box<dyn SystemSet>`.
-pub type BoxedSystemSet = Box<dyn SystemSet>;
-/// A shorthand for `Box<dyn ScheduleLabel>`.
-pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
-
-/// Types that identify logical groups of systems.
+/// Identifies a logical group of systems.
 pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
-    /// Returns `Some` if this system set is a [`SystemTypeSet`].
+    /// Returns the [`TypeId`] of the system if the system set is a [`SystemTypeSet`].
+    ///
+    /// A [`SystemTypeSet`] has special properties:
+    /// - You cannot manually add systems or sets to it.
+    /// - You cannot configure it.
+    /// - You cannot order relative to it if it contains more than one instance.
+    ///
+    /// These sets are automatically populated, so these constraints exist to prevent unintentional ambiguity.
     fn system_type(&self) -> Option<TypeId> {
         None
     }
 
-    /// Returns `true` if this system set is an [`AnonymousSet`].
+    /// Returns `true` if the system set is an [`AnonymousSet`].
     fn is_anonymous(&self) -> bool {
         false
     }
-    /// Creates a boxed clone of the label corresponding to this system set.
-    fn dyn_clone(&self) -> Box<dyn SystemSet>;
+
+    /// Returns the unique, type-elided identifier for the system set.
+    fn as_label(&self) -> SystemSetId {
+        SystemSetId::of(self)
+    }
+
+    /// Returns the type-elided version of the system set.
+    fn as_untyped(&self) -> SystemSetUntyped {
+        SystemSetUntyped::of(self)
+    }
 }
 
-impl PartialEq for dyn SystemSet {
+/// A lightweight and printable identifier for a [`SystemSet`].
+#[derive(Clone, Copy, Eq)]
+pub struct SystemSetId(&'static str);
+
+impl SystemSetId {
+    /// Returns the [`SystemSetId`] of the [`SystemSet`].
+    pub fn of<S: SystemSet + ?Sized>(set: &S) -> SystemSetId {
+        let str = bevy_utils::label::intern_debug_string(set);
+        SystemSetId(str)
+    }
+}
+
+impl PartialEq for SystemSetId {
     fn eq(&self, other: &Self) -> bool {
-        self.dyn_eq(other.as_dyn_eq())
+        std::ptr::eq(self.0, other.0)
     }
 }
 
-impl Eq for dyn SystemSet {}
-
-impl Hash for dyn SystemSet {
+impl Hash for SystemSetId {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.dyn_hash(state);
+        std::ptr::hash(self.0, state);
     }
 }
 
-impl Clone for Box<dyn SystemSet> {
-    fn clone(&self) -> Self {
-        self.dyn_clone()
+impl Debug for SystemSetId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+/// The different variants of system sets.
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
+enum SystemSetKind {
+    Anonymous,
+    Named,
+    SystemType(TypeId),
+}
+
+/// Type-elided struct whose methods return the same values as its original [`SystemSet`].
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
+
+pub struct SystemSetUntyped {
+    id: SystemSetId,
+    kind: SystemSetKind,
+}
+
+impl SystemSetUntyped {
+    /// Converts a [`SystemSet`] into the equivalent [`SystemSetUntyped`].
+    pub(crate) fn of<S: SystemSet + ?Sized>(set: &S) -> SystemSetUntyped {
+        assert!(!(set.is_anonymous() && set.system_type().is_some()));
+        let kind = if let Some(type_id) = set.system_type() {
+            SystemSetKind::SystemType(type_id)
+        } else if set.is_anonymous() {
+            SystemSetKind::Anonymous
+        } else {
+            SystemSetKind::Named
+        };
+
+        SystemSetUntyped {
+            id: SystemSetId::of(set),
+            kind,
+        }
+    }
+
+    /// Returns the [`TypeId`] of the system if the system set is a [`SystemTypeSet`].
+    ///
+    /// A [`SystemTypeSet`] has special properties:
+    /// - You cannot manually add systems or sets to it.
+    /// - You cannot configure it.
+    /// - You cannot order relative to it if it contains more than one instance.
+    ///
+    /// These sets are automatically populated, so these constraints exist to prevent unintentional ambiguity.
+    pub fn system_type(&self) -> Option<TypeId> {
+        if let SystemSetKind::SystemType(type_id) = self.kind {
+            Some(type_id)
+        } else {
+            None
+        }
+    }
+
+    /// Returns `true` if this system set is an [`AnonymousSet`].
+    pub fn is_anonymous(&self) -> bool {
+        matches!(self.kind, SystemSetKind::Anonymous)
+    }
+
+    /// Returns the [`SystemSetId`] of the set.
+    pub fn id(&self) -> SystemSetId {
+        self.id
+    }
+}
+
+impl Debug for SystemSetUntyped {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.id.fmt(f)
     }
 }
 
 /// A [`SystemSet`] grouping instances of the same function.
 ///
-/// This kind of set is automatically populated and thus has some special rules:
-/// - You cannot manually add members.
+/// These sets have special properties:
+/// - You cannot manually add systems or sets to them.
 /// - You cannot configure them.
-/// - You cannot order something relative to one if it has more than one member.
+/// - You cannot order relative to one if it has more than one instance.
+///
+/// These sets are automatically populated, so these constraints exist to prevent unintentional ambiguity.
 pub struct SystemTypeSet<T: 'static>(PhantomData<fn() -> T>);
 
 impl<T: 'static> SystemTypeSet<T> {
@@ -104,8 +190,8 @@ impl<T> SystemSet for SystemTypeSet<T> {
         Some(TypeId::of::<T>())
     }
 
-    fn dyn_clone(&self) -> Box<dyn SystemSet> {
-        Box::new(*self)
+    fn is_anonymous(&self) -> bool {
+        false
     }
 }
 
@@ -125,10 +211,6 @@ impl AnonymousSet {
 impl SystemSet for AnonymousSet {
     fn is_anonymous(&self) -> bool {
         true
-    }
-
-    fn dyn_clone(&self) -> Box<dyn SystemSet> {
-        Box::new(*self)
     }
 }
 
@@ -174,42 +256,5 @@ where
     #[inline]
     fn into_system_set(self) -> Self::Set {
         SystemTypeSet::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        schedule::{tests::ResMut, Schedule},
-        system::Resource,
-    };
-
-    use super::*;
-
-    #[test]
-    fn test_boxed_label() {
-        use crate::{self as bevy_ecs, world::World};
-
-        #[derive(Resource)]
-        struct Flag(bool);
-
-        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-        struct A;
-
-        let mut world = World::new();
-
-        let mut schedule = Schedule::new();
-        schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
-        world.add_schedule(schedule, A);
-
-        let boxed: Box<dyn ScheduleLabel> = Box::new(A);
-
-        world.insert_resource(Flag(false));
-        world.run_schedule(&boxed);
-        assert!(world.resource::<Flag>().0);
-
-        world.insert_resource(Flag(false));
-        world.run_schedule(boxed);
-        assert!(world.resource::<Flag>().0);
     }
 }

@@ -125,7 +125,7 @@ impl MainScheduleOrder {
         let index = self
             .labels
             .iter()
-            .position(|current| (**current).eq(&after))
+            .position(|current| (current.as_dyn_eq()).dyn_eq(after.as_dyn_eq()))
             .unwrap_or_else(|| panic!("Expected {after:?} to exist"));
         self.labels.insert(index + 1, Box::new(schedule));
     }

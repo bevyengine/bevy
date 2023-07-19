@@ -23,10 +23,17 @@ use crate::{
     world::World,
 };
 
+bevy_utils::define_label!(
+    /// Identifies a [`Schedule`](super::Schedule).
+    ScheduleLabel,
+    /// A lightweight and printable identifier for a [`Schedule`](super::Schedule).
+    ScheduleId,
+);
+
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s.
 #[derive(Default, Resource)]
 pub struct Schedules {
-    inner: HashMap<BoxedScheduleLabel, Schedule>,
+    inner: HashMap<ScheduleId, Schedule>,
 }
 
 impl Schedules {
@@ -42,49 +49,47 @@ impl Schedules {
     /// If the map already had an entry for `label`, `schedule` is inserted,
     /// and the old schedule is returned. Otherwise, `None` is returned.
     pub fn insert(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> Option<Schedule> {
-        let label = label.dyn_clone();
-        self.inner.insert(label, schedule)
+        let id = label.as_label();
+        if self.inner.contains_key(&id) {
+            warn!("schedule with label {:?} already exists", id);
+        }
+        self.inner.insert(id, schedule)
     }
 
     /// Removes the schedule corresponding to the `label` from the map, returning it if it existed.
     pub fn remove(&mut self, label: &dyn ScheduleLabel) -> Option<Schedule> {
-        self.inner.remove(label)
+        let id = label.as_label();
+        if !self.inner.contains_key(&id) {
+            warn!("schedule with label {:?} not found", id);
+        }
+        self.inner.remove(&id)
     }
 
-    /// Removes the (schedule, label) pair corresponding to the `label` from the map, returning it if it existed.
-    pub fn remove_entry(
-        &mut self,
-        label: &dyn ScheduleLabel,
-    ) -> Option<(Box<dyn ScheduleLabel>, Schedule)> {
-        self.inner.remove_entry(label)
-    }
-
-    /// Does a schedule with the provided label already exist?
+    /// Does a schedule associated with the provided `label` already exist?
     pub fn contains(&self, label: &dyn ScheduleLabel) -> bool {
-        self.inner.contains_key(label)
+        let id = label.as_label();
+        self.inner.contains_key(&id)
     }
 
     /// Returns a reference to the schedule associated with `label`, if it exists.
     pub fn get(&self, label: &dyn ScheduleLabel) -> Option<&Schedule> {
-        self.inner.get(label)
+        let id = label.as_label();
+        self.inner.get(&id)
     }
 
     /// Returns a mutable reference to the schedule associated with `label`, if it exists.
     pub fn get_mut(&mut self, label: &dyn ScheduleLabel) -> Option<&mut Schedule> {
-        self.inner.get_mut(label)
+        let id = label.as_label();
+        self.inner.get_mut(&id)
     }
 
     /// Returns an iterator over all schedules. Iteration order is undefined.
-    pub fn iter(&self) -> impl Iterator<Item = (&dyn ScheduleLabel, &Schedule)> {
-        self.inner
-            .iter()
-            .map(|(label, schedule)| (&**label, schedule))
+    pub fn iter(&self) -> impl Iterator<Item = (ScheduleId, &Schedule)> {
+        self.inner.iter().map(|(id, schedule)| (*id, schedule))
     }
     /// Returns an iterator over mutable references to all schedules. Iteration order is undefined.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&dyn ScheduleLabel, &mut Schedule)> {
-        self.inner
-            .iter_mut()
-            .map(|(label, schedule)| (&**label, schedule))
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (ScheduleId, &mut Schedule)> {
+        self.inner.iter_mut().map(|(id, schedule)| (*id, schedule))
     }
 
     /// Iterates the change ticks of all systems in all stored schedules and clamps any older than
@@ -329,12 +334,12 @@ impl Dag {
 
 /// A [`SystemSet`] with metadata, stored in a [`ScheduleGraph`].
 struct SystemSetNode {
-    inner: BoxedSystemSet,
+    inner: SystemSetUntyped,
 }
 
 impl SystemSetNode {
-    pub fn new(set: BoxedSystemSet) -> Self {
-        Self { inner: set }
+    pub fn new(info: SystemSetUntyped) -> Self {
+        Self { inner: info }
     }
 
     pub fn name(&self) -> String {
@@ -378,7 +383,7 @@ pub struct ScheduleGraph {
     system_conditions: Vec<Vec<BoxedCondition>>,
     system_sets: Vec<SystemSetNode>,
     system_set_conditions: Vec<Vec<BoxedCondition>>,
-    system_set_ids: HashMap<BoxedSystemSet, NodeId>,
+    system_set_ids: HashMap<SystemSetId, NodeId>,
     uninit: Vec<(NodeId, usize)>,
     hierarchy: Dag,
     dependency: Dag,
@@ -434,18 +439,18 @@ impl ScheduleGraph {
     }
 
     /// Returns the set at the given [`NodeId`], if it exists.
-    pub fn get_set_at(&self, id: NodeId) -> Option<&dyn SystemSet> {
+    pub fn get_set_at(&self, id: NodeId) -> Option<&SystemSetUntyped> {
         if !id.is_set() {
             return None;
         }
-        self.system_sets.get(id.index()).map(|set| &*set.inner)
+        self.system_sets.get(id.index()).map(|set| &set.inner)
     }
 
     /// Returns the set at the given [`NodeId`].
     ///
     /// Panics if it doesn't exist.
     #[track_caller]
-    pub fn set_at(&self, id: NodeId) -> &dyn SystemSet {
+    pub fn set_at(&self, id: NodeId) -> &SystemSetUntyped {
         self.get_set_at(id)
             .ok_or_else(|| format!("set with id {id:?} does not exist in this Schedule"))
             .unwrap()
@@ -466,10 +471,12 @@ impl ScheduleGraph {
     }
 
     /// Returns an iterator over all system sets in this schedule.
-    pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, &dyn SystemSet, &[BoxedCondition])> {
+    pub fn system_sets(
+        &self,
+    ) -> impl Iterator<Item = (NodeId, &SystemSetUntyped, &[BoxedCondition])> {
         self.system_set_ids.iter().map(|(_, &node_id)| {
             let set_node = &self.system_sets[node_id.index()];
-            let set = &*set_node.inner;
+            let set = &set_node.inner;
             let conditions = self.system_set_conditions[node_id.index()].as_slice();
             (node_id, set, conditions)
         })
@@ -532,7 +539,7 @@ impl ScheduleGraph {
                     if more_than_one_entry {
                         let set = AnonymousSet::new();
                         for config in &mut configs {
-                            config.in_set_inner(set.dyn_clone());
+                            config.in_set_inner(SystemSetUntyped::of(&set));
                         }
                         let mut set_config = set.into_config();
                         set_config.conditions.extend(collective_conditions);
@@ -692,9 +699,9 @@ impl ScheduleGraph {
             mut conditions,
         } = set.into_config();
 
-        let id = match self.system_set_ids.get(&set) {
+        let id = match self.system_set_ids.get(&set.id()) {
             Some(&id) => id,
-            None => self.add_set(set.dyn_clone()),
+            None => self.add_set(set),
         };
 
         // graph updates are immediate
@@ -708,23 +715,24 @@ impl ScheduleGraph {
         Ok(id)
     }
 
-    fn add_set(&mut self, set: BoxedSystemSet) -> NodeId {
+    fn add_set(&mut self, set: SystemSetUntyped) -> NodeId {
         let id = NodeId::Set(self.system_sets.len());
-        self.system_sets.push(SystemSetNode::new(set.dyn_clone()));
+        self.system_sets.push(SystemSetNode::new(set));
         self.system_set_conditions.push(Vec::new());
-        self.system_set_ids.insert(set, id);
+        self.system_set_ids.insert(set.id(), id);
         id
     }
 
-    fn check_set(&mut self, id: &NodeId, set: &dyn SystemSet) -> Result<(), ScheduleBuildError> {
-        match self.system_set_ids.get(set) {
-            Some(set_id) => {
-                if id == set_id {
-                    return Err(ScheduleBuildError::HierarchyLoop(self.get_node_name(id)));
+    fn check_set(&mut self, id: &NodeId, set: SystemSetUntyped) -> Result<(), ScheduleBuildError> {
+        match self.system_set_ids.get(&set.id()) {
+            Some(node_id) => {
+                if id == node_id {
+                    let string = format!("{:?}", &set);
+                    return Err(ScheduleBuildError::HierarchyLoop(string));
                 }
             }
             None => {
-                self.add_set(set.dyn_clone());
+                self.add_set(set);
             }
         }
 
@@ -737,7 +745,7 @@ impl ScheduleGraph {
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
         for set in &graph_info.sets {
-            self.check_set(id, &**set)?;
+            self.check_set(id, *set)?;
         }
 
         Ok(())
@@ -749,22 +757,22 @@ impl ScheduleGraph {
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
         for Dependency { kind: _, set } in &graph_info.dependencies {
-            match self.system_set_ids.get(set) {
+            match self.system_set_ids.get(&set.id()) {
                 Some(set_id) => {
                     if id == set_id {
                         return Err(ScheduleBuildError::DependencyLoop(self.get_node_name(id)));
                     }
                 }
                 None => {
-                    self.add_set(set.dyn_clone());
+                    self.add_set(*set);
                 }
             }
         }
 
         if let Ambiguity::IgnoreWithSet(ambiguous_with) = &graph_info.ambiguous_with {
             for set in ambiguous_with {
-                if !self.system_set_ids.contains_key(set) {
-                    self.add_set(set.dyn_clone());
+                if !self.system_set_ids.contains_key(&set.id()) {
+                    self.add_set(*set);
                 }
             }
         }
@@ -791,7 +799,7 @@ impl ScheduleGraph {
         self.hierarchy.graph.add_node(id);
         self.dependency.graph.add_node(id);
 
-        for set in sets.into_iter().map(|set| self.system_set_ids[&set]) {
+        for set in sets.into_iter().map(|set| self.system_set_ids[&set.id()]) {
             self.hierarchy.graph.add_edge(set, id, ());
 
             // ensure set also appears in dependency graph
@@ -804,7 +812,7 @@ impl ScheduleGraph {
 
         for (kind, set) in dependencies
             .into_iter()
-            .map(|Dependency { kind, set }| (kind, self.system_set_ids[&set]))
+            .map(|Dependency { kind, set }| (kind, self.system_set_ids[&set.id()]))
         {
             let (lhs, rhs) = match kind {
                 DependencyKind::Before => (id, set),
@@ -821,7 +829,7 @@ impl ScheduleGraph {
             Ambiguity::IgnoreWithSet(ambiguous_with) => {
                 for set in ambiguous_with
                     .into_iter()
-                    .map(|set| self.system_set_ids[&set])
+                    .map(|set| self.system_set_ids[&set.id()])
                 {
                     self.ambiguous_with.add_edge(id, set, ());
                 }

@@ -51,11 +51,11 @@ pub(crate) enum DependencyKind {
 #[derive(Clone)]
 pub(crate) struct Dependency {
     pub(crate) kind: DependencyKind,
-    pub(crate) set: BoxedSystemSet,
+    pub(crate) set: SystemSetUntyped,
 }
 
 impl Dependency {
-    pub fn new(kind: DependencyKind, set: BoxedSystemSet) -> Self {
+    pub fn new(kind: DependencyKind, set: SystemSetUntyped) -> Self {
         Self { kind, set }
     }
 }
@@ -66,14 +66,14 @@ pub(crate) enum Ambiguity {
     #[default]
     Check,
     /// Ignore warnings with systems in any of these system sets. May contain duplicates.
-    IgnoreWithSet(Vec<BoxedSystemSet>),
+    IgnoreWithSet(Vec<SystemSetUntyped>),
     /// Ignore all warnings.
     IgnoreAll,
 }
 
 #[derive(Clone, Default)]
 pub(crate) struct GraphInfo {
-    pub(crate) sets: Vec<BoxedSystemSet>,
+    pub(crate) sets: Vec<SystemSetUntyped>,
     pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
 }

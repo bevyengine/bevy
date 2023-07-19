@@ -4,8 +4,7 @@ use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleLabel,
+        run_enter_schedule, IntoSystemConfigs, IntoSystemSetConfigs, ScheduleId, ScheduleLabel,
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
@@ -70,7 +69,7 @@ pub struct App {
     /// The schedule that runs the main loop of schedule execution.
     ///
     /// This is initially set to [`Main`].
-    pub main_schedule_label: BoxedScheduleLabel,
+    pub main_schedule_label: ScheduleId,
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
@@ -156,7 +155,7 @@ impl SubApp {
 
     /// Runs the [`SubApp`]'s default schedule.
     pub fn run(&mut self) {
-        self.app.world.run_schedule(&*self.app.main_schedule_label);
+        self.app.world.run_schedule(self.app.main_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -219,7 +218,7 @@ impl App {
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
-            main_schedule_label: Box::new(Main),
+            main_schedule_label: Main.as_label(),
             building_plugin_depth: 0,
         }
     }
@@ -241,7 +240,7 @@ impl App {
         {
             #[cfg(feature = "trace")]
             let _bevy_main_update_span = info_span!("main app").entered();
-            self.world.run_schedule(&*self.main_schedule_label);
+            self.world.run_schedule(self.main_schedule_label);
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]
@@ -745,7 +744,7 @@ impl App {
     pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
         match self.get_sub_app_mut(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
         }
     }
 
@@ -767,7 +766,7 @@ impl App {
     pub fn sub_app(&self, label: impl AppLabel) -> &App {
         match self.get_sub_app(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
         }
     }
 
@@ -837,11 +836,12 @@ impl App {
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if schedules.get(&label).is_none() {
-            schedules.insert(label.dyn_clone(), Schedule::new());
+        let id = ScheduleId::of(&label);
+        if !schedules.contains(&id) {
+            schedules.insert(id, Schedule::new());
         }
 
-        let schedule = schedules.get_mut(&label).unwrap();
+        let schedule = schedules.get_mut(&id).unwrap();
         // Call the function f, passing in the schedule retrieved
         f(schedule);
 

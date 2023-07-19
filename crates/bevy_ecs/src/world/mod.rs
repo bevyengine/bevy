@@ -1769,21 +1769,19 @@ impl World {
         label: impl AsRef<dyn ScheduleLabel>,
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> Result<R, TryRunScheduleError> {
-        let label = label.as_ref();
-        let Some((extracted_label, mut schedule))
-            = self.get_resource_mut::<Schedules>().and_then(|mut s| s.remove_entry(label))
+        let label = label.as_ref().as_label();
+        let Some(mut schedule)
+            = self.get_resource_mut::<Schedules>().and_then(|mut s| s.remove(&label))
         else {
-            return Err(TryRunScheduleError(label.dyn_clone()));
+            return Err(TryRunScheduleError(label));
         };
 
         // TODO: move this span to Schedule::run
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
+        let _span = bevy_utils::tracing::info_span!("schedule", name = ?label).entered();
         let value = f(self, &mut schedule);
 
-        let old = self
-            .resource_mut::<Schedules>()
-            .insert(extracted_label, schedule);
+        let old = self.resource_mut::<Schedules>().insert(label, schedule);
         if old.is_some() {
             warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
         }
@@ -1851,7 +1849,7 @@ impl World {
         self.try_schedule_scope(label, |world, sched| sched.run(world))
     }
 
-    /// Runs the [`Schedule`] associated with the `label` a single time.
+    /// Runs the [`Schedule`] associated with the `id` a single time.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
     /// and system state is cached.

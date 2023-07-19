@@ -2,6 +2,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     query::Access,
+    schedule::SystemSetUntyped,
     system::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, In, IntoSystem,
         System, SystemMeta,
@@ -147,9 +148,9 @@ where
         );
     }
 
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+    fn default_system_sets(&self) -> Vec<SystemSetUntyped> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
-        vec![Box::new(set)]
+        vec![SystemSetUntyped::of(&set)]
     }
 }
 
