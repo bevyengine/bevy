@@ -81,7 +81,6 @@ enum SystemSetKind {
 
 /// Type-elided struct whose methods return the same values as its original [`SystemSet`].
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
-
 pub struct SystemSetUntyped {
     id: SystemSetId,
     kind: SystemSetKind,

@@ -1849,7 +1849,7 @@ impl World {
         self.try_schedule_scope(label, |world, sched| sched.run(world))
     }
 
-    /// Runs the [`Schedule`] associated with the `id` a single time.
+    /// Runs the [`Schedule`] associated with the `label` a single time.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
     /// and system state is cached.

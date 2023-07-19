@@ -170,8 +170,6 @@ pub fn ensure_no_collision(value: Ident, haystack: TokenStream) -> Ident {
 /// - `input`: The [`syn::DeriveInput`] for struct that is deriving the label trait
 /// - `trait_path`: The path [`syn::Path`] to the label trait
 pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStream {
-    //let bevy_utils_path = BevyManifest::default().get_path("bevy_utils");
-
     let ident = input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
     let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
