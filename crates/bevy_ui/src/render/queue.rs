@@ -16,7 +16,6 @@ use bevy_render::{
     view::{ExtractedView, ViewUniforms},
 };
 use bevy_sprite::SpriteAssetEvents;
-#[cfg(feature = "bevy_text")]
 use bevy_utils::FloatOrd;
 
 #[allow(clippy::too_many_arguments)]
