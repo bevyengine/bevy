@@ -70,8 +70,8 @@ pub enum GltfError {
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
 pub struct GltfLoader {
-    pub(crate) supported_compressed_formats: CompressedImageFormats,
-    pub(crate) custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
+    pub supported_compressed_formats: CompressedImageFormats,
+    pub custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
 }
 
 impl AssetLoader for GltfLoader {
