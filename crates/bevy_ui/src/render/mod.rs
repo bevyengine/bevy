@@ -1,4 +1,4 @@
-mod extraction;
+mod extract;
 mod pipeline;
 mod prepare;
 mod queue;
@@ -18,7 +18,7 @@ use bevy_render::{
 };
 use bevy_render::{ExtractSchedule, Render};
 use bevy_utils::HashMap;
-pub use extraction::*;
+pub use extract::*;
 pub use pipeline::*;
 pub use prepare::*;
 pub use queue::*;
