@@ -214,15 +214,6 @@ impl <'a> Iterator for ExtractedUiNodesDrainingIterator<'a> {
                 }
             }
         }
-
-        // let n =
-        // self.next_uinodes.iter().enumerate()
-        // .min_by(|(_, a), (_, b)| {
-        //     let c = a.map_or(usize::MAX, |a| a.stack_index);
-        //     let d = b.map_or(usize::MAX, |b| b.stack_index);
-        //     c.cmp(&d)
-        // })
-        // .map(|(idx, _)| idx);
     
         if n == usize::MAX {
             None
@@ -234,15 +225,6 @@ impl <'a> Iterator for ExtractedUiNodesDrainingIterator<'a> {
             *current = next;
             out
         }
-
-        // n.and_then(|n| {
-        //     let drain = &mut self.uinodes[n];
-        //     let current = self.next_uinodes[n];
-        //     let next = drain.next();
-        //     let out = current.take();
-        //     *current = next;
-        //     out
-        // })
     }
 }
 
