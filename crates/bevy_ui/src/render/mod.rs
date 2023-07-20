@@ -41,6 +41,7 @@ use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
+use std::vec::Drain;
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -179,7 +180,72 @@ impl ExtractedUiNodes {
             }
         }
     }
+
+    fn drain<'a>(&'a mut self) -> ExtractedUiNodesDrainingIterator<'a> {
+        let mut drains: Vec<_> = self
+            .uinodes
+            .iter_mut()
+            .map(|uinodes| uinodes.drain(..))
+            .collect();
+        let next_uinodes = drains.iter_mut().map(|uinodes| uinodes.next()).collect();
+        ExtractedUiNodesDrainingIterator { 
+            next_uinodes, 
+            uinodes: drains 
+        }
+    }
 }
+
+struct ExtractedUiNodesDrainingIterator<'a> {
+    next_uinodes: Vec<Option<ExtractedUiNode>>,
+    uinodes: Vec<Drain<'a, ExtractedUiNode>>,
+}
+
+impl <'a> Iterator for ExtractedUiNodesDrainingIterator<'a> {
+    type Item=ExtractedUiNode;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut min_stack_index = usize::MAX;
+        let mut n = usize::MAX;
+        for (i, node) in self.next_uinodes.iter().enumerate() {
+            if let Some(node) = node {
+                if node.stack_index < min_stack_index {
+                    n = i;
+                    min_stack_index = node.stack_index;
+                }
+            }
+        }
+
+        // let n =
+        // self.next_uinodes.iter().enumerate()
+        // .min_by(|(_, a), (_, b)| {
+        //     let c = a.map_or(usize::MAX, |a| a.stack_index);
+        //     let d = b.map_or(usize::MAX, |b| b.stack_index);
+        //     c.cmp(&d)
+        // })
+        // .map(|(idx, _)| idx);
+    
+        if n == usize::MAX {
+            None
+        } else {
+            let drain = &mut self.uinodes[n];
+            let current = &mut self.next_uinodes[n];
+            let next = drain.next();
+            let out = current.take();
+            *current = next;
+            out
+        }
+
+        // n.and_then(|n| {
+        //     let drain = &mut self.uinodes[n];
+        //     let current = self.next_uinodes[n];
+        //     let next = drain.next();
+        //     let out = current.take();
+        //     *current = next;
+        //     out
+        // })
+    }
+}
+
 
 pub fn extract_atlas_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -655,41 +721,41 @@ pub fn prepare_uinodes(
         image.id() != DEFAULT_IMAGE_HANDLE.id()
     }
 
-    let mut drains: Vec<_> = extracted_uinodes
-        .uinodes
-        .iter_mut()
-        .map(|uinodes| {
-            let mut d = uinodes.drain(..);
-            let first = d.next();
-            (first, d)
-        })
-        .collect();
+    // let mut drains: Vec<_> = extracted_uinodes
+    //     .uinodes
+    //     .iter_mut()
+    //     .map(|uinodes| {
+    //         let mut d = uinodes.drain(..);
+    //         let first = d.next();
+    //         (first, d)
+    //     })
+    //     .collect();
 
-    let mut next_extracted_node = move || {
-        let mut min_stack_index = usize::MAX;
-        let mut n = usize::MAX;
+    // let mut next_extracted_node = move || {
+    //     let mut min_stack_index = usize::MAX;
+    //     let mut n = usize::MAX;
 
-        for (i, (node, _)) in drains.iter_mut().enumerate() {
-            if let Some(node) = node {
-                if node.stack_index < min_stack_index {
-                    n = i;
-                    min_stack_index = node.stack_index;
-                }
-            }
-        }
+    //     for (i, (node, _)) in drains.iter_mut().enumerate() {
+    //         if let Some(node) = node {
+    //             if node.stack_index < min_stack_index {
+    //                 n = i;
+    //                 min_stack_index = node.stack_index;
+    //             }
+    //         }
+    //     }
 
-        if n == usize::MAX {
-            None
-        } else {
-            let (current, drain) = &mut drains[n];
-            let next = drain.next();
-            let out = current.take();
-            *current = next;
-            out
-        }
-    };
+    //     if n == usize::MAX {
+    //         None
+    //     } else {
+    //         let (current, drain) = &mut drains[n];
+    //         let next = drain.next();
+    //         let out = current.take();
+    //         *current = next;
+    //         out
+    //     }
+    // };
 
-    while let Some(extracted_uinode) = next_extracted_node() {
+    for extracted_uinode in extracted_uinodes.drain() {
         let mode = if is_textured(&extracted_uinode.image) {
             if current_batch_image.id() != extracted_uinode.image.id() {
                 if is_textured(&current_batch_image) && start != end {
