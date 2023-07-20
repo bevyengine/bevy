@@ -166,6 +166,7 @@ impl Plugin for PbrPlugin {
         );
 
         app.register_asset_reflect::<StandardMaterial>()
+            .register_type::<AlphaMode>()
             .register_type::<AmbientLight>()
             .register_type::<Cascade>()
             .register_type::<CascadeShadowConfig>()
