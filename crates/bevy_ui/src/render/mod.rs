@@ -188,9 +188,9 @@ impl ExtractedUiNodes {
             .map(|uinodes| uinodes.drain(..))
             .collect();
         let next_uinodes = drains.iter_mut().map(|uinodes| uinodes.next()).collect();
-        ExtractedUiNodesDrainingIterator { 
-            next_uinodes, 
-            uinodes: drains 
+        ExtractedUiNodesDrainingIterator {
+            next_uinodes,
+            uinodes: drains,
         }
     }
 }
@@ -200,8 +200,8 @@ struct ExtractedUiNodesDrainingIterator<'a> {
     uinodes: Vec<Drain<'a, ExtractedUiNode>>,
 }
 
-impl <'a> Iterator for ExtractedUiNodesDrainingIterator<'a> {
-    type Item=ExtractedUiNode;
+impl<'a> Iterator for ExtractedUiNodesDrainingIterator<'a> {
+    type Item = ExtractedUiNode;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut min_stack_index = usize::MAX;
@@ -214,7 +214,7 @@ impl <'a> Iterator for ExtractedUiNodesDrainingIterator<'a> {
                 }
             }
         }
-    
+
         if n == usize::MAX {
             None
         } else {
@@ -227,7 +227,6 @@ impl <'a> Iterator for ExtractedUiNodesDrainingIterator<'a> {
         }
     }
 }
-
 
 pub fn extract_atlas_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
