@@ -290,7 +290,7 @@ pub fn extract_atlas_uinodes(
             atlas_rect.max *= scale;
             atlas_size *= scale;
 
-            out.push(ExtractedUiNode {
+            output_buffer.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
                 color: color.0,
