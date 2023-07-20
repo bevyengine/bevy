@@ -248,7 +248,7 @@ pub fn extract_atlas_uinodes(
         >,
     >,
 ) {
-    let output_buffer= extracted_uinodes.next_buffer();
+    let output_buffer = extracted_uinodes.next_buffer();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, visibility, clip, texture_atlas_handle, atlas_image)) =
             uinode_query.get(*entity)
@@ -338,7 +338,7 @@ pub fn extract_uinode_borders(
     >,
     parent_node_query: Extract<Query<&Node, With<Parent>>>,
 ) {
-    let output_buffer= extracted_uinodes.next_buffer();
+    let output_buffer = extracted_uinodes.next_buffer();
     let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
 
     let ui_logical_viewport_size = windows
@@ -455,7 +455,7 @@ pub fn extract_uinodes(
         >,
     >,
 ) {
-    let output_buffer= extracted_uinodes.next_buffer();
+    let output_buffer = extracted_uinodes.next_buffer();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
@@ -584,7 +584,7 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
-    let output_buffer= extracted_uinodes.next_buffer();
+    let output_buffer = extracted_uinodes.next_buffer();
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
