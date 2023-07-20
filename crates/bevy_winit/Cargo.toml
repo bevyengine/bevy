@@ -28,6 +28,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
 
 # other
+# Tested against winit main 89aa7cc0
 winit = { git = "https://github.com/rust-windowing/winit.git", branch = "master", default-features = false }
 accesskit_winit = { git = "https://github.com/Vrixyz/accesskit.git", branch = "winit-main-after-0.28", default-features = false, features = [
     "async-io",
