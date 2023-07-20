@@ -1,4 +1,4 @@
-use bevy_reflect::{prelude::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -8,14 +8,14 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// Examples of all of these cursors can be found [here](https://www.w3schools.com/cssref/playit.php?filename=playcss_cursor&preval=crosshair).
 /// This `enum` is simply a copy of a similar `enum` found in [`winit`](https://docs.rs/winit/latest/winit/window/enum.CursorIcon.html).
 /// `winit`, in turn, mostly copied cursor types available in the browser.
-#[derive(Default, Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
 #[non_exhaustive]
-#[reflect(Debug, PartialEq, Default, FromReflect)]
+#[derive(Default, Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+#[reflect(Debug, PartialEq, Default)]
 pub enum CursorIcon {
     /// The platform-dependent default cursor. Often rendered as arrow.
     #[default]

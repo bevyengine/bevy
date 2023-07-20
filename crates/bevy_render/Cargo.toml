@@ -1,6 +1,6 @@
 [package]
 name = "bevy_render"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Provides rendering functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -35,23 +35,23 @@ webgl = ["wgpu/webgl"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.11.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.11.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.11.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.11.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.11.0-dev" }
-bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.11.0-dev" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.11.0-dev" }
-bevy_log = { path = "../bevy_log", version = "0.11.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.11.0-dev" }
-bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.11.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev", features = ["bevy"] }
-bevy_render_macros = { path = "macros", version = "0.11.0-dev" }
-bevy_time = { path = "../bevy_time", version = "0.11.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.11.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.11.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.11.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.12.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.12.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.12.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
+bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.12.0-dev" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.12.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.12.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.12.0-dev" }
+bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.12.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev", features = ["bevy"] }
+bevy_render_macros = { path = "macros", version = "0.12.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.12.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.12.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.12.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
 
 # rendering
 image = { version = "0.24", default-features = false }
@@ -65,7 +65,6 @@ serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
 bytemuck = { version = "1.5", features = ["derive"] }
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
-once_cell = "1.4.1" # TODO: replace once_cell with std equivalent if/when this lands: https://github.com/rust-lang/rfcs/pull/2788
 downcast-rs = "1.2.0"
 thread_local = "1.1"
 thiserror = "1.0"

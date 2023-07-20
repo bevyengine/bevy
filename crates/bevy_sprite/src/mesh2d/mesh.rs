@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Mat4, Vec2};
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypeUuid};
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -29,8 +29,8 @@ use bevy_transform::components::GlobalTransform;
 /// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
 ///
 /// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
-#[derive(Default, Clone, Component, Debug, Reflect, FromReflect)]
-#[reflect(Component, FromReflect)]
+#[derive(Default, Clone, Component, Debug, Reflect)]
+#[reflect(Component)]
 pub struct Mesh2dHandle(pub Handle<Mesh>);
 
 impl From<Handle<Mesh>> for Mesh2dHandle {

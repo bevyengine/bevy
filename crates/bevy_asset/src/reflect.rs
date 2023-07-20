@@ -255,11 +255,11 @@ mod tests {
 
     use bevy_app::App;
     use bevy_ecs::reflect::AppTypeRegistry;
-    use bevy_reflect::{FromReflect, Reflect, ReflectMut, TypeUuid};
+    use bevy_reflect::{Reflect, ReflectMut, TypeUuid};
 
     use crate::{AddAsset, AssetPlugin, HandleUntyped, ReflectAsset};
 
-    #[derive(Reflect, FromReflect, TypeUuid)]
+    #[derive(Reflect, TypeUuid)]
     #[uuid = "09191350-1238-4736-9a89-46f04bda6966"]
     struct AssetType {
         field: String,

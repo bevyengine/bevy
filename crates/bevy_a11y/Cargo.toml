@@ -1,6 +1,6 @@
 [package]
 name = "bevy_a11y"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Provides accessibility support for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -10,9 +10,9 @@ keywords = ["bevy", "accessibility", "a11y"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.11.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.11.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.11.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.12.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
 
 # accesskit = "0.10"
 accesskit = { git = "https://github.com/Vrixyz/accesskit.git", branch = "winit-main-after-0.28" }

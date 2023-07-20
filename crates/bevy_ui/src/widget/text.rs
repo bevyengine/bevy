@@ -8,7 +8,7 @@ use bevy_ecs::{
     world::{Mut, Ref},
 };
 use bevy_math::Vec2;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
@@ -21,8 +21,8 @@ use taffy::style::AvailableSpace;
 /// Text system flags
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
-#[derive(Component, Debug, Clone, Reflect, FromReflect)]
-#[reflect(Component, Default, FromReflect)]
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Default)]
 pub struct TextFlags {
     /// If set a new measure function for the text node will be created
     needs_new_measure_func: bool,
@@ -99,7 +99,7 @@ fn create_text_measure(
                 content_size.set(TextMeasure { info: measure });
             }
 
-            // Text measure func created succesfully, so set `TextFlags` to schedule a recompute
+            // Text measure func created successfully, so set `TextFlags` to schedule a recompute
             text_flags.needs_new_measure_func = false;
             text_flags.needs_recompute = true;
         }
@@ -184,7 +184,8 @@ fn queue_text(
             // With `NoWrap` set, no constraints are placed on the width of the text.
             Vec2::splat(f32::INFINITY)
         } else {
-            node.physical_size(scale_factor)
+            // `scale_factor` is already multiplied by `UiScale`
+            node.physical_size(scale_factor, 1.)
         };
 
         match text_pipeline.queue_text(

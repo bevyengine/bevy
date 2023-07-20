@@ -35,9 +35,9 @@ use std::ops::Mul;
 /// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 /// [`Transform`]: super::Transform
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Component, Default, PartialEq, FromReflect)]
+#[reflect(Component, Default, PartialEq)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///
@@ -337,7 +337,7 @@ impl Transform {
     /// and [`Transform::up`] points towards `up`.
     ///
     /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
-    /// * if `target` is the same as the transtorm translation, `Vec3::Z` is used instead
+    /// * if `target` is the same as the transform translation, `Vec3::Z` is used instead
     /// * if `up` is zero, `Vec3::Y` is used instead
     /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]

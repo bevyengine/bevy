@@ -1,6 +1,6 @@
 [package]
 name = "bevy_asset"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Provides asset functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -15,15 +15,15 @@ debug_asset_server = ["filesystem_watcher"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.11.0-dev" }
-bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.11.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.11.0-dev" }
-bevy_log = { path = "../bevy_log", version = "0.11.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev", features = [
+bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.12.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.12.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev", features = [
     "bevy",
 ] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.11.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 
 # other
 serde = { version = "1", features = ["derive"] }
@@ -36,7 +36,7 @@ notify = { version = "6.0.0", optional = true }
 parking_lot = "0.12.1"
 
 [target.'cfg(target_os = "android")'.dependencies]
-bevy_winit = { path = "../bevy_winit", version = "0.11.0-dev" }
+bevy_winit = { path = "../bevy_winit", version = "0.12.0-dev" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
@@ -47,4 +47,4 @@ js-sys = "0.3"
 [dev-dependencies]
 futures-lite = "1.4.0"
 tempfile = "3.2.0"
-bevy_core = { path = "../bevy_core", version = "0.11.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.12.0-dev" }

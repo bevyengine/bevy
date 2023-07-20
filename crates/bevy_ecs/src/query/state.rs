@@ -10,7 +10,6 @@ use crate::{
     storage::{TableId, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
-use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
@@ -462,7 +461,6 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut filter = F::init_fetch(world, &self.filter_state, last_run, this_run);
 
         let table = world
-            .unsafe_world()
             .storages()
             .tables
             .get(location.table_id)
@@ -973,7 +971,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut fetch = Q::init_fetch(world, &self.fetch_state, last_run, this_run);
         let mut filter = F::init_fetch(world, &self.filter_state, last_run, this_run);
 
-        let tables = &world.unsafe_world().storages().tables;
+        let tables = &world.storages().tables;
         if Q::IS_DENSE && F::IS_DENSE {
             for table_id in &self.matched_table_ids {
                 let table = tables.get(*table_id).debug_checked_unwrap();
@@ -1032,6 +1030,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`] is unsound.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
     pub(crate) unsafe fn par_for_each_unchecked_manual<
         'w,
         FN: Fn(Q::Item<'w>) + Send + Sync + Clone,
@@ -1045,10 +1046,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        ComputeTaskPool::get().scope(|scope| {
+        bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             if Q::IS_DENSE && F::IS_DENSE {
                 // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
-                let tables = &world.unsafe_world().storages().tables;
+                let tables = &world.storages().tables;
                 for table_id in &self.matched_table_ids {
                     let table = &tables[*table_id];
                     if table.is_empty() {
@@ -1064,7 +1065,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 Q::init_fetch(world, &self.fetch_state, last_run, this_run);
                             let mut filter =
                                 F::init_fetch(world, &self.filter_state, last_run, this_run);
-                            let tables = &world.unsafe_world().storages().tables;
+                            let tables = &world.storages().tables;
                             let table = tables.get(*table_id).debug_checked_unwrap();
                             let entities = table.entities();
                             Q::set_table(&mut fetch, &self.fetch_state, table);
@@ -1108,7 +1109,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 Q::init_fetch(world, &self.fetch_state, last_run, this_run);
                             let mut filter =
                                 F::init_fetch(world, &self.filter_state, last_run, this_run);
-                            let tables = &world.unsafe_world().storages().tables;
+                            let tables = &world.storages().tables;
                             let archetype =
                                 world.archetypes().get(*archetype_id).debug_checked_unwrap();
                             let table = tables.get(archetype.table_id()).debug_checked_unwrap();

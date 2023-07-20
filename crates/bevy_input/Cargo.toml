@@ -1,6 +1,6 @@
 [package]
 name = "bevy_input"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Provides input functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -14,11 +14,11 @@ serialize = ["serde", "smol_str/serde"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.11.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.11.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.11.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev", features = [
+bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.12.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev", features = [
     "glam",
 ] }
 
@@ -28,4 +28,4 @@ thiserror = "1.0"
 smol_str = "0.2"
 
 [dev-dependencies]
-bevy = { path = "../../", version = "0.11.0-dev" }
+bevy = { path = "../../", version = "0.12.0-dev" }

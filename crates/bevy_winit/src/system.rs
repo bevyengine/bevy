@@ -169,7 +169,7 @@ pub(crate) fn changed_window(
                     window.resolution.physical_width(),
                     window.resolution.physical_height(),
                 );
-                winit_window.set_inner_size(physical_size);
+                let _ = winit_window.request_inner_size(physical_size);
             }
 
             if window.physical_cursor_position() != cache.window.physical_cursor_position() {

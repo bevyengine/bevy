@@ -1,4 +1,4 @@
-use ab_glyph::{PxScale, ScaleFont};
+use ab_glyph::PxScale;
 use bevy_asset::{Assets, Handle, HandleId};
 use bevy_ecs::component::Component;
 use bevy_ecs::system::Resource;
@@ -10,8 +10,9 @@ use bevy_utils::HashMap;
 use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText};
 
 use crate::{
-    error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font, FontAtlasSet,
-    FontAtlasWarning, PositionedGlyph, TextAlignment, TextSection, TextSettings, YAxisOrientation,
+    compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font,
+    FontAtlasSet, FontAtlasWarning, PositionedGlyph, TextAlignment, TextSection, TextSettings,
+    YAxisOrientation,
 };
 
 #[derive(Default, Resource)]
@@ -84,24 +85,7 @@ impl TextPipeline {
             return Ok(TextLayoutInfo::default());
         }
 
-        let mut min_x: f32 = std::f32::MAX;
-        let mut min_y: f32 = std::f32::MAX;
-        let mut max_x: f32 = std::f32::MIN;
-        let mut max_y: f32 = std::f32::MIN;
-
-        for sg in &section_glyphs {
-            let scaled_font = scaled_fonts[sg.section_index];
-            let glyph = &sg.glyph;
-            // The fonts use a coordinate system increasing upwards so ascent is a positive value
-            // and descent is negative, but Bevy UI uses a downwards increasing coordinate system,
-            // so we have to subtract from the baseline position to get the minimum and maximum values.
-            min_x = min_x.min(glyph.position.x);
-            min_y = min_y.min(glyph.position.y - scaled_font.ascent());
-            max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
-            max_y = max_y.max(glyph.position.y - scaled_font.descent());
-        }
-
-        let size = Vec2::new(max_x - min_x, max_y - min_y);
+        let size = compute_text_bounds(&section_glyphs, |index| &scaled_fonts[index]).size();
 
         let glyphs = self.brush.process_glyphs(
             section_glyphs,
@@ -229,24 +213,7 @@ impl TextMeasureInfo {
             .line_breaker(self.linebreak_behaviour)
             .calculate_glyphs(&self.fonts, &geom, sections);
 
-        let mut min_x: f32 = std::f32::MAX;
-        let mut min_y: f32 = std::f32::MAX;
-        let mut max_x: f32 = std::f32::MIN;
-        let mut max_y: f32 = std::f32::MIN;
-
-        for sg in section_glyphs {
-            let scaled_font = &self.scaled_fonts[sg.section_index];
-            let glyph = &sg.glyph;
-            // The fonts use a coordinate system increasing upwards so ascent is a positive value
-            // and descent is negative, but Bevy UI uses a downwards increasing coordinate system,
-            // so we have to subtract from the baseline position to get the minimum and maximum values.
-            min_x = min_x.min(glyph.position.x);
-            min_y = min_y.min(glyph.position.y - scaled_font.ascent());
-            max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
-            max_y = max_y.max(glyph.position.y - scaled_font.descent());
-        }
-
-        Vec2::new(max_x - min_x, max_y - min_y)
+        compute_text_bounds(&section_glyphs, |index| &self.scaled_fonts[index]).size()
     }
 
     pub fn compute_size(&self, bounds: Vec2) -> Vec2 {

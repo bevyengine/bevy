@@ -905,7 +905,7 @@ mod tests {
 
         assert!(entities.reserve_generations(entity.index, GENERATIONS));
 
-        // The very next entitiy allocated should be a further generation on the same index
+        // The very next entity allocated should be a further generation on the same index
         let next_entity = entities.alloc();
         assert_eq!(next_entity.index(), entity.index());
         assert!(next_entity.generation > entity.generation + GENERATIONS);

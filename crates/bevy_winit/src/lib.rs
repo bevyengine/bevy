@@ -39,8 +39,8 @@ use bevy_utils::tracing::{trace, warn};
 use bevy_window::{
     exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
     ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
-    WindowCloseRequested, WindowCreated, WindowFocused, WindowMoved, WindowResized,
-    WindowScaleFactorChanged, WindowThemeChanged,
+    WindowCloseRequested, WindowCreated, WindowDestroyed, WindowFocused, WindowMoved,
+    WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
 };
 
 #[cfg(target_os = "android")]
@@ -229,6 +229,7 @@ struct WindowEvents<'w> {
     window_focused: EventWriter<'w, WindowFocused>,
     window_moved: EventWriter<'w, WindowMoved>,
     window_theme_changed: EventWriter<'w, WindowThemeChanged>,
+    window_destroyed: EventWriter<'w, WindowDestroyed>,
 }
 
 #[derive(SystemParam)]
@@ -637,6 +638,11 @@ pub fn winit_runner(mut app: App) {
                         window_events.window_theme_changed.send(WindowThemeChanged {
                             window: window_entity,
                             theme: convert_winit_theme(theme),
+                        });
+                    }
+                    WindowEvent::Destroyed => {
+                        window_events.window_destroyed.send(WindowDestroyed {
+                            window: window_entity,
                         });
                     }
                     _ => {}

@@ -5,7 +5,7 @@ use bevy_ecs::{
     event::{Event, EventReader},
     system::ResMut,
 };
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::Reflect;
 use smol_str::SmolStr;
 
 #[cfg(feature = "serialize")]
@@ -22,8 +22,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
-#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -84,7 +84,7 @@ pub fn keyboard_input_system(
 ///
 /// - Correctly match key press and release events.
 /// - On non-web platforms, support assigning keybinds to virtually any key through a UI.
-#[derive(Debug, Clone, PartialOrd, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[derive(Debug, Clone, Ord, PartialOrd, Copy, PartialEq, Eq, Hash, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -113,8 +113,8 @@ pub enum NativeKeyCode {
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
 ///
 /// Its values map 1 to 1 to winit's `KeyCode`.
-#[derive(Debug, Hash, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq, FromReflect)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect)]
+#[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -581,7 +581,7 @@ pub enum KeyCode {
 /// This enum is primarily used to store raw keysym when Winit doesn't map a given native logical
 /// key identifier to a meaningful [`Key`] variant. This lets you use [`Key`], and let the user
 /// define keybinds which work in the presence of identifiers we haven't mapped for you yet.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash, Reflect)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum NativeKey {
     Unidentified,
@@ -614,8 +614,8 @@ pub enum NativeKey {
 ///
 /// Its values map 1 to 1 to winit's Key.
 #[non_exhaustive]
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq, FromReflect)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Reflect)]
+#[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
