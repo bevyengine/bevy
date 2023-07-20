@@ -35,7 +35,7 @@ pub struct Camera2dBundle {
 
 impl Default for Camera2dBundle {
     fn default() -> Self {
-        Self::new_with_far(1000.0)
+        Self::new_with_far(2000.0)
     }
 }
 
@@ -50,10 +50,10 @@ impl Camera2dBundle {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
         let projection = OrthographicProjection {
-            far,
+            far: far + 0.1,
             ..Default::default()
         };
-        let transform = Transform::from_xyz(0.0, 0.0, far - 0.1);
+        let transform = Transform::from_xyz(0.0, 0.0, far / 2. + 0.1);
         let view_projection =
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
         let frustum = Frustum::from_view_projection_custom_far(
