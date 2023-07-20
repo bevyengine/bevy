@@ -703,40 +703,6 @@ pub fn prepare_uinodes(
         image.id() != DEFAULT_IMAGE_HANDLE.id()
     }
 
-    // let mut drains: Vec<_> = extracted_uinodes
-    //     .uinodes
-    //     .iter_mut()
-    //     .map(|uinodes| {
-    //         let mut d = uinodes.drain(..);
-    //         let first = d.next();
-    //         (first, d)
-    //     })
-    //     .collect();
-
-    // let mut next_extracted_node = move || {
-    //     let mut min_stack_index = usize::MAX;
-    //     let mut n = usize::MAX;
-
-    //     for (i, (node, _)) in drains.iter_mut().enumerate() {
-    //         if let Some(node) = node {
-    //             if node.stack_index < min_stack_index {
-    //                 n = i;
-    //                 min_stack_index = node.stack_index;
-    //             }
-    //         }
-    //     }
-
-    //     if n == usize::MAX {
-    //         None
-    //     } else {
-    //         let (current, drain) = &mut drains[n];
-    //         let next = drain.next();
-    //         let out = current.take();
-    //         *current = next;
-    //         out
-    //     }
-    // };
-
     for extracted_uinode in extracted_uinodes.drain() {
         let mode = if is_textured(&extracted_uinode.image) {
             if current_batch_image.id() != extracted_uinode.image.id() {
