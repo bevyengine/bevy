@@ -1,5 +1,6 @@
 use crate::{self as bevy_asset, AssetDependencyVisitor, DeserializeMetaError};
 use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
+use bevy_log::error;
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
@@ -159,9 +160,18 @@ impl_downcast!(AssetMetaDyn);
 /// Settings used by the asset system, such as by [`AssetLoader`], [`Process`], and [`AssetSaver`]
 ///
 /// [`AssetSaver`]: crate::saver::AssetSaver
-pub trait Settings: Downcast + Send + Sync + 'static {}
+pub trait Settings: Downcast + Send + Sync + 'static {
+    fn type_name(&self) -> &'static str;
+}
 
-impl<T: 'static> Settings for T where T: Send + Sync {}
+impl<T: 'static> Settings for T
+where
+    T: Send + Sync,
+{
+    fn type_name(&self) -> &'static str {
+        std::any::type_name::<T>()
+    }
+}
 
 impl_downcast!(Settings);
 
@@ -212,10 +222,15 @@ pub(crate) fn loader_settings_meta_transform<S: Settings>(
 ) -> MetaTransform {
     Box::new(move |meta| {
         if let Some(loader_settings) = meta.loader_settings_mut() {
-            let loader_settings = loader_settings
-                .downcast_mut::<S>()
-                .expect("Configured settings type does not match AssetLoader settings type");
-            settings(loader_settings);
+            if let Some(loader_settings) = loader_settings.downcast_mut::<S>() {
+                settings(loader_settings);
+            } else {
+                error!(
+                    "Configured settings type {} does not match AssetLoader settings type {}",
+                    std::any::type_name::<S>(),
+                    loader_settings.type_name()
+                );
+            }
         }
     })
 }
