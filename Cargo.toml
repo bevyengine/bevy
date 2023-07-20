@@ -1896,6 +1896,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_default_font"
+path = "examples/ui/text_default_font.rs"
+
+[package.metadata.example.text_default_font]
+name = "Text (Default Font)"
+description = "Illustrates creating and updating text with Bevy's default font"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text_debug"
 path = "examples/ui/text_debug.rs"
 
