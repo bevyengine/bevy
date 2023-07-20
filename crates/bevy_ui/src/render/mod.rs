@@ -185,6 +185,7 @@ impl ExtractedUiNodes {
         let mut drains: Vec<_> = self
             .uinodes
             .iter_mut()
+            .filter(|uinodes| !uinodes.is_empty())
             .map(|uinodes| uinodes.drain(..))
             .collect();
         let next_uinodes = drains.iter_mut().map(|uinodes| uinodes.next()).collect();
@@ -218,12 +219,7 @@ impl<'a> Iterator for ExtractedUiNodesDrainingIterator<'a> {
         if n == usize::MAX {
             None
         } else {
-            let drain = &mut self.uinodes[n];
-            let current = &mut self.next_uinodes[n];
-            let next = drain.next();
-            let out = current.take();
-            *current = next;
-            out
+            std::mem::replace(&mut self.next_uinodes[n], self.uinodes[n].next())
         }
     }
 }
