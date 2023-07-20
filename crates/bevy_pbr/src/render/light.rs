@@ -1723,6 +1723,9 @@ impl Node for ShadowPassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        let diagnostics = render_context.diagnostic_recorder();
+        let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
+
         let view_entity = graph.view_entity();
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
             for view_light_entity in view_lights.lights.iter().copied() {
@@ -1748,10 +1751,14 @@ impl Node for ShadowPassNode {
                             stencil_ops: None,
                         }),
                     });
-
+                let pass_span =
+                    diagnostics.pass_span(&mut render_pass, view_light.pass_name.clone());
                 shadow_phase.render(&mut render_pass, world, view_light_entity);
+                pass_span.end(&mut render_pass);
             }
         }
+
+        time_span.end(render_context.command_encoder());
 
         Ok(())
     }

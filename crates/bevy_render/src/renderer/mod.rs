@@ -1,12 +1,11 @@
+pub mod diagnostics;
 mod graph_runner;
 mod render_device;
-mod statistics;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
-pub use statistics::*;
 
 use crate::{
     render_graph::RenderGraph,
@@ -23,13 +22,15 @@ use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
 };
 
+use self::diagnostics::{DiagnosticsRecorder, OptionalDiagnosticRecorder};
+
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
     });
 
-    let statistics_recorder = world.remove_resource::<StatisticsRecorder>();
+    let diagnostics_recorder = world.remove_resource::<DiagnosticsRecorder>();
 
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
@@ -38,15 +39,15 @@ pub fn render_system(world: &mut World) {
     match RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
-        statistics_recorder,
+        diagnostics_recorder,
         &render_queue.0,
         world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
         },
     ) {
-        Ok(Some(statistics_recorder)) => {
-            world.insert_resource(statistics_recorder);
+        Ok(Some(diagnostics_recorder)) => {
+            world.insert_resource(diagnostics_recorder);
         }
         Ok(None) => {}
         Err(e) => {
@@ -303,26 +304,31 @@ pub struct RenderContext {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
     command_buffers: Vec<CommandBuffer>,
-    statistics_recorder: Option<StatisticsRecorder>,
+    diagnostics_recorder: OptionalDiagnosticRecorder,
 }
 
 impl RenderContext {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
     pub fn new(
         render_device: RenderDevice,
-        statistics_recorder: Option<StatisticsRecorder>,
+        diagnostics_recorder: Option<DiagnosticsRecorder>,
     ) -> Self {
         Self {
             render_device,
             command_encoder: None,
             command_buffers: Vec::new(),
-            statistics_recorder,
+            diagnostics_recorder: diagnostics_recorder.into(),
         }
     }
 
     /// Gets the underlying [`RenderDevice`].
     pub fn render_device(&self) -> &RenderDevice {
         &self.render_device
+    }
+
+    /// Gets the underlying [`OptionalDiagnositcRecorder`]
+    pub fn diagnostic_recorder(&self) -> OptionalDiagnosticRecorder {
+        self.diagnostics_recorder.clone()
     }
 
     /// Gets the current [`CommandEncoder`].
@@ -345,12 +351,7 @@ impl RenderContext {
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         });
 
-        let render_pass = MeasuredRenderPass::new(
-            command_encoder,
-            self.statistics_recorder.as_mut(),
-            descriptor,
-        );
-
+        let render_pass = command_encoder.begin_render_pass(&descriptor);
         TrackedRenderPass::new(&self.render_device, render_pass)
     }
 
@@ -366,23 +367,33 @@ impl RenderContext {
 
     /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
     ///
-    /// When the render statistics become available, `statistics_callback` will be invoked.
-    pub fn finish(mut self) -> (Vec<CommandBuffer>, RenderDevice, Option<StatisticsRecorder>) {
+    /// When the render diagnostics become available, `diagnostics_callback` will be invoked.
+    pub fn finish(
+        mut self,
+    ) -> (
+        Vec<CommandBuffer>,
+        RenderDevice,
+        Option<DiagnosticsRecorder>,
+    ) {
         let command_encoder = self.command_encoder.get_or_insert_with(|| {
             self.render_device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         });
 
-        if let Some(recorder) = &mut self.statistics_recorder {
+        let mut diagnostics_recorder = self.diagnostics_recorder.unwrap();
+
+        if let Some(recorder) = &mut diagnostics_recorder {
             recorder.resolve(command_encoder);
         }
 
-        self.flush_encoder();
+        if let Some(encoder) = self.command_encoder.take() {
+            self.command_buffers.push(encoder.finish());
+        }
 
         (
             self.command_buffers,
             self.render_device,
-            self.statistics_recorder,
+            diagnostics_recorder,
         )
     }
 

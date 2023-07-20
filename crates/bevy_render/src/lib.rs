@@ -34,7 +34,6 @@ pub mod prelude {
         color::Color,
         mesh::{morph::MorphWeights, shape, Mesh},
         render_resource::Shader,
-        renderer::{RenderPassStatistics, RenderStatistics, RenderStatisticsPlugin},
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
         view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},

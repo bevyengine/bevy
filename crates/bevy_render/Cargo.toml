@@ -39,6 +39,7 @@ bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.12.0-dev" }
 bevy_core = { path = "../bevy_core", version = "0.12.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.12.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.12.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
 bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.12.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.12.0-dev" }

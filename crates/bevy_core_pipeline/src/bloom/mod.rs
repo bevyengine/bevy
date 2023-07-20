@@ -163,9 +163,15 @@ impl ViewNode for BloomNode {
             pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_final),
-        ) else { return Ok(()) };
+        )
+        else {
+            return Ok(());
+        };
 
         render_context.command_encoder().push_debug_group("bloom");
+
+        let diagnostics = render_context.diagnostic_recorder();
+        let time_span = diagnostics.time_span(render_context.command_encoder(), "bloom");
 
         // First downsample pass
         {
@@ -297,6 +303,7 @@ impl ViewNode for BloomNode {
             upsampling_final_pass.draw(0..3, 0..1);
         }
 
+        time_span.end(render_context.command_encoder());
         render_context.command_encoder().pop_debug_group();
 
         Ok(())

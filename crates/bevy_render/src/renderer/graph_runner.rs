@@ -16,7 +16,7 @@ use crate::{
     renderer::{RenderContext, RenderDevice},
 };
 
-use super::{RenderStatisticsMutex, StatisticsRecorder};
+use super::diagnostics::{DiagnosticsRecorder, RenderDiagnosticsMutex};
 
 pub(crate) struct RenderGraphRunner;
 
@@ -57,37 +57,37 @@ impl RenderGraphRunner {
     pub fn run(
         graph: &RenderGraph,
         render_device: RenderDevice,
-        mut statistics_recorder: Option<StatisticsRecorder>,
+        mut diagnostics_recorder: Option<DiagnosticsRecorder>,
         queue: &wgpu::Queue,
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
-    ) -> Result<Option<StatisticsRecorder>, RenderGraphRunnerError> {
-        if let Some(recorder) = &mut statistics_recorder {
+    ) -> Result<Option<DiagnosticsRecorder>, RenderGraphRunnerError> {
+        if let Some(recorder) = &mut diagnostics_recorder {
             recorder.begin_frame();
         }
 
-        let mut render_context = RenderContext::new(render_device, statistics_recorder);
+        let mut render_context = RenderContext::new(render_device, diagnostics_recorder);
         Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
         finalizer(render_context.command_encoder());
 
-        let (render_device, mut statistics_recorder) = {
+        let (render_device, mut diagnostics_recorder) = {
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
 
-            let (commands, render_device, statistics_recorder) = render_context.finish();
+            let (commands, render_device, diagnostics_recorder) = render_context.finish();
             queue.submit(commands);
 
-            (render_device, statistics_recorder)
+            (render_device, diagnostics_recorder)
         };
 
-        if let Some(recorder) = &mut statistics_recorder {
-            let render_statistics_mutex = world.resource::<RenderStatisticsMutex>().0.clone();
-            recorder.finish_frame(&render_device, move |statistics| {
-                *render_statistics_mutex.lock() = Some(statistics);
+        if let Some(recorder) = &mut diagnostics_recorder {
+            let render_diagnostics_mutex = world.resource::<RenderDiagnosticsMutex>().0.clone();
+            recorder.finish_frame(&render_device, move |diagnostics| {
+                *render_diagnostics_mutex.lock() = Some(diagnostics);
             });
         }
 
-        Ok(statistics_recorder)
+        Ok(diagnostics_recorder)
     }
 
     fn run_graph(

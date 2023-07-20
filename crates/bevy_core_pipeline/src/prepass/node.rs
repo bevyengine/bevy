@@ -81,6 +81,8 @@ impl ViewNode for PrepassNode {
         }
 
         {
+            let diagnostics = render_context.diagnostic_recorder();
+
             // Set up the pass descriptor with the depth attachment and optional color attachments
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("prepass"),
@@ -94,6 +96,9 @@ impl ViewNode for PrepassNode {
                     stencil_ops: None,
                 }),
             });
+
+            let pass_span = diagnostics.pass_span(&mut render_pass, "prepass");
+
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
@@ -112,6 +117,8 @@ impl ViewNode for PrepassNode {
                 let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
                 alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);
             }
+
+            pass_span.end(&mut render_pass);
         }
 
         if let Some(prepass_depth_texture) = &view_prepass_textures.depth {

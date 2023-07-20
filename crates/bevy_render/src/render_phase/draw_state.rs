@@ -5,11 +5,14 @@ use crate::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
     },
-    renderer::{MeasuredRenderPass, RenderDevice},
+    renderer::{
+        diagnostics::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
+        RenderDevice,
+    },
 };
 use bevy_utils::{default, detailed_trace};
 use std::ops::Range;
-use wgpu::IndexFormat;
+use wgpu::{IndexFormat, QuerySet, RenderPass};
 
 /// Tracks the state of a [`TrackedRenderPass`].
 ///
@@ -96,18 +99,18 @@ impl DrawState {
     }
 }
 
-/// A [`MeasuredRenderPass`], which tracks the current pipeline state to skip redundant operations.
+/// A [`RenderPass`], which tracks the current pipeline state to skip redundant operations.
 ///
 /// It is used to set the current [`RenderPipeline`], [`BindGroup`]s and [`Buffer`]s.
 /// After all requirements are specified, draw calls can be issued.
 pub struct TrackedRenderPass<'a> {
-    pass: MeasuredRenderPass<'a>,
+    pass: RenderPass<'a>,
     state: DrawState,
 }
 
 impl<'a> TrackedRenderPass<'a> {
     /// Tracks the supplied render pass.
-    pub fn new(device: &RenderDevice, pass: MeasuredRenderPass<'a>) -> Self {
+    pub fn new(device: &RenderDevice, pass: RenderPass<'a>) -> Self {
         let limits = device.limits();
         let max_bind_groups = limits.max_bind_groups as usize;
         let max_vertex_buffers = limits.max_vertex_buffers as usize;
@@ -597,4 +600,24 @@ impl<'a> TrackedRenderPass<'a> {
         detailed_trace!("set blend constant: {:?}", color);
         self.pass.set_blend_constant(wgpu::Color::from(color));
     }
+}
+
+impl WriteTimestamp for TrackedRenderPass<'_> {
+    fn write_timestamp(&mut self, query_set: &wgpu::QuerySet, index: u32) {
+        self.pass.write_timestamp(query_set, index);
+    }
+}
+
+impl WritePipelineStatistics for TrackedRenderPass<'_> {
+    fn begin_pipeline_statistics_query(&mut self, query_set: &QuerySet, index: u32) {
+        self.pass.begin_pipeline_statistics_query(query_set, index)
+    }
+
+    fn end_pipeline_statistics_query(&mut self) {
+        self.pass.end_pipeline_statistics_query()
+    }
+}
+
+impl Pass for TrackedRenderPass<'_> {
+    const KIND: PassKind = PassKind::Render;
 }
