@@ -248,7 +248,7 @@ pub fn extract_atlas_uinodes(
         >,
     >,
 ) {
-    let out = extracted_uinodes.next_buffer();
+    let output_buffer= extracted_uinodes.next_buffer();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, visibility, clip, texture_atlas_handle, atlas_image)) =
             uinode_query.get(*entity)
@@ -338,7 +338,7 @@ pub fn extract_uinode_borders(
     >,
     parent_node_query: Extract<Query<&Node, With<Parent>>>,
 ) {
-    let out = extracted_uinodes.next_buffer();
+    let output_buffer= extracted_uinodes.next_buffer();
     let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
 
     let ui_logical_viewport_size = windows
@@ -416,7 +416,7 @@ pub fn extract_uinode_borders(
 
             for edge in border_rects {
                 if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
-                    out.push(ExtractedUiNode {
+                    output_buffer.push(ExtractedUiNode {
                         stack_index,
                         // This translates the uinode's transform to the center of the current border rectangle
                         transform: transform * Mat4::from_translation(edge.center().extend(0.)),
@@ -455,7 +455,7 @@ pub fn extract_uinodes(
         >,
     >,
 ) {
-    let out = extracted_uinodes.next_buffer();
+    let output_buffer= extracted_uinodes.next_buffer();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
@@ -475,7 +475,7 @@ pub fn extract_uinodes(
                 (DEFAULT_IMAGE_HANDLE.typed(), false, false)
             };
 
-            out.push(ExtractedUiNode {
+            output_buffer.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
                 color: color.0,
@@ -584,7 +584,7 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
-    let out = extracted_uinodes.next_buffer();
+    let output_buffer= extracted_uinodes.next_buffer();
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
@@ -623,7 +623,7 @@ pub fn extract_text_uinodes(
                 let mut rect = atlas.textures[atlas_info.glyph_index];
                 rect.min *= inverse_scale_factor;
                 rect.max *= inverse_scale_factor;
-                out.push(ExtractedUiNode {
+                output_buffer.push(ExtractedUiNode {
                     stack_index,
                     transform: transform
                         * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
