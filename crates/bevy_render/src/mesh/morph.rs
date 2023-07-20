@@ -104,7 +104,7 @@ impl MorphTargetImage {
 }
 
 /// Controls the [morph targets] for all child [`Handle<Mesh>`] entities. In most cases, [`MorphWeights`] should be considered
-/// the "source o[f truth" when writing morph targets for meshes. However you can choose to write child [`MeshMorphWeights`]
+/// the "source of truth" when writing morph targets for meshes. However you can choose to write child [`MeshMorphWeights`]
 /// if your situation requires more granularity. Just note that if you set [`MorphWeights`], it will overwrite child
 /// [`MeshMorphWeights`] values.
 ///

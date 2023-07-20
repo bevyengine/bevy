@@ -496,8 +496,6 @@ pub struct Style {
     ///
     /// The size of the node will be expanded if there are constraints that prevent the layout algorithm from placing the border within the existing node boundary.
     ///
-    /// Rendering for borders is not yet implemented.
-    ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
     pub border: UiRect,
 
