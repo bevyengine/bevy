@@ -41,7 +41,7 @@ fn update_button_style(
 ) {
     for (interaction, mut color) in &mut interaction_query {
         *color = match *interaction {
-            Interaction::Clicked => PRESSED_BUTTON,
+            Interaction::Pressed => PRESSED_BUTTON,
             Interaction::Hovered => HOVERED_BUTTON,
             Interaction::None => NORMAL_BUTTON,
         }
@@ -68,7 +68,7 @@ fn button_trigger(
     mut counter: ResMut<Counter>,
 ) {
     for (interaction, counter_change) in &mut interaction_query {
-        if matches!(interaction, Interaction::Clicked) {
+        if matches!(interaction, Interaction::Pressed) {
             match counter_change {
                 CounterChange::Add => counter.0 += 1,
                 CounterChange::Subtract => counter.0 -= 1,

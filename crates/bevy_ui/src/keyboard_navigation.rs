@@ -5,11 +5,11 @@ use bevy_ecs::query::With;
 use bevy_ecs::system::{Local, Query, Res, ResMut, Resource};
 use bevy_ecs::{change_detection::DetectChangesMut, entity::Entity};
 use bevy_input::{prelude::KeyCode, Input};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::Reflect;
 use bevy_render::view::ComputedVisibility;
 
 /// A component that represents if a UI element is focused.
-#[derive(Reflect, FromReflect, Component, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Reflect, Component, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Focusable {
     focus_state: FocusState,
 }
@@ -28,7 +28,7 @@ impl Focusable {
     }
 }
 
-#[derive(Reflect, FromReflect, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Reflect, Clone, Debug, Default, Eq, PartialEq)]
 enum FocusState {
     /// Entity is not focused
     #[default]
@@ -113,7 +113,7 @@ pub(crate) fn keyboard_navigation_system(
             .entity
             .and_then(|entity| interactions.get_mut(entity).ok())
         {
-            if *interaction == Interaction::Clicked {
+            if *interaction == Interaction::Pressed {
                 *interaction = Interaction::None;
             }
         }
@@ -169,7 +169,7 @@ pub(crate) fn keyboard_click(mut interactions: Query<&mut Interaction>, focus: R
         .entity
         .and_then(|entity| interactions.get_mut(entity).ok())
     {
-        interaction.set_if_neq(Interaction::Clicked);
+        interaction.set_if_neq(Interaction::Pressed);
     }
 }
 
@@ -181,7 +181,7 @@ pub(crate) fn trigger_click_end(keyboard_input: Res<Input<KeyCode>>) -> bool {
 /// Reset the clicked state.
 pub(crate) fn end_keyboard_click(mut interactions: Query<&mut Interaction>) {
     interactions.for_each_mut(|mut interaction| {
-        if *interaction == Interaction::Clicked {
+        if *interaction == Interaction::Pressed {
             // The click was triggered by the keyboard, so it doesn't make sense to go to `Interaction::Hovered`.
             *interaction = Interaction::None;
         }
