@@ -216,10 +216,10 @@ impl<'a> Iterator for ExtractedUiNodesDrainingIterator<'a> {
             }
         }
 
-        if n == usize::MAX {
-            None
-        } else {
+        if n < usize::MAX {
             std::mem::replace(&mut self.next_uinodes[n], self.uinodes[n].next())
+        } else {
+            None
         }
     }
 }
