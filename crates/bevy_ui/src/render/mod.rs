@@ -620,6 +620,7 @@ pub struct UiBatch {
 const TEXTURED_QUAD: u32 = 0;
 const UNTEXTURED_QUAD: u32 = 1;
 
+#[allow(clippy::too_many_arguments)]
 pub fn queue_uinodes(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
