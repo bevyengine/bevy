@@ -444,6 +444,7 @@
 #![allow(clippy::type_complexity)]
 
 mod array;
+mod equality_utility;
 mod fields;
 mod from_reflect;
 mod list;
@@ -617,8 +618,7 @@ mod tests {
 
     #[test]
     fn reflect_map() {
-        #[derive(Reflect, Hash)]
-        #[reflect(Hash)]
+        #[derive(Reflect)]
         struct Foo {
             a: u32,
             b: String,
@@ -677,13 +677,730 @@ mod tests {
     fn reflect_map_no_hash() {
         #[derive(Reflect)]
         struct Foo {
-            a: u32,
+            a: f32,
         }
 
-        let foo = Foo { a: 1 };
+        let foo = Foo { a: 1.23 };
 
         let mut map = DynamicMap::default();
         map.insert(foo, 10u32);
+    }
+
+    mod reflect_hash {
+        use super::*;
+
+        /// Helper macro for generating tests for [`Reflect::reflect_hash`].
+        ///
+        /// # Arguments
+        /// * `$title` - (Required) The string literal title of the test case.
+        /// * `$a` - (Required) A known hashable value. Should implement [`Clone`].
+        /// * `$b` - (Optional) A known hashable value with the same type as `$a` but a different value.
+        /// * `$c` - (Optional) A known non-hashable value.
+        ///
+        /// # Description
+        ///
+        /// Tests the following:
+        /// 1. `$a` should return a hash (concrete and dynamic)
+        /// 2. `$a` should return the same hash as its clone (concrete and dynamic)
+        /// 3. `$a` should not return the same hash as an equivalent non-proxy dynamic value
+        /// 4. `$a` should not return the same hash as `$b` (concrete and dynamic)
+        /// 5. `$c` should not return a hash (concrete and dynamic)
+        /// 6. Two non-proxy dynamics should return the same hash if they are equivalent
+        ///
+        macro_rules! validate_hash {
+            ($title: literal: $a: ident, $b: ident, $c: ident $(,)?) => {{
+                validate_hash!($title: $a, $b);
+
+                // 5.
+                assert!(
+                    $c.reflect_hash().is_none(),
+                    "{}: expected `c` to not be hashable",
+                    $title
+                );
+                assert!(
+                    $c.clone_value().reflect_hash().is_none(),
+                    "{}: expected proxy of `c` to not be hashable",
+                    $title
+                );
+            }};
+            ($title: literal: $a: ident, $b: ident $(,)?) => {{
+                use std::any::Any;
+
+                assert_eq!(
+                    $a.type_id(), $b.type_id(),
+                    "{}: expected `a` and `b` to be the same type",
+                    $title
+                );
+
+                validate_hash!($title: $a);
+
+                // 4.
+                assert_ne!(
+                    $a.reflect_hash(),
+                    $b.reflect_hash(),
+                    "{}: expected `a` to return a different hash than `b`",
+                    $title
+                );
+                assert_ne!(
+                    $a.reflect_hash(),
+                    $b.clone_value().reflect_hash(),
+                    "{}: expected `a` to return a different hash than a proxy of `b`",
+                    $title
+                );
+            }};
+            ($title: literal: $a: ident $(,)?) => {{
+                // 1.
+                assert!(
+                    $a.reflect_hash().is_some(),
+                    "{}: expected `a` to be hashable",
+                    $title
+                );
+                assert!(
+                    $a.clone_value().reflect_hash().is_some(),
+                    "{}: expected proxy of `a` to be hashable",
+                    $title
+                );
+
+                // 2.
+                let a2 = $a.clone();
+                assert_eq!(
+                    $a.reflect_hash(),
+                    a2.reflect_hash(),
+                    "{}: expected `a` to return the same hash as its clone",
+                    $title
+                );
+                assert_eq!(
+                    $a.reflect_hash(),
+                    a2.clone_value().reflect_hash(),
+                    "{}: expected `a` to return the same hash as a proxy of its clone",
+                    $title
+                );
+
+                // 3.
+                let mut a3 = $a.clone_dynamic();
+                a3.set_represented_type(None);
+                assert_ne!(
+                    $a.reflect_hash(),
+                    a3.reflect_hash(),
+                    "{}: expected `a` to return a different hash than a dynamic with the same value but not a proxy",
+                    $title
+                );
+
+                // 6.
+                let a4 = $a.clone_dynamic();
+                assert_eq!(
+                    a4.reflect_hash(),
+                    a4.clone_value().reflect_hash(),
+                    "{}: expected two non-proxy dynamic values of `a` to return the same hash",
+                    $title
+                );
+            }};
+        }
+
+        #[test]
+        fn should_hash_value() {
+            #[derive(Reflect, Hash, Clone)]
+            #[reflect_value(Hash)]
+            struct Foo(u32);
+
+            #[derive(Reflect, Clone)]
+            #[reflect_value]
+            struct Baz(/* Note: NOT f32 */ u32);
+
+            // === Primitive === //
+            let value = 123u32;
+            assert!(value.reflect_hash().is_some());
+
+            // === Custom === //
+            let value = Foo(123);
+            assert!(value.reflect_hash().is_some());
+
+            let value2 = Foo(123);
+            assert_eq!(value.reflect_hash(), value2.reflect_hash());
+
+            let value3 = Foo(456);
+            assert_ne!(value.reflect_hash(), value3.reflect_hash());
+
+            // === Custom (not hashable) === //
+            let value = Baz(123);
+            assert!(value.reflect_hash().is_none());
+        }
+
+        #[test]
+        fn should_hash_tuple() {
+            let a = (123, 345, (678,));
+            let b = (123, 345, (679,));
+            let c = (1.23,);
+            validate_hash!("Tuple": a, b, c);
+        }
+
+        #[test]
+        fn should_hash_array() {
+            let a = [123, 345, 678];
+            let b = [123, 345, 679];
+            let c = [1.23];
+            validate_hash!("Array": a, b, c);
+        }
+
+        #[test]
+        fn should_hash_list() {
+            let a = vec![123, 345, 678];
+            let b = vec![123, 345, 679];
+            let c = vec![1.23];
+            validate_hash!("List": a, b, c);
+        }
+
+        #[test]
+        fn should_not_hash_map() {
+            // Note: The default `HashMap` is not hashable since it is unordered.
+            // However, other kinds of maps are hashable, such as `BTreeMap`.
+            // Once we support maps like `BTreeMap`, we can update this test.
+            let map = HashMap::<u32, u32>::new();
+            assert!(map.reflect_hash().is_none());
+        }
+
+        #[test]
+        fn should_hash_unit_struct() {
+            #[derive(Reflect)]
+            struct Foo;
+
+            #[derive(Reflect)]
+            struct Bar;
+
+            let foo = Foo;
+            assert!(foo.reflect_hash().is_some());
+
+            let foo2 = Foo;
+            assert_eq!(foo.reflect_hash(), foo2.reflect_hash());
+
+            let bar = Bar;
+            assert_ne!(foo.reflect_hash(), bar.reflect_hash());
+        }
+
+        #[test]
+        fn should_hash_tuple_struct() {
+            #[derive(Reflect, Clone)]
+            struct Foo(u32, #[reflect(skip_hash)] f32, Bar);
+
+            #[derive(Reflect, Clone)]
+            struct Bar(u32);
+
+            #[derive(Reflect)]
+            struct Baz(f32);
+
+            let a = Foo(123, 3.45, Bar(678));
+            let b = Foo(123, 3.45, Bar(679));
+            let c = Baz(1.23);
+
+            validate_hash!("Tuple Struct": a, b, c);
+        }
+
+        #[test]
+        fn should_hash_struct() {
+            #[derive(Reflect, Clone)]
+            struct Foo {
+                x: u32,
+                #[reflect(skip_hash)]
+                y: f32,
+                z: Bar,
+            }
+
+            #[derive(Reflect, Clone)]
+            struct Bar {
+                value: u32,
+            }
+
+            #[derive(Reflect)]
+            struct Baz {
+                value: f32,
+            }
+
+            let a = Foo {
+                x: 123,
+                y: 3.45,
+                z: Bar { value: 678 },
+            };
+
+            let b = Foo {
+                x: 123,
+                y: 3.45,
+                z: Bar { value: 679 },
+            };
+
+            let c = Baz { value: 1.23 };
+
+            validate_hash!("Struct": a, b, c);
+        }
+
+        #[test]
+        fn should_hash_enum() {
+            #[derive(Reflect, Clone)]
+            enum Foo {
+                UnitA,
+                UnitB,
+                Tuple(u32, #[reflect(skip_hash)] f32, Bar),
+                Struct {
+                    a: u32,
+                    #[reflect(skip_hash)]
+                    b: f32,
+                    c: Bar,
+                },
+            }
+
+            #[derive(Reflect, Clone)]
+            enum Bar {
+                UnitA,
+                Tuple(u32),
+                Struct { a: u32 },
+            }
+
+            #[derive(Reflect, Clone)]
+            enum Baz {
+                Unit,
+                Tuple(f32),
+                Struct { a: f32 },
+            }
+
+            // === Unit Variant === //
+            let a = Foo::UnitA;
+            let b = Foo::UnitB;
+            validate_hash!("Unit Variant": a, b);
+
+            let c = Baz::Unit;
+            validate_hash!("Unit Variant (non-hashable sibling variants)": c);
+
+            // === Tuple Variant === //
+            let a = Foo::Tuple(123, 3.45, Bar::Tuple(678));
+            let b = Foo::Tuple(123, 3.45, Bar::Tuple(679));
+            let c = Baz::Tuple(1.23);
+            validate_hash!("Tuple Variant": a, b, c);
+
+            // === Struct Variant === //
+            let a = Foo::Struct {
+                a: 123,
+                b: 3.45,
+                c: Bar::Struct { a: 678 },
+            };
+            let b = Foo::Struct {
+                a: 123,
+                b: 3.45,
+                c: Bar::Struct { a: 679 },
+            };
+            let c = Baz::Struct { a: 1.23 };
+            validate_hash!("Struct Variant": a, b, c);
+        }
+    }
+
+    mod reflect_partial_eq {
+        use super::*;
+
+        #[derive(Reflect, Clone)]
+        #[reflect_value]
+        struct NotComparable;
+
+        /// Helper macro for generating tests for [`Reflect::reflect_partial_eq`].
+        ///
+        /// # Arguments
+        /// * `$title` - (Required) The string literal title of the test case.
+        /// * `$a` - (Required) A known comparable value. Should implement [`Clone`].
+        /// * `$b` - (Optional) A known comparable value but not equivalent to `$a`.
+        /// * `$c` - (Optional) A known incomparable value.
+        ///
+        /// # Description
+        ///
+        /// Tests the following:
+        /// 1. `$a` should be partially equal to its clone (concrete, dynamic other, and dynamic self)
+        /// 2. `$a` should be partially equal to an equivalent non-proxy dynamic value (dynamic other and dynamic self)
+        /// 3. `$a` should not be partially equal to `$b` (concrete, dynamic other, and dynamic self)
+        /// 4. `$c` should not be comparable (concrete, dynamic other, and dynamic self)
+        /// 5. Two non-proxy dynamics should be partially equal if they are equivalent
+        ///
+        macro_rules! validate_partial_eq {
+            ($title: literal: $a: ident, $b: ident, $c: ident $(,)?) => {{
+                validate_partial_eq!($title: $a, $b);
+
+                // 4.
+                assert!(
+                    $c.reflect_partial_eq(&$c).is_none(),
+                    "{}: expected `c` to not be comparable",
+                    $title
+                );
+                let c2 = $c.clone_value();
+                assert!(
+                    $c.reflect_partial_eq(&*c2).is_none(),
+                    "{}: expected proxy of `c` to not be comparable (dynamic other)",
+                    $title
+                );
+                assert!(
+                    c2.reflect_partial_eq(&$c).is_none(),
+                    "{}: expected proxy of `c` to not be comparable (dynamic self)",
+                    $title
+                );
+            }};
+            ($title: literal: $a: ident, $b: ident $(,)?) => {{
+                validate_partial_eq!($title: $a);
+
+                // 3.
+                assert_eq!(
+                    Some(false),
+                    $a.reflect_partial_eq(&$b),
+                    "{}: expected `a` to not be partially equal to `b`",
+                    $title
+                );
+                assert_eq!(
+                    Some(false),
+                    $a.reflect_partial_eq(&*$b.clone_value()),
+                    "{}: expected `a` to not be partially equal to a proxy of `b`",
+                    $title
+                );
+                assert_eq!(
+                    Some(false),
+                    $b.clone_value().reflect_partial_eq(&$a),
+                    "{}: expected proxy of `b` to not be partially equal to `a`",
+                    $title
+                );
+            }};
+            ($title: literal: $a: ident $(,)?) => {{
+                // 1.
+                let a2 = $a.clone();
+                assert_eq!(
+                    Some(true),
+                    $a.reflect_partial_eq(&a2),
+                    "{}: expected `a` to partially equal its clone",
+                    $title
+                );
+                assert_eq!(
+                    Some(true),
+                    $a.reflect_partial_eq(&*a2.clone_value()),
+                    "{}: expected `a` to partially equal a proxy of its clone",
+                    $title
+                );
+                assert_eq!(
+                    Some(true),
+                    a2.clone_value().reflect_partial_eq(&$a),
+                    "{}: expected a proxy of `a` to partially equal `a`",
+                    $title
+                );
+
+                // 2.
+                let mut a3 = $a.clone_dynamic();
+                a3.set_represented_type(None);
+                assert_eq!(
+                    Some(true),
+                    $a.reflect_partial_eq(&a3),
+                    "{}: expected `a` to partially equal a dynamic with the same value but not a proxy",
+                    $title
+                );
+                assert_eq!(
+                    Some(true),
+                    a3.reflect_partial_eq(&$a),
+                    "{}: expected dynamic with the same value as `a` but not a proxy to partially equal `a`",
+                    $title
+                );
+
+                // 5.
+                let a4 = $a.clone_dynamic();
+                assert_eq!(
+                    Some(true),
+                    a4.reflect_partial_eq(&*a4.clone_value()),
+                    "{}: expected two non-proxy dynamic values of `a` tobe partially equal",
+                    $title
+                );
+            }};
+        }
+
+        #[test]
+        fn should_partial_eq_value() {
+            #[derive(Reflect, PartialEq, Clone)]
+            #[reflect_value(PartialEq)]
+            struct Foo(u32);
+
+            #[derive(Reflect, Clone)]
+            #[reflect_value]
+            struct Baz(u32);
+
+            // === Primitive === //
+            let a = 123u32;
+            let b = 123u32;
+            assert_eq!(Some(true), a.reflect_partial_eq(&b));
+
+            // === Custom === //
+            let a = Foo(123);
+            let b = Foo(123);
+            assert_eq!(Some(true), a.reflect_partial_eq(&b));
+
+            let a = Foo(123);
+            let b = Foo(456);
+            assert_eq!(Some(false), a.reflect_partial_eq(&b));
+
+            // === Custom (not comparable) === //
+            let a = Baz(123);
+            let b = Baz(123);
+            assert!(a.reflect_partial_eq(&b).is_none());
+        }
+
+        #[test]
+        fn should_partial_eq_tuple() {
+            let a = (123, 345, (678,));
+            let b = (123, 345, (679,));
+            let c = (NotComparable,);
+            validate_partial_eq!("Tuple": a, b, c);
+
+            let a = (123, 345, (678,));
+            let b = (123, 345, (678,), 0);
+            validate_partial_eq!("Tuple (different lengths)": a, b);
+        }
+
+        #[test]
+        fn should_partial_eq_array() {
+            let a = [123, 345, 678];
+            let b = [123, 345, 679];
+            let c = [NotComparable];
+            validate_partial_eq!("Array": a, b, c);
+
+            let a = [123, 345, 678];
+            let b = [123, 345, 678, 0];
+            validate_partial_eq!("Array (different lengths)": a, b);
+        }
+
+        #[test]
+        fn should_partial_eq_list() {
+            let a = vec![123, 345, 678];
+            let b = vec![123, 345, 679];
+            let c = vec![NotComparable];
+            validate_partial_eq!("List": a, b, c);
+
+            let a = vec![123, 345, 678];
+            let b = vec![123, 345, 678, 0];
+            validate_partial_eq!("List (different lengths)": a, b);
+        }
+
+        #[test]
+        fn should_partial_eq_map() {
+            let a = HashMap::from([(123, 1.23), (345, 3.45), (678, 6.78)]);
+            let b = HashMap::from([(123, 1.23), (345, 3.45), (678, 6.79)]);
+            let c = HashMap::from([(123, NotComparable)]);
+            validate_partial_eq!("Map": a, b, c);
+
+            let a = HashMap::from([(123, 1.23), (345, 3.45), (678, 6.78)]);
+            let b = HashMap::from([(123, 1.23), (345, 3.45), (678, 6.78), (0, 0.0)]);
+            validate_partial_eq!("Map (different lengths)": a, b);
+        }
+
+        #[test]
+        fn should_partial_eq_unit_struct() {
+            #[derive(Reflect)]
+            struct Foo;
+
+            #[derive(Reflect)]
+            struct Bar;
+
+            let a = Foo;
+            let b = Foo;
+            assert_eq!(
+                Some(true),
+                a.reflect_partial_eq(&b),
+                "expected unit struct to be partially equal to itself"
+            );
+
+            let a = Foo;
+            let b = Bar;
+            assert_eq!(
+                Some(true),
+                a.reflect_partial_eq(&b),
+                "expected unit struct to be partially equal to another unit struct"
+            );
+        }
+
+        #[test]
+        fn should_partial_eq_tuple_struct() {
+            #[derive(Reflect, Clone)]
+            struct Foo(u32, #[reflect(skip_partial_eq)] NotComparable, Bar);
+
+            #[derive(Reflect, Clone)]
+            struct Bar(u32);
+
+            #[derive(Reflect)]
+            struct Baz(NotComparable);
+
+            let a = Foo(123, NotComparable, Bar(678));
+            let b = Foo(123, NotComparable, Bar(679));
+            let c = Baz(NotComparable);
+
+            validate_partial_eq!("Tuple Struct": a, b, c);
+
+            let a = Foo(123, NotComparable, Bar(678));
+            let mut b = a.clone_dynamic();
+            b.insert(123);
+            validate_partial_eq!("Tuple Struct (different lengths)": a, b);
+        }
+
+        #[test]
+        fn should_partial_eq_struct() {
+            #[derive(Reflect, Clone)]
+            struct Foo {
+                x: u32,
+                #[reflect(skip_partial_eq)]
+                y: NotComparable,
+                z: Bar,
+            }
+
+            #[derive(Reflect, Clone)]
+            struct Bar {
+                value: u32,
+            }
+
+            #[derive(Reflect)]
+            struct Baz {
+                value: NotComparable,
+            }
+
+            let a = Foo {
+                x: 123,
+                y: NotComparable,
+                z: Bar { value: 678 },
+            };
+
+            let b = Foo {
+                x: 123,
+                y: NotComparable,
+                z: Bar { value: 679 },
+            };
+
+            let c = Baz {
+                value: NotComparable,
+            };
+
+            validate_partial_eq!("Struct": a, b, c);
+
+            let a = Foo {
+                x: 123,
+                y: NotComparable,
+                z: Bar { value: 678 },
+            };
+            let mut b = a.clone_dynamic();
+            b.insert("w", 0);
+            validate_partial_eq!("Struct (different lengths)": a, b);
+        }
+
+        #[test]
+        fn should_partial_eq_struct_with_different_skipped_fields() {
+            #[derive(Reflect, Clone)]
+            struct Foo {
+                #[reflect(skip_partial_eq)]
+                a: u32,
+                b: u32,
+            }
+
+            #[derive(Reflect, Clone)]
+            struct Bar {
+                a: u32,
+                b: u32,
+            }
+
+            #[derive(Reflect, Clone)]
+            struct Baz {
+                #[allow(dead_code)]
+                #[reflect(ignore)]
+                a: u32,
+                b: u32,
+            }
+
+            let foo = Foo { a: 123, b: 456 };
+            let bar = Bar { a: 321, b: 456 };
+            assert_eq!(Some(false), foo.reflect_partial_eq(&bar));
+            assert_eq!(Some(false), bar.reflect_partial_eq(&foo));
+
+            let foo = Foo { a: 123, b: 456 };
+            let baz = Baz { a: 321, b: 456 };
+            assert_eq!(Some(true), foo.reflect_partial_eq(&baz));
+            assert_eq!(Some(true), baz.reflect_partial_eq(&foo));
+        }
+
+        #[test]
+        fn should_partial_eq_tuple_struct_with_different_skipped_fields() {
+            #[derive(Reflect, Clone)]
+            struct Foo(u32, #[reflect(skip_partial_eq)] u32);
+
+            #[derive(Reflect, Clone)]
+            struct Bar(u32, u32);
+
+            #[derive(Reflect, Clone)]
+            struct Baz(
+                u32,
+                #[allow(dead_code)]
+                #[reflect(ignore)]
+                u32,
+            );
+
+            let foo = Foo(123, 456);
+            let bar = Bar(123, 654);
+            assert_eq!(Some(false), foo.reflect_partial_eq(&bar));
+            assert_eq!(Some(false), bar.reflect_partial_eq(&foo));
+
+            let foo = Foo(123, 456);
+            let baz = Baz(123, 654);
+            assert_eq!(Some(true), foo.reflect_partial_eq(&baz));
+            assert_eq!(Some(true), baz.reflect_partial_eq(&foo));
+        }
+
+        #[test]
+        fn should_partial_eq_enum() {
+            #[derive(Reflect, Clone)]
+            enum Foo {
+                UnitA,
+                UnitB,
+                Tuple(u32, #[reflect(skip_partial_eq)] NotComparable, Bar),
+                Struct {
+                    a: u32,
+                    #[reflect(skip_partial_eq)]
+                    b: NotComparable,
+                    c: Bar,
+                },
+            }
+
+            #[derive(Reflect, Clone)]
+            enum Bar {
+                UnitA,
+                Tuple(u32),
+                Struct { a: u32 },
+            }
+
+            #[derive(Reflect, Clone)]
+            enum Baz {
+                Unit,
+                Tuple(NotComparable),
+                Struct { a: NotComparable },
+            }
+
+            // === Unit Variant === //
+            let a = Foo::UnitA;
+            let b = Foo::UnitB;
+            validate_partial_eq!("Unit Variant": a, b);
+
+            let c = Baz::Unit;
+            validate_partial_eq!("Unit Variant (incomparable sibling variants)": c);
+
+            // === Tuple Variant === //
+            let a = Foo::Tuple(123, NotComparable, Bar::Tuple(678));
+            let b = Foo::Tuple(123, NotComparable, Bar::Tuple(679));
+            let c = Baz::Tuple(NotComparable);
+            validate_partial_eq!("Tuple Variant": a, b, c);
+
+            // === Struct Variant === //
+            let a = Foo::Struct {
+                a: 123,
+                b: NotComparable,
+                c: Bar::Struct { a: 678 },
+            };
+            let b = Foo::Struct {
+                a: 123,
+                b: NotComparable,
+                c: Bar::Struct { a: 679 },
+            };
+            let c = Baz::Struct { a: NotComparable };
+            validate_partial_eq!("Struct Variant": a, b, c);
+        }
     }
 
     #[test]
@@ -835,7 +1552,6 @@ mod tests {
     #[test]
     fn reflect_complex_patch() {
         #[derive(Reflect, Eq, PartialEq, Debug)]
-        #[reflect(PartialEq)]
         struct Foo {
             a: u32,
             #[reflect(ignore)]
@@ -849,7 +1565,6 @@ mod tests {
         }
 
         #[derive(Reflect, Eq, PartialEq, Clone, Debug)]
-        #[reflect(PartialEq)]
         struct Bar {
             x: u32,
         }
@@ -1087,7 +1802,6 @@ mod tests {
     #[test]
     fn reflect_take() {
         #[derive(Reflect, Debug, PartialEq)]
-        #[reflect(PartialEq)]
         struct Bar {
             x: u32,
         }
@@ -1612,9 +2326,9 @@ mod tests {
             let info = <SomeStruct as Typed>::type_info();
             if let TypeInfo::Struct(info) = info {
                 let mut fields = info.iter();
-                assert_eq!(Some(" The name"), fields.next().unwrap().docs());
-                assert_eq!(Some(" The index"), fields.next().unwrap().docs());
-                assert_eq!(None, fields.next().unwrap().docs());
+                assert_eq!(Some(" The name"), fields.next().unwrap().meta().docs);
+                assert_eq!(Some(" The index"), fields.next().unwrap().meta().docs);
+                assert_eq!(None, fields.next().unwrap().meta().docs);
             } else {
                 panic!("expected struct info");
             }
@@ -1641,22 +2355,22 @@ mod tests {
             let info = <SomeEnum as Typed>::type_info();
             if let TypeInfo::Enum(info) = info {
                 let mut variants = info.iter();
-                assert_eq!(None, variants.next().unwrap().docs());
+                assert_eq!(None, variants.next().unwrap().meta().docs);
 
                 let variant = variants.next().unwrap();
-                assert_eq!(Some(" Option A"), variant.docs());
+                assert_eq!(Some(" Option A"), variant.meta().docs);
                 if let VariantInfo::Tuple(variant) = variant {
                     let field = variant.field_at(0).unwrap();
-                    assert_eq!(Some(" Index"), field.docs());
+                    assert_eq!(Some(" Index"), field.meta().docs);
                 } else {
                     panic!("expected tuple variant")
                 }
 
                 let variant = variants.next().unwrap();
-                assert_eq!(Some(" Option B"), variant.docs());
+                assert_eq!(Some(" Option B"), variant.meta().docs);
                 if let VariantInfo::Struct(variant) = variant {
                     let field = variant.field_at(0).unwrap();
-                    assert_eq!(Some(" Name"), field.docs());
+                    assert_eq!(Some(" Name"), field.meta().docs);
                 } else {
                     panic!("expected struct variant")
                 }
@@ -1796,9 +2510,8 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
     #[test]
     fn multiple_reflect_lists() {
-        #[derive(Hash, PartialEq, Reflect)]
-        #[reflect(Debug, Hash)]
-        #[reflect(PartialEq)]
+        #[derive(PartialEq, Reflect)]
+        #[reflect(Debug)]
         struct Foo(i32);
 
         impl Debug for Foo {

@@ -1,13 +1,14 @@
-use bevy_reflect_derive::impl_type_path;
-
+use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, utility::GenericTypePathCell, FromReflect, GetTypeRegistration, Reflect,
     ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
     UnnamedField,
 };
+use bevy_reflect_derive::impl_type_path;
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::slice::Iter;
 
 /// A trait used to power [tuple-like] operations via [reflection].
@@ -141,8 +142,7 @@ pub struct TupleInfo {
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: TupleMeta,
 }
 
 impl TupleInfo {
@@ -157,15 +157,13 @@ impl TupleInfo {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: TupleMeta::new(),
         }
     }
 
-    /// Sets the docstring for this tuple.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this tuple.
+    pub fn with_meta(self, meta: TupleMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// Get the field at the given index.
@@ -195,15 +193,39 @@ impl TupleInfo {
         self.type_id
     }
 
+    /// The metadata of the struct.
+    pub fn meta(&self) -> &TupleMeta {
+        &self.meta
+    }
+
     /// Check if the given type matches the tuple type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
+}
 
+/// Metadata for [tuples], accessed via [`TupleInfo::meta`].
+///
+/// [tuples]: Tuple
+#[derive(Clone, Debug)]
+pub struct TupleMeta {
     /// The docstring of this tuple, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl TupleMeta {
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for TupleMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -380,6 +402,10 @@ impl Reflect for DynamicTuple {
         Ok(())
     }
 
+    fn reflect_hash(&self) -> Option<u64> {
+        tuple_hash(self)
+    }
+
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_partial_eq(self, value)
     }
@@ -397,6 +423,41 @@ impl Reflect for DynamicTuple {
 }
 
 impl_type_path!((in bevy_reflect) DynamicTuple);
+
+/// Returns the `u64` hash of the given [tuple](Tuple).
+#[inline]
+pub fn tuple_hash<T: Tuple>(value: &T) -> Option<u64> {
+    let mut hasher = reflect_hasher();
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::Tuple(info) = info else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+
+            for field in info.iter() {
+                if let Some(value) = value.field(field.index()) {
+                    Hash::hash(&value.reflect_hash()?, &mut hasher);
+                }
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<T>(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+
+            for field in value.iter_fields() {
+                Hash::hash(&field.reflect_hash()?, &mut hasher);
+            }
+        }
+    }
+
+    Some(hasher.finish())
+}
 
 /// Applies the elements of `b` to the corresponding elements of `a`.
 ///
@@ -426,7 +487,7 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
-    let ReflectRef::Tuple(b) = b.reflect_ref() else {
+    let ReflectRef::Tuple(b) = b.reflect_ref()  else {
         return Some(false);
     };
 
@@ -434,10 +495,9 @@ pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
         return Some(false);
     }
 
-    for (a_field, b_field) in a.iter_fields().zip(b.iter_fields()) {
-        let eq_result = a_field.reflect_partial_eq(b_field);
-        if let failed @ (Some(false) | None) = eq_result {
-            return failed;
+    for (value_a, value_b) in a.iter_fields().zip(b.iter_fields()) {
+        if !value_a.reflect_partial_eq(value_b)? {
+            return Some(false);
         }
     }
 
@@ -491,8 +551,8 @@ macro_rules! impl_reflect_tuple {
 
             #[inline]
             fn field_len(&self) -> usize {
-                let indices: &[usize] = &[$($index as usize),*];
-                indices.len()
+                const INDICES: &[usize] = &[$($index as usize),*];
+                INDICES.len()
             }
 
             #[inline]
@@ -582,8 +642,47 @@ macro_rules! impl_reflect_tuple {
                 Box::new(self.clone_dynamic())
             }
 
-            fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-                crate::tuple_partial_eq(self, value)
+            fn reflect_hash(&self) -> Option<u64> {
+                let mut hasher = crate::utility::reflect_hasher();
+                Hash::hash(&TypeId::of::<Self>(), &mut hasher);
+                Hash::hash(&self.field_len(), &mut hasher);
+
+                $(
+                    Hash::hash(&self.$index.reflect_hash()?, &mut hasher);
+                )*
+
+                Some(hasher.finish())
+            }
+
+            fn reflect_partial_eq(&self, other: &dyn Reflect) -> Option<bool> {
+                #[allow(unused_variables)]
+                if let Some(other) = other.downcast_ref::<Self>() {
+                    $(
+                        if !self.$index.reflect_partial_eq(&other.$index)? {
+                            return Some(false);
+                        }
+                    )*
+                } else {
+                    let ReflectRef::Tuple(other) = Reflect::reflect_ref(other) else {
+                        return Some(false);
+                    };
+
+                    if other.field_len() != self.field_len() {
+                        return Some(false);
+                    }
+
+                    $(
+                        let Some(other_field) = other.field($index) else {
+                            return Some(false);
+                        };
+
+                        if !self.$index.reflect_partial_eq(other_field)? {
+                            return Some(false);
+                        }
+                    )*
+                }
+
+                Some(true)
             }
         }
 

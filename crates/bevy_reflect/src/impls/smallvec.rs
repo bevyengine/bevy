@@ -1,6 +1,6 @@
 use bevy_reflect_derive::impl_type_path;
 use smallvec::SmallVec;
-use std::any::Any;
+use std::any::{Any, TypeId};
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
@@ -8,6 +8,7 @@ use crate::{
     Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
     TypeRegistration, Typed,
 };
+use std::hash::{Hash, Hasher};
 
 impl<T: smallvec::Array + TypePath + Send + Sync> List for SmallVec<T>
 where
@@ -137,8 +138,42 @@ where
         Box::new(self.clone_dynamic())
     }
 
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        crate::list_partial_eq(self, value)
+    fn reflect_hash(&self) -> Option<u64> {
+        let mut hasher = crate::utility::reflect_hasher();
+        Hash::hash(&TypeId::of::<Self>(), &mut hasher);
+        Hash::hash(&self.len(), &mut hasher);
+
+        for element in self {
+            Hash::hash(&element.reflect_hash()?, &mut hasher);
+        }
+
+        Some(hasher.finish())
+    }
+
+    fn reflect_partial_eq(&self, other: &dyn Reflect) -> Option<bool> {
+        if let Some(other) = other.downcast_ref::<Self>() {
+            for (a, b) in <[T::Item]>::iter(self).zip(<[T::Item]>::iter(other)) {
+                if !a.reflect_partial_eq(b)? {
+                    return Some(false);
+                }
+            }
+        } else {
+            let ReflectRef::List(other) = Reflect::reflect_ref(other) else {
+                return Some(false);
+            };
+
+            if other.len() != self.len() {
+                return Some(false);
+            }
+
+            for (a, b) in self.iter().zip(other.iter()) {
+                if !a.reflect_partial_eq(b)? {
+                    return Some(false);
+                }
+            }
+        }
+
+        Some(true)
     }
 }
 

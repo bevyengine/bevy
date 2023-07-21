@@ -5,7 +5,7 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect_derive::impl_reflect_struct;
 
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[reflect(Debug, Serialize, Deserialize, Default)]
     #[type_path = "bevy_math"]
     struct Rect {
         min: Vec2,

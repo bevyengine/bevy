@@ -7,8 +7,7 @@ pub struct NamedField {
     name: &'static str,
     type_name: &'static str,
     type_id: TypeId,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: FieldMeta,
 }
 
 impl NamedField {
@@ -18,15 +17,13 @@ impl NamedField {
             name,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: FieldMeta::new(),
         }
     }
 
-    /// Sets the docstring for this field.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this field.
+    pub fn with_meta(self, meta: FieldMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// The name of the field.
@@ -46,15 +43,14 @@ impl NamedField {
         self.type_id
     }
 
+    /// The metadata of the field.
+    pub fn meta(&self) -> &FieldMeta {
+        &self.meta
+    }
+
     /// Check if the given type matches the field type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
-    }
-
-    /// The docstring of this field, if any.
-    #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
     }
 }
 
@@ -64,8 +60,7 @@ pub struct UnnamedField {
     index: usize,
     type_name: &'static str,
     type_id: TypeId,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: FieldMeta,
 }
 
 impl UnnamedField {
@@ -74,15 +69,13 @@ impl UnnamedField {
             index,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: FieldMeta::new(),
         }
     }
 
-    /// Sets the docstring for this field.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this field.
+    pub fn with_meta(self, meta: FieldMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// Returns the index of the field.
@@ -102,14 +95,53 @@ impl UnnamedField {
         self.type_id
     }
 
+    /// The metadata of the field.
+    pub fn meta(&self) -> &FieldMeta {
+        &self.meta
+    }
+
     /// Check if the given type matches the field type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
+}
 
+/// Metadata for both [named] and [unnamed] fields.
+///
+/// [named]: NamedField
+/// [unnamed]: UnnamedField
+#[derive(Clone, Debug)]
+pub struct FieldMeta {
+    /// This field should not be used in its container's [`Reflect::reflect_hash`] implementation.
+    ///
+    /// This may be configured when [deriving `Reflect`] by adding `#[reflect(skip_hash)]` to the field.
+    ///
+    /// [deriving `Reflect`]: bevy_reflect_derive::Reflect
+    pub skip_hash: bool,
+    /// This field should not be used in its container's [`Reflect::reflect_partial_eq`] implementation.
+    ///
+    /// This may be configured when [deriving `Reflect`] by adding `#[reflect(skip_partial_eq)]` to the field.
+    ///
+    /// [deriving `Reflect`]: bevy_reflect_derive::Reflect
+    pub skip_partial_eq: bool,
     /// The docstring of this field, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl FieldMeta {
+    pub const fn new() -> Self {
+        Self {
+            skip_hash: false,
+            skip_partial_eq: false,
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for FieldMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }

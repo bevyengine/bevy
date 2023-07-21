@@ -1,9 +1,13 @@
 use crate::container_attributes::{FromReflectAttrs, ReflectTraits};
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
+use crate::fq_std::{FQAny, FQHash, FQOption};
 use crate::type_path::parse_path_no_leading_colon;
-use crate::utility::{members_to_serialization_denylist, StringExpr, WhereClauseOptions};
+use crate::utility::{
+    ident_or_index, members_to_serialization_denylist, StringExpr, WhereClauseOptions,
+};
 use bit_set::BitSet;
-use quote::{quote, ToTokens};
+use proc_macro2::TokenStream;
+use quote::{format_ident, quote, ToTokens};
 use syn::token::Comma;
 
 use crate::{
@@ -13,8 +17,8 @@ use crate::{
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Meta, Path,
-    PathSegment, Type, TypeParam, Variant,
+    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, Index, LitStr,
+    Meta, Path, PathSegment, Type, TypeParam, Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -31,9 +35,9 @@ pub(crate) enum ReflectDerive<'a> {
 ///
 /// ```ignore
 /// #[derive(Reflect)]
-/// //                          traits
-/// //        |----------------------------------------|
-/// #[reflect(PartialEq, Serialize, Deserialize, Default)]
+/// //                    traits
+/// //        |-----------------------------|
+/// #[reflect(Serialize, Deserialize, Default)]
 /// //            type_name       generics
 /// //     |-------------------||----------|
 /// struct ThingThatImReflecting<T1, T2, T3> {/* ... */}
@@ -56,7 +60,7 @@ pub(crate) struct ReflectMeta<'a> {
 ///
 /// ```ignore
 /// #[derive(Reflect)]
-/// #[reflect(PartialEq, Serialize, Deserialize, Default)]
+/// #[reflect(Serialize, Deserialize, Default)]
 /// struct ThingThatImReflecting<T1, T2, T3> {
 ///     x: T1, // |
 ///     y: T2, // |- fields
@@ -67,6 +71,7 @@ pub(crate) struct ReflectStruct<'a> {
     meta: ReflectMeta<'a>,
     serialization_denylist: BitSet<u32>,
     fields: Vec<StructField<'a>>,
+    is_tuple: bool,
 }
 
 /// Enum data used by derive macros for `Reflect` and `FromReflect`.
@@ -75,7 +80,7 @@ pub(crate) struct ReflectStruct<'a> {
 ///
 /// ```ignore
 /// #[derive(Reflect)]
-/// #[reflect(PartialEq, Serialize, Deserialize, Default)]
+/// #[reflect(Serialize, Deserialize, Default)]
 /// enum ThingThatImReflecting<T1, T2, T3> {
 ///     A(T1),                  // |
 ///     B,                      // |- variants
@@ -163,6 +168,7 @@ impl<'a> ReflectDerive<'a> {
                     let new_traits = ReflectTraits::from_metas(
                         meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
                         is_from_reflect_derive,
+                        false,
                     )?;
                     traits.merge(new_traits)?;
                 }
@@ -178,6 +184,7 @@ impl<'a> ReflectDerive<'a> {
                     let new_traits = ReflectTraits::from_metas(
                         meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
                         is_from_reflect_derive,
+                        true,
                     )?;
                     traits.merge(new_traits)?;
                 }
@@ -268,7 +275,9 @@ impl<'a> ReflectDerive<'a> {
         return match &input.data {
             Data::Struct(data) => {
                 let fields = Self::collect_struct_fields(&data.fields)?;
+                let is_tuple = matches!(data.fields, Fields::Unnamed(..));
                 let reflect_struct = ReflectStruct {
+                    is_tuple,
                     meta,
                     serialization_denylist: members_to_serialization_denylist(
                         fields.iter().map(|v| v.attrs.ignore),
@@ -405,10 +414,82 @@ impl<'a> ReflectMeta<'a> {
         crate::registration::impl_get_type_registration(self, where_clause_options, None)
     }
 
+    pub fn to_type_info(&self) -> proc_macro2::TokenStream {
+        let bevy_reflect_path = self.bevy_reflect_path();
+
+        #[cfg(feature = "documentation")]
+        let doc_field = {
+            let doc = &self.docs;
+            quote! {
+                docs: #doc
+            }
+        };
+
+        #[cfg(not(feature = "documentation"))]
+        let doc_field = proc_macro2::TokenStream::new();
+
+        let meta = quote! {
+            #bevy_reflect_path::ValueMeta {
+                #doc_field
+            }
+        };
+
+        quote! {
+            #bevy_reflect_path::TypeInfo::Value(
+                #bevy_reflect_path::ValueInfo::new::<Self>()
+                    .with_meta(#meta)
+            )
+        }
+    }
+
     /// The collection of docstrings for this type, if any.
     #[cfg(feature = "documentation")]
     pub fn doc(&self) -> &crate::documentation::Documentation {
         &self.docs
+    }
+}
+
+impl<'a> StructField<'a> {
+    /// Generate the `NamedField`/`UnnamedField` for this field as a `TokenStream`.
+    pub fn to_field_info(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
+        #[cfg(feature = "documentation")]
+        let doc_field = {
+            let doc = &self.doc;
+            quote! {
+                docs: #doc
+            }
+        };
+
+        #[cfg(not(feature = "documentation"))]
+        let doc_field = proc_macro2::TokenStream::new();
+
+        let field_ty = &self.data.ty;
+        let skip_hash = self.attrs.skip_hash;
+        let skip_partial_eq = self.attrs.skip_partial_eq;
+
+        let meta = quote! {
+            #bevy_reflect_path::FieldMeta {
+                skip_hash: #skip_hash,
+                skip_partial_eq: #skip_partial_eq,
+                #doc_field
+            }
+        };
+
+        match &self.data.ident {
+            Some(ident) => {
+                let field_name = ident.to_string();
+                quote! {
+                    #bevy_reflect_path::NamedField::new::<#field_ty>(#field_name)
+                        .with_meta(#meta)
+                }
+            }
+            None => {
+                let field_index = self.index;
+                quote! {
+                    #bevy_reflect_path::UnnamedField::new::<#field_ty>(#field_index).with_meta(#meta)
+                }
+            }
+        }
     }
 }
 
@@ -440,13 +521,6 @@ impl<'a> ReflectStruct<'a> {
         )
     }
 
-    /// Get a collection of types which are exposed to the reflection API
-    pub fn active_types(&self) -> Vec<syn::Type> {
-        self.active_fields()
-            .map(|field| field.data.ty.clone())
-            .collect()
-    }
-
     /// Get an iterator of fields which are exposed to the reflection API
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields
@@ -469,6 +543,128 @@ impl<'a> ReflectStruct<'a> {
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
         WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
+    }
+
+    /// Generate the `Reflect::reflect_partial_eq` method for this struct as a `TokenStream`.
+    pub fn get_partial_eq_impl(&self) -> TokenStream {
+        let bevy_reflect_path = &self.meta().bevy_reflect_path;
+        let fq_option = FQOption;
+
+        let fields = self
+            .active_fields()
+            .filter(|field| !field.attrs.skip_partial_eq)
+            .map(|field| ident_or_index(field.data.ident.as_ref(), field.index));
+
+        let dynamic_function = if self.is_tuple {
+            quote!(tuple_struct_partial_eq)
+        } else {
+            quote!(struct_partial_eq)
+        };
+
+        quote! {
+            fn reflect_partial_eq(&self, other: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
+                if let #FQOption::Some(other) = <dyn #bevy_reflect_path::Reflect>::downcast_ref::<Self>(other) {
+                    #(
+                        if !#bevy_reflect_path::Reflect::reflect_partial_eq(&self.#fields, &other.#fields)? {
+                            return #fq_option::Some(false);
+                        }
+                    )*
+                    #FQOption::Some(true)
+                } else {
+                    #bevy_reflect_path::#dynamic_function(self, other)
+                }
+            }
+        }
+    }
+
+    /// Generate the `Reflect::reflect_hash` method for this struct as a `TokenStream`.
+    pub fn get_hash_impl(&self) -> TokenStream {
+        let bevy_reflect_path = &self.meta().bevy_reflect_path;
+        let fq_hash = FQHash;
+
+        let fields = self
+            .active_fields()
+            .filter(|field| !field.attrs.skip_hash)
+            .map(|field| ident_or_index(field.data.ident.as_ref(), field.index));
+
+        let struct_type = if self.is_tuple {
+            quote!(TupleStruct)
+        } else {
+            quote!(Struct)
+        };
+
+        quote! {
+            fn reflect_hash(&self) -> #FQOption<u64> {
+                let mut hasher = #bevy_reflect_path::utility::reflect_hasher();
+                #FQHash::hash(&#FQAny::type_id(self), &mut hasher);
+                #FQHash::hash(&#bevy_reflect_path::#struct_type::field_len(self), &mut hasher);
+
+                #(
+                    #fq_hash::hash(
+                        &#bevy_reflect_path::Reflect::reflect_hash(&self.#fields)?,
+                        &mut hasher
+                    );
+                )*
+
+                #FQOption::Some(
+                    ::core::hash::Hasher::finish(&hasher)
+                )
+            }
+        }
+    }
+
+    /// Generate the `TypeInfo` for this struct as a `TokenStream`.
+    pub fn to_type_info(&self) -> proc_macro2::TokenStream {
+        let bevy_reflect_path = self.meta.bevy_reflect_path();
+
+        let field_info = self
+            .active_fields()
+            .map(|field| field.to_field_info(bevy_reflect_path));
+
+        let string_name = self
+            .meta
+            .type_path()
+            .get_ident()
+            .expect("structs should never be anonymous")
+            .to_string();
+
+        #[cfg(feature = "documentation")]
+        let doc_field = {
+            let doc = &self.meta.doc();
+            quote! {
+                docs: #doc,
+            }
+        };
+
+        #[cfg(not(feature = "documentation"))]
+        let doc_field = proc_macro2::TokenStream::new();
+
+        let meta = if self.is_tuple {
+            quote! {
+                #bevy_reflect_path::TupleStructMeta {
+                    #doc_field
+                }
+            }
+        } else {
+            quote! {
+                #bevy_reflect_path::StructMeta {
+                    #doc_field
+                }
+            }
+        };
+
+        let (info_variant, info_ty) = if self.is_tuple {
+            (quote!(TupleStruct), quote!(TupleStructInfo))
+        } else {
+            (quote!(Struct), quote!(StructInfo))
+        };
+
+        quote! {
+            #bevy_reflect_path::TypeInfo::#info_variant(
+                #bevy_reflect_path::#info_ty::new::<Self>(#string_name, &[#(#field_info),*])
+                    .with_meta(#meta)
+            )
+        }
     }
 }
 
@@ -508,6 +704,163 @@ impl<'a> ReflectEnum<'a> {
     pub fn where_clause_options(&self) -> WhereClauseOptions {
         WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
     }
+
+    /// Generate the `Reflect::reflect_partial_eq` method for this enum as a `TokenStream`.
+    pub fn get_partial_eq_impl(&self) -> TokenStream {
+        let bevy_reflect_path = &self.meta().bevy_reflect_path;
+        let fq_option = FQOption;
+        let ident = self
+            .meta()
+            .type_path()
+            .get_ident()
+            .expect("enums should never be anonymous");
+
+        // Essentially builds out match-arms of the following form:
+        // ```
+        // Enum::Variant { 0: field_0, 2: field_2, .. } => {
+        //   match other {
+        //     Enum::Variant { 0: other_0, 2: other_2, .. } => {
+        //        // Compare fields...
+        //     }
+        //     _ => return Some(false),
+        //   }
+        // }
+        // ```
+        let variants_concrete = self.variants.iter().map(|variant| {
+            variant.make_arm(
+                ident,
+                "field",
+                |field| !field.attrs.skip_partial_eq,
+                |fields| {
+                    let field_idents = fields.iter().map(|(_, ident)| ident).collect::<Vec<_>>();
+                    let other_arm = variant.make_arm(
+                        ident,
+                        "other",
+                        |field| !field.attrs.skip_partial_eq,
+                        |other_fields| {
+                            let other_idents = other_fields.iter().map(|(_, ident)| ident);
+                            quote! {
+                                #(
+                                    if !#bevy_reflect_path::Reflect::reflect_partial_eq(#field_idents, #other_idents)? {
+                                        return #fq_option::Some(false);
+                                    }
+                                )*
+                            }
+                        }
+                    );
+
+                    quote! {
+                        match other {
+                            #other_arm
+                            _ => {
+                                return #FQOption::Some(false);
+                            }
+                        }
+                    }
+                },
+            )
+        });
+
+        quote! {
+            fn reflect_partial_eq(&self, other: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
+                if let #FQOption::Some(other) = <dyn #bevy_reflect_path::Reflect>::downcast_ref::<Self>(other) {
+                    match self {
+                        #(#variants_concrete)*
+                    }
+                    #FQOption::Some(true)
+                } else {
+                    #bevy_reflect_path::enum_partial_eq(self, other)
+                }
+            }
+        }
+    }
+
+    /// Generate the `Reflect::reflect_hash` method for this enum as a `TokenStream`.
+    pub fn get_hash_impl(&self) -> TokenStream {
+        let bevy_reflect_path = &self.meta().bevy_reflect_path;
+        let fq_hash = FQHash;
+        let ident = self
+            .meta()
+            .type_path()
+            .get_ident()
+            .expect("enums should never be anonymous");
+
+        let variants = self.variants.iter().map(|variant| {
+            let variant_name = variant.data.ident.to_string();
+            variant.make_arm(
+                ident,
+                "field",
+                |field| !field.attrs.skip_hash,
+                |fields| {
+                    let field_idents = fields.iter().map(|(_, ident)| ident);
+                    quote! {
+                        // We use the variant name instead of discriminant here so
+                        // `DynamicEnum` proxies will result in the same hash.
+                        #fq_hash::hash(#variant_name, &mut hasher);
+
+                        #(
+                            #fq_hash::hash(
+                                &#bevy_reflect_path::Reflect::reflect_hash(#field_idents)?,
+                                &mut hasher
+                            );
+                        )*
+                    }
+                },
+            )
+        });
+
+        quote! {
+            fn reflect_hash(&self) -> #FQOption<u64> {
+                let mut hasher = #bevy_reflect_path::utility::reflect_hasher();
+                #FQHash::hash(&#FQAny::type_id(self), &mut hasher);
+                #FQHash::hash(&#bevy_reflect_path::Enum::field_len(self), &mut hasher);
+
+                match self {
+                    #(#variants)*
+                }
+
+                #FQOption::Some(
+                    ::core::hash::Hasher::finish(&hasher)
+                )
+            }
+        }
+    }
+
+    /// Generate the `TypeInfo` for this enum as a `TokenStream`.
+    pub fn to_type_info(&self, variant_info: Vec<TokenStream>) -> proc_macro2::TokenStream {
+        let bevy_reflect_path = self.meta.bevy_reflect_path();
+
+        let string_name = self
+            .meta
+            .type_path()
+            .get_ident()
+            .expect("enums should never be anonymous")
+            .to_string();
+
+        #[cfg(feature = "documentation")]
+        let doc_field = {
+            let doc = &self.meta.doc();
+            quote! {
+                docs: #doc,
+            }
+        };
+
+        #[cfg(not(feature = "documentation"))]
+        let doc_field = proc_macro2::TokenStream::new();
+
+        let meta = quote! {
+            #bevy_reflect_path::EnumMeta {
+                #doc_field
+            }
+        };
+
+        quote! {
+            #bevy_reflect_path::TypeInfo::Enum(
+                #bevy_reflect_path::EnumInfo::new::<Self>(#string_name, &[#(#variant_info),*])
+                    .with_meta(#meta)
+            )
+        }
+    }
 }
 
 impl<'a> EnumVariant<'a> {
@@ -533,6 +886,49 @@ impl<'a> EnumVariant<'a> {
         match &self.fields {
             EnumVariantFields::Named(fields) | EnumVariantFields::Unnamed(fields) => fields,
             EnumVariantFields::Unit => &[],
+        }
+    }
+
+    /// Make an arm for this variant as it would be used in a match statement.
+    ///
+    /// This will generate a `TokenStream` like:
+    /// ```ignore
+    /// EnumName::VariantName { a: prefix_a, b: prefix_b, .. } => {
+    ///    // ...
+    /// }
+    /// ```
+    pub fn make_arm(
+        &self,
+        enum_ident: &Ident,
+        field_prefix: &str,
+        field_filter: impl FnMut(&&StructField) -> bool,
+        mut make_block: impl FnMut(&[(&StructField, Ident)]) -> TokenStream,
+    ) -> proc_macro2::TokenStream {
+        let ident = &self.data.ident;
+
+        let (fields, field_patterns): (Vec<_>, Vec<_>) = self
+            .active_fields()
+            .filter(field_filter)
+            .map(|field| {
+                if let Some(ident) = &field.data.ident {
+                    let new_ident = format_ident!("{}_{}", field_prefix, ident);
+                    let pattern = quote!(#ident: #new_ident);
+                    ((field, new_ident), pattern)
+                } else {
+                    let index = Index::from(field.index);
+                    let ident = format_ident!("{}_{}", field_prefix, field.index);
+                    let pattern = quote!(#index: #ident);
+                    ((field, ident), pattern)
+                }
+            })
+            .unzip();
+
+        let block = make_block(&fields);
+
+        quote! {
+            #enum_ident::#ident { #(#field_patterns,)* .. } => {
+                #block
+            }
         }
     }
 }

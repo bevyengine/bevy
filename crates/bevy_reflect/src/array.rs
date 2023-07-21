@@ -82,8 +82,7 @@ pub struct ArrayInfo {
     item_type_name: &'static str,
     item_type_id: TypeId,
     capacity: usize,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: ArrayMeta,
 }
 
 impl ArrayInfo {
@@ -100,15 +99,13 @@ impl ArrayInfo {
             item_type_name: std::any::type_name::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             capacity,
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: ArrayMeta::new(),
         }
     }
 
-    /// Sets the docstring for this array.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this array.
+    pub fn with_meta(self, meta: ArrayMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// The compile-time capacity of the array.
@@ -126,6 +123,11 @@ impl ArrayInfo {
     /// The [`TypeId`] of the array.
     pub fn type_id(&self) -> TypeId {
         self.type_id
+    }
+
+    /// The metadata of the array.
+    pub fn meta(&self) -> &ArrayMeta {
+        &self.meta
     }
 
     /// Check if the given type matches the array type.
@@ -149,11 +151,30 @@ impl ArrayInfo {
     pub fn item_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.item_type_id
     }
+}
 
+/// Metadata for [arrays], accessed via [`ArrayInfo::meta`].
+///
+/// [arrays]: Array
+#[derive(Clone, Debug)]
+pub struct ArrayMeta {
     /// The docstring of this array, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl ArrayMeta {
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for ArrayMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -375,13 +396,34 @@ impl<'a> ExactSizeIterator for ArrayIter<'a> {}
 
 /// Returns the `u64` hash of the given [array](Array).
 #[inline]
-pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
+pub fn array_hash<A: Array>(value: &A) -> Option<u64> {
     let mut hasher = reflect_hasher();
-    std::any::Any::type_id(array).hash(&mut hasher);
-    array.len().hash(&mut hasher);
-    for value in array.iter() {
-        hasher.write_u64(value.reflect_hash()?);
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::Array(info) = info else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&value.len(), &mut hasher);
+
+            for element in value.iter() {
+                Hash::hash(&element.reflect_hash()?, &mut hasher);
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<A>(), &mut hasher);
+            Hash::hash(&value.len(), &mut hasher);
+
+            for element in value.iter() {
+                Hash::hash(&element.reflect_hash()?, &mut hasher);
+            }
+        }
     }
+
     Some(hasher.finish())
 }
 
@@ -412,17 +454,19 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bool> {
-    match reflect.reflect_ref() {
-        ReflectRef::Array(reflect_array) if reflect_array.len() == array.len() => {
-            for (a, b) in array.iter().zip(reflect_array.iter()) {
-                let eq_result = a.reflect_partial_eq(b);
-                if let failed @ (Some(false) | None) = eq_result {
-                    return failed;
-                }
-            }
+pub fn array_partial_eq<A: Array>(a: &A, b: &dyn Reflect) -> Option<bool> {
+    let ReflectRef::Array(b) = b.reflect_ref()  else {
+        return Some(false);
+    };
+
+    if a.len() != b.len() {
+        return Some(false);
+    }
+
+    for (value_a, value_b) in a.iter().zip(b.iter()) {
+        if !value_a.reflect_partial_eq(value_b)? {
+            return Some(false);
         }
-        _ => return Some(false),
     }
 
     Some(true)

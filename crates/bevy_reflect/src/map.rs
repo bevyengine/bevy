@@ -1,10 +1,11 @@
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
+use crate::utility::reflect_hasher;
 use crate::{self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
 
 /// A trait used to power [map-like] operations via [reflection].
@@ -99,8 +100,7 @@ pub struct MapInfo {
     key_type_id: TypeId,
     value_type_name: &'static str,
     value_type_id: TypeId,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: MapMeta,
 }
 
 impl MapInfo {
@@ -113,15 +113,13 @@ impl MapInfo {
             key_type_id: TypeId::of::<TKey>(),
             value_type_name: std::any::type_name::<TValue>(),
             value_type_id: TypeId::of::<TValue>(),
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: MapMeta::new(),
         }
     }
 
-    /// Sets the docstring for this map.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this map.
+    pub fn with_meta(self, meta: MapMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// The [type name] of the map.
@@ -134,6 +132,11 @@ impl MapInfo {
     /// The [`TypeId`] of the map.
     pub fn type_id(&self) -> TypeId {
         self.type_id
+    }
+
+    /// The metadata of the struct.
+    pub fn meta(&self) -> &MapMeta {
+        &self.meta
     }
 
     /// Check if the given type matches the map type.
@@ -174,11 +177,30 @@ impl MapInfo {
     pub fn value_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.value_type_id
     }
+}
 
+/// Metadata for [maps], accessed via [`MapInfo::meta`].
+///
+/// [maps]: Map
+#[derive(Clone, Debug)]
+pub struct MapMeta {
     /// The docstring of this map, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl MapMeta {
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for MapMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -424,6 +446,43 @@ impl IntoIterator for DynamicMap {
 
 impl<'a> ExactSizeIterator for MapIter<'a> {}
 
+/// Returns the `u64` hash of the given [map](Map).
+#[inline]
+pub fn map_hash<M: Map>(value: &M) -> Option<u64> {
+    let mut hasher = reflect_hasher();
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::Map(info) = info else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&info.key_type_id(), &mut hasher);
+            Hash::hash(&info.value_type_id(), &mut hasher);
+            Hash::hash(&value.len(), &mut hasher);
+
+            for (key, value) in value.iter() {
+                Hash::hash(&key.reflect_hash()?, &mut hasher);
+                Hash::hash(&value.reflect_hash()?, &mut hasher);
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<M>(), &mut hasher);
+            Hash::hash(&value.len(), &mut hasher);
+
+            for (key, value) in value.iter() {
+                Hash::hash(&key.reflect_hash()?, &mut hasher);
+                Hash::hash(&value.reflect_hash()?, &mut hasher);
+            }
+        }
+    }
+
+    Some(hasher.finish())
+}
+
 /// Compares a [`Map`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
@@ -435,21 +494,20 @@ impl<'a> ExactSizeIterator for MapIter<'a> {}
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
-    let ReflectRef::Map(map) = b.reflect_ref() else {
+    let ReflectRef::Map(b) = b.reflect_ref()  else {
         return Some(false);
     };
 
-    if a.len() != map.len() {
+    if a.len() != b.len() {
         return Some(false);
     }
 
-    for (key, value) in a.iter() {
-        if let Some(map_value) = map.get(key) {
-            let eq_result = value.reflect_partial_eq(map_value);
-            if let failed @ (Some(false) | None) = eq_result {
-                return failed;
-            }
-        } else {
+    for (key, value_a) in a.iter() {
+        let Some(value_b) = b.get(key) else {
+            return Some(false);
+        };
+
+        if !value_a.reflect_partial_eq(value_b)? {
             return Some(false);
         }
     }

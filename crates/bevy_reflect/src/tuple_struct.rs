@@ -1,10 +1,12 @@
-use bevy_reflect_derive::impl_type_path;
-
+use crate::equality_utility::{compare_tuple_structs, extract_info, get_type_info_pair};
+use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, UnnamedField,
 };
+use bevy_reflect_derive::impl_type_path;
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::slice::Iter;
 
 /// A trait used to power [tuple struct-like] operations via [reflection].
@@ -59,8 +61,7 @@ pub struct TupleStructInfo {
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: TupleStructMeta,
 }
 
 impl TupleStructInfo {
@@ -77,15 +78,13 @@ impl TupleStructInfo {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: TupleStructMeta::new(),
         }
     }
 
-    /// Sets the docstring for this struct.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this struct.
+    pub fn with_meta(self, meta: TupleStructMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// Get the field at the given index.
@@ -124,15 +123,39 @@ impl TupleStructInfo {
         self.type_id
     }
 
+    /// The metadata of the struct.
+    pub fn meta(&self) -> &TupleStructMeta {
+        &self.meta
+    }
+
     /// Check if the given type matches the tuple struct type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
+}
 
-    /// The docstring of this struct, if any.
+/// Metadata for [tuple structs], accessed via [`TupleStructInfo::meta`].
+///
+/// [tuple structs]: TupleStruct
+#[derive(Clone, Debug)]
+pub struct TupleStructMeta {
+    /// The docstring of this tuple struct, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl TupleStructMeta {
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for TupleStructMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -374,6 +397,10 @@ impl Reflect for DynamicTupleStruct {
         Ok(())
     }
 
+    fn reflect_hash(&self) -> Option<u64> {
+        tuple_struct_hash(self)
+    }
+
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_struct_partial_eq(self, value)
     }
@@ -398,36 +425,68 @@ impl Debug for DynamicTupleStruct {
     }
 }
 
+/// Returns the `u64` hash of the given [tuple struct](TupleStruct).
+#[inline]
+pub fn tuple_struct_hash<T: TupleStruct>(value: &T) -> Option<u64> {
+    let mut hasher = reflect_hasher();
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::TupleStruct(info) = info else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+
+            for field in info.iter() {
+                if field.meta().skip_hash {
+                    continue;
+                }
+
+                if let Some(value) = value.field(field.index()) {
+                    Hash::hash(&value.reflect_hash()?, &mut hasher);
+                }
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<T>(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+
+            for field in value.iter_fields() {
+                Hash::hash(&field.reflect_hash()?, &mut hasher);
+            }
+        }
+    }
+
+    Some(hasher.finish())
+}
+
 /// Compares a [`TupleStruct`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
 /// - `b` is a tuple struct;
 /// - `b` has the same number of fields as `a`;
-/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise fields of `a` and `b`.
+/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise fields of `a` and `b`[^1]
 ///
-/// Returns [`None`] if the comparison couldn't even be performed.
+/// Returns `None` if the comparison cannot be performed.
+///
+/// [^1]: If a field is marked with `#[reflect(skip_partial_eq)]`, then it will be skipped
+///       unless the corresponding field in `b` is not marked with `#[reflect(skip_partial_eq)]`,
+///       in which case the comparison will return `Some(false)`.
 #[inline]
 pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
+    let ReflectRef::TupleStruct(b) = b.reflect_ref()  else {
         return Some(false);
     };
 
-    if a.field_len() != tuple_struct.field_len() {
-        return Some(false);
-    }
+    let (info_a, info_b) = get_type_info_pair(a.as_reflect(), b.as_reflect());
+    let info_a = extract_info!(info_a, TypeInfo::TupleStruct(info) => Some(info));
+    let info_b = extract_info!(info_b, TypeInfo::TupleStruct(info) => Some(info));
 
-    for (i, value) in tuple_struct.iter_fields().enumerate() {
-        if let Some(field_value) = a.field(i) {
-            let eq_result = field_value.reflect_partial_eq(value);
-            if let failed @ (Some(false) | None) = eq_result {
-                return failed;
-            }
-        } else {
-            return Some(false);
-        }
-    }
-
-    Some(true)
+    compare_tuple_structs!(a, b, info_a, info_b, accessor=.field)
 }
 
 /// The default debug formatter for [`TupleStruct`] types.

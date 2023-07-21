@@ -73,13 +73,12 @@ impl VariantInfo {
         }
     }
 
-    /// The docstring of the underlying variant, if any.
-    #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&str> {
+    /// The metadata of the underlying variant.
+    pub fn meta(&self) -> &VariantMeta {
         match self {
-            Self::Struct(info) => info.docs(),
-            Self::Tuple(info) => info.docs(),
-            Self::Unit(info) => info.docs(),
+            Self::Struct(info) => info.meta(),
+            Self::Tuple(info) => info.meta(),
+            Self::Unit(info) => info.meta(),
         }
     }
 }
@@ -91,8 +90,7 @@ pub struct StructVariantInfo {
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: VariantMeta,
 }
 
 impl StructVariantInfo {
@@ -105,15 +103,13 @@ impl StructVariantInfo {
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
             field_indices,
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: VariantMeta::new(),
         }
     }
 
-    /// Sets the docstring for this variant.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this variant.
+    pub fn with_meta(self, meta: VariantMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// The name of this variant.
@@ -161,10 +157,9 @@ impl StructVariantInfo {
             .collect()
     }
 
-    /// The docstring of this variant, if any.
-    #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    /// The metadata of the variant.
+    pub fn meta(&self) -> &VariantMeta {
+        &self.meta
     }
 }
 
@@ -173,8 +168,7 @@ impl StructVariantInfo {
 pub struct TupleVariantInfo {
     name: &'static str,
     fields: Box<[UnnamedField]>,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: VariantMeta,
 }
 
 impl TupleVariantInfo {
@@ -183,15 +177,13 @@ impl TupleVariantInfo {
         Self {
             name,
             fields: fields.to_vec().into_boxed_slice(),
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: VariantMeta::new(),
         }
     }
 
-    /// Sets the docstring for this variant.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this variant.
+    pub fn with_meta(self, meta: VariantMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// The name of this variant.
@@ -214,10 +206,9 @@ impl TupleVariantInfo {
         self.fields.len()
     }
 
-    /// The docstring of this variant, if any.
-    #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    /// The metadata of the variant.
+    pub fn meta(&self) -> &VariantMeta {
+        &self.meta
     }
 }
 
@@ -225,8 +216,7 @@ impl TupleVariantInfo {
 #[derive(Clone, Debug)]
 pub struct UnitVariantInfo {
     name: &'static str,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: VariantMeta,
 }
 
 impl UnitVariantInfo {
@@ -234,15 +224,13 @@ impl UnitVariantInfo {
     pub fn new(name: &'static str) -> Self {
         Self {
             name,
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: VariantMeta::new(),
         }
     }
 
-    /// Sets the docstring for this variant.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this variant.
+    pub fn with_meta(self, meta: VariantMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// The name of this variant.
@@ -250,9 +238,30 @@ impl UnitVariantInfo {
         self.name
     }
 
+    /// The metadata of the variant.
+    pub fn meta(&self) -> &VariantMeta {
+        &self.meta
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct VariantMeta {
     /// The docstring of this variant, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl VariantMeta {
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for VariantMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }

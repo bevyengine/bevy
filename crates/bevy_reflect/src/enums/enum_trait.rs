@@ -139,8 +139,7 @@ pub struct EnumInfo {
     variants: Box<[VariantInfo]>,
     variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: EnumMeta,
 }
 
 impl EnumInfo {
@@ -167,15 +166,13 @@ impl EnumInfo {
             variants: variants.to_vec().into_boxed_slice(),
             variant_names,
             variant_indices,
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: EnumMeta::new(),
         }
     }
 
-    /// Sets the docstring for this enum.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this enum.
+    pub fn with_meta(self, meta: EnumMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// A slice containing the names of all variants in order.
@@ -243,15 +240,36 @@ impl EnumInfo {
         self.type_id
     }
 
+    /// The metadata of the enum.
+    pub fn meta(&self) -> &EnumMeta {
+        &self.meta
+    }
+
     /// Check if the given type matches the enum type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
+}
 
+#[derive(Clone, Debug)]
+pub struct EnumMeta {
     /// The docstring of this enum, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl EnumMeta {
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for EnumMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

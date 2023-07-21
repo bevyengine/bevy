@@ -112,8 +112,7 @@ pub struct ListInfo {
     type_id: TypeId,
     item_type_name: &'static str,
     item_type_id: TypeId,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: ListMeta,
 }
 
 impl ListInfo {
@@ -124,15 +123,13 @@ impl ListInfo {
             type_id: TypeId::of::<TList>(),
             item_type_name: std::any::type_name::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: ListMeta::new(),
         }
     }
 
-    /// Sets the docstring for this list.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this list.
+    pub fn with_meta(self, meta: ListMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// The [type name] of the list.
@@ -145,6 +142,11 @@ impl ListInfo {
     /// The [`TypeId`] of the list.
     pub fn type_id(&self) -> TypeId {
         self.type_id
+    }
+
+    /// The metadata of the list.
+    pub fn meta(&self) -> &ListMeta {
+        &self.meta
     }
 
     /// Check if the given type matches the list type.
@@ -168,11 +170,30 @@ impl ListInfo {
     pub fn item_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.item_type_id
     }
+}
 
+/// Metadata for [lists], accessed via [`ListInfo::meta`].
+///
+/// [lists]: List
+#[derive(Clone, Debug)]
+pub struct ListMeta {
     /// The docstring of this list, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl ListMeta {
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for ListMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -408,13 +429,34 @@ impl<'a> ExactSizeIterator for ListIter<'a> {}
 
 /// Returns the `u64` hash of the given [list](List).
 #[inline]
-pub fn list_hash<L: List>(list: &L) -> Option<u64> {
+pub fn list_hash<L: List>(value: &L) -> Option<u64> {
     let mut hasher = reflect_hasher();
-    std::any::Any::type_id(list).hash(&mut hasher);
-    list.len().hash(&mut hasher);
-    for value in list.iter() {
-        hasher.write_u64(value.reflect_hash()?);
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::List(info) = info else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&value.len(), &mut hasher);
+
+            for element in value.iter() {
+                Hash::hash(&element.reflect_hash()?, &mut hasher);
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<L>(), &mut hasher);
+            Hash::hash(&value.len(), &mut hasher);
+
+            for element in value.iter() {
+                Hash::hash(&element.reflect_hash()?, &mut hasher);
+            }
+        }
     }
+
     Some(hasher.finish())
 }
 
@@ -453,18 +495,17 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
-    let ReflectRef::List(list) = b.reflect_ref() else {
+    let ReflectRef::List(b) = b.reflect_ref()  else {
         return Some(false);
     };
 
-    if a.len() != list.len() {
+    if a.len() != b.len() {
         return Some(false);
     }
 
-    for (a_value, b_value) in a.iter().zip(list.iter()) {
-        let eq_result = a_value.reflect_partial_eq(b_value);
-        if let failed @ (Some(false) | None) = eq_result {
-            return failed;
+    for (a_value, b_value) in a.iter().zip(b.iter()) {
+        if !a_value.reflect_partial_eq(b_value)? {
+            return Some(false);
         }
     }
 

@@ -1,9 +1,12 @@
+use crate::equality_utility::{compare_structs, extract_info, get_type_info_pair};
+use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::{
     any::{Any, TypeId},
     borrow::Cow,
@@ -81,8 +84,7 @@ pub struct StructInfo {
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
+    meta: StructMeta,
 }
 
 impl StructInfo {
@@ -109,15 +111,13 @@ impl StructInfo {
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
             field_indices,
-            #[cfg(feature = "documentation")]
-            docs: None,
+            meta: StructMeta::new(),
         }
     }
 
-    /// Sets the docstring for this struct.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
+    /// Add metadata for this struct.
+    pub fn with_meta(self, meta: StructMeta) -> Self {
+        Self { meta, ..self }
     }
 
     /// A slice containing the names of all fields in order.
@@ -173,15 +173,39 @@ impl StructInfo {
         self.type_id
     }
 
+    /// The metadata of the struct.
+    pub fn meta(&self) -> &StructMeta {
+        &self.meta
+    }
+
     /// Check if the given type matches the struct type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
+}
 
+/// Metadata for [structs], accessed via [`StructInfo::meta`].
+///
+/// [structs]: Struct
+#[derive(Clone, Debug)]
+pub struct StructMeta {
     /// The docstring of this struct, if any.
     #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
+    pub docs: Option<&'static str>,
+}
+
+impl StructMeta {
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+}
+
+impl Default for StructMeta {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -472,6 +496,10 @@ impl Reflect for DynamicStruct {
         Ok(())
     }
 
+    fn reflect_hash(&self) -> Option<u64> {
+        struct_hash(self)
+    }
+
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         struct_partial_eq(self, value)
     }
@@ -496,38 +524,68 @@ impl Debug for DynamicStruct {
     }
 }
 
+/// Returns the `u64` hash of the given [struct](Struct).
+#[inline]
+pub fn struct_hash<S: Struct>(value: &S) -> Option<u64> {
+    let mut hasher = reflect_hasher();
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::Struct(info) = info else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+
+            for field in info.iter() {
+                if field.meta().skip_hash {
+                    continue;
+                }
+
+                if let Some(value) = value.field(field.name()) {
+                    Hash::hash(&value.reflect_hash()?, &mut hasher);
+                }
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<S>(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+
+            for field in value.iter_fields() {
+                Hash::hash(&field.reflect_hash()?, &mut hasher);
+            }
+        }
+    }
+
+    Some(hasher.finish())
+}
+
 /// Compares a [`Struct`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
 /// - `b` is a struct;
 /// - For each field in `a`, `b` contains a field with the same name and
 ///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
-///   values.
+///   values[^1]
 ///
-/// Returns [`None`] if the comparison couldn't even be performed.
-#[inline]
+/// Returns `None` if the comparison cannot be performed.
+///
+/// [^1]: If a field is marked with `#[reflect(skip_partial_eq)]`, then it will be skipped
+///       unless the corresponding field in `b` is not marked with `#[reflect(skip_partial_eq)]`,
+///       in which case the comparison will return `Some(false)`.
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    let ReflectRef::Struct(struct_value) = b.reflect_ref()  else {
+    let ReflectRef::Struct(b) = b.reflect_ref()  else {
         return Some(false);
     };
 
-    if a.field_len() != struct_value.field_len() {
-        return Some(false);
-    }
+    let (info_a, info_b) = get_type_info_pair(a.as_reflect(), b.as_reflect());
+    let info_a = extract_info!(info_a, TypeInfo::Struct(info) => Some(info));
+    let info_b = extract_info!(info_b, TypeInfo::Struct(info) => Some(info));
 
-    for (i, value) in struct_value.iter_fields().enumerate() {
-        let name = struct_value.name_at(i).unwrap();
-        if let Some(field_value) = a.field(name) {
-            let eq_result = field_value.reflect_partial_eq(value);
-            if let failed @ (Some(false) | None) = eq_result {
-                return failed;
-            }
-        } else {
-            return Some(false);
-        }
-    }
-
-    Some(true)
+    compare_structs!(a, b, info_a, info_b)
 }
 
 /// The default debug formatter for [`Struct`] types.

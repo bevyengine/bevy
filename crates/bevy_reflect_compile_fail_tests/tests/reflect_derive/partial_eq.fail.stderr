@@ -1,0 +1,11 @@
+error: concrete `PartialEq` impl can only be used for items marked `#[reflect_value]`
+ --> tests/reflect_derive/partial_eq.fail.rs:5:11
+  |
+5 | #[reflect(PartialEq)]
+  |           ^^^^^^^^^
+
+error: unknown attribute parameter: skip_partial_eq
+  --> tests/reflect_derive/partial_eq.fail.rs:13:15
+   |
+13 |     #[reflect(skip_partial_eq = true)]
+   |               ^^^^^^^^^^^^^^^

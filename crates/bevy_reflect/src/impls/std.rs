@@ -1,17 +1,18 @@
 use crate::std_traits::ReflectDefault;
 use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwned};
 use crate::{
-    impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
-    DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
-    ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
-    ReflectSerialize, TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed,
-    UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter, VariantInfo, VariantType,
+    impl_type_path, map_apply, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
+    EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo,
+    MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize,
+    TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed, UnitVariantInfo, UnnamedField,
+    ValueInfo, VariantFieldIter, VariantInfo, VariantType,
 };
 
 use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
 };
 use bevy_reflect_derive::impl_reflect_value;
+use std::any::TypeId;
 use std::fmt;
 use std::{
     any::Any,
@@ -333,11 +334,43 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             fn reflect_hash(&self) -> Option<u64> {
-                crate::list_hash(self)
+                let mut hasher = reflect_hasher();
+                Hash::hash(&TypeId::of::<Self>(), &mut hasher);
+                Hash::hash(&self.len(), &mut hasher);
+
+                for element in self {
+                    Hash::hash(&element.reflect_hash()?, &mut hasher);
+                }
+
+                Some(hasher.finish())
             }
 
-            fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-                crate::list_partial_eq(self, value)
+            fn reflect_partial_eq(&self, other: &dyn Reflect) -> Option<bool> {
+                if let Some(other) = other.downcast_ref::<Self>() {
+                    if other.len() != self.len() {
+                        return Some(false);
+                    }
+
+                    for (a, b) in <$sub>::iter(self).zip(<$sub>::iter(other)) {
+                        if !a.reflect_partial_eq(b)? {
+                            return Some(false);
+                        }
+                    }
+                } else {
+                    let ReflectRef::List(other) = Reflect::reflect_ref(other) else { return Some(false); };
+
+                    if other.len() != self.len() {
+                        return Some(false);
+                    }
+
+                    for (a, b) in self.iter().zip(other.iter()) {
+                        if !a.reflect_partial_eq(b)? {
+                            return Some(false);
+                        }
+                    }
+                }
+
+                Some(true)
             }
         }
 
@@ -551,8 +584,40 @@ macro_rules! impl_reflect_for_hashmap {
                 Box::new(self.clone_dynamic())
             }
 
-            fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-                map_partial_eq(self, value)
+            fn reflect_partial_eq(&self, other: &dyn Reflect) -> Option<bool> {
+              if let Some(other) = other.downcast_ref::<Self>() {
+                  if other.len() != self.len() {
+                        return Some(false);
+                    }
+
+                    for (key, a) in Self::iter(self) {
+                        let Some(b) = other.get(key) else {
+                            return Some(false);
+                        };
+
+                        if !a.reflect_partial_eq(b)? {
+                            return Some(false);
+                        }
+                    }
+                } else {
+                    let ReflectRef::Map(other) = Reflect::reflect_ref(other) else { return Some(false); };
+
+                    if other.len() != self.len() {
+                        return Some(false);
+                    }
+
+                    for (key, a) in self.iter() {
+                        let Some(b) = other.get(key) else {
+                            return Some(false);
+                        };
+
+                        if !a.reflect_partial_eq(b)? {
+                            return Some(false);
+                        }
+                    }
+                }
+
+                Some(true)
             }
         }
 
@@ -726,12 +791,42 @@ impl<T: Reflect + TypePath, const N: usize> Reflect for [T; N] {
 
     #[inline]
     fn reflect_hash(&self) -> Option<u64> {
-        crate::array_hash(self)
+        let mut hasher = reflect_hasher();
+        Hash::hash(&TypeId::of::<Self>(), &mut hasher);
+        Hash::hash(&self.len(), &mut hasher);
+
+        for element in self {
+            Hash::hash(&element.reflect_hash()?, &mut hasher);
+        }
+
+        Some(hasher.finish())
     }
 
     #[inline]
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        crate::array_partial_eq(self, value)
+    fn reflect_partial_eq(&self, other: &dyn Reflect) -> Option<bool> {
+        if let Some(other) = other.downcast_ref::<Self>() {
+            for (a, b) in <[T]>::iter(self).zip(<[T]>::iter(other)) {
+                if !a.reflect_partial_eq(b)? {
+                    return Some(false);
+                }
+            }
+        } else {
+            let ReflectRef::Array(other) = Reflect::reflect_ref(other) else {
+                return Some(false);
+            };
+
+            if other.len() != self.len() {
+                return Some(false);
+            }
+
+            for (a, b) in self.iter().zip(other.iter()) {
+                if !a.reflect_partial_eq(b)? {
+                    return Some(false);
+                }
+            }
+        }
+
+        Some(true)
     }
 }
 
@@ -975,7 +1070,20 @@ impl<T: FromReflect + TypePath> Reflect for Option<T> {
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        crate::enum_hash(self)
+        let mut hasher = reflect_hasher();
+        Hash::hash(&TypeId::of::<Self>(), &mut hasher);
+
+        match self {
+            None => {
+                Hash::hash("None", &mut hasher);
+            }
+            Some(value) => {
+                Hash::hash("Some", &mut hasher);
+                Hash::hash(&value.reflect_hash()?, &mut hasher);
+            }
+        }
+
+        Some(Hasher::finish(&hasher))
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

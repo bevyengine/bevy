@@ -183,17 +183,52 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// use those subtraits' respective `clone_dynamic` methods.
     fn clone_value(&self) -> Box<dyn Reflect>;
 
-    /// Returns a hash of the value (which includes the type).
+    /// Returns a hash of the value.
     ///
-    /// If the underlying type does not support hashing, returns `None`.
+    /// If the underlying type or any of its members do not support hashing, returns `None`.
+    ///
+    /// # For Implementors
+    ///
+    /// For value types (i.e. [`ReflectRef::Value`]), the hash should be the same
+    /// as its [`Hash`] implementation.
+    /// If it does not implement `Hash`, then it should return `None`.
+    ///
+    /// For all other types, the hash should be consistent with its respective dynamic type,
+    /// such that a concrete type and its dynamic type return the same hash value given
+    /// the same contents.
+    ///
+    /// For example, a [`Struct`] should return the same hash as [`DynamicStruct`].
+    /// This can easily be achieved by using the pre-built hash function, [`struct_hash`].
+    ///
+    /// [`Hash`]: std::hash::Hash
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`struct_hash`]: crate::struct_hash
     fn reflect_hash(&self) -> Option<u64> {
         None
     }
 
-    /// Returns a "partial equality" comparison result.
+    /// Compares this value to another reflected value, similar to [`PartialEq`].
     ///
-    /// If the underlying type does not support equality testing, returns `None`.
-    fn reflect_partial_eq(&self, _value: &dyn Reflect) -> Option<bool> {
+    /// If the underlying type or any of its members do not support comparisons, returns `None`.
+    ///
+    /// # For Implementors
+    ///
+    /// For value types (i.e. [`ReflectRef::Value`]), the result should be the same
+    /// as its `PartialEq` implementation.
+    /// If it does not implement `PartialEq`, then it should return `None`.
+    ///
+    /// For all other types, the result should be consistent with its respective dynamic type,
+    /// such that a concrete type and its dynamic type return the same result given
+    /// the same contents.
+    ///
+    /// For example, a [`Struct`] should return the same result as [`DynamicStruct`].
+    /// This can easily be achieved by using the pre-built comparison function, [`struct_partial_eq`].
+    ///
+    /// [`PartialEq`]: std::cmp::PartialEq
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`struct_partial_eq`]: crate::struct_partial_eq
+    #[allow(unused_variables)]
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         None
     }
 

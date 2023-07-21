@@ -3,7 +3,7 @@
 //! A container attribute is an attribute which applies to an entire struct or enum
 //! as opposed to a particular field or variant. An example of such an attribute is
 //! the derive helper attribute for `Reflect`, which looks like:
-//! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
+//! `#[reflect(Debug, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
 use crate::fq_std::{FQAny, FQOption};
 use crate::utility;
@@ -16,7 +16,7 @@ use syn::token::Comma;
 use syn::{LitBool, Meta, Path};
 
 // The "special" trait idents that are used internally for reflection.
-// Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
+// Received via attributes like `#[reflect_value(PartialEq, Hash, ...)]`
 const DEBUG_ATTR: &str = "Debug";
 const PARTIAL_EQ_ATTR: &str = "PartialEq";
 const HASH_ATTR: &str = "Hash";
@@ -139,7 +139,7 @@ impl FromReflectAttrs {
 /// // `Hash` is a "special trait" and does not need (nor have) a ReflectHash struct
 ///
 /// #[derive(Reflect, Hash)]
-/// #[reflect(Hash)]
+/// #[reflect_value(Hash)]
 /// struct Foo;
 /// ```
 ///
@@ -154,7 +154,7 @@ impl FromReflectAttrs {
 ///
 /// #[derive(Reflect)]
 /// // Register the custom `Hash` function
-/// #[reflect(Hash(get_hash))]
+/// #[reflect_value(Hash(get_hash))]
 /// struct Foo;
 /// ```
 ///
@@ -173,11 +173,12 @@ impl ReflectTraits {
     pub fn from_metas(
         metas: Punctuated<Meta, Comma>,
         is_from_reflect_derive: bool,
+        is_reflect_value: bool,
     ) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         for meta in &metas {
             match meta {
-                // Handles `#[reflect( Hash, Default, ... )]`
+                // Handles `#[reflect( Default, ... )]`
                 Meta::Path(path) => {
                     // Get the first ident in the path (hopefully the path only contains one and not `std::hash::Hash`)
                     let Some(segment) = path.segments.iter().next() else {
@@ -193,10 +194,22 @@ impl ReflectTraits {
                         DEBUG_ATTR => {
                             traits.debug.merge(TraitImpl::Implemented(span))?;
                         }
-                        PARTIAL_EQ_ATTR => {
+                        PARTIAL_EQ_ATTR if !is_reflect_value => {
+                            return Err(syn::Error::new(
+                                span,
+                                "concrete `PartialEq` impl can only be used for items marked `#[reflect_value]`",
+                            ));
+                        }
+                        PARTIAL_EQ_ATTR if is_reflect_value => {
                             traits.partial_eq.merge(TraitImpl::Implemented(span))?;
                         }
-                        HASH_ATTR => {
+                        HASH_ATTR if !is_reflect_value => {
+                            return Err(syn::Error::new(
+                                span,
+                                "concrete `Hash` impl can only be used for items marked `#[reflect_value]`",
+                            ));
+                        }
+                        HASH_ATTR if is_reflect_value => {
                             traits.hash.merge(TraitImpl::Implemented(span))?;
                         }
                         // We only track reflected idents for traits not considered special
@@ -232,7 +245,13 @@ impl ReflectTraits {
                             PARTIAL_EQ_ATTR => {
                                 traits.partial_eq.merge(trait_func_ident)?;
                             }
-                            HASH_ATTR => {
+                            HASH_ATTR if !is_reflect_value => {
+                                return Err(syn::Error::new(
+                                    span,
+                                    "custom `Hash` function cannot be used for non-`reflect_value` types",
+                                ));
+                            }
+                            HASH_ATTR if is_reflect_value => {
                                 traits.hash.merge(trait_func_ident)?;
                             }
                             _ => {
@@ -376,7 +395,11 @@ impl ReflectTraits {
 
 impl Parse for ReflectTraits {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        ReflectTraits::from_metas(Punctuated::<Meta, Comma>::parse_terminated(input)?, false)
+        ReflectTraits::from_metas(
+            Punctuated::<Meta, Comma>::parse_terminated(input)?,
+            false,
+            true,
+        )
     }
 }
 

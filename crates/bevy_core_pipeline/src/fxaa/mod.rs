@@ -25,7 +25,6 @@ mod node;
 pub use node::FxaaNode;
 
 #[derive(Reflect, Eq, PartialEq, Hash, Clone, Copy)]
-#[reflect(PartialEq, Hash)]
 pub enum Sensitivity {
     Low,
     Medium,

@@ -1,4 +1,9 @@
-use crate::{utility::reflect_hasher, Enum, Reflect, ReflectRef, VariantType};
+use crate::equality_utility::{
+    compare_structs, compare_tuple_structs, extract_info, get_type_info_pair,
+};
+use crate::utility::reflect_hasher;
+use crate::{Enum, Reflect, ReflectRef, TypeInfo, VariantInfo, VariantType};
+use std::any::TypeId;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 
@@ -6,73 +11,111 @@ use std::hash::{Hash, Hasher};
 #[inline]
 pub fn enum_hash<TEnum: Enum>(value: &TEnum) -> Option<u64> {
     let mut hasher = reflect_hasher();
-    std::any::Any::type_id(value).hash(&mut hasher);
-    value.variant_name().hash(&mut hasher);
-    value.variant_type().hash(&mut hasher);
-    for field in value.iter_fields() {
-        hasher.write_u64(field.value().reflect_hash()?);
+
+    match value.get_represented_type_info() {
+        // Proxy case
+        Some(info) => {
+            let TypeInfo::Enum(info) = info else {
+                return None;
+            };
+
+            let Some(variant) = info.variant(value.variant_name()) else {
+                return None;
+            };
+
+            Hash::hash(&info.type_id(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+            Hash::hash(variant.name(), &mut hasher);
+
+            match variant {
+                VariantInfo::Struct(info) => {
+                    for field in info.iter() {
+                        if field.meta().skip_hash {
+                            continue;
+                        }
+
+                        if let Some(value) = value.field(field.name()) {
+                            Hash::hash(&value.reflect_hash()?, &mut hasher);
+                        }
+                    }
+                }
+                VariantInfo::Tuple(info) => {
+                    for field in info.iter() {
+                        if field.meta().skip_hash {
+                            continue;
+                        }
+
+                        if let Some(value) = value.field_at(field.index()) {
+                            Hash::hash(&value.reflect_hash()?, &mut hasher);
+                        }
+                    }
+                }
+                VariantInfo::Unit(_) => {}
+            }
+        }
+        // Dynamic case
+        None => {
+            Hash::hash(&TypeId::of::<TEnum>(), &mut hasher);
+            Hash::hash(&value.field_len(), &mut hasher);
+            Hash::hash(&value.variant_name(), &mut hasher);
+
+            for field in value.iter_fields() {
+                hasher.write_u64(field.value().reflect_hash()?);
+            }
+        }
     }
+
     Some(hasher.finish())
 }
 
 /// Compares an [`Enum`] with a [`Reflect`] value.
 ///
-/// Returns true if and only if all of the following are true:
+/// Returns `Some(true)` if and only if all of the following are true:
 /// - `b` is an enum;
 /// - `b` is the same variant as `a`;
 /// - For each field in `a`, `b` contains a field with the same name and
 ///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
-///   values.
+///   values[^1]
+///
+/// Returns `None` if the comparison cannot be performed.
+///
+/// [^1]: If a field is marked with `#[reflect(skip_partial_eq)]`, then it will be skipped
+///       unless the corresponding field in `b` is not marked with `#[reflect(skip_partial_eq)]`,
+///       in which case the comparison will return `Some(false)`.
 #[inline]
 pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> {
-    // Both enums?
-    let ReflectRef::Enum(b) = b.reflect_ref() else {
+    let ReflectRef::Enum(b) = b.reflect_ref()  else {
         return Some(false);
     };
 
-    // Same variant name?
     if a.variant_name() != b.variant_name() {
         return Some(false);
     }
 
-    // Same variant type?
     if !a.is_variant(b.variant_type()) {
         return Some(false);
     }
 
+    let variant_name = a.variant_name();
+
+    let (info_a, info_b) = get_type_info_pair(a.as_reflect(), b.as_reflect());
+    let info_a = extract_info!(info_a, TypeInfo::Enum(info) => info.variant(variant_name));
+    let info_b = extract_info!(info_b, TypeInfo::Enum(info) => info.variant(variant_name));
+
     match a.variant_type() {
         VariantType::Struct => {
-            // Same struct fields?
-            for field in a.iter_fields() {
-                let field_name = field.name().unwrap();
-                if let Some(field_value) = b.field(field_name) {
-                    if let Some(false) | None = field_value.reflect_partial_eq(field.value()) {
-                        // Fields failed comparison
-                        return Some(false);
-                    }
-                } else {
-                    // Field does not exist
-                    return Some(false);
-                }
-            }
-            Some(true)
+            let info_a = extract_info!(info_a, VariantInfo::Struct(info) => Some(info));
+            let info_b = extract_info!(info_b, VariantInfo::Struct(info) => Some(info));
+
+            compare_structs!(a, b, info_a, info_b, accessor=.value)
         }
         VariantType::Tuple => {
-            // Same tuple fields?
-            for (i, field) in a.iter_fields().enumerate() {
-                if let Some(field_value) = b.field_at(i) {
-                    if let Some(false) | None = field_value.reflect_partial_eq(field.value()) {
-                        // Fields failed comparison
-                        return Some(false);
-                    }
-                } else {
-                    // Field does not exist
-                    return Some(false);
-                }
-            }
-            Some(true)
+            let info_a = extract_info!(info_a, VariantInfo::Tuple(info) => Some(info));
+            let info_b = extract_info!(info_b, VariantInfo::Tuple(info) => Some(info));
+
+            compare_tuple_structs!(a, b, info_a, info_b, accessor=.field_at)
         }
-        _ => Some(true),
+        VariantType::Unit => Some(true),
     }
 }
 

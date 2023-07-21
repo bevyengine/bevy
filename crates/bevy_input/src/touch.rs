@@ -31,7 +31,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
 /// It is available to the end user and can be used for game logic.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -53,7 +53,7 @@ pub struct TouchInput {
 
 /// A force description of a [`Touch`](crate::touch::Touch) input.
 #[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -99,7 +99,7 @@ pub enum ForceTouch {
 /// or that a finger has moved. There is also a canceled phase that indicates that
 /// the system canceled the tracking of the finger.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

@@ -40,16 +40,6 @@ pub enum D {
     C { value: f32 },
 }
 
-/// Reflect has "built in" support for some common traits like `PartialEq`, `Hash`, and `Serialize`.
-/// These are exposed via methods like `Reflect::reflect_hash()`, `Reflect::reflect_partial_eq()`, and
-/// `Reflect::serializable()`. You can force these implementations to use the actual trait
-/// implementations (instead of their defaults) like this:
-#[derive(Reflect, Hash, Serialize, PartialEq, Eq)]
-#[reflect(Hash, Serialize, PartialEq)]
-pub struct E {
-    x: usize,
-}
-
 /// By default, deriving with Reflect assumes the type is either a "struct" or an "enum".
 /// You can tell reflect to treat your type instead as a "value type" by using the `reflect_value`
 /// attribute in place of `reflect`. It is generally a good idea to implement (and reflect)

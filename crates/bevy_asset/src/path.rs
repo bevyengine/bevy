@@ -9,7 +9,7 @@ use std::{
 
 /// Represents a path to an asset in the file system.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize, Reflect)]
-#[reflect(Debug, PartialEq, Hash, Serialize, Deserialize)]
+#[reflect(Debug, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     path: Cow<'a, Path>,
     label: Option<Cow<'a, str>>,
