@@ -620,24 +620,29 @@ pub struct UiBatch {
 const TEXTURED_QUAD: u32 = 0;
 const UNTEXTURED_QUAD: u32 = 1;
 
-pub fn prepare_uinodes(
+pub fn queue_uinodes(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut ui_meta: ResMut<UiMeta>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    ui_pipeline: Res<UiPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
+    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    pipeline_cache: Res<PipelineCache>,
+    msaa: Res<Msaa>,
+    draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     ui_meta.vertices.clear();
+
+    let mut batches: Vec<(Entity, UiBatch)> = Vec::new();
 
     // sort by ui stack index, starting from the deepest node
     extracted_uinodes
         .uinodes
         .sort_by_key(|node| node.stack_index);
 
-    let mut start = 0;
-    let mut end = 0;
-    let mut current_batch_image = DEFAULT_IMAGE_HANDLE.typed();
-    let mut last_z = 0.0;
+    let mut last_end = 0;
 
     #[inline]
     fn is_textured(image: &Handle<Image>) -> bool {
@@ -645,22 +650,27 @@ pub fn prepare_uinodes(
     }
 
     for extracted_uinode in extracted_uinodes.uinodes.drain(..) {
-        let mode = if is_textured(&extracted_uinode.image) {
-            if current_batch_image.id() != extracted_uinode.image.id() {
-                if is_textured(&current_batch_image) && start != end {
-                    commands.spawn(UiBatch {
-                        range: start..end,
-                        image: current_batch_image,
-                        z: last_z,
-                    });
-                    start = end;
-                }
-                current_batch_image = extracted_uinode.image.clone_weak();
+        let existing_batch = batches
+            .last_mut()
+            .filter(|(_, batch)| batch.image.id() == extracted_uinode.image.id());
+
+        let (_, target_batch) = match existing_batch {
+            Some(batch) => batch,
+            None => {
+                let new_batch = UiBatch {
+                    range: last_end..last_end,
+                    image: extracted_uinode.image,
+                    z: 0.,
+                };
+
+                batches.push((commands.spawn_empty().id(), new_batch));
+                batches.last_mut().unwrap()
             }
+        };
+
+        let mode = if is_textured(&target_batch.image) {
             TEXTURED_QUAD
         } else {
-            // Untextured `UiBatch`es are never spawned within the loop.
-            // If all the `extracted_uinodes` are untextured a single untextured UiBatch will be spawned after the loop terminates.
             UNTEXTURED_QUAD
         };
 
@@ -769,20 +779,31 @@ pub fn prepare_uinodes(
             });
         }
 
-        last_z = extracted_uinode.transform.w_axis[2];
-        end += QUAD_INDICES.len() as u32;
-    }
-
-    // if start != end, there is one last batch to process
-    if start != end {
-        commands.spawn(UiBatch {
-            range: start..end,
-            image: current_batch_image,
-            z: last_z,
-        });
+        target_batch.z = extracted_uinode.transform.w_axis[2];
+        target_batch.range.end += QUAD_INDICES.len() as u32;
+        last_end = target_batch.range.end;
     }
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
+    let draw_function = draw_functions.read().id::<DrawUi>();
+
+    for (view, mut transparent_phase) in &mut views {
+        let pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey { hdr: view.hdr },
+        );
+        for (entity, batch) in &batches {
+            transparent_phase.add(TransparentUi {
+                draw_function,
+                pipeline,
+                entity: *entity,
+                sort_key: FloatOrd(batch.z),
+            });
+        }
+    }
+
+    commands.insert_or_spawn_batch(batches);
 }
 
 #[derive(Resource, Default)]
@@ -791,18 +812,14 @@ pub struct UiImageBindGroups {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn queue_uinodes(
-    draw_functions: Res<DrawFunctions<TransparentUi>>,
+pub fn prepare_uinodes(
     render_device: Res<RenderDevice>,
     mut ui_meta: ResMut<UiMeta>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    pipeline_cache: Res<PipelineCache>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
-    ui_batches: Query<(Entity, &UiBatch)>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    ui_batches: Query<&UiBatch>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -824,41 +841,28 @@ pub fn queue_uinodes(
             label: Some("ui_view_bind_group"),
             layout: &ui_pipeline.view_layout,
         }));
-        let draw_ui_function = draw_functions.read().id::<DrawUi>();
-        for (view, mut transparent_phase) in &mut views {
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &ui_pipeline,
-                UiPipelineKey { hdr: view.hdr },
-            );
-            for (entity, batch) in &ui_batches {
-                image_bind_groups
-                    .values
-                    .entry(batch.image.clone_weak())
-                    .or_insert_with(|| {
-                        let gpu_image = gpu_images.get(&batch.image).unwrap();
-                        render_device.create_bind_group(&BindGroupDescriptor {
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(&gpu_image.texture_view),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&gpu_image.sampler),
-                                },
-                            ],
-                            label: Some("ui_material_bind_group"),
-                            layout: &ui_pipeline.image_layout,
-                        })
-                    });
-                transparent_phase.add(TransparentUi {
-                    draw_function: draw_ui_function,
-                    pipeline,
-                    entity,
-                    sort_key: FloatOrd(batch.z),
+
+        for batch in &ui_batches {
+            image_bind_groups
+                .values
+                .entry(batch.image.clone_weak())
+                .or_insert_with(|| {
+                    let gpu_image = gpu_images.get(&batch.image).unwrap();
+                    render_device.create_bind_group(&BindGroupDescriptor {
+                        entries: &[
+                            BindGroupEntry {
+                                binding: 0,
+                                resource: BindingResource::TextureView(&gpu_image.texture_view),
+                            },
+                            BindGroupEntry {
+                                binding: 1,
+                                resource: BindingResource::Sampler(&gpu_image.sampler),
+                            },
+                        ],
+                        label: Some("ui_material_bind_group"),
+                        layout: &ui_pipeline.image_layout,
+                    })
                 });
-            }
         }
     }
 }

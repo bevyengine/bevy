@@ -87,7 +87,7 @@ pub enum RenderSet {
     PrepareAssets,
     /// Create any additional views such as those used for shadow mapping.
     ManageViews,
-    /// The copy of [`apply_system_buffers`] that runs immediately after `ManageViews`.
+    /// The copy of [`apply_deferred`] that runs immediately after [`ManageViews`](RenderSet::ManageViews).
     ManageViewsFlush,
     /// Queue drawable entities to phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
     /// ready for sorting

@@ -123,7 +123,7 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     fn draw_function(&self) -> DrawFunctionId;
 
     /// Sorts a slice of phase items into render order. Generally if the same type
-    /// implements [`BatchedPhaseItem`], this should use a stable sort like [`slice::sort_by_key`].
+    /// is batched this should use a stable sort like [`slice::sort_by_key`].
     /// In almost all other cases, this should not be altered from the default,
     /// which uses a unstable sort, as this provides the best balance of CPU and GPU
     /// performance.
