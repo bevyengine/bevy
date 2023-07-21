@@ -379,14 +379,18 @@ impl AssetServer {
     pub(crate) fn load_asset<A: Asset>(&self, asset: impl Into<LoadedAsset<A>>) -> Handle<A> {
         let loaded_asset: LoadedAsset<A> = asset.into();
         let erased_loaded_asset: ErasedLoadedAsset = loaded_asset.into();
-        self.load_asset_untyped(erased_loaded_asset)
+        self.load_asset_untyped(None, erased_loaded_asset)
             .typed_debug_checked()
     }
 
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub(crate) fn load_asset_untyped(&self, asset: impl Into<ErasedLoadedAsset>) -> UntypedHandle {
+    pub(crate) fn load_asset_untyped(
+        &self,
+        path: Option<&AssetPath<'static>>,
+        asset: impl Into<ErasedLoadedAsset>,
+    ) -> UntypedHandle {
         let loaded_asset = asset.into();
-        let handle = if let Some(path) = loaded_asset.path() {
+        let handle = if let Some(path) = path {
             self.get_or_create_path_handle(path.clone(), loaded_asset.asset_type_id(), None)
         } else {
             self.data

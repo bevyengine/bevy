@@ -142,7 +142,6 @@ pub(crate) struct LabeledAsset {
 /// * Loader dependencies: dependencies whose actual asset values are used during the load process
 pub struct LoadedAsset<A: Asset> {
     pub(crate) value: A,
-    pub(crate) path: Option<AssetPath<'static>>,
     pub(crate) dependencies: HashSet<UntypedHandle>,
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     pub(crate) labeled_assets: HashMap<String, LabeledAsset>,
@@ -158,16 +157,11 @@ impl<A: Asset> LoadedAsset<A> {
         });
         LoadedAsset {
             value,
-            path: None,
             dependencies,
             loader_dependencies: HashMap::default(),
             labeled_assets: HashMap::default(),
             meta,
         }
-    }
-
-    pub fn path(&self) -> Option<&AssetPath<'static>> {
-        self.path.as_ref()
     }
 }
 
@@ -180,7 +174,6 @@ impl<A: Asset> From<A> for LoadedAsset<A> {
 /// A "type erased / boxed" counterpart to [`LoadedAsset`]. This is used in places where the loaded type is not statically known.
 pub struct ErasedLoadedAsset {
     pub(crate) value: Box<dyn AssetContainer>,
-    pub(crate) path: Option<AssetPath<'static>>,
     pub(crate) dependencies: HashSet<UntypedHandle>,
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     pub(crate) labeled_assets: HashMap<String, LabeledAsset>,
@@ -191,7 +184,6 @@ impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
     fn from(asset: LoadedAsset<A>) -> Self {
         ErasedLoadedAsset {
             value: Box::new(asset.value),
-            path: asset.path,
             dependencies: asset.dependencies,
             loader_dependencies: asset.loader_dependencies,
             labeled_assets: asset.labeled_assets,
@@ -217,9 +209,14 @@ impl ErasedLoadedAsset {
         (*self.value).type_id()
     }
 
-    /// Retrieves the asset path for this loaded [`Asset`], if it has one.
-    pub fn path(&self) -> Option<&AssetPath<'static>> {
-        self.path.as_ref()
+    /// Returns the [`ErasedLoadedAsset`] for the given label, if it exists.
+    pub fn get_labeled(&self, label: &str) -> Option<&ErasedLoadedAsset> {
+        self.labeled_assets.get(label).map(|a| &a.asset)
+    }
+
+    /// Iterate over all labels for "labeled assets" in the loaded asset
+    pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
+        self.labeled_assets.keys().map(|s| s.as_str())
     }
 }
 
@@ -292,10 +289,10 @@ impl<'a> LoadContext<'a> {
     /// Prefer [`LoadContext::labeled_asset_scope`] when possible, which will automatically add
     /// the labeled [`LoadContext`] back to the parent context.
     /// [`LoadContext::begin_labeled_asset`] exists largely to enable parallel asset loading.
-    pub fn begin_labeled_asset(&self, label: String) -> LoadContext {
+    pub fn begin_labeled_asset(&self) -> LoadContext {
         LoadContext::new(
             self.asset_server,
-            self.asset_path.with_label(label),
+            self.asset_path.clone(),
             self.should_load_dependencies,
             self.populate_hashes,
         )
@@ -312,10 +309,10 @@ impl<'a> LoadContext<'a> {
         label: String,
         load: impl FnOnce(&mut LoadContext) -> A,
     ) -> Handle<A> {
-        let mut context = self.begin_labeled_asset(label);
+        let mut context = self.begin_labeled_asset();
         let asset = load(&mut context);
         let loaded_asset = context.finish(asset, None);
-        self.add_loaded_labeled_asset(loaded_asset)
+        self.add_loaded_labeled_asset(label, loaded_asset)
     }
 
     /// This will add the given `asset` as a "labeled [`Asset`]" with the `label` label.
@@ -328,15 +325,14 @@ impl<'a> LoadContext<'a> {
     /// sub asset loading.
     pub fn add_loaded_labeled_asset<A: Asset>(
         &mut self,
+        label: String,
         loaded_asset: LoadedAsset<A>,
     ) -> Handle<A> {
-        let path = loaded_asset.path.as_ref().unwrap().to_owned();
         let loaded_asset: ErasedLoadedAsset = loaded_asset.into();
-        debug_assert_eq!(path.without_label(), self.asset_path.without_label());
-        let label = path.label().unwrap().to_string();
-        let handle = self
-            .asset_server
-            .get_or_create_path_handle(path, TypeId::of::<A>(), None);
+        let labeled_path = self.asset_path.with_label(label.clone());
+        let handle =
+            self.asset_server
+                .get_or_create_path_handle(labeled_path, TypeId::of::<A>(), None);
         let returned_handle = handle.clone().typed_debug_checked();
         self.labeled_assets.insert(
             label,
@@ -359,7 +355,6 @@ impl<'a> LoadContext<'a> {
     pub fn finish<A: Asset>(self, value: A, meta: Option<Box<dyn AssetMetaDyn>>) -> LoadedAsset<A> {
         LoadedAsset {
             value,
-            path: Some(self.asset_path),
             dependencies: self.dependencies,
             loader_dependencies: self.loader_dependencies,
             labeled_assets: self.labeled_assets,

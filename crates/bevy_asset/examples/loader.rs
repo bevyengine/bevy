@@ -2,7 +2,7 @@ use bevy_app::{App, Plugin, ScheduleRunnerPlugin, Startup, Update};
 use bevy_asset::{
     io::{Reader, Writer},
     processor::{AssetProcessor, LoadAndSave},
-    saver::AssetSaver,
+    saver::{AssetSaver, SavedAsset},
     Asset, AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadContext,
 };
 use bevy_core::TaskPoolPlugin;
@@ -151,7 +151,7 @@ impl AssetSaver for CoolTextSaver {
     fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
-        asset: &'a Self::Asset,
+        asset: SavedAsset<'a, Self::Asset>,
         settings: &'a Self::Settings,
     ) -> bevy_utils::BoxedFuture<'a, Result<TextSettings, anyhow::Error>> {
         Box::pin(async move {

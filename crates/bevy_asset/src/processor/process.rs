@@ -2,7 +2,7 @@ use crate::{
     io::{AssetReaderError, AssetWriterError, Writer},
     meta::{AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings},
     processor::AssetProcessor,
-    saver::AssetSaver,
+    saver::{AssetSaver, SavedAsset},
     AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
@@ -111,13 +111,10 @@ impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
                 settings: settings.loader_settings,
             });
             let loaded_asset = context.load_source_asset(loader_meta).await?;
+            let saved_asset = SavedAsset::<Loader::Asset>::from_loaded(&loaded_asset).unwrap();
             let output_settings = self
                 .saver
-                .save(
-                    writer,
-                    loaded_asset.get::<Loader::Asset>().unwrap(),
-                    &settings.saver_settings,
-                )
+                .save(writer, saved_asset, &settings.saver_settings)
                 .await
                 .map_err(ProcessError::AssetSaveError)?;
             Ok(output_settings)
