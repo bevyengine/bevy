@@ -69,7 +69,7 @@ use bevy_render::{
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
 
-use crate::deferred::DeferredLightingPlugin;
+use crate::deferred::PBRDeferredLightingPlugin;
 
 pub const PBR_TYPES_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1708015359337029744);
@@ -233,7 +233,7 @@ impl Plugin for PbrPlugin {
                 EnvironmentMapPlugin,
                 ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
-                DeferredLightingPlugin,
+                PBRDeferredLightingPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
             ))
             .configure_sets(

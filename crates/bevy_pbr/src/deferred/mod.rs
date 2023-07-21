@@ -35,7 +35,7 @@ use crate::{
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 
-pub struct DeferredLightingPlugin;
+pub struct PBRDeferredLightingPlugin;
 
 pub const DEFERRED_LIGHTING_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2708011359337029741);
@@ -54,7 +54,7 @@ impl Default for PBRDeferredLightingStencilReference {
 #[derive(Resource)]
 pub struct BypassPBRDeferredLightingPlugin;
 
-impl Plugin for DeferredLightingPlugin {
+impl Plugin for PBRDeferredLightingPlugin {
     fn build(&self, app: &mut App) {
         if app
             .world
