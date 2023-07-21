@@ -232,7 +232,9 @@ fn draw_all_aabbs(
     }
 }
 
-fn gold_kronecker(bits: u32) -> f32 {
+fn color_from_entity(entity: Entity) -> Color {
+    let index = entity.index();
+
     // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
     //
     // See https://en.wikipedia.org/wiki/Low-discrepancy_sequence
@@ -240,10 +242,9 @@ fn gold_kronecker(bits: u32) -> f32 {
     // so that the closer the numbers are, the larger the difference of their image.
     const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
     const RATIO_360: f32 = 360.0 / u32::MAX as f32;
-    bits.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360
-}
-fn color_from_entity(entity: Entity) -> Color {
-    Color::hsl(gold_kronecker(entity.index()), 1., 0.5)
+    let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
+
+    Color::hsl(hue, 1., 0.5)
 }
 
 fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
