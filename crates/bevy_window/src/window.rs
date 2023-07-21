@@ -802,6 +802,7 @@ pub enum MonitorSelection {
 /// [`Immediate`] or [`Mailbox`] will panic if not supported by the platform.
 ///
 /// [`Fifo`]: PresentMode::Fifo
+/// [`FifoRelaxed`]: PresentMode::FifoRelaxed
 /// [`Immediate`]: PresentMode::Immediate
 /// [`Mailbox`]: PresentMode::Mailbox
 /// [`AutoVsync`]: PresentMode::AutoVsync
@@ -820,30 +821,67 @@ pub enum PresentMode {
     /// Chooses FifoRelaxed -> Fifo based on availability.
     ///
     /// Because of the fallback behavior, it is supported everywhere.
-    AutoVsync = 0,
+    AutoVsync = 0, // NOTE: The explicit ordinal values mirror wgpu.
     /// Chooses Immediate -> Mailbox -> Fifo (on web) based on availability.
     ///
     /// Because of the fallback behavior, it is supported everywhere.
     AutoNoVsync = 1,
-    /// The presentation engine does **not** wait for a vertical blanking period and
-    /// the request is presented immediately. This is a low-latency presentation mode,
-    /// but visible tearing may be observed. Not optimal for mobile.
+    /// Presentation frames are kept in a First-In-First-Out queue approximately 3 frames
+    /// long. Every vertical blanking period, the presentation engine will pop a frame
+    /// off the queue to display. If there is no frame to display, it will present the same
+    /// frame again until the next vblank.
     ///
-    /// Selecting this variant will panic if not supported, it is preferred to use
-    /// [`PresentMode::AutoNoVsync`].
-    Immediate = 2,
-    /// The presentation engine waits for the next vertical blanking period to update
-    /// the current image, but frames may be submitted without delay. This is a low-latency
-    /// presentation mode and visible tearing will **not** be observed. Not optimal for mobile.
+    /// When a present command is executed on the gpu, the presented image is added on the queue.
     ///
-    /// Selecting this variant will panic if not supported, it is preferred to use
-    /// [`PresentMode::AutoNoVsync`].
-    Mailbox = 3,
-    /// The presentation engine waits for the next vertical blanking period to update
-    /// the current image. The framerate will be capped at the display refresh rate,
-    /// corresponding to the `VSync`. Tearing cannot be observed. Optimal for mobile.
+    /// No tearing will be observed.
+    ///
+    /// Calls to get_current_texture will block until there is a spot in the queue.
+    ///
+    /// Supported on all platforms.
+    ///
+    /// If you don't know what mode to choose, choose this mode. This is traditionally called "Vsync On".
     #[default]
-    Fifo = 4, // NOTE: The explicit ordinal values mirror wgpu.
+    Fifo = 2,
+    /// Presentation frames are kept in a First-In-First-Out queue approximately 3 frames
+    /// long. Every vertical blanking period, the presentation engine will pop a frame
+    /// off the queue to display. If there is no frame to display, it will present the
+    /// same frame until there is a frame in the queue. The moment there is a frame in the
+    /// queue, it will immediately pop the frame off the queue.
+    ///
+    /// When a present command is executed on the gpu, the presented image is added on the queue.
+    ///
+    /// Tearing will be observed if frames last more than one vblank as the front buffer.
+    ///
+    /// Calls to get_current_texture will block until there is a spot in the queue.
+    ///
+    /// Supported on AMD on Vulkan.
+    ///
+    /// This is traditionally called "Adaptive Vsync"
+    FifoRelaxed = 3,
+    /// Presentation frames are not queued at all. The moment a present command
+    /// is executed on the GPU, the presented image is swapped onto the front buffer
+    /// immediately.
+    ///
+    /// Tearing can be observed.
+    ///
+    /// Supported on most platforms except older DX12 and Wayland.
+    ///
+    /// This is traditionally called "Vsync Off".
+    Immediate = 4,
+    /// Presentation frames are kept in a single-frame queue. Every vertical blanking period,
+    /// the presentation engine will pop a frame from the queue. If there is no frame to display,
+    /// it will present the same frame again until the next vblank.
+    ///
+    /// When a present command is executed on the gpu, the frame will be put into the queue.
+    /// If there was already a frame in the queue, the new frame will _replace_ the old frame
+    /// on the queue.
+    ///
+    /// No tearing will be observed.
+    ///
+    /// Supported on DX11/12 on Windows 10, NVidia on Vulkan and Wayland on Vulkan.
+    ///
+    /// This is traditionally called "Fast Vsync"
+    Mailbox = 5,
 }
 
 /// Specifies how the alpha channel of the textures should be handled during compositing, for a [`Window`].
