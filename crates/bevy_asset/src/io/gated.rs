@@ -8,6 +8,10 @@ use std::{
     sync::Arc,
 };
 
+/// A "gated" reader that will prevent asset reads from returning until
+/// a given path has been "opened" using [`GateOpener`].
+///
+/// This is built primarily for unit tests.
 pub struct GatedReader<R: AssetReader> {
     reader: R,
     gates: Arc<RwLock<HashMap<PathBuf, (Sender<()>, Receiver<()>)>>>,
@@ -22,11 +26,14 @@ impl<R: AssetReader + Clone> Clone for GatedReader<R> {
     }
 }
 
+/// Opens path "gates" for a [`GatedReader`].
 pub struct GateOpener {
     gates: Arc<RwLock<HashMap<PathBuf, (Sender<()>, Receiver<()>)>>>,
 }
 
 impl GateOpener {
+    /// Opens the `path` "gate", allowing a _single_ [`AssetReader`] operation to return for that path.
+    /// If multiple operations are expected, call `open` the expected number of calls.
     pub fn open<P: AsRef<Path>>(&self, path: P) {
         let mut gates = self.gates.write();
         let gates = gates
@@ -37,6 +44,8 @@ impl GateOpener {
 }
 
 impl<R: AssetReader> GatedReader<R> {
+    /// Creates a new [`GatedReader`], which wraps the given `reader`. Also returns a [`GateOpener`] which
+    /// can be used to open "path gates" for this [`GatedReader`].
     pub fn new(reader: R) -> (Self, GateOpener) {
         let gates = Arc::new(RwLock::new(HashMap::new()));
         (

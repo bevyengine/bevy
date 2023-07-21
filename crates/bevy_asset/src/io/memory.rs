@@ -18,10 +18,14 @@ struct DirInternal {
     dirs: HashMap<String, Dir>,
     path: PathBuf,
 }
+
+/// A clone-able (internally Arc-ed) / thread-safe "in memory" filesystem.
+/// This is built for [`MemoryAssetReader`] and is primarily intended for unit tests.
 #[derive(Default, Clone, Debug)]
 pub struct Dir(Arc<RwLock<DirInternal>>);
 
 impl Dir {
+    /// Creates a new [`Dir`] for the given `path`.
     pub fn new(path: PathBuf) -> Self {
         Self(Arc::new(RwLock::new(DirInternal {
             path,
@@ -137,12 +141,14 @@ impl Stream for DirStream {
     }
 }
 
-/// In-memory asset reader implementation.
+/// In-memory [`AssetReader`] implementation.
+/// This is primarily intended for unit tests.
 #[derive(Default, Clone)]
 pub struct MemoryAssetReader {
     pub root: Dir,
 }
 
+/// Asset data stored in a [`Dir`].
 #[derive(Clone, Debug)]
 pub struct Data(Arc<(Vec<u8>, PathBuf)>);
 

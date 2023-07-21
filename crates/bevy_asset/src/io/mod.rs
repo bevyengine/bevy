@@ -38,6 +38,11 @@ pub enum AssetReaderError {
 
 pub type Reader<'a> = dyn AsyncRead + Unpin + Send + Sync + 'a;
 
+/// Performs read operations on an asset storage. [`AssetReader`] exposes a "virtual filesystem"
+/// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
+/// `path`.
+///
+/// Also see [`AssetWriter`].
 pub trait AssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
     fn read<'a>(
@@ -67,6 +72,8 @@ pub trait AssetReader: Send + Sync + 'static {
         event_sender: Sender<AssetSourceEvent>,
     ) -> Option<Box<dyn AssetWatcher>>;
 
+    /// Reads asset metadata bytes at the given `path` into a [`Vec<u8>`]. This is a convenience
+    /// function that wraps [`AssetReader::read_meta`] by default.
     fn read_meta_bytes<'a>(
         &'a self,
         path: &'a Path,
@@ -91,6 +98,12 @@ pub enum AssetWriterError {
     #[error("encountered an io error while loading asset: {0}")]
     Io(#[from] std::io::Error),
 }
+
+/// Preforms write operations on an asset storage. [`AssetWriter`] exposes a "virtual filesystem"
+/// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
+/// `path`.
+///
+/// Also see [`AssetReader`].
 pub trait AssetWriter: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
     fn write<'a>(
@@ -113,26 +126,41 @@ pub trait AssetWriter: Send + Sync + 'static {
     fn remove_meta<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
 }
 
+/// An "asset source change event" that occurs whenever asset (or asset metadata) is created/added/removed
 #[derive(Clone, Debug)]
 pub enum AssetSourceEvent {
+    /// An asset at this path was added.
     Added(PathBuf),
+    /// An asset at this path was modified.
     Modified(PathBuf),
+    /// An asset at this path was removed.
     Removed(PathBuf),
+    /// Asset metadata at this path was added.
     AddedMeta(PathBuf),
+    /// Asset metadata at this path was modified.
     ModifiedMeta(PathBuf),
+    /// Asset metadata at this path was removed.
     RemovedMeta(PathBuf),
+    /// A folder at the given path was added.
     AddedFolder(PathBuf),
+    /// A folder at the given path removed.
     RemovedFolder(PathBuf),
 }
 
+/// A handle to an "asset watcher" process, that will listen for and emit [`AssetSourceEvent`] values for as long as
+/// [`AssetWatcher`] has not been dropped.
+///
+/// See [`AssetReader::watch_for_changes`].
 pub trait AssetWatcher: Send + Sync + 'static {}
 
+/// An [`AsyncRead`] implementation capable of reading a [`Vec<u8>`].
 pub struct VecReader {
     bytes: Vec<u8>,
     bytes_read: usize,
 }
 
 impl VecReader {
+    /// Create a new [`VecReader`] for `bytes`.
     pub fn new(bytes: Vec<u8>) -> Self {
         Self {
             bytes_read: 0,
@@ -157,6 +185,7 @@ impl AsyncRead for VecReader {
     }
 }
 
+/// Appends `.meta` to the given path.
 pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
     let mut meta_path = path.to_path_buf();
     let mut extension = path
@@ -168,6 +197,7 @@ pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
     meta_path
 }
 
+/// A [`PathBuf`] [`Stream`] implementation that immediately returns nothing.
 struct EmptyPathStream;
 
 impl Stream for EmptyPathStream {

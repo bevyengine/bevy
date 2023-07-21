@@ -10,18 +10,26 @@ use futures_io::AsyncRead;
 use parking_lot::lock_api::ArcRwLockReadGuard;
 use std::{path::Path, pin::Pin, sync::Arc};
 
+/// An [`AssetReader`] that will prevent asset (and asset metadata) read futures from returning for a
+/// given path until that path has been processed by [`AssetProcessor`].
+///
+/// [`AssetProcessor`]: crate::processor::AssetProcessor   
 pub struct ProcessorGatedReader {
     reader: Box<dyn AssetReader>,
     processor_data: Arc<AssetProcessorData>,
 }
 
 impl ProcessorGatedReader {
+    /// Creates a new [`ProcessorGatedReader`].
     pub fn new(reader: Box<dyn AssetReader>, processor_data: Arc<AssetProcessorData>) -> Self {
         Self {
             processor_data,
             reader,
         }
     }
+
+    /// Gets a "transaction lock" that can be used to ensure no writes to asset or asset meta occur
+    /// while it is held.
     async fn get_transaction_lock(
         &self,
         path: &Path,
@@ -129,6 +137,7 @@ impl AssetReader for ProcessorGatedReader {
     }
 }
 
+/// An [`AsyncRead`] impl that will hold its asset's transaction lock until [`TransactionLockedReader`] is dropped.
 pub struct TransactionLockedReader<'a> {
     reader: Box<Reader<'a>>,
     _file_transaction_lock: ArcRwLockReadGuard<parking_lot::RawRwLock, ()>,
