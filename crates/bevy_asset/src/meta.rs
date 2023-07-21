@@ -160,18 +160,9 @@ impl_downcast!(AssetMetaDyn);
 /// Settings used by the asset system, such as by [`AssetLoader`], [`Process`], and [`AssetSaver`]
 ///
 /// [`AssetSaver`]: crate::saver::AssetSaver
-pub trait Settings: Downcast + Send + Sync + 'static {
-    fn type_name(&self) -> &'static str;
-}
+pub trait Settings: Downcast + Send + Sync + 'static {}
 
-impl<T: 'static> Settings for T
-where
-    T: Send + Sync,
-{
-    fn type_name(&self) -> &'static str {
-        std::any::type_name::<T>()
-    }
-}
+impl<T: 'static> Settings for T where T: Send + Sync {}
 
 impl_downcast!(Settings);
 
@@ -226,9 +217,8 @@ pub(crate) fn loader_settings_meta_transform<S: Settings>(
                 settings(loader_settings);
             } else {
                 error!(
-                    "Configured settings type {} does not match AssetLoader settings type {}",
+                    "Configured settings type {} does not match AssetLoader settings type",
                     std::any::type_name::<S>(),
-                    loader_settings.type_name()
                 );
             }
         }

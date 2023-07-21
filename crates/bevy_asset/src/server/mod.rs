@@ -24,12 +24,27 @@ use parking_lot::RwLock;
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;
 
+/// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`]. This can be used to kick off new asset loads and
+/// retrieve their current load states.
+///
+/// The general process to load an asset is:
+/// 1. Initialize a new [`Asset`] type with the [`AssetServer`] via [`AssetApp::init_asset`], which will internally call [`AssetServer::register_asset`]
+/// and set up related ECS [`Assets`] storage and systems.
+/// 2. Register one or more [`AssetLoader`]s for that asset with [`AssetApp::init_asset_loader`]  
+/// 3. Add the asset to your asset folder (defaults to `assets`).
+/// 4. Call [`AssetServer::load`] with a path to your asset.
+///
+/// [`AssetServer`] can be cloned. It is backed by an [`Arc`] so clones will share state. Clones can be freely used in parallel.
+///
+/// [`AssetApp::init_asset`]: crate::AssetApp::init_asset
+/// [`AssetApp::init_asset_loader`]: crate::AssetApp::init_asset_loader
 #[derive(Resource, Clone)]
 pub struct AssetServer {
     pub(crate) data: Arc<AssetServerData>,
 }
 
-pub struct AssetServerData {
+/// Internal data used by [`AssetServer`]. This is intended to be used from within an [`Arc`].
+pub(crate) struct AssetServerData {
     pub(crate) infos: RwLock<AssetInfos>,
     pub(crate) loaders: Arc<RwLock<AssetLoaders>>,
     asset_event_sender: Sender<InternalAssetEvent>,
@@ -40,6 +55,8 @@ pub struct AssetServerData {
 }
 
 impl AssetServer {
+    /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`] storage will watch for changes to
+    /// asset sources and hot-reload them.
     pub fn new(reader: Box<dyn AssetReader>, watch_for_changes: bool) -> Self {
         Self::new_with_loaders(reader, Default::default(), watch_for_changes)
     }
@@ -73,10 +90,12 @@ impl AssetServer {
         }
     }
 
+    /// Returns the primary [`AssetReader`].
     pub fn reader(&self) -> &dyn AssetReader {
         &*self.data.reader
     }
 
+    /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
     pub fn register_loader<L: AssetLoader>(&self, loader: L) {
         let mut loaders = self.data.loaders.write();
         let loader_index = loaders.values.len();
@@ -91,6 +110,7 @@ impl AssetServer {
         loaders.values.push(Arc::new(loader));
     }
 
+    /// Registers a new [`Asset`] type. [`Asset`] types must be registered before assets of that type can be loaded.
     pub fn register_asset<A: Asset>(&self, assets: &Assets<A>) {
         self.register_handle_provider(assets.get_handle_provider());
         fn sender<A: Asset>(world: &mut World, id: UntypedAssetId) {
@@ -112,6 +132,7 @@ impl AssetServer {
             .insert(handle_provider.type_id, handle_provider);
     }
 
+    /// Returns the registered [`AssetLoader`] associated with the given extension, if it exists.
     pub fn get_asset_loader_with_extension(
         &self,
         extension: &str,
@@ -125,6 +146,7 @@ impl AssetServer {
             })
     }
 
+    /// Returns the registered [`AssetLoader`] associated with the given [`std::any::type_name`], if it exists.
     pub fn get_asset_loader_with_type_name(
         &self,
         type_name: &str,
@@ -138,6 +160,7 @@ impl AssetServer {
             })
     }
 
+    /// Retrieves the default [`AssetLoader`] for the given path, if one can be found.
     pub fn get_path_asset_loader(
         &self,
         path: &AssetPath,
@@ -161,11 +184,22 @@ impl AssetServer {
         Err(MissingAssetLoaderForExtensionError { extensions })
     }
 
+    /// Begins loading an [`Asset`] of type `A` stored at `path`. This will not block on the asset load. Instead,
+    /// it returns a "strong" [`Handle`]. When the [`Asset`] is loaded (and enters [`LoadState::Loaded`]), it will be added to the
+    /// associated [`Assets`] resource.
+    ///
+    /// You can check the asset's load state by reading [`AssetEvent`] events, calling [`AssetServer::load_state`], or checking
+    /// the [`Assets`] storage to see if the [`Asset`] exists yet.
+    ///
+    /// The asset load will fail and an error will be printed to the logs if the asset stored at `path` is not of type `A`.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
         self.load_with_meta_transform(path, None)
     }
 
+    /// Begins loading an [`Asset`] of type `A` stored at `path`. The given `settings` function will override the asset's
+    /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
+    /// will be ignored and an error will be printed to the log.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load_with_settings<'a, A: Asset, S: Settings>(
         &self,
@@ -317,6 +351,7 @@ impl AssetServer {
         }
     }
 
+    /// Kicks off a reload of the asset stored at the given path. This will only reload the asset if it currently loaded.
     pub fn reload<'a>(&self, path: impl Into<AssetPath<'a>>) {
         let server = self.clone();
         let path = path.into();
@@ -333,6 +368,10 @@ impl AssetServer {
             .detach();
     }
 
+    /// Queues a new asset to be tracked by the [`AssetServer`] and returns a [`Handle`] to it. This can be used to track
+    /// dependencies of assets created at runtime.
+    ///
+    /// After the asset has been fully loaded by the [`AssetServer`], it will show up in the relevant [`Assets`] storage.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn add<A: Asset>(&self, asset: A) -> Handle<A> {
         self.load_asset(LoadedAsset::new_with_dependencies(asset, None))
@@ -346,7 +385,7 @@ impl AssetServer {
     }
 
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub fn load_asset_untyped(&self, asset: impl Into<ErasedLoadedAsset>) -> UntypedHandle {
+    pub(crate) fn load_asset_untyped(&self, asset: impl Into<ErasedLoadedAsset>) -> UntypedHandle {
         let loaded_asset = asset.into();
         let handle = if let Some(path) = loaded_asset.path() {
             self.get_or_create_path_handle(path.clone(), loaded_asset.asset_type_id(), None)
@@ -365,7 +404,7 @@ impl AssetServer {
 
     /// Loads all assets from the specified folder recursively. The [`LoadedFolder`] asset (when it loads) will
     /// contain handles to all assets in the folder. You can wait for all assets to load by checking the [`LoadedFolder`]'s
-    /// [`AssetRecursiveDependencyLoadState`].
+    /// [`RecursiveDependencyLoadState`].
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
     pub fn load_folder(&self, path: impl AsRef<Path>) -> Handle<LoadedFolder> {
         let handle = {
@@ -430,6 +469,7 @@ impl AssetServer {
         self.data.asset_event_sender.send(event).unwrap();
     }
 
+    /// Retrieves all loads states for the given asset id.
     pub fn get_load_states(
         &self,
         id: impl Into<UntypedAssetId>,
@@ -441,10 +481,12 @@ impl AssetServer {
             .map(|i| (i.load_state, i.dep_load_state, i.rec_dep_load_state))
     }
 
+    /// Retrieves the main [`LoadState`] of a given asset `id`.
     pub fn get_load_state(&self, id: impl Into<UntypedAssetId>) -> Option<LoadState> {
         self.data.infos.read().get(id.into()).map(|i| i.load_state)
     }
 
+    /// Retrieves the [`RecursiveDependencyLoadState`] of a given asset `id`.
     pub fn get_recursive_dependency_load_state(
         &self,
         id: impl Into<UntypedAssetId>,
@@ -456,10 +498,20 @@ impl AssetServer {
             .map(|i| i.rec_dep_load_state)
     }
 
+    /// Retrieves the main [`LoadState`] of a given asset `id`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `id` is not currently known by the [`AssetServer`].
     pub fn load_state(&self, id: impl Into<UntypedAssetId>) -> LoadState {
         self.get_load_state(id).unwrap_or(LoadState::NotLoaded)
     }
 
+    /// Retrieves the  [`RecursiveDependencyLoadState`] of a given asset `id`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `id` is not currently known by the [`AssetServer`].
     pub fn recursive_dependency_load_state(
         &self,
         id: impl Into<UntypedAssetId>,
@@ -475,12 +527,15 @@ impl AssetServer {
             .map(|h| h.typed_debug_checked())
     }
 
+    /// Returns an active untyped handle for the given path, if the asset at the given path has already started loading,
+    /// or is still "alive".
     pub fn get_handle_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Option<UntypedHandle> {
         let infos = self.data.infos.read();
         let path = path.into();
         infos.get_path_handle(path)
     }
 
+    /// Returns the path for the given `id`, if it has one.
     pub fn get_path(&self, id: impl Into<UntypedAssetId>) -> Option<AssetPath<'static>> {
         let infos = self.data.infos.read();
         let info = infos.get(id.into())?;
@@ -580,6 +635,7 @@ impl AssetServer {
     }
 }
 
+/// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
 pub fn handle_internal_asset_events(world: &mut World) {
     world.resource_scope(|world, server: Mut<AssetServer>| {
         let mut infos = server.data.infos.write();
@@ -629,8 +685,9 @@ pub(crate) struct AssetLoaders {
     type_name_to_index: HashMap<&'static str, usize>,
 }
 
+/// Internal events for asset load results  
 #[allow(clippy::large_enum_variant)]
-pub enum InternalAssetEvent {
+pub(crate) enum InternalAssetEvent {
     Loaded {
         id: UntypedAssetId,
         loaded_asset: ErasedLoadedAsset,
@@ -682,6 +739,7 @@ pub enum RecursiveDependencyLoadState {
     Failed,
 }
 
+/// An error that occurs during an [`Asset`] load.
 #[derive(Error, Debug)]
 pub enum AssetLoadError {
     #[error("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
@@ -713,13 +771,14 @@ pub enum AssetLoadError {
     },
 }
 
+/// An error that occurs when an [`AssetLoader`] is not registered for a given extension.
 #[derive(Error, Debug)]
 #[error("no `AssetLoader` found{}", format_missing_asset_ext(.extensions))]
-
 pub struct MissingAssetLoaderForExtensionError {
     extensions: Vec<String>,
 }
 
+/// An error that occurs when an [`AssetLoader`] is not registered for a given [`std::any::type_name`].
 #[derive(Error, Debug)]
 #[error("no `AssetLoader` found with the name '{type_name}'")]
 
