@@ -5,7 +5,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use encase::{
-    internal::WriteInto, DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
+    internal::WriteInto, DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderSize,
     UniformBuffer as UniformBufferWrapper,
 };
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
@@ -29,7 +29,7 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
-pub struct UniformBuffer<T: ShaderType> {
+pub struct UniformBuffer<T: ShaderSize> {
     value: T,
     scratch: UniformBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
@@ -38,7 +38,7 @@ pub struct UniformBuffer<T: ShaderType> {
     buffer_usage: BufferUsages,
 }
 
-impl<T: ShaderType> From<T> for UniformBuffer<T> {
+impl<T: ShaderSize> From<T> for UniformBuffer<T> {
     fn from(value: T) -> Self {
         Self {
             value,
@@ -51,7 +51,7 @@ impl<T: ShaderType> From<T> for UniformBuffer<T> {
     }
 }
 
-impl<T: ShaderType + Default> Default for UniformBuffer<T> {
+impl<T: ShaderSize + Default> Default for UniformBuffer<T> {
     fn default() -> Self {
         Self {
             value: T::default(),
@@ -64,7 +64,7 @@ impl<T: ShaderType + Default> Default for UniformBuffer<T> {
     }
 }
 
-impl<T: ShaderType + WriteInto> UniformBuffer<T> {
+impl<T: ShaderSize + WriteInto> UniformBuffer<T> {
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
@@ -154,7 +154,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
-pub struct DynamicUniformBuffer<T: ShaderType> {
+pub struct DynamicUniformBuffer<T: ShaderSize> {
     scratch: DynamicUniformBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
     label: Option<String>,
@@ -163,7 +163,7 @@ pub struct DynamicUniformBuffer<T: ShaderType> {
     _marker: PhantomData<fn() -> T>,
 }
 
-impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
+impl<T: ShaderSize> Default for DynamicUniformBuffer<T> {
     fn default() -> Self {
         Self {
             scratch: DynamicUniformBufferWrapper::new(Vec::new()),
@@ -176,7 +176,7 @@ impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
     }
 }
 
-impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
+impl<T: ShaderSize + WriteInto> DynamicUniformBuffer<T> {
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
@@ -197,6 +197,9 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     }
 
     /// Push data into the `DynamicUniformBuffer`'s internal vector (residing on system RAM).
+    ///
+    /// Returns the dynamic offset of the pushed value in this buffer, which may later be passed to
+    /// [`set_bind_group`](wgpu::RenderPass::set_bind_group) as the `offsets` parameter, in bind order.
     #[inline]
     pub fn push(&mut self, value: T) -> u32 {
         self.scratch.write(&value).unwrap() as u32
