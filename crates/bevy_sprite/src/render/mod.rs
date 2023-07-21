@@ -487,6 +487,7 @@ pub fn queue_sprites(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     extracted_sprites: Query<(Entity, &ExtractedSprite)>,
+    gpu_images: Res<RenderAssets<Image>>,
     mut views: Query<(
         &mut RenderPhase<Transparent2d>,
         &VisibleEntities,
@@ -544,7 +545,11 @@ pub fn queue_sprites(
             .reserve(extracted_sprites.iter().len());
 
         for (entity, extracted_sprite) in extracted_sprites.iter() {
-            if !view_entities.contains(entity.index() as usize) {
+            if !view_entities.contains(entity.index() as usize)
+                || gpu_images
+                    .get(&Handle::weak(extracted_sprite.image_handle_id))
+                    .is_none()
+            {
                 continue;
             }
 
@@ -645,53 +650,51 @@ pub fn prepare_sprites(
                     let (_, target_batch) = match existing_batch {
                         Some(batch) => batch,
                         None => {
-                            if let Some(gpu_image) =
-                                gpu_images.get(&Handle::weak(extracted_sprite.image_handle_id))
-                            {
-                                batch_item_index = item_index;
-                                batch_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
-                                batch_image_handle = extracted_sprite.image_handle_id;
-                                batch_colored = extracted_sprite.color != Color::WHITE;
+                            // We ensure the associated image exists in queue_sprites
+                            let gpu_image = gpu_images
+                                .get(&Handle::weak(extracted_sprite.image_handle_id))
+                                .unwrap();
 
-                                let new_batch = SpriteBatch {
-                                    range: if batch_colored {
-                                        colored_index..colored_index
-                                    } else {
-                                        index..index
-                                    },
-                                };
+                            batch_item_index = item_index;
+                            batch_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
+                            batch_image_handle = extracted_sprite.image_handle_id;
+                            batch_colored = extracted_sprite.color != Color::WHITE;
 
-                                batches.push((item.entity, new_batch));
+                            let new_batch = SpriteBatch {
+                                range: if batch_colored {
+                                    colored_index..colored_index
+                                } else {
+                                    index..index
+                                },
+                            };
 
-                                image_bind_groups
-                                    .values
-                                    .entry(Handle::weak(batch_image_handle))
-                                    .or_insert_with(|| {
-                                        render_device.create_bind_group(&BindGroupDescriptor {
-                                            entries: &[
-                                                BindGroupEntry {
-                                                    binding: 0,
-                                                    resource: BindingResource::TextureView(
-                                                        &gpu_image.texture_view,
-                                                    ),
-                                                },
-                                                BindGroupEntry {
-                                                    binding: 1,
-                                                    resource: BindingResource::Sampler(
-                                                        &gpu_image.sampler,
-                                                    ),
-                                                },
-                                            ],
-                                            label: Some("sprite_material_bind_group"),
-                                            layout: &sprite_pipeline.material_layout,
-                                        })
-                                    });
+                            batches.push((item.entity, new_batch));
 
-                                batches.last_mut().unwrap()
-                            } else {
-                                // Skip this item if the texture is not ready
-                                continue;
-                            }
+                            image_bind_groups
+                                .values
+                                .entry(Handle::weak(batch_image_handle))
+                                .or_insert_with(|| {
+                                    render_device.create_bind_group(&BindGroupDescriptor {
+                                        entries: &[
+                                            BindGroupEntry {
+                                                binding: 0,
+                                                resource: BindingResource::TextureView(
+                                                    &gpu_image.texture_view,
+                                                ),
+                                            },
+                                            BindGroupEntry {
+                                                binding: 1,
+                                                resource: BindingResource::Sampler(
+                                                    &gpu_image.sampler,
+                                                ),
+                                            },
+                                        ],
+                                        label: Some("sprite_material_bind_group"),
+                                        layout: &sprite_pipeline.material_layout,
+                                    })
+                                });
+
+                            batches.last_mut().unwrap()
                         }
                     };
 
