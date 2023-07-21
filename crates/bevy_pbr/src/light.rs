@@ -444,7 +444,6 @@ pub fn build_directional_light_cascades<P: CameraProjection + Component>(
         let light_to_world = Mat4::from_quat(transform.compute_transform().rotation);
         let light_to_world_inverse = light_to_world.inverse();
 
-        cascades.cascades.clear();
         for (view_entity, projection, view_to_world) in views.iter().copied() {
             let camera_to_light_view = light_to_world_inverse * view_to_world;
             let view_cascades = cascades_config
