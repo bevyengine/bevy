@@ -1,4 +1,4 @@
-use crate::ScreenSpaceAmbientOcclusionTextures;
+use crate::{ScreenSpaceAmbientOcclusionSettings, ScreenSpaceAmbientOcclusionTextures};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core_pipeline::{
@@ -89,13 +89,13 @@ impl Plugin for PBRDeferredLightingPlugin {
             )
             .add_render_graph_node::<ViewNodeRunner<DeferredLightingNode>>(
                 core_3d::graph::NAME,
-                DEFERRED_LIGHTING_NODE_NAME,
+                DEFERRED_LIGHTING_PASS,
             )
             .add_render_graph_edges(
                 core_3d::graph::NAME,
                 &[
                     core_3d::graph::node::START_MAIN_PASS,
-                    DEFERRED_LIGHTING_NODE_NAME,
+                    DEFERRED_LIGHTING_PASS,
                     core_3d::graph::node::MAIN_OPAQUE_PASS,
                 ],
             );
@@ -116,7 +116,7 @@ impl Plugin for PBRDeferredLightingPlugin {
     }
 }
 
-pub const DEFERRED_LIGHTING_NODE_NAME: &str = "deferred_lighting";
+pub const DEFERRED_LIGHTING_PASS: &str = "deferred_lighting";
 
 #[derive(Default)]
 struct DeferredLightingNode;
@@ -243,6 +243,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             }
         }
 
+        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
+            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
+        }
+
         if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
@@ -336,12 +340,13 @@ pub fn prepare_deferred_lighting_pipelines(
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&EnvironmentMapLight>,
+            Option<&ScreenSpaceAmbientOcclusionSettings>,
         ),
         With<DeferredPrepass>,
     >,
     images: Res<RenderAssets<Image>>,
 ) {
-    for (entity, view, tonemapping, dither, environment_map) in &views {
+    for (entity, view, tonemapping, dither, environment_map, ssao) in &views {
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
 
         if !view.hdr {
@@ -365,6 +370,10 @@ pub fn prepare_deferred_lighting_pipelines(
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
+        }
+
+        if ssao.is_some() {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 
         let environment_map_loaded = match environment_map {

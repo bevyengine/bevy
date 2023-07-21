@@ -121,11 +121,13 @@ fn fragment(
             occlusion = vec3(textureSampleBias(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, uv, view.mip_bias).r);
         }
 #endif
+#ifndef DEFERRED_PREPASS
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
         let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
         occlusion = min(occlusion, ssao_multibounce);
-#endif
+#endif // SCREEN_SPACE_AMBIENT_OCCLUSION
+#endif // DEFERRED_PREPASS
         pbr_input.occlusion = occlusion;
 
         pbr_input.frag_coord = in.position;
@@ -156,7 +158,7 @@ fn fragment(
             view.mip_bias,
         );
 #endif
-
+        
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
 
