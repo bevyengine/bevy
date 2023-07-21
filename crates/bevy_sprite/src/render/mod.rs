@@ -33,8 +33,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::FloatOrd;
-use bevy_utils::HashMap;
+use bevy_utils::{FloatOrd, HashMap, Uuid};
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -469,17 +468,9 @@ const QUAD_UVS: [Vec2; 4] = [
     Vec2::new(0., 0.),
 ];
 
-#[derive(Component, Eq, Clone)]
+#[derive(Component)]
 pub struct SpriteBatch {
-    image_handle_id: HandleId,
-    colored: bool,
     range: Range<u32>,
-}
-
-impl PartialEq for SpriteBatch {
-    fn eq(&self, other: &Self) -> bool {
-        self.image_handle_id == other.image_handle_id && self.colored == other.colored
-    }
 }
 
 #[derive(Resource, Default)]
@@ -634,6 +625,8 @@ pub fn prepare_sprites(
         for mut transparent_phase in &mut phases {
             let mut batch_item_index = 0;
             let mut batch_image_size = Vec2::ZERO;
+            let mut batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
+            let mut batch_colored = false;
 
             // Iterate through the phase items and detect when successive sprites that can be batched.
             // Spawn an entity with a `SpriteBatch` component for each possible batch.
@@ -642,10 +635,9 @@ pub fn prepare_sprites(
                 let item = &transparent_phase.items[item_index];
                 if let Ok(extracted_sprite) = extracted_sprites.get(item.entity) {
                     // Take a reference to an existing compatible batch if one exists
-                    let existing_batch = batches.last_mut().filter(|(_, batch)| {
-                        batch.image_handle_id == extracted_sprite.image_handle_id
-                            && batch.colored == (extracted_sprite.color != Color::WHITE)
-                            && batch_image_size != Vec2::ZERO
+                    let existing_batch = batches.last_mut().filter(|_| {
+                        batch_image_handle == extracted_sprite.image_handle_id
+                            && batch_colored == (extracted_sprite.color != Color::WHITE)
                     });
 
                     // Either keep the reference to the compatible batch or create a new batch
@@ -655,20 +647,24 @@ pub fn prepare_sprites(
                             if let Some(gpu_image) =
                                 gpu_images.get(&Handle::weak(extracted_sprite.image_handle_id))
                             {
-                                let colored = extracted_sprite.color != Color::WHITE;
+                                batch_item_index = item_index;
+                                batch_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
+                                batch_image_handle = extracted_sprite.image_handle_id;
+                                batch_colored = extracted_sprite.color != Color::WHITE;
+
                                 let new_batch = SpriteBatch {
-                                    image_handle_id: extracted_sprite.image_handle_id,
-                                    colored,
-                                    range: if colored {
+                                    range: if batch_colored {
                                         colored_index..colored_index
                                     } else {
                                         index..index
                                     },
                                 };
 
+                                batches.push((item.entity, new_batch));
+
                                 image_bind_groups
                                     .values
-                                    .entry(Handle::weak(new_batch.image_handle_id))
+                                    .entry(Handle::weak(batch_image_handle))
                                     .or_insert_with(|| {
                                         render_device.create_bind_group(&BindGroupDescriptor {
                                             entries: &[
@@ -689,10 +685,6 @@ pub fn prepare_sprites(
                                             layout: &sprite_pipeline.material_layout,
                                         })
                                     });
-
-                                batches.push((item.entity, new_batch));
-                                batch_item_index = item_index;
-                                batch_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
 
                                 batches.last_mut().unwrap()
                             } else {
@@ -739,7 +731,7 @@ pub fn prepare_sprites(
                     });
 
                     // Store the vertex data and add the item to the render phase
-                    if extracted_sprite.color != Color::WHITE {
+                    if batch_colored {
                         let vertex_color = extracted_sprite.color.as_linear_rgba_f32();
                         for i in QUAD_INDICES {
                             sprite_meta.colored_vertices.push(ColoredSpriteVertex {
@@ -749,8 +741,6 @@ pub fn prepare_sprites(
                             });
                         }
                         colored_index += QUAD_INDICES.len() as u32;
-                        transparent_phase.items[batch_item_index].batch_size += 1;
-                        target_batch.range.end += QUAD_INDICES.len() as u32;
                     } else {
                         for i in QUAD_INDICES {
                             sprite_meta.vertices.push(SpriteVertex {
@@ -759,9 +749,9 @@ pub fn prepare_sprites(
                             });
                         }
                         index += QUAD_INDICES.len() as u32;
-                        transparent_phase.items[batch_item_index].batch_size += 1;
-                        target_batch.range.end += QUAD_INDICES.len() as u32;
                     }
+                    transparent_phase.items[batch_item_index].batch_size += 1;
+                    target_batch.range.end += QUAD_INDICES.len() as u32;
                 }
             }
         }
@@ -835,17 +825,17 @@ pub struct DrawSpriteBatch;
 impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type Param = SRes<SpriteMeta>;
     type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<SpriteBatch>;
+    type ItemWorldQuery = (Read<SpriteBatch>, Read<ExtractedSprite>);
 
     fn render<'w>(
         _item: &P,
         _view: (),
-        sprite_batch: &'_ SpriteBatch,
+        (sprite_batch, sprite): (&'_ SpriteBatch, &'_ ExtractedSprite),
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
-        if sprite_batch.colored {
+        if sprite.color != Color::WHITE {
             pass.set_vertex_buffer(0, sprite_meta.colored_vertices.buffer().unwrap().slice(..));
         } else {
             pass.set_vertex_buffer(0, sprite_meta.vertices.buffer().unwrap().slice(..));
