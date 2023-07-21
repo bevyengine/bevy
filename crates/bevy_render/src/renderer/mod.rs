@@ -7,7 +7,7 @@ pub use graph_runner::*;
 pub use render_device::*;
 
 use crate::{
-    diagnostics::{DiagnosticsRecorder, OptionalDiagnosticRecorder},
+    diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
     render_graph::RenderGraph,
     render_phase::TrackedRenderPass,
     render_resource::RenderPassDescriptor,
@@ -302,7 +302,8 @@ pub struct RenderContext {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
     command_buffers: Vec<CommandBuffer>,
-    diagnostics_recorder: OptionalDiagnosticRecorder,
+    // Stored in an Arc so that the recorder returned from `diagnostic_recorder` won't borrow self
+    diagnostics_recorder: Option<Arc<DiagnosticsRecorder>>,
 }
 
 impl RenderContext {
@@ -315,7 +316,7 @@ impl RenderContext {
             render_device,
             command_encoder: None,
             command_buffers: Vec::new(),
-            diagnostics_recorder: diagnostics_recorder.into(),
+            diagnostics_recorder: diagnostics_recorder.map(Arc::new),
         }
     }
 
@@ -324,8 +325,9 @@ impl RenderContext {
         &self.render_device
     }
 
-    /// Gets the underlying [`OptionalDiagnositcRecorder`]
-    pub fn diagnostic_recorder(&self) -> OptionalDiagnosticRecorder {
+    /// Gets the diagnostics recorder, used to track elapsed time and pipeline statistics
+    /// of various render and compute passes.
+    pub fn diagnostic_recorder(&self) -> impl RecordDiagnostics {
         self.diagnostics_recorder.clone()
     }
 
@@ -378,7 +380,11 @@ impl RenderContext {
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         });
 
-        let mut diagnostics_recorder = self.diagnostics_recorder.unwrap();
+        let mut diagnostics_recorder = self.diagnostics_recorder.map(|v| {
+            Arc::try_unwrap(v)
+                .ok()
+                .expect("diagnostic recorder shouldn't be held longer than necessary")
+        });
 
         if let Some(recorder) = &mut diagnostics_recorder {
             recorder.resolve(command_encoder);

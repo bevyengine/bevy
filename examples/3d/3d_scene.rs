@@ -1,7 +1,7 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
 use bevy::prelude::*;
-use bevy::render::renderer::diagnostics::{RenderDiagnostics, RenderDiagnosticsPlugin};
+use bevy::render::diagnostic::{RenderDiagnostics, RenderDiagnosticsPlugin};
 
 fn main() {
     App::new()

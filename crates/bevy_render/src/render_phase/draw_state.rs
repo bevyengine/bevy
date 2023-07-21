@@ -1,6 +1,6 @@
 use crate::{
     camera::Viewport,
-    diagnostics::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
+    diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
     prelude::Color,
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,

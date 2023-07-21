@@ -3,6 +3,7 @@ use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     prelude::Color,
     render_graph::{NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,

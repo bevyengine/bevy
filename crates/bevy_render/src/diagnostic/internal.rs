@@ -1,30 +1,24 @@
 use std::{
-    borrow::Cow,
-    hash::{Hash, Hasher},
-    marker::PhantomData,
     ops::Range,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
     thread::{self, ThreadId},
+    time::Instant,
 };
 
-use bevy_app::{App, Plugin, PreUpdate};
-
-use bevy_diagnostic::DiagnosticId;
 use bevy_ecs::system::{Res, ResMut, Resource};
-use bevy_utils::{AHasher, Duration, Instant, Uuid};
+use bevy_utils::Duration;
 use parking_lot::Mutex;
-use smallvec::SmallVec;
 use wgpu::{
     Buffer, BufferDescriptor, BufferUsages, CommandEncoder, ComputePass, Features, MapMode,
     PipelineStatisticsTypes, QuerySet, QuerySetDescriptor, QueryType, Queue, RenderPass,
 };
 
-use crate::RenderApp;
+use crate::renderer::RenderDevice;
 
-use super::{RenderDevice, RenderQueue};
+use super::{RecordDiagnostics, RenderDiagnostics, SpanDiagnostics, SpanKind, SpanName, SpanPath};
 
 // buffer offset must be divisible by 256, so this constant must be divisible by 32 (=256/8)
 const MAX_TIMESTAMP_QUERIES: u32 = 256;
@@ -32,134 +26,6 @@ const MAX_PIPELINE_STATISTICS: u32 = 128;
 
 const TIMESTAMP_SIZE: u64 = 8;
 const PIPELINE_STATISTICS_SIZE: u64 = 40;
-
-/// Enables collecting rendering diagnostics into [`RenderDiagnostics`] resource.
-///
-/// # Supported platforms
-/// Timestamp queries and pipeline statistics are currently supported only on Vulkan and DX12.
-/// On other platforms (Metal, WebGPU, WebGL2) only CPU time will be recorded.
-#[allow(clippy::doc_markdown)]
-#[derive(Default)]
-pub struct RenderDiagnosticsPlugin;
-
-impl Plugin for RenderDiagnosticsPlugin {
-    fn build(&self, app: &mut App) {
-        let render_diagnostics_mutex = RenderDiagnosticsMutex::default();
-        app.insert_resource(render_diagnostics_mutex.clone())
-            .init_resource::<RenderDiagnostics>()
-            .add_systems(PreUpdate, sync_render_diagnostics);
-
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.insert_resource(render_diagnostics_mutex);
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        let device = render_app.world.resource::<RenderDevice>();
-        let queue = render_app.world.resource::<RenderQueue>();
-        render_app.insert_resource(DiagnosticsRecorder::new(device, queue));
-    }
-}
-
-/// Resource which stores rendering diagnostics of the most recent frame.
-#[derive(Debug, Default, Clone, Resource)]
-pub struct RenderDiagnostics(pub Vec<RenderSpanDiagnostics>);
-
-/// Diagnostics of a single render span.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct RenderSpanDiagnostics {
-    /// Path of the span.
-    pub path: SpanPath,
-    /// Kind of the span.
-    pub kind: SpanKind,
-    /// CPU time spent during the duration of the span.
-    pub elapsed_cpu: Option<Duration>,
-    /// GPU time spent executing commands recorded inside the span.
-    pub elapsed_gpu: Option<Duration>,
-    /// Amount of times the vertex shader is ran.
-    /// Accounts for the vertex cache when doing indexed rendering.
-    pub vertex_shader_invocations: Option<u64>,
-    /// Amount of times the clipper is invoked.
-    /// This is also the amount of triangles output by the vertex shader.
-    pub clipper_invocations: Option<u64>,
-    /// Amount of primitives that are not culled by the clipper.
-    /// This is the amount of triangles that are actually on screen and will be rasterized and rendered.
-    pub clipper_primitives_out: Option<u64>,
-    /// Amount of times the fragment shader is ran.
-    /// Accounts for fragment shaders running in 2x2 blocks in order to get derivatives.
-    pub fragment_shader_invocations: Option<u64>,
-    /// Amount of times a compute shader is invoked.
-    /// This will be equivalent to the dispatch count times the workgroup size.
-    pub compute_shader_invocations: Option<u64>,
-}
-
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub enum RenderDiagnosticKind {
-    ElapsedCpu = 0,
-    ElapsedGpu,
-    VertexShaderInvocations,
-    ClipperInvocations,
-    ClipperPrimitivesOut,
-    FragmentShaderInvocations,
-    ComputeShaderInvocations,
-}
-
-/// Kinds of render diagnostic  spans.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub enum SpanKind {
-    /// An explicit timestamp span.
-    Timestamp,
-    /// A [`RenderPass`]. Records timestamps, as well as pipeline statistics.
-    RenderPass,
-    /// A [`ComputePass`]. Records timestamps, as well as pipeline statistics.
-    ComputePass,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct SpanPath {
-    components: SmallVec<[Cow<'static, str>; 2]>,
-    hash: u64,
-}
-
-impl SpanPath {
-    pub fn new(components: impl IntoIterator<Item = Cow<'static, str>>) -> SpanPath {
-        let components: SmallVec<[Cow<'static, str>; 2]> = components.into_iter().collect();
-        let mut hasher = AHasher::default();
-        components.hash(&mut hasher);
-        let hash = hasher.finish();
-        SpanPath { components, hash }
-    }
-
-    pub fn components(&self) -> impl Iterator<Item = &str> + '_ {
-        self.components.iter().map(|v| &**v)
-    }
-
-    pub fn diagnostic_id(&self, kind: RenderDiagnosticKind) -> DiagnosticId {
-        DiagnosticId(Uuid::from_u64_pair(
-            0x6140_553e_4b6a_4400 | u64::from(kind as u8),
-            self.hash,
-        ))
-    }
-}
-
-impl Eq for SpanPath {}
-
-impl PartialEq for SpanPath {
-    fn eq(&self, other: &Self) -> bool {
-        self.hash == other.hash && self.components == other.components
-    }
-}
-
-impl Hash for SpanPath {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash.hash(state);
-    }
-}
 
 /// Records diagnostics into [`QuerySet`]'s keeping track of the mapping between
 /// spans and indices to the corresponding entries in the [`QuerySet`].
@@ -207,28 +73,6 @@ impl DiagnosticsRecorder {
         self.current_frame.get_mut().begin();
     }
 
-    pub fn begin_time_span<E: WriteTimestamp>(
-        &self,
-        encoder: &mut E,
-        span_name: impl Into<Cow<'static, str>>,
-    ) {
-        self.current_frame
-            .lock()
-            .begin_time_span(encoder, span_name.into());
-    }
-
-    pub fn end_time_span<E: WriteTimestamp>(&self, encoder: &mut E) {
-        self.current_frame.lock().end_time_span(encoder);
-    }
-
-    pub fn begin_pass_span<P: Pass>(&self, pass: &mut P, span_name: impl Into<Cow<'static, str>>) {
-        self.current_frame.lock().begin_pass(pass, span_name.into());
-    }
-
-    pub fn end_pass_span<P: Pass>(&self, pass: &mut P) {
-        self.current_frame.lock().end_pass(pass);
-    }
-
     /// Copies data from [`QuerySet`]'s to a [`Buffer`], after which it can be downloaded to CPU.
     ///
     /// Should be called before [`DiagnosticsRecorder::finish_frame`]
@@ -260,116 +104,23 @@ impl DiagnosticsRecorder {
     }
 }
 
-#[derive(Clone)]
-pub struct OptionalDiagnosticRecorder {
-    recorder: Option<Arc<DiagnosticsRecorder>>,
-}
-
-impl From<Option<DiagnosticsRecorder>> for OptionalDiagnosticRecorder {
-    fn from(recorder: Option<DiagnosticsRecorder>) -> Self {
-        OptionalDiagnosticRecorder {
-            recorder: recorder.map(Arc::new),
-        }
-    }
-}
-
-impl OptionalDiagnosticRecorder {
-    pub(crate) fn unwrap(self) -> Option<DiagnosticsRecorder> {
-        self.recorder.map(|v| Arc::try_unwrap(v).ok().unwrap())
+impl RecordDiagnostics for DiagnosticsRecorder {
+    fn begin_time_span<E: WriteTimestamp>(&self, encoder: &mut E, span_name: SpanName) {
+        self.current_frame
+            .lock()
+            .begin_time_span(encoder, span_name);
     }
 
-    pub fn time_span<E: WriteTimestamp>(
-        &self,
-        encoder: &mut E,
-        span_name: impl Into<Cow<'static, str>>,
-    ) -> TimeSpanScope<E> {
-        if let Some(recorder) = &self.recorder {
-            recorder.begin_time_span(encoder, span_name);
-            TimeSpanScope::new(recorder)
-        } else {
-            TimeSpanScope::new_noop()
-        }
+    fn end_time_span<E: WriteTimestamp>(&self, encoder: &mut E) {
+        self.current_frame.lock().end_time_span(encoder);
     }
 
-    pub fn pass_span<P: Pass>(
-        &self,
-        pass: &mut P,
-        span_name: impl Into<Cow<'static, str>>,
-    ) -> PassSpanScope<P> {
-        if let Some(recorder) = &self.recorder {
-            recorder.begin_pass_span(pass, span_name);
-            PassSpanScope::new(recorder)
-        } else {
-            PassSpanScope::new_noop()
-        }
-    }
-}
-
-pub struct TimeSpanScope<'a, E: WriteTimestamp> {
-    recorder: Option<&'a DiagnosticsRecorder>,
-    marker: PhantomData<E>,
-}
-
-impl<E: WriteTimestamp> TimeSpanScope<'_, E> {
-    pub fn new(recorder: &DiagnosticsRecorder) -> TimeSpanScope<'_, E> {
-        TimeSpanScope {
-            recorder: Some(recorder),
-            marker: PhantomData,
-        }
+    fn begin_pass_span<P: Pass>(&self, pass: &mut P, span_name: SpanName) {
+        self.current_frame.lock().begin_pass(pass, span_name);
     }
 
-    pub fn new_noop() -> TimeSpanScope<'static, E> {
-        TimeSpanScope {
-            recorder: None,
-            marker: PhantomData,
-        }
-    }
-
-    pub fn end(self, encoder: &mut E) {
-        if let Some(recorder) = &self.recorder {
-            recorder.current_frame.lock().end_time_span(encoder);
-        }
-        std::mem::forget(self)
-    }
-}
-
-impl<E: WriteTimestamp> Drop for TimeSpanScope<'_, E> {
-    fn drop(&mut self) {
-        panic!("TimeSpanScope::end was never called")
-    }
-}
-
-pub struct PassSpanScope<'a, P: Pass> {
-    recorder: Option<&'a DiagnosticsRecorder>,
-    marker: PhantomData<P>,
-}
-
-impl<P: Pass> PassSpanScope<'_, P> {
-    pub fn new(recorder: &DiagnosticsRecorder) -> PassSpanScope<'_, P> {
-        PassSpanScope {
-            recorder: Some(recorder),
-            marker: PhantomData,
-        }
-    }
-
-    pub fn new_noop() -> PassSpanScope<'static, P> {
-        PassSpanScope {
-            recorder: None,
-            marker: PhantomData,
-        }
-    }
-
-    pub fn end(self, pass: &mut P) {
-        if let Some(recorder) = &self.recorder {
-            recorder.current_frame.lock().end_pass(pass);
-        }
-        std::mem::forget(self)
-    }
-}
-
-impl<P: Pass> Drop for PassSpanScope<'_, P> {
-    fn drop(&mut self) {
-        panic!("PassSpanScope::end was never called")
+    fn end_pass_span<P: Pass>(&self, pass: &mut P) {
+        self.current_frame.lock().end_pass(pass);
     }
 }
 
@@ -394,7 +145,7 @@ struct FrameData {
     pipeline_statistics_buffer_offset: u64,
     resolve_buffer: Option<Buffer>,
     read_buffer: Option<Buffer>,
-    path_components: Vec<Cow<'static, str>>,
+    path_components: Vec<SpanName>,
     open_spans: Vec<SpanRecord>,
     closed_spans: Vec<SpanRecord>,
     is_mapped: Arc<AtomicBool>,
@@ -511,7 +262,7 @@ impl FrameData {
         }
     }
 
-    fn open_span(&mut self, kind: SpanKind, name: Cow<'static, str>) -> &mut SpanRecord {
+    fn open_span(&mut self, kind: SpanKind, name: SpanName) -> &mut SpanRecord {
         let thread_id = thread::current().id();
 
         let parent = self
@@ -563,11 +314,11 @@ impl FrameData {
         self.closed_spans.last_mut().unwrap()
     }
 
-    fn begin_time_span(&mut self, encoder: &mut impl WriteTimestamp, name: Cow<'static, str>) {
+    fn begin_time_span(&mut self, encoder: &mut impl WriteTimestamp, name: SpanName) {
         let begin_instant = Instant::now();
         let begin_timestamp_index = self.write_timestamp(encoder, false);
 
-        let span = self.open_span(SpanKind::Timestamp, name);
+        let span = self.open_span(SpanKind::Time, name);
         span.begin_instant = Some(begin_instant);
         span.begin_timestamp_index = begin_timestamp_index;
     }
@@ -580,7 +331,7 @@ impl FrameData {
         span.end_instant = Some(Instant::now());
     }
 
-    fn begin_pass<P: Pass>(&mut self, pass: &mut P, name: Cow<'static, str>) {
+    fn begin_pass<P: Pass>(&mut self, pass: &mut P, name: SpanName) {
         let begin_instant = Instant::now();
 
         let begin_timestamp_index = self.write_timestamp(pass, true);
@@ -642,7 +393,7 @@ impl FrameData {
         let Some(read_buffer) = &self.read_buffer else {
             // we still have cpu timings, so let's use them
 
-            let diagnostics = self.closed_spans.iter().map(|span| RenderSpanDiagnostics {
+            let diagnostics = self.closed_spans.iter().map(|span| SpanDiagnostics {
                 path: SpanPath::new(
                     self.path_components[span.path_range.clone()]
                         .iter()
@@ -706,7 +457,7 @@ impl FrameData {
             .collect::<Vec<u64>>();
 
         let diagnostics = self.closed_spans.iter().map(|span| {
-            let mut diagnostics = RenderSpanDiagnostics {
+            let mut diagnostics = SpanDiagnostics {
                 path: SpanPath::new(
                     self.path_components[span.path_range.clone()]
                         .iter()
@@ -766,12 +517,11 @@ impl FrameData {
 pub struct RenderDiagnosticsMutex(pub Arc<Mutex<Option<RenderDiagnostics>>>);
 
 /// Copies fresh [`RenderDiagnostics`] from [`RenderDiagnosticsMutex`].
-pub fn sync_render_diagnostics(
+pub fn sync_diagnostics(
     mutex: Res<RenderDiagnosticsMutex>,
     mut diagnostics: ResMut<RenderDiagnostics>,
 ) {
     if let Some(v) = mutex.0.lock().take() {
-        dbg!(&v);
         *diagnostics = v;
     }
 }
