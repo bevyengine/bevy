@@ -106,9 +106,9 @@ impl Sphere {
     }
 }
 
-/// A region of 3D space, specifically a closed set whose border is a bisecting 2D plane.
+/// A region of 3D space, specifically an open set whose border is a bisecting 2D plane.
 /// This bisecting plane partitions 3D space into two infinite regions,
-/// the half-space is one of those regions and includes the bisecting plane.
+/// the half-space is one of those regions and excludes the bisecting plane.
 ///
 /// Each instance of this type is characterized by:
 /// - the bisecting plane's unit normal, normalized and pointing "inside" the half-space,
@@ -120,7 +120,7 @@ impl Sphere {
 ///
 /// Any point `p` is considered to be within the `HalfSpace` when the length of the projection
 /// of p on the normal is greater or equal than the opposite of the distance,
-/// meaning: if the equation `normal.dot(p) + distance >= 0.` is satisfied.
+/// meaning: if the equation `normal.dot(p) + distance > 0.` is satisfied.
 ///
 /// For example, the half-space containing all the points with a z-coordinate lesser
 /// or equal than `8.0` would be defined by: `HalfSpace::new(Vec3::NEG_Z.extend(-8.0))`.
