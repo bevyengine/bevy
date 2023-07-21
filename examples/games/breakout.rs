@@ -91,7 +91,7 @@ struct CollisionEvent;
 struct Brick;
 
 #[derive(Resource)]
-struct CollisionSound(Handle<Note>);
+struct CollisionSound(Handle<AudioSource>);
 
 // This bundle is a collection of the components that define a "wall" in our game
 #[derive(Bundle)]
@@ -176,13 +176,13 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut notes: ResMut<Assets<Note>>,
+    asset_server: Res<AssetServer>,
 ) {
     // Camera
     commands.spawn(Camera2dBundle::default());
 
     // Sound
-    let ball_collision_sound = notes.add(Note::new(220.0, std::time::Duration::from_millis(20)));
+    let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");
     commands.insert_resource(CollisionSound(ball_collision_sound));
 
     // Paddle
@@ -412,7 +412,7 @@ fn play_collision_sound(
     if !collision_events.is_empty() {
         // This prevents events staying active on the next frame.
         collision_events.clear();
-        commands.spawn(NoteBundle {
+        commands.spawn(AudioBundle {
             source: sound.0.clone(),
             // auto-despawn the entity when playback finishes
             settings: PlaybackSettings::DESPAWN,
