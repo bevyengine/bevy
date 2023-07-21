@@ -7,6 +7,7 @@ extern crate core;
 
 pub mod camera;
 pub mod color;
+pub mod diagnostics;
 pub mod extract_component;
 mod extract_param;
 pub mod extract_resource;

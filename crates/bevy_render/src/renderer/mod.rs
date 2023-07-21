@@ -1,4 +1,3 @@
-pub mod diagnostics;
 mod graph_runner;
 mod render_device;
 
@@ -8,6 +7,7 @@ pub use graph_runner::*;
 pub use render_device::*;
 
 use crate::{
+    diagnostics::{DiagnosticsRecorder, OptionalDiagnosticRecorder},
     render_graph::RenderGraph,
     render_phase::TrackedRenderPass,
     render_resource::RenderPassDescriptor,
@@ -21,8 +21,6 @@ use std::sync::Arc;
 use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
 };
-
-use self::diagnostics::{DiagnosticsRecorder, OptionalDiagnosticRecorder};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {

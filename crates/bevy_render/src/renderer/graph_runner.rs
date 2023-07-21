@@ -9,14 +9,13 @@ use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
 use crate::{
+    diagnostics::{DiagnosticsRecorder, RenderDiagnosticsMutex},
     render_graph::{
         Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel,
         SlotType, SlotValue,
     },
     renderer::{RenderContext, RenderDevice},
 };
-
-use super::diagnostics::{DiagnosticsRecorder, RenderDiagnosticsMutex};
 
 pub(crate) struct RenderGraphRunner;
 

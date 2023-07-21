@@ -1,14 +1,12 @@
 use crate::{
     camera::Viewport,
+    diagnostics::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
     prelude::Color,
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
     },
-    renderer::{
-        diagnostics::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
-        RenderDevice,
-    },
+    renderer::RenderDevice,
 };
 use bevy_utils::{default, detailed_trace};
 use std::ops::Range;
