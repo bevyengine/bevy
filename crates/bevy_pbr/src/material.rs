@@ -128,16 +128,16 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Si
         AlphaMode::Opaque
     }
 
-    /// Returns if this material should be rendered by the deferred renderer when
-    /// AlphaMode::Opaque or AlphaMode::Mask
-    /// If None, it will default to the DefaultOpaqueRendererMethod
+    /// Returns if this material should be rendered by the deferred or forward renderer
+    /// for AlphaMode::Opaque or AlphaMode::Mask materials.
+    /// If None, it will default to what is selected in the DefaultOpaqueRendererMethod resource.
     #[inline]
-    fn deferred(&self) -> Option<OpaqueRendererMethod> {
+    fn opaque_render_method(&self) -> Option<OpaqueRendererMethod> {
         None
     }
 
-    /// Returns the stencil reference, used for specifying
-    /// which deferred lighting pass should be used if any
+    /// Returns the stencil reference.
+    /// Used for specifying which deferred lighting pass should be used if any.
     /// Use 0 for forward only materials
     #[inline]
     fn deferred_material_stencil_reference(&self) -> u32 {
@@ -793,7 +793,7 @@ fn prepare_material<M: Material>(
         images,
         fallback_image,
     )?;
-    let method = match material.deferred() {
+    let method = match material.opaque_render_method() {
         Some(method) => method,
         None => default_opaque_render_method,
     };

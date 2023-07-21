@@ -59,7 +59,7 @@ fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
 
 // Creates the deferred gbuffer from a PbrInput
 fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
-#ifdef WEBGL // More crunched for webgl so we can fit also depth
+#ifdef WEBGL // More crunched for webgl so we can also fit depth
     var props = deft::pack_unorm3x4_plus_unorm_20_(vec4(
         in.material.reflectance,
         in.material.metallic,
@@ -71,14 +71,14 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
         in.material.metallic, // could be fewer bits
         dot(in.occlusion, vec3<f32>(0.2126, 0.7152, 0.0722)), // is this usually included / worth including?
         0.0)); // spare
-#endif //WEBGL
+#endif // WEBGL
     let flags = deft::deferred_flags_from_mesh_mat_flags(in.flags, in.material.flags);
     let oct_nor = deft::octa_encode(normalize(in.N));
     var base_color_srgb = vec3(0.0);
     var emissive = in.material.emissive.rgb;
     if ((in.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
         // Material is unlit, use emissive component of gbuffer for color data
-        // unlit materials are effectively emissive
+        // Unlit materials are effectively emissive
         emissive = in.material.base_color.rgb;
     } else {
         base_color_srgb = pow(in.material.base_color.rgb, vec3(1.0 / 2.2));
@@ -112,7 +112,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
         pbr.material.base_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
         pbr.material.emissive = vec4(emissive, 1.0);
     }
-#ifdef WEBGL // More crunched for webgl so we can fit also depth
+#ifdef WEBGL // More crunched for webgl so we can also fit depth
     let props = deft::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
     // bias to 0.5 since that's the value for almost all materials
     pbr.material.reflectance = saturate(props.r - 0.03333333333); 

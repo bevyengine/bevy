@@ -10,14 +10,14 @@ const RGB9E5_MAX_VALID_BIASED_EXP = 31u;
 //#define RGB9E5_MANTISSA_VALUES       (1<<RGB9E5_MANTISSA_BITS)
 //#define MAX_RGB9E5_MANTISSA          (RGB9E5_MANTISSA_VALUES-1)
 //#define MAX_RGB9E5                   ((f32(MAX_RGB9E5_MANTISSA))/RGB9E5_MANTISSA_VALUES * (1<<MAX_RGB9E5_EXP))
-//#define EPSILON_RGB9E5_               ((1.0/RGB9E5_MANTISSA_VALUES) / (1<<RGB9E5_EXP_BIAS))
+//#define EPSILON_RGB9E5_              ((1.0/RGB9E5_MANTISSA_VALUES) / (1<<RGB9E5_EXP_BIAS))
 
 const MAX_RGB9E5_EXP              = 16u;
 const RGB9E5_MANTISSA_VALUES      = 512u;
 const MAX_RGB9E5_MANTISSA         = 511;
 const MAX_RGB9E5_MANTISSAU        = 511u;
-const MAX_RGB9E5_                  = 65408.0;
-const EPSILON_RGB9E5_              = 0.000000059604645;
+const MAX_RGB9E5_                 = 65408.0;
+const EPSILON_RGB9E5_             = 0.000000059604645;
 
 
 

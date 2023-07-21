@@ -28,7 +28,7 @@ fn mesh_mat_flags_from_deferred_flags(deferred_flags: u32) -> vec2<u32> {
 // For stroing normals as oct24
 // Flags are stored in the remaining 8 bits
 // https://jcgt.org/published/0003/02/01/paper.pdf
-// could possibly go down to oct20 if the space is needed 
+// Could possibly go down to oct20 if the space is needed 
 
 fn octa_wrap(v: vec2<f32>) -> vec2<f32> {
     return (1.0 - abs(v.yx)) * select(vec2(-1.0), vec2(1.0), v.xy >= vec2(0.0));
