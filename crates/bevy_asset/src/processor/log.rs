@@ -5,21 +5,23 @@ use futures_lite::{AsyncReadExt, AsyncWriteExt};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+/// An in-memory representation of a single [`ProcessorTransactionLog`] entry.
 #[derive(Debug)]
 pub(crate) enum LogEntry {
     BeginPath(PathBuf),
     EndPath(PathBuf),
 }
 
-// TODO: this should be an interface
 /// A "write ahead" logger that helps ensure asset importing is transactional.
 /// Prior to processing an asset, we write to the log to indicate it has started
 /// After processing an asset, we write to the log to indicate it has finished.
 /// On startup, the log can be read to determine if any transactions were incomplete.
+// TODO: this should be an interface
 pub(crate) struct ProcessorTransactionLog {
     log_file: File,
 }
 
+/// An error that occurs when reading from the [`ProcessorTransactionLog`] fails.
 #[derive(Error, Debug)]
 pub enum ReadLogError {
     #[error("Encountered an invalid log line: '{0}'")]
@@ -28,6 +30,7 @@ pub enum ReadLogError {
     Io(#[from] futures_io::Error),
 }
 
+/// An error that occurs when writing to the [`ProcessorTransactionLog`] fails.
 #[derive(Error, Debug)]
 #[error(
     "Failed to write {log_entry:?} to the asset processor log. This is not recoverable. {error}"
@@ -37,6 +40,7 @@ pub struct WriteLogError {
     error: futures_io::Error,
 }
 
+/// An error that occurs when validating the [`ProcessorTransactionLog`] fails.
 #[derive(Error, Debug)]
 pub enum ValidateLogError {
     #[error(transparent)]
@@ -45,6 +49,7 @@ pub enum ValidateLogError {
     EntryErrors(Vec<LogEntryError>),
 }
 
+/// An error that occurs when validating individual [`ProcessorTransactionLog`] entries.
 #[derive(Error, Debug)]
 pub enum LogEntryError {
     #[error("Encountered a duplicate process asset transaction: {0:?}")]
@@ -68,7 +73,7 @@ impl ProcessorTransactionLog {
         base_path.join(LOG_PATH)
     }
     /// Create a new, fresh log file. This will delete the previous log file if it exists.
-    pub async fn new() -> Result<Self, futures_io::Error> {
+    pub(crate) async fn new() -> Result<Self, futures_io::Error> {
         let path = Self::full_log_path();
         match async_fs::remove_file(&path).await {
             Ok(_) => { /* successfully removed file */ }
@@ -85,7 +90,7 @@ impl ProcessorTransactionLog {
         })
     }
 
-    pub async fn read() -> Result<Vec<LogEntry>, ReadLogError> {
+    pub(crate) async fn read() -> Result<Vec<LogEntry>, ReadLogError> {
         let mut log_lines = Vec::new();
         let mut file = match File::open(Self::full_log_path()).await {
             Ok(file) => file,
@@ -113,7 +118,7 @@ impl ProcessorTransactionLog {
         Ok(log_lines)
     }
 
-    pub async fn validate() -> Result<(), ValidateLogError> {
+    pub(crate) async fn validate() -> Result<(), ValidateLogError> {
         let mut transactions: HashSet<PathBuf> = Default::default();
         let mut errors: Vec<LogEntryError> = Vec::new();
         let entries = Self::read().await?;
@@ -144,7 +149,7 @@ impl ProcessorTransactionLog {
         Ok(())
     }
 
-    pub async fn begin_path(&mut self, path: &Path) -> Result<(), WriteLogError> {
+    pub(crate) async fn begin_path(&mut self, path: &Path) -> Result<(), WriteLogError> {
         self.write(&format!("{ENTRY_BEGIN}{}\n", path.to_string_lossy()))
             .await
             .map_err(|e| WriteLogError {
@@ -153,7 +158,7 @@ impl ProcessorTransactionLog {
             })
     }
 
-    pub async fn end_path(&mut self, path: &Path) -> Result<(), WriteLogError> {
+    pub(crate) async fn end_path(&mut self, path: &Path) -> Result<(), WriteLogError> {
         self.write(&format!("{ENTRY_END}{}\n", path.to_string_lossy()))
             .await
             .map_err(|e| WriteLogError {
