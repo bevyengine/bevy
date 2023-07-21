@@ -27,6 +27,7 @@
 mod audio;
 mod audio_output;
 mod audio_source;
+mod note;
 mod sinks;
 
 #[allow(missing_docs)]
@@ -34,13 +35,14 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle, Decodable,
-        GlobalVolume, PlaybackSettings, SpatialAudioBundle, SpatialAudioSink,
-        SpatialAudioSourceBundle, SpatialSettings,
+        GlobalVolume, Note, NoteBundle, PlaybackSettings, SpatialAudioBundle, SpatialAudioSink,
+        SpatialAudioSourceBundle, SpatialNoteBundle, SpatialSettings,
     };
 }
 
 pub use audio::*;
 pub use audio_source::*;
+pub use note::*;
 
 pub use rodio::cpal::Sample as CpalSample;
 pub use rodio::source::Source;
@@ -77,6 +79,8 @@ impl Plugin for AudioPlugin {
             app.add_audio_source::<AudioSource>();
             app.init_asset_loader::<AudioLoader>();
         }
+
+        app.add_audio_source::<Note>();
     }
 }
 
