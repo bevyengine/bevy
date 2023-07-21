@@ -1,13 +1,12 @@
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Rect, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    camera::Camera,
+    camera::{Camera, CameraProjection},
     color::Color,
     extract_resource::ExtractResource,
-    prelude::Projection,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
@@ -401,9 +400,18 @@ pub struct Cascade {
     pub(crate) texel_size: f32,
 }
 
-pub fn update_directional_light_cascades(
+pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &mut Cascades)>) {
+    for (directional_light, mut cascades) in lights.iter_mut() {
+        if !directional_light.shadows_enabled {
+            continue;
+        }
+        cascades.cascades.clear();
+    }
+}
+
+pub fn build_directional_light_cascades<P: CameraProjection + Component>(
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    views: Query<(Entity, &GlobalTransform, &Projection, &Camera)>,
+    views: Query<(Entity, &GlobalTransform, &P, &Camera)>,
     mut lights: Query<(
         &GlobalTransform,
         &DirectionalLight,
@@ -453,17 +461,8 @@ pub fn update_directional_light_cascades(
                     };
                     let z_far = -far_bound;
 
-                    let corners = match projection {
-                        Projection::Perspective(projection) => frustum_corners(
-                            projection.aspect_ratio,
-                            (projection.fov / 2.).tan(),
-                            z_near,
-                            z_far,
-                        ),
-                        Projection::Orthographic(projection) => {
-                            frustum_corners_ortho(projection.area, z_near, z_far)
-                        }
-                    };
+                    let corners = projection.get_frustum_corners(z_near, z_far);
+
                     calculate_cascade(
                         corners,
                         directional_light_shadow_map.size as f32,
@@ -475,36 +474,6 @@ pub fn update_directional_light_cascades(
             cascades.cascades.insert(view_entity, view_cascades);
         }
     }
-}
-
-fn frustum_corners_ortho(area: Rect, z_near: f32, z_far: f32) -> [Vec3A; 8] {
-    // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
-    [
-        Vec3A::new(area.max.x, area.min.y, z_near), // bottom right
-        Vec3A::new(area.max.x, area.max.y, z_near), // top right
-        Vec3A::new(area.min.x, area.max.y, z_near), // top left
-        Vec3A::new(area.min.x, area.min.y, z_near), // bottom left
-        Vec3A::new(area.max.x, area.min.y, z_far),  // bottom right
-        Vec3A::new(area.max.x, area.max.y, z_far),  // top right
-        Vec3A::new(area.min.x, area.max.y, z_far),  // top left
-        Vec3A::new(area.min.x, area.min.y, z_far),  // bottom left
-    ]
-}
-
-fn frustum_corners(aspect_ratio: f32, tan_half_fov: f32, z_near: f32, z_far: f32) -> [Vec3A; 8] {
-    let a = z_near.abs() * tan_half_fov;
-    let b = z_far.abs() * tan_half_fov;
-    // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
-    [
-        Vec3A::new(a * aspect_ratio, -a, z_near),  // bottom right
-        Vec3A::new(a * aspect_ratio, a, z_near),   // top right
-        Vec3A::new(-a * aspect_ratio, a, z_near),  // top left
-        Vec3A::new(-a * aspect_ratio, -a, z_near), // bottom left
-        Vec3A::new(b * aspect_ratio, -b, z_far),   // bottom right
-        Vec3A::new(b * aspect_ratio, b, z_far),    // top right
-        Vec3A::new(-b * aspect_ratio, b, z_far),   // top left
-        Vec3A::new(-b * aspect_ratio, -b, z_far),  // bottom left
-    ]
 }
 
 /// Returns a [`Cascade`] for the frustum defined by `frustum_corners`.

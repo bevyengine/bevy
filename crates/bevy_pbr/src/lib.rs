@@ -58,7 +58,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::CameraUpdateSystem,
     extract_resource::ExtractResourcePlugin,
-    prelude::Color,
+    prelude::{Color, Projection},
     render_graph::RenderGraph,
     render_phase::sort_phase_system,
     render_resource::Shader,
@@ -216,7 +216,11 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(VisibilitySystems::CheckVisibility)
                         .after(CameraUpdateSystem),
-                    update_directional_light_cascades
+                    (
+                        clear_directional_light_cascades,
+                        build_directional_light_cascades::<Projection>,
+                    )
+                        .chain()
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystem::TransformPropagate)
                         .after(CameraUpdateSystem),
