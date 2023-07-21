@@ -91,7 +91,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
         self.uniforms.push(self.temp.clone());
 
         self.current_offset +=
-            round_up(self.temp.size().get(), self.dynamic_offset_alignment as u64) as u32;
+            align_to_next(self.temp.size().get(), self.dynamic_offset_alignment as u64) as u32;
 
         self.temp.0.clear();
     }
@@ -115,8 +115,9 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
 }
 
 #[inline]
-fn round_up(v: u64, a: u64) -> u64 {
-    ((v + a - 1) / a) * a
+fn align_to_next(value: u64, alignment: u64) -> u64 {
+    debug_assert!(alignment & (alignment - 1) == 0);
+    ((value - 1) | (alignment - 1)) + 1
 }
 
 // ----------------------------------------------------------------------------
