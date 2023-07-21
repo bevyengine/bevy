@@ -301,7 +301,7 @@ impl Plugin for PbrPlugin {
                         .in_set(ViewSet::PrepareUniforms),
                     // A sync is needed after prepare_clusters, before prepare_mesh_view_bind_groups,
                     // because prepare_clusters inserts ViewClusterBindings on views
-                    apply_system_buffers
+                    apply_deferred
                         .in_set(RenderSet::Prepare)
                         .after(render::prepare_clusters)
                         .before(prepare_mesh_view_bind_groups),
