@@ -14,7 +14,6 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::Uuid;
 use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
@@ -633,71 +632,75 @@ pub fn prepare_sprites(
         let image_bind_groups = &mut *image_bind_groups;
 
         for mut transparent_phase in &mut phases {
-            // Impossible starting values that will be replaced on the first iteration
-            let mut current_batch = &mut SpriteBatch {
-                image_handle_id: HandleId::Id(Uuid::nil(), u64::MAX),
-                colored: false,
-                range: 0..0,
-            };
-            let mut current_batch_index = 0;
-            let mut current_image_size = Vec2::ZERO;
+            let mut batch_item_index = 0;
+            let mut batch_image_size = Vec2::ZERO;
 
-            // Add a phase item for each sprite, and detect when successive items can be batched.
+            // Iterate through the phase items and detect when successive sprites that can be batched.
             // Spawn an entity with a `SpriteBatch` component for each possible batch.
             // Compatible items share the same entity.
-            // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
-            // by any other phase item (and they can interrupt other items from batching).
             for item_index in 0..transparent_phase.items.len() {
                 let item = &transparent_phase.items[item_index];
                 if let Ok(extracted_sprite) = extracted_sprites.get(item.entity) {
-                    let mut new_batch = SpriteBatch {
-                        image_handle_id: extracted_sprite.image_handle_id,
-                        colored: extracted_sprite.color != Color::WHITE,
-                        range: 0..0,
-                    };
-                    if &new_batch != current_batch {
-                        // Set-up a new possible batch
-                        if let Some(gpu_image) =
-                            gpu_images.get(&Handle::weak(new_batch.image_handle_id))
-                        {
-                            if new_batch.colored {
-                                new_batch.range = colored_index..colored_index;
-                            } else {
-                                new_batch.range = index..index;
-                            }
-                            batches.push((item.entity, new_batch));
-                            current_batch = &mut batches.last_mut().unwrap().1;
-                            current_batch_index = item_index;
-                            current_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
+                    // Take a reference to an existing compatible batch if one exists
+                    let existing_batch = batches.last_mut().filter(|(_, batch)| {
+                        batch.image_handle_id == extracted_sprite.image_handle_id
+                            && batch.colored == (extracted_sprite.color != Color::WHITE)
+                            && batch_image_size != Vec2::ZERO
+                    });
 
-                            image_bind_groups
-                                .values
-                                .entry(Handle::weak(current_batch.image_handle_id))
-                                .or_insert_with(|| {
-                                    render_device.create_bind_group(&BindGroupDescriptor {
-                                        entries: &[
-                                            BindGroupEntry {
-                                                binding: 0,
-                                                resource: BindingResource::TextureView(
-                                                    &gpu_image.texture_view,
-                                                ),
-                                            },
-                                            BindGroupEntry {
-                                                binding: 1,
-                                                resource: BindingResource::Sampler(
-                                                    &gpu_image.sampler,
-                                                ),
-                                            },
-                                        ],
-                                        label: Some("sprite_material_bind_group"),
-                                        layout: &sprite_pipeline.material_layout,
-                                    })
-                                });
-                        } else {
-                            // Skip this item if the texture is not ready
-                            continue;
+                    // Either keep the reference to the compatible batch or create a new batch
+                    let (_, target_batch) = match existing_batch {
+                        Some(batch) => batch,
+                        None => {
+                            if let Some(gpu_image) =
+                                gpu_images.get(&Handle::weak(extracted_sprite.image_handle_id))
+                            {
+                                let colored = extracted_sprite.color != Color::WHITE;
+                                let new_batch = SpriteBatch {
+                                    image_handle_id: extracted_sprite.image_handle_id,
+                                    colored,
+                                    range: if colored {
+                                        colored_index..colored_index
+                                    } else {
+                                        index..index
+                                    },
+                                };
+
+                                image_bind_groups
+                                    .values
+                                    .entry(Handle::weak(new_batch.image_handle_id))
+                                    .or_insert_with(|| {
+                                        render_device.create_bind_group(&BindGroupDescriptor {
+                                            entries: &[
+                                                BindGroupEntry {
+                                                    binding: 0,
+                                                    resource: BindingResource::TextureView(
+                                                        &gpu_image.texture_view,
+                                                    ),
+                                                },
+                                                BindGroupEntry {
+                                                    binding: 1,
+                                                    resource: BindingResource::Sampler(
+                                                        &gpu_image.sampler,
+                                                    ),
+                                                },
+                                            ],
+                                            label: Some("sprite_material_bind_group"),
+                                            layout: &sprite_pipeline.material_layout,
+                                        })
+                                    });
+
+                                batches.push((item.entity, new_batch));
+                                batch_item_index = item_index;
+                                batch_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
+
+                                batches.last_mut().unwrap()
+                            } else {
+                                // Skip this item if the texture is not ready
+                                continue;
+                            }
                         }
-                    }
+                    };
 
                     // Calculate vertex data for this item
                     let mut uvs = QUAD_UVS;
@@ -709,13 +712,13 @@ pub fn prepare_sprites(
                     }
 
                     // By default, the size of the quad is the size of the texture
-                    let mut quad_size = current_image_size;
+                    let mut quad_size = batch_image_size;
 
                     // If a rect is specified, adjust UVs and the size of the quad
                     if let Some(rect) = extracted_sprite.rect {
                         let rect_size = rect.size();
                         for uv in &mut uvs {
-                            *uv = (rect.min + *uv * rect_size) / current_image_size;
+                            *uv = (rect.min + *uv * rect_size) / batch_image_size;
                         }
                         quad_size = rect_size;
                     }
@@ -746,8 +749,8 @@ pub fn prepare_sprites(
                             });
                         }
                         colored_index += QUAD_INDICES.len() as u32;
-                        transparent_phase.items[current_batch_index].batch_size += 1;
-                        current_batch.range.end += QUAD_INDICES.len() as u32;
+                        transparent_phase.items[batch_item_index].batch_size += 1;
+                        target_batch.range.end += QUAD_INDICES.len() as u32;
                     } else {
                         for i in QUAD_INDICES {
                             sprite_meta.vertices.push(SpriteVertex {
@@ -756,12 +759,9 @@ pub fn prepare_sprites(
                             });
                         }
                         index += QUAD_INDICES.len() as u32;
-                        transparent_phase.items[current_batch_index].batch_size += 1;
-                        current_batch.range.end += QUAD_INDICES.len() as u32;
+                        transparent_phase.items[batch_item_index].batch_size += 1;
+                        target_batch.range.end += QUAD_INDICES.len() as u32;
                     }
-                } else {
-                    // end batch
-                    current_batch.image_handle_id = HandleId::Id(Uuid::nil(), u64::MAX);
                 }
             }
         }
