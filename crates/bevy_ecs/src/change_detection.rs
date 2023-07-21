@@ -736,7 +736,8 @@ impl<'a> MutUntyped<'a> {
     }
 
     /// Turn this [`MutUntyped`] into a [`Mut`] by mapping the inner [`PtrMut`] to another value,
-    /// without flagging a change. [`MutUntyped`] equivalent of [`Mut::map_unchanged`].
+    /// without flagging a change. 
+    /// This function is the untyped equivalent of [`Mut::map_unchanged`].
     ///
     /// You should never modify the argument passed to the closure – if you want to modify the data without flagging a change, consider using [`bypass_change_detection`](DetectChangesMut::bypass_change_detection) to make your intent explicit.
     ///
@@ -1088,7 +1089,7 @@ mod tests {
         let reflect_from_ptr = <ReflectFromPtr as FromType<i32>>::from_type();
 
         let mut new = value.map_unchanged(|ptr| {
-            // SAFETY: ptr has type of ReflectFromPtr
+            // SAFETY: The underlying type of `ptr` matches `reflect_from_ptr`.
             let value = unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) };
             value
         });
