@@ -168,7 +168,6 @@ impl_downcast!(Settings);
 
 /// The () processor should never be called. This implementation exists to make the meta format nicer to work with.
 impl Process for () {
-    type Asset = ();
     type Settings = ();
     type OutputLoader = ();
 

@@ -30,6 +30,21 @@ use std::{
 };
 use thiserror::Error;
 
+/// A "background" asset processor that reads asset values from a source [`AssetProvider`] (which corresponds to an [`AssetReader`] / [`AssetWriter`] pair),
+/// processes them in some way, and writes them to a destination [`AssetProvider`].
+///
+/// This will create .meta files (a human-editable serialized form of [`AssetMeta`]) in the source [`AssetProvider`] for assets that
+/// that can be loaded and/or processed. This enables developers to configure how each asset should be loaded and/or processed.
+///
+/// [`AssetProcessor`] can be run in the background while a Bevy App is running. Changes to assets will be automatically detected and hot-reloaded.
+///
+/// Assets will only be re-processed if they have been changed. A hash of each asset source is stored in the metadata of the processed version of the
+/// asset, which is used to determine if the asset source has actually changed.  
+///
+/// A [`ProcessorTransactionLog`] is produced, which uses "write-ahead logging" to make the [`AssetProcessor`] crash and failure resistant. If a failed/unfinished
+/// transaction from a previous run is detected, the affected asset(s) will be re-processed.
+///
+/// [`AssetProcessor`] can be cloned. It is backed by an [`Arc`] so clones will share state. Clones can be freely used in parallel.
 #[derive(Resource, Clone)]
 pub struct AssetProcessor {
     server: AssetServer,
@@ -56,6 +71,7 @@ pub struct AssetProcessorData {
 }
 
 impl AssetProcessor {
+    /// Creates a new [`AssetProcessor`] instance.
     pub fn new(
         providers: &mut AssetProviders,
         source: &AssetProvider,
@@ -76,6 +92,8 @@ impl AssetProcessor {
         Self { server, data }
     }
 
+    /// The "internal" [`AssetServer`] used by the [`AssetProcessor`]. This is _separate_ from the asset processor used by
+    /// the main App. It has different processor-specific configuration and a different ID space.
     pub fn server(&self) -> &AssetServer {
         &self.server
     }
@@ -91,26 +109,32 @@ impl AssetProcessor {
         }
     }
 
+    /// Retrieves the current [`ProcessorState`]
     pub async fn get_state(&self) -> ProcessorState {
         *self.data.state.read().await
     }
 
+    /// Retrieves the "source" [`AssetReader`] (the place where user-provided unprocessed "asset sources" are stored)
     pub fn source_reader(&self) -> &dyn AssetReader {
         &*self.data.source_reader
     }
 
+    /// Retrieves the "source" [`AssetWriter`] (the place where user-provided unprocessed "asset sources" are stored)
     pub fn source_writer(&self) -> &dyn AssetWriter {
         &*self.data.source_writer
     }
 
+    /// Retrieves the "destination" [`AssetReader`] (the place where processed / [`AssetProcessor`]-managed assets are stored)
     pub fn destination_reader(&self) -> &dyn AssetReader {
         &*self.data.destination_reader
     }
 
+    /// Retrieves the "destination" [`AssetWriter`] (the place where processed / [`AssetProcessor`]-managed assets are stored)
     pub fn destination_writer(&self) -> &dyn AssetWriter {
         &*self.data.destination_writer
     }
 
+    /// Starts the processor in a background thread.
     pub fn start(_processor: Res<Self>) {
         #[cfg(target_arch = "wasm32")]
         error!("Cannot run AssetProcessor on WASM yet.");
@@ -124,7 +148,12 @@ impl AssetProcessor {
         }
     }
 
-    // TODO: document this process in full and describe why the "eventual consistency" works
+    /// Processes all assets. This will:
+    /// * Scan the [`ProcessorTransactionLog`] and recover from any failures detected
+    /// * Scan the destination [`AssetProvider`] to build the current view of already processed assets.
+    /// * Scan the source [`AssetProvider`] and remove any processed "destination" assets that are invalid or no longer exist.
+    /// * For each asset in the `source` [`AssetProvider`], kick off a new "process job", which will process the asset
+    /// (if the latest version of the asset has not been processed).
     #[cfg(not(target_arch = "wasm32"))]
     pub fn process_assets(&self) {
         let start_time = std::time::Instant::now();
@@ -143,6 +172,7 @@ impl AssetProcessor {
         debug!("Processing finished in {:?}", end_time - start_time);
     }
 
+    /// Listens for changes to assets in the source [`AssetProvider`] and update state accordingly.
     // PERF: parallelize change event processing
     pub async fn listen_for_source_change_events(&self) {
         debug!("Listening for changes to source assets");
@@ -259,22 +289,26 @@ impl AssetProcessor {
         }
     }
 
+    /// Register a new asset processor.
     pub fn register_processor<P: Process>(&self, processor: P) {
         let mut process_plans = self.data.processors.write();
         process_plans.insert(std::any::type_name::<P>(), Arc::new(processor));
     }
 
+    /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
     pub fn set_default_processor<P: Process>(&self, extension: &str) {
         let mut default_processors = self.data.default_processors.write();
         default_processors.insert(extension.to_string(), std::any::type_name::<P>());
     }
 
+    /// Returns the default processor for the given `extension`, if it exists.
     pub fn get_default_processor(&self, extension: &str) -> Option<Arc<dyn ErasedProcessor>> {
         let default_processors = self.data.default_processors.read();
         let key = default_processors.get(extension)?;
         self.data.processors.read().get(key).cloned()
     }
 
+    /// Returns the processor with the given `processor_type_name`, if it exists.
     pub fn get_processor(&self, processor_type_name: &str) -> Option<Arc<dyn ErasedProcessor>> {
         let processors = self.data.processors.read();
         processors.get(processor_type_name).cloned()
@@ -282,6 +316,8 @@ impl AssetProcessor {
 
     /// Populates the initial view of each asset by scanning the source and destination folders.
     /// This info will later be used to determine whether or not to re-process an asset
+    ///
+    /// This will validate transactions and recover failed transactions when necessary.
     #[allow(unused)]
     async fn initialize(&self) -> Result<(), InitializeError> {
         self.validate_transaction_log_and_recover().await;
@@ -382,6 +418,12 @@ impl AssetProcessor {
         }
     }
 
+    /// Processes the asset (if it has not already been processed or the asset source has changed).
+    /// If the asset has "process dependencies" (relies on the values of other assets), it will asynchronously await until
+    /// the dependencies have been processed (See [`ProcessorGatedReader`], which is used in the [`AssetProcessor`]'s [`AssetServer`]
+    /// to block reads until the asset is processed).
+    ///
+    /// [`LoadContext`]: crate::loader::LoadContext
     async fn process_asset(&self, path: &Path) {
         let result = self.process_asset_internal(path).await;
         let mut infos = self.data.asset_infos.write().await;
@@ -657,6 +699,7 @@ impl AssetProcessorData {
         }
     }
 
+    /// Returns a future that will not finish until the path has been processed.
     pub async fn wait_until_processed(&self, path: &Path) -> ProcessStatus {
         self.wait_until_initialized().await;
         let mut receiver = {
@@ -674,6 +717,7 @@ impl AssetProcessorData {
         receiver.recv().await.unwrap()
     }
 
+    /// Returns a future that will not finish until the processor has been initialized.
     pub async fn wait_until_initialized(&self) {
         let receiver = {
             let state = self.state.read().await;
@@ -691,6 +735,7 @@ impl AssetProcessorData {
         }
     }
 
+    /// Returns a future that will not finish until processing has finished.
     pub async fn wait_until_finished(&self) {
         let receiver = {
             let state = self.state.read().await;
@@ -709,12 +754,14 @@ impl AssetProcessorData {
     }
 }
 
+/// The (successful) result of processing an asset
 #[derive(Debug, Clone)]
 pub enum ProcessResult {
     Processed(ProcessedInfo),
     SkippedNotChanged,
 }
 
+/// The final status of processing an asset
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum ProcessStatus {
     Processed,
@@ -771,10 +818,10 @@ pub struct ProcessorAssetInfos {
     /// be considered non-existent.
     /// NOTE: YOU MUST USE `get_or_insert` TO ADD ITEMS TO THIS COLLECTION
     infos: HashMap<AssetPath<'static>, ProcessorAssetInfo>,
-    /// Dependants for assets that don't exist. This exists to track "dangling" asset references due to deleted / missing files.
-    /// If the dependant asset is added, it can "resolve" these dependancies and re-compute those assets.
+    /// Dependents for assets that don't exist. This exists to track "dangling" asset references due to deleted / missing files.
+    /// If the dependant asset is added, it can "resolve" these dependencies and re-compute those assets.
     /// Therefore this _must_ always be consistent with the `infos` data. If a new asset is added to `infos`, it should
-    /// check this maps for dependencies and add them. If an asset is removed, it should update the dependants here.
+    /// check this maps for dependencies and add them. If an asset is removed, it should update the dependents here.
     non_existent_dependants: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
     check_reprocess_queue: VecDeque<PathBuf>,
 }
@@ -783,7 +830,7 @@ impl ProcessorAssetInfos {
     fn get_or_insert(&mut self, asset_path: AssetPath<'static>) -> &mut ProcessorAssetInfo {
         self.infos.entry(asset_path.clone()).or_insert_with(|| {
             let mut info = ProcessorAssetInfo::default();
-            // track existing dependenants by resolving existing "hanging" dependants.
+            // track existing dependents by resolving existing "hanging" dependents.
             if let Some(dependants) = self.non_existent_dependants.remove(&asset_path) {
                 info.dependants = dependants;
             }
@@ -811,6 +858,7 @@ impl ProcessorAssetInfos {
         }
     }
 
+    /// Finalize processing the asset, which will incorporate the result of the processed asset into the in-memory view the processed assets.
     async fn finish_processing(
         &mut self,
         asset_path: AssetPath<'static>,
@@ -882,7 +930,7 @@ impl ProcessorAssetInfos {
         }
     }
 
-    // Remove the info for the given path. This should only happen if an asset's source is removed / non-existent
+    /// Remove the info for the given path. This should only happen if an asset's source is removed / non-existent
     async fn remove(&mut self, asset_path: &AssetPath<'static>) {
         let info = self.infos.remove(asset_path);
         if let Some(info) = info {
@@ -910,13 +958,20 @@ impl ProcessorAssetInfos {
     }
 }
 
+/// The current state of the [`AssetProcessor`].
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum ProcessorState {
+    /// The processor is still initializing, which involves scanning the current asset folders,
+    /// constructing an in-memory view of the asset space, recovering from previous errors / crashes,
+    /// and cleaning up old / unused assets.
     Initializing,
+    /// The processor is currently processing assets.
     Processing,
+    /// The processor has finished processing all valid assets and reporting invalid assets.
     Finished,
 }
 
+/// An error that occurs when initializing the [`AssetProcessor`].
 #[derive(Error, Debug)]
 pub enum InitializeError {
     #[error(transparent)]

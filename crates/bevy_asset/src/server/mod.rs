@@ -1,7 +1,5 @@
 mod info;
 
-pub use info::*;
-
 use crate::{
     folder::LoadedFolder,
     io::{AssetReader, AssetReaderError, AssetSourceEvent, AssetWatcher, Reader},
@@ -20,6 +18,7 @@ use bevy_tasks::IoTaskPool;
 use bevy_utils::{HashMap, HashSet};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
+use info::*;
 use parking_lot::RwLock;
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;

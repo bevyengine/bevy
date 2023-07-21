@@ -48,7 +48,7 @@ impl AssetInfo {
 }
 
 #[derive(Default)]
-pub struct AssetInfos {
+pub(crate) struct AssetInfos {
     path_to_id: HashMap<AssetPath<'static>, UntypedAssetId>,
     infos: HashMap<UntypedAssetId, AssetInfo>,
     pub(crate) handle_providers: HashMap<TypeId, AssetHandleProvider>,
@@ -203,6 +203,7 @@ impl AssetInfos {
         Self::process_handle_drop_internal(&mut self.infos, &mut self.path_to_id, id)
     }
 
+    /// Updates AssetInfo / load state for an asset that has finished loading (and relevant dependencies / dependents).
     pub(crate) fn process_asset_load(
         &mut self,
         loaded_asset_id: UntypedAssetId,
@@ -335,6 +336,7 @@ impl AssetInfos {
         }
     }
 
+    /// Recursively propagates loaded state up the dependency tree.
     fn propagate_loaded_state(
         infos: &mut AssetInfos,
         id: UntypedAssetId,
@@ -366,6 +368,7 @@ impl AssetInfos {
         }
     }
 
+    /// Recursively propagates failed state up the dependency tree
     fn propagate_failed_state(infos: &mut AssetInfos, id: UntypedAssetId) {
         let dependants_waiting_on_rec_load = if let Some(info) = infos.get_mut(id) {
             info.loading_rec_dependencies -= 1;
@@ -454,9 +457,13 @@ impl AssetInfos {
     }
 }
 
+/// Determines how a handle should be initialized
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(crate) enum HandleLoadingMode {
+    /// The handle is for an asset that isn't loading/loaded yet.
     NotLoading,
+    /// The handle is for an asset that is being _requested_ to load (if it isn't already loading)
     Request,
+    /// The handle is for an asset that is being forced to load (even if it has already loaded)
     Force,
 }
