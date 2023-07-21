@@ -233,13 +233,17 @@ fn draw_all_aabbs(
 }
 
 fn color_from_entity(entity: Entity) -> Color {
-    use bevy_utils::RandomState;
-    const U64_TO_DEGREES: f32 = 360.0 / u64::MAX as f32;
-    const STATE: RandomState =
-        RandomState::with_seeds(5952553601252303067, 16866614500153072625, 0, 0);
+    let index = entity.index();
 
-    let hash = STATE.hash_one(entity);
-    let hue = hash as f32 * U64_TO_DEGREES;
+    // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
+    //
+    // See https://en.wikipedia.org/wiki/Low-discrepancy_sequence
+    // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
+    // so that the closer the numbers are, the larger the difference of their image.
+    const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
+    const RATIO_360: f32 = 360.0 / u32::MAX as f32;
+    let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
+
     Color::hsl(hue, 1., 0.5)
 }
 
