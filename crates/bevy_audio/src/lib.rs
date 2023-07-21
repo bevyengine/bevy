@@ -27,7 +27,7 @@
 mod audio;
 mod audio_output;
 mod audio_source;
-mod note;
+mod pitch;
 mod sinks;
 
 #[allow(missing_docs)]
@@ -42,7 +42,7 @@ pub mod prelude {
 
 pub use audio::*;
 pub use audio_source::*;
-pub use note::*;
+pub use pitch::*;
 
 pub use rodio::cpal::Sample as CpalSample;
 pub use rodio::source::Source;
