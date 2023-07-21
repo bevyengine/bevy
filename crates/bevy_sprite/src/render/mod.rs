@@ -575,6 +575,7 @@ pub fn queue_sprites(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_sprites(
     mut commands: Commands,
     mut previous_len: Local<usize>,
