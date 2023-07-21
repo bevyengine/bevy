@@ -488,6 +488,65 @@ impl BundleInfo {
         });
     }
 
+    /// This writes components from a given [`Bundle`] to the given entity, without overwriting existing component types.
+    ///
+    /// # Safety
+    ///
+    /// `bundle_component_status` must return the "correct" [`ComponentStatus`] for each component
+    /// in the [`Bundle`], with respect to the entity's original archetype (prior to the bundle being added)
+    /// For example, if the original archetype already has `ComponentA` and `T` also has `ComponentA`, the status
+    /// should be `Mutated`. If the original archetype does not have `ComponentA`, the status should be `Added`.
+    /// When "inserting" a bundle into an existing entity, [`AddBundle`](crate::archetype::AddBundle)
+    /// should be used, which will report `Added` vs `Mutated` status based on the current archetype's structure.
+    /// When spawning a bundle, [`SpawnBundleStatus`] can be used instead, which removes the need
+    /// to look up the [`AddBundle`](crate::archetype::AddBundle) in the archetype graph, which requires
+    /// ownership of the entity's current archetype.
+    ///
+    /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
+    /// `entity`, `bundle` must match this [`BundleInfo`]'s type
+    #[inline]
+    #[allow(clippy::too_many_arguments)]
+    unsafe fn write_components_unique<T: DynamicBundle, S: BundleComponentStatus>(
+        &self,
+        table: &mut Table,
+        sparse_sets: &mut SparseSets,
+        bundle_component_status: &S,
+        entity: Entity,
+        table_row: TableRow,
+        change_tick: Tick,
+        bundle: T,
+    ) {
+        // NOTE: get_components calls this closure on each component in "bundle order".
+        // bundle_info.component_ids are also in "bundle order"
+        let mut bundle_component = 0;
+        bundle.get_components(&mut |storage_type, component_ptr| {
+            let component_id = *self.component_ids.get_unchecked(bundle_component);
+            match storage_type {
+                StorageType::Table => {
+                    let column =
+                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                        // the target table contains the component.
+                        unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
+                    // SAFETY: bundle_component is a valid index for this bundle
+                    match bundle_component_status.get_status(bundle_component) {
+                        ComponentStatus::Added => {
+                            column.initialize(table_row, component_ptr, change_tick);
+                        }
+                        _ => (),
+                    }
+                }
+                StorageType::SparseSet => {
+                    let sparse_set =
+                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                        // a sparse set exists for the component.
+                        unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
+                    sparse_set.insert_unique(entity, component_ptr, change_tick);
+                }
+            }
+            bundle_component += 1;
+        });
+    }
+
     /// Adds a bundle to the given archetype and returns the resulting archetype. This could be the
     /// same [`ArchetypeId`], in the event that adding the given bundle does not result in an
     /// [`Archetype`] change. Results are cached in the [`Archetype`] graph to avoid redundant work.
@@ -730,6 +789,154 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                         .debug_checked_unwrap()
                 };
                 self.bundle_info.write_components(
+                    new_table,
+                    self.sparse_sets,
+                    add_bundle,
+                    entity,
+                    move_result.new_row,
+                    self.change_tick,
+                    bundle,
+                );
+                new_location
+            }
+        }
+    }
+
+    /// # Safety
+    /// `entity` must currently exist in the source archetype for this inserter. `archetype_row`
+    /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
+    #[inline]
+    pub unsafe fn insert_unique<T: DynamicBundle>(
+        &mut self,
+        entity: Entity,
+        location: EntityLocation,
+        bundle: T,
+    ) -> EntityLocation {
+        match &mut self.result {
+            InsertBundleResult::SameArchetype => {
+                // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
+                // SAFETY: The edge is assured to be initialized when creating the BundleInserter
+                let add_bundle = unsafe {
+                    self.archetype
+                        .edges()
+                        .get_add_bundle_internal(self.bundle_info.id)
+                        .debug_checked_unwrap()
+                };
+                self.bundle_info.write_components_unique(
+                    self.table,
+                    self.sparse_sets,
+                    add_bundle,
+                    entity,
+                    location.table_row,
+                    self.change_tick,
+                    bundle,
+                );
+                location
+            }
+            InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
+                let result = self.archetype.swap_remove(location.archetype_row);
+                if let Some(swapped_entity) = result.swapped_entity {
+                    let swapped_location =
+                        // SAFETY: If the swap was successful, swapped_entity must be valid.
+                        unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
+                    self.entities.set(
+                        swapped_entity.index(),
+                        EntityLocation {
+                            archetype_id: swapped_location.archetype_id,
+                            archetype_row: location.archetype_row,
+                            table_id: swapped_location.table_id,
+                            table_row: swapped_location.table_row,
+                        },
+                    );
+                }
+                let new_location = new_archetype.allocate(entity, result.table_row);
+                self.entities.set(entity.index(), new_location);
+
+                // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
+                // SAFETY: The edge is assured to be initialized when creating the BundleInserter
+                let add_bundle = unsafe {
+                    self.archetype
+                        .edges()
+                        .get_add_bundle_internal(self.bundle_info.id)
+                        .debug_checked_unwrap()
+                };
+                self.bundle_info.write_components_unique(
+                    self.table,
+                    self.sparse_sets,
+                    add_bundle,
+                    entity,
+                    result.table_row,
+                    self.change_tick,
+                    bundle,
+                );
+                new_location
+            }
+            InsertBundleResult::NewArchetypeNewTable {
+                new_archetype,
+                new_table,
+            } => {
+                let result = self.archetype.swap_remove(location.archetype_row);
+                if let Some(swapped_entity) = result.swapped_entity {
+                    let swapped_location =
+                        // SAFETY: If the swap was successful, swapped_entity must be valid.
+                        unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
+                    self.entities.set(
+                        swapped_entity.index(),
+                        EntityLocation {
+                            archetype_id: swapped_location.archetype_id,
+                            archetype_row: location.archetype_row,
+                            table_id: swapped_location.table_id,
+                            table_row: swapped_location.table_row,
+                        },
+                    );
+                }
+                // PERF: store "non bundle" components in edge, then just move those to avoid
+                // redundant copies
+                let move_result = self
+                    .table
+                    .move_to_superset_unchecked(result.table_row, new_table);
+                let new_location = new_archetype.allocate(entity, move_result.new_row);
+                self.entities.set(entity.index(), new_location);
+
+                // if an entity was moved into this entity's table spot, update its table row
+                if let Some(swapped_entity) = move_result.swapped_entity {
+                    let swapped_location =
+                        // SAFETY: If the swap was successful, swapped_entity must be valid.
+                        unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
+                    let swapped_archetype = if self.archetype.id() == swapped_location.archetype_id
+                    {
+                        &mut *self.archetype
+                    } else if new_archetype.id() == swapped_location.archetype_id {
+                        new_archetype
+                    } else {
+                        // SAFETY: the only two borrowed archetypes are above and we just did collision checks
+                        &mut *self
+                            .archetypes_ptr
+                            .add(swapped_location.archetype_id.index())
+                    };
+
+                    self.entities.set(
+                        swapped_entity.index(),
+                        EntityLocation {
+                            archetype_id: swapped_location.archetype_id,
+                            archetype_row: swapped_location.archetype_row,
+                            table_id: swapped_location.table_id,
+                            table_row: result.table_row,
+                        },
+                    );
+                    swapped_archetype
+                        .set_entity_table_row(swapped_location.archetype_row, result.table_row);
+                }
+
+                // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
+                // SAFETY: The edge is assured to be initialized when creating the BundleInserter
+                let add_bundle = unsafe {
+                    self.archetype
+                        .edges()
+                        .get_add_bundle_internal(self.bundle_info.id)
+                        .debug_checked_unwrap()
+                };
+                self.bundle_info.write_components_unique(
                     new_table,
                     self.sparse_sets,
                     add_bundle,

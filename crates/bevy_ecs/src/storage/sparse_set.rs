@@ -187,6 +187,30 @@ impl ComponentSparseSet {
         }
     }
 
+    /// Inserts the `entity` key and component `value` pair into this sparse set if they do not exist
+    ///
+    /// # Safety
+    /// The `value` pointer must point to a valid address that matches the [`Layout`](std::alloc::Layout)
+    /// inside the [`ComponentInfo`] given when constructing this sparse set.
+    pub(crate) unsafe fn insert_unique(
+        &mut self,
+        entity: Entity,
+        value: OwningPtr<'_>,
+        change_tick: Tick,
+    ) {
+        if self.sparse.get(entity.index()).is_none() {
+            let dense_index = self.dense.len();
+            self.dense.push(value, ComponentTicks::new(change_tick));
+            self.sparse.insert(entity.index(), dense_index as u32);
+            #[cfg(debug_assertions)]
+            assert_eq!(self.entities.len(), dense_index);
+            #[cfg(not(debug_assertions))]
+            self.entities.push(entity.index());
+            #[cfg(debug_assertions)]
+            self.entities.push(entity);
+        }
+    }
+
     /// Returns `true` if the sparse set has a component value for the provided `entity`.
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool {
