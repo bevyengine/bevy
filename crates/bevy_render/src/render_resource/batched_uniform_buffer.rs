@@ -32,7 +32,12 @@ const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u32 = 1 << 12;
 /// offsets to bind group commands, and if indices into the array can be passed
 /// in via other means, it enables batching of draw commands.
 pub struct BatchedUniformBuffer<T: GpuArrayBufferable> {
+    // Batches of fixed-size arrays of T are written to this buffer so that
+    // each batch in a fixed-size array can be bound at a dynamic offset.
     uniforms: DynamicUniformBuffer<MaxCapacityArray<Vec<T>>>,
+    // A batch of T are gathered into this `MaxCapacityArray` until it is full,
+    // then it is written into the `DynamicUniformBuffer`, cleared, and new T
+    // are gathered here, and so on for each batch.
     temp: MaxCapacityArray<Vec<T>>,
     current_offset: u32,
     dynamic_offset_alignment: u32,
