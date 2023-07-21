@@ -528,11 +528,10 @@ impl BundleInfo {
                         // the target table contains the component.
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
-                    match bundle_component_status.get_status(bundle_component) {
-                        ComponentStatus::Added => {
-                            column.initialize(table_row, component_ptr, change_tick);
-                        }
-                        _ => (),
+                    if let ComponentStatus::Added =
+                        bundle_component_status.get_status(bundle_component)
+                    {
+                        column.initialize(table_row, component_ptr, change_tick);
                     }
                 }
                 StorageType::SparseSet => {
