@@ -35,8 +35,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle, Decodable,
-        GlobalVolume, Note, NoteBundle, PlaybackSettings, SpatialAudioBundle, SpatialAudioSink,
-        SpatialAudioSourceBundle, SpatialNoteBundle, SpatialSettings,
+        GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioBundle, SpatialAudioSink,
+        SpatialAudioSourceBundle, SpatialPitchBundle, SpatialSettings,
     };
 }
 
@@ -80,7 +80,7 @@ impl Plugin for AudioPlugin {
             app.init_asset_loader::<AudioLoader>();
         }
 
-        app.add_audio_source::<Note>();
+        app.add_audio_source::<Pitch>();
     }
 }
 
