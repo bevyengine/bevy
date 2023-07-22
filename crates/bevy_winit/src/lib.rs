@@ -455,7 +455,11 @@ pub fn winit_runner(mut app: App) {
                     WindowEvent::KeyboardInput { ref input, .. } => {
                         input_events
                             .keyboard_input
-                            .send(converters::convert_keyboard_input(input, window_entity));
+                            .send(converters::convert_keyboard_input(
+                                input,
+                                window_entity,
+                                Some(Instant::now()),
+                            ));
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let physical_position = DVec2::new(position.x, position.y);
@@ -466,6 +470,7 @@ pub fn winit_runner(mut app: App) {
                             window: window_entity,
                             position: (physical_position / window.resolution.scale_factor())
                                 .as_vec2(),
+                            time: Some(Instant::now()),
                         });
                     }
                     WindowEvent::CursorEntered { .. } => {
@@ -485,6 +490,7 @@ pub fn winit_runner(mut app: App) {
                             button: converters::convert_mouse_button(button),
                             state: converters::convert_element_state(state),
                             window: window_entity,
+                            time: Some(Instant::now()),
                         });
                     }
                     WindowEvent::TouchpadMagnify { delta, .. } => {
@@ -504,6 +510,7 @@ pub fn winit_runner(mut app: App) {
                                 x,
                                 y,
                                 window: window_entity,
+                                time: Some(Instant::now()),
                             });
                         }
                         event::MouseScrollDelta::PixelDelta(p) => {
@@ -512,6 +519,7 @@ pub fn winit_runner(mut app: App) {
                                 x: p.x as f32,
                                 y: p.y as f32,
                                 window: window_entity,
+                                time: Some(Instant::now()),
                             });
                         }
                     },
@@ -521,7 +529,11 @@ pub fn winit_runner(mut app: App) {
                         // Event
                         input_events
                             .touch_input
-                            .send(converters::convert_touch_input(touch, location));
+                            .send(converters::convert_touch_input(
+                                touch,
+                                location,
+                                Some(Instant::now()),
+                            ));
                     }
                     WindowEvent::ReceivedCharacter(c) => {
                         input_events.character_input.send(ReceivedCharacter {
@@ -661,6 +673,7 @@ pub fn winit_runner(mut app: App) {
 
                 mouse_motion.send(MouseMotion {
                     delta: Vec2::new(x as f32, y as f32),
+                    time: Some(Instant::now()),
                 });
             }
             event::Event::Suspended => {

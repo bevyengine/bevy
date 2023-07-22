@@ -4,6 +4,7 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::event::Event;
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
+use bevy_utils::Instant;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -132,6 +133,9 @@ pub struct CursorMoved {
     pub window: Entity,
     /// The cursor position in logical pixels.
     pub position: Vec2,
+    /// Time at which the input occurred.
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    pub time: Option<Instant>,
 }
 
 /// An event that is sent whenever the user's cursor enters a window.

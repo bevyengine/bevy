@@ -6,17 +6,20 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
+use bevy_utils::Instant;
 use bevy_window::{CursorIcon, WindowLevel, WindowTheme};
 
 pub fn convert_keyboard_input(
     keyboard_input: &winit::event::KeyboardInput,
     window: Entity,
+    time: Option<Instant>,
 ) -> KeyboardInput {
     KeyboardInput {
         scan_code: keyboard_input.scancode,
         state: convert_element_state(keyboard_input.state),
         key_code: keyboard_input.virtual_keycode.map(convert_virtual_key_code),
         window,
+        time,
     }
 }
 
@@ -39,6 +42,7 @@ pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseBut
 pub fn convert_touch_input(
     touch_input: winit::event::Touch,
     location: winit::dpi::LogicalPosition<f64>,
+    time: Option<Instant>,
 ) -> TouchInput {
     TouchInput {
         phase: match touch_input.phase {
@@ -61,6 +65,7 @@ pub fn convert_touch_input(
             winit::event::Force::Normalized(x) => ForceTouch::Normalized(x),
         }),
         id: touch_input.id,
+        time,
     }
 }
 

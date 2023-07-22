@@ -2,7 +2,7 @@ use bevy_ecs::event::{Event, EventReader};
 use bevy_ecs::system::{ResMut, Resource};
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, Instant};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -49,6 +49,9 @@ pub struct TouchInput {
     pub force: Option<ForceTouch>,
     /// The unique identifier of the finger.
     pub id: u64,
+    /// Time at which the input occurred.
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    pub time: Option<Instant>,
 }
 
 /// A force description of a [`Touch`](crate::touch::Touch) input.
