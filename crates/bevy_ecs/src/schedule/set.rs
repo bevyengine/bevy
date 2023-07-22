@@ -42,15 +42,25 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
     ///
     /// # Invariant
     ///
-    /// The following invariant must be hold:
+    /// The following invariants must be hold:
     ///
-    /// `ptr_eq(a.dyn_static_ref(), b.dyn_static_ref()) == true` if and only if `a.dyn_eq(b)`
+    /// `ptr_eq(a.dyn_static_ref(), b.dyn_static_ref())` if `a.dyn_eq(b)`
+    /// `ptr_neq(a.dyn_static_ref(), b.dyn_static_ref())` if `!a.dyn_eq(b)`
     ///
-    /// where `ptr_eq` is defined as :
+    /// where `ptr_eq` and `ptr_neq` are defined as :
     /// ```
     /// fn ptr_eq<T>(x: Option<&'static T>, y: Option<&'static T>) -> bool {
     ///     match (x, y) {
     ///         (Some(x), Some(y)) => std::ptr::eq(x, y),
+    ///         (None, None) => true,
+    ///         _ => false,
+    ///     }
+    /// }
+    ///
+    /// fn ptr_neq<T>(x: Option<&'static T>, y: Option<&'static T>) -> bool {
+    ///     match (x, y) {
+    ///         (Some(x), Some(y)) => !std::ptr::eq(x, y),
+    ///         (None, None) => true,
     ///         _ => false,
     ///     }
     /// }
