@@ -256,7 +256,7 @@ mod tests {
         schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
         world.add_schedule(schedule, A);
 
-        let interned: Interned<dyn ScheduleLabel> = (&A as &dyn ScheduleLabel).into();
+        let interned = InternedScheduleLabel::from(&A as &dyn ScheduleLabel);
 
         world.insert_resource(Flag(false));
         world.run_schedule(interned);

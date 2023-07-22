@@ -379,7 +379,7 @@ impl App {
         schedule: impl ScheduleLabel,
         systems: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
-        let schedule: InternedScheduleLabel = (&schedule as &dyn ScheduleLabel).into();
+        let schedule = InternedScheduleLabel::from(&schedule as &dyn ScheduleLabel);
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if let Some(schedule) = schedules.get_mut(schedule) {
@@ -399,7 +399,7 @@ impl App {
         schedule: impl ScheduleLabel,
         set: impl IntoSystemSetConfig,
     ) -> &mut Self {
-        let schedule: InternedScheduleLabel = (&schedule as &dyn ScheduleLabel).into();
+        let schedule = InternedScheduleLabel::from(&schedule as &dyn ScheduleLabel);
         let mut schedules = self.world.resource_mut::<Schedules>();
         if let Some(schedule) = schedules.get_mut(schedule) {
             schedule.configure_set(set);
@@ -417,7 +417,7 @@ impl App {
         schedule: impl ScheduleLabel,
         sets: impl IntoSystemSetConfigs,
     ) -> &mut Self {
-        let schedule: InternedScheduleLabel = (&schedule as &dyn ScheduleLabel).into();
+        let schedule = InternedScheduleLabel::from(&schedule as &dyn ScheduleLabel);
         let mut schedules = self.world.resource_mut::<Schedules>();
         if let Some(schedule) = schedules.get_mut(schedule) {
             schedule.configure_sets(sets);
@@ -810,7 +810,7 @@ impl App {
     ///
     /// See [`App::add_schedule`] to pass in a pre-constructed schedule.
     pub fn init_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
-        let label: InternedScheduleLabel = (&label as &dyn ScheduleLabel).into();
+        let label = InternedScheduleLabel::from(&label as &dyn ScheduleLabel);
         let mut schedules = self.world.resource_mut::<Schedules>();
         if !schedules.contains(label) {
             schedules.insert(label, Schedule::new());
@@ -840,7 +840,7 @@ impl App {
         label: impl ScheduleLabel,
         f: impl FnOnce(&mut Schedule),
     ) -> &mut Self {
-        let label: InternedScheduleLabel = (&label as &dyn ScheduleLabel).into();
+        let label = InternedScheduleLabel::from(&label as &dyn ScheduleLabel);
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if schedules.get(label).is_none() {
