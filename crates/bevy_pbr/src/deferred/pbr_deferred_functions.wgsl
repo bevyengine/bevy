@@ -59,17 +59,21 @@ fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
 
 // Creates the deferred gbuffer from a PbrInput
 fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
+     // Only monochrome occlusion supported. May not be worth including at all.
+     // Some models have baked occlusion, GLTF only supports monochrome. 
+     // Real time occlusion is applied in the deferred lighting pass.
+    let occlusion = dot(in.occlusion, vec3<f32>(0.2126, 0.7152, 0.0722));
 #ifdef WEBGL // More crunched for webgl so we can also fit depth
     var props = deft::pack_unorm3x4_plus_unorm_20_(vec4(
         in.material.reflectance,
         in.material.metallic,
-        in.occlusion, 
+        occlusion, 
         depth));
 #else
     var props = deft::pack_unorm4x8_(vec4(
         in.material.reflectance, // could be fewer bits
         in.material.metallic, // could be fewer bits
-        dot(in.occlusion, vec3<f32>(0.2126, 0.7152, 0.0722)), // is this usually included / worth including?
+        occlusion, // is this worth including?
         0.0)); // spare
 #endif // WEBGL
     let flags = deft::deferred_flags_from_mesh_mat_flags(in.flags, in.material.flags);

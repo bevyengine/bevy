@@ -4,7 +4,7 @@
 #import bevy_pbr::prepass_utils
 #import bevy_pbr::pbr_types STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT, STANDARD_MATERIAL_FLAGS_UNLIT_BIT
 #import bevy_pbr::pbr_functions as pbr_functions
-#import bevy_pbr::pbr_deferred_types
+#import bevy_pbr::pbr_deferred_types as deft
 #import bevy_pbr::pbr_deferred_functions pbr_input_from_deferred_gbuffer, unpack_unorm3x4_plus_unorm_20_
 #import bevy_pbr::mesh_view_types FOG_MODE_OFF
 
@@ -24,7 +24,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let deferred_data = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
 
 #ifdef WEBGL
-    frag_coord.z = unpack_unorm3x4_plus_unorm_20_(deferred_data.b).w;
+    frag_coord.z = deft::unpack_unorm3x4_plus_unorm_20_(deferred_data.b).w;
 #else
     frag_coord.z = bevy_pbr::prepass_utils::prepass_depth(in.position, 0u);
 #endif

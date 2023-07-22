@@ -107,7 +107,12 @@ impl ViewNode for DeferredNode {
                     view: &deferred_texture.default_view,
                     resolve_target: None,
                     ops: Operations {
-                        load: LoadOp::Clear(Color::rgba_linear(0.0, 0.0, 0.0, 0.0).into()),
+                        // If we clear with LoadOp::Clear(Default::default()) we get these errors:
+                        // Chrome: GL_INVALID_OPERATION: No defined conversion between clear value and attachment format.
+                        // Firefox: WebGL warning: clearBufferu?[fi]v: This attachment is of type FLOAT, but this function is of type UINT.
+                        // It should by ok to not clear since we are using the stencil buffer to identify which
+                        // pixels the deferred lighting passes should run on. And the depth buffer is cleared.
+                        load: LoadOp::Load,
                         store: true,
                     },
                 }),
@@ -170,6 +175,10 @@ impl ViewNode for DeferredNode {
         }
 
         if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
+            // Warnings in WebGL:
+            // Chrome: [.WebGL-0000002C0AD19500] GL_INVALID_FRAMEBUFFER_OPERATION: Framebuffer is incomplete: Depth stencil texture in color attachment.
+            // Firefox: WebGL warning: copyTexSubImage: Framebuffer not complete. (status: 0x8cd6) COLOR_ATTACHMENT0: Attachment's format is missing required color/depth/stencil bits.
+
             // Copy depth buffer to texture
             render_context.command_encoder().copy_texture_to_texture(
                 view_depth_texture.texture.as_image_copy(),
