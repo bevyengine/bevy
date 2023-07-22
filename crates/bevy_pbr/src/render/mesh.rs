@@ -582,13 +582,14 @@ bitflags::bitflags! {
         const NORMAL_PREPASS                    = (1 << 4);
         const DEFERRED_PREPASS                  = (1 << 5);
         const MOTION_VECTOR_PREPASS             = (1 << 6);
-        const MAY_DISCARD                       = (1 << 7); // Guards shader codepaths that may discard, allowing early depth tests in most cases
+        const SHADOW_PASS                       = (1 << 7);
+        const MAY_DISCARD                       = (1 << 8); // Guards shader codepaths that may discard, allowing early depth tests in most cases
                                                             // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
-        const ENVIRONMENT_MAP                   = (1 << 8);
-        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 9);
-        const DEPTH_CLAMP_ORTHO                 = (1 << 10);
-        const TAA                               = (1 << 11);
-        const MORPH_TARGETS                     = (1 << 12);
+        const ENVIRONMENT_MAP                   = (1 << 9);
+        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 10);
+        const DEPTH_CLAMP_ORTHO                 = (1 << 11);
+        const TAA                               = (1 << 12);
+        const MORPH_TARGETS                     = (1 << 13);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //

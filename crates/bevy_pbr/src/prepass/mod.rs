@@ -51,7 +51,7 @@ use crate::{
     prepare_lights, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
     MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshUniform,
     OpaqueRendererMethod, RenderMaterials, SetDeferredStencilReference, SetMaterialBindGroup,
-    SetMeshBindGroup,
+    SetMeshBindGroup, SHADOW_FORMAT,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -575,32 +575,51 @@ where
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: Some(DepthStencilState {
-                format: DEPTH_PREPASS_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
-                stencil: StencilState {
-                    front: StencilFaceState {
-                        compare: CompareFunction::Always,
-                        fail_op: StencilOperation::Keep,
-                        depth_fail_op: StencilOperation::Keep,
-                        pass_op: StencilOperation::Replace,
+            depth_stencil: if key.mesh_key.contains(MeshPipelineKey::SHADOW_PASS) {
+                Some(DepthStencilState {
+                    format: SHADOW_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: CompareFunction::GreaterEqual,
+                    stencil: StencilState {
+                        front: StencilFaceState::IGNORE,
+                        back: StencilFaceState::IGNORE,
+                        read_mask: 0,
+                        write_mask: 0,
                     },
-                    back: StencilFaceState {
-                        compare: CompareFunction::Always,
-                        fail_op: StencilOperation::Keep,
-                        depth_fail_op: StencilOperation::Keep,
-                        pass_op: StencilOperation::Replace,
+                    bias: DepthBiasState {
+                        constant: 0,
+                        slope_scale: 0.0,
+                        clamp: 0.0,
                     },
-                    read_mask: 0,
-                    write_mask: u32::MAX,
-                },
-                bias: DepthBiasState {
-                    constant: 0,
-                    slope_scale: 0.0,
-                    clamp: 0.0,
-                },
-            }),
+                })
+            } else {
+                Some(DepthStencilState {
+                    format: DEPTH_PREPASS_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: CompareFunction::GreaterEqual,
+                    stencil: StencilState {
+                        front: StencilFaceState {
+                            compare: CompareFunction::Always,
+                            fail_op: StencilOperation::Keep,
+                            depth_fail_op: StencilOperation::Keep,
+                            pass_op: StencilOperation::Replace,
+                        },
+                        back: StencilFaceState {
+                            compare: CompareFunction::Always,
+                            fail_op: StencilOperation::Keep,
+                            depth_fail_op: StencilOperation::Keep,
+                            pass_op: StencilOperation::Replace,
+                        },
+                        read_mask: 0,
+                        write_mask: u32::MAX,
+                    },
+                    bias: DepthBiasState {
+                        constant: 0,
+                        slope_scale: 0.0,
+                        clamp: 0.0,
+                    },
+                })
+            },
             multisample: MultisampleState {
                 count: key.mesh_key.msaa_samples(),
                 mask: !0,
