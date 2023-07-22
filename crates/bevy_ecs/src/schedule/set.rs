@@ -1,23 +1,26 @@
 use std::any::TypeId;
+use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
-use bevy_utils::define_boxed_label;
+use bevy_utils::define_interned_label;
+use bevy_utils::intern::{Interned, Leak, OptimizedInterner, StaticRef};
 use bevy_utils::label::DynHash;
 
 use crate::system::{
     ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
 };
 
-define_boxed_label!(ScheduleLabel);
+define_interned_label!(ScheduleLabel, SCHEDULE_LABEL_INTERNER);
 
-/// A shorthand for `Box<dyn SystemSet>`.
-pub type BoxedSystemSet = Box<dyn SystemSet>;
-/// A shorthand for `Box<dyn ScheduleLabel>`.
-pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
+static SYSTEM_SET_INTERNER: OptimizedInterner<dyn SystemSet> = OptimizedInterner::new();
+/// A shorthand for `Interned<dyn SystemSet>`.
+pub type InternedSystemSet = Interned<dyn SystemSet>;
+/// A shorthand for `Interned<dyn ScheduleLabel>`.
+pub type InternedScheduleLabel = Interned<dyn ScheduleLabel>;
 
 /// Types that identify logical groups of systems.
 pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
@@ -30,8 +33,55 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
     fn is_anonymous(&self) -> bool {
         false
     }
+
     /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
+
+    /// Returns a static reference to a value equal to `self`, if possible.
+    /// This method is used to optimize [interning](bevy_utils::intern).
+    ///
+    /// # Invariant
+    ///
+    /// The following invariant must be hold:
+    ///
+    /// `ptr_eq(a.dyn_static_ref(), b.dyn_static_ref()) == true` if and only if `a.dyn_eq(b)`
+    ///
+    /// where `ptr_eq` is defined as :
+    /// ```
+    /// fn ptr_eq<T>(x: Option<&'static T>, y: Option<&'static T>) -> bool {
+    ///     match (x, y) {
+    ///         (Some(x), Some(y)) => std::ptr::eq(x, y),
+    ///         _ => false,
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// # Provided implementation
+    ///
+    /// The provided implementation always returns `None`.
+    fn dyn_static_ref(&self) -> Option<&'static dyn SystemSet> {
+        None
+    }
+}
+
+impl From<&dyn SystemSet> for Interned<dyn SystemSet> {
+    fn from(value: &dyn SystemSet) -> Interned<dyn SystemSet> {
+        struct LeakHelper<'a>(&'a dyn SystemSet);
+
+        impl<'a> Borrow<dyn SystemSet> for LeakHelper<'a> {
+            fn borrow(&self) -> &dyn SystemSet {
+                self.0
+            }
+        }
+
+        impl<'a> Leak<dyn SystemSet> for LeakHelper<'a> {
+            fn leak(self) -> &'static dyn SystemSet {
+                Box::leak(self.0.dyn_clone())
+            }
+        }
+
+        SYSTEM_SET_INTERNER.intern(LeakHelper(value))
+    }
 }
 
 impl PartialEq for dyn SystemSet {
@@ -48,9 +98,9 @@ impl Hash for dyn SystemSet {
     }
 }
 
-impl Clone for Box<dyn SystemSet> {
-    fn clone(&self) -> Self {
-        self.dyn_clone()
+impl StaticRef for dyn SystemSet {
+    fn static_ref(&self) -> Option<&'static dyn SystemSet> {
+        self.dyn_static_ref()
     }
 }
 
@@ -106,6 +156,10 @@ impl<T> SystemSet for SystemTypeSet<T> {
 
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
         Box::new(*self)
+    }
+
+    fn dyn_static_ref(&self) -> Option<&'static dyn SystemSet> {
+        Some(&Self(PhantomData))
     }
 }
 
@@ -187,7 +241,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_boxed_label() {
+    fn test_interned_label() {
         use crate::{self as bevy_ecs, world::World};
 
         #[derive(Resource)]
@@ -202,14 +256,14 @@ mod tests {
         schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
         world.add_schedule(schedule, A);
 
-        let boxed: Box<dyn ScheduleLabel> = Box::new(A);
+        let interned: Interned<dyn ScheduleLabel> = (&A as &dyn ScheduleLabel).into();
 
         world.insert_resource(Flag(false));
-        world.run_schedule(&boxed);
+        world.run_schedule(interned);
         assert!(world.resource::<Flag>().0);
 
         world.insert_resource(Flag(false));
-        world.run_schedule(boxed);
+        world.run_schedule(interned);
         assert!(world.resource::<Flag>().0);
     }
 }

@@ -65,12 +65,12 @@ where
 /// # Example
 ///
 /// ```
-/// # use bevy_utils::define_boxed_label;
-/// define_boxed_label!(MyNewLabelTrait);
+/// # use bevy_utils::define_interned_label;
+/// define_interned_label!(MyNewLabelTrait, MY_NEW_LABEL_TRAIT_INTERNER);
 /// ```
 #[macro_export]
-macro_rules! define_boxed_label {
-    ($label_trait_name:ident) => {
+macro_rules! define_interned_label {
+    ($label_trait_name:ident, $interner_name:ident) => {
         /// A strongly-typed label.
         pub trait $label_trait_name: 'static + Send + Sync + ::std::fmt::Debug {
             /// Return's the [TypeId] of this label, or the the ID of the
@@ -95,6 +95,32 @@ macro_rules! define_boxed_label {
             ///
             /// [`Hasher`]: std::hash::Hasher
             fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher);
+
+            /// Returns a static reference to a value equal to `self`, if possible.
+            /// This method is used to optimize [interning](bevy_utils::intern).
+            ///
+            /// # Invariant
+            ///
+            /// The following invariant must be hold:
+            ///
+            /// `ptr_eq(a.dyn_static_ref(), b.dyn_static_ref()) == true` if and only if `a.dyn_eq(b)`
+            ///
+            /// where `ptr_eq` is defined as :
+            /// ```
+            /// fn ptr_eq<T>(x: Option<&'static T>, y: Option<&'static T>) -> bool {
+            ///     match (x, y) {
+            ///         (Some(x), Some(y)) => std::ptr::eq(x, y),
+            ///         _ => false,
+            ///     }
+            /// }
+            /// ```
+            ///
+            /// # Provided implementation
+            ///
+            /// The provided implementation always returns `None`.
+            fn dyn_static_ref(&self) -> Option<&'static dyn $label_trait_name> {
+                None
+            }
         }
 
         impl PartialEq for dyn $label_trait_name {
@@ -111,36 +137,36 @@ macro_rules! define_boxed_label {
             }
         }
 
-        impl ::std::convert::AsRef<dyn $label_trait_name> for dyn $label_trait_name {
-            #[inline]
-            fn as_ref(&self) -> &Self {
-                self
+        impl ::bevy_utils::intern::StaticRef for dyn $label_trait_name {
+            fn static_ref(&self) -> std::option::Option<&'static dyn $label_trait_name> {
+                self.dyn_static_ref()
             }
         }
 
-        impl Clone for Box<dyn $label_trait_name> {
-            fn clone(&self) -> Self {
-                self.dyn_clone()
-            }
-        }
+        static $interner_name: ::bevy_utils::intern::OptimizedInterner<dyn $label_trait_name> =
+            ::bevy_utils::intern::OptimizedInterner::new();
 
-        impl $label_trait_name for Box<dyn $label_trait_name> {
-            fn inner_type_id(&self) -> ::std::any::TypeId {
-                (**self).inner_type_id()
-            }
+        impl From<&dyn $label_trait_name>
+            for ::bevy_utils::intern::Interned<dyn $label_trait_name>
+        {
+            fn from(
+                value: &dyn $label_trait_name,
+            ) -> ::bevy_utils::intern::Interned<dyn $label_trait_name> {
+                struct LeakHelper<'a>(&'a dyn $label_trait_name);
 
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
-                // Be explicit that we want to use the inner value
-                // to avoid infinite recursion.
-                (**self).dyn_clone()
-            }
+                impl<'a> ::std::borrow::Borrow<dyn $label_trait_name> for LeakHelper<'a> {
+                    fn borrow(&self) -> &dyn $label_trait_name {
+                        self.0
+                    }
+                }
 
-            fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq {
-                (**self).as_dyn_eq()
-            }
+                impl<'a> ::bevy_utils::intern::Leak<dyn $label_trait_name> for LeakHelper<'a> {
+                    fn leak(self) -> &'static dyn $label_trait_name {
+                        Box::leak(self.0.dyn_clone())
+                    }
+                }
 
-            fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher) {
-                (**self).dyn_hash(state);
+                $interner_name.intern(LeakHelper(value))
             }
         }
     };

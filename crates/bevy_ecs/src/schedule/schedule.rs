@@ -26,7 +26,7 @@ use crate::{
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s.
 #[derive(Default, Resource)]
 pub struct Schedules {
-    inner: HashMap<BoxedScheduleLabel, Schedule>,
+    inner: HashMap<InternedScheduleLabel, Schedule>,
 }
 
 impl Schedules {
@@ -41,37 +41,40 @@ impl Schedules {
     ///
     /// If the map already had an entry for `label`, `schedule` is inserted,
     /// and the old schedule is returned. Otherwise, `None` is returned.
-    pub fn insert(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> Option<Schedule> {
-        let label = label.dyn_clone();
-        self.inner.insert(label, schedule)
+    pub fn insert(
+        &mut self,
+        label: impl Into<InternedScheduleLabel>,
+        schedule: Schedule,
+    ) -> Option<Schedule> {
+        self.inner.insert(label.into(), schedule)
     }
 
     /// Removes the schedule corresponding to the `label` from the map, returning it if it existed.
-    pub fn remove(&mut self, label: &dyn ScheduleLabel) -> Option<Schedule> {
-        self.inner.remove(label)
+    pub fn remove(&mut self, label: impl Into<InternedScheduleLabel>) -> Option<Schedule> {
+        self.inner.remove(&label.into())
     }
 
     /// Removes the (schedule, label) pair corresponding to the `label` from the map, returning it if it existed.
     pub fn remove_entry(
         &mut self,
-        label: &dyn ScheduleLabel,
-    ) -> Option<(Box<dyn ScheduleLabel>, Schedule)> {
-        self.inner.remove_entry(label)
+        label: impl Into<InternedScheduleLabel>,
+    ) -> Option<(InternedScheduleLabel, Schedule)> {
+        self.inner.remove_entry(&label.into())
     }
 
     /// Does a schedule with the provided label already exist?
-    pub fn contains(&self, label: &dyn ScheduleLabel) -> bool {
-        self.inner.contains_key(label)
+    pub fn contains(&self, label: impl Into<InternedScheduleLabel>) -> bool {
+        self.inner.contains_key(&label.into())
     }
 
     /// Returns a reference to the schedule associated with `label`, if it exists.
-    pub fn get(&self, label: &dyn ScheduleLabel) -> Option<&Schedule> {
-        self.inner.get(label)
+    pub fn get(&self, label: impl Into<InternedScheduleLabel>) -> Option<&Schedule> {
+        self.inner.get(&label.into())
     }
 
     /// Returns a mutable reference to the schedule associated with `label`, if it exists.
-    pub fn get_mut(&mut self, label: &dyn ScheduleLabel) -> Option<&mut Schedule> {
-        self.inner.get_mut(label)
+    pub fn get_mut(&mut self, label: impl Into<InternedScheduleLabel>) -> Option<&mut Schedule> {
+        self.inner.get_mut(&label.into())
     }
 
     /// Returns an iterator over all schedules. Iteration order is undefined.
@@ -329,11 +332,11 @@ impl Dag {
 
 /// A [`SystemSet`] with metadata, stored in a [`ScheduleGraph`].
 struct SystemSetNode {
-    inner: BoxedSystemSet,
+    inner: InternedSystemSet,
 }
 
 impl SystemSetNode {
-    pub fn new(set: BoxedSystemSet) -> Self {
+    pub fn new(set: InternedSystemSet) -> Self {
         Self { inner: set }
     }
 
@@ -378,7 +381,7 @@ pub struct ScheduleGraph {
     system_conditions: Vec<Vec<BoxedCondition>>,
     system_sets: Vec<SystemSetNode>,
     system_set_conditions: Vec<Vec<BoxedCondition>>,
-    system_set_ids: HashMap<BoxedSystemSet, NodeId>,
+    system_set_ids: HashMap<InternedSystemSet, NodeId>,
     uninit: Vec<(NodeId, usize)>,
     hierarchy: Dag,
     dependency: Dag,
@@ -532,7 +535,7 @@ impl ScheduleGraph {
                     if more_than_one_entry {
                         let set = AnonymousSet::new();
                         for config in &mut configs {
-                            config.in_set_inner(set.dyn_clone());
+                            config.in_set_inner((&set as &dyn SystemSet).into());
                         }
                         let mut set_config = set.into_config();
                         set_config.conditions.extend(collective_conditions);
@@ -694,7 +697,7 @@ impl ScheduleGraph {
 
         let id = match self.system_set_ids.get(&set) {
             Some(&id) => id,
-            None => self.add_set(set.dyn_clone()),
+            None => self.add_set(set),
         };
 
         // graph updates are immediate
@@ -708,23 +711,24 @@ impl ScheduleGraph {
         Ok(id)
     }
 
-    fn add_set(&mut self, set: BoxedSystemSet) -> NodeId {
+    fn add_set(&mut self, set: InternedSystemSet) -> NodeId {
         let id = NodeId::Set(self.system_sets.len());
-        self.system_sets.push(SystemSetNode::new(set.dyn_clone()));
+        self.system_sets.push(SystemSetNode::new(set));
         self.system_set_conditions.push(Vec::new());
         self.system_set_ids.insert(set, id);
         id
     }
 
     fn check_set(&mut self, id: &NodeId, set: &dyn SystemSet) -> Result<(), ScheduleBuildError> {
-        match self.system_set_ids.get(set) {
+        let set = set.into();
+        match self.system_set_ids.get(&set) {
             Some(set_id) => {
                 if id == set_id {
                     return Err(ScheduleBuildError::HierarchyLoop(self.get_node_name(id)));
                 }
             }
             None => {
-                self.add_set(set.dyn_clone());
+                self.add_set(set);
             }
         }
 
@@ -756,7 +760,7 @@ impl ScheduleGraph {
                     }
                 }
                 None => {
-                    self.add_set(set.dyn_clone());
+                    self.add_set(*set);
                 }
             }
         }
@@ -764,7 +768,7 @@ impl ScheduleGraph {
         if let Ambiguity::IgnoreWithSet(ambiguous_with) = &graph_info.ambiguous_with {
             for set in ambiguous_with {
                 if !self.system_set_ids.contains_key(set) {
-                    self.add_set(set.dyn_clone());
+                    self.add_set(*set);
                 }
             }
         }

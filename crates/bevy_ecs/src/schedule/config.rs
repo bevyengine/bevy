@@ -4,7 +4,7 @@ use crate::{
     schedule::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
-        set::{BoxedSystemSet, IntoSystemSet, SystemSet},
+        set::{InternedSystemSet, IntoSystemSet, SystemSet},
     },
     system::{BoxedSystem, IntoSystem, System},
 };
@@ -20,7 +20,7 @@ fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
     Box::new(condition_system)
 }
 
-fn ambiguous_with(graph_info: &mut GraphInfo, set: BoxedSystemSet) {
+fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
     match &mut graph_info.ambiguous_with {
         detection @ Ambiguity::Check => {
             *detection = Ambiguity::IgnoreWithSet(vec![set]);
@@ -83,20 +83,20 @@ impl SystemConfigs {
         })
     }
 
-    pub(crate) fn in_set_inner(&mut self, set: BoxedSystemSet) {
+    pub(crate) fn in_set_inner(&mut self, set: InternedSystemSet) {
         match self {
             SystemConfigs::SystemConfig(config) => {
                 config.graph_info.sets.push(set);
             }
             SystemConfigs::Configs { configs, .. } => {
                 for config in configs {
-                    config.in_set_inner(set.dyn_clone());
+                    config.in_set_inner(set);
                 }
             }
         }
     }
 
-    fn before_inner(&mut self, set: BoxedSystemSet) {
+    fn before_inner(&mut self, set: InternedSystemSet) {
         match self {
             SystemConfigs::SystemConfig(config) => {
                 config
@@ -106,13 +106,13 @@ impl SystemConfigs {
             }
             SystemConfigs::Configs { configs, .. } => {
                 for config in configs {
-                    config.before_inner(set.dyn_clone());
+                    config.before_inner(set);
                 }
             }
         }
     }
 
-    fn after_inner(&mut self, set: BoxedSystemSet) {
+    fn after_inner(&mut self, set: InternedSystemSet) {
         match self {
             SystemConfigs::SystemConfig(config) => {
                 config
@@ -122,7 +122,7 @@ impl SystemConfigs {
             }
             SystemConfigs::Configs { configs, .. } => {
                 for config in configs {
-                    config.after_inner(set.dyn_clone());
+                    config.after_inner(set);
                 }
             }
         }
@@ -141,14 +141,14 @@ impl SystemConfigs {
         }
     }
 
-    fn ambiguous_with_inner(&mut self, set: BoxedSystemSet) {
+    fn ambiguous_with_inner(&mut self, set: InternedSystemSet) {
         match self {
             SystemConfigs::SystemConfig(config) => {
                 ambiguous_with(&mut config.graph_info, set);
             }
             SystemConfigs::Configs { configs, .. } => {
                 for config in configs {
-                    config.ambiguous_with_inner(set.dyn_clone());
+                    config.ambiguous_with_inner(set);
                 }
             }
         }
@@ -307,20 +307,20 @@ impl IntoSystemConfigs<()> for SystemConfigs {
             "adding arbitrary systems to a system type set is not allowed"
         );
 
-        self.in_set_inner(set.dyn_clone());
+        self.in_set_inner((&set as &dyn SystemSet).into());
 
         self
     }
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.before_inner(set.dyn_clone());
+        self.before_inner((&set as &dyn SystemSet).into());
         self
     }
 
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.after_inner(set.dyn_clone());
+        self.after_inner((&set as &dyn SystemSet).into());
         self
     }
 
@@ -331,7 +331,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.ambiguous_with_inner(set.dyn_clone());
+        self.ambiguous_with_inner((&set as &dyn SystemSet).into());
         self
     }
 
@@ -382,13 +382,13 @@ all_tuples!(impl_system_collection, 1, 20, P, S);
 
 /// A [`SystemSet`] with scheduling metadata.
 pub struct SystemSetConfig {
-    pub(super) set: BoxedSystemSet,
+    pub(super) set: InternedSystemSet,
     pub(super) graph_info: GraphInfo,
     pub(super) conditions: Vec<BoxedCondition>,
 }
 
 impl SystemSetConfig {
-    fn new(set: BoxedSystemSet) -> Self {
+    fn new(set: InternedSystemSet) -> Self {
         // system type sets are automatically populated
         // to avoid unintentionally broad changes, they cannot be configured
         assert!(
@@ -445,11 +445,11 @@ pub trait IntoSystemSetConfig: Sized {
 
 impl<S: SystemSet> IntoSystemSetConfig for S {
     fn into_config(self) -> SystemSetConfig {
-        SystemSetConfig::new(Box::new(self))
+        SystemSetConfig::new((&self as &dyn SystemSet).into())
     }
 }
 
-impl IntoSystemSetConfig for BoxedSystemSet {
+impl IntoSystemSetConfig for InternedSystemSet {
     fn into_config(self) -> SystemSetConfig {
         SystemSetConfig::new(self)
     }
@@ -466,14 +466,14 @@ impl IntoSystemSetConfig for SystemSetConfig {
             set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
-        self.graph_info.sets.push(Box::new(set));
+        self.graph_info.sets.push((&set as &dyn SystemSet).into());
         self
     }
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         self.graph_info.dependencies.push(Dependency::new(
             DependencyKind::Before,
-            Box::new(set.into_system_set()),
+            (&set.into_system_set() as &dyn SystemSet).into(),
         ));
         self
     }
@@ -481,7 +481,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         self.graph_info.dependencies.push(Dependency::new(
             DependencyKind::After,
-            Box::new(set.into_system_set()),
+            (&set.into_system_set() as &dyn SystemSet).into(),
         ));
         self
     }
@@ -492,7 +492,10 @@ impl IntoSystemSetConfig for SystemSetConfig {
     }
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        ambiguous_with(&mut self.graph_info, Box::new(set.into_system_set()));
+        ambiguous_with(
+            &mut self.graph_info,
+            (&set.into_system_set() as &dyn SystemSet).into(),
+        );
         self
     }
 
@@ -566,40 +569,40 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
             "adding arbitrary systems to a system type set is not allowed"
         );
         for config in &mut self.sets {
-            config.graph_info.sets.push(set.dyn_clone());
+            config.graph_info.sets.push((&set as &dyn SystemSet).into());
         }
 
         self
     }
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = set.into_system_set();
+        let set = (&set.into_system_set() as &dyn SystemSet).into();
         for config in &mut self.sets {
             config
                 .graph_info
                 .dependencies
-                .push(Dependency::new(DependencyKind::Before, set.dyn_clone()));
+                .push(Dependency::new(DependencyKind::Before, set));
         }
 
         self
     }
 
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = set.into_system_set();
+        let set = (&set.into_system_set() as &dyn SystemSet).into();
         for config in &mut self.sets {
             config
                 .graph_info
                 .dependencies
-                .push(Dependency::new(DependencyKind::After, set.dyn_clone()));
+                .push(Dependency::new(DependencyKind::After, set));
         }
 
         self
     }
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = set.into_system_set();
+        let set = (&set.into_system_set() as &dyn SystemSet).into();
         for config in &mut self.sets {
-            ambiguous_with(&mut config.graph_info, set.dyn_clone());
+            ambiguous_with(&mut config.graph_info, set);
         }
 
         self
