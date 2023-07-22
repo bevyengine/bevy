@@ -3,7 +3,6 @@
 //! settings for 5 seconds before going back to the menu.
 
 use bevy::prelude::*;
-use bevy_internal::ui::LastInteraction;
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 

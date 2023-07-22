@@ -35,7 +35,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, widget::Label,
-        Interaction, UiScale,
+        Interaction, LastInteraction, UiScale,
     };
 }
 
