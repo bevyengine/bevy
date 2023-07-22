@@ -8,7 +8,7 @@ use bevy_ecs::{
         ScheduleLabel,
     },
 };
-use bevy_utils::{tracing::debug, HashMap, HashSet};
+use bevy_utils::{intern::Interned, tracing::debug, HashMap, HashSet};
 use std::{
     fmt::Debug,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
@@ -20,9 +20,11 @@ use bevy_utils::tracing::info_span;
 bevy_utils::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
     AppLabel,
-    /// A strongly-typed identifier for an [`AppLabel`].
-    AppLabelId,
+    APP_LABEL_INTERNER
 );
+
+/// A shorthand for `Interned<dyn AppLabel>`.
+pub type InternedAppLabel = Interned<dyn AppLabel>;
 
 pub(crate) enum AppError {
     DuplicatePlugin { plugin_name: String },
@@ -71,7 +73,7 @@ pub struct App {
     ///
     /// This is initially set to [`Main`].
     pub main_schedule_label: InternedScheduleLabel,
-    sub_apps: HashMap<AppLabelId, SubApp>,
+    sub_apps: HashMap<InternedAppLabel, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
     /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
@@ -749,16 +751,15 @@ impl App {
     pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
         match self.get_sub_app_mut(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
         }
     }
 
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
     /// an [`Err`] containing the given label.
-    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, AppLabelId> {
-        let label = label.as_label();
+    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
         self.sub_apps
-            .get_mut(&label)
+            .get_mut(&InternedAppLabel::from(&label as &dyn AppLabel))
             .map(|sub_app| &mut sub_app.app)
             .ok_or(label)
     }
@@ -771,25 +772,27 @@ impl App {
     pub fn sub_app(&self, label: impl AppLabel) -> &App {
         match self.get_sub_app(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
         }
     }
 
     /// Inserts an existing sub app into the app
     pub fn insert_sub_app(&mut self, label: impl AppLabel, sub_app: SubApp) {
-        self.sub_apps.insert(label.as_label(), sub_app);
+        self.sub_apps
+            .insert((&label as &dyn AppLabel).into(), sub_app);
     }
 
     /// Removes a sub app from the app. Returns [`None`] if the label doesn't exist.
     pub fn remove_sub_app(&mut self, label: impl AppLabel) -> Option<SubApp> {
-        self.sub_apps.remove(&label.as_label())
+        self.sub_apps
+            .remove(&InternedAppLabel::from(&label as &dyn AppLabel))
     }
 
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
     /// an [`Err`] containing the given label.
     pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
         self.sub_apps
-            .get(&label.as_label())
+            .get(&InternedAppLabel::from(&label as &dyn AppLabel))
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
     }

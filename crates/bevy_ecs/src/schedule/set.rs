@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
-use bevy_utils::define_interned_label;
+use bevy_utils::define_label;
 use bevy_utils::intern::{Interned, Leak, OptimizedInterner, StaticRef};
 use bevy_utils::label::DynHash;
 
@@ -13,7 +13,11 @@ use crate::system::{
     ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
 };
 
-define_interned_label!(ScheduleLabel, SCHEDULE_LABEL_INTERNER);
+define_label!(
+    /// A strongly-typed class of labels used to identify an [`Schedule`].
+    ScheduleLabel,
+    SCHEDULE_LABEL_INTERNER
+);
 
 static SYSTEM_SET_INTERNER: OptimizedInterner<dyn SystemSet> = OptimizedInterner::new();
 /// A shorthand for `Interned<dyn SystemSet>`.
@@ -248,7 +252,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_interned_label() {
+    fn test_label() {
         use crate::{self as bevy_ecs, world::World};
 
         #[derive(Resource)]
