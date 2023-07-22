@@ -3,7 +3,8 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    prelude::{Component, With},
+    event::EventWriter,
+    prelude::{Changed, Component, Event, With},
     query::WorldQuery,
     reflect::ReflectComponent,
     system::{Local, Query, Res},
@@ -54,6 +55,22 @@ impl Default for Interaction {
         Self::DEFAULT
     }
 }
+
+/// Holds the last interaction that occurred for a UI node.
+///
+/// This is commonly used by adding `LastInteraction` as a member variable
+/// to a UI node such that `Click` events are sent on click/press-release action.
+#[derive(Component, Default, Debug)]
+pub struct LastInteraction(Interaction);
+
+/// Used to publish which entity was clicked
+///
+/// Commonly used by creating a UI node that contains `LastInteraction` as a member
+/// and then using `EventReader<Click>` to obtain the list of clicked UI nodes.
+///
+/// Note click captures the full click/press-release action.
+#[derive(Event)]
+pub struct Click(pub Entity);
 
 /// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
 /// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
@@ -294,5 +311,23 @@ pub fn ui_focus_system(
                 interaction.set_if_neq(Interaction::None);
             }
         }
+    }
+}
+
+/// The system that sends a click event to publish which entities where clicked
+/// for all UI nodes that contain the `LastInteraction` `Component`
+///
+/// Included by default with `UiPlugin`.
+pub fn ui_click(
+    mut click_events: EventWriter<Click>,
+    mut buttons: Query<(Entity, &Interaction, &mut LastInteraction), Changed<Interaction>>,
+) {
+    for (entity, &interaction, mut last_interaction) in &mut buttons {
+        // Publish a click event for every entity that has changed in one cycle from
+        // `Interaction::Hovered` to `Interaction::Pressed`
+        if interaction == Interaction::Hovered && last_interaction.0 == Interaction::Pressed {
+            click_events.send(Click(entity));
+        }
+        last_interaction.0 = interaction;
     }
 }

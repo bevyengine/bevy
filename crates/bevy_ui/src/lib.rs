@@ -123,7 +123,9 @@ impl Plugin for UiPlugin {
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
-            );
+            )
+            .add_event::<Click>()
+            .add_systems(Update, ui_click.after(ui_focus_system));
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
         app.add_systems(
