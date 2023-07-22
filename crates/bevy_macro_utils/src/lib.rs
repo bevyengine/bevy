@@ -246,15 +246,15 @@ pub fn derive_interned_label(input: syn::DeriveInput, trait_path: &syn::Path) ->
             }
         }
 
-        impl #impl_generics Into<::bevy_utils::intern::Interned<dyn #trait_path>> for #ident #ty_generics #where_clause {
-            fn into(self) -> ::bevy_utils::intern::Interned<dyn #trait_path> {
-                (&self as &dyn #trait_path).into()
+        impl #impl_generics From<#ident #ty_generics> for ::bevy_utils::intern::Interned<dyn #trait_path> #where_clause {
+            fn from(value: #ident #ty_generics) -> Self {
+                (&value as &dyn #trait_path).into()
             }
         }
 
-        impl #impl_generics Into<::bevy_utils::intern::Interned<dyn #trait_path>> for & #ident #ty_generics #where_clause {
-            fn into(self) -> ::bevy_utils::intern::Interned<dyn #trait_path> {
-                (self as &dyn #trait_path).into()
+        impl #impl_generics From<& #ident #ty_generics> for ::bevy_utils::intern::Interned<dyn #trait_path> #where_clause {
+            fn from(value: &#ident #ty_generics) -> Self {
+                (value as &dyn #trait_path).into()
             }
         }
     })
