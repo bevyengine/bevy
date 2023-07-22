@@ -736,7 +736,7 @@ impl<'a> MutUntyped<'a> {
     }
 
     /// Turn this [`MutUntyped`] into a [`Mut`] by mapping the inner [`PtrMut`] to another value,
-    /// without flagging a change. 
+    /// without flagging a change.
     /// This function is the untyped equivalent of [`Mut::map_unchanged`].
     ///
     /// You should never modify the argument passed to the closure – if you want to modify the data without flagging a change, consider using [`bypass_change_detection`](DetectChangesMut::bypass_change_detection) to make your intent explicit.
