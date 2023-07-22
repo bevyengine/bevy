@@ -8,6 +8,7 @@ use bevy_app::prelude::*;
 /// * windows,
 /// * android,
 /// * macos
+/// * freebsd
 ///
 /// NOT supported when using the `bevy/dynamic` feature even when using previously mentioned targets
 #[derive(Default)]
@@ -27,15 +28,7 @@ impl SystemInformationDiagnosticsPlugin {
 }
 
 // NOTE: sysinfo fails to compile when using bevy dynamic or on iOS and does nothing on wasm
-#[cfg(all(
-    any(
-        target_os = "linux",
-        target_os = "windows",
-        target_os = "android",
-        target_os = "macos"
-    ),
-    not(feature = "dynamic_linking")
-))]
+#[cfg(all(not(target_os = "ios"), not(feature = "dynamic_linking")))]
 pub mod internal {
     use bevy_ecs::{prelude::ResMut, system::Local};
     use bevy_log::info;
@@ -46,6 +39,10 @@ pub mod internal {
     const BYTES_TO_GIB: f64 = 1.0 / 1024.0 / 1024.0 / 1024.0;
 
     pub(crate) fn setup_system(mut diagnostics: ResMut<DiagnosticsStore>) {
+        if !System::IS_SUPPORTED {
+            bevy_log::warn!("This platform and/or configuration is not supported!");
+            return;
+        }
         diagnostics.add(
             Diagnostic::new(
                 super::SystemInformationDiagnosticsPlugin::CPU_USAGE,
@@ -68,6 +65,9 @@ pub mod internal {
         mut diagnostics: Diagnostics,
         mut sysinfo: Local<Option<System>>,
     ) {
+        if !System::IS_SUPPORTED {
+            return;
+        }
         if sysinfo.is_none() {
             *sysinfo = Some(System::new_with_specifics(
                 RefreshKind::new()
@@ -107,6 +107,9 @@ pub mod internal {
     }
 
     pub(crate) fn log_system_info() {
+        if !System::IS_SUPPORTED {
+            return;
+        }
         let mut sys = sysinfo::System::new();
         sys.refresh_cpu();
         sys.refresh_memory();
@@ -131,15 +134,7 @@ pub mod internal {
     }
 }
 
-#[cfg(not(all(
-    any(
-        target_os = "linux",
-        target_os = "windows",
-        target_os = "android",
-        target_os = "macos"
-    ),
-    not(feature = "dynamic_linking")
-)))]
+#[cfg(any(target_os = "ios", feature = "dynamic_linking"))]
 pub mod internal {
     pub(crate) fn setup_system() {
         bevy_log::warn!("This platform and/or configuration is not supported!");
