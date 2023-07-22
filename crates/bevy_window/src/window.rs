@@ -147,9 +147,14 @@ pub struct Window {
     pub transparent: bool,
     /// Get/set whether the window is focused.
     ///
+    /// It cannot be set unfocused after creation.
+    ///
     /// ## Platform-specific
     ///
-    /// - Android / iOS / X11 / Wayland: Can't be spawned unfocused.
+    /// - iOS / Android / X11 / Wayland: Spawning unfocused is
+    /// [not supported](https://docs.rs/winit/latest/winit/window/struct.WindowBuilder.html#method.with_active).
+    /// - iOS / Android / Web / Wayland Setting focused after creation is
+    /// [not supported](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.focus_window)
     pub focused: bool,
     /// Where should the window appear relative to other overlapping window.
     ///
