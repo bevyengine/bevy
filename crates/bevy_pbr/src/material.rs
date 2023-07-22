@@ -727,6 +727,7 @@ impl<M: Material> Default for PrepareNextFrameMaterials<M> {
 
 /// This system prepares all assets of the corresponding [`Material`] type
 /// which where extracted this frame for the GPU.
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_materials<M: Material>(
     mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
     mut extracted_assets: ResMut<ExtractedMaterials<M>>,

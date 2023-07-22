@@ -1,4 +1,4 @@
-use crate::{ScreenSpaceAmbientOcclusionSettings, ScreenSpaceAmbientOcclusionTextures};
+use crate::{MeshPipeline, MeshViewBindGroup, ScreenSpaceAmbientOcclusionSettings};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core_pipeline::{
@@ -6,33 +6,30 @@ use bevy_core_pipeline::{
     core_3d::{self, CORE_3D_DEPTH_FORMAT},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::{Camera3d, ClearColor},
-    prepass::{DeferredPrepass, ViewPrepassTextures},
-    tonemapping::{get_lut_bindings, DebandDither, Tonemapping, TonemappingLuts},
+    prepass::DeferredPrepass,
+    tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    globals::GlobalsBuffer,
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{BindGroupDescriptor, Operations, PipelineCache, RenderPassDescriptor},
+    render_resource::{Operations, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
-    texture::{FallbackImageCubemap, FallbackImageMsaa, Image},
-    view::{Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset, ViewUniforms},
+    texture::Image,
+    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
     Render, RenderSet,
 };
 
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
-    render_graph::RenderGraphApp, render_resource::*, renderer::RenderDevice, texture::BevyDefault,
-    view::ExtractedView, RenderApp,
+    render_graph::RenderGraphApp, render_resource::*, texture::BevyDefault, view::ExtractedView,
+    RenderApp,
 };
 
 use crate::{
-    environment_map, mesh_view_layout_entries, prepass, EnvironmentMapLight, FogMeta,
-    GlobalLightMeta, LightMeta, MeshPipelineKey, ShadowSamplers, ViewClusterBindings,
-    ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    EnvironmentMapLight, MeshPipelineKey, ViewFogUniformOffset, ViewLightsUniformOffset,
+    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 
 pub struct PBRDeferredLightingPlugin;
@@ -82,10 +79,7 @@ impl Plugin for PBRDeferredLightingPlugin {
             .init_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
             .add_systems(
                 Render,
-                (
-                    queue_deferred_lighting_bind_groups.in_set(RenderSet::Queue),
-                    prepare_deferred_lighting_pipelines.in_set(RenderSet::Prepare),
-                ),
+                (prepare_deferred_lighting_pipelines.in_set(RenderSet::Prepare),),
             )
             .add_render_graph_node::<ViewNodeRunner<DeferredLightingNode>>(
                 core_3d::graph::NAME,
@@ -126,7 +120,7 @@ impl ViewNode for DeferredLightingNode {
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,
         &'static ViewFogUniformOffset,
-        &'static DeferredLightingBindGroup,
+        &'static MeshViewBindGroup,
         &'static ViewTarget,
         &'static ViewDepthTexture,
         &'static Camera3d,
@@ -313,18 +307,9 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 
 impl FromWorld for DeferredLightingLayout {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        let clustered_forward_buffer_binding_type = render_device
-            .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
-
-        let bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("deferred_lighting_bind_group_layout"),
-                entries: &mesh_view_layout_entries(clustered_forward_buffer_binding_type, false),
-            });
-
-        Self { bind_group_layout }
+        Self {
+            bind_group_layout: world.resource::<MeshPipeline>().view_layout.clone(),
+        }
     }
 }
 
@@ -390,160 +375,5 @@ pub fn prepare_deferred_lighting_pipelines(
         commands
             .entity(entity)
             .insert(DeferredLightingPipeline { pipeline_id });
-    }
-}
-
-#[derive(Component)]
-pub struct DeferredLightingBindGroup {
-    pub value: BindGroup,
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn queue_deferred_lighting_bind_groups(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    shadow_samplers: Res<ShadowSamplers>,
-    light_meta: Res<LightMeta>,
-    global_light_meta: Res<GlobalLightMeta>,
-    fog_meta: Res<FogMeta>,
-    view_uniforms: Res<ViewUniforms>,
-    views: Query<
-        (
-            Entity,
-            &ViewShadowBindings,
-            &ViewClusterBindings,
-            Option<&ScreenSpaceAmbientOcclusionTextures>,
-            Option<&ViewPrepassTextures>,
-            Option<&EnvironmentMapLight>,
-            &Tonemapping,
-        ),
-        With<DeferredPrepass>,
-    >,
-    images: Res<RenderAssets<Image>>,
-    mut fallback_images: FallbackImageMsaa,
-    fallback_cubemap: Res<FallbackImageCubemap>,
-    msaa: Res<Msaa>,
-    globals_buffer: Res<GlobalsBuffer>,
-    tonemapping_luts: Res<TonemappingLuts>,
-    differed_lighting_layout: Res<DeferredLightingLayout>,
-) {
-    if let (
-        Some(view_binding),
-        Some(light_binding),
-        Some(point_light_binding),
-        Some(globals),
-        Some(fog_binding),
-    ) = (
-        view_uniforms.uniforms.binding(),
-        light_meta.view_gpu_lights.binding(),
-        global_light_meta.gpu_point_lights.binding(),
-        globals_buffer.buffer.binding(),
-        fog_meta.gpu_fogs.binding(),
-    ) {
-        for (
-            entity,
-            view_shadow_bindings,
-            view_cluster_bindings,
-            ssao_textures,
-            prepass_textures,
-            environment_map,
-            tonemapping,
-        ) in &views
-        {
-            let fallback_ssao = fallback_images
-                .image_for_samplecount(1, TextureFormat::Rgba8Unorm)
-                .texture_view
-                .clone();
-
-            let mut entries = vec![
-                BindGroupEntry {
-                    binding: 0,
-                    resource: view_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: light_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::TextureView(
-                        &view_shadow_bindings.point_light_depth_texture_view,
-                    ),
-                },
-                BindGroupEntry {
-                    binding: 3,
-                    resource: BindingResource::Sampler(&shadow_samplers.point_light_sampler),
-                },
-                BindGroupEntry {
-                    binding: 4,
-                    resource: BindingResource::TextureView(
-                        &view_shadow_bindings.directional_light_depth_texture_view,
-                    ),
-                },
-                BindGroupEntry {
-                    binding: 5,
-                    resource: BindingResource::Sampler(&shadow_samplers.directional_light_sampler),
-                },
-                BindGroupEntry {
-                    binding: 6,
-                    resource: point_light_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 7,
-                    resource: view_cluster_bindings.light_index_lists_binding().unwrap(),
-                },
-                BindGroupEntry {
-                    binding: 8,
-                    resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
-                },
-                BindGroupEntry {
-                    binding: 9,
-                    resource: globals.clone(),
-                },
-                BindGroupEntry {
-                    binding: 10,
-                    resource: fog_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 11,
-                    resource: BindingResource::TextureView(
-                        ssao_textures
-                            .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
-                            .unwrap_or(&fallback_ssao),
-                    ),
-                },
-            ];
-
-            let env_map = environment_map::get_bindings(
-                environment_map,
-                &images,
-                &fallback_cubemap,
-                [12, 13, 14],
-            );
-            entries.extend_from_slice(&env_map);
-
-            let tonemapping_luts =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
-            entries.extend_from_slice(&tonemapping_luts);
-
-            let prepass_bindings =
-                prepass::get_bindings(prepass_textures, &mut fallback_images, &msaa);
-            // When using WebGL, we can't have a depth texture with multisampling
-            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
-                || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
-            {
-                entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));
-            }
-
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &entries,
-                label: Some("deferred_mesh_view_bind_group"),
-                layout: &differed_lighting_layout.bind_group_layout,
-            });
-
-            commands.entity(entity).insert(DeferredLightingBindGroup {
-                value: view_bind_group,
-            });
-        }
     }
 }

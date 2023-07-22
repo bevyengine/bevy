@@ -549,12 +549,10 @@ where
             } else {
                 PREPASS_SHADER_HANDLE.typed::<Shader>()
             }
+        } else if let Some(handle) = &self.prepass_material_vertex_shader {
+            handle.clone()
         } else {
-            if let Some(handle) = &self.prepass_material_vertex_shader {
-                handle.clone()
-            } else {
-                PREPASS_SHADER_HANDLE.typed::<Shader>()
-            }
+            PREPASS_SHADER_HANDLE.typed::<Shader>()
         };
 
         let mut descriptor = RenderPipelineDescriptor {
