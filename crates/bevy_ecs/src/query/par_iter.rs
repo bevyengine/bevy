@@ -148,14 +148,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    #[deprecated = "use `.for_each(...)` instead. `for_each_mut` is no longer functional and will be removed in the next release of Bevy."]
-    pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&mut self, _func: FN) {
-        unimplemented!(
-            "{}{}{}",
-            "The method `QueryParIter::for_each_mut` is no longer supported as of Bevy 0.11, ",
-            "And will be removed in the next release. Use `for_each` instead, which now supports ",
-            "mutable queries in addition to read-only queries."
-        );
+    #[deprecated = "use `.for_each(...)` instead."]
+    pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
+        self.for_each(func);
     }
 
     fn get_batch_size(&self, thread_count: usize) -> usize {
