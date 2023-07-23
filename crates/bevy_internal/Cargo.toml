@@ -26,6 +26,8 @@ wgpu_trace = ["bevy_render/wgpu_trace"]
 debug_asset_server = ["bevy_asset/debug_asset_server"]
 detailed_trace = ["bevy_utils/detailed_trace"]
 
+command_tracking = ["bevy_hierarchy/command_tracking", "bevy_ecs/command_tracking", "bevy_transform/command_tracking"]
+
 # Image format support for texture loading (PNG and HDR are enabled by default)
 exr = ["bevy_render/exr"]
 hdr = ["bevy_render/hdr"]

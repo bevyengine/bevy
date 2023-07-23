@@ -1,5 +1,6 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
+pub mod call_tracker;
 mod entity_ref;
 pub mod error;
 mod spawn_batch;
@@ -36,7 +37,10 @@ mod identifier;
 
 pub use identifier::WorldId;
 
-use self::unsafe_world_cell::UnsafeWorldCell;
+use self::{
+    call_tracker::show_tracked_caller, call_tracker::CallTrackRef,
+    unsafe_world_cell::UnsafeWorldCell,
+};
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
@@ -288,6 +292,28 @@ impl World {
         match self.get_entity_mut(entity) {
             Some(entity) => entity,
             None => panic_no_entity(entity),
+        }
+    }
+
+    /// Tracked version of [`World::entity_mut`] for use in commands with [`CallTracker::track`].
+    /// When the "command_tracking" features is enabled, in case of panic it will display the 
+    /// command call site.
+    #[inline]
+    #[track_caller]
+    pub fn entity_mut_tracked(&mut self, entity: Entity, caller: CallTrackRef) -> EntityMut {
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        fn panic_no_entity(entity: Entity, caller: CallTrackRef) -> ! {
+            panic!(
+                "Entity {entity:?} does not exist. {}",
+                show_tracked_caller!(caller)
+            );
+        }
+
+        match self.get_entity_mut(entity) {
+            Some(entity) => entity,
+            None => panic_no_entity(entity, caller),
         }
     }
 
@@ -647,6 +673,18 @@ impl World {
             true
         } else {
             warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World.", entity);
+            false
+        }
+    }
+
+    /// Tracked version of [`World::despawn`] for use in commands, designed for use with `CallTracker::track`.
+    /// When the "command_tracking" features is enabled in case of warning it will display the originating command call site.
+    pub fn despawn_tracked(&mut self, entity: Entity, caller: CallTrackRef) -> bool {
+        if let Some(entity) = self.get_entity_mut(entity) {
+            entity.despawn();
+            true
+        } else {
+            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World. {}", entity, show_tracked_caller!(caller));
             false
         }
     }

@@ -1,7 +1,12 @@
 //! Extension to [`EntityCommands`] to modify [`bevy_hierarchy`] hierarchies
 //! while preserving [`GlobalTransform`].
 
-use bevy_ecs::{prelude::Entity, system::Command, system::EntityCommands, world::World};
+use bevy_ecs::{
+    prelude::Entity,
+    system::Command,
+    system::EntityCommands,
+    world::{call_tracker::CallTracker, World},
+};
 use bevy_hierarchy::{AddChild, RemoveParent};
 
 #[cfg(doc)]
@@ -19,12 +24,15 @@ pub struct AddChildInPlace {
     pub parent: Entity,
     /// Child entity to add.
     pub child: Entity,
+    /// Command origin
+    pub caller: CallTracker,
 }
 impl Command for AddChildInPlace {
     fn apply(self, world: &mut World) {
         let hierarchy_command = AddChild {
             child: self.child,
             parent: self.parent,
+            caller: self.caller,
         };
         hierarchy_command.apply(world);
         // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
@@ -47,10 +55,15 @@ impl Command for AddChildInPlace {
 pub struct RemoveParentInPlace {
     /// [`Entity`] whose parent must be removed.
     pub child: Entity,
+    /// Command origin
+    pub caller: CallTracker,
 }
 impl Command for RemoveParentInPlace {
     fn apply(self, world: &mut World) {
-        let hierarchy_command = RemoveParent { child: self.child };
+        let hierarchy_command = RemoveParent {
+            child: self.child,
+            caller: self.caller,
+        };
         hierarchy_command.apply(world);
         // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
         let mut update_transform = || {
@@ -89,15 +102,24 @@ pub trait BuildChildrenTransformExt {
     fn remove_parent_in_place(&mut self) -> &mut Self;
 }
 impl<'w, 's, 'a> BuildChildrenTransformExt for EntityCommands<'w, 's, 'a> {
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn remove_parent_in_place(&mut self) -> &mut Self {
         let child = self.id();
-        self.commands().add(RemoveParentInPlace { child });
+        self.commands().add(RemoveParentInPlace {
+            child,
+            caller: CallTracker::default(),
+        });
         self
     }
 
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
-        self.commands().add(AddChildInPlace { child, parent });
+        self.commands().add(AddChildInPlace {
+            child,
+            parent,
+            caller: CallTracker::default(),
+        });
         self
     }
 }

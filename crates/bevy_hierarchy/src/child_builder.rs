@@ -4,7 +4,10 @@ use bevy_ecs::{
     entity::Entity,
     prelude::Events,
     system::{Command, Commands, EntityCommands},
-    world::{EntityMut, World},
+    world::{
+        call_tracker::{CallTrackRef, CallTracker},
+        EntityMut, World,
+    },
 };
 use smallvec::SmallVec;
 
@@ -151,10 +154,10 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
 
 /// Removes all children from `parent` by removing its [`Children`] component, as well as removing
 /// [`Parent`] component from its children.
-fn clear_children(parent: Entity, world: &mut World) {
+fn clear_children(parent: Entity, world: &mut World, caller: CallTrackRef) {
     if let Some(children) = world.entity_mut(parent).take::<Children>() {
         for &child in &children.0 {
-            world.entity_mut(child).remove::<Parent>();
+            world.entity_mut_tracked(child, caller).remove::<Parent>();
         }
     }
 }
@@ -166,11 +169,15 @@ pub struct AddChild {
     pub parent: Entity,
     /// Child entity to add.
     pub child: Entity,
+    /// Command origin
+    pub caller: CallTracker,
 }
 
 impl Command for AddChild {
     fn apply(self, world: &mut World) {
-        world.entity_mut(self.parent).add_child(self.child);
+        world
+            .entity_mut_tracked(self.parent, self.caller.track())
+            .add_child(self.child);
     }
 }
 
@@ -180,12 +187,13 @@ pub struct InsertChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
     index: usize,
+    caller: CallTracker,
 }
 
 impl Command for InsertChildren {
     fn apply(self, world: &mut World) {
         world
-            .entity_mut(self.parent)
+            .entity_mut_tracked(self.parent, self.caller.track())
             .insert_children(self.index, &self.children);
     }
 }
@@ -195,11 +203,14 @@ impl Command for InsertChildren {
 pub struct PushChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
+    caller: CallTracker,
 }
 
 impl Command for PushChildren {
     fn apply(self, world: &mut World) {
-        world.entity_mut(self.parent).push_children(&self.children);
+        world
+            .entity_mut_tracked(self.parent, self.caller.track())
+            .push_children(&self.children);
     }
 }
 
@@ -219,11 +230,12 @@ impl Command for RemoveChildren {
 /// children.
 pub struct ClearChildren {
     parent: Entity,
+    caller: CallTracker,
 }
 
 impl Command for ClearChildren {
     fn apply(self, world: &mut World) {
-        clear_children(self.parent, world);
+        clear_children(self.parent, world, self.caller.track());
     }
 }
 
@@ -231,12 +243,15 @@ impl Command for ClearChildren {
 pub struct ReplaceChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
+    caller: CallTracker,
 }
 
 impl Command for ReplaceChildren {
     fn apply(self, world: &mut World) {
-        clear_children(self.parent, world);
-        world.entity_mut(self.parent).push_children(&self.children);
+        clear_children(self.parent, world, self.caller.track());
+        world
+            .entity_mut_tracked(self.parent, self.caller.track())
+            .push_children(&self.children);
     }
 }
 
@@ -244,11 +259,15 @@ impl Command for ReplaceChildren {
 pub struct RemoveParent {
     /// `Entity` whose parent must be removed.
     pub child: Entity,
+    /// Command origin.
+    pub caller: CallTracker,
 }
 
 impl Command for RemoveParent {
     fn apply(self, world: &mut World) {
-        world.entity_mut(self.child).remove_parent();
+        world
+            .entity_mut_tracked(self.child, self.caller.track())
+            .remove_parent();
     }
 }
 
@@ -334,6 +353,7 @@ pub trait BuildChildren {
 }
 
 impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
         let parent = self.id();
         let mut builder = ChildBuilder {
@@ -341,6 +361,7 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
             push_children: PushChildren {
                 children: SmallVec::default(),
                 parent,
+                caller: CallTracker::default(),
             },
         };
 
@@ -350,21 +371,25 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
         self
     }
 
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
         self.commands().add(PushChildren {
             children: SmallVec::from(children),
             parent,
+            caller: CallTracker::default(),
         });
         self
     }
 
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
         self.commands().add(InsertChildren {
             children: SmallVec::from(children),
             index,
             parent,
+            caller: CallTracker::default(),
         });
         self
     }
@@ -378,36 +403,56 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
         self
     }
 
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
-        self.commands().add(AddChild { child, parent });
+        self.commands().add(AddChild {
+            child,
+            parent,
+            caller: CallTracker::default(),
+        });
         self
     }
 
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn clear_children(&mut self) -> &mut Self {
         let parent = self.id();
-        self.commands().add(ClearChildren { parent });
+        self.commands().add(ClearChildren {
+            parent,
+            caller: CallTracker::default(),
+        });
         self
     }
 
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
         self.commands().add(ReplaceChildren {
             children: SmallVec::from(children),
             parent,
+            caller: CallTracker::default(),
         });
         self
     }
 
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn set_parent(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
-        self.commands().add(AddChild { child, parent });
+        self.commands().add(AddChild {
+            child,
+            parent,
+            caller: CallTracker::default(),
+        });
         self
     }
 
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn remove_parent(&mut self) -> &mut Self {
         let child = self.id();
-        self.commands().add(RemoveParent { child });
+        self.commands().add(RemoveParent {
+            child,
+            caller: CallTracker::default(),
+        });
         self
     }
 }

@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [features]
 trace = []
+command_tracking = []
 
 [dependencies]
 # bevy

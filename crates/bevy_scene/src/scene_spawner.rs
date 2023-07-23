@@ -5,7 +5,7 @@ use bevy_ecs::{
     event::{Events, ManualEventReader},
     reflect::AppTypeRegistry,
     system::{Command, Resource},
-    world::{Mut, World},
+    world::{call_tracker::CallTracker, Mut, World},
 };
 use bevy_hierarchy::{AddChild, Parent};
 use bevy_utils::{tracing::error, HashMap, HashSet};
@@ -283,6 +283,7 @@ impl SceneSpawner {
                         AddChild {
                             parent,
                             child: entity,
+                            caller: CallTracker::default(),
                         }
                         .apply(world);
                     }

@@ -5,7 +5,8 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    world::{FromWorld, World},
+    show_tracked_caller,
+    world::{call_tracker::CallTracker, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
@@ -714,10 +715,12 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
         self.commands.add(Insert {
             entity: self.entity,
             bundle,
+            caller: CallTracker::default(),
         });
         self
     }
@@ -793,9 +796,11 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_character_system);
     /// ```
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     pub fn despawn(&mut self) {
         self.commands.add(Despawn {
             entity: self.entity,
+            caller: CallTracker::default(),
         });
     }
 
@@ -930,11 +935,13 @@ where
 pub struct Despawn {
     /// The entity that will be despawned.
     pub entity: Entity,
+    /// Command origin
+    pub caller: CallTracker,
 }
 
 impl Command for Despawn {
     fn apply(self, world: &mut World) {
-        world.despawn(self.entity);
+        world.despawn_tracked(self.entity, self.caller.track());
     }
 }
 
@@ -944,6 +951,8 @@ pub struct Insert<T> {
     pub entity: Entity,
     /// The [`Bundle`] containing the components that will be added to the entity.
     pub bundle: T,
+    /// Command origin
+    pub caller: CallTracker,
 }
 
 impl<T> Command for Insert<T>
@@ -954,7 +963,7 @@ where
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert(self.bundle);
         } else {
-            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
+            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. {}", std::any::type_name::<T>(), self.entity, show_tracked_caller!(self.caller.track()));
         }
     }
 }

@@ -22,3 +22,4 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
 
 [features]
 serialize = ["dep:serde", "bevy_math/serialize"]
+command_tracking = []

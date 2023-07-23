@@ -11,6 +11,7 @@ categories = ["game-engines", "data-structures"]
 
 [features]
 trace = []
+command_tracking = []
 multi-threaded = ["bevy_tasks/multi-threaded"]
 default = ["bevy_reflect", "multi-threaded"]
 

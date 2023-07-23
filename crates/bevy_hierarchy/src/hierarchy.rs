@@ -2,15 +2,19 @@ use crate::components::{Children, Parent};
 use bevy_ecs::{
     entity::Entity,
     system::{Command, EntityCommands},
-    world::{EntityMut, World},
+    world::{
+        call_tracker::{CallTrackRef, CallTracker},
+        EntityMut, World,
+    },
 };
-use bevy_utils::tracing::debug;
 
 /// Despawns the given entity and all its children recursively
 #[derive(Debug)]
 pub struct DespawnRecursive {
     /// Target entity
     pub entity: Entity,
+    /// Command origin
+    pub caller: CallTracker,
 }
 
 /// Despawns the given entity's children recursively
@@ -18,10 +22,12 @@ pub struct DespawnRecursive {
 pub struct DespawnChildrenRecursive {
     /// Target entity
     pub entity: Entity,
+    /// Command origin
+    pub caller: CallTracker,
 }
 
 /// Function for despawning an entity and all its children
-pub fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
+pub fn despawn_with_children_recursive(world: &mut World, entity: Entity, caller: CallTrackRef) {
     // first, make the entity's own parent forget about it
     if let Some(parent) = world.get::<Parent>(entity).map(|parent| parent.0) {
         if let Some(mut children) = world.get_mut::<Children>(parent) {
@@ -30,26 +36,24 @@ pub fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
     }
 
     // then despawn the entity and all of its children
-    despawn_with_children_recursive_inner(world, entity);
+    despawn_with_children_recursive_inner(world, entity, caller);
 }
 
 // Should only be called by `despawn_with_children_recursive`!
-fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
+fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity, caller: CallTrackRef) {
     if let Some(mut children) = world.get_mut::<Children>(entity) {
         for e in std::mem::take(&mut children.0) {
-            despawn_with_children_recursive_inner(world, e);
+            despawn_with_children_recursive_inner(world, e, caller);
         }
     }
 
-    if !world.despawn(entity) {
-        debug!("Failed to despawn entity {:?}", entity);
-    }
+    world.despawn_tracked(entity, caller);
 }
 
-fn despawn_children_recursive(world: &mut World, entity: Entity) {
-    if let Some(children) = world.entity_mut(entity).take::<Children>() {
+fn despawn_children_recursive(world: &mut World, entity: Entity, caller: CallTrackRef) {
+    if let Some(children) = world.entity_mut_tracked(entity, caller).take::<Children>() {
         for e in children.0 {
-            despawn_with_children_recursive_inner(world, e);
+            despawn_with_children_recursive_inner(world, e, caller);
         }
     }
 }
@@ -63,7 +67,7 @@ impl Command for DespawnRecursive {
             entity = bevy_utils::tracing::field::debug(self.entity)
         )
         .entered();
-        despawn_with_children_recursive(world, self.entity);
+        despawn_with_children_recursive(world, self.entity, self.caller.track());
     }
 }
 
@@ -76,7 +80,7 @@ impl Command for DespawnChildrenRecursive {
             entity = bevy_utils::tracing::field::debug(self.entity)
         )
         .entered();
-        despawn_children_recursive(world, self.entity);
+        despawn_children_recursive(world, self.entity, self.caller.track());
     }
 }
 
@@ -91,20 +95,29 @@ pub trait DespawnRecursiveExt {
 
 impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
     /// Despawns the provided entity and its children.
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn despawn_recursive(mut self) {
         let entity = self.id();
-        self.commands().add(DespawnRecursive { entity });
+        self.commands().add(DespawnRecursive {
+            entity,
+            caller: CallTracker::default(),
+        });
     }
 
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn despawn_descendants(&mut self) -> &mut Self {
         let entity = self.id();
-        self.commands().add(DespawnChildrenRecursive { entity });
+        self.commands().add(DespawnChildrenRecursive {
+            entity,
+            caller: CallTracker::default(),
+        });
         self
     }
 }
 
 impl<'w> DespawnRecursiveExt for EntityMut<'w> {
     /// Despawns the provided entity and its children.
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn despawn_recursive(self) {
         let entity = self.id();
 
@@ -115,9 +128,14 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
         )
         .entered();
 
-        despawn_with_children_recursive(self.into_world_mut(), entity);
+        despawn_with_children_recursive(
+            self.into_world_mut(),
+            entity,
+            CallTracker::default().track(),
+        );
     }
 
+    #[cfg_attr(feature = "command_tracking", track_caller)]
     fn despawn_descendants(&mut self) -> &mut Self {
         let entity = self.id();
 
@@ -129,7 +147,7 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
         .entered();
 
         self.world_scope(|world| {
-            despawn_children_recursive(world, entity);
+            despawn_children_recursive(world, entity, CallTracker::default().track());
         });
         self
     }

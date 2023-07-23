@@ -116,6 +116,9 @@ trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 # Tracing support, with memory profiling, exposing a port for Tracy
 trace_tracy_memory = ["trace", "bevy_internal/trace_tracy", "bevy_internal/trace_tracy_memory"]
 
+# ECS-command caller tracking, for diagnosing errors in deferred command application
+command_tracking = ["bevy_internal/command_tracking"]
+
 # Tracing support
 trace = ["bevy_internal/trace"]
 
