@@ -1113,7 +1113,7 @@ impl ScheduleGraph {
 
         let sys_count = self.systems.len();
         let set_with_conditions_count = hg_set_ids.len();
-        let node_count = self.systems.len() + self.system_sets.len();
+        let hg_node_count = self.hierarchy.graph.node_count();
 
         // get the number of dependencies and the immediate dependents of each system
         // (needed by multi-threaded executor to run systems in the correct order)
@@ -1145,7 +1145,7 @@ impl ScheduleGraph {
             let bitset = &mut systems_in_sets_with_conditions[i];
             for &(col, sys_id) in &hg_systems {
                 let idx = dg_system_idx_map[&sys_id];
-                let is_descendant = hier_results.reachable[index(row, col, node_count)];
+                let is_descendant = hier_results.reachable[index(row, col, hg_node_count)];
                 bitset.set(idx, is_descendant);
             }
         }
@@ -1160,7 +1160,7 @@ impl ScheduleGraph {
                 .enumerate()
                 .take_while(|&(_idx, &row)| row < col)
             {
-                let is_ancestor = hier_results.reachable[index(row, col, node_count)];
+                let is_ancestor = hier_results.reachable[index(row, col, hg_node_count)];
                 bitset.set(idx, is_ancestor);
             }
         }
