@@ -78,17 +78,22 @@ pub struct SystemRegistry {
     systems: TypeIdMap<(bool, BoxedSystem)>,
 }
 
+/// A wrapper type for TypeId.
+/// It identifies a system that is registered in the [`SystemRegistry`].
+#[derive(Debug)]
+pub struct SystemId(TypeId);
+
 impl SystemRegistry {
     /// Registers a system in the [`SystemRegistry`], so it can be run later.
     ///
     /// Repeatedly registering a system will have no effect.
     #[inline]
-    fn register<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> TypeId {
+    fn register<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> SystemId {
         let type_id = TypeId::of::<S>();
         self.systems
             .entry(type_id)
             .or_insert_with(|| (false, Box::new(IntoSystem::into_system(system))));
-        type_id
+        SystemId(type_id)
     }
 
     /// Runs the supplied system on the [`World`] a single time.
@@ -103,12 +108,12 @@ impl SystemRegistry {
             .expect("System was registered before running");
     }
 
-    /// Run the system by its [`TypeId`]
+    /// Run the system by its [`SystemId`]
     ///
     /// Systems must be registered before they can be run.
     #[inline]
-    fn run_by_id(&mut self, world: &mut World, id: TypeId) -> Result<(), SystemRegistryError> {
-        match self.systems.get_mut(&id) {
+    fn run_by_id(&mut self, world: &mut World, id: SystemId) -> Result<(), SystemRegistryError> {
+        match self.systems.get_mut(&id.0) {
             Some((initialized, matching_system)) => {
                 if !*initialized {
                     matching_system.initialize(world);
@@ -175,7 +180,7 @@ pub enum SystemRegistryError {
     /// A system was run by label, but no system with that label was found.
     ///
     /// Did you forget to register it?
-    SystemIdNotRegistered(TypeId),
+    SystemIdNotRegistered(SystemId),
 }
 
 mod tests {
