@@ -139,6 +139,7 @@ use crate::{
 pub use self::error::{ComposerError, ComposerErrorInner, ErrSource};
 use self::preprocess::Preprocessor;
 
+pub mod comment_strip_iter;
 pub mod error;
 pub mod preprocess;
 mod test;
