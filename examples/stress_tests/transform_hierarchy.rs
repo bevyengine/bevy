@@ -183,8 +183,7 @@ fn main() {
 
     App::new()
         .insert_resource(cfg)
-        .add_plugins(MinimalPlugins)
-        .add_plugin(TransformPlugin)
+        .add_plugins((MinimalPlugins, TransformPlugin))
         .add_systems(Startup, setup)
         // Updating transforms *must* be done before `CoreSet::PostUpdate`
         // or the hierarchy will momentarily be in an invalid state.

@@ -1,7 +1,7 @@
 use crate::{
     render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems, SetMeshBindGroup,
-    SetMeshViewBindGroup, Shadow,
+    MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems,
+    ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -188,7 +188,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+            .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -214,10 +214,10 @@ where
         }
 
         // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
-        app.add_plugin(PrepassPipelinePlugin::<M>::default());
+        app.add_plugins(PrepassPipelinePlugin::<M>::default());
 
         if self.prepass_enabled {
-            app.add_plugin(PrepassPlugin::<M>::default());
+            app.add_plugins(PrepassPlugin::<M>::default());
         }
     }
 
@@ -387,6 +387,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Tonemapping>,
         Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
+        Option<&ScreenSpaceAmbientOcclusionSettings>,
         Option<&NormalPrepass>,
         Option<&TemporalAntiAliasSettings>,
         &mut RenderPhase<Opaque3d>,
@@ -402,6 +403,7 @@ pub fn queue_material_meshes<M: Material>(
         tonemapping,
         dither,
         environment_map,
+        ssao,
         normal_prepass,
         taa_settings,
         mut opaque_phase,
@@ -455,6 +457,10 @@ pub fn queue_material_meshes<M: Material>(
             }
         }
 
+        if ssao.is_some() {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
             if let Ok((material_handle, mesh_handle, mesh_uniform)) =
@@ -467,6 +473,9 @@ pub fn queue_material_meshes<M: Material>(
                     let mut mesh_key =
                         MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                             | view_key;
+                    if mesh.morph_targets.is_some() {
+                        mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+                    }
                     match material.properties.alpha_mode {
                         AlphaMode::Blend => {
                             mesh_key |= MeshPipelineKey::BLEND_ALPHA;

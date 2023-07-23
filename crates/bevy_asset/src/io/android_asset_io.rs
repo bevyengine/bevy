@@ -22,6 +22,7 @@ pub struct AndroidAssetIo {
 }
 
 impl AndroidAssetIo {
+    /// Creates a new [`AndroidAssetIo`] at the given root path
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         AndroidAssetIo {
             root_path: path.as_ref().to_owned(),

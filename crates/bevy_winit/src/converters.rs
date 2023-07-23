@@ -1,3 +1,4 @@
+use bevy_ecs::entity::Entity;
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     mouse::MouseButton,
@@ -5,13 +6,17 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_window::{CursorIcon, WindowLevel, WindowTheme};
+use bevy_window::{CursorIcon, EnabledButtons, WindowLevel, WindowTheme};
 
-pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
+pub fn convert_keyboard_input(
+    keyboard_input: &winit::event::KeyboardInput,
+    window: Entity,
+) -> KeyboardInput {
     KeyboardInput {
         scan_code: keyboard_input.scancode,
         state: convert_element_state(keyboard_input.state),
         key_code: keyboard_input.virtual_keycode.map(convert_virtual_key_code),
+        window,
     }
 }
 
@@ -287,4 +292,18 @@ pub fn convert_window_theme(theme: WindowTheme) -> winit::window::Theme {
         WindowTheme::Light => winit::window::Theme::Light,
         WindowTheme::Dark => winit::window::Theme::Dark,
     }
+}
+
+pub fn convert_enabled_buttons(enabled_buttons: EnabledButtons) -> winit::window::WindowButtons {
+    let mut window_buttons = winit::window::WindowButtons::empty();
+    if enabled_buttons.minimize {
+        window_buttons.insert(winit::window::WindowButtons::MINIMIZE);
+    }
+    if enabled_buttons.maximize {
+        window_buttons.insert(winit::window::WindowButtons::MAXIMIZE);
+    }
+    if enabled_buttons.close {
+        window_buttons.insert(winit::window::WindowButtons::CLOSE);
+    }
+    window_buttons
 }

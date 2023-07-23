@@ -1,10 +1,11 @@
 use crate::{ButtonState, Input};
+use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     event::{Event, EventReader},
     system::ResMut,
 };
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::Reflect;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -18,7 +19,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
-#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -32,6 +33,8 @@ pub struct KeyboardInput {
     pub key_code: Option<KeyCode>,
     /// The press state of the key.
     pub state: ButtonState,
+    /// Window that received the input.
+    pub window: Entity,
 }
 
 /// Updates the [`Input<KeyCode>`] resource with the latest [`KeyboardInput`] events.
@@ -75,7 +78,7 @@ pub fn keyboard_input_system(
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -448,7 +451,7 @@ pub enum KeyCode {
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",

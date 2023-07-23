@@ -599,7 +599,7 @@ impl SparseSetIndex for ArchetypeComponentId {
 /// For more information, see the *[module level documentation]*.
 ///
 /// [`World`]: crate::world::World
-/// [*module level documentation]: crate::archetype
+/// [module level documentation]: crate::archetype
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     pub(crate) archetype_component_count: usize,

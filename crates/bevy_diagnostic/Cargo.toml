@@ -1,6 +1,6 @@
 [package]
 name = "bevy_diagnostic"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Provides diagnostic functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -14,12 +14,12 @@ dynamic_linking = []
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.11.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.11.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.11.0-dev" }
-bevy_log = { path = "../bevy_log", version = "0.11.0-dev" }
-bevy_time = { path = "../bevy_time", version = "0.11.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.12.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.12.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.12.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 
 # MacOS
 [target.'cfg(all(target_os="macos"))'.dependencies]

@@ -18,7 +18,7 @@
 
 use std::mem;
 
-use bevy_app::{Last, Plugin, Update};
+use bevy_app::{Last, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_core::cast_slice;
 use bevy_ecs::{
@@ -33,9 +33,7 @@ use bevy_ecs::{
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
     },
 };
-use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypePath, TypeUuid,
-};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
 use bevy_render::{
     color::Color,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -49,9 +47,13 @@ use bevy_render::{
         VertexFormat, VertexStepMode,
     },
     renderer::RenderDevice,
+    view::RenderLayers,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::{
+    components::{GlobalTransform, Transform},
+    TransformSystem,
+};
 
 pub mod gizmos;
 
@@ -78,19 +80,20 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(UniformComponentPlugin::<LineGizmoUniform>::default())
+        app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .add_asset::<LineGizmo>()
-            .add_plugin(RenderAssetPlugin::<LineGizmo>::default())
+            .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
             .init_resource::<GizmoConfig>()
             .init_resource::<GizmoStorage>()
             .add_systems(Last, update_gizmo_meshes)
             .add_systems(
-                Update,
+                PostUpdate,
                 (
                     draw_aabbs,
                     draw_all_aabbs.run_if(|config: Res<GizmoConfig>| config.aabb.draw_all),
-                ),
+                )
+                    .after(TransformSystem::TransformPropagate),
             );
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
@@ -100,9 +103,9 @@ impl Plugin for GizmoPlugin {
             .add_systems(Render, queue_line_gizmo_bind_group.in_set(RenderSet::Queue));
 
         #[cfg(feature = "bevy_sprite")]
-        app.add_plugin(pipeline_2d::LineGizmo2dPlugin);
+        app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
         #[cfg(feature = "bevy_pbr")]
-        app.add_plugin(pipeline_3d::LineGizmo3dPlugin);
+        app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
@@ -159,6 +162,10 @@ pub struct GizmoConfig {
     pub depth_bias: f32,
     /// Configuration for the [`AabbGizmo`].
     pub aabb: AabbGizmoConfig,
+    /// Describes which rendering layers gizmos will be rendered to.
+    ///
+    /// Gizmos will only be rendered to cameras with intersecting layers.
+    pub render_layers: RenderLayers,
 }
 
 impl Default for GizmoConfig {
@@ -169,6 +176,7 @@ impl Default for GizmoConfig {
             line_perspective: false,
             depth_bias: 0.,
             aabb: Default::default(),
+            render_layers: Default::default(),
         }
     }
 }
@@ -191,8 +199,8 @@ pub struct AabbGizmoConfig {
 }
 
 /// Add this [`Component`] to an entity to draw its [`Aabb`] component.
-#[derive(Component, Reflect, FromReflect, Default, Debug)]
-#[reflect(Component, FromReflect, Default)]
+#[derive(Component, Reflect, Default, Debug)]
+#[reflect(Component, Default)]
 pub struct AabbGizmo {
     /// The color of the box.
     ///
@@ -229,7 +237,17 @@ fn draw_all_aabbs(
 }
 
 fn color_from_entity(entity: Entity) -> Color {
-    let hue = entity.to_bits() as f32 * 100_000. % 360.;
+    let index = entity.index();
+
+    // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
+    //
+    // See https://en.wikipedia.org/wiki/Low-discrepancy_sequence
+    // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
+    // so that the closer the numbers are, the larger the difference of their image.
+    const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
+    const RATIO_360: f32 = 360.0 / u32::MAX as f32;
+    let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
+
     Color::hsl(hue, 1., 0.5)
 }
 
@@ -452,12 +470,22 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
             return RenderCommandResult::Failure;
         };
 
-        pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
-        pass.set_vertex_buffer(1, line_gizmo.color_buffer.slice(..));
-
         let instances = if line_gizmo.strip {
+            let item_size = VertexFormat::Float32x3.size();
+            let buffer_size = line_gizmo.position_buffer.size() - item_size;
+            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..buffer_size));
+            pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(item_size..));
+
+            let item_size = VertexFormat::Float32x4.size();
+            let buffer_size = line_gizmo.color_buffer.size() - item_size;
+            pass.set_vertex_buffer(2, line_gizmo.color_buffer.slice(..buffer_size));
+            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(item_size..));
+
             u32::max(line_gizmo.vertex_count, 1) - 1
         } else {
+            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
+            pass.set_vertex_buffer(1, line_gizmo.color_buffer.slice(..));
+
             line_gizmo.vertex_count / 2
         };
 
@@ -468,42 +496,55 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
 }
 
 fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
-    let stride_multiplier = if strip { 1 } else { 2 };
     use VertexFormat::*;
-    vec![
-        // Positions
-        VertexBufferLayout {
-            array_stride: Float32x3.size() * stride_multiplier,
-            step_mode: VertexStepMode::Instance,
-            attributes: vec![
-                VertexAttribute {
-                    format: Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                VertexAttribute {
-                    format: Float32x3,
-                    offset: Float32x3.size(),
-                    shader_location: 1,
-                },
-            ],
-        },
-        // Colors
-        VertexBufferLayout {
-            array_stride: Float32x4.size() * stride_multiplier,
-            step_mode: VertexStepMode::Instance,
-            attributes: vec![
-                VertexAttribute {
-                    format: Float32x4,
-                    offset: 0,
-                    shader_location: 2,
-                },
-                VertexAttribute {
-                    format: Float32x4,
-                    offset: Float32x4.size(),
-                    shader_location: 3,
-                },
-            ],
-        },
-    ]
+    let mut position_layout = VertexBufferLayout {
+        array_stride: Float32x3.size(),
+        step_mode: VertexStepMode::Instance,
+        attributes: vec![VertexAttribute {
+            format: Float32x3,
+            offset: 0,
+            shader_location: 0,
+        }],
+    };
+
+    let mut color_layout = VertexBufferLayout {
+        array_stride: Float32x4.size(),
+        step_mode: VertexStepMode::Instance,
+        attributes: vec![VertexAttribute {
+            format: Float32x4,
+            offset: 0,
+            shader_location: 2,
+        }],
+    };
+
+    if strip {
+        vec![
+            position_layout.clone(),
+            {
+                position_layout.attributes[0].shader_location = 1;
+                position_layout
+            },
+            color_layout.clone(),
+            {
+                color_layout.attributes[0].shader_location = 3;
+                color_layout
+            },
+        ]
+    } else {
+        position_layout.array_stride *= 2;
+        position_layout.attributes.push(VertexAttribute {
+            format: Float32x3,
+            offset: Float32x3.size(),
+            shader_location: 1,
+        });
+
+        color_layout.array_stride *= 2;
+        color_layout.attributes.push(VertexAttribute {
+            format: Float32x4,
+            offset: Float32x4.size(),
+            shader_location: 3,
+        });
+
+        vec![position_layout, color_layout]
+    }
 }

@@ -19,8 +19,10 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<ColorGradientMaterial>::default())
+        .add_plugins((
+            DefaultPlugins,
+            MaterialPlugin::<ColorGradientMaterial>::default(),
+        ))
         .insert_resource(CameraTransform(
             Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ))

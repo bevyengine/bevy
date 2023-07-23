@@ -1,6 +1,5 @@
-use crate::container_attributes::ReflectTraits;
+use crate::container_attributes::{FromReflectAttrs, ReflectTraits};
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
-use crate::fq_std::{FQAny, FQDefault, FQSend, FQSync};
 use crate::type_path::parse_path_no_leading_colon;
 use crate::utility::{members_to_serialization_denylist, StringExpr, WhereClauseOptions};
 use bit_set::BitSet;
@@ -89,6 +88,7 @@ pub(crate) struct ReflectEnum<'a> {
 }
 
 /// Represents a field on a struct or tuple struct.
+#[derive(Clone)]
 pub(crate) struct StructField<'a> {
     /// The raw field.
     pub data: &'a Field,
@@ -134,7 +134,10 @@ enum ReflectMode {
 }
 
 impl<'a> ReflectDerive<'a> {
-    pub fn from_input(input: &'a DeriveInput) -> Result<Self, syn::Error> {
+    pub fn from_input(
+        input: &'a DeriveInput,
+        is_from_reflect_derive: bool,
+    ) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         // Should indicate whether `#[reflect_value]` was used.
         let mut reflect_mode = None;
@@ -159,6 +162,7 @@ impl<'a> ReflectDerive<'a> {
                     reflect_mode = Some(ReflectMode::Normal);
                     let new_traits = ReflectTraits::from_metas(
                         meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
+                        is_from_reflect_derive,
                     )?;
                     traits.merge(new_traits)?;
                 }
@@ -173,6 +177,7 @@ impl<'a> ReflectDerive<'a> {
                     reflect_mode = Some(ReflectMode::Value);
                     let new_traits = ReflectTraits::from_metas(
                         meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
+                        is_from_reflect_derive,
                     )?;
                     traits.merge(new_traits)?;
                 }
@@ -376,6 +381,12 @@ impl<'a> ReflectMeta<'a> {
         &self.traits
     }
 
+    /// The `FromReflect` attributes on this type.
+    #[allow(clippy::wrong_self_convention)]
+    pub fn from_reflect(&self) -> &FromReflectAttrs {
+        self.traits.from_reflect()
+    }
+
     /// The name of this struct.
     pub fn type_path(&self) -> &ReflectTypePath<'a> {
         &self.type_path
@@ -443,13 +454,6 @@ impl<'a> ReflectStruct<'a> {
             .filter(|field| field.attrs.ignore.is_active())
     }
 
-    /// Get a collection of types which are ignored by the reflection API
-    pub fn ignored_types(&self) -> Vec<syn::Type> {
-        self.ignored_fields()
-            .map(|field| field.data.ty.clone())
-            .collect()
-    }
-
     /// Get an iterator of fields which are ignored by the reflection API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields
@@ -464,14 +468,7 @@ impl<'a> ReflectStruct<'a> {
     }
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        let bevy_reflect_path = &self.meta().bevy_reflect_path;
-        WhereClauseOptions {
-            active_types: self.active_types().into(),
-            active_trait_bounds: quote! { #bevy_reflect_path::Reflect },
-            ignored_types: self.ignored_types().into(),
-            ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync },
-            ..WhereClauseOptions::type_path_bounds(self.meta())
-        }
+        WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
     }
 }
 
@@ -501,13 +498,6 @@ impl<'a> ReflectEnum<'a> {
             .flat_map(|variant| variant.active_fields())
     }
 
-    /// Get a collection of types which are exposed to the reflection API
-    pub fn active_types(&self) -> Vec<syn::Type> {
-        self.active_fields()
-            .map(|field| field.data.ty.clone())
-            .collect()
-    }
-
     /// Get an iterator of fields which are ignored by the reflection API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.variants()
@@ -515,22 +505,8 @@ impl<'a> ReflectEnum<'a> {
             .flat_map(|variant| variant.ignored_fields())
     }
 
-    /// Get a collection of types which are ignored to the reflection API
-    pub fn ignored_types(&self) -> Vec<syn::Type> {
-        self.ignored_fields()
-            .map(|field| field.data.ty.clone())
-            .collect()
-    }
-
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        let bevy_reflect_path = &self.meta().bevy_reflect_path;
-        WhereClauseOptions {
-            active_types: self.active_types().into(),
-            active_trait_bounds: quote! { #bevy_reflect_path::FromReflect },
-            ignored_types: self.ignored_types().into(),
-            ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync + #FQDefault },
-            ..WhereClauseOptions::type_path_bounds(self.meta())
-        }
+        WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
     }
 }
 
@@ -591,7 +567,7 @@ impl<'a> EnumVariant<'a> {
 ///     custom_path: None,
 /// };
 ///
-/// // Eqivalent to "core::marker".
+/// // Equivalent to "core::marker".
 /// let module_path = type_path.module_path();
 /// # Ok::<(), syn::Error>(())
 /// ```
@@ -601,7 +577,7 @@ pub(crate) enum ReflectTypePath<'a> {
     Primitive(&'a Ident),
     /// Using `::my_crate::foo::Bar` syntax.
     ///
-    /// May have a seperate custom path used for the `TypePath` implementation.
+    /// May have a separate custom path used for the `TypePath` implementation.
     External {
         path: &'a Path,
         custom_path: Option<Path>,
@@ -611,7 +587,7 @@ pub(crate) enum ReflectTypePath<'a> {
     ///
     /// The type must be able to be reached with just its name.
     ///
-    /// May have a seperate alias path used for the `TypePath` implementation.
+    /// May have a separate alias path used for the `TypePath` implementation.
     ///
     /// Module and crate are found with [`module_path!()`](core::module_path),
     /// if there is no custom path specified.

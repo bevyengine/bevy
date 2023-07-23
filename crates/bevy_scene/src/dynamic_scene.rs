@@ -2,10 +2,9 @@ use std::any::TypeId;
 
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use anyhow::Result;
-use bevy_app::AppTypeRegistry;
 use bevy_ecs::{
     entity::{Entity, EntityMap},
-    reflect::{ReflectComponent, ReflectMapEntities},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
 use bevy_reflect::{Reflect, TypePath, TypeRegistryArc, TypeUuid};
@@ -46,14 +45,13 @@ pub struct DynamicEntity {
 
 impl DynamicScene {
     /// Create a new dynamic scene from a given scene.
-    pub fn from_scene(scene: &Scene, type_registry: &AppTypeRegistry) -> Self {
-        Self::from_world(&scene.world, type_registry)
+    pub fn from_scene(scene: &Scene) -> Self {
+        Self::from_world(&scene.world)
     }
 
     /// Create a new dynamic scene from a given world.
-    pub fn from_world(world: &World, type_registry: &AppTypeRegistry) -> Self {
-        let mut builder =
-            DynamicSceneBuilder::from_world_with_type_registry(world, type_registry.clone());
+    pub fn from_world(world: &World) -> Self {
+        let mut builder = DynamicSceneBuilder::from_world(world);
 
         builder.extract_entities(world.iter_entities().map(|entity| entity.id()));
         builder.extract_resources();
@@ -185,8 +183,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::AppTypeRegistry;
-    use bevy_ecs::{entity::EntityMap, system::Command, world::World};
+    use bevy_ecs::{entity::EntityMap, reflect::AppTypeRegistry, system::Command, world::World};
     use bevy_hierarchy::{AddChild, Parent};
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;

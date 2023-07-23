@@ -10,8 +10,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(FrameTimeDiagnosticsPlugin)
+        .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (text_update_system, text_color_system))
         .run();
