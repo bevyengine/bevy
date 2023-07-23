@@ -35,7 +35,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, widget::Label,
-        Interaction, LastInteraction, UiScale,
+        Click, Interaction, LastInteraction, UiScale,
     };
 }
 
@@ -120,12 +120,12 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
+            .add_event::<Click>()
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             )
-            .add_event::<Click>()
-            .add_systems(Update, ui_click.after(ui_focus_system));
+            .add_systems(PreUpdate, ui_click.after(ui_focus_system));
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
         app.add_systems(

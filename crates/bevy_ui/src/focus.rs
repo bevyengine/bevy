@@ -60,7 +60,7 @@ impl Default for Interaction {
 ///
 /// This is commonly used by adding `LastInteraction` as a member variable
 /// to a UI node such that `Click` events are sent on click/press-release action.
-#[derive(Component, Default, Debug)]
+#[derive(Component, Default, Debug, Clone)]
 pub struct LastInteraction(Interaction);
 
 /// Used to publish which entity was clicked

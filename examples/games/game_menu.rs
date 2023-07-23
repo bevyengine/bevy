@@ -6,17 +6,6 @@ use bevy::prelude::*;
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
-// Extend the button Bundle to store the last interaction.
-// This allows for click events to be sent when `Interaction` goes from
-// `Interaction::Hovered` -> `Interaction::Pressed`
-#[derive(Bundle)]
-struct ClickableButtonBundle {
-    last_interaction: LastInteraction,
-
-    #[bundle()]
-    button_bundle: ButtonBundle,
-}
-
 // Enum that will be used as a global state for the game
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 enum GameState {
@@ -256,9 +245,6 @@ mod game {
 
 mod menu {
     use bevy::{app::AppExit, prelude::*};
-    use bevy_internal::ui::Click;
-
-    use crate::ClickableButtonBundle;
 
     use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
 
@@ -479,13 +465,10 @@ mod menu {
                         // - quit
                         parent
                             .spawn((
-                                ClickableButtonBundle {
-                                    last_interaction: Default::default(),
-                                    button_bundle: ButtonBundle {
-                                        style: button_style.clone(),
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    },
+                                ButtonBundle {
+                                    style: button_style.clone(),
+                                    background_color: NORMAL_BUTTON.into(),
+                                    ..default()
                                 },
                                 MenuButtonAction::Play,
                             ))
@@ -503,13 +486,10 @@ mod menu {
                             });
                         parent
                             .spawn((
-                                ClickableButtonBundle {
-                                    last_interaction: Default::default(),
-                                    button_bundle: ButtonBundle {
-                                        style: button_style.clone(),
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    },
+                                ButtonBundle {
+                                    style: button_style.clone(),
+                                    background_color: NORMAL_BUTTON.into(),
+                                    ..default()
                                 },
                                 MenuButtonAction::Settings,
                             ))
@@ -527,13 +507,10 @@ mod menu {
                             });
                         parent
                             .spawn((
-                                ClickableButtonBundle {
-                                    last_interaction: Default::default(),
-                                    button_bundle: ButtonBundle {
-                                        style: button_style,
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    },
+                                ButtonBundle {
+                                    style: button_style,
+                                    background_color: NORMAL_BUTTON.into(),
+                                    ..default()
                                 },
                                 MenuButtonAction::Quit,
                             ))
@@ -598,13 +575,10 @@ mod menu {
                         ] {
                             parent
                                 .spawn((
-                                    ClickableButtonBundle {
-                                        last_interaction: Default::default(),
-                                        button_bundle: ButtonBundle {
-                                            style: button_style.clone(),
-                                            background_color: NORMAL_BUTTON.into(),
-                                            ..default()
-                                        },
+                                    ButtonBundle {
+                                        style: button_style.clone(),
+                                        background_color: NORMAL_BUTTON.into(),
+                                        ..default()
                                     },
                                     action,
                                 ))
@@ -682,17 +656,14 @@ mod menu {
                                     DisplayQuality::Medium,
                                     DisplayQuality::High,
                                 ] {
-                                    let mut entity = parent.spawn(ClickableButtonBundle {
-                                        last_interaction: Default::default(),
-                                        button_bundle: ButtonBundle {
-                                            style: Style {
-                                                width: Val::Px(150.0),
-                                                height: Val::Px(65.0),
-                                                ..button_style.clone()
-                                            },
-                                            background_color: NORMAL_BUTTON.into(),
-                                            ..default()
+                                    let mut entity = parent.spawn(ButtonBundle {
+                                        style: Style {
+                                            width: Val::Px(150.0),
+                                            height: Val::Px(65.0),
+                                            ..button_style.clone()
                                         },
+                                        background_color: NORMAL_BUTTON.into(),
+                                        ..default()
                                     });
                                     entity.insert(quality_setting).with_children(|parent| {
                                         parent.spawn(TextBundle::from_section(
@@ -708,13 +679,10 @@ mod menu {
                         // Display the back button to return to the settings screen
                         parent
                             .spawn((
-                                ClickableButtonBundle {
-                                    last_interaction: Default::default(),
-                                    button_bundle: ButtonBundle {
-                                        style: button_style,
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    },
+                                ButtonBundle {
+                                    style: button_style,
+                                    background_color: NORMAL_BUTTON.into(),
+                                    ..default()
                                 },
                                 MenuButtonAction::BackToSettings,
                             ))
@@ -780,17 +748,14 @@ mod menu {
                                     button_text_style.clone(),
                                 ));
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
-                                    let mut entity = parent.spawn(ClickableButtonBundle {
-                                        last_interaction: Default::default(),
-                                        button_bundle: ButtonBundle {
-                                            style: Style {
-                                                width: Val::Px(30.0),
-                                                height: Val::Px(65.0),
-                                                ..button_style.clone()
-                                            },
-                                            background_color: NORMAL_BUTTON.into(),
-                                            ..default()
+                                    let mut entity = parent.spawn(ButtonBundle {
+                                        style: Style {
+                                            width: Val::Px(30.0),
+                                            height: Val::Px(65.0),
+                                            ..button_style.clone()
                                         },
+                                        background_color: NORMAL_BUTTON.into(),
+                                        ..default()
                                     });
                                     entity.insert(Volume(volume_setting));
                                     if *volume == Volume(volume_setting) {
@@ -800,13 +765,10 @@ mod menu {
                             });
                         parent
                             .spawn((
-                                ClickableButtonBundle {
-                                    last_interaction: Default::default(),
-                                    button_bundle: ButtonBundle {
-                                        style: button_style,
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    },
+                                ButtonBundle {
+                                    style: button_style,
+                                    background_color: NORMAL_BUTTON.into(),
+                                    ..default()
                                 },
                                 MenuButtonAction::BackToSettings,
                             ))
