@@ -126,13 +126,21 @@ pub struct Window {
     /// Note: This does not stop the program from fullscreening/setting
     /// the size programmatically.
     pub resizable: bool,
+    /// Specifies which window control buttons should be enabled.
+    ///
+    /// ## Platform-specific
+    ///
+    /// **`iOS`**, **`Android`**, and the **`Web`** do not have window control buttons.
+    ///
+    /// On some **`Linux`** environments these values have no effect.
+    pub enabled_buttons: EnabledButtons,
     /// Should the window have decorations enabled?
     ///
     /// (Decorations are the minimize, maximize, and close buttons on desktop apps)
     ///
-    //  ## Platform-specific
-    //
-    //  **`iOS`**, **`Android`**, and the **`Web`** do not have decorations.
+    /// ## Platform-specific
+    ///
+    /// **`iOS`**, **`Android`**, and the **`Web`** do not have decorations.
     pub decorations: bool,
     /// Should the window be transparent?
     ///
@@ -221,6 +229,7 @@ impl Default for Window {
             ime_enabled: Default::default(),
             ime_position: Default::default(),
             resizable: true,
+            enabled_buttons: Default::default(),
             decorations: true,
             transparent: false,
             focused: true,
@@ -1000,4 +1009,43 @@ pub enum WindowTheme {
 
     /// Use the dark variant.
     Dark,
+}
+
+/// Specifies which [`Window`] control buttons should be enabled.
+///
+/// ## Platform-specific
+///
+/// **`iOS`**, **`Android`**, and the **`Web`** do not have window control buttons.  
+///
+/// On some **`Linux`** environments these values have no effect.
+#[derive(Debug, Copy, Clone, PartialEq, Reflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Default)]
+pub struct EnabledButtons {
+    /// Enables the functionality of the minimize button.
+    pub minimize: bool,
+    /// Enables the functionality of the maximize button.
+    ///
+    /// macOS note: When [`Window`] `resizable` member is set to `false`
+    /// the maximize button will be disabled regardless of this value.
+    /// Additionaly, when `resizable` is set to `true` the window will
+    /// be maximized when its bar is double-clicked regardless of whether
+    /// the maximize button is enabled or not.
+    pub maximize: bool,
+    /// Enables the functionality of the close button.
+    pub close: bool,
+}
+
+impl Default for EnabledButtons {
+    fn default() -> Self {
+        Self {
+            minimize: true,
+            maximize: true,
+            close: true,
+        }
+    }
 }
