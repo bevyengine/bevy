@@ -661,3 +661,109 @@ macro_rules! impl_archetype_filter_tuple {
 }
 
 all_tuples!(impl_archetype_filter_tuple, 0, 15, F);
+
+/// This macro implements `WorldQuery` and `ReadOnlyWorldQuery` for a filter
+/// so that `Filter<(A, B, C)>` acts as a shortcut for `(Filter<A>, Filter<B>, Filter<C>)`.
+macro_rules! impl_filter_tuple_to_tuple_filter {
+    ($filter:ident; $($T:ident),*) => {
+
+        // SAFETY: no component access or archetype component access
+        unsafe impl<$($T: Component),*> ReadOnlyWorldQuery for $filter<($($T),*)> {}
+
+        // SAFETY: `Self::ReadOnly` is the same as `Self`
+        unsafe impl<$($T: Component),*> WorldQuery for $filter<($($T),*)> {
+            type Fetch<'w> = <($($filter<$T>,)*) as WorldQuery>::Fetch<'w>;
+            type Item<'w> = <($($filter<$T>,)*) as WorldQuery>::Item<'w>;
+            type ReadOnly = Self;
+            type State = <($($filter<$T>,)*) as WorldQuery>::State;
+
+            fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+                <($($filter<$T>,)*) as WorldQuery>::shrink(item)
+            }
+
+            #[inline]
+            unsafe fn init_fetch<'w>(
+                world: UnsafeWorldCell<'w>,
+                state: &Self::State,
+                last_run: Tick,
+                this_run: Tick,
+            ) -> Self::Fetch<'w> {
+                <($($filter<$T>,)*) as WorldQuery>::init_fetch(world, state, last_run, this_run)
+            }
+
+            unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
+                <($($filter<$T>,)*) as WorldQuery>::clone_fetch(fetch)
+            }
+
+            const IS_DENSE: bool = <($($filter<$T>,)*) as WorldQuery>::IS_DENSE;
+
+            const IS_ARCHETYPAL: bool = <($($filter<$T>,)*) as WorldQuery>::IS_ARCHETYPAL;
+
+            #[inline]
+            unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+                <($($filter<$T>,)*) as WorldQuery>::set_table(fetch, state, table)
+            }
+
+            #[inline]
+            unsafe fn set_archetype<'w>(
+                fetch: &mut Self::Fetch<'w>,
+                state: &Self::State,
+                archetype: &'w Archetype,
+                table: &'w Table,
+            ) {
+                <($($filter<$T>,)*) as WorldQuery>::set_archetype(fetch, state, archetype, table)
+            }
+
+            #[inline(always)]
+            unsafe fn fetch<'w>(
+                fetch: &mut Self::Fetch<'w>,
+                entity: Entity,
+                table_row: TableRow,
+            ) -> Self::Item<'w> {
+                <($($filter<$T>,)*) as WorldQuery>::fetch(fetch, entity, table_row)
+            }
+
+            #[inline]
+            fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+                <($($filter<$T>,)*) as WorldQuery>::update_component_access(state, access)
+            }
+
+            #[inline]
+            fn update_archetype_component_access(
+                state: &Self::State,
+                archetype: &Archetype,
+                access: &mut Access<ArchetypeComponentId>,
+            ) {
+                <($($filter<$T>,)*) as WorldQuery>::update_archetype_component_access(
+                    state, archetype, access,
+                )
+            }
+
+            fn init_state(world: &mut World) -> Self::State {
+                <($($filter<$T>,)*) as WorldQuery>::init_state(world)
+            }
+
+            fn matches_component_set(
+                state: &Self::State,
+                set_contains_id: &impl Fn(ComponentId) -> bool,
+            ) -> bool {
+                <($($filter<$T>,)*) as WorldQuery>::matches_component_set(state, set_contains_id)
+            }
+        }
+    };
+}
+
+macro_rules! impl_tuple_with {
+    ($($T:ident),*) => {
+        impl_filter_tuple_to_tuple_filter!(With; $($T),*);
+    };
+}
+
+macro_rules! impl_tuple_without {
+    ($($T:ident),*) => {
+        impl_filter_tuple_to_tuple_filter!(Without; $($T),*);
+    };
+}
+
+all_tuples!(impl_tuple_with, 2, 15, T);
+all_tuples!(impl_tuple_without, 2, 15, T);

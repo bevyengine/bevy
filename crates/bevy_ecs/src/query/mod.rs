@@ -799,4 +799,36 @@ mod tests {
         let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(2)]);
     }
+
+    #[test]
+    fn query_filter_tuple() {
+        let mut world = World::new();
+
+        world.spawn(A(0));
+        world.spawn((A(0), B(0)));
+        world.spawn((B(0), C(0)));
+        world.spawn((A(0), B(0), C(0)));
+
+        let tuple_of_with = world
+            .query_filtered::<Entity, (With<A>, With<B>)>()
+            .iter(&world)
+            .collect::<Vec<Entity>>();
+        let with_of_tuple = world
+            .query_filtered::<Entity, With<(A, B)>>()
+            .iter(&world)
+            .collect::<Vec<Entity>>();
+
+        assert_eq!(tuple_of_with, with_of_tuple);
+
+        let tuple_of_without = world
+            .query_filtered::<Entity, (Without<A>, Without<B>)>()
+            .iter(&world)
+            .collect::<Vec<Entity>>();
+        let without_of_tuple = world
+            .query_filtered::<Entity, Without<(A, B)>>()
+            .iter(&world)
+            .collect::<Vec<Entity>>();
+
+        assert_eq!(tuple_of_without, without_of_tuple);
+    }
 }
