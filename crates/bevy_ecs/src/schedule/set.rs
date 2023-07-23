@@ -3,7 +3,6 @@ use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::define_interned_label;
@@ -178,11 +177,9 @@ impl<T> SystemSet for SystemTypeSet<T> {
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct AnonymousSet(usize);
 
-static NEXT_ANONYMOUS_SET_ID: AtomicUsize = AtomicUsize::new(0);
-
 impl AnonymousSet {
-    pub(crate) fn new() -> Self {
-        Self(NEXT_ANONYMOUS_SET_ID.fetch_add(1, Ordering::Relaxed))
+    pub(crate) fn new(id: usize) -> Self {
+        Self(id)
     }
 }
 

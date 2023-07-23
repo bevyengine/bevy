@@ -390,6 +390,7 @@ pub struct ScheduleGraph {
     ambiguous_with_flattened: UnGraphMap<NodeId, ()>,
     ambiguous_with_all: HashSet<NodeId>,
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
+    anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
 }
@@ -411,6 +412,7 @@ impl ScheduleGraph {
             ambiguous_with_flattened: UnGraphMap::new(),
             ambiguous_with_all: HashSet::new(),
             conflicting_systems: Vec::new(),
+            anonymous_sets: 0,
             changed: false,
             settings: default(),
         }
@@ -533,7 +535,7 @@ impl ScheduleGraph {
                 let more_than_one_entry = configs.len() > 1;
                 if !collective_conditions.is_empty() {
                     if more_than_one_entry {
-                        let set = AnonymousSet::new();
+                        let set = self.create_anonymous_set();
                         for config in &mut configs {
                             config.in_set_inner((&set as &dyn SystemSet).into());
                         }
@@ -733,6 +735,12 @@ impl ScheduleGraph {
         }
 
         Ok(())
+    }
+
+    fn create_anonymous_set(&mut self) -> AnonymousSet {
+        let id = self.anonymous_sets;
+        self.anonymous_sets += 1;
+        AnonymousSet::new(id)
     }
 
     fn check_sets(
