@@ -174,13 +174,6 @@ impl Schedule {
         }
     }
 
-    /// Add a system to the schedule.
-    #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
-    pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.graph.add_systems_inner(system.into_configs(), false);
-        self
-    }
-
     /// Add a collection of systems to the schedule.
     pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.graph.add_systems_inner(systems.into_configs(), false);
@@ -219,12 +212,12 @@ impl Schedule {
         self
     }
 
-    /// Set whether the schedule applies buffers on final time or not. This is a catchall
-    /// incase a system uses commands but was not explicitly ordered after a
-    /// [`apply_system_buffers`](crate::prelude::apply_system_buffers). By default this
+    /// Set whether the schedule applies deferred system buffers on final time or not. This is a catch-all
+    /// in case a system uses commands but was not explicitly ordered before an instance of
+    /// [`apply_deferred`](crate::prelude::apply_deferred). By default this
     /// setting is true, but may be disabled if needed.
-    pub fn set_apply_final_buffers(&mut self, apply_final_buffers: bool) -> &mut Self {
-        self.executor.set_apply_final_buffers(apply_final_buffers);
+    pub fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) -> &mut Self {
+        self.executor.set_apply_final_deferred(apply_final_deferred);
         self
     }
 
@@ -271,7 +264,9 @@ impl Schedule {
     /// This prevents overflow and thus prevents false positives.
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for system in &mut self.executable.systems {
-            system.check_change_tick(change_tick);
+            if !is_apply_deferred(system) {
+                system.check_change_tick(change_tick);
+            }
         }
 
         for conditions in &mut self.executable.system_conditions {
@@ -287,17 +282,17 @@ impl Schedule {
         }
     }
 
-    /// Directly applies any accumulated system buffers (like [`Commands`](crate::prelude::Commands)) to the `world`.
+    /// Directly applies any accumulated [`Deferred`](crate::system::Deferred) system parameters (like [`Commands`](crate::prelude::Commands)) to the `world`.
     ///
-    /// Like always, system buffers are applied in the "topological sort order" of the schedule graph.
+    /// Like always, deferred system parameters are applied in the "topological sort order" of the schedule graph.
     /// As a result, buffers from one system are only guaranteed to be applied before those of other systems
     /// if there is an explicit system ordering between the two systems.
     ///
     /// This is used in rendering to extract data from the main world, storing the data in system buffers,
     /// before applying their buffers in a different world.
-    pub fn apply_system_buffers(&mut self, world: &mut World) {
+    pub fn apply_deferred(&mut self, world: &mut World) {
         for system in &mut self.executable.systems {
-            system.apply_buffers(world);
+            system.apply_deferred(world);
         }
     }
 }
@@ -380,9 +375,9 @@ impl SystemNode {
 #[derive(Default)]
 pub struct ScheduleGraph {
     systems: Vec<SystemNode>,
-    system_conditions: Vec<Option<Vec<BoxedCondition>>>,
+    system_conditions: Vec<Vec<BoxedCondition>>,
     system_sets: Vec<SystemSetNode>,
-    system_set_conditions: Vec<Option<Vec<BoxedCondition>>>,
+    system_set_conditions: Vec<Vec<BoxedCondition>>,
     system_set_ids: HashMap<BoxedSystemSet, NodeId>,
     uninit: Vec<(NodeId, usize)>,
     hierarchy: Dag,
@@ -397,6 +392,7 @@ pub struct ScheduleGraph {
 }
 
 impl ScheduleGraph {
+    /// Creates an empty [`ScheduleGraph`] with default settings.
     pub fn new() -> Self {
         Self {
             systems: Vec::new(),
@@ -465,20 +461,17 @@ impl ScheduleGraph {
             .enumerate()
             .filter_map(|(i, (system_node, condition))| {
                 let system = system_node.inner.as_deref()?;
-                let condition = condition.as_ref()?.as_slice();
-                Some((NodeId::System(i), system, condition))
+                Some((NodeId::System(i), system, condition.as_slice()))
             })
     }
 
     /// Returns an iterator over all system sets in this schedule.
     pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, &dyn SystemSet, &[BoxedCondition])> {
-        self.system_set_ids.iter().map(|(_, node_id)| {
+        self.system_set_ids.iter().map(|(_, &node_id)| {
             let set_node = &self.system_sets[node_id.index()];
             let set = &*set_node.inner;
-            let conditions = self.system_set_conditions[node_id.index()]
-                .as_deref()
-                .unwrap_or(&[]);
-            (*node_id, set, conditions)
+            let conditions = self.system_set_conditions[node_id.index()].as_slice();
+            (node_id, set, conditions)
         })
     }
 
@@ -662,7 +655,7 @@ impl ScheduleGraph {
         // system init has to be deferred (need `&mut World`)
         self.uninit.push((id, 0));
         self.systems.push(SystemNode::new(config.system));
-        self.system_conditions.push(Some(config.conditions));
+        self.system_conditions.push(config.conditions);
 
         Ok(id)
     }
@@ -708,8 +701,7 @@ impl ScheduleGraph {
         self.update_graphs(id, graph_info)?;
 
         // system init has to be deferred (need `&mut World`)
-        let system_set_conditions =
-            self.system_set_conditions[id.index()].get_or_insert_with(Vec::new);
+        let system_set_conditions = &mut self.system_set_conditions[id.index()];
         self.uninit.push((id, system_set_conditions.len()));
         system_set_conditions.append(&mut conditions);
 
@@ -719,7 +711,7 @@ impl ScheduleGraph {
     fn add_set(&mut self, set: BoxedSystemSet) -> NodeId {
         let id = NodeId::Set(self.system_sets.len());
         self.system_sets.push(SystemSetNode::new(set.dyn_clone()));
-        self.system_set_conditions.push(None);
+        self.system_set_conditions.push(Vec::new());
         self.system_set_ids.insert(set, id);
         id
     }
@@ -746,10 +738,6 @@ impl ScheduleGraph {
     ) -> Result<(), ScheduleBuildError> {
         for set in &graph_info.sets {
             self.check_set(id, &**set)?;
-        }
-
-        if let Some(base_set) = &graph_info.base_set {
-            self.check_set(id, &**base_set)?;
         }
 
         Ok(())
@@ -852,17 +840,13 @@ impl ScheduleGraph {
             match id {
                 NodeId::System(index) => {
                     self.systems[index].get_mut().unwrap().initialize(world);
-                    if let Some(v) = self.system_conditions[index].as_mut() {
-                        for condition in v.iter_mut() {
-                            condition.initialize(world);
-                        }
+                    for condition in &mut self.system_conditions[index] {
+                        condition.initialize(world);
                     }
                 }
                 NodeId::Set(index) => {
-                    if let Some(v) = self.system_set_conditions[index].as_mut() {
-                        for condition in v.iter_mut().skip(i) {
-                            condition.initialize(world);
-                        }
+                    for condition in self.system_set_conditions[index].iter_mut().skip(i) {
+                        condition.initialize(world);
                     }
                 }
             }
@@ -1123,11 +1107,7 @@ impl ScheduleGraph {
             .filter(|&(_i, id)| {
                 // ignore system sets that have no conditions
                 // ignore system type sets (already covered, they don't have conditions)
-                id.is_set()
-                    && self.system_set_conditions[id.index()]
-                        .as_ref()
-                        .filter(|v| !v.is_empty())
-                        .is_some()
+                id.is_set() && !self.system_set_conditions[id.index()].is_empty()
             })
             .unzip();
 
@@ -1215,7 +1195,7 @@ impl ScheduleGraph {
             .zip(schedule.system_conditions.drain(..))
         {
             self.systems[id.index()].inner = Some(system);
-            self.system_conditions[id.index()] = Some(conditions);
+            self.system_conditions[id.index()] = conditions;
         }
 
         for (id, conditions) in schedule
@@ -1223,7 +1203,7 @@ impl ScheduleGraph {
             .drain(..)
             .zip(schedule.set_conditions.drain(..))
         {
-            self.system_set_conditions[id.index()] = Some(conditions);
+            self.system_set_conditions[id.index()] = conditions;
         }
 
         *schedule = self.build_schedule(components)?;
@@ -1231,13 +1211,13 @@ impl ScheduleGraph {
         // move systems into new schedule
         for &id in &schedule.system_ids {
             let system = self.systems[id.index()].inner.take().unwrap();
-            let conditions = self.system_conditions[id.index()].take().unwrap();
+            let conditions = std::mem::take(&mut self.system_conditions[id.index()]);
             schedule.systems.push(system);
             schedule.system_conditions.push(conditions);
         }
 
         for &id in &schedule.set_ids {
-            let conditions = self.system_set_conditions[id.index()].take().unwrap();
+            let conditions = std::mem::take(&mut self.system_set_conditions[id.index()]);
             schedule.set_conditions.push(conditions);
         }
 
@@ -1579,6 +1559,8 @@ impl Default for ScheduleBuildSettings {
 }
 
 impl ScheduleBuildSettings {
+    /// Default build settings.
+    /// See the field-level documentation for the default value of each field.
     pub const fn new() -> Self {
         Self {
             ambiguity_detection: LogLevel::Ignore,

@@ -371,7 +371,7 @@ impl ParsedPath {
     ///
     /// See [`element_mut`](Self::element_mut) for a typed version of this method.
     pub fn reflect_element_mut<'r, 'p>(
-        &'p mut self,
+        &'p self,
         root: &'r mut dyn Reflect,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
         let mut current = root;
@@ -402,7 +402,7 @@ impl ParsedPath {
     ///
     /// See [`reflect_element_mut`](Self::reflect_element_mut) for an untyped version of this method.
     pub fn element_mut<'r, 'p, T: Reflect>(
-        &'p mut self,
+        &'p self,
         root: &'r mut dyn Reflect,
     ) -> Result<&'r mut T, ReflectPathError<'p>> {
         self.reflect_element_mut(root).and_then(|p| {
@@ -838,7 +838,7 @@ mod tests {
         bar: C,
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     struct C {
         baz: f32,
     }
@@ -849,7 +849,7 @@ mod tests {
     #[derive(Reflect)]
     struct E(f32, usize);
 
-    #[derive(Reflect, FromReflect, PartialEq, Debug)]
+    #[derive(Reflect, PartialEq, Debug)]
     enum F {
         Unit,
         Tuple(u32, u32),

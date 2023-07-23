@@ -1,3 +1,5 @@
+//! Defines the [`World`] and APIs for accessing it directly.
+
 mod entity_ref;
 pub mod error;
 mod spawn_batch;
@@ -63,7 +65,7 @@ pub struct World {
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) removed_components: RemovedComponentEvents,
-    /// Access cache used by [WorldCell]. Is only accessed in the `Drop` impl of `WorldCell`.
+    /// Access cache used by [`WorldCell`]. Is only accessed in the `Drop` impl of `WorldCell`.
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
@@ -109,19 +111,14 @@ impl World {
     }
 
     /// Creates a new [`UnsafeWorldCell`] view with complete read+write access.
+    #[inline]
     pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
         UnsafeWorldCell::new_mutable(self)
     }
 
     /// Creates a new [`UnsafeWorldCell`] view with only read access to everything.
+    #[inline]
     pub fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCell<'_> {
-        UnsafeWorldCell::new_readonly(self)
-    }
-
-    /// Creates a new [`UnsafeWorldCell`] with read+write access from a [&World](World).
-    /// This is only a temporary measure until every `&World` that is semantically a [`UnsafeWorldCell`]
-    /// has been replaced.
-    pub(crate) fn as_unsafe_world_cell_migration_internal(&self) -> UnsafeWorldCell<'_> {
         UnsafeWorldCell::new_readonly(self)
     }
 
@@ -244,10 +241,19 @@ impl World {
     /// assert_eq!(position.x, 0.0);
     /// ```
     #[inline]
+    #[track_caller]
     pub fn entity(&self, entity: Entity) -> EntityRef {
-        // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
-        self.get_entity(entity)
-            .unwrap_or_else(|| panic!("Entity {entity:?} does not exist"))
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        fn panic_no_entity(entity: Entity) -> ! {
+            panic!("Entity {entity:?} does not exist");
+        }
+
+        match self.get_entity(entity) {
+            Some(entity) => entity,
+            None => panic_no_entity(entity),
+        }
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
@@ -270,10 +276,19 @@ impl World {
     /// position.x = 1.0;
     /// ```
     #[inline]
+    #[track_caller]
     pub fn entity_mut(&mut self, entity: Entity) -> EntityMut {
-        // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
-        self.get_entity_mut(entity)
-            .unwrap_or_else(|| panic!("Entity {entity:?} does not exist"))
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        fn panic_no_entity(entity: Entity) -> ! {
+            panic!("Entity {entity:?} does not exist");
+        }
+
+        match self.get_entity_mut(entity) {
+            Some(entity) => entity,
+            None => panic_no_entity(entity),
+        }
     }
 
     /// Returns the components of an [`Entity`](crate::entity::Entity) through [`ComponentInfo`](crate::component::ComponentInfo).
@@ -938,6 +953,13 @@ impl World {
             .unwrap_or(false)
     }
 
+    /// Return's `true` if a resource of type `R` exists and was added since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this return's `false`.
+    ///
+    /// This means that:
+    /// - When called from an exclusive system, this will check for additions since the system last ran.
+    /// - When called elsewhere, this will check for additions since the last time that [`World::clear_trackers`]
+    ///   was called.
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
@@ -946,6 +968,13 @@ impl World {
             .unwrap_or(false)
     }
 
+    /// Return's `true` if a resource of type `R` exists and was modified since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this return's `false`.
+    ///
+    /// This means that:
+    /// - When called from an exclusive system, this will check for changes since the system last ran.
+    /// - When called elsewhere, this will check for changes since the last time that [`World::clear_trackers`]
+    ///   was called.
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
@@ -1469,7 +1498,7 @@ impl World {
         }
     }
 
-    /// Increments the world's current change tick, and returns the old value.
+    /// Increments the world's current change tick and returns the old value.
     #[inline]
     pub fn increment_change_tick(&self) -> Tick {
         let prev_tick = self.change_tick.fetch_add(1, Ordering::AcqRel);
@@ -1496,6 +1525,12 @@ impl World {
         Tick::new(tick)
     }
 
+    /// When called from within an exclusive system (a [`System`] that takes `&mut World` as its first
+    /// parameter), this method returns the [`Tick`] indicating the last time the exclusive system was run.
+    ///
+    /// Otherwise, this returns the `Tick` indicating the last time that [`World::clear_trackers`] was called.
+    ///
+    /// [`System`]: crate::system::System
     #[inline]
     pub fn last_change_tick(&self) -> Tick {
         self.last_change_tick
@@ -1708,12 +1743,98 @@ impl World {
 
 // Schedule-related methods
 impl World {
-    /// Runs the [`Schedule`] associated with the `label` a single time.
+    /// Adds the specified [`Schedule`] to the world. The schedule can later be run
+    /// by calling [`.run_schedule(label)`](Self::run_schedule) or by directly
+    /// accessing the [`Schedules`] resource.
     ///
-    /// The [`Schedule`] is fetched from the
+    /// The `Schedules` resource will be initialized if it does not already exist.
     pub fn add_schedule(&mut self, schedule: Schedule, label: impl ScheduleLabel) {
-        let mut schedules = self.resource_mut::<Schedules>();
+        let mut schedules = self.get_resource_or_insert_with(Schedules::default);
         schedules.insert(label, schedule);
+    }
+
+    /// Temporarily removes the schedule associated with `label` from the world,
+    /// runs user code, and finally re-adds the schedule.
+    /// This returns a [`TryRunScheduleError`] if there is no schedule
+    /// associated with `label`.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple cases where you just need to call the schedule once,
+    /// consider using [`World::try_run_schedule`] instead.
+    /// For other use cases, see the example on [`World::schedule_scope`].
+    pub fn try_schedule_scope<R>(
+        &mut self,
+        label: impl AsRef<dyn ScheduleLabel>,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+    ) -> Result<R, TryRunScheduleError> {
+        let label = label.as_ref();
+        let Some((extracted_label, mut schedule))
+            = self.get_resource_mut::<Schedules>().and_then(|mut s| s.remove_entry(label))
+        else {
+            return Err(TryRunScheduleError(label.dyn_clone()));
+        };
+
+        // TODO: move this span to Schedule::run
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
+        let value = f(self, &mut schedule);
+
+        let old = self
+            .resource_mut::<Schedules>()
+            .insert(extracted_label, schedule);
+        if old.is_some() {
+            warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
+        }
+
+        Ok(value)
+    }
+
+    /// Temporarily removes the schedule associated with `label` from the world,
+    /// runs user code, and finally re-adds the schedule.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+    /// # #[derive(ScheduleLabel, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    /// # pub struct MySchedule;
+    /// # #[derive(Resource)]
+    /// # struct Counter(usize);
+    /// #
+    /// # let mut world = World::new();
+    /// # world.insert_resource(Counter(0));
+    /// # let mut schedule = Schedule::new();
+    /// # schedule.add_systems(tick_counter);
+    /// # world.init_resource::<Schedules>();
+    /// # world.add_schedule(schedule, MySchedule);
+    /// # fn tick_counter(mut counter: ResMut<Counter>) { counter.0 += 1; }
+    /// // Run the schedule five times.
+    /// world.schedule_scope(MySchedule, |world, schedule| {
+    ///     for _ in 0..5 {
+    ///         schedule.run(world);
+    ///     }
+    /// });
+    /// # assert_eq!(world.resource::<Counter>().0, 5);
+    /// ```
+    ///
+    /// For simple cases where you just need to call the schedule once,
+    /// consider using [`World::run_schedule`] instead.
+    ///
+    /// # Panics
+    ///
+    /// If the requested schedule does not exist.
+    pub fn schedule_scope<R>(
+        &mut self,
+        label: impl AsRef<dyn ScheduleLabel>,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+    ) -> R {
+        self.try_schedule_scope(label, f)
+            .unwrap_or_else(|e| panic!("{e}"))
     }
 
     /// Attempts to run the [`Schedule`] associated with the `label` a single time,
@@ -1725,36 +1846,9 @@ impl World {
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
     pub fn try_run_schedule(
         &mut self,
-        label: impl ScheduleLabel,
+        label: impl AsRef<dyn ScheduleLabel>,
     ) -> Result<(), TryRunScheduleError> {
-        self.try_run_schedule_ref(&label)
-    }
-
-    /// Attempts to run the [`Schedule`] associated with the `label` a single time,
-    /// and returns a [`TryRunScheduleError`] if the schedule does not exist.
-    ///
-    /// Unlike the `try_run_schedule` method, this method takes the label by reference, which can save a clone.
-    ///
-    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
-    /// and system state is cached.
-    ///
-    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
-    pub fn try_run_schedule_ref(
-        &mut self,
-        label: &dyn ScheduleLabel,
-    ) -> Result<(), TryRunScheduleError> {
-        let Some((extracted_label, mut schedule)) = self.resource_mut::<Schedules>().remove_entry(label) else {
-            return Err(TryRunScheduleError(label.dyn_clone()));
-        };
-
-        // TODO: move this span to Schedule::run
-        #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
-        schedule.run(self);
-        self.resource_mut::<Schedules>()
-            .insert(extracted_label, schedule);
-
-        Ok(())
+        self.try_schedule_scope(label, |world, sched| sched.run(world))
     }
 
     /// Runs the [`Schedule`] associated with the `label` a single time.
@@ -1766,26 +1860,9 @@ impl World {
     ///
     /// # Panics
     ///
-    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
-    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
-        self.run_schedule_ref(&label);
-    }
-
-    /// Runs the [`Schedule`] associated with the `label` a single time.
-    ///
-    /// Unlike the `run_schedule` method, this method takes the label by reference, which can save a clone.
-    ///
-    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
-    /// and system state is cached.
-    ///
-    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
-    pub fn run_schedule_ref(&mut self, label: &dyn ScheduleLabel) {
-        self.try_run_schedule_ref(label)
-            .unwrap_or_else(|e| panic!("{}", e));
+    /// If the requested schedule does not exist.
+    pub fn run_schedule(&mut self, label: impl AsRef<dyn ScheduleLabel>) {
+        self.schedule_scope(label, |world, sched| sched.run(world));
     }
 }
 

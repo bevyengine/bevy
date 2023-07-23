@@ -51,7 +51,7 @@ impl WinitSettings {
         }
     }
 
-    /// Gets the configured `UpdateMode` depending on whether the window is focused or not
+    /// Gets the configured [`UpdateMode`] depending on whether the window is focused or not
     pub fn update_mode(&self, focused: bool) -> &UpdateMode {
         match focused {
             true => &self.focused_mode,

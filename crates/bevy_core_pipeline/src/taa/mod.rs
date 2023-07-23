@@ -1,5 +1,5 @@
 use crate::{
-    core_3d,
+    core_3d::{self, CORE_3D},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
@@ -9,17 +9,17 @@ use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
-    query::{QueryState, With},
-    schedule::IntoSystemConfigs,
+    query::{QueryItem, With},
+    schedule::{apply_deferred, IntoSystemConfigs},
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_math::vec2;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
-    camera::{ExtractedCamera, TemporalJitter},
+    camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
-    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
@@ -60,22 +60,22 @@ impl Plugin for TemporalAntiAliasPlugin {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
         render_app
-            .init_resource::<TAAPipeline>()
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
             .add_systems(ExtractSchedule, extract_taa_settings)
             .add_systems(
                 Render,
                 (
-                    prepare_taa_jitter
+                    (prepare_taa_jitter_and_mip_bias, apply_deferred)
+                        .chain()
                         .before(prepare_view_uniforms)
                         .in_set(RenderSet::Prepare),
                     prepare_taa_history_textures.in_set(RenderSet::Prepare),
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
                 ),
             )
-            .add_render_graph_node::<TAANode>(core_3d::graph::NAME, draw_3d_graph::node::TAA)
+            .add_render_graph_node::<ViewNodeRunner<TAANode>>(CORE_3D, draw_3d_graph::node::TAA)
             .add_render_graph_edges(
-                core_3d::graph::NAME,
+                CORE_3D,
                 &[
                     core_3d::graph::node::END_MAIN_PASS,
                     draw_3d_graph::node::TAA,
@@ -83,6 +83,12 @@ impl Plugin for TemporalAntiAliasPlugin {
                     core_3d::graph::node::TONEMAPPING,
                 ],
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+
+        render_app.init_resource::<TAAPipeline>();
     }
 }
 
@@ -126,7 +132,8 @@ pub struct TemporalAntiAliasBundle {
 ///
 /// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
-/// Currently does not support skinned meshes. There will probably be ghosting artifacts if used with them.
+/// Currently does not support skinned meshes and morph targets.
+/// There will probably be ghosting artifacts if used with them.
 /// Does not work well with alpha-blended meshes as it requires depth writing to determine motion.
 ///
 /// It is very important that correct motion vectors are written for everything on screen.
@@ -134,12 +141,14 @@ pub struct TemporalAntiAliasBundle {
 /// are added using a third party library, the library must either:
 /// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
+///
+/// If no [`MipBias`] component is attached to the camera, TAA will add a MipBias(-1.0) component.
 #[derive(Component, Reflect, Clone)]
 pub struct TemporalAntiAliasSettings {
     /// Set to true to delete the saved temporal history (past frames).
     ///
     /// Useful for preventing ghosting when the history is no longer
-    /// representive of the current frame, such as in sudden camera cuts.
+    /// representative of the current frame, such as in sudden camera cuts.
     ///
     /// After setting this to true, it will automatically be toggled
     /// back to false after one frame.
@@ -152,41 +161,28 @@ impl Default for TemporalAntiAliasSettings {
     }
 }
 
-struct TAANode {
-    view_query: QueryState<(
+#[derive(Default)]
+struct TAANode;
+
+impl ViewNode for TAANode {
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static TAAHistoryTextures,
         &'static ViewPrepassTextures,
         &'static TAAPipelineId,
-    )>,
-}
-
-impl FromWorld for TAANode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for TAANode {
-    fn update(&mut self, world: &mut World) {
-        self.view_query.update_archetypes(world);
-    }
+    );
 
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
+        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
+            Self::ViewQuery,
+        >,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let (
-            Ok((camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id)),
-            Some(pipelines),
-            Some(pipeline_cache),
-        ) = (
-            self.view_query.get_manual(world, graph.view_entity()),
+        let (Some(pipelines), Some(pipeline_cache)) = (
             world.get_resource::<TAAPipeline>(),
             world.get_resource::<PipelineCache>(),
         ) else {
@@ -443,9 +439,13 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
     }
 }
 
-fn prepare_taa_jitter(
+fn prepare_taa_jitter_and_mip_bias(
     frame_count: Res<FrameCount>,
-    mut query: Query<&mut TemporalJitter, With<TemporalAntiAliasSettings>>,
+    mut query: Query<
+        (Entity, &mut TemporalJitter, Option<&MipBias>),
+        With<TemporalAntiAliasSettings>,
+    >,
+    mut commands: Commands,
 ) {
     // Halton sequence (2, 3) - 0.5, skipping i = 0
     let halton_sequence = [
@@ -461,8 +461,12 @@ fn prepare_taa_jitter(
 
     let offset = halton_sequence[frame_count.0 as usize % halton_sequence.len()];
 
-    for mut jitter in &mut query {
+    for (entity, mut jitter, mip_bias) in &mut query {
         jitter.offset = offset;
+
+        if mip_bias.is_none() {
+            commands.entity(entity).insert(MipBias(-1.0));
+        }
     }
 }
 

@@ -23,11 +23,14 @@ use winit::{
 use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
 use crate::{
     accessibility::{AccessKitAdapters, WinitActionHandlers},
-    converters::{self, convert_window_level},
+    converters::{
+        self, convert_enabled_buttons, convert_window_level, convert_window_theme,
+        convert_winit_theme,
+    },
     get_best_videomode, get_fitting_videomode, WinitWindows,
 };
 
-/// System responsible for creating new windows whenever a `Window` component is added
+/// System responsible for creating new windows whenever a [`Window`] component is added
 /// to an entity.
 ///
 /// This will default any necessary components if they are not already added.
@@ -62,6 +65,11 @@ pub(crate) fn create_window<'a>(
             &mut handlers,
             &mut accessibility_requested,
         );
+
+        if let Some(theme) = winit_window.theme() {
+            window.window_theme = Some(convert_winit_theme(theme));
+        }
+
         window
             .resolution
             .set_scale_factor(winit_window.scale_factor());
@@ -217,6 +225,10 @@ pub(crate) fn changed_window(
                 winit_window.set_resizable(window.resizable);
             }
 
+            if window.enabled_buttons != cache.window.enabled_buttons {
+                winit_window.set_enabled_buttons(convert_enabled_buttons(window.enabled_buttons));
+            }
+
             if window.resize_constraints != cache.window.resize_constraints {
                 let constraints = window.resize_constraints.check_constraints();
                 let min_inner_size = LogicalSize {
@@ -294,6 +306,10 @@ pub(crate) fn changed_window(
                     window.ime_position.x,
                     window.ime_position.y,
                 ));
+            }
+
+            if window.window_theme != cache.window.window_theme {
+                winit_window.set_theme(window.window_theme.map(convert_window_theme));
             }
 
             cache.window = window.clone();

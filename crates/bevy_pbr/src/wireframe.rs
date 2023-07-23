@@ -40,15 +40,22 @@ impl Plugin for WireframePlugin {
         app.register_type::<Wireframe>()
             .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
-            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default())
-            .add_plugin(ExtractComponentPlugin::<Wireframe>::default());
+            .add_plugins((
+                ExtractResourcePlugin::<WireframeConfig>::default(),
+                ExtractComponentPlugin::<Wireframe>::default(),
+            ));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
-                .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
                 .add_systems(Render, queue_wireframes.in_set(RenderSet::Queue));
+        }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<WireframePipeline>();
         }
     }
 }
@@ -89,6 +96,10 @@ impl SpecializedMeshPipeline for WireframePipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.vertex.shader = self.shader.clone_weak();
+        descriptor
+            .vertex
+            .shader_defs
+            .push("MESH_BINDGROUP_1".into());
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone_weak();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;

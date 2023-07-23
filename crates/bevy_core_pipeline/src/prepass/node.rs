@@ -1,16 +1,17 @@
 use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryState;
+use bevy_ecs::query::QueryItem;
+use bevy_render::render_graph::ViewNode;
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
     render_resource::{
         LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
         RenderPassDescriptor,
     },
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture},
+    view::ViewDepthTexture,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -20,48 +21,32 @@ use super::{AlphaMask3dPrepass, Opaque3dPrepass, ViewPrepassTextures};
 /// Render node used by the prepass.
 ///
 /// By default, inserted before the main pass in the render graph.
-pub struct PrepassNode {
-    main_view_query: QueryState<
-        (
-            &'static ExtractedCamera,
-            &'static RenderPhase<Opaque3dPrepass>,
-            &'static RenderPhase<AlphaMask3dPrepass>,
-            &'static ViewDepthTexture,
-            &'static ViewPrepassTextures,
-        ),
-        With<ExtractedView>,
-    >,
-}
+#[derive(Default)]
+pub struct PrepassNode;
 
-impl PrepassNode {
-    pub fn new(world: &mut World) -> Self {
-        Self {
-            main_view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for PrepassNode {
-    fn update(&mut self, world: &mut World) {
-        self.main_view_query.update_archetypes(world);
-    }
+impl ViewNode for PrepassNode {
+    type ViewQuery = (
+        &'static ExtractedCamera,
+        &'static RenderPhase<Opaque3dPrepass>,
+        &'static RenderPhase<AlphaMask3dPrepass>,
+        &'static ViewDepthTexture,
+        &'static ViewPrepassTextures,
+    );
 
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let view_entity = graph.view_entity();
-        let Ok((
+        (
             camera,
             opaque_prepass_phase,
             alpha_mask_prepass_phase,
             view_depth_texture,
             view_prepass_textures,
-        )) = self.main_view_query.get_manual(world, view_entity) else {
-            return Ok(());
-        };
+        ): QueryItem<Self::ViewQuery>,
+        world: &World,
+    ) -> Result<(), NodeRunError> {
+        let view_entity = graph.view_entity();
 
         let mut color_attachments = vec![];
         color_attachments.push(
@@ -82,9 +67,10 @@ impl Node for PrepassNode {
                 view: &view_motion_vectors_texture.default_view,
                 resolve_target: None,
                 ops: Operations {
-                    // Blue channel doesn't matter, but set to 1.0 for possible faster clear
+                    // Red and Green channels are X and Y components of the motion vectors
+                    // Blue channel doesn't matter, but set to 0.0 for possible faster clear
                     // https://gpuopen.com/performance/#clears
-                    load: LoadOp::Clear(Color::rgb_linear(1.0, 1.0, 1.0).into()),
+                    load: LoadOp::Clear(Color::rgb_linear(0.0, 0.0, 0.0).into()),
                     store: true,
                 },
             },
@@ -108,7 +94,6 @@ impl Node for PrepassNode {
                     stencil_ops: None,
                 }),
             });
-
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }

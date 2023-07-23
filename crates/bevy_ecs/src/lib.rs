@@ -1,4 +1,6 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(target_pointer_width = "16")]
@@ -27,7 +29,7 @@ pub use bevy_ptr as ptr;
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::{ReflectComponent, ReflectResource};
+    pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -35,26 +37,26 @@ pub mod prelude {
         component::Component,
         entity::Entity,
         event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, Changed, Or, QueryState, With, Without},
+        query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_state_transition, apply_system_buffers, common_conditions::*, Condition,
+            apply_deferred, apply_state_transition, common_conditions::*, Condition,
             IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
             OnEnter, OnExit, OnTransition, Schedule, Schedules, State, States, SystemSet,
         },
         system::{
             adapter as system_adapter,
             adapter::{dbg, error, ignore, info, unwrap, warn},
-            Commands, Deferred, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut,
-            ParallelCommands, ParamSet, Query, Res, ResMut, Resource, System, SystemParamFunction,
+            Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
+            ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
         },
-        world::{FromWorld, World},
+        world::{EntityRef, FromWorld, World},
     };
 }
 
 pub use bevy_utils::all_tuples;
 
-/// A specialized hashmap type with Key of `TypeId`
+/// A specialized hashmap type with Key of [`TypeId`]
 type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 
 #[cfg(test)]
@@ -68,7 +70,7 @@ mod tests {
         entity::Entity,
         query::{Added, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without},
         system::Resource,
-        world::{Mut, World},
+        world::{EntityRef, Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use std::{
@@ -1323,9 +1325,23 @@ mod tests {
 
     #[test]
     #[should_panic]
+    fn entity_ref_and_mut_query_panic() {
+        let mut world = World::new();
+        world.query::<(EntityRef, &mut A)>();
+    }
+
+    #[test]
+    #[should_panic]
     fn mut_and_ref_query_panic() {
         let mut world = World::new();
         world.query::<(&mut A, &A)>();
+    }
+
+    #[test]
+    #[should_panic]
+    fn mut_and_entity_ref_query_panic() {
+        let mut world = World::new();
+        world.query::<(&mut A, EntityRef)>();
     }
 
     #[test]

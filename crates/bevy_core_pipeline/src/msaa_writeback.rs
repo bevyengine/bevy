@@ -1,9 +1,13 @@
-use crate::blit::{BlitPipeline, BlitPipelineKey};
+use crate::{
+    blit::{BlitPipeline, BlitPipelineKey},
+    core_2d::{self, CORE_2D},
+    core_3d::{self, CORE_3D},
+};
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
+    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
     Render, RenderSet,
@@ -24,29 +28,17 @@ impl Plugin for MsaaWritebackPlugin {
             Render,
             queue_msaa_writeback_pipelines.in_set(RenderSet::Queue),
         );
-        let msaa_writeback_2d = MsaaWritebackNode::new(&mut render_app.world);
-        let msaa_writeback_3d = MsaaWritebackNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
-        if let Some(core_2d) = graph.get_sub_graph_mut(crate::core_2d::graph::NAME) {
-            core_2d.add_node(
-                crate::core_2d::graph::node::MSAA_WRITEBACK,
-                msaa_writeback_2d,
-            );
-            core_2d.add_node_edge(
-                crate::core_2d::graph::node::MSAA_WRITEBACK,
-                crate::core_2d::graph::node::MAIN_PASS,
-            );
+        {
+            use core_2d::graph::node::*;
+            render_app
+                .add_render_graph_node::<MsaaWritebackNode>(CORE_2D, MSAA_WRITEBACK)
+                .add_render_graph_edge(CORE_2D, MSAA_WRITEBACK, MAIN_PASS);
         }
-
-        if let Some(core_3d) = graph.get_sub_graph_mut(crate::core_3d::graph::NAME) {
-            core_3d.add_node(
-                crate::core_3d::graph::node::MSAA_WRITEBACK,
-                msaa_writeback_3d,
-            );
-            core_3d.add_node_edge(
-                crate::core_3d::graph::node::MSAA_WRITEBACK,
-                crate::core_3d::graph::node::START_MAIN_PASS,
-            );
+        {
+            use core_3d::graph::node::*;
+            render_app
+                .add_render_graph_node::<MsaaWritebackNode>(CORE_3D, MSAA_WRITEBACK)
+                .add_render_graph_edge(CORE_3D, MSAA_WRITEBACK, START_MAIN_PASS);
         }
     }
 }
@@ -55,8 +47,8 @@ pub struct MsaaWritebackNode {
     cameras: QueryState<(&'static ViewTarget, &'static MsaaWritebackBlitPipeline)>,
 }
 
-impl MsaaWritebackNode {
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for MsaaWritebackNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             cameras: world.query(),
         }

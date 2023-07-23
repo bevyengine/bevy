@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 #[warn(missing_docs)]
 mod cursor;
 mod event;
@@ -37,8 +39,8 @@ impl Default for WindowPlugin {
 /// A [`Plugin`] that defines an interface for windowing support in Bevy.
 pub struct WindowPlugin {
     /// Settings for the primary window. This will be spawned by
-    /// default, if you want to run without a primary window you should
-    /// set this to `None`.
+    /// default, with the marker component [`PrimaryWindow`](PrimaryWindow).
+    /// If you want to run without a primary window you should set this to `None`.
     ///
     /// Note that if there are no windows, by default the App will exit,
     /// due to [`exit_on_all_closed`].
@@ -72,6 +74,7 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowCreated>()
             .add_event::<WindowClosed>()
             .add_event::<WindowCloseRequested>()
+            .add_event::<WindowDestroyed>()
             .add_event::<RequestRedraw>()
             .add_event::<CursorMoved>()
             .add_event::<CursorEntered>()
@@ -82,7 +85,8 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowScaleFactorChanged>()
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
-            .add_event::<WindowMoved>();
+            .add_event::<WindowMoved>()
+            .add_event::<WindowThemeChanged>();
 
         if let Some(primary_window) = &self.primary_window {
             app.world
@@ -119,10 +123,12 @@ impl Plugin for WindowPlugin {
             .register_type::<WindowScaleFactorChanged>()
             .register_type::<WindowBackendScaleFactorChanged>()
             .register_type::<FileDragAndDrop>()
-            .register_type::<WindowMoved>();
+            .register_type::<WindowMoved>()
+            .register_type::<WindowThemeChanged>();
 
         // Register window descriptor and related types
         app.register_type::<Window>()
+            .register_type::<PrimaryWindow>()
             .register_type::<Cursor>()
             .register_type::<CursorIcon>()
             .register_type::<CursorGrabMode>()
@@ -134,7 +140,9 @@ impl Plugin for WindowPlugin {
             .register_type::<PresentMode>()
             .register_type::<InternalWindowState>()
             .register_type::<MonitorSelection>()
-            .register_type::<WindowResizeConstraints>();
+            .register_type::<WindowResizeConstraints>()
+            .register_type::<WindowTheme>()
+            .register_type::<EnabledButtons>();
 
         // Register `PathBuf` as it's used by `FileDragAndDrop`
         app.register_type::<PathBuf>();

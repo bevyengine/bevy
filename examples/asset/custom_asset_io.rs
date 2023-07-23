@@ -3,7 +3,7 @@
 //! It does not know anything about the asset formats, only how to talk to the underlying storage.
 
 use bevy::{
-    asset::{AssetIo, AssetIoError, Metadata},
+    asset::{AssetIo, AssetIoError, ChangeWatcher, Metadata},
     prelude::*,
     utils::BoxedFuture,
 };
@@ -39,9 +39,9 @@ impl AssetIo for CustomAssetIo {
         self.0.watch_path_for_changes(to_watch, to_reload)
     }
 
-    fn watch_for_changes(&self) -> Result<(), AssetIoError> {
+    fn watch_for_changes(&self, configuration: &ChangeWatcher) -> Result<(), AssetIoError> {
         info!("watch_for_changes()");
-        self.0.watch_for_changes()
+        self.0.watch_for_changes(configuration)
     }
 
     fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {

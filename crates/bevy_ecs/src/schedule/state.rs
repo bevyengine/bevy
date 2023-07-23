@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::mem;
+use std::ops::Deref;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
@@ -36,6 +37,7 @@ pub use bevy_ecs_macros::States;
 ///
 /// ```
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
+    /// The type returned when iterating over all [`variants`](States::variants) of this type.
     type Iter: Iterator<Item = Self>;
 
     /// Returns an iterator over all the state variants.
@@ -95,6 +97,14 @@ impl<S: States> PartialEq<S> for State<S> {
     }
 }
 
+impl<S: States> Deref for State<S> {
+    type Target = S;
+
+    fn deref(&self) -> &Self::Target {
+        self.get()
+    }
+}
+
 /// The next state of [`State<S>`].
 ///
 /// To queue a transition, just set the contained value to `Some(next_state)`.
@@ -129,16 +139,18 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
     if let Some(entered) = next_state_resource.bypass_change_detection().0.take() {
         next_state_resource.set_changed();
 
-        let exited = mem::replace(&mut world.resource_mut::<State<S>>().0, entered.clone());
-
-        // Try to run the schedules if they exist.
-        world.try_run_schedule(OnExit(exited.clone())).ok();
-        world
-            .try_run_schedule(OnTransition {
-                from: exited,
-                to: entered.clone(),
-            })
-            .ok();
-        world.try_run_schedule(OnEnter(entered)).ok();
+        let mut state_resource = world.resource_mut::<State<S>>();
+        if *state_resource != entered {
+            let exited = mem::replace(&mut state_resource.0, entered.clone());
+            // Try to run the schedules if they exist.
+            world.try_run_schedule(OnExit(exited.clone())).ok();
+            world
+                .try_run_schedule(OnTransition {
+                    from: exited,
+                    to: entered.clone(),
+                })
+                .ok();
+            world.try_run_schedule(OnEnter(entered)).ok();
+        }
     }
 }

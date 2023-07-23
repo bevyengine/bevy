@@ -1,7 +1,10 @@
 //! Prints all mouse events to the console.
 
 use bevy::{
-    input::mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+    input::{
+        mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+        touchpad::{TouchpadMagnify, TouchpadRotate},
+    },
     prelude::*,
 };
 
@@ -18,6 +21,8 @@ fn print_mouse_events_system(
     mut mouse_motion_events: EventReader<MouseMotion>,
     mut cursor_moved_events: EventReader<CursorMoved>,
     mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut touchpad_magnify_events: EventReader<TouchpadMagnify>,
+    mut touchpad_rotate_events: EventReader<TouchpadRotate>,
 ) {
     for event in mouse_button_input_events.iter() {
         info!("{:?}", event);
@@ -32,6 +37,16 @@ fn print_mouse_events_system(
     }
 
     for event in mouse_wheel_events.iter() {
+        info!("{:?}", event);
+    }
+
+    // This event will only fire on macOS
+    for event in touchpad_magnify_events.iter() {
+        info!("{:?}", event);
+    }
+
+    // This event will only fire on macOS
+    for event in touchpad_rotate_events.iter() {
         info!("{:?}", event);
     }
 }

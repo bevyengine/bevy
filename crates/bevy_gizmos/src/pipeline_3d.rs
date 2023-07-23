@@ -1,164 +1,187 @@
+use crate::{
+    line_gizmo_vertex_buffer_layouts, DrawLineGizmo, GizmoConfig, LineGizmo,
+    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
+};
+use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
-use bevy_core_pipeline::core_3d::Opaque3d;
+use bevy_core_pipeline::core_3d::Transparent3d;
+
 use bevy_ecs::{
-    entity::Entity,
-    query::With,
+    prelude::Entity,
+    schedule::IntoSystemConfigs,
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_pbr::*;
+use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
-    mesh::Mesh,
-    render_resource::Shader,
-    view::{ExtractedView, ViewTarget},
-};
-use bevy_render::{
-    mesh::MeshVertexBufferLayout,
     render_asset::RenderAssets,
-    render_phase::{DrawFunctions, RenderPhase, SetItemPipeline},
+    render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
-    view::Msaa,
+    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
+    Render, RenderApp, RenderSet,
 };
 
-use crate::{GizmoConfig, GizmoMesh, LINE_SHADER_HANDLE};
+pub struct LineGizmo3dPlugin;
+impl Plugin for LineGizmo3dPlugin {
+    fn build(&self, app: &mut App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
-#[derive(Resource)]
-pub(crate) struct GizmoPipeline {
-    mesh_pipeline: MeshPipeline,
-    shader: Handle<Shader>,
+        render_app
+            .add_render_command::<Transparent3d, DrawLineGizmo3d>()
+            .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
+            .add_systems(Render, queue_line_gizmos_3d.in_set(RenderSet::Queue));
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+
+        render_app.init_resource::<LineGizmoPipeline>();
+    }
 }
 
-impl FromWorld for GizmoPipeline {
+#[derive(Clone, Resource)]
+struct LineGizmoPipeline {
+    mesh_pipeline: MeshPipeline,
+    uniform_layout: BindGroupLayout,
+}
+
+impl FromWorld for LineGizmoPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        GizmoPipeline {
+        LineGizmoPipeline {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            shader: LINE_SHADER_HANDLE.typed(),
+            uniform_layout: render_world
+                .resource::<LineGizmoUniformBindgroupLayout>()
+                .layout
+                .clone(),
         }
     }
 }
 
-impl SpecializedMeshPipeline for GizmoPipeline {
-    type Key = (bool, MeshPipelineKey);
+#[derive(PartialEq, Eq, Hash, Clone)]
+struct LineGizmoPipelineKey {
+    mesh_key: MeshPipelineKey,
+    strip: bool,
+    perspective: bool,
+}
 
-    fn specialize(
-        &self,
-        (depth_test, key): Self::Key,
-        layout: &MeshVertexBufferLayout,
-    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut shader_defs = Vec::new();
-        shader_defs.push("GIZMO_LINES_3D".into());
-        shader_defs.push(ShaderDefVal::Int(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as i32,
-        ));
-        shader_defs.push(ShaderDefVal::Int(
-            "MAX_CASCADES_PER_LIGHT".to_string(),
-            MAX_CASCADES_PER_LIGHT as i32,
-        ));
-        if depth_test {
-            shader_defs.push("DEPTH_TEST".into());
+impl SpecializedRenderPipeline for LineGizmoPipeline {
+    type Key = LineGizmoPipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut shader_defs = vec![
+            #[cfg(feature = "webgl")]
+            "SIXTEEN_BYTE_ALIGNMENT".into(),
+        ];
+
+        if key.perspective {
+            shader_defs.push("PERSPECTIVE".into());
         }
 
-        let vertex_buffer_layout = layout.get_layout(&[
-            Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
-            Mesh::ATTRIBUTE_COLOR.at_shader_location(1),
-        ])?;
-        let bind_group_layout = match key.msaa_samples() {
-            1 => vec![self.mesh_pipeline.view_layout.clone()],
-            _ => {
-                shader_defs.push("MULTISAMPLED".into());
-                vec![self.mesh_pipeline.view_layout_multisampled.clone()]
-            }
-        };
-
-        let format = if key.contains(MeshPipelineKey::HDR) {
+        let format = if key.mesh_key.contains(MeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
         };
 
-        Ok(RenderPipelineDescriptor {
+        let view_layout = if key.mesh_key.msaa_samples() == 1 {
+            self.mesh_pipeline.view_layout.clone()
+        } else {
+            self.mesh_pipeline.view_layout_multisampled.clone()
+        };
+
+        let layout = vec![view_layout, self.uniform_layout.clone()];
+
+        RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: self.shader.clone_weak(),
+                shader: LINE_SHADER_HANDLE.typed(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: vec![vertex_buffer_layout],
+                buffers: line_gizmo_vertex_buffer_layouts(key.strip),
             },
             fragment: Some(FragmentState {
-                shader: self.shader.clone_weak(),
+                shader: LINE_SHADER_HANDLE.typed(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
-                    blend: None,
+                    blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: bind_group_layout,
-            primitive: PrimitiveState {
-                topology: key.primitive_topology(),
-                ..Default::default()
-            },
+            layout,
+            primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::Greater,
-                stencil: Default::default(),
-                bias: Default::default(),
+                stencil: StencilState::default(),
+                bias: DepthBiasState::default(),
             }),
             multisample: MultisampleState {
-                count: key.msaa_samples(),
+                count: key.mesh_key.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            label: Some("LineGizmo Pipeline".into()),
             push_constant_ranges: vec![],
-            label: Some("gizmo_3d_pipeline".into()),
-        })
+        }
     }
 }
 
-pub(crate) type DrawGizmoLines = (
+type DrawLineGizmo3d = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetMeshBindGroup<1>,
-    DrawMesh,
+    SetLineGizmoBindGroup<1>,
+    DrawLineGizmo,
 );
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn queue_gizmos_3d(
-    draw_functions: Res<DrawFunctions<Opaque3d>>,
-    pipeline: Res<GizmoPipeline>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<GizmoPipeline>>,
+fn queue_line_gizmos_3d(
+    draw_functions: Res<DrawFunctions<Transparent3d>>,
+    pipeline: Res<LineGizmoPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    render_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
-    mesh_handles: Query<(Entity, &Handle<Mesh>), With<GizmoMesh>>,
     config: Res<GizmoConfig>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
+    line_gizmos: Query<(Entity, &Handle<LineGizmo>)>,
+    line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
+    mut views: Query<(
+        &ExtractedView,
+        &mut RenderPhase<Transparent3d>,
+        Option<&RenderLayers>,
+    )>,
 ) {
-    let draw_function = draw_functions.read().get_id::<DrawGizmoLines>().unwrap();
-    let key = MeshPipelineKey::from_msaa_samples(msaa.samples());
-    for (view, mut phase) in &mut views {
-        let key = key | MeshPipelineKey::from_hdr(view.hdr);
-        for (entity, mesh_handle) in &mesh_handles {
-            if let Some(mesh) = render_meshes.get(mesh_handle) {
-                let key = key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                let pipeline = pipelines
-                    .specialize(
-                        &pipeline_cache,
-                        &pipeline,
-                        (!config.on_top, key),
-                        &mesh.layout,
-                    )
-                    .unwrap();
-                phase.add(Opaque3d {
-                    entity,
-                    pipeline,
-                    draw_function,
-                    distance: 0.,
-                });
-            }
+    let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
+
+    for (view, mut transparent_phase, render_layers) in &mut views {
+        let render_layers = render_layers.copied().unwrap_or_default();
+        if !config.render_layers.intersects(&render_layers) {
+            continue;
+        }
+
+        let mesh_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
+            | MeshPipelineKey::from_hdr(view.hdr);
+
+        for (entity, handle) in &line_gizmos {
+            let Some(line_gizmo) = line_gizmo_assets.get(handle) else { continue };
+
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &pipeline,
+                LineGizmoPipelineKey {
+                    mesh_key,
+                    strip: line_gizmo.strip,
+                    perspective: config.line_perspective,
+                },
+            );
+
+            transparent_phase.add(Transparent3d {
+                entity,
+                draw_function,
+                pipeline,
+                distance: 0.,
+            });
         }
     }
 }

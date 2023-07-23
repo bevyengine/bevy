@@ -5,7 +5,7 @@ use bevy::{
     math::vec2,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::{
         render_resource::{
             AsBindGroup, Extent3d, SamplerDescriptor, ShaderRef, TextureDimension, TextureFormat,
@@ -19,8 +19,10 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<ColorGradientMaterial>::default())
+        .add_plugins((
+            DefaultPlugins,
+            MaterialPlugin::<ColorGradientMaterial>::default(),
+        ))
         .insert_resource(CameraTransform(
             Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ))
@@ -75,9 +77,9 @@ fn setup(
         TextBundle::from_section(
             "",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 18.0,
                 color: Color::WHITE,
+                ..default()
             },
         )
         .with_style(Style {
@@ -243,7 +245,6 @@ fn setup_image_viewer_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     camera_transform: Res<CameraTransform>,
-    asset_server: Res<AssetServer>,
 ) {
     let mut transform = camera_transform.0;
     transform.translation += transform.forward();
@@ -273,9 +274,9 @@ fn setup_image_viewer_scene(
             TextBundle::from_section(
                 "Drag and drop an HDR or EXR file",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 36.0,
                     color: Color::BLACK,
+                    ..default()
                 },
             )
             .with_text_alignment(TextAlignment::Center)
@@ -313,7 +314,7 @@ fn update_image_viewer(
                 *drop_hovered = false;
             }
             FileDragAndDrop::HoveredFile { .. } => *drop_hovered = true,
-            FileDragAndDrop::HoveredFileCancelled { .. } => *drop_hovered = false,
+            FileDragAndDrop::HoveredFileCanceled { .. } => *drop_hovered = false,
         }
     }
 
@@ -401,7 +402,10 @@ fn toggle_tonemapping_method(
         *method = Tonemapping::BlenderFilmic;
     }
 
-    *color_grading = *per_method_settings.settings.get(&method).unwrap();
+    *color_grading = *per_method_settings
+        .settings
+        .get::<Tonemapping>(&method)
+        .unwrap();
 }
 
 #[derive(Resource)]
@@ -428,7 +432,7 @@ fn update_color_grading_settings(
     mut selected_parameter: ResMut<SelectedParameter>,
 ) {
     let method = tonemapping.single();
-    let mut color_grading = per_method_settings.settings.get_mut(method).unwrap();
+    let color_grading = per_method_settings.settings.get_mut(method).unwrap();
     let mut dt = time.delta_seconds() * 0.25;
     if keys.pressed(KeyCode::Left) {
         dt = -dt;
@@ -687,7 +691,7 @@ impl Material for ColorGradientMaterial {
     }
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "117f64fe-6844-1822-8926-e3ed372291c8"]
 pub struct ColorGradientMaterial {}
 

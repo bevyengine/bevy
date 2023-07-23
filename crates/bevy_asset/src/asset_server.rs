@@ -14,7 +14,7 @@ use parking_lot::{Mutex, RwLock};
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
-/// Errors that occur while loading assets with an `AssetServer`.
+/// Errors that occur while loading assets with an [`AssetServer`].
 #[derive(Error, Debug)]
 pub enum AssetServerError {
     /// Asset folder is not a directory.
@@ -82,10 +82,11 @@ pub struct AssetServerInternal {
 /// ```
 /// # use bevy_asset::*;
 /// # use bevy_app::*;
+/// # use bevy_utils::Duration;
 /// # let mut app = App::new();
 /// // The asset plugin can be configured to watch for asset changes.
-/// app.add_plugin(AssetPlugin {
-///     watch_for_changes: true,
+/// app.add_plugins(AssetPlugin {
+///     watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
 ///     ..Default::default()
 /// });
 /// ```
@@ -97,7 +98,7 @@ pub struct AssetServerInternal {
 /// use bevy_asset::{AssetServer, Handle};
 /// use bevy_ecs::prelude::{Commands, Res};
 ///
-/// # #[derive(Debug, bevy_reflect::TypeUuid)]
+/// # #[derive(Debug, bevy_reflect::TypeUuid, bevy_reflect::TypePath)]
 /// # #[uuid = "00000000-0000-0000-0000-000000000000"]
 /// # struct Image;
 ///
@@ -646,10 +647,10 @@ mod test {
     use crate::{loader::LoadedAsset, update_asset_storage_system};
     use bevy_app::{App, Update};
     use bevy_ecs::prelude::*;
-    use bevy_reflect::TypeUuid;
+    use bevy_reflect::{TypePath, TypeUuid};
     use bevy_utils::BoxedFuture;
 
-    #[derive(Debug, TypeUuid)]
+    #[derive(Debug, TypeUuid, TypePath)]
     #[uuid = "a5189b72-0572-4290-a2e0-96f73a491c44"]
     struct PngAsset;
 
@@ -702,7 +703,7 @@ mod test {
     fn setup(asset_path: impl AsRef<Path>) -> AssetServer {
         use crate::FileAssetIo;
         IoTaskPool::init(Default::default);
-        AssetServer::new(FileAssetIo::new(asset_path, false))
+        AssetServer::new(FileAssetIo::new(asset_path, &None))
     }
 
     #[test]
