@@ -24,19 +24,6 @@ impl Default for CallTracker {
 }
 
 impl CallTracker {
-    // /// Construct a new call tracker with the calling location.
-    // /// This may be called from a function with the [`track_caller`] attribute
-    // /// to use the parent caller's location.
-    // pub fn new() -> Self {
-    //     Self {
-    //         #[cfg(feature = "command_tracking")]
-    //         caller: format!(
-    //             "(Command origin: \"{}\")",
-    //             std::panic::Location::caller().to_string()
-    //         ),
-    //     }
-    // }
-
     /// Returns the tracked location when the `command_tracking` feature is enabled,
     /// and unit `()` otherwise.
     #[cfg(feature = "command_tracking")]
