@@ -162,8 +162,8 @@ macro_rules! define_label {
             }
         }
 
-        static $interner_name: ::bevy_utils::intern::OptimizedInterner<dyn $label_trait_name> =
-            ::bevy_utils::intern::OptimizedInterner::new();
+        static $interner_name: ::bevy_utils::intern::Interner<dyn $label_trait_name> =
+            ::bevy_utils::intern::Interner::new();
 
         impl From<&dyn $label_trait_name>
             for ::bevy_utils::intern::Interned<dyn $label_trait_name>

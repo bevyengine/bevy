@@ -104,57 +104,10 @@ impl<T: Clone + ?Sized> Leak<T> for Cow<'static, T> {
     }
 }
 
-/// A thread-safe interner which can be used to create [`Interned<T>`] from `&T`
-///
-/// For details on interning, see [the module level docs](self).
-///
-/// The implementation ensures that two equal values return two equal [`Interned<T>`] values.
-pub struct Interner<T: ?Sized + 'static>(OnceLock<RwLock<HashSet<&'static T>>>);
-
-impl<T: ?Sized> Interner<T> {
-    /// Creates a new empty interner
-    pub const fn new() -> Self {
-        Self(OnceLock::new())
-    }
-}
-
-impl<T: Hash + Eq + ?Sized> Interner<T> {
-    /// Return the [`Interned<T>`] corresponding to `value`.
-    ///
-    /// If it is called the first time for `value`, it will possibly leak the value and return an
-    /// [`Interned<T>`] using the obtained static reference. Subsequent calls for the same `value`
-    /// will return [`Interned<T>`] using the same static reference.
-    pub fn intern<Q: Leak<T>>(&self, value: Q) -> Interned<T> {
-        let lock = self.0.get_or_init(Default::default);
-        {
-            let set = lock.read().unwrap_or_else(PoisonError::into_inner);
-            if let Some(value) = set.get(value.borrow()) {
-                return Interned(*value);
-            }
-        }
-        {
-            let mut set = lock.write().unwrap_or_else(PoisonError::into_inner);
-            if let Some(value) = set.get(value.borrow()) {
-                Interned(*value)
-            } else {
-                let leaked = value.leak();
-                set.insert(leaked);
-                Interned(leaked)
-            }
-        }
-    }
-}
-
-impl<T: ?Sized> Default for Interner<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// A type that can provide static references to equal values.
 pub trait StaticRef {
     /// Returns a static reference to a value equal to `self`, if possible.
-    /// This method is used by [`OptimizedInterner::intern`] to optimize the interning process.
+    /// This method is used by [`Interner::intern`] to optimize the interning process.
     ///
     /// # Invariant
     ///
@@ -181,37 +134,66 @@ pub trait StaticRef {
     ///     }
     /// }
     /// ```
-    fn static_ref(&self) -> Option<&'static Self>;
-}
-
-/// An optimized [`Interner`] for  types that implement [`StaticRef`].
-pub struct OptimizedInterner<T: ?Sized + 'static>(Interner<T>);
-
-impl<T: ?Sized> OptimizedInterner<T> {
-    /// Creates a new empty interner
-    pub const fn new() -> Self {
-        Self(Interner::new())
+    ///
+    /// # Provided implementation
+    ///
+    /// The provided implementation always returns `None`.
+    fn static_ref(&self) -> Option<&'static Self> {
+        None
     }
 }
 
-impl<T: StaticRef + Hash + Eq + ?Sized> OptimizedInterner<T> {
+impl StaticRef for str {}
+
+/// A thread-safe interner which can be used to create [`Interned<T>`] from `&T`
+///
+/// For details on interning, see [the module level docs](self).
+///
+/// The implementation ensures that two equal values return two equal [`Interned<T>`] values.
+///
+/// To use an [`Interner<T>`], `T` must implement [`StaticRef`], [`Hash`] and [`Eq`].
+pub struct Interner<T: ?Sized + 'static>(OnceLock<RwLock<HashSet<&'static T>>>);
+
+impl<T: ?Sized> Interner<T> {
+    /// Creates a new empty interner
+    pub const fn new() -> Self {
+        Self(OnceLock::new())
+    }
+}
+
+impl<T: StaticRef + Hash + Eq + ?Sized> Interner<T> {
     /// Return the [`Interned<T>`] corresponding to `value`.
     ///
     /// If it is called the first time for `value`, it will possibly leak the value and return an
     /// [`Interned<T>`] using the obtained static reference. Subsequent calls for the same `value`
     /// will return [`Interned<T>`] using the same static reference.
     ///
-    /// Compared to [`Interner::intern`], this uses [`StaticRef::static_ref`] to short-circuit
-    /// the interning process.
+    /// This uses [`StaticRef::static_ref`] to short-circuit the interning process.
     pub fn intern<Q: Leak<T>>(&self, value: Q) -> Interned<T> {
         if let Some(value) = value.borrow().static_ref() {
             return Interned(value);
         }
-        self.0.intern(value)
+        let lock = self.0.get_or_init(Default::default);
+        {
+            let set = lock.read().unwrap_or_else(PoisonError::into_inner);
+            if let Some(value) = set.get(value.borrow()) {
+                return Interned(*value);
+            }
+        }
+        {
+            let mut set = lock.write().unwrap_or_else(PoisonError::into_inner);
+            if let Some(value) = set.get(value.borrow()) {
+                Interned(*value)
+            } else {
+                let leaked = value.leak();
+                set.insert(leaked);
+                Interned(leaked)
+            }
+        }
     }
 }
 
-impl<T: ?Sized> Default for OptimizedInterner<T> {
+impl<T: ?Sized> Default for Interner<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -224,12 +206,18 @@ mod tests {
         hash::{Hash, Hasher},
     };
 
-    use crate::intern::{Interned, Interner, Leak};
+    use crate::intern::{Interned, Interner, Leak, StaticRef};
 
     #[test]
     fn zero_sized_type() {
         #[derive(PartialEq, Eq, Hash, Debug)]
         pub struct A;
+
+        impl StaticRef for A {
+            fn static_ref(&self) -> Option<&'static Self> {
+                Some(&A)
+            }
+        }
 
         impl Leak<A> for A {
             fn leak(self) -> &'static Self {
@@ -238,17 +226,26 @@ mod tests {
         }
 
         let interner = Interner::default();
-        let x = interner.intern(&A);
-        let y = interner.intern(&A);
+        let x = interner.intern(A);
+        let y = interner.intern(A);
         assert_eq!(x, y);
     }
 
     #[test]
     fn fieldless_enum() {
-        #[derive(PartialEq, Eq, Hash, Debug)]
+        #[derive(PartialEq, Eq, Hash, Debug, Clone)]
         pub enum A {
             X,
             Y,
+        }
+
+        impl StaticRef for A {
+            fn static_ref(&self) -> Option<&'static Self> {
+                Some(match self {
+                    A::X => &A::X,
+                    A::Y => &A::Y,
+                })
+            }
         }
 
         impl Leak<A> for A {

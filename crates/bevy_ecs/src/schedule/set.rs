@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::define_label;
-use bevy_utils::intern::{Interned, Leak, OptimizedInterner, StaticRef};
+use bevy_utils::intern::{Interned, Interner, Leak, StaticRef};
 use bevy_utils::label::DynHash;
 
 use crate::system::{
@@ -19,7 +19,7 @@ define_label!(
     SCHEDULE_LABEL_INTERNER
 );
 
-static SYSTEM_SET_INTERNER: OptimizedInterner<dyn SystemSet> = OptimizedInterner::new();
+static SYSTEM_SET_INTERNER: Interner<dyn SystemSet> = Interner::new();
 /// A shorthand for `Interned<dyn SystemSet>`.
 pub type InternedSystemSet = Interned<dyn SystemSet>;
 /// A shorthand for `Interned<dyn ScheduleLabel>`.
