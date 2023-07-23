@@ -171,7 +171,7 @@ impl Preprocessor {
 
             let mut output = false;
             let mut still_at_start = false;
-            if line.is_empty() {
+            if line.is_empty() || line.chars().all(|c| c.is_ascii_whitespace()) {
                 still_at_start = true;
             }
 
