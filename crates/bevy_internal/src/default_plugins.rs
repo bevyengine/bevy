@@ -1,4 +1,5 @@
 use bevy_app::{PluginGroup, PluginGroupBuilder};
+use bevy_pbr::deferred::PBRDeferredLightingPlugin;
 
 /// This plugin group will add all the default plugins for a *Bevy* application:
 /// * [`LogPlugin`](crate::log::LogPlugin)
@@ -109,7 +110,9 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_pbr")]
         {
-            group = group.add(bevy_pbr::PbrPlugin::default());
+            group = group
+                .add(bevy_pbr::PbrPlugin::default())
+                .add(PBRDeferredLightingPlugin::default());
         }
 
         // NOTE: Load this after renderer initialization so that it knows about the supported

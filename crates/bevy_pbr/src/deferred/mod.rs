@@ -32,7 +32,10 @@ use crate::{
     MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 
-pub struct PBRDeferredLightingPlugin;
+#[derive(Default)]
+pub struct PBRDeferredLightingPlugin {
+    pub bypass: bool,
+}
 
 pub const DEFERRED_LIGHTING_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2708011359337029741);
@@ -48,15 +51,9 @@ impl Default for PBRDeferredLightingStencilReference {
     }
 }
 
-#[derive(Resource)]
-pub struct BypassPBRDeferredLightingPlugin;
-
 impl Plugin for PBRDeferredLightingPlugin {
     fn build(&self, app: &mut App) {
-        if app
-            .world
-            .contains_resource::<BypassPBRDeferredLightingPlugin>()
-        {
+        if self.bypass {
             return;
         }
 
@@ -96,10 +93,7 @@ impl Plugin for PBRDeferredLightingPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        if app
-            .world
-            .contains_resource::<BypassPBRDeferredLightingPlugin>()
-        {
+        if self.bypass {
             return;
         }
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
