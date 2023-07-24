@@ -300,7 +300,7 @@ mod menu {
                 // Common systems to all screens that handles buttons behavior
                 .add_systems(
                     Update,
-                    (menu_action_with_clicks, button_system).run_if(in_state(GameState::Menu)),
+                    (menu_action, button_system).run_if(in_state(GameState::Menu)),
                 );
         }
     }
@@ -779,7 +779,7 @@ mod menu {
             });
     }
 
-    fn menu_action_with_clicks(
+    fn menu_action(
         mut click_events: EventReader<Click>,
         menu_buttons: Query<&MenuButtonAction>,
         mut app_exit_events: EventWriter<AppExit>,
