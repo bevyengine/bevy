@@ -66,6 +66,12 @@ pub(crate) fn create_window<'a>(
             &mut accessibility_requested,
         );
 
+        // When using Wayland (or sometimes X11 through XWayland) we need to consider the window
+        // focused after creation and ignore the initial `WindowEvent::Focused(false)` event.
+        // See https://github.com/bevyengine/bevy/pull/8953 for more details.
+        #[cfg(not(any(feature = "wayland", feature = "x11")))]
+        window.internal.set_ready();
+
         if let Some(theme) = winit_window.theme() {
             window.window_theme = Some(convert_winit_theme(theme));
         }

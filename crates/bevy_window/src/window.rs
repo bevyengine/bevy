@@ -760,6 +760,10 @@ pub struct InternalWindowState {
     maximize_request: Option<bool>,
     /// Unscaled cursor position.
     physical_cursor_position: Option<DVec2>,
+    /// Flag that can be freely used by window backends to distinguish between ready and unready windows.
+    /// `bevy_winit` considers Wayland windows to be unready until they are visible on screen and ignores
+    /// `WindowEvent::Focused(false)` events for unready windows.
+    ready: bool,
 }
 
 impl InternalWindowState {
@@ -771,6 +775,16 @@ impl InternalWindowState {
     /// Consumes the current minimize request, if it exists. This should only be called by window backends.
     pub fn take_minimize_request(&mut self) -> Option<bool> {
         self.minimize_request.take()
+    }
+
+    /// Marks the window as ready. This should only be called by window backends.
+    pub fn set_ready(&mut self) {
+        self.ready = true;
+    }
+
+    /// Checks if the window has been marked as ready. This should only be called by window backends.
+    pub fn is_ready(&self) -> bool {
+        self.ready
     }
 }
 

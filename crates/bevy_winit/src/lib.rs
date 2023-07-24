@@ -579,13 +579,23 @@ pub fn winit_runner(mut app: App) {
                             .set_physical_resolution(new_inner_size.width, new_inner_size.height);
                     }
                     WindowEvent::Focused(focused) => {
-                        // Component
-                        window.focused = focused;
+                        // When using Wayland (or sometimes X11 through XWayland) we need to consider the window
+                        // focused after creation and ignore the initial `WindowEvent::Focused(false)` event.
+                        // See https://github.com/bevyengine/bevy/pull/8953 for more details.
+                        #[cfg(any(feature = "wayland", feature = " x11"))]
+                        if focused && !window.internal.is_ready() {
+                            window.internal.set_ready();
+                        }
 
-                        window_events.window_focused.send(WindowFocused {
-                            window: window_entity,
-                            focused,
-                        });
+                        if window.internal.is_ready() {
+                            // Component
+                            window.focused = focused;
+
+                            window_events.window_focused.send(WindowFocused {
+                                window: window_entity,
+                                focused,
+                            });
+                        }
                     }
                     WindowEvent::DroppedFile(path_buf) => {
                         file_drag_and_drop_events.send(FileDragAndDrop::DroppedFile {
