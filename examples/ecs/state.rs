@@ -23,14 +23,11 @@ fn main() {
             (
                 menu_interaction.run_if(in_state(AppState::Menu)),
                 menu_action.run_if(on_event::<Click>()),
+                (movement, change_color).run_if(in_state(AppState::InGame)),
             ),
         )
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         .add_systems(OnEnter(AppState::InGame), setup_game)
-        .add_systems(
-            Update,
-            (movement, change_color).run_if(in_state(AppState::InGame)),
-        )
         .run();
 }
 
