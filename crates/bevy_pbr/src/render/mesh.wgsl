@@ -99,7 +99,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
     out.color = vertex.color;
 #endif
 
-#ifdef INSTANCE_INDEX
+#ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     out.instance_index = vertex.instance_index;
 #endif
 

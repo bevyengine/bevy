@@ -716,7 +716,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
-        shader_defs.push("INSTANCE_INDEX".into());
+        shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
         if let Some(batch_size) = self.per_object_buffer_batch_size {
             shader_defs.push(ShaderDefVal::UInt(
                 "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
