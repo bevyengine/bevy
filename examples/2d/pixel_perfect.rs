@@ -4,6 +4,8 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
+        // MSAA is known to cause issues for some users on Linux.
+        // Disable MSAA util the issues are fixed. https://github.com/bevyengine/bevy/issues/3593
         .insert_resource(Msaa::Off)
         .add_plugins(DefaultPlugins.set(
             // This sets image filtering to nearest
