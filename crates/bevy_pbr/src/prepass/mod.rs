@@ -314,7 +314,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             view_layout_motion_vectors,
             view_layout_no_motion_vectors,
             mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
-            mesh_buffer_batch_size: mesh_pipeline.mesh_buffer_batch_size,
+            mesh_buffer_batch_size: mesh_pipeline.per_object_buffer_batch_size,
             material_vertex_shader: match M::prepass_vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
@@ -355,7 +355,10 @@ where
         let mut vertex_attributes = Vec::new();
 
         if let Some(batch_size) = self.mesh_buffer_batch_size {
-            shader_defs.push(ShaderDefVal::UInt("MESH_BATCH_SIZE".into(), batch_size));
+            shader_defs.push(ShaderDefVal::UInt(
+                "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
+                batch_size,
+            ));
         }
 
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.

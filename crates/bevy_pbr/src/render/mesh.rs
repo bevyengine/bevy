@@ -310,7 +310,11 @@ pub struct MeshPipeline {
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
     pub mesh_layouts: MeshLayouts,
-    pub mesh_buffer_batch_size: Option<u32>,
+    // This defines the batch size of the per-object buffer, for example when on WebGL2 and a
+    // uniform buffer is used within `GpuArrayBuffer` with a fixed-size array of `MeshUniform`
+    // in batches. Use `ShaderDefVal::UInt("PER_OBJECT_BUFFER_BATCH_SIZE", <value>)` to configure
+    // this in shaders.
+    pub per_object_buffer_batch_size: Option<u32>,
 }
 
 impl FromWorld for MeshPipeline {
@@ -550,7 +554,7 @@ impl FromWorld for MeshPipeline {
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
-            mesh_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(
+            per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(
                 render_device.as_ref(),
             ),
         }
@@ -713,8 +717,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut vertex_attributes = Vec::new();
 
         shader_defs.push("INSTANCE_INDEX".into());
-        if let Some(batch_size) = self.mesh_buffer_batch_size {
-            shader_defs.push(ShaderDefVal::UInt("MESH_BATCH_SIZE".into(), batch_size));
+        if let Some(batch_size) = self.per_object_buffer_batch_size {
+            shader_defs.push(ShaderDefVal::UInt(
+                "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
+                batch_size,
+            ));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
