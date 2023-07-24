@@ -18,8 +18,13 @@ fn main() {
         .add_systems(OnEnter(AppState::Menu), setup_menu)
         // By contrast, update systems are stored in the `Update` schedule. They simply
         // check the value of the `State<T>` resource to see if they should run each frame.
-        .add_systems(Update, menu_interaction.run_if(in_state(AppState::Menu)))
-        .add_systems(Update, menu_action.run_if(on_event::<Click>()))
+        .add_systems(
+            Update,
+            (
+                menu_interaction.run_if(in_state(AppState::Menu)),
+                menu_action.run_if(on_event::<Click>()),
+            ),
+        )
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         .add_systems(OnEnter(AppState::InGame), setup_game)
         .add_systems(
