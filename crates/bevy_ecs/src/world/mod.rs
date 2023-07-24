@@ -296,7 +296,7 @@ impl World {
     }
 
     /// Tracked version of [`World::entity_mut`] for use in commands with [`CallTracker::track`].
-    /// When the "command_tracking" features is enabled, in case of panic it will display the 
+    /// When the "command_tracking" features is enabled, in case of panic it will display the
     /// command call site.
     #[inline]
     #[track_caller]

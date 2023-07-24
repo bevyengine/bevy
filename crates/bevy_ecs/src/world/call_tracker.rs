@@ -15,10 +15,7 @@ impl Default for CallTracker {
     fn default() -> Self {
         Self {
             #[cfg(feature = "command_tracking")]
-            caller: format!(
-                "(Command origin: \"{}\")",
-                std::panic::Location::caller()
-            ),
+            caller: format!("(Command origin: \"{}\")", std::panic::Location::caller()),
         }
     }
 }
