@@ -122,7 +122,7 @@ fn setup(
         ..default()
     });
     commands.spawn(PbrBundle {
-        mesh: cube_h.clone(),
+        mesh: cube_h,
         material: forward_mat_h,
         transform: Transform::from_xyz(0.2, 0.5, 0.2),
         ..default()
@@ -267,7 +267,7 @@ fn setup_parallax(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(cube),
-            material: parallax_material.clone(),
+            material: parallax_material,
             transform: Transform::from_xyz(0.4, 0.2, -0.8),
             ..default()
         },
@@ -279,7 +279,7 @@ fn setup_parallax(
 #[derive(Resource)]
 struct Normal(Option<Handle<Image>>);
 
-/// See parallax_mapping.rs for reasoning
+// See `examples/3d/parallax_mapping.rs` example for reasoning
 fn update_normal(
     mut already_ran: Local<bool>,
     mut images: ResMut<Assets<Image>>,
@@ -320,6 +320,7 @@ enum DefaultRenderMode {
     ForwardPrepass,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn switch_mode(
     mut text: Query<&mut Text>,
     mut commands: Commands,

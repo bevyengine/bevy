@@ -129,8 +129,8 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Si
     }
 
     /// Returns if this material should be rendered by the deferred or forward renderer.
-    /// for AlphaMode::Opaque or AlphaMode::Mask materials.
-    /// If None, it will default to what is selected in the DefaultOpaqueRendererMethod resource.
+    /// for `AlphaMode::Opaque` or `AlphaMode::Mask` materials.
+    /// If None, it will default to what is selected in the `DefaultOpaqueRendererMethod` resource.
     #[inline]
     fn opaque_render_method(&self) -> Option<OpaqueRendererMethod> {
         None

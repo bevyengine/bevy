@@ -315,7 +315,7 @@ pub struct StandardMaterial {
     pub opaque_render_method: Option<OpaqueRendererMethod>,
 
     /// Used for selecting the deferred lighting pass for deferred materials.
-    /// Default is DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE for default
+    /// Default is [`DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE`] for default
     /// PBR deferred lighting pass. Ignored in the case of forward materials.
     pub deferred_material_stencil_reference: u32,
 }
