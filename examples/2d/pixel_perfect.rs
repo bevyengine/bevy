@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        // MSAA is known to cause issues for some users on Linux.
+        // MSAA is known to cause issues for Linux users with an Intel integrated GPU.
         // Disable MSAA util the issues are fixed. https://github.com/bevyengine/bevy/issues/3593
         .insert_resource(Msaa::Off)
         .add_plugins(DefaultPlugins.set(
