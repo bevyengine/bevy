@@ -48,6 +48,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_dynamic_plugin|Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))|
 |bmp|BMP image format support|
+|command_tracking|ECS-command caller tracking, for diagnosing errors in deferred command application|
 |dds|DDS compressed texture support|
 |debug_asset_server|Enable the "debug asset server" for hot reloading internal assets|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
