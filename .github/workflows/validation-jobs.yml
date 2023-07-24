@@ -21,12 +21,6 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/cache@v3
-        with:
-          path: |
-            target
-          key: ${{ runner.os }}-ios-stable-${{ hashFiles('**/Cargo.toml') }}
-
       - name: Add iOS targets
         run: rustup target add aarch64-apple-ios x86_64-apple-ios
 
@@ -41,15 +35,6 @@ jobs:
       - uses: actions/checkout@v3
 
       - uses: dtolnay/rust-toolchain@stable
-
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-android-stable-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Install Android targets
         run: rustup target add aarch64-linux-android armv7-linux-androideabi
