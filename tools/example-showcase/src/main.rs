@@ -161,7 +161,7 @@ fn main() {
                 let sh = Shell::new().unwrap();
                 cmd!(
                     sh,
-                    "git apply tools/example-showcase/remove-desktop-app-mode.patch"
+                    "git apply --ignore-whitespace tools/example-showcase/remove-desktop-app-mode.patch"
                 )
                 .run()
                 .unwrap();
@@ -170,7 +170,7 @@ fn main() {
                 // This is needed as the default config is too much for the CI runner
                 cmd!(
                     sh,
-                    "git apply tools/example-showcase/reduce-light-cluster-config.patch"
+                    "git apply --ignore-whitespace tools/example-showcase/reduce-light-cluster-config.patch"
                 )
                 .run()
                 .unwrap();
@@ -179,7 +179,7 @@ fn main() {
                 // This is needed for example split_screen that uses the window size to set the panels
                 cmd!(
                     sh,
-                    "git apply tools/example-showcase/extra-window-resized-events.patch"
+                    "git apply --ignore-whitespace tools/example-showcase/extra-window-resized-events.patch"
                 )
                 .run()
                 .unwrap();
