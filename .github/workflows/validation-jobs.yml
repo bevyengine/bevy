@@ -25,7 +25,7 @@ jobs:
         with:
           path: |
             target
-          key: ${{ runner.os }}-ios-stable-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-ios-stable-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Add iOS targets
         run: rustup target add aarch64-apple-ios x86_64-apple-ios
