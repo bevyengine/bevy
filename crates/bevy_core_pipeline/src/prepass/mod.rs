@@ -80,14 +80,16 @@ pub struct ViewPrepassTextures {
 /// Used to render all 3D meshes with materials that have no transparency.
 pub struct Opaque3dPrepass {
     pub distance: f32,
+    pub per_object_binding_dynamic_offset: u32,
     pub entity: Entity,
     pub pipeline_id: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
 impl PhaseItem for Opaque3dPrepass {
+    // NOTE: (dynamic offset, -distance)
     // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = (u32, Reverse<FloatOrd>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -96,7 +98,10 @@ impl PhaseItem for Opaque3dPrepass {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        (
+            self.per_object_binding_dynamic_offset,
+            Reverse(FloatOrd(self.distance)),
+        )
     }
 
     #[inline]
@@ -107,7 +112,9 @@ impl PhaseItem for Opaque3dPrepass {
     #[inline]
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        radsort::sort_by_key(items, |item| {
+            (item.per_object_binding_dynamic_offset, -item.distance)
+        });
     }
 }
 
@@ -125,14 +132,16 @@ impl CachedRenderPipelinePhaseItem for Opaque3dPrepass {
 /// Used to render all meshes with a material with an alpha mask.
 pub struct AlphaMask3dPrepass {
     pub distance: f32,
+    pub per_object_binding_dynamic_offset: u32,
     pub entity: Entity,
     pub pipeline_id: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
 impl PhaseItem for AlphaMask3dPrepass {
-    // NOTE: Values increase towards the camera. Front-to-back ordering for alpha mask means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    // NOTE: (dynamic offset, -distance)
+    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
+    type SortKey = (u32, Reverse<FloatOrd>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -141,7 +150,10 @@ impl PhaseItem for AlphaMask3dPrepass {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        (
+            self.per_object_binding_dynamic_offset,
+            Reverse(FloatOrd(self.distance)),
+        )
     }
 
     #[inline]
@@ -152,7 +164,9 @@ impl PhaseItem for AlphaMask3dPrepass {
     #[inline]
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        radsort::sort_by_key(items, |item| {
+            (item.per_object_binding_dynamic_offset, -item.distance)
+        });
     }
 }
 

@@ -136,14 +136,16 @@ impl Plugin for Core3dPlugin {
 
 pub struct Opaque3d {
     pub distance: f32,
+    pub per_object_binding_dynamic_offset: u32,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
 
 impl PhaseItem for Opaque3d {
+    // NOTE: (dynamic offset, -distance)
     // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = (u32, Reverse<FloatOrd>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -152,7 +154,10 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        (
+            self.per_object_binding_dynamic_offset,
+            Reverse(FloatOrd(self.distance)),
+        )
     }
 
     #[inline]
@@ -163,7 +168,9 @@ impl PhaseItem for Opaque3d {
     #[inline]
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        radsort::sort_by_key(items, |item| {
+            (item.per_object_binding_dynamic_offset, -item.distance)
+        });
     }
 }
 
@@ -176,14 +183,16 @@ impl CachedRenderPipelinePhaseItem for Opaque3d {
 
 pub struct AlphaMask3d {
     pub distance: f32,
+    pub per_object_binding_dynamic_offset: u32,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
 
 impl PhaseItem for AlphaMask3d {
+    // NOTE: (dynamic offset, -distance)
     // NOTE: Values increase towards the camera. Front-to-back ordering for alpha mask means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = (u32, Reverse<FloatOrd>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -192,7 +201,10 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        (
+            self.per_object_binding_dynamic_offset,
+            Reverse(FloatOrd(self.distance)),
+        )
     }
 
     #[inline]
@@ -203,7 +215,9 @@ impl PhaseItem for AlphaMask3d {
     #[inline]
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        radsort::sort_by_key(items, |item| {
+            (item.per_object_binding_dynamic_offset, -item.distance)
+        });
     }
 }
 
