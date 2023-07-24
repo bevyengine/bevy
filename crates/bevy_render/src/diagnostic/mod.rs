@@ -166,7 +166,7 @@ impl Hash for SpanPath {
     }
 }
 
-pub trait RecordDiagnostics {
+pub trait RecordDiagnostics: Send + Sync {
     fn time_span<E: WriteTimestamp, N: Into<SpanName>>(
         &self,
         encoder: &mut E,
