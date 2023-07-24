@@ -25,10 +25,10 @@ fn mesh_mat_flags_from_deferred_flags(deferred_flags: u32) -> vec2<u32> {
 }
 
 
-// For stroing normals as oct24
-// Flags are stored in the remaining 8 bits
+// For storing normals as oct24.
+// Flags are stored in the remaining 8 bits.
 // https://jcgt.org/published/0003/02/01/paper.pdf
-// Could possibly go down to oct20 if the space is needed 
+// Could possibly go down to oct20 if the space is needed.
 
 fn octa_wrap(v: vec2<f32>) -> vec2<f32> {
     return (1.0 - abs(v.yx)) * select(vec2(-1.0), vec2(1.0), v.xy >= vec2(0.0));
@@ -71,7 +71,7 @@ fn unpack_flags(packed: u32) -> u32 {
     return (packed >> 24u) & 0xFFu;
 }
 
-// The builtin one didn't work in webgl
+// The builtin one didn't work in webgl.
 // "'unpackUnorm4x8' : no matching overloaded function found"
 fn unpack_unorm4x8_(v: u32) -> vec4<f32> {
     return vec4(
@@ -88,14 +88,14 @@ fn pack_unorm4x8_(v: vec4<f32>) -> u32 {
     return (v.w << 24u) | (v.z << 16u) | (v.y << 8u) | v.x;
 }
 
-// pack 3x 4bit unorm + 1x 20bit
+// Pack 3x 4bit unorm + 1x 20bit
 fn pack_unorm3x4_plus_unorm_20_(v: vec4<f32>) -> u32 {
     let sm = vec3<u32>(saturate(v.xyz) * 15.0 + 0.5);
     let bg = u32(saturate(v.w) * U20MAXF + 0.5);
     return (bg << 12u) | (sm.z << 8u) | (sm.y << 4u) | sm.x;
 }
 
-// unpack 3x 4bit unorm + 1x 20bit
+// Unpack 3x 4bit unorm + 1x 20bit
 fn unpack_unorm3x4_plus_unorm_20_(v: u32) -> vec4<f32> {
     return vec4(
         f32(v & 0xfu) / 15.0,

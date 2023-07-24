@@ -118,12 +118,12 @@ impl ViewNode for DeferredNode {
                 }),
         );
         if color_attachments.iter().all(Option::is_none) {
-            // all attachments are none: clear the attachment list so that no fragment shader is required
+            // All attachments are none: clear the attachment list so that no fragment shader is required.
             color_attachments.clear();
         }
 
         {
-            // Set up the pass descriptor with the depth attachment and optional color attachments
+            // Set up the pass descriptor with the depth attachment and optional color attachments.
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("deferred"),
                 color_attachments: &color_attachments,
@@ -134,7 +134,7 @@ impl ViewNode for DeferredNode {
                             || normal_prepass.is_some()
                             || motion_vector_prepass.is_some()
                         {
-                            // if any prepass runs, it will generate a depth buffer so we should use it
+                            // If any prepass runs, it will generate a depth buffer so we should use it.
                             Camera3dDepthLoadOp::Load
                         } else {
                             // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
@@ -145,7 +145,7 @@ impl ViewNode for DeferredNode {
                     }),
                     stencil_ops: Some(Operations {
                         load: if depth_prepass.is_some() {
-                            LoadOp::Load // load if the depth_prepass has run
+                            LoadOp::Load // Load if the depth_prepass has run.
                         } else {
                             LoadOp::Clear(0)
                         },
@@ -158,16 +158,16 @@ impl ViewNode for DeferredNode {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            // Always run opaque pass to ensure screen is cleared
+            // Always run opaque pass to ensure screen is cleared.
             {
-                // Run the prepass, sorted front-to-back
+                // Run the prepass, sorted front-to-back.
                 #[cfg(feature = "trace")]
                 let _opaque_prepass_span = info_span!("opaque_deferred").entered();
                 opaque_deferred_phase.render(&mut render_pass, world, view_entity);
             }
 
             if !alpha_mask_deferred_phase.items.is_empty() {
-                // Run the deferred, sorted front-to-back
+                // Run the deferred, sorted front-to-back.
                 #[cfg(feature = "trace")]
                 let _alpha_mask_deferred_span = info_span!("alpha_mask_deferred").entered();
                 alpha_mask_deferred_phase.render(&mut render_pass, world, view_entity);
@@ -179,7 +179,7 @@ impl ViewNode for DeferredNode {
             // Chrome: [.WebGL-0000002C0AD19500] GL_INVALID_FRAMEBUFFER_OPERATION: Framebuffer is incomplete: Depth stencil texture in color attachment.
             // Firefox: WebGL warning: copyTexSubImage: Framebuffer not complete. (status: 0x8cd6) COLOR_ATTACHMENT0: Attachment's format is missing required color/depth/stencil bits.
 
-            // Copy depth buffer to texture
+            // Copy depth buffer to texture.
             render_context.command_encoder().copy_texture_to_texture(
                 view_depth_texture.texture.as_image_copy(),
                 prepass_depth_texture.texture.as_image_copy(),

@@ -128,7 +128,7 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Si
         AlphaMode::Opaque
     }
 
-    /// Returns if this material should be rendered by the deferred or forward renderer
+    /// Returns if this material should be rendered by the deferred or forward renderer.
     /// for AlphaMode::Opaque or AlphaMode::Mask materials.
     /// If None, it will default to what is selected in the DefaultOpaqueRendererMethod resource.
     #[inline]
@@ -138,14 +138,14 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Si
 
     /// Returns the stencil reference.
     /// Used for specifying which deferred lighting pass should be used if any.
-    /// Use 0 for forward only materials
+    /// Use 0 for forward only materials.
     #[inline]
     fn deferred_material_stencil_reference(&self) -> u32 {
         DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE
     }
 
     #[inline]
-    /// Add a bias to the view depth of the mesh which can be used to force a specific render order
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order.
     /// for meshes with similar depth, to avoid z-fighting.
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
     fn depth_bias(&self) -> f32 {
@@ -619,11 +619,11 @@ pub fn queue_material_meshes<M: Material>(
     }
 }
 
-/// Default render method used for opaque materials
+/// Default render method used for opaque materials.
 #[derive(Default, Resource, Clone, Debug, ExtractResource, Reflect)]
 pub struct DefaultOpaqueRendererMethod(pub OpaqueRendererMethod);
 
-/// Render method used for opaque materials
+/// Render method used for opaque materials.
 #[derive(Default, Clone, Copy, Debug, Reflect)]
 pub enum OpaqueRendererMethod {
     #[default]
@@ -633,7 +633,7 @@ pub enum OpaqueRendererMethod {
 
 /// Common [`Material`] properties, calculated for a specific material instance.
 pub struct MaterialProperties {
-    /// Is this material should be rendered by the deferred renderer when
+    /// Is this material should be rendered by the deferred renderer when.
     /// AlphaMode::Opaque or AlphaMode::Mask
     pub deferred: OpaqueRendererMethod,
     /// The [`AlphaMode`] of this material.

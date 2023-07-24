@@ -100,7 +100,7 @@ fn setup(
     forward_mat.opaque_render_method = Some(OpaqueRendererMethod::Forward);
     let forward_mat_h = materials.add(forward_mat);
 
-    // plane
+    // Plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(shape::Plane::from_size(50.0).into()),
         material: forward_mat_h.clone(),
@@ -114,7 +114,7 @@ fn setup(
         stacks: 128,
     }));
 
-    // cubes
+    // Cubes
     commands.spawn(PbrBundle {
         mesh: cube_h.clone(),
         material: forward_mat_h.clone(),
@@ -130,7 +130,7 @@ fn setup(
 
     let sphere_color = Color::rgb(10.0, 4.0, 1.0);
     let sphere_pos = Transform::from_xyz(0.4, 0.5, -0.8);
-    // emissive sphere
+    // Emissive sphere
     let mut unlit_mat: StandardMaterial = sphere_color.into();
     unlit_mat.unlit = true;
     commands.spawn((
@@ -142,7 +142,7 @@ fn setup(
         },
         NotShadowCaster,
     ));
-    // light
+    // Light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 1.0,
@@ -155,7 +155,7 @@ fn setup(
         ..default()
     });
 
-    // spheres
+    // Spheres
     for i in 0..6 {
         let j = i % 3;
         let s_val = if i < 3 { 0.0 } else { 0.2 };
@@ -193,7 +193,7 @@ fn setup(
         });
     }
 
-    // example instructions
+    // Example instructions
     commands.spawn(
         TextBundle::from_section(
             "",

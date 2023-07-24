@@ -41,13 +41,13 @@ fn uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
     return (uv - vec2(0.5)) * vec2(2.0, -2.0);
 }
 
-/// returns the (0.0, 0.0) .. (1.0, 1.0) position within the viewport for the current render target
+/// Returns the (0.0, 0.0) .. (1.0, 1.0) position within the viewport for the current render target.
 /// [0 .. render target viewport size] eg. [(0.0, 0.0) .. (1280.0, 720.0)] to [(0.0, 0.0) .. (1.0, 1.0)]
 fn frag_coord_to_uv(frag_coord: vec2<f32>) -> vec2<f32> {
     return (frag_coord - view.viewport.xy) / view.viewport.zw;
 }
 
-/// Convert frag coord to ndc
+/// Convert frag coord to ndc.
 fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
     return vec3(uv_to_ndc(frag_coord_to_uv(frag_coord.xy)), frag_coord.z);
 }
@@ -57,13 +57,13 @@ fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
 // ---------------------------
 
 
-// Creates the deferred gbuffer from a PbrInput
+// Creates the deferred gbuffer from a PbrInput.
 fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
      // Only monochrome occlusion supported. May not be worth including at all.
      // Some models have baked occlusion, GLTF only supports monochrome. 
      // Real time occlusion is applied in the deferred lighting pass.
     let occlusion = dot(in.occlusion, vec3<f32>(0.2126, 0.7152, 0.0722));
-#ifdef WEBGL // More crunched for webgl so we can also fit depth
+#ifdef WEBGL // More crunched for webgl so we can also fit depth.
     var props = deft::pack_unorm3x4_plus_unorm_20_(vec4(
         in.material.reflectance,
         in.material.metallic,
@@ -81,8 +81,8 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
     var base_color_srgb = vec3(0.0);
     var emissive = in.material.emissive.rgb;
     if ((in.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
-        // Material is unlit, use emissive component of gbuffer for color data
-        // Unlit materials are effectively emissive
+        // Material is unlit, use emissive component of gbuffer for color data.
+        // Unlit materials are effectively emissive.
         emissive = in.material.base_color.rgb;
     } else {
         base_color_srgb = pow(in.material.base_color.rgb, vec3(1.0 / 2.2));
@@ -96,7 +96,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
     return deferred;
 }
 
-// Creates a PbrInput from the deferred gbuffer
+// Creates a PbrInput from the deferred gbuffer.
 fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
     var pbr: PbrInput;
     pbr.material = standard_material_new();
@@ -116,14 +116,14 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
         pbr.material.base_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
         pbr.material.emissive = vec4(emissive, 1.0);
     }
-#ifdef WEBGL // More crunched for webgl so we can also fit depth
+#ifdef WEBGL // More crunched for webgl so we can also fit depth.
     let props = deft::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
-    // bias to 0.5 since that's the value for almost all materials
+    // Bias to 0.5 since that's the value for almost all materials.
     pbr.material.reflectance = saturate(props.r - 0.03333333333); 
 #else
     let props = deft::unpack_unorm4x8_(gbuffer.b);
     pbr.material.reflectance = props.r;
-#endif //WEBGL
+#endif // WEBGL
     pbr.material.metallic = props.g;
     pbr.occlusion = vec3(props.b);
     let oct_nor = deft::unpack_24bit_nor(gbuffer.a);
