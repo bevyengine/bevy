@@ -296,7 +296,7 @@ impl World {
     }
 
     /// Tracked version of [`World::entity_mut`] for use in commands with [`CallTracker::track`].
-    /// When the "command_tracking" features is enabled, in case of panic it will display the
+    /// When the `command_tracking` feature is enabled, in case of panic it will display the
     /// command call site.
     #[inline]
     #[track_caller]
@@ -678,7 +678,7 @@ impl World {
     }
 
     /// Tracked version of [`World::despawn`] for use in commands, designed for use with `CallTracker::track`.
-    /// When the "command_tracking" features is enabled in case of warning it will display the originating command call site.
+    /// When the `command_tracking` feature is enabled in case of warning it will display the originating command call site.
     pub fn despawn_tracked(&mut self, entity: Entity, caller: CallTrackRef) -> bool {
         if let Some(entity) = self.get_entity_mut(entity) {
             entity.despawn();

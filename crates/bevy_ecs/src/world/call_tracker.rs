@@ -37,10 +37,10 @@ impl CallTracker {
     }
 }
 
-/// Return type of the CallTracker::track() method
+/// Return type of the `CallTracker::track()` method
 #[cfg(feature = "command_tracking")]
 pub type CallTrackRef<'a> = &'a str;
-/// Return type of the CallTracker::track() method
+/// Return type of the `CallTracker::track()` method
 #[cfg(not(feature = "command_tracking"))]
 #[derive(Clone, Copy)]
 pub struct CallTrackRef;
