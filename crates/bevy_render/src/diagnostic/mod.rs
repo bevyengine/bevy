@@ -104,15 +104,15 @@ pub enum DiagnosticKind {
 pub enum SpanKind {
     /// An explicit time span.
     ///
-    /// See also: [`RecordDiagnostic::time_span`]
+    /// See also: [`RecordDiagnostics::time_span`]
     Time,
     /// A [`wgpu::RenderPass`]. Records timestamps, as well as pipeline statistics.
     ///
-    /// See also: [`RecordDiagnostic::pass_span`]
+    /// See also: [`RecordDiagnostics::pass_span`]
     RenderPass,
     /// A [`wgpu::ComputePass`]. Records timestamps, as well as pipeline statistics.
     ///
-    /// See also: [`RecordDiagnostic::pass_span`]
+    /// See also: [`RecordDiagnostics::pass_span`]
     ComputePass,
 }
 
@@ -212,7 +212,7 @@ pub struct TimeSpanScope<'a, R: ?Sized, E> {
 impl<R: RecordDiagnostics + ?Sized, E: WriteTimestamp> TimeSpanScope<'_, R, E> {
     pub fn end(self, encoder: &mut E) {
         self.recorder.end_time_span(encoder);
-        std::mem::forget(self)
+        std::mem::forget(self);
     }
 }
 
@@ -230,7 +230,7 @@ pub struct PassSpanScope<'a, R: ?Sized, P> {
 impl<R: RecordDiagnostics + ?Sized, P: Pass> PassSpanScope<'_, R, P> {
     pub fn end(self, pass: &mut P) {
         self.recorder.end_pass_span(pass);
-        std::mem::forget(self)
+        std::mem::forget(self);
     }
 }
 

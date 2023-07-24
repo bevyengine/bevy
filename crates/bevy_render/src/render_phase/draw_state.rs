@@ -608,11 +608,11 @@ impl WriteTimestamp for TrackedRenderPass<'_> {
 
 impl WritePipelineStatistics for TrackedRenderPass<'_> {
     fn begin_pipeline_statistics_query(&mut self, query_set: &QuerySet, index: u32) {
-        self.pass.begin_pipeline_statistics_query(query_set, index)
+        self.pass.begin_pipeline_statistics_query(query_set, index);
     }
 
     fn end_pipeline_statistics_query(&mut self) {
-        self.pass.end_pipeline_statistics_query()
+        self.pass.end_pipeline_statistics_query();
     }
 }
 

@@ -511,7 +511,7 @@ impl FrameData {
 
 /// Stores [`RenderDiagnostics`] shared between render app and main app.
 ///
-/// This mutex is locked twice per frame: in `PreUpdate`, during [`sync_render_statistics`],
+/// This mutex is locked twice per frame: in `PreUpdate`, during [`sync_diagnostics`],
 /// and after rendering has finished and statistics have been downloaded from GPU.
 #[derive(Debug, Default, Clone, Resource)]
 pub struct RenderDiagnosticsMutex(pub Arc<Mutex<Option<RenderDiagnostics>>>);
