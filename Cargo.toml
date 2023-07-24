@@ -567,7 +567,7 @@ path = "examples/3d/deferred_rendering.rs"
 
 [package.metadata.example.deferred_rendering]
 name = "Deferred Rendering"
-description = "Renders meshes with both forward and deferred piplines"
+description = "Renders meshes with both forward and deferred pipelines"
 category = "3D Rendering"
 wasm = true
 

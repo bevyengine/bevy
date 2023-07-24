@@ -214,7 +214,7 @@ impl FromWorld for FallbackImageCubemap {
     }
 }
 
-/// A Cache of fallback textures that uses the sample count and TextureFormat as a key
+/// A Cache of fallback textures that uses the sample count and `TextureFormat` as a key
 ///
 /// # WARNING
 /// Images using MSAA with sample count > 1 are not initialized with data, therefore,
