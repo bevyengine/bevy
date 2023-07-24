@@ -1,0 +1,21 @@
+diff --git a/crates/bevy_winit/src/winit_config.rs b/crates/bevy_winit/src/winit_config.rs
+index ec2ff8312..8a6f4133d 100644
+--- a/crates/bevy_winit/src/winit_config.rs
++++ b/crates/bevy_winit/src/winit_config.rs
+@@ -40,15 +40,7 @@ impl WinitSettings {
+ 
+     /// Configure winit with common settings for a desktop application.
+     pub fn desktop_app() -> Self {
+-        WinitSettings {
+-            focused_mode: UpdateMode::Reactive {
+-                max_wait: Duration::from_secs(5),
+-            },
+-            unfocused_mode: UpdateMode::ReactiveLowPower {
+-                max_wait: Duration::from_secs(60),
+-            },
+-            ..Default::default()
+-        }
++        Self::game()
+     }
+ 
+     /// Gets the configured [`UpdateMode`] depending on whether the window is focused or not

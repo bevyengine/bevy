@@ -156,28 +156,28 @@ fn main() {
                 let sh = Shell::new().unwrap();
                 cmd!(
                     sh,
-                    "sed -i.bak 's/pub fn desktop_app() -> Self {/pub fn desktop_app() -> Self {Self::game()} pub fn desktop_app_old() -> Self {/' crates/bevy_winit/src/winit_config.rs"
-                    )
-                    .run()
-                    .unwrap();
+                    "git apply tools/example-showcase/remove-desktop-app-mode.patch"
+                )
+                .run()
+                .unwrap();
 
                 // Setting lights ClusterConfig to have less clusters by default
                 // This is needed as the default config is too much for the CI runner
                 cmd!(
                     sh,
-                    "sed -i.bak 's/let config = config.copied().unwrap_or_default();/let config = config.copied().unwrap_or(ClusterConfig::FixedZ {total: 128, z_slices: 4, z_config: ClusterZConfig::default(), dynamic_resizing: true});/' crates/bevy_pbr/src/light.rs"
-                    )
-                    .run()
-                    .unwrap();
+                    "git apply tools/example-showcase/reduce-light-cluster-config.patch"
+                )
+                .run()
+                .unwrap();
 
                 // Sending extra WindowResize events. They are not sent on CI with xvfb x11 server
                 // This is needed for example split_screen that uses the window size to set the panels
                 cmd!(
                     sh,
-                    "sed -i.bak 's/winit_state.low_power_event = true;/winit_state.low_power_event = true; window_events.window_resized.send(WindowResized {window: window_entity, width: window.width(), height: window.height()});/' crates/bevy_winit/src/lib.rs"
-                    )
-                    .run()
-                    .unwrap();
+                    "git apply tools/example-showcase/extra-window-resized-events.patch"
+                )
+                .run()
+                .unwrap();
             }
 
             let work_to_do = || {
