@@ -11,6 +11,7 @@ mod scene_spawner;
 #[cfg(feature = "serialize")]
 pub mod serde;
 
+use bevy_ecs::schedule::IntoSystemConfigs;
 pub use bundle::*;
 pub use dynamic_scene::*;
 pub use dynamic_scene_builder::*;
@@ -40,9 +41,9 @@ impl Plugin for ScenePlugin {
             .add_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
-            .add_systems(Update, scene_spawner_system)
+            .add_systems(PreUpdate, scene_spawner_system)
             // Systems `*_bundle_spawner` must run before `scene_spawner_system`
-            .add_systems(PreUpdate, scene_spawner);
+            .add_systems(PreUpdate, scene_spawner.before(scene_spawner_system));
     }
 }
 
