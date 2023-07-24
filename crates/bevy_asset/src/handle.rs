@@ -3,9 +3,8 @@ use crate::{
     UntypedAssetId,
 };
 use bevy_ecs::prelude::*;
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize, Uuid};
+use bevy_reflect::{Reflect, Uuid};
 use crossbeam_channel::{Receiver, Sender};
-use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use std::{
     any::TypeId,
     hash::{Hash, Hasher},
@@ -121,14 +120,22 @@ impl std::fmt::Debug for InternalAssetHandle {
 ///
 /// [`Handle::Strong`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
 #[derive(Component, Reflect)]
-#[reflect_value(Component, PartialEq, Hash, Serialize, Deserialize)]
+#[reflect(Component)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.  
-    Strong(Arc<InternalAssetHandle>),
+    Strong(
+        #[reflect(default = "no_default_strong_handle")]
+        #[reflect(ignore)]
+        Arc<InternalAssetHandle>,
+    ),
     /// A "weak" reference to an [`Asset`]. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
     /// nor will it keep assets alive.
     Weak(AssetId<A>),
+}
+
+fn no_default_strong_handle() -> Arc<InternalAssetHandle> {
+    panic!("There is no default strong handle value. Handles (and how they relate to scenes) are still being worked on. Consider using a weak handle in the interim.")
 }
 
 impl<T: Asset> Clone for Handle<T> {
@@ -249,26 +256,6 @@ impl<A: Asset> PartialEq for Handle<A> {
 }
 
 impl<A: Asset> Eq for Handle<A> {}
-
-impl<A: Asset> Serialize for Handle<A> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_struct(std::any::type_name::<Self>(), 1)?;
-        state.serialize_field("id", &self.id())?;
-        state.end()
-    }
-}
-
-impl<'de, A: Asset> Deserialize<'de> for Handle<A> {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        todo!("Give handle serialization a real think :)");
-    }
-}
 
 /// An untyped variant of [`Handle`], which internally stores the [`Asset`] type information at runtime
 /// as a [`TypeId`] instead of encoding it in the compile-time type. This allows handles across [`Asset`] types

@@ -279,6 +279,7 @@ impl AssetApp for App {
         self.insert_resource(assets)
             .add_event::<AssetEvent<A>>()
             .register_type::<Handle<A>>()
+            .register_type::<AssetId<A>>()
             .add_systems(
                 PostUpdate,
                 Assets::<A>::track_assets.after(server::handle_internal_asset_events),
