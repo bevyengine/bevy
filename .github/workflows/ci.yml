@@ -215,6 +215,8 @@ jobs:
         with:
           name: example-run
           path: example-run/
+      - name: Reduce cache size
+        run: rm -rf target/debug/examples
 
   check-doc:
     runs-on: ubuntu-latest

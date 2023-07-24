@@ -79,6 +79,9 @@ jobs:
             sleep 10
           done
 
+      - name: Reduce cache size
+        run: rm -rf target/debug/examples  
+
   run-examples-on-wasm:
     if: ${{ github.event_name == 'merge_group' }}
     runs-on: ubuntu-latest
