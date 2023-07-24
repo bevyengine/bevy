@@ -16,6 +16,8 @@ fn main() {
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
         .add_systems(OnEnter(AppState::Menu), setup_menu)
+        .add_systems(OnExit(AppState::Menu), cleanup_menu)
+        .add_systems(OnEnter(AppState::InGame), setup_game)
         // By contrast, update systems are stored in the `Update` schedule. They simply
         // check the value of the `State<T>` resource to see if they should run each frame.
         .add_systems(
@@ -26,8 +28,6 @@ fn main() {
                 (movement, change_color).run_if(in_state(AppState::InGame)),
             ),
         )
-        .add_systems(OnExit(AppState::Menu), cleanup_menu)
-        .add_systems(OnEnter(AppState::InGame), setup_game)
         .run();
 }
 
