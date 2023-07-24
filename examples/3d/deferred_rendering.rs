@@ -373,7 +373,7 @@ fn switch_mode(
             commands.entity(camera).insert(NormalPrepass);
             commands.entity(camera).insert(DepthPrepass);
             commands.entity(camera).insert(MotionVectorPrepass);
-            commands.entity(camera).insert(DeferredPrepass);
+            commands.entity(camera).remove::<DeferredPrepass>();
         }
     }
 
