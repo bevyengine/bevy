@@ -26,6 +26,5 @@ impl Plugin for DiagnosticsPlugin {
     }
 }
 
-/// The width which diagnostic names will be printed as
-/// Plugin names should not be longer than this value
-pub const MAX_DIAGNOSTIC_NAME_WIDTH: usize = 32;
+/// Default max history length for new diagnostics.
+pub const DEFAULT_MAX_HISTORY_LENGTH: usize = 120;

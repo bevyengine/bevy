@@ -1,60 +1,60 @@
+use std::marker::PhantomData;
+
 use crate::{Asset, Assets};
 use bevy_app::prelude::*;
-use bevy_diagnostic::{
-    Diagnostic, DiagnosticId, Diagnostics, DiagnosticsStore, MAX_DIAGNOSTIC_NAME_WIDTH,
-};
+use bevy_diagnostic::{Diagnostic, DiagnosticPath, Diagnostics, DiagnosticsStore};
 use bevy_ecs::prelude::*;
 
 /// Adds an asset count diagnostic to an [`App`] for assets of type `T`.
 pub struct AssetCountDiagnosticsPlugin<T: Asset> {
-    marker: std::marker::PhantomData<T>,
+    marker: PhantomData<T>,
 }
 
 impl<T: Asset> Default for AssetCountDiagnosticsPlugin<T> {
     fn default() -> Self {
         Self {
-            marker: std::marker::PhantomData,
+            marker: PhantomData,
         }
     }
 }
 
 impl<T: Asset> Plugin for AssetCountDiagnosticsPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, Self::setup_system)
-            .add_systems(Update, Self::diagnostic_system);
+        app.insert_resource(AssetDiagnosticPath {
+            inner: Self::diagnostic_path(),
+            marker: PhantomData::<T>,
+        })
+        .add_systems(Startup, Self::setup_system)
+        .add_systems(Update, Self::diagnostic_system);
     }
 }
 
 impl<T: Asset> AssetCountDiagnosticsPlugin<T> {
-    /// Gets unique id of this diagnostic.
-    ///
-    /// The diagnostic id is the type uuid of `T`.
-    pub fn diagnostic_id() -> DiagnosticId {
-        DiagnosticId(T::TYPE_UUID)
+    /// Gets diagnostic path of format `asset/{T::type_path}/count`
+    pub fn diagnostic_path() -> DiagnosticPath {
+        DiagnosticPath::from_components(["asset", T::type_path(), "count"])
     }
 
     /// Registers the asset count diagnostic for the current application.
-    pub fn setup_system(mut diagnostics: ResMut<DiagnosticsStore>) {
-        let asset_type_name = std::any::type_name::<T>();
-        let max_length = MAX_DIAGNOSTIC_NAME_WIDTH - "asset_count ".len();
-        diagnostics.add(Diagnostic::new(
-            Self::diagnostic_id(),
-            format!(
-                "asset_count {}",
-                if asset_type_name.len() > max_length {
-                    asset_type_name
-                        .split_at(asset_type_name.len() - max_length + 1)
-                        .1
-                } else {
-                    asset_type_name
-                }
-            ),
-            20,
-        ));
+    pub fn setup_system(
+        path: Res<AssetDiagnosticPath<T>>,
+        mut diagnostics: ResMut<DiagnosticsStore>,
+    ) {
+        diagnostics.add(Diagnostic::new(path.inner.clone()));
     }
 
     /// Updates the asset count of `T` assets.
-    pub fn diagnostic_system(mut diagnostics: Diagnostics, assets: Res<Assets<T>>) {
-        diagnostics.add_measurement(Self::diagnostic_id(), || assets.len() as f64);
+    pub fn diagnostic_system(
+        path: Res<AssetDiagnosticPath<T>>,
+        mut diagnostics: Diagnostics,
+        assets: Res<Assets<T>>,
+    ) {
+        diagnostics.add_measurement(&path.inner, || assets.len() as f64);
     }
+}
+
+#[derive(Debug, Clone, Resource)]
+pub struct AssetDiagnosticPath<T: Asset> {
+    pub inner: DiagnosticPath,
+    marker: std::marker::PhantomData<T>,
 }
