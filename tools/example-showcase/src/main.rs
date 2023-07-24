@@ -50,6 +50,10 @@ enum Action {
         #[arg(long)]
         /// Running in CI (some adaptation to the code)
         in_ci: bool,
+
+        #[arg(long)]
+        /// Do not run stress test examples
+        ignore_stress_tests: bool,
     },
     /// Build the markdown files for the website
     BuildWebsiteList {
@@ -116,6 +120,7 @@ fn main() {
             manual_stop,
             screenshot,
             in_ci,
+            ignore_stress_tests,
         } => {
             let examples_to_run = parse_examples();
 
@@ -183,6 +188,7 @@ fn main() {
             let work_to_do = || {
                 examples_to_run
                     .iter()
+                    .filter(|example| example.category != "Stress Tests" || !ignore_stress_tests)
                     .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
                     .take(cli.per_page.unwrap_or(usize::MAX))
             };
