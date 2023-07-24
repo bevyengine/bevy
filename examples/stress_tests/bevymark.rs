@@ -256,7 +256,7 @@ fn counter_system(
         text.sections[1].value = counter.count.to_string();
     }
 
-    if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+    if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(raw) = fps.value() {
             text.sections[3].value = format!("{raw:.2}");
         }
