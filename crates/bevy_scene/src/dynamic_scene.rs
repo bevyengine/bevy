@@ -183,7 +183,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::{entity::EntityMap, reflect::AppTypeRegistry, system::Command, world::World};
+    use bevy_ecs::{
+        entity::EntityMap,
+        reflect::AppTypeRegistry,
+        system::Command,
+        world::{call_tracker::CallTracker, World},
+    };
     use bevy_hierarchy::{AddChild, Parent};
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
@@ -204,6 +209,7 @@ mod tests {
         AddChild {
             parent: original_parent_entity,
             child: original_child_entity,
+            caller: CallTracker::default(),
         }
         .apply(&mut world);
 
@@ -225,6 +231,7 @@ mod tests {
         AddChild {
             parent: original_child_entity,
             child: from_scene_parent_entity,
+            caller: CallTracker::default(),
         }
         .apply(&mut world);
 
