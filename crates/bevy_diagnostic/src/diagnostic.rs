@@ -61,9 +61,9 @@ impl DiagnosticPath {
 
         for (i, component) in components.into_iter().enumerate() {
             if i > 0 {
-                buf.push('/')
+                buf.push('/');
             }
-            buf.push_str(component)
+            buf.push_str(component);
         }
 
         DiagnosticPath::new(buf)

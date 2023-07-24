@@ -61,14 +61,14 @@ impl LogDiagnosticsPlugin {
             for path in filter {
                 if let Some(diagnostic) = diagnostics.get(path) {
                     if diagnostic.is_enabled {
-                        callback(diagnostic)
+                        callback(diagnostic);
                     }
                 }
             }
         } else {
             for diagnostic in diagnostics.iter() {
                 if diagnostic.is_enabled {
-                    callback(diagnostic)
+                    callback(diagnostic);
                 }
             }
         }
@@ -104,7 +104,7 @@ impl LogDiagnosticsPlugin {
         }
     }
 
-    fn log_diagnostics<'a>(state: &LogDiagnosticsState, diagnostics: &DiagnosticsStore) {
+    fn log_diagnostics(state: &LogDiagnosticsState, diagnostics: &DiagnosticsStore) {
         let mut path_width = 0;
         Self::for_each_diagnostic(state, diagnostics, |diagnostic| {
             let width = diagnostic.path().as_str().len();
