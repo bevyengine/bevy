@@ -5,7 +5,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         // MSAA is known to cause issues for Linux users with an Intel integrated GPU.
-        // Disable MSAA util the issues are fixed. https://github.com/bevyengine/bevy/issues/3593
+        // Disable MSAA until the issues are fixed. https://github.com/bevyengine/bevy/issues/3593
         .insert_resource(Msaa::Off)
         .add_plugins(DefaultPlugins.set(
             // This sets image filtering to nearest
