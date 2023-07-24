@@ -15,14 +15,16 @@ use serde::{Deserialize, Serialize};
 
 fn main() {
     App::new()
-        .add_plugin(TaskPoolPlugin::default())
-        .add_plugin(LogPlugin {
-            level: Level::TRACE,
-            ..Default::default()
-        })
-        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f32(2.0)))
-        .add_plugin(AssetPlugin::processed_dev())
-        .add_plugin(TextPlugin)
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            LogPlugin {
+                level: Level::TRACE,
+                ..Default::default()
+            },
+            ScheduleRunnerPlugin::run_loop(Duration::from_secs_f32(2.0)),
+            AssetPlugin::processed_dev(),
+            TextPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, print_text)
         .run();
