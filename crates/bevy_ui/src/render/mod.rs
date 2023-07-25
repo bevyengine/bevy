@@ -154,7 +154,6 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 }
 
 pub struct ExtractedUiNode {
-    pub stack_index: usize,
     pub transform: Mat4,
     pub color: Color,
     pub rect: Rect,
@@ -167,7 +166,23 @@ pub struct ExtractedUiNode {
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
+    pub indices: Vec<ExtractedIndex>,
     pub uinodes: Vec<ExtractedUiNode>,
+}
+
+pub struct ExtractedIndex {
+    stack_index: u32,
+    uinode_index: u32,
+}
+
+impl ExtractedUiNodes {
+    pub fn push(&mut self, stack_index: usize, item: ExtractedUiNode) {
+        self.indices.push(ExtractedIndex {
+            stack_index: stack_index as u32,
+            uinode_index: self.uinodes.len() as u32,
+        });
+        self.uinodes.push(item);
+    }
 }
 
 pub fn extract_atlas_uinodes(
@@ -231,17 +246,19 @@ pub fn extract_atlas_uinodes(
             atlas_rect.max *= scale;
             atlas_size *= scale;
 
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
+            extracted_uinodes.push(
                 stack_index,
-                transform: transform.compute_matrix(),
-                color: color.0,
-                rect: atlas_rect,
-                clip: clip.map(|clip| clip.clip),
-                image,
-                atlas_size: Some(atlas_size),
-                flip_x: atlas_image.flip_x,
-                flip_y: atlas_image.flip_y,
-            });
+                ExtractedUiNode {
+                    transform: transform.compute_matrix(),
+                    color: color.0,
+                    rect: atlas_rect,
+                    clip: clip.map(|clip| clip.clip),
+                    image,
+                    atlas_size: Some(atlas_size),
+                    flip_x: atlas_image.flip_x,
+                    flip_y: atlas_image.flip_y,
+                },
+            );
         }
     }
 }
@@ -356,21 +373,23 @@ pub fn extract_uinode_borders(
 
             for edge in border_rects {
                 if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
-                    extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    extracted_uinodes.push(
                         stack_index,
-                        // This translates the uinode's transform to the center of the current border rectangle
-                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
-                        color: border_color.0,
-                        rect: Rect {
-                            max: edge.size(),
-                            ..Default::default()
+                        ExtractedUiNode {
+                            // This translates the uinode's transform to the center of the current border rectangle
+                            transform: transform * Mat4::from_translation(edge.center().extend(0.)),
+                            color: border_color.0,
+                            rect: Rect {
+                                max: edge.size(),
+                                ..Default::default()
+                            },
+                            image: image.clone_weak(),
+                            atlas_size: None,
+                            clip: clip.map(|clip| clip.clip),
+                            flip_x: false,
+                            flip_y: false,
                         },
-                        image: image.clone_weak(),
-                        atlas_size: None,
-                        clip: clip.map(|clip| clip.clip),
-                        flip_x: false,
-                        flip_y: false,
-                    });
+                    );
                 }
             }
         }
@@ -414,20 +433,22 @@ pub fn extract_uinodes(
                 (DEFAULT_IMAGE_HANDLE.typed(), false, false)
             };
 
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
+            extracted_uinodes.push(
                 stack_index,
-                transform: transform.compute_matrix(),
-                color: color.0,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
+                ExtractedUiNode {
+                    transform: transform.compute_matrix(),
+                    color: color.0,
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.calculated_size,
+                    },
+                    clip: clip.map(|clip| clip.clip),
+                    image,
+                    atlas_size: None,
+                    flip_x,
+                    flip_y,
                 },
-                clip: clip.map(|clip| clip.clip),
-                image,
-                atlas_size: None,
-                flip_x,
-                flip_y,
-            });
+            );
         };
     }
 }
@@ -561,18 +582,20 @@ pub fn extract_text_uinodes(
                 let mut rect = atlas.textures[atlas_info.glyph_index];
                 rect.min *= inverse_scale_factor;
                 rect.max *= inverse_scale_factor;
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                extracted_uinodes.push(
                     stack_index,
-                    transform: transform
-                        * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
-                    color,
-                    rect,
-                    image: atlas.texture.clone_weak(),
-                    atlas_size: Some(atlas.size * inverse_scale_factor),
-                    clip: clip.map(|clip| clip.clip),
-                    flip_x: false,
-                    flip_y: false,
-                });
+                    ExtractedUiNode {
+                        transform: transform
+                            * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
+                        color,
+                        rect,
+                        image: atlas.texture.clone_weak(),
+                        atlas_size: Some(atlas.size * inverse_scale_factor),
+                        clip: clip.map(|clip| clip.clip),
+                        flip_x: false,
+                        flip_y: false,
+                    },
+                );
             }
         }
     }
@@ -631,9 +654,13 @@ pub fn prepare_uinodes(
     ui_meta.vertices.clear();
 
     // sort by ui stack index, starting from the deepest node
+    // extracted_uinodes
+    //     .uinodes
+    //     .sort_by_key(|node| node.stack_index);
+
     extracted_uinodes
-        .uinodes
-        .sort_by_key(|node| node.stack_index);
+        .indices
+        .sort_by_key(|extracted_index| extracted_index.stack_index);
 
     let mut start = 0;
     let mut end = 0;
@@ -645,7 +672,9 @@ pub fn prepare_uinodes(
         image.id() != DEFAULT_IMAGE_HANDLE.id()
     }
 
-    for extracted_uinode in extracted_uinodes.uinodes.drain(..) {
+    //for extracted_uinode in extracted_uinodes.uinodes.drain(..) {
+    for index in &extracted_uinodes.indices {
+        let extracted_uinode = &extracted_uinodes.uinodes[index.uinode_index as usize];
         let mode = if is_textured(&extracted_uinode.image) {
             if current_batch_image.id() != extracted_uinode.image.id() {
                 if is_textured(&current_batch_image) && start != end {
@@ -784,6 +813,9 @@ pub fn prepare_uinodes(
     }
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
+
+    extracted_uinodes.uinodes.clear();
+    extracted_uinodes.indices.clear();
 }
 
 #[derive(Resource, Default)]
