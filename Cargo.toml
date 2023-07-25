@@ -1649,7 +1649,7 @@ path = "examples/stress_tests/many_cubes.rs"
 
 [package.metadata.example.many_cubes]
 name = "Many Cubes"
-description = "Simple benchmark to test per-entity draw overhead. Run with the `sphere` argument to test frustum culling"
+description = "Simple benchmark to test per-entity draw overhead."
 category = "Stress Tests"
 wasm = true
 

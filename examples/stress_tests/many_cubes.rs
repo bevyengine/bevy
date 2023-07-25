@@ -53,29 +53,7 @@ fn setup(
     });
 
     match std::env::args().nth(1).as_deref() {
-        Some("sphere") => {
-            // NOTE: This pattern is good for testing performance of culling as it provides roughly
-            // the same number of visible meshes regardless of the viewing angle.
-            const N_POINTS: usize = WIDTH * HEIGHT * 4;
-            // NOTE: f64 is used to avoid precision issues that produce visual artifacts in the distribution
-            let radius = WIDTH as f64 * 2.5;
-            let golden_ratio = 0.5f64 * (1.0f64 + 5.0f64.sqrt());
-            for i in 0..N_POINTS {
-                let spherical_polar_theta_phi =
-                    fibonacci_spiral_on_sphere(golden_ratio, i, N_POINTS);
-                let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
-                commands.spawn(PbrBundle {
-                    mesh: mesh.clone_weak(),
-                    material: material.clone_weak(),
-                    transform: Transform::from_translation((radius * unit_sphere_p).as_vec3()),
-                    ..default()
-                });
-            }
-
-            // camera
-            commands.spawn(Camera3dBundle::default());
-        }
-        _ => {
+        Some("cube") => {
             // NOTE: This pattern is good for demonstrating that frustum culling is working correctly
             // as the number of visible meshes rises and falls depending on the viewing angle.
             for x in 0..WIDTH {
@@ -120,6 +98,28 @@ fn setup(
                 transform: Transform::from_xyz(WIDTH as f32, HEIGHT as f32, WIDTH as f32),
                 ..default()
             });
+        }
+        _ => {
+            // NOTE: This pattern is good for testing performance of culling as it provides roughly
+            // the same number of visible meshes regardless of the viewing angle.
+            const N_POINTS: usize = WIDTH * HEIGHT * 4;
+            // NOTE: f64 is used to avoid precision issues that produce visual artifacts in the distribution
+            let radius = WIDTH as f64 * 2.5;
+            let golden_ratio = 0.5f64 * (1.0f64 + 5.0f64.sqrt());
+            for i in 0..N_POINTS {
+                let spherical_polar_theta_phi =
+                    fibonacci_spiral_on_sphere(golden_ratio, i, N_POINTS);
+                let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
+                commands.spawn(PbrBundle {
+                    mesh: mesh.clone_weak(),
+                    material: material.clone_weak(),
+                    transform: Transform::from_translation((radius * unit_sphere_p).as_vec3()),
+                    ..default()
+                });
+            }
+
+            // camera
+            commands.spawn(Camera3dBundle::default());
         }
     }
 
