@@ -36,8 +36,8 @@ use crate::{
 /// If any of these entities are missing required components, those will be added with their
 /// default values.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn create_windows<'a, T>(
-    event_loop: &EventLoopWindowTarget<T>,
+pub(crate) fn create_windows<'a>(
+    event_loop: &EventLoopWindowTarget<()>,
     mut commands: Commands,
     windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
     mut event_writer: EventWriter<WindowCreated>,

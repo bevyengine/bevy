@@ -671,7 +671,7 @@ pub fn winit_runner(mut app: App) {
                     // TODO
                     // Upon resume, check if the new render surfaces are compatible with the
                     // existing render device. If not (which should basically never happen),
-                    // and *then* try to rebuild the renderer.
+                    // then try to rebuild the renderer.
                     *control_flow = ControlFlow::Exit;
                 }
             }
@@ -739,6 +739,7 @@ pub fn winit_runner(mut app: App) {
                             }
                         }
 
+                        // create any new windows
                         #[cfg(not(target_arch = "wasm32"))]
                         let (
                             commands,

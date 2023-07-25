@@ -38,8 +38,6 @@ pub struct WinitSettings {
 
 impl WinitSettings {
     /// Default settings for games.
-    ///
-    /// [`Continuous`](UpdateMode::Continuous) if windows have focus.
     pub fn game() -> Self {
         WinitSettings::default()
     }
