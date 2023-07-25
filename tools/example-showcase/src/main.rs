@@ -142,7 +142,7 @@ fn main() {
                 (false, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        b"(exit_after: Some(200), frame_time: Some(0.05), screenshot_frames: [100])",
+                        b"(exit_after: Some(250), frame_time: Some(0.05), screenshot_frames: [100])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -150,7 +150,7 @@ fn main() {
                 }
                 (false, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
-                    file.write_all(b"(exit_after: Some(200))").unwrap();
+                    file.write_all(b"(exit_after: Some(250))").unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
