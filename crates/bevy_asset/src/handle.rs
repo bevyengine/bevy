@@ -3,7 +3,7 @@ use crate::{
     UntypedAssetId,
 };
 use bevy_ecs::prelude::*;
-use bevy_reflect::{Reflect, Uuid};
+use bevy_reflect::{Reflect, TypePath, Uuid};
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     any::TypeId,
@@ -78,6 +78,7 @@ impl AssetHandleProvider {
 
 /// The internal "strong" [`Asset`] handle storage for [`Handle::Strong`] and [`UntypedHandle::Strong`]. When this is dropped,
 /// the [`Asset`] will be freed. It also stores some asset metadata for easy access from handles.
+#[derive(TypePath)]
 pub struct InternalAssetHandle {
     pub(crate) id: UntypedAssetId,
     pub(crate) asset_server_managed: bool,
@@ -124,18 +125,10 @@ impl std::fmt::Debug for InternalAssetHandle {
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.  
-    Strong(
-        #[reflect(default = "no_default_strong_handle")]
-        #[reflect(ignore)]
-        Arc<InternalAssetHandle>,
-    ),
+    Strong(Arc<InternalAssetHandle>),
     /// A "weak" reference to an [`Asset`]. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
     /// nor will it keep assets alive.
     Weak(AssetId<A>),
-}
-
-fn no_default_strong_handle() -> Arc<InternalAssetHandle> {
-    panic!("There is no default strong handle value. Handles (and how they relate to scenes) are still being worked on. Consider using a weak handle in the interim.")
 }
 
 impl<T: Asset> Clone for Handle<T> {
