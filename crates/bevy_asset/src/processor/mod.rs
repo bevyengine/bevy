@@ -230,6 +230,13 @@ impl AssetProcessor {
                         //     warn!("Failed to remove folder {path:?}: {err}");
                         // }
                     }
+                    AssetSourceEvent::Renamed { old, new } => error!("renamed not implemented"),
+                    AssetSourceEvent::RenamedMeta { old, new } => {
+                        error!("renamed meta not implemented")
+                    }
+                    AssetSourceEvent::RenamedFolder { old, new } => {
+                        error!("renamed folder not implemented ")
+                    }
                 }
             }
 

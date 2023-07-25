@@ -4,12 +4,18 @@ use crate::io::{
 };
 use anyhow::Result;
 use async_fs::{read_dir, File};
-use bevy_utils::BoxedFuture;
+use bevy_log::error;
+use bevy_utils::{BoxedFuture, Duration};
 use crossbeam_channel::Sender;
 use futures_lite::StreamExt;
-use notify::{
-    event::{CreateKind, ModifyKind, RemoveKind},
-    Error, Event, RecommendedWatcher, RecursiveMode, Watcher,
+use notify_debouncer_full::{
+    new_debouncer,
+    notify::{
+        self,
+        event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind, RenameMode},
+        INotifyWatcher, RecursiveMode, Watcher,
+    },
+    DebounceEventResult, Debouncer, FileIdMap,
 };
 use std::{
     env,
@@ -170,7 +176,12 @@ impl AssetReader for FileAssetReader {
         event_sender: crossbeam_channel::Sender<super::AssetSourceEvent>,
     ) -> Option<Box<dyn AssetWatcher>> {
         Some(Box::new(
-            FileWatcher::new(self.root_path.clone(), event_sender).unwrap(),
+            FileWatcher::new(
+                self.root_path.clone(),
+                event_sender,
+                Duration::from_secs_f32(0.5),
+            )
+            .unwrap(),
         ))
     }
 }
@@ -271,55 +282,135 @@ impl AssetWriter for FileAssetWriter {
 }
 
 pub struct FileWatcher {
-    _watcher: RecommendedWatcher,
+    _watcher: Debouncer<INotifyWatcher, FileIdMap>,
 }
 
 impl FileWatcher {
-    pub fn new(root: PathBuf, sender: Sender<AssetSourceEvent>) -> Result<Self, Error> {
+    pub fn new(
+        root: PathBuf,
+        sender: Sender<AssetSourceEvent>,
+        debounce_wait_time: Duration,
+    ) -> Result<Self, notify::Error> {
         let owned_root = root.clone();
-        let mut watcher = RecommendedWatcher::new(
-            move |result: Result<Event, Error>| {
-                let event = result.unwrap();
-                match event.kind {
-                    notify::EventKind::Create(CreateKind::File) => {
-                        let (path, is_meta) = get_asset_path(&owned_root, &event.paths[0]);
-                        if is_meta {
-                            sender.send(AssetSourceEvent::AddedMeta(path)).unwrap();
-                        } else {
-                            sender.send(AssetSourceEvent::Added(path)).unwrap();
+        let mut debouncer = new_debouncer(
+            debounce_wait_time,
+            None,
+            move |result: DebounceEventResult| {
+                match result {
+                    Ok(events) => {
+                        for event in events.iter() {
+                            match event.kind {
+                                notify::EventKind::Create(CreateKind::File) => {
+                                    let (path, is_meta) =
+                                        get_asset_path(&owned_root, &event.paths[0]);
+                                    if is_meta {
+                                        sender.send(AssetSourceEvent::AddedMeta(path)).unwrap();
+                                    } else {
+                                        sender.send(AssetSourceEvent::Added(path)).unwrap();
+                                    }
+                                }
+                                notify::EventKind::Create(CreateKind::Folder) => {
+                                    let (path, _) = get_asset_path(&owned_root, &event.paths[0]);
+                                    sender.send(AssetSourceEvent::AddedFolder(path)).unwrap();
+                                }
+                                notify::EventKind::Access(AccessKind::Close(AccessMode::Write)) => {
+                                    let (path, is_meta) =
+                                        get_asset_path(&owned_root, &event.paths[0]);
+                                    if is_meta {
+                                        sender.send(AssetSourceEvent::ModifiedMeta(path)).unwrap();
+                                    } else {
+                                        sender.send(AssetSourceEvent::Modified(path)).unwrap();
+                                    }
+                                }
+                                // Because this is debounced over a reasonable period of time, "From" events are assumed to be "dangling" without
+                                // a follow up "To" event. Without debouncing, "From" -> "To" -> "Both" events are emitted for renames.
+                                // If a From is dangling, it is assumed to be "removed" from the context of the asset system.
+                                notify::EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
+                                    let (path, is_meta) =
+                                        get_asset_path(&owned_root, &event.paths[0]);
+                                    if path.is_dir() {
+                                        sender.send(AssetSourceEvent::RemovedFolder(path)).unwrap();
+                                    } else if is_meta {
+                                        sender.send(AssetSourceEvent::RemovedMeta(path)).unwrap();
+                                    } else {
+                                        sender.send(AssetSourceEvent::Removed(path)).unwrap();
+                                    }
+                                }
+                                notify::EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
+                                    error!("Dangling `RenameMode::To` event encountered for {:?}. This is unexpected.", &event.paths[0]);
+                                }
+                                notify::EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
+                                    let (old_path, old_is_meta) =
+                                        get_asset_path(&owned_root, &event.paths[0]);
+                                    let (new_path, new_is_meta) =
+                                        get_asset_path(&owned_root, &event.paths[1]);
+                                    // only the new "real" path is considered a directory
+                                    if event.paths[1].is_dir() {
+                                        sender
+                                            .send(AssetSourceEvent::RenamedFolder {
+                                                old: old_path,
+                                                new: new_path,
+                                            })
+                                            .unwrap();
+                                    } else {
+                                        match (old_is_meta, new_is_meta) {
+                                            (true, true) => {
+                                                sender
+                                                    .send(AssetSourceEvent::RenamedMeta {
+                                                        old: old_path,
+                                                        new: new_path,
+                                                    })
+                                                    .unwrap();
+                                            }
+                                            (false, false) => {
+                                                sender
+                                                    .send(AssetSourceEvent::Renamed {
+                                                        old: old_path,
+                                                        new: new_path,
+                                                    })
+                                                    .unwrap();
+                                            }
+                                            (true, false) => {
+                                                error!(
+                                                "Asset metafile {old_path:?} was changed to asset file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid"
+                                            );
+                                            }
+                                            (false, true) => {
+                                                error!(
+                                                "Asset file {old_path:?} was changed to meta file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid"
+                                            );
+                                            }
+                                        }
+                                    }
+                                }
+                                notify::EventKind::Remove(RemoveKind::File) => {
+                                    let (path, is_meta) =
+                                        get_asset_path(&owned_root, &event.paths[0]);
+                                    if is_meta {
+                                        sender.send(AssetSourceEvent::RemovedMeta(path)).unwrap();
+                                    } else {
+                                        sender.send(AssetSourceEvent::Removed(path)).unwrap();
+                                    }
+                                }
+                                notify::EventKind::Remove(RemoveKind::Folder) => {
+                                    let (path, _) = get_asset_path(&owned_root, &event.paths[0]);
+                                    sender.send(AssetSourceEvent::RemovedFolder(path)).unwrap();
+                                }
+                                _ => {}
+                            }
                         }
                     }
-                    notify::EventKind::Create(CreateKind::Folder) => {
-                        let (path, _) = get_asset_path(&owned_root, &event.paths[0]);
-                        sender.send(AssetSourceEvent::AddedFolder(path)).unwrap();
-                    }
-                    notify::EventKind::Modify(ModifyKind::Data(_)) => {
-                        let (path, is_meta) = get_asset_path(&owned_root, &event.paths[0]);
-                        if is_meta {
-                            sender.send(AssetSourceEvent::ModifiedMeta(path)).unwrap();
-                        } else {
-                            sender.send(AssetSourceEvent::Modified(path)).unwrap();
-                        }
-                    }
-                    notify::EventKind::Remove(RemoveKind::File) => {
-                        let (path, is_meta) = get_asset_path(&owned_root, &event.paths[0]);
-                        if is_meta {
-                            sender.send(AssetSourceEvent::RemovedMeta(path)).unwrap();
-                        } else {
-                            sender.send(AssetSourceEvent::Removed(path)).unwrap();
-                        }
-                    }
-                    notify::EventKind::Remove(RemoveKind::Folder) => {
-                        let (path, _) = get_asset_path(&owned_root, &event.paths[0]);
-                        sender.send(AssetSourceEvent::RemovedFolder(path)).unwrap();
-                    }
-                    _ => {}
+                    Err(errors) => errors.iter().for_each(|error| {
+                        error!("Encountered a filesystem watcher error {error:?}")
+                    }),
                 }
             },
-            notify::Config::default(),
         )?;
-        watcher.watch(&root, RecursiveMode::Recursive)?;
-        Ok(Self { _watcher: watcher })
+        debouncer.watcher().watch(&root, RecursiveMode::Recursive)?;
+        debouncer.cache().add_root(&root, RecursiveMode::Recursive);
+        Ok(Self {
+            _watcher: debouncer,
+        })
     }
 }
 

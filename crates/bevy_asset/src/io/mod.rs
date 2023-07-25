@@ -135,16 +135,22 @@ pub enum AssetSourceEvent {
     Modified(PathBuf),
     /// An asset at this path was removed.
     Removed(PathBuf),
+    /// An asset at this path was renamed.
+    Renamed { old: PathBuf, new: PathBuf },
     /// Asset metadata at this path was added.
     AddedMeta(PathBuf),
     /// Asset metadata at this path was modified.
     ModifiedMeta(PathBuf),
     /// Asset metadata at this path was removed.
     RemovedMeta(PathBuf),
+    /// Asset metadata at this path was renamed.
+    RenamedMeta { old: PathBuf, new: PathBuf },
     /// A folder at the given path was added.
     AddedFolder(PathBuf),
-    /// A folder at the given path removed.
+    /// A folder at the given path was removed.
     RemovedFolder(PathBuf),
+    /// A folder at the given path was renamed.
+    RenamedFolder { old: PathBuf, new: PathBuf },
 }
 
 /// A handle to an "asset watcher" process, that will listen for and emit [`AssetSourceEvent`] values for as long as
