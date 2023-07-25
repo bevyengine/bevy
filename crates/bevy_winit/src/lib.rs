@@ -697,7 +697,7 @@ pub fn winit_runner(mut app: App) {
                         }
                     };
 
-                    if should_update {
+                    if finished_and_setup_done && should_update {
                         // reset these on each update
                         runner_state.wait_elapsed = false;
                         runner_state.device_event_received = false;
@@ -738,46 +738,47 @@ pub fn winit_runner(mut app: App) {
                                 *control_flow = ControlFlow::Exit;
                             }
                         }
-
-                        // create any new windows
-                        #[cfg(not(target_arch = "wasm32"))]
-                        let (
-                            commands,
-                            mut windows,
-                            event_writer,
-                            winit_windows,
-                            adapters,
-                            handlers,
-                            accessibility_requested,
-                        ) = create_window_system_state.get_mut(&mut app.world);
-
-                        #[cfg(target_arch = "wasm32")]
-                        let (
-                            commands,
-                            mut windows,
-                            event_writer,
-                            winit_windows,
-                            adapters,
-                            handlers,
-                            accessibility_requested,
-                            event_channel,
-                        ) = create_window_system_state.get_mut(&mut app.world);
-
-                        create_windows(
-                            event_loop,
-                            commands,
-                            windows.iter_mut(),
-                            event_writer,
-                            winit_windows,
-                            adapters,
-                            handlers,
-                            accessibility_requested,
-                            #[cfg(target_arch = "wasm32")]
-                            event_channel,
-                        );
-
-                        create_window_system_state.apply(&mut app.world);
                     }
+
+                    // create any new windows
+                    // (even if app did not update, some may have been created by plugin setup)
+                    #[cfg(not(target_arch = "wasm32"))]
+                    let (
+                        commands,
+                        mut windows,
+                        event_writer,
+                        winit_windows,
+                        adapters,
+                        handlers,
+                        accessibility_requested,
+                    ) = create_window_system_state.get_mut(&mut app.world);
+
+                    #[cfg(target_arch = "wasm32")]
+                    let (
+                        commands,
+                        mut windows,
+                        event_writer,
+                        winit_windows,
+                        adapters,
+                        handlers,
+                        accessibility_requested,
+                        event_channel,
+                    ) = create_window_system_state.get_mut(&mut app.world);
+
+                    create_windows(
+                        event_loop,
+                        commands,
+                        windows.iter_mut(),
+                        event_writer,
+                        winit_windows,
+                        adapters,
+                        handlers,
+                        accessibility_requested,
+                        #[cfg(target_arch = "wasm32")]
+                        event_channel,
+                    );
+
+                    create_window_system_state.apply(&mut app.world);
                 }
             }
             _ => (),
