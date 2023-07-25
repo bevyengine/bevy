@@ -42,6 +42,7 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap, Hashed};
+use smallvec::SmallVec;
 
 use crate::render::{
     morph::{extract_morphs, prepare_morphs, MorphIndex, MorphUniform},
@@ -1239,19 +1240,18 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             return RenderCommandResult::Failure;
         };
 
-        let mut set_bind_group = |indices: &[u32]| pass.set_bind_group(I, bind_group, indices);
-        match (batch_indices.dynamic_offset, skin_index, morph_index) {
-            (None, None, None) => set_bind_group(&[]),
-            (None, Some(skin), None) => set_bind_group(&[skin.index]),
-            (None, None, Some(morph)) => set_bind_group(&[morph.index]),
-            (None, Some(skin), Some(morph)) => set_bind_group(&[skin.index, morph.index]),
-            (Some(mesh_index), None, None) => set_bind_group(&[mesh_index]),
-            (Some(mesh_index), Some(skin), None) => set_bind_group(&[mesh_index, skin.index]),
-            (Some(mesh_index), None, Some(morph)) => set_bind_group(&[mesh_index, morph.index]),
-            (Some(mesh_index), Some(skin), Some(morph)) => {
-                set_bind_group(&[mesh_index, skin.index, morph.index]);
-            }
-        };
+        let mut dynamic_offsets: SmallVec<[u32; 3]> = SmallVec::with_capacity(3);
+        if let Some(mesh_index) = batch_indices.dynamic_offset {
+            dynamic_offsets.push(mesh_index);
+        }
+        if let Some(skin_index) = skin_index {
+            dynamic_offsets.push(skin_index.index);
+        }
+        if let Some(morph_index) = morph_index {
+            dynamic_offsets.push(morph_index.index);
+        }
+        pass.set_bind_group(I, bind_group, &dynamic_offsets);
+
         RenderCommandResult::Success
     }
 }
