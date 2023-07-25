@@ -15,7 +15,9 @@ use std::f64::consts::PI;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
+    pbr::NotShadowCaster,
     prelude::*,
+    render::render_resource::Face,
     window::{PresentMode, WindowPlugin},
 };
 
@@ -33,7 +35,7 @@ fn main() {
             LogDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (move_camera, print_mesh_count))
+        .add_systems(Update, (toggle_shadows, move_camera, print_mesh_count))
         .run();
 }
 
@@ -123,6 +125,25 @@ fn setup(
         }
     }
 
+    commands.spawn((
+        PbrBundle {
+            mesh: mesh.clone_weak(),
+            material: materials.add(StandardMaterial {
+                base_color: Color::WHITE,
+                double_sided: true,
+                cull_mode: Some(Face::Front),
+                ..default()
+            }),
+            transform: Transform {
+                translation: Vec3::new(0.0, HEIGHT as f32 * 2.5, 0.0),
+                scale: Vec3::splat(WIDTH as f32 * 5.0),
+                ..default()
+            },
+            ..default()
+        },
+        NotShadowCaster,
+    ));
+
     // add one cube, the only one with strong handles
     // also serves as a reference point during rotation
     commands.spawn(PbrBundle {
@@ -189,5 +210,13 @@ struct PrintingTimer(Timer);
 impl Default for PrintingTimer {
     fn default() -> Self {
         Self(Timer::from_seconds(1.0, TimerMode::Repeating))
+    }
+}
+
+fn toggle_shadows(keys: Res<Input<KeyCode>>, mut directional_lights: Query<&mut DirectionalLight>) {
+    if keys.just_pressed(KeyCode::S) {
+        for mut light in &mut directional_lights {
+            light.shadows_enabled = !light.shadows_enabled;
+        }
     }
 }
