@@ -165,15 +165,15 @@ pub struct ExtractedUiNode {
     pub flip_y: bool,
 }
 
-#[derive(Resource, Default)]
-pub struct ExtractedUiNodes {
-    pub indices: Vec<ExtractedIndex>,
-    pub uinodes: Vec<ExtractedUiNode>,
-}
-
-pub struct ExtractedIndex {
+struct ExtractedIndex {
     stack_index: u32,
     uinode_index: u32,
+}
+
+#[derive(Resource, Default)]
+pub struct ExtractedUiNodes {
+    indices: Vec<ExtractedIndex>,
+    uinodes: Vec<ExtractedUiNode>,
 }
 
 impl ExtractedUiNodes {
@@ -183,6 +183,11 @@ impl ExtractedUiNodes {
             uinode_index: self.uinodes.len() as u32,
         });
         self.uinodes.push(item);
+    }
+
+    fn clear(&mut self) {
+        self.indices.clear();
+        self.uinodes.clear();
     }
 }
 
@@ -662,7 +667,6 @@ pub fn prepare_uinodes(
         image.id() != DEFAULT_IMAGE_HANDLE.id()
     }
 
-    //for extracted_uinode in extracted_uinodes.uinodes.drain(..) {
     for index in &extracted_uinodes.indices {
         let extracted_uinode = &extracted_uinodes.uinodes[index.uinode_index as usize];
         let mode = if is_textured(&extracted_uinode.image) {
@@ -792,7 +796,7 @@ pub fn prepare_uinodes(
         last_z = extracted_uinode.transform.w_axis[2];
         end += QUAD_INDICES.len() as u32;
     }
-
+    
     // if start != end, there is one last batch to process
     if start != end {
         commands.spawn(UiBatch {
@@ -804,8 +808,7 @@ pub fn prepare_uinodes(
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
 
-    extracted_uinodes.uinodes.clear();
-    extracted_uinodes.indices.clear();
+    extracted_uinodes.clear();
 }
 
 #[derive(Resource, Default)]
