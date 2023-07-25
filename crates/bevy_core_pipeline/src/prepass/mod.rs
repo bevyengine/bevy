@@ -80,6 +80,8 @@ pub struct ViewPrepassTextures {
 /// Used to render all 3D meshes with materials that have no transparency.
 pub struct Opaque3dPrepass {
     pub distance: f32,
+    // Per-object data may be bound at different dynamic offsets within a buffer. If it is, then
+    // each batch of per-object data starts at the same dynamic offset.
     pub per_object_binding_dynamic_offset: u32,
     pub entity: Entity,
     pub pipeline_id: CachedRenderPipelineId,
@@ -132,6 +134,8 @@ impl CachedRenderPipelinePhaseItem for Opaque3dPrepass {
 /// Used to render all meshes with a material with an alpha mask.
 pub struct AlphaMask3dPrepass {
     pub distance: f32,
+    // Per-object data may be bound at different dynamic offsets within a buffer. If it is, then
+    // each batch of per-object data starts at the same dynamic offset.
     pub per_object_binding_dynamic_offset: u32,
     pub entity: Entity,
     pub pipeline_id: CachedRenderPipelineId,

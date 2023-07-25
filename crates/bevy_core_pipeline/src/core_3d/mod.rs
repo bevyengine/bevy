@@ -136,6 +136,8 @@ impl Plugin for Core3dPlugin {
 
 pub struct Opaque3d {
     pub distance: f32,
+    // Per-object data may be bound at different dynamic offsets within a buffer. If it is, then
+    // each batch of per-object data starts at the same dynamic offset.
     pub per_object_binding_dynamic_offset: u32,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
@@ -183,6 +185,8 @@ impl CachedRenderPipelinePhaseItem for Opaque3d {
 
 pub struct AlphaMask3d {
     pub distance: f32,
+    // Per-object data may be bound at different dynamic offsets within a buffer. If it is, then
+    // each batch of per-object data starts at the same dynamic offset.
     pub per_object_binding_dynamic_offset: u32,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
