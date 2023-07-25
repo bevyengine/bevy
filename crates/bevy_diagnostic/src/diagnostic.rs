@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::VecDeque};
 
 use bevy_app::App;
 use bevy_ecs::system::{Deferred, Res, Resource, SystemBuffer, SystemParam};
-use bevy_utils::{Duration, Instant, StableHashMap};
+use bevy_utils::{hashbrown::HashMap, Duration, Instant, PassHash};
 use const_fnv1a_hash::fnv1a_hash_str_64;
 
 use crate::DEFAULT_MAX_HISTORY_LENGTH;
@@ -90,7 +90,7 @@ impl Eq for DiagnosticPath {}
 
 impl PartialEq for DiagnosticPath {
     fn eq(&self, other: &Self) -> bool {
-        self.hash == other.hash
+        self.hash == other.hash && self.path == other.path
     }
 }
 
@@ -280,9 +280,7 @@ impl Diagnostic {
 /// A collection of [Diagnostic]s
 #[derive(Debug, Default, Resource)]
 pub struct DiagnosticsStore {
-    // This uses a [`StableHashMap`] to ensure that the iteration order is deterministic between
-    // runs when all diagnostics are inserted in the same order.
-    diagnostics: StableHashMap<DiagnosticPath, Diagnostic>,
+    diagnostics: HashMap<DiagnosticPath, Diagnostic, PassHash>,
 }
 
 impl DiagnosticsStore {
@@ -346,7 +344,7 @@ impl<'w, 's> Diagnostics<'w, 's> {
 }
 
 #[derive(Default)]
-struct DiagnosticsBuffer(StableHashMap<DiagnosticPath, DiagnosticMeasurement>);
+struct DiagnosticsBuffer(HashMap<DiagnosticPath, DiagnosticMeasurement, PassHash>);
 
 impl SystemBuffer for DiagnosticsBuffer {
     fn apply(
