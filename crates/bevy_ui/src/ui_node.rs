@@ -78,6 +78,9 @@ impl Default for Node {
     }
 }
 
+#[derive(Component, Copy, Clone, Debug, Default)]
+pub struct UiStackIndex(pub usize);
+
 /// Represents the possible value types for layout properties.
 ///
 /// This enum allows specifying values for various [`Style`] properties in different units,
