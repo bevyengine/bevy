@@ -318,7 +318,7 @@ impl FromWorld for PostProcessPipeline {
                         write_mask: ColorWrites::ALL,
                     })],
                 }),
-                // All of the following property are not important for this effect so just use the default values.
+                // All of the following properties are not important for this effect so just use the default values.
                 // This struct doesn't have the Default trait implemented because not all field can have a default value.
                 primitive: PrimitiveState::default(),
                 depth_stencil: None,
