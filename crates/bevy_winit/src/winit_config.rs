@@ -38,8 +38,17 @@ pub struct WinitSettings {
 
 impl WinitSettings {
     /// Default settings for games.
+    ///
+    /// [`Continuous`](UpdateMode::Continuous) if windows have focus,
+    /// [`ReactiveLowPower`](UpdateMode::ReactiveLowPower) otherwise.
     pub fn game() -> Self {
-        WinitSettings::default()
+        WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::ReactiveLowPower {
+                wait: Duration::from_millis(50), // 20Hz
+            },
+            ..Default::default()
+        }
     }
 
     /// Default settings for desktop applications.
