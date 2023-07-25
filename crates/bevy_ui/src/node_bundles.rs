@@ -5,7 +5,7 @@ use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiTextureAtlasImage, ZIndex,
+    UiStackIndex, UiTextureAtlasImage, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -50,6 +50,7 @@ pub struct NodeBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    pub stack_index: UiStackIndex,
 }
 
 impl Default for NodeBundle {
@@ -66,6 +67,7 @@ impl Default for NodeBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
+            stack_index: Default::default(),
         }
     }
 }
@@ -111,6 +113,7 @@ pub struct ImageBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    pub stack_index: UiStackIndex,
 }
 
 /// A UI node that is a texture atlas sprite
@@ -156,6 +159,7 @@ pub struct AtlasImageBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    pub stack_index: UiStackIndex,
 }
 
 #[cfg(feature = "bevy_text")]
@@ -193,6 +197,7 @@ pub struct TextBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    pub stack_index: UiStackIndex,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
 }
@@ -215,6 +220,7 @@ impl Default for TextBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
+            stack_index: Default::default(),
         }
     }
 }
@@ -305,6 +311,7 @@ pub struct ButtonBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    pub stack_index: UiStackIndex,
 }
 
 impl Default for ButtonBundle {
@@ -323,6 +330,7 @@ impl Default for ButtonBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
+            stack_index: Default::default(),
         }
     }
 }
