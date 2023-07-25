@@ -393,7 +393,7 @@ pub fn winit_runner(mut app: App) {
                         ) = create_window_system_state.get_mut(&mut app.world);
 
                         create_windows(
-                            &event_loop,
+                            event_loop,
                             commands,
                             windows.iter_mut(),
                             event_writer,
@@ -763,7 +763,7 @@ pub fn winit_runner(mut app: App) {
                         ) = create_window_system_state.get_mut(&mut app.world);
 
                         create_windows(
-                            &event_loop,
+                            event_loop,
                             commands,
                             windows.iter_mut(),
                             event_writer,
