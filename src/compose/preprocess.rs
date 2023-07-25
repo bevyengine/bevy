@@ -3,7 +3,10 @@ use std::collections::{HashMap, HashSet};
 use regex::Regex;
 use tracing::warn;
 
-use super::{ComposerErrorInner, ImportDefWithOffset, ImportDefinition, ShaderDefValue};
+use super::{
+    comment_strip_iter::CommentReplaceExt, ComposerErrorInner, ImportDefWithOffset,
+    ImportDefinition, ShaderDefValue,
+};
 
 #[derive(Debug)]
 pub struct Preprocessor {
@@ -159,10 +162,16 @@ impl Preprocessor {
         let len = shader_str.len();
 
         // this code broadly stolen from bevy_render::ShaderProcessor
-        for line in shader_str.lines() {
+        for (line, original_line) in shader_str
+            .lines()
+            .replace_comments()
+            .zip(shader_str.lines())
+        {
+            let line = &line;
+
             let mut output = false;
             let mut still_at_start = false;
-            if line.is_empty() {
+            if line.is_empty() || line.chars().all(|c| c.is_ascii_whitespace()) {
                 still_at_start = true;
             }
 
@@ -321,7 +330,7 @@ impl Preprocessor {
                         offset,
                     });
                 } else {
-                    let mut line_with_defs = line.to_string();
+                    let mut line_with_defs = original_line.to_string();
                     for capture in self.def_regex.captures_iter(line) {
                         let def = capture.get(1).unwrap();
                         if let Some(def) = shader_defs.get(def.as_str()) {
@@ -388,7 +397,8 @@ impl Preprocessor {
         let mut offset = 0;
         let mut defines = HashMap::default();
 
-        for line in shader_str.lines() {
+        for line in shader_str.lines().replace_comments() {
+            let line = &line;
             if let Some(cap) = self.import_custom_path_as_regex.captures(line) {
                 imports.push(ImportDefWithOffset {
                     definition: ImportDefinition {
@@ -457,12 +467,12 @@ impl Preprocessor {
     pub fn effective_defs(&self, source: &str) -> HashSet<String> {
         let mut effective_defs = HashSet::default();
 
-        for line in source.lines() {
-            if let Some(cap) = self.ifdef_regex.captures(line) {
+        for line in source.lines().replace_comments() {
+            if let Some(cap) = self.ifdef_regex.captures(&line) {
                 let def = cap.get(2).unwrap();
                 effective_defs.insert(def.as_str().to_owned());
             }
-            if let Some(cap) = self.ifndef_regex.captures(line) {
+            if let Some(cap) = self.ifndef_regex.captures(&line) {
                 let def = cap.get(2).unwrap();
                 effective_defs.insert(def.as_str().to_owned());
             }
