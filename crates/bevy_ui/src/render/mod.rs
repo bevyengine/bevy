@@ -254,16 +254,19 @@ pub fn extract_atlas_uinodes(
         atlas_rect.max *= scale;
         atlas_size *= scale;
 
-        extracted_uinodes.push(stack_index.0, ExtractedUiNode {
-            transform: transform.compute_matrix(),
-            color: color.0,
-            rect: atlas_rect,
-            clip: clip.map(|clip| clip.clip),
-            image,
-            atlas_size: Some(atlas_size),
-            flip_x: atlas_image.flip_x,
-            flip_y: atlas_image.flip_y,
-        });
+        extracted_uinodes.push(
+            stack_index.0,
+            ExtractedUiNode {
+                transform: transform.compute_matrix(),
+                color: color.0,
+                rect: atlas_rect,
+                clip: clip.map(|clip| clip.clip),
+                image,
+                atlas_size: Some(atlas_size),
+                flip_x: atlas_image.flip_x,
+                flip_y: atlas_image.flip_y,
+            },
+        );
     }
 }
 
@@ -370,21 +373,23 @@ pub fn extract_uinode_borders(
 
         for edge in border_rects {
             if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
-                extracted_uinodes.push(stack_index.0, ExtractedUiNode {
-                    
-                    // This translates the uinode's transform to the center of the current border rectangle
-                    transform: transform * Mat4::from_translation(edge.center().extend(0.)),
-                    color: border_color.0,
-                    rect: Rect {
-                        max: edge.size(),
-                        ..Default::default()
+                extracted_uinodes.push(
+                    stack_index.0,
+                    ExtractedUiNode {
+                        // This translates the uinode's transform to the center of the current border rectangle
+                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
+                        color: border_color.0,
+                        rect: Rect {
+                            max: edge.size(),
+                            ..Default::default()
+                        },
+                        image: image.clone_weak(),
+                        atlas_size: None,
+                        clip: clip.map(|clip| clip.clip),
+                        flip_x: false,
+                        flip_y: false,
                     },
-                    image: image.clone_weak(),
-                    atlas_size: None,
-                    clip: clip.map(|clip| clip.clip),
-                    flip_x: false,
-                    flip_y: false,
-                });
+                );
             }
         }
     }
@@ -426,20 +431,22 @@ pub fn extract_uinodes(
             (DEFAULT_IMAGE_HANDLE.typed(), false, false)
         };
 
-        extracted_uinodes.push(stack_index.0, ExtractedUiNode {
-            
-            transform: transform.compute_matrix(),
-            color: color.0,
-            rect: Rect {
-                min: Vec2::ZERO,
-                max: uinode.calculated_size,
+        extracted_uinodes.push(
+            stack_index.0,
+            ExtractedUiNode {
+                transform: transform.compute_matrix(),
+                color: color.0,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.calculated_size,
+                },
+                clip: clip.map(|clip| clip.clip),
+                image,
+                atlas_size: None,
+                flip_x,
+                flip_y,
             },
-            clip: clip.map(|clip| clip.clip),
-            image,
-            atlas_size: None,
-            flip_x,
-            flip_y,
-        });
+        );
     }
 }
 
@@ -571,17 +578,20 @@ pub fn extract_text_uinodes(
             let mut rect = atlas.textures[atlas_info.glyph_index];
             rect.min *= inverse_scale_factor;
             rect.max *= inverse_scale_factor;
-            extracted_uinodes.push(stack_index.0, ExtractedUiNode {
-                transform: transform
-                    * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
-                color,
-                rect,
-                image: atlas.texture.clone_weak(),
-                atlas_size: Some(atlas.size * inverse_scale_factor),
-                clip: clip.map(|clip| clip.clip),
-                flip_x: false,
-                flip_y: false,
-            });
+            extracted_uinodes.push(
+                stack_index.0,
+                ExtractedUiNode {
+                    transform: transform
+                        * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
+                    color,
+                    rect,
+                    image: atlas.texture.clone_weak(),
+                    atlas_size: Some(atlas.size * inverse_scale_factor),
+                    clip: clip.map(|clip| clip.clip),
+                    flip_x: false,
+                    flip_y: false,
+                },
+            );
         }
     }
 }
@@ -637,7 +647,7 @@ pub fn prepare_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
 ) {
     ui_meta.vertices.clear();
-    
+
     extracted_uinodes
         .indices
         .sort_by_key(|extracted_index| extracted_index.stack_index);
