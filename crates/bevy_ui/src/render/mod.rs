@@ -12,7 +12,7 @@ pub use render_pass::*;
 use crate::UiStackIndex;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
-    Style, UiImage, UiScale, UiStack, UiTextureAtlasImage, Val,
+    Style, UiImage, UiScale, UiTextureAtlasImage, Val,
 };
 
 use bevy_app::prelude::*;
@@ -283,7 +283,6 @@ pub fn extract_uinode_borders(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
-    ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<
             (
@@ -394,7 +393,6 @@ pub fn extract_uinode_borders(
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
-    ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<
             (
@@ -523,7 +521,6 @@ pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
-    ui_stack: Extract<Res<UiStack>>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
@@ -640,12 +637,7 @@ pub fn prepare_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
 ) {
     ui_meta.vertices.clear();
-
-    // sort by ui stack index, starting from the deepest node
-    // extracted_uinodes
-    //     .uinodes
-    //     .sort_by_key(|node| node.stack_index);
-
+    
     extracted_uinodes
         .indices
         .sort_by_key(|extracted_index| extracted_index.stack_index);
