@@ -319,7 +319,7 @@ impl FromWorld for PostProcessPipeline {
                     })],
                 }),
                 // All of the following property are not important for this effect so just use the default values.
-                // This struct doesn't have the Default trai implemented because not all field can have a default value.
+                // This struct doesn't have the Default trait implemented because not all field can have a default value.
                 primitive: PrimitiveState::default(),
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
