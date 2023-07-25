@@ -217,12 +217,15 @@ fn main() {
                 if cmd.run().is_ok() {
                     if screenshot {
                         let _ = fs::create_dir_all(Path::new("screenshots").join(&to_run.category));
-                        let _ = fs::rename(
+                        let renamed_screenshot = fs::rename(
                             "screenshot-100.png",
                             Path::new("screenshots")
                                 .join(&to_run.category)
                                 .join(format!("{}.png", to_run.technical_name)),
                         );
+                        if let Err(err) = renamed_screenshot {
+                            println!("Failed to rename screenshot: {:?}", err);
+                        }
                     }
                 } else {
                     failed_examples.push(to_run);
