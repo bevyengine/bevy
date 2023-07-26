@@ -565,7 +565,7 @@ impl FromWorld for SsaoPipelines {
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct SsaoPipelineKey {
     ssao_settings: ScreenSpaceAmbientOcclusionSettings,
-    temporal_noise: bool,
+    temporal_jitter: bool,
 }
 
 impl SpecializedComputePipeline for SsaoPipelines {
@@ -582,8 +582,8 @@ impl SpecializedComputePipeline for SsaoPipelines {
             ),
         ];
 
-        if key.temporal_noise {
-            shader_defs.push("TEMPORAL_NOISE".into());
+        if key.temporal_jitter {
+            shader_defs.push("TEMPORAL_JITTER".into());
         }
 
         ComputePipelineDescriptor {
@@ -734,7 +734,7 @@ fn prepare_ssao_pipelines(
             &pipeline,
             SsaoPipelineKey {
                 ssao_settings: ssao_settings.clone(),
-                temporal_noise: temporal_jitter.is_some(),
+                temporal_jitter: temporal_jitter.is_some(),
             },
         );
 
