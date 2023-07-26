@@ -54,6 +54,10 @@ enum Action {
         #[arg(long)]
         /// Do not run stress test examples
         ignore_stress_tests: bool,
+
+        #[arg(long)]
+        /// Report execution details in files
+        report_details: bool,
     },
     /// Build the markdown files for the website
     BuildWebsiteList {
@@ -121,10 +125,13 @@ fn main() {
             screenshot,
             in_ci,
             ignore_stress_tests,
+            report_details,
         } => {
             let examples_to_run = parse_examples();
 
             let mut failed_examples = vec![];
+            let mut successful_examples = vec![];
+            let mut no_screenshot_examples = vec![];
 
             let mut extra_parameters = vec![];
 
@@ -225,6 +232,9 @@ fn main() {
                         );
                         if let Err(err) = renamed_screenshot {
                             println!("Failed to rename screenshot: {:?}", err);
+                            no_screenshot_examples.push(to_run);
+                        } else {
+                            successful_examples.push(to_run);
                         }
                     }
                 } else {
@@ -238,6 +248,41 @@ fn main() {
                 pb.inc();
             }
             pb.finish_print("done");
+
+            if report_details {
+                let _ = fs::write(
+                    "successes",
+                    successful_examples
+                        .iter()
+                        .map(|example| example.technical_name.as_str())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                );
+                let _ = fs::write(
+                    "failures",
+                    failed_examples
+                        .iter()
+                        .map(|example| example.technical_name.as_str())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                );
+                let _ = fs::write(
+                    "no_screenshots",
+                    no_screenshot_examples
+                        .iter()
+                        .map(|example| example.technical_name.as_str())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                );
+            }
+
+            println!(
+                "total: {} / passed: {}, failed: {}, no screenshot: {}",
+                work_to_do().count(),
+                successful_examples.len(),
+                failed_examples.len(),
+                no_screenshot_examples.len()
+            );
             if failed_examples.is_empty() {
                 println!("All examples passed!");
             } else {
