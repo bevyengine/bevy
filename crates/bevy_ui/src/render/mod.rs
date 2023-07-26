@@ -178,22 +178,22 @@ pub struct ExtractedUiNodes {
 }
 
 impl ExtractedUiNodes {
-    pub fn push(&mut self, stack_index: usize, item: ExtractedUiNode) {
+    pub fn push_node(&mut self, stack_index: usize, item: ExtractedUiNode) {
         self.indices.push(ExtractedIndex {
             stack_index: stack_index as u32,
             start: self.uinodes.len() as u32,
-            end: (self.uinodes.len() + 1) as u32
+            end: (self.uinodes.len() + 1) as u32,
         });
         self.uinodes.push(item);
     }
 
-    pub fn push_multiple(&mut self, stack_index: usize, items: impl Iterator<Item = ExtractedUiNode>) {
+    pub fn push_nodes(&mut self, stack_index: usize, items: impl Iterator<Item = ExtractedUiNode>) {
         let start = self.uinodes.len() as u32;
         self.uinodes.extend(items);
         self.indices.push(ExtractedIndex {
             stack_index: stack_index as u32,
             start,
-            end: self.uinodes.len() as u32
+            end: self.uinodes.len() as u32,
         });
     }
 
@@ -271,7 +271,7 @@ pub fn extract_atlas_uinodes(
         atlas_rect.max *= scale;
         atlas_size *= scale;
 
-        extracted_uinodes.push(
+        extracted_uinodes.push_node(
             stack_index.0,
             ExtractedUiNode {
                 transform: transform.compute_matrix(),
@@ -387,26 +387,27 @@ pub fn extract_uinode_borders(
         ];
 
         let transform = global_transform.compute_matrix();
-        extracted_uinodes.push_multiple(stack_index.0,
-        border_rects.into_iter()
-            .filter(|edge| edge.min.x < edge.max.x && edge.min.y < edge.max.y)
-            .map(|edge| {
+        extracted_uinodes.push_nodes(
+            stack_index.0,
+            border_rects
+                .into_iter()
+                .filter(|edge| edge.min.x < edge.max.x && edge.min.y < edge.max.y)
+                .map(|edge| {
                     ExtractedUiNode {
-                            // This translates the uinode's transform to the center of the current border rectangle
-                            transform: transform * Mat4::from_translation(edge.center().extend(0.)),
-                            color: border_color.0,
-                            rect: Rect {
-                                max: edge.size(),
-                                ..Default::default()
-                            },
-                            image: image.clone_weak(),
-                            atlas_size: None,
-                            clip: clip.map(|clip| clip.clip),
-                            flip_x: false,
-                            flip_y: false,
-                        }
+                        // This translates the uinode's transform to the center of the current border rectangle
+                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
+                        color: border_color.0,
+                        rect: Rect {
+                            max: edge.size(),
+                            ..Default::default()
+                        },
+                        image: image.clone_weak(),
+                        atlas_size: None,
+                        clip: clip.map(|clip| clip.clip),
+                        flip_x: false,
+                        flip_y: false,
                     }
-            )
+                }),
         );
     }
 }
@@ -447,7 +448,7 @@ pub fn extract_uinodes(
             (DEFAULT_IMAGE_HANDLE.typed(), false, false)
         };
 
-        extracted_uinodes.push(
+        extracted_uinodes.push_node(
             stack_index.0,
             ExtractedUiNode {
                 transform: transform.compute_matrix(),
@@ -578,36 +579,38 @@ pub fn extract_text_uinodes(
 
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
-        extracted_uinodes.push_multiple(stack_index.0,
-            text_layout_info.glyphs
-                .iter()
-                .map(|PositionedGlyph {  position,
-                    atlas_info,
-                    section_index,
-                    ..}| {
-                        if *section_index != current_section {
-                            color = text.sections[*section_index].style.color.as_rgba_linear();
-                            current_section = *section_index;
-                        }
-                        let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
-            
-                        let mut rect = atlas.textures[atlas_info.glyph_index];
-                        rect.min *= inverse_scale_factor;
-                        rect.max *= inverse_scale_factor;                  
-                        ExtractedUiNode {
-                            transform: transform
-                                * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
-                            color,
-                            rect,
-                            image: atlas.texture.clone_weak(),
-                            atlas_size: Some(atlas.size * inverse_scale_factor),
-                            clip: clip.map(|clip| clip.clip),
-                            flip_x: false,
-                            flip_y: false,
-                        }
+        extracted_uinodes.push_nodes(
+            stack_index.0,
+            text_layout_info.glyphs.iter().map(
+                |PositionedGlyph {
+                     position,
+                     atlas_info,
+                     section_index,
+                     ..
+                 }| {
+                    if *section_index != current_section {
+                        color = text.sections[*section_index].style.color.as_rgba_linear();
+                        current_section = *section_index;
                     }
-        ));
+                    let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
+                    let mut rect = atlas.textures[atlas_info.glyph_index];
+                    rect.min *= inverse_scale_factor;
+                    rect.max *= inverse_scale_factor;
+                    ExtractedUiNode {
+                        transform: transform
+                            * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
+                        color,
+                        rect,
+                        image: atlas.texture.clone_weak(),
+                        atlas_size: Some(atlas.size * inverse_scale_factor),
+                        clip: clip.map(|clip| clip.clip),
+                        flip_x: false,
+                        flip_y: false,
+                    }
+                },
+            ),
+        );
     }
 }
 
@@ -678,7 +681,9 @@ pub fn prepare_uinodes(
     }
 
     for extracted_index in &extracted_uinodes.indices {
-        for extracted_uinode in &extracted_uinodes.uinodes[extracted_index.start as usize .. extracted_index.end as usize] {            
+        for extracted_uinode in
+            &extracted_uinodes.uinodes[extracted_index.start as usize..extracted_index.end as usize]
+        {
             let mode = if is_textured(&extracted_uinode.image) {
                 if current_batch_image.id() != extracted_uinode.image.id() {
                     if is_textured(&current_batch_image) && start != end {
@@ -807,7 +812,7 @@ pub fn prepare_uinodes(
             end += QUAD_INDICES.len() as u32;
         }
     }
-    
+
     // if start != end, there is one last batch to process
     if start != end {
         commands.spawn(UiBatch {
