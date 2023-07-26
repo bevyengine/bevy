@@ -13,7 +13,8 @@
 use std::f64::consts::PI;
 
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    core_pipeline::prepass::DepthPrepass,
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::NotShadowCaster,
     prelude::*,
@@ -32,10 +33,9 @@ fn main() {
                 ..default()
             }),
             FrameTimeDiagnosticsPlugin,
-            LogDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (toggle_shadows, move_camera, print_mesh_count))
+        .add_systems(Update, (move_camera, update_state))
         .run();
 }
 
@@ -53,6 +53,9 @@ fn setup(
         base_color: Color::PINK,
         ..default()
     });
+
+    // Initialized below
+    let camera_entity;
 
     match std::env::args().nth(1).as_deref() {
         Some("cube") => {
@@ -96,10 +99,12 @@ fn setup(
                 }
             }
             // camera
-            commands.spawn(Camera3dBundle {
-                transform: Transform::from_xyz(WIDTH as f32, HEIGHT as f32, WIDTH as f32),
-                ..default()
-            });
+            camera_entity = commands
+                .spawn(Camera3dBundle {
+                    transform: Transform::from_xyz(WIDTH as f32, HEIGHT as f32, WIDTH as f32),
+                    ..default()
+                })
+                .id();
         }
         _ => {
             // NOTE: This pattern is good for testing performance of culling as it provides roughly
@@ -121,8 +126,13 @@ fn setup(
             }
 
             // camera
-            commands.spawn(Camera3dBundle::default());
+            camera_entity = commands.spawn(Camera3dBundle::default()).id();
         }
+    }
+
+    let depth_prepass_enabled = std::env::args().nth(2).as_deref() == Some("prepass-enabled");
+    if depth_prepass_enabled {
+        commands.entity(camera_entity).insert(DepthPrepass);
     }
 
     commands.spawn((
@@ -157,7 +167,73 @@ fn setup(
         ..default()
     });
 
-    commands.spawn(DirectionalLightBundle { ..default() });
+    let directional_light_shadows_enabled =
+        std::env::args().nth(3).as_deref() == Some("shadows-enabled");
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            shadows_enabled: directional_light_shadows_enabled,
+            ..default()
+        },
+        ..default()
+    });
+
+    let style = TextStyle {
+        font_size: 32.0,
+        ..default()
+    };
+    commands.spawn((
+        TextBundle::from_sections([
+            TextSection::new(depth_prepass_string(depth_prepass_enabled), style.clone()),
+            TextSection::new(
+                directional_light_shadows_string(directional_light_shadows_enabled),
+                style.clone(),
+            ),
+            TextSection::new(mesh_stats_string(0, 0), style.clone()),
+            TextSection::new(frame_stats_string(0.0, 0.0), style),
+        ]),
+        UiState,
+    ));
+}
+
+#[derive(Component)]
+struct UiState;
+
+fn toggle_state_string(v: bool) -> &'static str {
+    if v {
+        "enabled"
+    } else {
+        "disabled"
+    }
+}
+
+fn depth_prepass_string(depth_prepass_enabled: bool) -> String {
+    format!(
+        "Depth prepass: {}               (toggle by pressing 'p')\n",
+        toggle_state_string(depth_prepass_enabled)
+    )
+}
+
+fn directional_light_shadows_string(directional_light_shadows_enabled: bool) -> String {
+    format!(
+        "Directional light shadows: {}   (toggle by pressing 's')\n",
+        toggle_state_string(directional_light_shadows_enabled)
+    )
+}
+
+fn mesh_stats_string(total_meshes: usize, visible_meshes: usize) -> String {
+    format!(
+        "Meshes: {}\nVisible Meshes {} ({:5.1}%)\n",
+        total_meshes,
+        visible_meshes,
+        100.0 * (visible_meshes as f32 / total_meshes as f32),
+    )
+}
+
+fn frame_stats_string(fps: f32, frame_time_ms: f32) -> String {
+    format!(
+        "Frame rate: {:>6.1} fps\nFrame time: {:>6.3} ms\n",
+        fps, frame_time_ms
+    )
 }
 
 // NOTE: This epsilon value is apparently optimal for optimizing for the average
@@ -187,36 +263,67 @@ fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Cam
     camera_transform.rotate_x(delta);
 }
 
-// System for printing the number of meshes on every tick of the timer
-fn print_mesh_count(
-    time: Res<Time>,
-    mut timer: Local<PrintingTimer>,
-    sprites: Query<(&Handle<Mesh>, &ComputedVisibility)>,
+fn update_state(
+    mut commands: Commands,
+    keys: Res<Input<KeyCode>>,
+    mut directional_lights: Query<&mut DirectionalLight>,
+    cameras_no_prepass: Query<Entity, (With<Camera>, Without<DepthPrepass>)>,
+    cameras_prepass: Query<Entity, (With<Camera>, With<DepthPrepass>)>,
+    diagnostics: Res<DiagnosticsStore>,
+    mut query: Query<&mut Text, With<UiState>>,
+    meshes: Query<(&Handle<Mesh>, &ComputedVisibility)>,
 ) {
-    timer.tick(time.delta());
-
-    if timer.just_finished() {
-        info!(
-            "Meshes: {} - Visible Meshes {}",
-            sprites.iter().len(),
-            sprites.iter().filter(|(_, cv)| cv.is_visible()).count(),
-        );
-    }
-}
-
-#[derive(Deref, DerefMut)]
-struct PrintingTimer(Timer);
-
-impl Default for PrintingTimer {
-    fn default() -> Self {
-        Self(Timer::from_seconds(1.0, TimerMode::Repeating))
-    }
-}
-
-fn toggle_shadows(keys: Res<Input<KeyCode>>, mut directional_lights: Query<&mut DirectionalLight>) {
+    // Update directional light shadow state
+    let mut shadows_string = None;
     if keys.just_pressed(KeyCode::S) {
+        let mut directional_light_shadows_enabled = false;
         for mut light in &mut directional_lights {
             light.shadows_enabled = !light.shadows_enabled;
+            directional_light_shadows_enabled = light.shadows_enabled;
         }
+        shadows_string = Some(directional_light_shadows_string(
+            directional_light_shadows_enabled,
+        ));
+    }
+
+    // Update depth prepass state
+    let mut prepass_string = None;
+    if keys.just_pressed(KeyCode::P) {
+        let mut depth_prepass_enabled = false;
+        for entity in &cameras_no_prepass {
+            commands.entity(entity).insert(DepthPrepass);
+            depth_prepass_enabled = true;
+        }
+        for entity in &cameras_prepass {
+            commands.entity(entity).remove::<DepthPrepass>();
+            depth_prepass_enabled = false;
+        }
+        prepass_string = Some(depth_prepass_string(depth_prepass_enabled));
+    }
+
+    // Update the UI
+    let fps = diagnostics
+        .get(FrameTimeDiagnosticsPlugin::FPS)
+        .and_then(|fps| fps.smoothed())
+        .unwrap_or_default() as f32;
+    let frame_time_ms = diagnostics
+        .get(FrameTimeDiagnosticsPlugin::FRAME_TIME)
+        .and_then(|frame_time_ms| frame_time_ms.smoothed())
+        .unwrap_or_default() as f32;
+    let frame_stats_string = frame_stats_string(fps, frame_time_ms);
+
+    let total_meshes = meshes.iter().len();
+    let visible_meshes = meshes.iter().filter(|(_, cv)| cv.is_visible()).count();
+    let mesh_stats_string = mesh_stats_string(total_meshes, visible_meshes);
+
+    for mut text in &mut query {
+        if let Some(shadows_string) = shadows_string.as_ref() {
+            text.sections[0].value = shadows_string.clone();
+        }
+        if let Some(prepass_string) = prepass_string.as_ref() {
+            text.sections[1].value = prepass_string.clone();
+        }
+        text.sections[2].value = mesh_stats_string.clone();
+        text.sections[3].value = frame_stats_string.clone();
     }
 }
