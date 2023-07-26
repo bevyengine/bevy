@@ -42,7 +42,6 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap, Hashed};
-use smallvec::SmallVec;
 
 use crate::render::{
     morph::{extract_morphs, prepare_morphs, MorphIndex, MorphUniform},
@@ -1241,17 +1240,21 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             return RenderCommandResult::Failure;
         };
 
-        let mut dynamic_offsets: SmallVec<[u32; 3]> = SmallVec::with_capacity(3);
+        let mut dynamic_offsets: [u32; 3] = Default::default();
+        let mut index_count = 0;
         if let Some(mesh_index) = batch_indices.dynamic_offset {
-            dynamic_offsets.push(mesh_index);
+            dynamic_offsets[index_count] = mesh_index;
+            index_count += 1;
         }
         if let Some(skin_index) = skin_index {
-            dynamic_offsets.push(skin_index.index);
+            dynamic_offsets[index_count] = skin_index.index;
+            index_count += 1;
         }
         if let Some(morph_index) = morph_index {
-            dynamic_offsets.push(morph_index.index);
+            dynamic_offsets[index_count] = morph_index.index;
+            index_count += 1;
         }
-        pass.set_bind_group(I, bind_group, &dynamic_offsets);
+        pass.set_bind_group(I, bind_group, &dynamic_offsets[0..index_count]);
 
         RenderCommandResult::Success
     }
