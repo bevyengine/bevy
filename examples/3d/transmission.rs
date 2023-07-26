@@ -27,6 +27,7 @@ use bevy::{
 #[cfg(any(not(feature = "webgl2"), not(target_arch = "wasm32")))]
 use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
 
+use bevy_internal::render::camera::TemporalJitter;
 use rand::random;
 
 fn main() {
@@ -504,9 +505,13 @@ fn example_control_system(
     #[cfg(any(not(feature = "webgl2"), not(target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::D) {
         if depth_prepass.is_none() {
-            commands.entity(camera_entity).insert(DepthPrepass);
+            commands
+                .entity(camera_entity)
+                .insert((DepthPrepass, TemporalJitter::default()));
         } else {
-            commands.entity(camera_entity).remove::<DepthPrepass>();
+            commands
+                .entity(camera_entity)
+                .remove::<(DepthPrepass, TemporalJitter)>();
         }
     }
 
