@@ -59,7 +59,7 @@ pub fn ui_stack_system(
 
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
         let mut stack_index = stack_index_query.get_mut(*entity).unwrap();
-        stack_index.0 = i;
+        stack_index.0 = i as u32;
     }
 }
 

@@ -79,7 +79,7 @@ impl Default for Node {
 }
 
 #[derive(Component, Copy, Clone, Debug, Default)]
-pub struct UiStackIndex(pub usize);
+pub struct UiStackIndex(pub u32);
 
 /// Represents the possible value types for layout properties.
 ///

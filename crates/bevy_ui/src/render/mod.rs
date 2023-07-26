@@ -165,40 +165,47 @@ pub struct ExtractedUiNode {
     pub flip_y: bool,
 }
 
-struct ExtractedIndex {
+struct ExtractedSpan {
     stack_index: u32,
-    start: u32,
-    end: u32,
+    range: Range<u32>,
+}
+
+impl ExtractedSpan {
+    #[inline]
+    pub fn range(&self) -> Range<usize> {
+        self.range.start as usize .. self.range.end as usize
+    }
 }
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    indices: Vec<ExtractedIndex>,
+    spans: Vec<ExtractedSpan>,
     uinodes: Vec<ExtractedUiNode>,
 }
 
 impl ExtractedUiNodes {
-    pub fn push_node(&mut self, stack_index: usize, item: ExtractedUiNode) {
-        self.indices.push(ExtractedIndex {
-            stack_index: stack_index as u32,
-            start: self.uinodes.len() as u32,
-            end: (self.uinodes.len() + 1) as u32,
+    /// Add a single `ExtractedUiNode` for rendering.
+    pub fn push_node(&mut self, stack_index: u32, item: ExtractedUiNode) {
+        self.spans.push(ExtractedSpan {
+            stack_index,
+            range: self.uinodes.len() as u32..(self.uinodes.len() + 1) as u32,
         });
         self.uinodes.push(item);
     }
 
-    pub fn push_nodes(&mut self, stack_index: usize, items: impl Iterator<Item = ExtractedUiNode>) {
+    /// Add multiple `ExtractedUiNode`s for rendering.
+    pub fn push_nodes(&mut self, stack_index: u32, items: impl Iterator<Item = ExtractedUiNode>) {
         let start = self.uinodes.len() as u32;
         self.uinodes.extend(items);
-        self.indices.push(ExtractedIndex {
-            stack_index: stack_index as u32,
-            start,
-            end: self.uinodes.len() as u32,
+        self.spans.push(ExtractedSpan {
+            stack_index,
+            range: start..self.uinodes.len() as u32,
         });
     }
 
+    /// Clear the buffers
     fn clear(&mut self) {
-        self.indices.clear();
+        self.spans.clear();
         self.uinodes.clear();
     }
 }
@@ -667,22 +674,18 @@ pub fn prepare_uinodes(
     ui_meta.vertices.clear();
 
     extracted_uinodes
-        .indices
+        .spans
         .sort_by_key(|extracted_index| extracted_index.stack_index);
 
     let mut start = 0;
     let mut end = 0;
     let mut current_batch_image = DEFAULT_IMAGE_HANDLE.typed();
     let mut last_z = 0.0;
+    let is_textured = |image: &Handle<Image>| image.id() != DEFAULT_IMAGE_HANDLE.id();
 
-    #[inline]
-    fn is_textured(image: &Handle<Image>) -> bool {
-        image.id() != DEFAULT_IMAGE_HANDLE.id()
-    }
-
-    for extracted_index in &extracted_uinodes.indices {
+    for extracted_span in &extracted_uinodes.spans {
         for extracted_uinode in
-            &extracted_uinodes.uinodes[extracted_index.start as usize..extracted_index.end as usize]
+            &extracted_uinodes.uinodes[extracted_span.range()]
         {
             let mode = if is_textured(&extracted_uinode.image) {
                 if current_batch_image.id() != extracted_uinode.image.id() {
