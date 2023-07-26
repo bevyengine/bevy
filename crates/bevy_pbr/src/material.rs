@@ -7,7 +7,6 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d},
-    experimental::taa::TemporalAntiAliasSettings,
     prepass::NormalPrepass,
     tonemapping::{DebandDither, Tonemapping},
 };
@@ -21,6 +20,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{TypePath, TypeUuid};
 use bevy_render::{
+    camera::TemporalJitter,
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
@@ -400,7 +400,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&EnvironmentMapLight>,
         Option<&ScreenSpaceAmbientOcclusionSettings>,
         Option<&NormalPrepass>,
-        Option<&TemporalAntiAliasSettings>,
+        Option<&TemporalJitter>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transmissive3d>,
@@ -417,7 +417,7 @@ pub fn queue_material_meshes<M: Material>(
         environment_map,
         ssao,
         normal_prepass,
-        taa_settings,
+        temporal_jitter,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transmissive_phase,
@@ -432,8 +432,8 @@ pub fn queue_material_meshes<M: Material>(
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
 
-        if taa_settings.is_some() {
-            view_key |= MeshPipelineKey::TAA;
+        if temporal_jitter.is_some() {
+            view_key |= MeshPipelineKey::TEMPORAL_JITTER;
         }
 
         let environment_map_loaded = match environment_map {

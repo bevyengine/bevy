@@ -320,7 +320,7 @@ fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<
 
 // https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
 fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
-#ifdef TAA
+#ifdef TEMPORAL_JITTER
     let frame = f32(view_bindings::globals.frame_count % 64u);
     let xy = pixel_coordinates + 5.588238 * frame;
 #else
@@ -364,7 +364,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     let num_taps = i32(max(min(sqrt(blur_intensity) * 7.0, 1.0) * f32(MAX_TRANSMISSIVE_TAPS), 1.0));
     let num_spirals = (num_taps >> 3u) + 1;
     let random_angle = interleaved_gradient_noise(frag_coord.xy);
-#ifdef TAA
+#ifdef TEMPORAL_JITTER
     // Alternating pixel mesh: 0 or 1 on even/odd pixels, alternates every frame
     let pixel_mesh = (i32(frag_coord.x) + i32(frag_coord.y) + i32(view_bindings::globals.frame_count)) % 2;
 #else

@@ -624,7 +624,7 @@ bitflags::bitflags! {
         const ENVIRONMENT_MAP                   = (1 << 7);
         const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 8);
         const DEPTH_CLAMP_ORTHO                 = (1 << 9);
-        const TAA                               = (1 << 10);
+        const TEMPORAL_JITTER                   = (1 << 10);
         const MORPH_TARGETS                     = (1 << 11);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
@@ -882,8 +882,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
-        if key.contains(MeshPipelineKey::TAA) {
-            shader_defs.push("TAA".into());
+        if key.contains(MeshPipelineKey::TEMPORAL_JITTER) {
+            shader_defs.push("TEMPORAL_JITTER".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
