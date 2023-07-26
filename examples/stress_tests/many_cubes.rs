@@ -14,7 +14,7 @@ use std::f64::consts::PI;
 
 use bevy::{
     core_pipeline::prepass::DepthPrepass,
-    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::NotShadowCaster,
     prelude::*,
@@ -178,21 +178,34 @@ fn setup(
     });
 
     let style = TextStyle {
-        font_size: 32.0,
+        font_size: 24.0,
         ..default()
     };
-    commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new(depth_prepass_string(depth_prepass_enabled), style.clone()),
-            TextSection::new(
-                directional_light_shadows_string(directional_light_shadows_enabled),
-                style.clone(),
-            ),
-            TextSection::new(mesh_stats_string(0, 0), style.clone()),
-            TextSection::new(frame_stats_string(0.0, 0.0), style),
-        ]),
-        UiState,
-    ));
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                padding: UiRect::all(Val::Px(5.0)),
+                ..default()
+            },
+            z_index: ZIndex::Global(i32::MAX),
+            background_color: { BackgroundColor(Color::BLACK.with_a(0.5)) },
+            ..default()
+        })
+        .with_children(|c| {
+            c.spawn((
+                TextBundle::from_sections([
+                    TextSection::new(depth_prepass_string(depth_prepass_enabled), style.clone()),
+                    TextSection::new(
+                        directional_light_shadows_string(directional_light_shadows_enabled),
+                        style.clone(),
+                    ),
+                    TextSection::new(mesh_stats_string(0, 0), style.clone()),
+                    TextSection::new(frame_stats_string(0.0, 0.0), style),
+                ]),
+                UiState,
+            ));
+        });
 }
 
 #[derive(Component)]
@@ -304,11 +317,11 @@ fn update_state(
     // Update the UI
     let fps = diagnostics
         .get(FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(|fps| fps.smoothed())
+        .and_then(Diagnostic::smoothed)
         .unwrap_or_default() as f32;
     let frame_time_ms = diagnostics
         .get(FrameTimeDiagnosticsPlugin::FRAME_TIME)
-        .and_then(|frame_time_ms| frame_time_ms.smoothed())
+        .and_then(Diagnostic::smoothed)
         .unwrap_or_default() as f32;
     let frame_stats_string = frame_stats_string(fps, frame_time_ms);
 
