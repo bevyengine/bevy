@@ -13,7 +13,7 @@ use notify_debouncer_full::{
     notify::{
         self,
         event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind, RenameMode},
-        INotifyWatcher, RecursiveMode, Watcher,
+        RecommendedWatcher, RecursiveMode, Watcher,
     },
     DebounceEventResult, Debouncer, FileIdMap,
 };
@@ -282,7 +282,7 @@ impl AssetWriter for FileAssetWriter {
 }
 
 pub struct FileWatcher {
-    _watcher: Debouncer<INotifyWatcher, FileIdMap>,
+    _watcher: Debouncer<RecommendedWatcher, FileIdMap>,
 }
 
 impl FileWatcher {
