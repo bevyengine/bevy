@@ -277,7 +277,7 @@ pub fn extract_uinode_borders(
             Without<ContentSize>,
         >,
     >,
-    parent_node_query: Extract<Query<&Node, With<Parent>>>,
+    parent_node_query: Extract<Query<&Node>>,
 ) {
     let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
 
