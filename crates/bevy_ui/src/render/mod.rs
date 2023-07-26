@@ -42,7 +42,6 @@ use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
-use std::vec::Drain;
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -328,7 +327,6 @@ pub fn extract_uinode_borders(
     >,
     parent_node_query: Extract<Query<&Node, With<Parent>>>,
 ) {
-    let output_buffer = extracted_uinodes.next_buffer();
     let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
 
     let ui_logical_viewport_size = windows
@@ -567,7 +565,6 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
-    let output_buffer = extracted_uinodes.next_buffer();
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
