@@ -173,7 +173,7 @@ struct ExtractedSpan {
 impl ExtractedSpan {
     #[inline]
     pub fn range(&self) -> Range<usize> {
-        self.range.start as usize .. self.range.end as usize
+        self.range.start as usize..self.range.end as usize
     }
 }
 
@@ -684,9 +684,7 @@ pub fn prepare_uinodes(
     let is_textured = |image: &Handle<Image>| image.id() != DEFAULT_IMAGE_HANDLE.id();
 
     for extracted_span in &extracted_uinodes.spans {
-        for extracted_uinode in
-            &extracted_uinodes.uinodes[extracted_span.range()]
-        {
+        for extracted_uinode in &extracted_uinodes.uinodes[extracted_span.range()] {
             let mode = if is_textured(&extracted_uinode.image) {
                 if current_batch_image.id() != extracted_uinode.image.id() {
                     if is_textured(&current_batch_image) && start != end {

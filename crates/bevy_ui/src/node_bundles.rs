@@ -50,7 +50,7 @@ pub struct NodeBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first. 
+    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     pub stack_index: UiStackIndex,
 }
@@ -115,7 +115,7 @@ pub struct ImageBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first. 
+    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     pub stack_index: UiStackIndex,
 }
@@ -163,7 +163,7 @@ pub struct AtlasImageBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first. 
+    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     pub stack_index: UiStackIndex,
 }
@@ -203,7 +203,7 @@ pub struct TextBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first. 
+    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     pub stack_index: UiStackIndex,
     /// The background color that will fill the containing node
@@ -319,7 +319,7 @@ pub struct ButtonBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first. 
+    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     pub stack_index: UiStackIndex,
 }
