@@ -3,7 +3,7 @@
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::prelude::*;
 
-use crate::{Node, ZIndex};
+use crate::{Node, UiStackIndex, ZIndex};
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -35,6 +35,7 @@ pub fn ui_stack_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     zindex_query: Query<&ZIndex, With<Node>>,
     children_query: Query<&Children>,
+    mut stack_index_query: Query<&mut UiStackIndex>,
 ) {
     // Generate `StackingContext` tree
     let mut global_context = StackingContext::default();
@@ -55,6 +56,11 @@ pub fn ui_stack_system(
     ui_stack.uinodes.clear();
     ui_stack.uinodes.reserve(total_entry_count);
     fill_stack_recursively(&mut ui_stack.uinodes, &mut global_context);
+
+    for (i, entity) in ui_stack.uinodes.iter().enumerate() {
+        let mut stack_index = stack_index_query.get_mut(*entity).unwrap();
+        stack_index.0 = i as u32;
+    }
 }
 
 /// Generate z-index based UI node tree
