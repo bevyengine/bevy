@@ -76,6 +76,24 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
     }
 }
 
+impl SystemSet for Interned<dyn SystemSet> {
+    fn system_type(&self) -> Option<TypeId> {
+        (**self).system_type()
+    }
+
+    fn is_anonymous(&self) -> bool {
+        (**self).is_anonymous()
+    }
+
+    fn dyn_clone(&self) -> Box<dyn SystemSet> {
+        (**self).dyn_clone()
+    }
+
+    fn dyn_static_ref(&self) -> Option<&'static dyn SystemSet> {
+        Some(self.0)
+    }
+}
+
 impl From<&dyn SystemSet> for Interned<dyn SystemSet> {
     fn from(value: &dyn SystemSet) -> Interned<dyn SystemSet> {
         SYSTEM_SET_INTERNER.intern(value)

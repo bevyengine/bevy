@@ -449,12 +449,6 @@ impl<S: SystemSet> IntoSystemSetConfig for S {
     }
 }
 
-impl IntoSystemSetConfig for InternedSystemSet {
-    fn into_config(self) -> SystemSetConfig {
-        SystemSetConfig::new(self)
-    }
-}
-
 impl IntoSystemSetConfig for SystemSetConfig {
     fn into_config(self) -> Self {
         self

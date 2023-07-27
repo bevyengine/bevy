@@ -26,7 +26,7 @@ use crate::HashSet;
 // This implements [`Copy`], [`Clone`], [`PartialEq`], [`Eq`] and [`Hash`] regardles of what `T`
 // implements, because it only uses the pointer to the value and not the value itself.
 // Therefore it MUST NEVER implement [`Borrow`](`std::borrow::Borrow`).
-pub struct Interned<T: ?Sized + 'static>(&'static T);
+pub struct Interned<T: ?Sized + 'static>(pub &'static T);
 
 impl<T: ?Sized> Deref for Interned<T> {
     type Target = T;

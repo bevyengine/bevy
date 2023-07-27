@@ -142,6 +142,29 @@ macro_rules! define_label {
             }
         }
 
+        impl $label_trait_name for ::bevy_utils::intern::Interned<dyn $label_trait_name> {
+            fn inner_type_id(&self) -> ::std::any::TypeId {
+                (**self).inner_type_id()
+            }
+
+            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
+                (**self).dyn_clone()
+            }
+
+            /// Casts this value to a form where it can be compared with other type-erased values.
+            fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq {
+                (**self).as_dyn_eq()
+            }
+
+            fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher) {
+                (**self).dyn_hash(state)
+            }
+
+            fn dyn_static_ref(&self) -> Option<&'static dyn $label_trait_name> {
+                Some(self.0)
+            }
+        }
+
         impl PartialEq for dyn $label_trait_name {
             fn eq(&self, other: &Self) -> bool {
                 self.as_dyn_eq().dyn_eq(other.as_dyn_eq())
