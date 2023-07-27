@@ -1,5 +1,4 @@
 use std::any::TypeId;
-use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
@@ -79,21 +78,7 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
 
 impl From<&dyn SystemSet> for Interned<dyn SystemSet> {
     fn from(value: &dyn SystemSet) -> Interned<dyn SystemSet> {
-        struct LeakHelper<'a>(&'a dyn SystemSet);
-
-        impl<'a> Borrow<dyn SystemSet> for LeakHelper<'a> {
-            fn borrow(&self) -> &dyn SystemSet {
-                self.0
-            }
-        }
-
-        impl<'a> Leak<dyn SystemSet> for LeakHelper<'a> {
-            fn leak(self) -> &'static dyn SystemSet {
-                Box::leak(self.0.dyn_clone())
-            }
-        }
-
-        SYSTEM_SET_INTERNER.intern(LeakHelper(value))
+        SYSTEM_SET_INTERNER.intern(value)
     }
 }
 
@@ -108,6 +93,12 @@ impl Eq for dyn SystemSet {}
 impl Hash for dyn SystemSet {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.dyn_hash(state);
+    }
+}
+
+impl Leak for dyn SystemSet {
+    fn leak(&self) -> &'static Self {
+        Box::leak(self.dyn_clone())
     }
 }
 

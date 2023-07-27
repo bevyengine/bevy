@@ -156,6 +156,12 @@ macro_rules! define_label {
             }
         }
 
+        impl ::bevy_utils::intern::Leak for dyn $label_trait_name {
+            fn leak(&self) -> &'static Self {
+                Box::leak(self.dyn_clone())
+            }
+        }
+
         impl ::bevy_utils::intern::StaticRef for dyn $label_trait_name {
             fn static_ref(&self) -> std::option::Option<&'static dyn $label_trait_name> {
                 self.dyn_static_ref()
@@ -171,21 +177,7 @@ macro_rules! define_label {
             fn from(
                 value: &dyn $label_trait_name,
             ) -> ::bevy_utils::intern::Interned<dyn $label_trait_name> {
-                struct LeakHelper<'a>(&'a dyn $label_trait_name);
-
-                impl<'a> ::std::borrow::Borrow<dyn $label_trait_name> for LeakHelper<'a> {
-                    fn borrow(&self) -> &dyn $label_trait_name {
-                        self.0
-                    }
-                }
-
-                impl<'a> ::bevy_utils::intern::Leak<dyn $label_trait_name> for LeakHelper<'a> {
-                    fn leak(self) -> &'static dyn $label_trait_name {
-                        Box::leak(self.0.dyn_clone())
-                    }
-                }
-
-                $interner_name.intern(LeakHelper(value))
+                $interner_name.intern(value)
             }
         }
     };

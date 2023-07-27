@@ -5,7 +5,7 @@
 //! and make comparisons for any type as fast as integers.
 
 use std::{
-    borrow::{Borrow, Cow},
+    borrow::Borrow,
     fmt::Debug,
     hash::Hash,
     ops::Deref,
@@ -76,31 +76,15 @@ impl<T> From<&Interned<T>> for Interned<T> {
 /// A trait for leaking data.
 ///
 /// This is used by [`Interner<T>`] to create static references for values that are interned.
-///
-/// It is implemented for static references of `T`, [`Box<T>`], and [`Cow<'static, T>`].
-pub trait Leak<T: ?Sized>: Borrow<T> {
-    /// Creates a static reference to a value equal to `self.borrow()`, possibly leaking memory.
-    fn leak(self) -> &'static T;
+pub trait Leak {
+    /// Creates a static reference to `self`, possibly leaking memory.
+    fn leak(&self) -> &'static Self;
 }
 
-impl<T: ?Sized> Leak<T> for &'static T {
-    fn leak(self) -> &'static T {
-        self
-    }
-}
-
-impl<T: ?Sized> Leak<T> for Box<T> {
-    fn leak(self) -> &'static T {
-        Box::leak(self)
-    }
-}
-
-impl<T: Clone + ?Sized> Leak<T> for Cow<'static, T> {
-    fn leak(self) -> &'static T {
-        match self {
-            Cow::Borrowed(value) => value,
-            Cow::Owned(value) => Box::leak(Box::new(value)),
-        }
+impl Leak for str {
+    fn leak(&self) -> &'static Self {
+        let str = self.to_owned().into_boxed_str();
+        Box::leak(str)
     }
 }
 
@@ -161,7 +145,7 @@ impl<T: ?Sized> Interner<T> {
     }
 }
 
-impl<T: StaticRef + Hash + Eq + ?Sized> Interner<T> {
+impl<T: Leak + StaticRef + Hash + Eq + ?Sized> Interner<T> {
     /// Return the [`Interned<T>`] corresponding to `value`.
     ///
     /// If it is called the first time for `value`, it will possibly leak the value and return an
@@ -169,8 +153,8 @@ impl<T: StaticRef + Hash + Eq + ?Sized> Interner<T> {
     /// will return [`Interned<T>`] using the same static reference.
     ///
     /// This uses [`StaticRef::static_ref`] to short-circuit the interning process.
-    pub fn intern<Q: Leak<T>>(&self, value: Q) -> Interned<T> {
-        if let Some(value) = value.borrow().static_ref() {
+    pub fn intern(&self, value: &T) -> Interned<T> {
+        if let Some(value) = value.static_ref() {
             return Interned(value);
         }
         let lock = self.0.get_or_init(Default::default);
@@ -219,15 +203,15 @@ mod tests {
             }
         }
 
-        impl Leak<A> for A {
-            fn leak(self) -> &'static Self {
+        impl Leak for A {
+            fn leak(&self) -> &'static Self {
                 &A
             }
         }
 
         let interner = Interner::default();
-        let x = interner.intern(A);
-        let y = interner.intern(A);
+        let x = interner.intern(&A);
+        let y = interner.intern(&A);
         assert_eq!(x, y);
     }
 
@@ -248,8 +232,8 @@ mod tests {
             }
         }
 
-        impl Leak<A> for A {
-            fn leak(self) -> &'static Self {
+        impl Leak for A {
+            fn leak(&self) -> &'static Self {
                 match self {
                     A::X => &A::X,
                     A::Y => &A::Y,
@@ -258,8 +242,8 @@ mod tests {
         }
 
         let interner = Interner::default();
-        let x = interner.intern(A::X);
-        let y = interner.intern(A::Y);
+        let x = interner.intern(&A::X);
+        let y = interner.intern(&A::Y);
         assert_ne!(x, y);
     }
 
