@@ -1,7 +1,8 @@
 use std::{
-    collections::HashMap,
+    collections::{hash_map::DefaultHasher, HashMap},
     fmt::Display,
     fs::{self, File},
+    hash::{Hash, Hasher},
     io::Write,
     path::{Path, PathBuf},
     process::exit,
@@ -127,7 +128,7 @@ fn main() {
             ignore_stress_tests,
             report_details,
         } => {
-            let examples_to_run = parse_examples();
+            let mut examples_to_run = parse_examples();
 
             let mut failed_examples = vec![];
             let mut successful_examples = vec![];
@@ -190,6 +191,13 @@ fn main() {
                 )
                 .run()
                 .unwrap();
+
+                // Sort the examples so that they are not run by category
+                examples_to_run.sort_by_key(|example| {
+                    let mut hasher = DefaultHasher::new();
+                    example.hash(&mut hasher);
+                    hasher.finish()
+                });
             }
 
             let work_to_do = || {
@@ -580,7 +588,7 @@ fn parse_examples() -> Vec<Example> {
         .collect()
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 struct Example {
     technical_name: String,
     path: String,
