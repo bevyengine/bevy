@@ -254,7 +254,7 @@ fn main() {
                     "successes",
                     successful_examples
                         .iter()
-                        .map(|example| example.technical_name.as_str())
+                        .map(|example| format!("{}/{}", example.category, example.technical_name))
                         .collect::<Vec<_>>()
                         .join("\n"),
                 );
@@ -262,7 +262,7 @@ fn main() {
                     "failures",
                     failed_examples
                         .iter()
-                        .map(|example| example.technical_name.as_str())
+                        .map(|example| format!("{}/{}", example.category, example.technical_name))
                         .collect::<Vec<_>>()
                         .join("\n"),
                 );
@@ -270,7 +270,7 @@ fn main() {
                     "no_screenshots",
                     no_screenshot_examples
                         .iter()
-                        .map(|example| example.technical_name.as_str())
+                        .map(|example| format!("{}/{}", example.category, example.technical_name))
                         .collect::<Vec<_>>()
                         .join("\n"),
                 );
