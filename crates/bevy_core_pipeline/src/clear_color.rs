@@ -14,7 +14,7 @@ pub enum ClearColorConfig {
     /// The given clear color is used, overriding the [`ClearColor`] resource defined in the world.
     Custom(Color),
     /// No clear color is used: the camera will simply draw on top of anything already in the viewport.
-    /// 
+    ///
     /// This can be useful when multiple cameras are rendering to the same viewport.
     None,
 }
