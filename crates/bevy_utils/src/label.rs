@@ -160,9 +160,7 @@ macro_rules! define_label {
             fn leak(&self) -> &'static Self {
                 Box::leak(self.dyn_clone())
             }
-        }
 
-        impl ::bevy_utils::intern::StaticRef for dyn $label_trait_name {
             fn static_ref(&self) -> std::option::Option<&'static dyn $label_trait_name> {
                 self.dyn_static_ref()
             }

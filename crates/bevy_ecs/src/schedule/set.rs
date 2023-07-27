@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::define_label;
-use bevy_utils::intern::{Interned, Interner, Leak, StaticRef};
+use bevy_utils::intern::{Interned, Interner, Leak};
 use bevy_utils::label::DynHash;
 
 use crate::system::{
@@ -100,9 +100,7 @@ impl Leak for dyn SystemSet {
     fn leak(&self) -> &'static Self {
         Box::leak(self.dyn_clone())
     }
-}
 
-impl StaticRef for dyn SystemSet {
     fn static_ref(&self) -> Option<&'static dyn SystemSet> {
         self.dyn_static_ref()
     }

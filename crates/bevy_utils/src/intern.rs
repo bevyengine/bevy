@@ -79,17 +79,7 @@ impl<T> From<&Interned<T>> for Interned<T> {
 pub trait Leak {
     /// Creates a static reference to `self`, possibly leaking memory.
     fn leak(&self) -> &'static Self;
-}
 
-impl Leak for str {
-    fn leak(&self) -> &'static Self {
-        let str = self.to_owned().into_boxed_str();
-        Box::leak(str)
-    }
-}
-
-/// A type that can provide static references to equal values.
-pub trait StaticRef {
     /// Returns a static reference to a value equal to `self`, if possible.
     /// This method is used by [`Interner::intern`] to optimize the interning process.
     ///
@@ -127,7 +117,12 @@ pub trait StaticRef {
     }
 }
 
-impl StaticRef for str {}
+impl Leak for str {
+    fn leak(&self) -> &'static Self {
+        let str = self.to_owned().into_boxed_str();
+        Box::leak(str)
+    }
+}
 
 /// A thread-safe interner which can be used to create [`Interned<T>`] from `&T`
 ///
@@ -145,7 +140,7 @@ impl<T: ?Sized> Interner<T> {
     }
 }
 
-impl<T: Leak + StaticRef + Hash + Eq + ?Sized> Interner<T> {
+impl<T: Leak + Hash + Eq + ?Sized> Interner<T> {
     /// Return the [`Interned<T>`] corresponding to `value`.
     ///
     /// If it is called the first time for `value`, it will possibly leak the value and return an
@@ -190,22 +185,20 @@ mod tests {
         hash::{Hash, Hasher},
     };
 
-    use crate::intern::{Interned, Interner, Leak, StaticRef};
+    use crate::intern::{Interned, Interner, Leak};
 
     #[test]
     fn zero_sized_type() {
         #[derive(PartialEq, Eq, Hash, Debug)]
         pub struct A;
 
-        impl StaticRef for A {
-            fn static_ref(&self) -> Option<&'static Self> {
-                Some(&A)
-            }
-        }
-
         impl Leak for A {
             fn leak(&self) -> &'static Self {
                 &A
+            }
+
+            fn static_ref(&self) -> Option<&'static Self> {
+                Some(&A)
             }
         }
 
@@ -223,21 +216,19 @@ mod tests {
             Y,
         }
 
-        impl StaticRef for A {
-            fn static_ref(&self) -> Option<&'static Self> {
-                Some(match self {
-                    A::X => &A::X,
-                    A::Y => &A::Y,
-                })
-            }
-        }
-
         impl Leak for A {
             fn leak(&self) -> &'static Self {
                 match self {
                     A::X => &A::X,
                     A::Y => &A::Y,
                 }
+            }
+
+            fn static_ref(&self) -> Option<&'static Self> {
+                Some(match self {
+                    A::X => &A::X,
+                    A::Y => &A::Y,
+                })
             }
         }
 
