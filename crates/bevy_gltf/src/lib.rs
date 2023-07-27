@@ -12,7 +12,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypePath, TypeUuid};
+use bevy_reflect::{Reflect, TypePath, TypeUuid};
 use bevy_render::{
     mesh::{Mesh, MeshVertexAttribute},
     renderer::RenderDevice,
@@ -40,20 +40,23 @@ impl GltfPlugin {
 
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
+        app.register_type::<GltfExtras>()
+            .add_asset::<Gltf>()
+            .add_asset::<GltfNode>()
+            .add_asset::<GltfPrimitive>()
+            .add_asset::<GltfMesh>();
+    }
+
+    fn finish(&self, app: &mut App) {
         let supported_compressed_formats = match app.world.get_resource::<RenderDevice>() {
             Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
 
-            None => CompressedImageFormats::all(),
+            None => CompressedImageFormats::NONE,
         };
         app.add_asset_loader::<GltfLoader>(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
-        })
-        .register_type::<GltfExtras>()
-        .add_asset::<Gltf>()
-        .add_asset::<GltfNode>()
-        .add_asset::<GltfPrimitive>()
-        .add_asset::<GltfMesh>();
+        });
     }
 }
 
@@ -106,8 +109,8 @@ pub struct GltfPrimitive {
     pub material_extras: Option<GltfExtras>,
 }
 
-#[derive(Clone, Debug, Reflect, FromReflect, Default, Component)]
-#[reflect(Component, FromReflect)]
+#[derive(Clone, Debug, Reflect, Default, Component)]
+#[reflect(Component)]
 pub struct GltfExtras {
     pub value: String,
 }

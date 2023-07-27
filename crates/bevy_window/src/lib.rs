@@ -74,6 +74,7 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowCreated>()
             .add_event::<WindowClosed>()
             .add_event::<WindowCloseRequested>()
+            .add_event::<WindowDestroyed>()
             .add_event::<RequestRedraw>()
             .add_event::<CursorMoved>()
             .add_event::<CursorEntered>()
@@ -140,7 +141,8 @@ impl Plugin for WindowPlugin {
             .register_type::<InternalWindowState>()
             .register_type::<MonitorSelection>()
             .register_type::<WindowResizeConstraints>()
-            .register_type::<WindowTheme>();
+            .register_type::<WindowTheme>()
+            .register_type::<EnabledButtons>();
 
         // Register `PathBuf` as it's used by `FileDragAndDrop`
         app.register_type::<PathBuf>();

@@ -5,7 +5,6 @@ use crate::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
-        ScheduleLabel,
     },
     system::{BoxedSystem, IntoSystem, System},
 };
@@ -294,35 +293,6 @@ where
     fn chain(self) -> SystemConfigs {
         self.into_configs().chain()
     }
-
-    /// This used to add the system to `CoreSchedule::Startup`.
-    /// This was a shorthand for `self.in_schedule(CoreSchedule::Startup)`.
-    ///
-    /// # Panics
-    ///
-    /// Always panics. Please migrate to the new `App::add_systems` with the `Startup` schedule:
-    /// Ex: `app.add_system(foo.on_startup())` -> `app.add_systems(Startup, foo)`
-    #[deprecated(
-        since = "0.11.0",
-        note = "`app.add_system(foo.on_startup())` has been deprecated in favor of `app.add_systems(Startup, foo)`. Please migrate to that API."
-    )]
-    fn on_startup(self) -> SystemConfigs {
-        panic!("`app.add_system(foo.on_startup())` has been deprecated in favor of `app.add_systems(Startup, foo)`. Please migrate to that API.");
-    }
-
-    /// This used to add the system to the provided `schedule`.
-    ///
-    /// # Panics
-    ///
-    /// Always panics. Please migrate to the new `App::add_systems`:
-    /// Ex: `app.add_system(foo.in_schedule(SomeSchedule))` -> `app.add_systems(SomeSchedule, foo)`
-    #[deprecated(
-        since = "0.11.0",
-        note = "`app.add_system(foo.in_schedule(SomeSchedule))` has been deprecated in favor of `app.add_systems(SomeSchedule, foo)`. Please migrate to that API."
-    )]
-    fn in_schedule(self, _schedule: impl ScheduleLabel) -> SystemConfigs {
-        panic!("`app.add_system(foo.in_schedule(SomeSchedule))` has been deprecated in favor of `app.add_systems(SomeSchedule, foo)`. Please migrate to that API.");
-    }
 }
 
 impl IntoSystemConfigs<()> for SystemConfigs {
@@ -471,35 +441,6 @@ pub trait IntoSystemSetConfig: Sized {
     fn ambiguous_with_all(self) -> SystemSetConfig {
         self.into_config().ambiguous_with_all()
     }
-
-    /// This used to configure the set in the `CoreSchedule::Startup` schedule.
-    /// This was a shorthand for `self.in_schedule(CoreSchedule::Startup)`.
-    ///
-    /// # Panics
-    ///
-    /// Always panics. Please migrate to the new `App::configure_set` with the `Startup` schedule:
-    /// Ex: `app.configure_set(MySet.on_startup())` -> `app.configure_set(Startup, MySet)`
-    #[deprecated(
-        since = "0.11.0",
-        note = "`app.configure_set(MySet.on_startup())` has been deprecated in favor of `app.configure_set(Startup, MySet)`. Please migrate to that API."
-    )]
-    fn on_startup(self) -> SystemSetConfigs {
-        panic!("`app.configure_set(MySet.on_startup())` has been deprecated in favor of `app.configure_set(Startup, MySet)`. Please migrate to that API.");
-    }
-
-    /// This used to configure the set in the provided `schedule`.
-    ///
-    /// # Panics
-    ///
-    /// Always panics. Please migrate to the new `App::configure_set`:
-    /// Ex: `app.configure_set(MySet.in_schedule(SomeSchedule))` -> `app.configure_set(SomeSchedule, MySet)`
-    #[deprecated(
-        since = "0.11.0",
-        note = "`app.configure_set(MySet.in_schedule(SomeSchedule))` has been deprecated in favor of `app.configure_set(SomeSchedule, MySet)`. Please migrate to that API."
-    )]
-    fn in_schedule(self, _schedule: impl ScheduleLabel) -> SystemSetConfigs {
-        panic!("`app.configure_set(MySet.in_schedule(SomeSchedule))` has been deprecated in favor of `app.configure_set(SomeSchedule, MySet)`. Please migrate to that API.");
-    }
 }
 
 impl<S: SystemSet> IntoSystemSetConfig for S {
@@ -610,35 +551,6 @@ where
     /// Ordering constraints will be applied between the successive elements.
     fn chain(self) -> SystemSetConfigs {
         self.into_configs().chain()
-    }
-
-    /// This used to configure the sets in the `CoreSchedule::Startup` schedule.
-    /// This was a shorthand for `self.in_schedule(CoreSchedule::Startup)`.
-    ///
-    /// # Panics
-    ///
-    /// Always panics. Please migrate to the new `App::configure_sets` with the `Startup` schedule:
-    /// Ex: `app.configure_sets((A, B).on_startup())` -> `app.configure_sets(Startup, (A, B))`
-    #[deprecated(
-        since = "0.11.0",
-        note = "`app.configure_sets((A, B).on_startup())` has been deprecated in favor of `app.configure_sets(Startup, (A, B))`. Please migrate to that API."
-    )]
-    fn on_startup(self) -> SystemSetConfigs {
-        panic!("`app.configure_sets((A, B).on_startup())` has been deprecated in favor of `app.configure_sets(Startup, (A, B))`. Please migrate to that API.");
-    }
-
-    /// This used to configure the sets in the provided `schedule`.
-    ///
-    /// # Panics
-    ///
-    /// Always panics. Please migrate to the new `App::configure_set`:
-    /// Ex: `app.configure_sets((A, B).in_schedule(SomeSchedule))` -> `app.configure_sets(SomeSchedule, (A, B))`
-    #[deprecated(
-        since = "0.11.0",
-        note = "`app.configure_sets((A, B).in_schedule(SomeSchedule))` has been deprecated in favor of `app.configure_sets(SomeSchedule, (A, B))`. Please migrate to that API."
-    )]
-    fn in_schedule(self, _schedule: impl ScheduleLabel) -> SystemSetConfigs {
-        panic!("`app.configure_sets((A, B).in_schedule(SomeSchedule))` has been deprecated in favor of `app.configure_sets(SomeSchedule, (A, B))`. Please migrate to that API.");
     }
 }
 

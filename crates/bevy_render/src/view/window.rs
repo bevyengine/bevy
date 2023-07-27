@@ -266,6 +266,7 @@ pub fn prepare_windows(
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             present_mode: match window.present_mode {
                 PresentMode::Fifo => wgpu::PresentMode::Fifo,
+                PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
                 PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
                 PresentMode::Immediate => wgpu::PresentMode::Immediate,
                 PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,

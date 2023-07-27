@@ -1,6 +1,6 @@
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_reflect::{prelude::*, FromReflect};
+use bevy_reflect::prelude::*;
 use bevy_render::color::Color;
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
@@ -115,7 +115,7 @@ impl Text {
     }
 }
 
-#[derive(Debug, Default, Clone, FromReflect, Reflect)]
+#[derive(Debug, Default, Clone, Reflect)]
 pub struct TextSection {
     pub value: String,
     pub style: TextStyle,
@@ -164,7 +164,7 @@ impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
     }
 }
 
-#[derive(Clone, Debug, Reflect, FromReflect)]
+#[derive(Clone, Debug, Reflect)]
 pub struct TextStyle {
     pub font: Handle<Font>,
     pub font_size: f32,

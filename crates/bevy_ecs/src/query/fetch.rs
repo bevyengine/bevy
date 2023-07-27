@@ -318,7 +318,7 @@ pub unsafe trait WorldQuery {
     type Item<'a>;
 
     /// Per archetype/table state used by this [`WorldQuery`] to fetch [`Self::Item`](crate::query::WorldQuery::Item)
-    type Fetch<'a>;
+    type Fetch<'a>: Clone;
 
     /// The read-only variant of this [`WorldQuery`], which satisfies the [`ReadOnlyWorldQuery`] trait.
     type ReadOnly: ReadOnlyWorldQuery<State = Self::State>;
@@ -344,14 +344,6 @@ pub unsafe trait WorldQuery {
         last_run: Tick,
         this_run: Tick,
     ) -> Self::Fetch<'w>;
-
-    /// While this function can be called for any query, it is always safe to call if `Self: ReadOnlyWorldQuery` holds.
-    ///
-    /// # Safety
-    /// While calling this method on its own cannot cause UB it is marked `unsafe` as the caller must ensure
-    /// that the returned value is not used in any way that would cause two `QueryItem<Self>` for the same
-    /// `archetype_row` or `table_row` to be alive at the same time.
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w>;
 
     /// Returns true if (and only if) every table of every archetype matched by this fetch contains
     /// all of the matched components. This is used to select a more efficient "table iterator"
@@ -404,6 +396,10 @@ pub unsafe trait WorldQuery {
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
+    ///
+    /// If `update_component_access` includes any mutable accesses, then the caller must ensure
+    /// that `fetch` is called no more than once for each `entity`/`table_row` in each archetype.
+    /// If `Self` implements [`ReadOnlyWorldQuery`], then this can safely be called multiple times.
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
@@ -460,13 +456,6 @@ pub type QueryItem<'w, Q> = <Q as WorldQuery>::Item<'w>;
 /// The read-only variant of the item type returned when a [`WorldQuery`] is iterated over immutably
 pub type ROQueryItem<'w, Q> = QueryItem<'w, <Q as WorldQuery>::ReadOnly>;
 
-/// The `Fetch` of a [`WorldQuery`], which is used to store state for each archetype/table.
-#[deprecated = "use <Q as WorldQuery>::Fetch<'w> instead"]
-pub type QueryFetch<'w, Q> = <Q as WorldQuery>::Fetch<'w>;
-/// The read-only `Fetch` of a [`WorldQuery`], which is used to store state for each archetype/table.
-#[deprecated = "use <<Q as WorldQuery>::ReadOnly as WorldQuery>::Fetch<'w> instead"]
-pub type ROQueryFetch<'w, Q> = <<Q as WorldQuery>::ReadOnly as WorldQuery>::Fetch<'w>;
-
 /// SAFETY: no component or archetype access
 unsafe impl WorldQuery for Entity {
     type Fetch<'w> = ();
@@ -489,8 +478,6 @@ unsafe impl WorldQuery for Entity {
         _this_run: Tick,
     ) -> Self::Fetch<'w> {
     }
-
-    unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -561,10 +548,6 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
         world.world()
     }
 
-    unsafe fn clone_fetch<'w>(world: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        world
-    }
-
     #[inline]
     unsafe fn set_archetype<'w>(
         _fetch: &mut Self::Fetch<'w>,
@@ -627,6 +610,13 @@ pub struct ReadFetch<'w, T> {
     sparse_set: Option<&'w ComponentSparseSet>,
 }
 
+impl<T> Clone for ReadFetch<'_, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<T> Copy for ReadFetch<'_, T> {}
+
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> WorldQuery for &T {
     type Fetch<'w> = ReadFetch<'w, T>;
@@ -662,19 +652,11 @@ unsafe impl<T: Component> WorldQuery for &T {
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
                     // Note that we do not actually access any components in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
-                    .unsafe_world()
                     .storages()
                     .sparse_sets
                     .get(component_id)
                     .debug_checked_unwrap()
             }),
-        }
-    }
-
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        ReadFetch {
-            table_components: fetch.table_components,
-            sparse_set: fetch.sparse_set,
         }
     }
 
@@ -778,6 +760,13 @@ pub struct RefFetch<'w, T> {
     this_run: Tick,
 }
 
+impl<T> Clone for RefFetch<'_, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<T> Copy for RefFetch<'_, T> {}
+
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     type Fetch<'w> = RefFetch<'w, T>;
@@ -810,7 +799,6 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
                     // SAFETY: See &T::init_fetch.
-                    .unsafe_world()
                     .storages()
                     .sparse_sets
                     .get(component_id)
@@ -818,15 +806,6 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             }),
             last_run,
             this_run,
-        }
-    }
-
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        RefFetch {
-            table_data: fetch.table_data,
-            sparse_set: fetch.sparse_set,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
         }
     }
 
@@ -942,6 +921,13 @@ pub struct WriteFetch<'w, T> {
     this_run: Tick,
 }
 
+impl<T> Clone for WriteFetch<'_, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<T> Copy for WriteFetch<'_, T> {}
+
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Fetch<'w> = WriteFetch<'w, T>;
@@ -974,7 +960,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
                     // SAFETY: See &T::init_fetch.
-                    .unsafe_world()
                     .storages()
                     .sparse_sets
                     .get(component_id)
@@ -982,15 +967,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             }),
             last_run,
             this_run,
-        }
-    }
-
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        WriteFetch {
-            table_data: fetch.table_data,
-            sparse_set: fetch.sparse_set,
-            last_run: fetch.last_run,
-            this_run: fetch.this_run,
         }
     }
 
@@ -1094,6 +1070,15 @@ pub struct OptionFetch<'w, T: WorldQuery> {
     matches: bool,
 }
 
+impl<T: WorldQuery> Clone for OptionFetch<'_, T> {
+    fn clone(&self) -> Self {
+        Self {
+            fetch: self.fetch.clone(),
+            matches: self.matches,
+        }
+    }
+}
+
 // SAFETY: defers to soundness of `T: WorldQuery` impl
 unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     type Fetch<'w> = OptionFetch<'w, T>;
@@ -1119,13 +1104,6 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         OptionFetch {
             fetch: T::init_fetch(world, state, last_run, this_run),
             matches: false,
-        }
-    }
-
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        OptionFetch {
-            fetch: T::clone_fetch(&fetch.fetch),
-            matches: fetch.matches,
         }
     }
 
@@ -1281,10 +1259,6 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         false
     }
 
-    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
-        *fetch
-    }
-
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
@@ -1359,13 +1333,6 @@ macro_rules! impl_tuple_fetch {
             unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 ($($name::init_fetch(_world, $name, _last_run, _this_run),)*)
-            }
-
-            unsafe fn clone_fetch<'w>(
-                fetch: &Self::Fetch<'w>,
-            ) -> Self::Fetch<'w> {
-                let ($($name,)*) = &fetch;
-                ($($name::clone_fetch($name),)*)
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
@@ -1469,13 +1436,6 @@ macro_rules! impl_anytuple_fetch {
             unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 ($(($name::init_fetch(_world, $name, _last_run, _this_run), false),)*)
-            }
-
-            unsafe fn clone_fetch<'w>(
-                fetch: &Self::Fetch<'w>,
-            ) -> Self::Fetch<'w> {
-                let ($($name,)*) = &fetch;
-                ($(($name::clone_fetch(& $name.0), $name.1),)*)
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
@@ -1598,8 +1558,6 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     ) {
     }
 
-    unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
-
     #[inline(always)]
     unsafe fn set_archetype(
         _fetch: &mut (),
@@ -1660,8 +1618,6 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
         _this_run: Tick,
     ) -> Self::Fetch<'w> {
     }
-
-    unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
 
     // `PhantomData` does not match any components, so all components it matches
     // are stored in a Table (vacuous truth).

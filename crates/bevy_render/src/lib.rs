@@ -11,6 +11,7 @@ pub mod extract_component;
 mod extract_param;
 pub mod extract_resource;
 pub mod globals;
+pub mod gpu_component_array_buffer;
 pub mod mesh;
 pub mod pipelined_rendering;
 pub mod primitives;
@@ -43,7 +44,6 @@ pub mod prelude {
 
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
-pub use once_cell;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 use wgpu::Instance;
 

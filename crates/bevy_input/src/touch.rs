@@ -1,7 +1,7 @@
 use bevy_ecs::event::{Event, EventReader};
 use bevy_ecs::system::{ResMut, Resource};
 use bevy_math::Vec2;
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::Reflect;
 use bevy_utils::HashMap;
 
 #[cfg(feature = "serialize")]
@@ -30,8 +30,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
 /// It is available to the end user and can be used for game logic.
-#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -52,8 +52,8 @@ pub struct TouchInput {
 }
 
 /// A force description of a [`Touch`](crate::touch::Touch) input.
-#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -98,8 +98,8 @@ pub enum ForceTouch {
 /// This includes a phase that indicates that a touch input has started or ended,
 /// or that a finger has moved. There is also a canceled phase that indicates that
 /// the system canceled the tracking of the finger.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq, FromReflect)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect)]
+#[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

@@ -559,7 +559,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins((
             bevy_core::TaskPoolPlugin::default(),
-            bevy_core::TypeRegistrationPlugin::default(),
+            bevy_core::TypeRegistrationPlugin,
             crate::AssetPlugin::default(),
         ));
         app.add_asset::<MyAsset>();

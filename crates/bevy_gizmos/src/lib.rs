@@ -16,10 +16,9 @@
 //!
 //! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
 
-use std::hash::{Hash, Hasher};
 use std::mem;
 
-use bevy_app::{Last, Plugin, Update};
+use bevy_app::{Last, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_core::cast_slice;
 use bevy_ecs::{
@@ -34,9 +33,7 @@ use bevy_ecs::{
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
     },
 };
-use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypePath, TypeUuid,
-};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
 use bevy_render::{
     color::Color,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -50,10 +47,13 @@ use bevy_render::{
         VertexFormat, VertexStepMode,
     },
     renderer::RenderDevice,
+    view::RenderLayers,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::AHasher;
+use bevy_transform::{
+    components::{GlobalTransform, Transform},
+    TransformSystem,
+};
 
 pub mod gizmos;
 
@@ -88,11 +88,12 @@ impl Plugin for GizmoPlugin {
             .init_resource::<GizmoStorage>()
             .add_systems(Last, update_gizmo_meshes)
             .add_systems(
-                Update,
+                PostUpdate,
                 (
                     draw_aabbs,
                     draw_all_aabbs.run_if(|config: Res<GizmoConfig>| config.aabb.draw_all),
-                ),
+                )
+                    .after(TransformSystem::TransformPropagate),
             );
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
@@ -161,6 +162,10 @@ pub struct GizmoConfig {
     pub depth_bias: f32,
     /// Configuration for the [`AabbGizmo`].
     pub aabb: AabbGizmoConfig,
+    /// Describes which rendering layers gizmos will be rendered to.
+    ///
+    /// Gizmos will only be rendered to cameras with intersecting layers.
+    pub render_layers: RenderLayers,
 }
 
 impl Default for GizmoConfig {
@@ -171,6 +176,7 @@ impl Default for GizmoConfig {
             line_perspective: false,
             depth_bias: 0.,
             aabb: Default::default(),
+            render_layers: Default::default(),
         }
     }
 }
@@ -193,8 +199,8 @@ pub struct AabbGizmoConfig {
 }
 
 /// Add this [`Component`] to an entity to draw its [`Aabb`] component.
-#[derive(Component, Reflect, FromReflect, Default, Debug)]
-#[reflect(Component, FromReflect, Default)]
+#[derive(Component, Reflect, Default, Debug)]
+#[reflect(Component, Default)]
 pub struct AabbGizmo {
     /// The color of the box.
     ///
@@ -231,12 +237,17 @@ fn draw_all_aabbs(
 }
 
 fn color_from_entity(entity: Entity) -> Color {
-    const U64_TO_DEGREES: f32 = 360.0 / u64::MAX as f32;
+    let index = entity.index();
 
-    let mut hasher = AHasher::default();
-    entity.hash(&mut hasher);
+    // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
+    //
+    // See https://en.wikipedia.org/wiki/Low-discrepancy_sequence
+    // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
+    // so that the closer the numbers are, the larger the difference of their image.
+    const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
+    const RATIO_360: f32 = 360.0 / u32::MAX as f32;
+    let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
 
-    let hue = hasher.finish() as f32 * U64_TO_DEGREES;
     Color::hsl(hue, 1., 0.5)
 }
 
