@@ -20,7 +20,7 @@ use crate::{
     event::{Event, Events},
     query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
     removal_detection::RemovedComponentEvents,
-    schedule::{InternedScheduleLabel, Schedule, ScheduleLabel, Schedules},
+    schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Resource,
     world::error::TryRunScheduleError,
@@ -1750,7 +1750,7 @@ impl World {
     /// The `Schedules` resource will be initialized if it does not already exist.
     pub fn add_schedule(&mut self, schedule: Schedule, label: impl ScheduleLabel) {
         let mut schedules = self.get_resource_or_insert_with(Schedules::default);
-        schedules.insert(&label as &dyn ScheduleLabel, schedule);
+        schedules.insert(label, schedule);
     }
 
     /// Temporarily removes the schedule associated with `label` from the world,
@@ -1766,10 +1766,10 @@ impl World {
     /// For other use cases, see the example on [`World::schedule_scope`].
     pub fn try_schedule_scope<R>(
         &mut self,
-        label: impl Into<InternedScheduleLabel>,
+        label: impl ScheduleLabel,
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> Result<R, TryRunScheduleError> {
-        let label = label.into();
+        let label = label.intern();
         let Some((extracted_label, mut schedule)) = self
             .get_resource_mut::<Schedules>()
             .and_then(|mut s| s.remove_entry(label))
@@ -1831,7 +1831,7 @@ impl World {
     /// If the requested schedule does not exist.
     pub fn schedule_scope<R>(
         &mut self,
-        label: impl Into<InternedScheduleLabel>,
+        label: impl ScheduleLabel,
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> R {
         self.try_schedule_scope(label, f)
@@ -1847,7 +1847,7 @@ impl World {
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
     pub fn try_run_schedule(
         &mut self,
-        label: impl Into<InternedScheduleLabel>,
+        label: impl ScheduleLabel,
     ) -> Result<(), TryRunScheduleError> {
         self.try_schedule_scope(label, |world, sched| sched.run(world))
     }
@@ -1862,7 +1862,7 @@ impl World {
     /// # Panics
     ///
     /// If the requested schedule does not exist.
-    pub fn run_schedule(&mut self, label: impl Into<InternedScheduleLabel>) {
+    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.schedule_scope(label, |world, sched| sched.run(world));
     }
 }

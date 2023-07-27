@@ -307,20 +307,20 @@ impl IntoSystemConfigs<()> for SystemConfigs {
             "adding arbitrary systems to a system type set is not allowed"
         );
 
-        self.in_set_inner((&set as &dyn SystemSet).into());
+        self.in_set_inner(set.intern());
 
         self
     }
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.before_inner((&set as &dyn SystemSet).into());
+        self.before_inner(set.intern());
         self
     }
 
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.after_inner((&set as &dyn SystemSet).into());
+        self.after_inner(set.intern());
         self
     }
 
@@ -331,7 +331,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.ambiguous_with_inner((&set as &dyn SystemSet).into());
+        self.ambiguous_with_inner(set.intern());
         self
     }
 
@@ -445,7 +445,7 @@ pub trait IntoSystemSetConfig: Sized {
 
 impl<S: SystemSet> IntoSystemSetConfig for S {
     fn into_config(self) -> SystemSetConfig {
-        SystemSetConfig::new((&self as &dyn SystemSet).into())
+        SystemSetConfig::new(self.intern())
     }
 }
 
@@ -460,14 +460,14 @@ impl IntoSystemSetConfig for SystemSetConfig {
             set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
-        self.graph_info.sets.push((&set as &dyn SystemSet).into());
+        self.graph_info.sets.push(set.intern());
         self
     }
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         self.graph_info.dependencies.push(Dependency::new(
             DependencyKind::Before,
-            (&set.into_system_set() as &dyn SystemSet).into(),
+            set.into_system_set().intern(),
         ));
         self
     }
@@ -475,7 +475,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         self.graph_info.dependencies.push(Dependency::new(
             DependencyKind::After,
-            (&set.into_system_set() as &dyn SystemSet).into(),
+            set.into_system_set().intern(),
         ));
         self
     }
@@ -488,7 +488,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         ambiguous_with(
             &mut self.graph_info,
-            (&set.into_system_set() as &dyn SystemSet).into(),
+            set.into_system_set().intern(),
         );
         self
     }
@@ -563,14 +563,14 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
             "adding arbitrary systems to a system type set is not allowed"
         );
         for config in &mut self.sets {
-            config.graph_info.sets.push((&set as &dyn SystemSet).into());
+            config.graph_info.sets.push(set.intern());
         }
 
         self
     }
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = (&set.into_system_set() as &dyn SystemSet).into();
+        let set = set.into_system_set().intern();
         for config in &mut self.sets {
             config
                 .graph_info
@@ -582,7 +582,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
     }
 
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = (&set.into_system_set() as &dyn SystemSet).into();
+        let set = set.into_system_set().intern();
         for config in &mut self.sets {
             config
                 .graph_info
@@ -594,7 +594,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
     }
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = (&set.into_system_set() as &dyn SystemSet).into();
+        let set = set.into_system_set().intern();
         for config in &mut self.sets {
             ambiguous_with(&mut config.graph_info, set);
         }

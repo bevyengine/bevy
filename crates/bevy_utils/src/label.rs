@@ -140,6 +140,12 @@ macro_rules! define_label {
             fn dyn_static_ref(&self) -> Option<&'static dyn $label_trait_name> {
                 None
             }
+
+            /// Returns an `interned`(bevy_utils::intern::Interned) value corresponding to `self`.
+            fn intern(&self) -> ::bevy_utils::intern::Interned<dyn $label_trait_name>
+            where Self: Sized {
+                $interner_name.intern(self)
+            }
         }
 
         impl $label_trait_name for ::bevy_utils::intern::Interned<dyn $label_trait_name> {
@@ -191,15 +197,5 @@ macro_rules! define_label {
 
         static $interner_name: ::bevy_utils::intern::Interner<dyn $label_trait_name> =
             ::bevy_utils::intern::Interner::new();
-
-        impl From<&dyn $label_trait_name>
-            for ::bevy_utils::intern::Interned<dyn $label_trait_name>
-        {
-            fn from(
-                value: &dyn $label_trait_name,
-            ) -> ::bevy_utils::intern::Interned<dyn $label_trait_name> {
-                $interner_name.intern(value)
-            }
-        }
     };
 }

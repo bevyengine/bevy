@@ -74,6 +74,11 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
     fn dyn_static_ref(&self) -> Option<&'static dyn SystemSet> {
         None
     }
+
+    /// Returns an [`InternedSystemSet`] corresponding to `self`.
+    fn intern(&self) -> InternedSystemSet where Self: Sized {
+        SYSTEM_SET_INTERNER.intern(self)
+    }
 }
 
 impl SystemSet for Interned<dyn SystemSet> {
@@ -92,11 +97,9 @@ impl SystemSet for Interned<dyn SystemSet> {
     fn dyn_static_ref(&self) -> Option<&'static dyn SystemSet> {
         Some(self.0)
     }
-}
 
-impl From<&dyn SystemSet> for Interned<dyn SystemSet> {
-    fn from(value: &dyn SystemSet) -> Interned<dyn SystemSet> {
-        SYSTEM_SET_INTERNER.intern(value)
+    fn intern(&self) -> InternedSystemSet where Self: Sized {
+        *self
     }
 }
 
@@ -274,7 +277,7 @@ mod tests {
         schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
         world.add_schedule(schedule, A);
 
-        let interned = InternedScheduleLabel::from(&A as &dyn ScheduleLabel);
+        let interned = A.intern();
 
         world.insert_resource(Flag(false));
         world.run_schedule(interned);

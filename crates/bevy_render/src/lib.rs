@@ -270,7 +270,7 @@ impl Plugin for RenderPlugin {
             app.init_resource::<ScratchMainWorld>();
 
             let mut render_app = App::empty();
-            render_app.main_schedule_label = Render.into();
+            render_app.main_schedule_label = Render.intern();
 
             let mut extract_schedule = Schedule::new();
             extract_schedule.set_apply_final_deferred(false);
@@ -419,7 +419,7 @@ fn extract(main_world: &mut World, render_app: &mut App) {
 fn apply_extract_commands(render_world: &mut World) {
     render_world.resource_scope(|render_world, mut schedules: Mut<Schedules>| {
         schedules
-            .get_mut(&ExtractSchedule)
+            .get_mut(ExtractSchedule)
             .unwrap()
             .apply_deferred(render_world);
     });

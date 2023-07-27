@@ -43,38 +43,38 @@ impl Schedules {
     /// and the old schedule is returned. Otherwise, `None` is returned.
     pub fn insert(
         &mut self,
-        label: impl Into<InternedScheduleLabel>,
+        label: impl ScheduleLabel,
         schedule: Schedule,
     ) -> Option<Schedule> {
-        self.inner.insert(label.into(), schedule)
+        self.inner.insert(label.intern(), schedule)
     }
 
     /// Removes the schedule corresponding to the `label` from the map, returning it if it existed.
-    pub fn remove(&mut self, label: impl Into<InternedScheduleLabel>) -> Option<Schedule> {
-        self.inner.remove(&label.into())
+    pub fn remove(&mut self, label: impl ScheduleLabel) -> Option<Schedule> {
+        self.inner.remove(&label.intern ())
     }
 
     /// Removes the (schedule, label) pair corresponding to the `label` from the map, returning it if it existed.
     pub fn remove_entry(
         &mut self,
-        label: impl Into<InternedScheduleLabel>,
+        label: impl ScheduleLabel,
     ) -> Option<(InternedScheduleLabel, Schedule)> {
-        self.inner.remove_entry(&label.into())
+        self.inner.remove_entry(&label.intern())
     }
 
     /// Does a schedule with the provided label already exist?
-    pub fn contains(&self, label: impl Into<InternedScheduleLabel>) -> bool {
-        self.inner.contains_key(&label.into())
+    pub fn contains(&self, label: impl ScheduleLabel) -> bool {
+        self.inner.contains_key(&label.intern())
     }
 
     /// Returns a reference to the schedule associated with `label`, if it exists.
-    pub fn get(&self, label: impl Into<InternedScheduleLabel>) -> Option<&Schedule> {
-        self.inner.get(&label.into())
+    pub fn get(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
+        self.inner.get(&label.intern())
     }
 
     /// Returns a mutable reference to the schedule associated with `label`, if it exists.
-    pub fn get_mut(&mut self, label: impl Into<InternedScheduleLabel>) -> Option<&mut Schedule> {
-        self.inner.get_mut(&label.into())
+    pub fn get_mut(&mut self, label: impl ScheduleLabel) -> Option<&mut Schedule> {
+        self.inner.get_mut(&label.intern())
     }
 
     /// Returns an iterator over all schedules. Iteration order is undefined.
@@ -537,7 +537,7 @@ impl ScheduleGraph {
                     if more_than_one_entry {
                         let set = self.create_anonymous_set();
                         for config in &mut configs {
-                            config.in_set_inner((&set as &dyn SystemSet).into());
+                            config.in_set_inner(set.intern());
                         }
                         let mut set_config = set.into_config();
                         set_config.conditions.extend(collective_conditions);
@@ -721,8 +721,7 @@ impl ScheduleGraph {
         id
     }
 
-    fn check_set(&mut self, id: &NodeId, set: &dyn SystemSet) -> Result<(), ScheduleBuildError> {
-        let set = set.into();
+    fn check_set(&mut self, id: &NodeId, set: InternedSystemSet) -> Result<(), ScheduleBuildError> {
         match self.system_set_ids.get(&set) {
             Some(set_id) => {
                 if id == set_id {
@@ -748,8 +747,8 @@ impl ScheduleGraph {
         id: &NodeId,
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
-        for set in &graph_info.sets {
-            self.check_set(id, &**set)?;
+        for &set in &graph_info.sets {
+            self.check_set(id, set)?;
         }
 
         Ok(())

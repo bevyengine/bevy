@@ -245,18 +245,6 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
                 #dyn_static_ref_impl
             }
         }
-
-        impl #impl_generics From<#ident #ty_generics> for ::bevy_utils::intern::Interned<dyn #trait_path> #where_clause {
-            fn from(value: #ident #ty_generics) -> Self {
-                (&value as &dyn #trait_path).into()
-            }
-        }
-
-        impl #impl_generics From<& #ident #ty_generics> for ::bevy_utils::intern::Interned<dyn #trait_path> #where_clause {
-            fn from(value: &#ident #ty_generics) -> Self {
-                (value as &dyn #trait_path).into()
-            }
-        }
     })
     .into()
 }

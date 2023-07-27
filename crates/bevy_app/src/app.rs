@@ -158,7 +158,7 @@ impl SubApp {
 
     /// Runs the [`SubApp`]'s default schedule.
     pub fn run(&mut self) {
-        self.app.world.run_schedule(&*self.app.main_schedule_label);
+        self.app.world.run_schedule(self.app.main_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -221,7 +221,7 @@ impl App {
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
-            main_schedule_label: Main.into(),
+            main_schedule_label: Main.intern(),
             building_plugin_depth: 0,
         }
     }
@@ -243,7 +243,7 @@ impl App {
         {
             #[cfg(feature = "trace")]
             let _bevy_main_update_span = info_span!("main app").entered();
-            self.world.run_schedule(&*self.main_schedule_label);
+            self.world.run_schedule(self.main_schedule_label);
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]
@@ -381,7 +381,7 @@ impl App {
         schedule: impl ScheduleLabel,
         systems: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
-        let schedule = InternedScheduleLabel::from(&schedule as &dyn ScheduleLabel);
+        let schedule = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if let Some(schedule) = schedules.get_mut(schedule) {
@@ -401,7 +401,7 @@ impl App {
         schedule: impl ScheduleLabel,
         set: impl IntoSystemSetConfig,
     ) -> &mut Self {
-        let schedule = InternedScheduleLabel::from(&schedule as &dyn ScheduleLabel);
+        let schedule = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
         if let Some(schedule) = schedules.get_mut(schedule) {
             schedule.configure_set(set);
@@ -419,7 +419,7 @@ impl App {
         schedule: impl ScheduleLabel,
         sets: impl IntoSystemSetConfigs,
     ) -> &mut Self {
-        let schedule = InternedScheduleLabel::from(&schedule as &dyn ScheduleLabel);
+        let schedule = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
         if let Some(schedule) = schedules.get_mut(schedule) {
             schedule.configure_sets(sets);
@@ -759,7 +759,7 @@ impl App {
     /// an [`Err`] containing the given label.
     pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
         self.sub_apps
-            .get_mut(&InternedAppLabel::from(&label as &dyn AppLabel))
+            .get_mut(&label.intern())
             .map(|sub_app| &mut sub_app.app)
             .ok_or(label)
     }
@@ -779,20 +779,20 @@ impl App {
     /// Inserts an existing sub app into the app
     pub fn insert_sub_app(&mut self, label: impl AppLabel, sub_app: SubApp) {
         self.sub_apps
-            .insert((&label as &dyn AppLabel).into(), sub_app);
+            .insert(label.intern(), sub_app);
     }
 
     /// Removes a sub app from the app. Returns [`None`] if the label doesn't exist.
     pub fn remove_sub_app(&mut self, label: impl AppLabel) -> Option<SubApp> {
         self.sub_apps
-            .remove(&InternedAppLabel::from(&label as &dyn AppLabel))
+            .remove(&label.intern())
     }
 
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
     /// an [`Err`] containing the given label.
     pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
         self.sub_apps
-            .get(&InternedAppLabel::from(&label as &dyn AppLabel))
+            .get(&label.intern())
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
     }
@@ -804,7 +804,7 @@ impl App {
     /// To avoid this behavior, use the `init_schedule` method instead.
     pub fn add_schedule(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
-        schedules.insert(&label as &dyn ScheduleLabel, schedule);
+        schedules.insert(label, schedule);
 
         self
     }
@@ -813,7 +813,7 @@ impl App {
     ///
     /// See [`App::add_schedule`] to pass in a pre-constructed schedule.
     pub fn init_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
-        let label = InternedScheduleLabel::from(&label as &dyn ScheduleLabel);
+        let label = label.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
         if !schedules.contains(label) {
             schedules.insert(label, Schedule::new());
@@ -824,7 +824,7 @@ impl App {
     /// Gets read-only access to the [`Schedule`] with the provided `label` if it exists.
     pub fn get_schedule(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
         let schedules = self.world.get_resource::<Schedules>()?;
-        schedules.get(&label as &dyn ScheduleLabel)
+        schedules.get(label)
     }
 
     /// Gets read-write access to a [`Schedule`] with the provided `label` if it exists.
@@ -832,7 +832,7 @@ impl App {
         let schedules = self.world.get_resource_mut::<Schedules>()?;
         // We need to call .into_inner here to satisfy the borrow checker:
         // it can reason about reborrows using ordinary references but not the `Mut` smart pointer.
-        schedules.into_inner().get_mut(&label as &dyn ScheduleLabel)
+        schedules.into_inner().get_mut(label)
     }
 
     /// Applies the function to the [`Schedule`] associated with `label`.
@@ -843,7 +843,7 @@ impl App {
         label: impl ScheduleLabel,
         f: impl FnOnce(&mut Schedule),
     ) -> &mut Self {
-        let label = InternedScheduleLabel::from(&label as &dyn ScheduleLabel);
+        let label = label.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if schedules.get(label).is_none() {
