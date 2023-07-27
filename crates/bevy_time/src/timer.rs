@@ -9,7 +9,7 @@ use bevy_utils::Duration;
 /// exceeded, and can still be reset at any given point.
 ///
 /// Paused timers will not have elapsed time increased.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[reflect(Default)]
 pub struct Timer {
@@ -415,7 +415,7 @@ impl Timer {
 }
 
 /// Specifies [`Timer`] behavior.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Reflect, FromReflect)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[reflect(Default)]
 pub enum TimerMode {

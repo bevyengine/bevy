@@ -7,10 +7,12 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        // The "print diagnostics" plugin is optional.
-        // It just visualizes our diagnostics in the console.
-        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_plugins((
+            DefaultPlugins,
+            // The "print diagnostics" plugin is optional.
+            // It just visualizes our diagnostics in the console.
+            LogDiagnosticsPlugin::default(),
+        ))
         // Diagnostics must be initialized before measurements can be added.
         .register_diagnostic(
             Diagnostic::new(SYSTEM_ITERATION_COUNT, "system_iteration_count", 10)

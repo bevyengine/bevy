@@ -256,6 +256,9 @@ impl SystemExecutor for MultiThreadedExecutor {
 }
 
 impl MultiThreadedExecutor {
+    /// Creates a new multi-threaded executor for use with a [`Schedule`].
+    ///
+    /// [`Schedule`]: crate::schedule::Schedule
     pub fn new() -> Self {
         let (sender, receiver) = async_channel::unbounded();
         Self {
@@ -473,7 +476,7 @@ impl MultiThreadedExecutor {
     /// - `world` must have permission to access the world data
     ///   used by the specified system.
     /// - `update_archetype_component_access` must have been called with `world`
-    ///   on the system assocaited with `system_index`.
+    ///   on the system associated with `system_index`.
     unsafe fn spawn_system_task<'scope>(
         &mut self,
         scope: &Scope<'_, 'scope, ()>,
@@ -735,6 +738,7 @@ impl Default for MainThreadExecutor {
 }
 
 impl MainThreadExecutor {
+    /// Creates a new executor that can be used to run systems on the main thread.
     pub fn new() -> Self {
         MainThreadExecutor(TaskPool::get_thread_executor())
     }

@@ -169,7 +169,7 @@ pub struct AddChild {
 }
 
 impl Command for AddChild {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.entity_mut(self.parent).add_child(self.child);
     }
 }
@@ -183,7 +183,7 @@ pub struct InsertChildren {
 }
 
 impl Command for InsertChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world
             .entity_mut(self.parent)
             .insert_children(self.index, &self.children);
@@ -198,7 +198,7 @@ pub struct PushChildren {
 }
 
 impl Command for PushChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.entity_mut(self.parent).push_children(&self.children);
     }
 }
@@ -210,7 +210,7 @@ pub struct RemoveChildren {
 }
 
 impl Command for RemoveChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         remove_children(self.parent, &self.children, world);
     }
 }
@@ -222,7 +222,7 @@ pub struct ClearChildren {
 }
 
 impl Command for ClearChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         clear_children(self.parent, world);
     }
 }
@@ -234,7 +234,7 @@ pub struct ReplaceChildren {
 }
 
 impl Command for ReplaceChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         clear_children(self.parent, world);
         world.entity_mut(self.parent).push_children(&self.children);
     }
@@ -247,7 +247,7 @@ pub struct RemoveParent {
 }
 
 impl Command for RemoveParent {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.entity_mut(self.child).remove_parent();
     }
 }
@@ -289,7 +289,7 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
 
 /// Trait for removing, adding and replacing children and parents of an entity.
 pub trait BuildChildren {
-    /// Takes a clousre which builds children for this entity using [`ChildBuilder`].
+    /// Takes a closure which builds children for this entity using [`ChildBuilder`].
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
     /// Pushes children to the back of the builder's children. For any entities that are
     /// already a child of this one, this method does nothing.
@@ -458,7 +458,7 @@ impl<'w> WorldChildBuilder<'w> {
 
 /// Trait that defines adding, changing and children and parents of an entity directly through the [`World`].
 pub trait BuildWorldChildren {
-    /// Takes a clousre which builds children for this entity using [`WorldChildBuilder`].
+    /// Takes a closure which builds children for this entity using [`WorldChildBuilder`].
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self;
 
     /// Adds a single child.

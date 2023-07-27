@@ -52,8 +52,10 @@ impl Plugin for BloomPlugin {
         app.register_type::<BloomSettings>();
         app.register_type::<BloomPrefilterSettings>();
         app.register_type::<BloomCompositeMode>();
-        app.add_plugin(ExtractComponentPlugin::<BloomSettings>::default());
-        app.add_plugin(UniformComponentPlugin::<BloomUniforms>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<BloomSettings>::default(),
+            UniformComponentPlugin::<BloomUniforms>::default(),
+        ));
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,

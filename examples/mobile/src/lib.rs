@@ -139,7 +139,7 @@ fn button_handler(
 ) {
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 *color = Color::BLUE.into();
             }
             Interaction::Hovered => {
@@ -152,7 +152,9 @@ fn button_handler(
     }
 }
 
-fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    let music = asset_server.load("sounds/Windless Slopes.ogg");
-    audio.play(music);
+fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
+    commands.spawn(AudioBundle {
+        source: asset_server.load("sounds/Windless Slopes.ogg"),
+        settings: PlaybackSettings::LOOP,
+    });
 }

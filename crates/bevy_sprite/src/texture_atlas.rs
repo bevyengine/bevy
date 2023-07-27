@@ -2,14 +2,14 @@ use crate::Anchor;
 use bevy_asset::Handle;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{color::Color, texture::Image};
 use bevy_utils::HashMap;
 
 /// An atlas containing multiple textures (like a spritesheet or a tilemap).
 /// [Example usage animating sprite.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// [Example usage loading sprite sheet.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
-#[derive(Reflect, FromReflect, Debug, Clone, TypeUuid)]
+#[derive(Reflect, Debug, Clone, TypeUuid)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 #[reflect(Debug)]
 pub struct TextureAtlas {
@@ -23,7 +23,7 @@ pub struct TextureAtlas {
     pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
 }
 
-#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct TextureAtlasSprite {
     /// The tint color used to draw the sprite, defaulting to [`Color::WHITE`]

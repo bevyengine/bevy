@@ -401,7 +401,10 @@ pub struct Res<'w, T: ?Sized + Resource> {
 }
 
 impl<'w, T: Resource> Res<'w, T> {
-    // no it shouldn't clippy
+    /// Copies a reference to a resource.
+    ///
+    /// Note that unless you actually need an instance of `Res<T>`, you should
+    /// prefer to just convert it to `&T` which can be freely copied.
     #[allow(clippy::should_implement_trait)]
     pub fn clone(this: &Self) -> Self {
         Self {
@@ -539,8 +542,49 @@ pub struct Ref<'a, T: ?Sized> {
 }
 
 impl<'a, T: ?Sized> Ref<'a, T> {
+    /// Returns the reference wrapped by this type. The reference is allowed to outlive `self`, which makes this method more flexible than simply borrowing `self`.
     pub fn into_inner(self) -> &'a T {
         self.value
+    }
+
+    /// Map `Ref` to a different type using `f`.
+    ///
+    /// This doesn't do anything else than call `f` on the wrapped value.
+    /// This is equivalent to [`Mut::map_unchanged`].
+    pub fn map<U: ?Sized>(self, f: impl FnOnce(&T) -> &U) -> Ref<'a, U> {
+        Ref {
+            value: f(self.value),
+            ticks: self.ticks,
+        }
+    }
+
+    /// Create a new `Ref` using provided values.
+    ///
+    /// This is an advanced feature, `Ref`s are designed to be _created_ by
+    /// engine-internal code and _consumed_ by end-user code.
+    ///
+    /// - `value` - The value wrapped by `Ref`.
+    /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
+    /// - `changed` - A [`Tick`] that stores the last time the wrapped value was changed.
+    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
+    ///    as a reference to determine whether the wrapped value is newly added or changed.
+    /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
+    pub fn new(
+        value: &'a T,
+        added: &'a Tick,
+        changed: &'a Tick,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Ref<'a, T> {
+        Ref {
+            value,
+            ticks: Ticks {
+                added,
+                changed,
+                last_run,
+                this_run,
+            },
+        }
     }
 }
 
@@ -691,6 +735,35 @@ impl<'a> MutUntyped<'a> {
         self.value.as_ref()
     }
 
+    /// Turn this [`MutUntyped`] into a [`Mut`] by mapping the inner [`PtrMut`] to another value,
+    /// without flagging a change.
+    /// This function is the untyped equivalent of [`Mut::map_unchanged`].
+    ///
+    /// You should never modify the argument passed to the closure – if you want to modify the data without flagging a change, consider using [`bypass_change_detection`](DetectChangesMut::bypass_change_detection) to make your intent explicit.
+    ///
+    /// If you know the type of the value you can do
+    /// ```no_run
+    /// # use bevy_ecs::change_detection::{Mut, MutUntyped};
+    /// # let mut_untyped: MutUntyped = unimplemented!();
+    /// // SAFETY: ptr is of type `u8`
+    /// mut_untyped.map_unchanged(|ptr| unsafe { ptr.deref_mut::<u8>() });
+    /// ```
+    /// If you have a [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) that you know belongs to this [`MutUntyped`],
+    /// you can do
+    /// ```no_run
+    /// # use bevy_ecs::change_detection::{Mut, MutUntyped};
+    /// # let mut_untyped: MutUntyped = unimplemented!();
+    /// # let reflect_from_ptr: bevy_reflect::ReflectFromPtr = unimplemented!();
+    /// // SAFETY: from the context it is known that `ReflectFromPtr` was made for the type of the `MutUntyped`
+    /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) });
+    /// ```
+    pub fn map_unchanged<T: ?Sized>(self, f: impl FnOnce(PtrMut<'a>) -> &'a mut T) -> Mut<'a, T> {
+        Mut {
+            value: f(self.value),
+            ticks: self.ticks,
+        }
+    }
+
     /// Transforms this [`MutUntyped`] into a [`Mut<T>`] with the same lifetime.
     ///
     /// # Safety
@@ -754,6 +827,8 @@ impl std::fmt::Debug for MutUntyped<'_> {
 #[cfg(test)]
 mod tests {
     use bevy_ecs_macros::Resource;
+    use bevy_ptr::PtrMut;
+    use bevy_reflect::{FromType, ReflectFromPtr};
 
     use crate::{
         self as bevy_ecs,
@@ -765,8 +840,7 @@ mod tests {
         world::World,
     };
 
-    use super::DetectChanges;
-    use super::DetectChangesMut;
+    use super::{DetectChanges, DetectChangesMut, MutUntyped};
 
     #[derive(Component, PartialEq)]
     struct C;
@@ -989,5 +1063,41 @@ mod tests {
             r.is_changed(),
             "Resource must be changed after setting to a different value."
         );
+    }
+
+    #[test]
+    fn mut_untyped_to_reflect() {
+        let last_run = Tick::new(2);
+        let this_run = Tick::new(3);
+        let mut component_ticks = ComponentTicks {
+            added: Tick::new(1),
+            changed: Tick::new(2),
+        };
+        let ticks = TicksMut {
+            added: &mut component_ticks.added,
+            changed: &mut component_ticks.changed,
+            last_run,
+            this_run,
+        };
+
+        let mut value: i32 = 5;
+        let value = MutUntyped {
+            value: PtrMut::from(&mut value),
+            ticks,
+        };
+
+        let reflect_from_ptr = <ReflectFromPtr as FromType<i32>>::from_type();
+
+        let mut new = value.map_unchanged(|ptr| {
+            // SAFETY: The underlying type of `ptr` matches `reflect_from_ptr`.
+            let value = unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) };
+            value
+        });
+
+        assert!(!new.is_changed());
+
+        new.reflect_mut();
+
+        assert!(new.is_changed());
     }
 }

@@ -125,6 +125,10 @@ pub unsafe trait SystemParam: Sized {
     #[allow(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
 
+    /// Creates a parameter to be passed into a [`SystemParamFunction`].
+    ///
+    /// [`SystemParamFunction`]: super::SystemParamFunction
+    ///
     /// # Safety
     ///
     /// - The passed [`UnsafeWorldCell`] must have access to any world data
@@ -194,16 +198,10 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        Query::new(
-            // SAFETY: We have registered all of the query's world accesses,
-            // so the caller ensures that `world` has permission to access any
-            // world data that the query needs.
-            world.unsafe_world(),
-            state,
-            system_meta.last_run,
-            change_tick,
-            false,
-        )
+        // SAFETY: We have registered all of the query's world accesses,
+        // so the caller ensures that `world` has permission to access any
+        // world data that the query needs.
+        Query::new(world, state, system_meta.last_run, change_tick, false)
     }
 }
 
@@ -629,7 +627,7 @@ unsafe impl SystemParam for &'_ World {
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        // SAFETY: Read-only access to the entire world was registerd in `init_state`.
+        // SAFETY: Read-only access to the entire world was registered in `init_state`.
         world.world()
     }
 }
@@ -1307,6 +1305,7 @@ pub struct SystemName<'s> {
 }
 
 impl<'s> SystemName<'s> {
+    /// Gets the name of the system.
     pub fn name(&self) -> &str {
         self.name
     }
@@ -1413,12 +1412,23 @@ macro_rules! impl_system_param_tuple {
 
 all_tuples!(impl_system_param_tuple, 0, 16, P);
 
+/// Contains type aliases for built-in [`SystemParam`]s with `'static` lifetimes.
+/// This can make it more convenient to refer to these types in contexts where
+/// explicit lifetime annotations are required.
+///
+/// [`SystemParam`]: super::SystemParam
 pub mod lifetimeless {
+    /// A [`Query`](super::Query) with `'static` lifetimes.
     pub type SQuery<Q, F = ()> = super::Query<'static, 'static, Q, F>;
+    /// A shorthand for writing `&'static T`.
     pub type Read<T> = &'static T;
+    /// A shorthand for writing `&'static mut T`.
     pub type Write<T> = &'static mut T;
+    /// A [`Res`](super::Res) with `'static` lifetimes.
     pub type SRes<T> = super::Res<'static, T>;
+    /// A [`ResMut`](super::ResMut) with `'static` lifetimes.
     pub type SResMut<T> = super::ResMut<'static, T>;
+    /// [`Commands`](crate::system::Commands) with `'static` lifetimes.
     pub type SCommands = crate::system::Commands<'static, 'static>;
 }
 

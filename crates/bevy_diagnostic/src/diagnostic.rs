@@ -289,6 +289,8 @@ pub trait RegisterDiagnostic {
 impl RegisterDiagnostic for App {
     /// Register a new [`Diagnostic`] with an [`App`].
     ///
+    /// Will initialize a [`DiagnosticsStore`] if it doesn't exist.
+    ///
     /// ```rust
     /// use bevy_app::App;
     /// use bevy_diagnostic::{Diagnostic, DiagnosticsPlugin, DiagnosticId, RegisterDiagnostic};
@@ -296,12 +298,12 @@ impl RegisterDiagnostic for App {
     /// const UNIQUE_DIAG_ID: DiagnosticId = DiagnosticId::from_u128(42);
     ///
     /// App::new()
-    ///     .add_plugin(DiagnosticsPlugin)
-    ///     // Must only be called after the `DiagnosticsPlugin` has been added.
     ///     .register_diagnostic(Diagnostic::new(UNIQUE_DIAG_ID, "example", 10))
+    ///     .add_plugins(DiagnosticsPlugin)
     ///     .run();
     /// ```
     fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self {
+        self.init_resource::<DiagnosticsStore>();
         let mut diagnostics = self.world.resource_mut::<DiagnosticsStore>();
         diagnostics.add(diagnostic);
 

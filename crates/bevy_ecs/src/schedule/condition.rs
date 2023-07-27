@@ -8,6 +8,7 @@ use crate::system::{CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, Syste
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::world::World;
 
+/// A type-erased run condition stored in a [`Box`].
 pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 
 /// A system that determines if one or more scheduled systems should run.
@@ -178,6 +179,7 @@ mod sealed {
     }
 }
 
+/// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
     use std::borrow::Cow;
 
@@ -244,7 +246,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::new();
     /// # let mut world = World::new();
     /// app.add_systems(
-    ///     // `resource_exsists` will only return true if the given resource exsists in the world
+    ///     // `resource_exists` will only return true if the given resource exists in the world
     ///     my_system.run_if(resource_exists::<Counter>()),
     /// );
     ///
@@ -322,7 +324,7 @@ pub mod common_conditions {
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists_and_equals` will only return true
-    ///     // if the given resource exsists and equals the given value
+    ///     // if the given resource exists and equals the given value
     ///     my_system.run_if(resource_exists_and_equals(Counter(0))),
     /// );
     ///
@@ -420,7 +422,7 @@ pub mod common_conditions {
     ///     my_system.run_if(
     ///         resource_changed::<Counter>()
     ///         // By default detecting changes will also trigger if the resource was
-    ///         // just added, this won't work with my example so I will addd a second
+    ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
     ///         .and_then(not(resource_added::<Counter>()))
     ///     ),
@@ -469,11 +471,11 @@ pub mod common_conditions {
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists_and_changed` will only return true if the
-    ///     // given resource exsists and was just changed (or added)
+    ///     // given resource exists and was just changed (or added)
     ///     my_system.run_if(
     ///         resource_exists_and_changed::<Counter>()
     ///         // By default detecting changes will also trigger if the resource was
-    ///         // just added, this won't work with my example so I will addd a second
+    ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
     ///         .and_then(not(resource_added::<Counter>()))
     ///     ),
@@ -535,7 +537,7 @@ pub mod common_conditions {
     ///     my_system.run_if(
     ///         resource_changed_or_removed::<Counter>()
     ///         // By default detecting changes will also trigger if the resource was
-    ///         // just added, this won't work with my example so I will addd a second
+    ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
     ///         .and_then(not(resource_added::<Counter>()))
     ///     ),
@@ -663,7 +665,7 @@ pub mod common_conditions {
     ///
     /// app.add_systems(
     ///     // `state_exists` will only return true if the
-    ///     // given state exsists
+    ///     // given state exists
     ///     my_system.run_if(state_exists::<GameState>()),
     /// );
     ///
@@ -762,7 +764,7 @@ pub mod common_conditions {
     ///
     /// app.add_systems((
     ///     // `state_exists_and_equals` will only return true if the
-    ///     // given state exsists and equals the given value
+    ///     // given state exists and equals the given value
     ///     play_system.run_if(state_exists_and_equals(GameState::Playing)),
     ///     pause_system.run_if(state_exists_and_equals(GameState::Paused)),
     /// ));
@@ -946,7 +948,7 @@ pub mod common_conditions {
         // Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
         // due to Bevy having a specialized implementation for events.
-        move |mut removals: RemovedComponents<T>| !removals.iter().count() != 0
+        move |mut removals: RemovedComponents<T>| removals.iter().count() != 0
     }
 
     /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.

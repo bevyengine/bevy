@@ -34,7 +34,7 @@ fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
     // to use or not use ParallelIterator over a normal Iterator.
     sprites
         .par_iter_mut()
-        .for_each_mut(|(mut transform, velocity)| {
+        .for_each(|(mut transform, velocity)| {
             transform.translation += velocity.extend(0.0);
         });
 }
@@ -54,7 +54,7 @@ fn bounce_system(windows: Query<&Window>, mut sprites: Query<(&Transform, &mut V
     sprites
         .par_iter_mut()
         .batching_strategy(BatchingStrategy::fixed(32))
-        .for_each_mut(|(transform, mut v)| {
+        .for_each(|(transform, mut v)| {
             if !(left < transform.translation.x
                 && transform.translation.x < right
                 && bottom < transform.translation.y
