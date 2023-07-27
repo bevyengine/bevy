@@ -220,8 +220,11 @@ fn main() {
                 }
 
                 let before = Instant::now();
+                let result = cmd.run();
+                let duration = before.elapsed();
+                println!("took {duration:?}");
 
-                if cmd.run().is_ok() {
+                if result.is_ok() {
                     if screenshot {
                         let _ = fs::create_dir_all(Path::new("screenshots").join(&to_run.category));
                         let renamed_screenshot = fs::rename(
@@ -232,17 +235,14 @@ fn main() {
                         );
                         if let Err(err) = renamed_screenshot {
                             println!("Failed to rename screenshot: {:?}", err);
-                            no_screenshot_examples.push(to_run);
+                            no_screenshot_examples.push((to_run, duration));
                         } else {
-                            successful_examples.push(to_run);
+                            successful_examples.push((to_run, duration));
                         }
                     }
                 } else {
-                    failed_examples.push(to_run);
+                    failed_examples.push((to_run, duration));
                 }
-
-                let duration = before.elapsed();
-                println!("took {duration:?}");
 
                 thread::sleep(Duration::from_secs(1));
                 pb.inc();
@@ -254,7 +254,14 @@ fn main() {
                     "successes",
                     successful_examples
                         .iter()
-                        .map(|example| format!("{}/{}", example.category, example.technical_name))
+                        .map(|(example, duration)| {
+                            format!(
+                                "{}/{} - {}",
+                                example.category,
+                                example.technical_name,
+                                duration.as_secs_f32()
+                            )
+                        })
                         .collect::<Vec<_>>()
                         .join("\n"),
                 );
@@ -262,7 +269,14 @@ fn main() {
                     "failures",
                     failed_examples
                         .iter()
-                        .map(|example| format!("{}/{}", example.category, example.technical_name))
+                        .map(|(example, duration)| {
+                            format!(
+                                "{}/{} - {}",
+                                example.category,
+                                example.technical_name,
+                                duration.as_secs_f32()
+                            )
+                        })
                         .collect::<Vec<_>>()
                         .join("\n"),
                 );
@@ -270,7 +284,14 @@ fn main() {
                     "no_screenshots",
                     no_screenshot_examples
                         .iter()
-                        .map(|example| format!("{}/{}", example.category, example.technical_name))
+                        .map(|(example, duration)| {
+                            format!(
+                                "{}/{} - {}",
+                                example.category,
+                                example.technical_name,
+                                duration.as_secs_f32()
+                            )
+                        })
                         .collect::<Vec<_>>()
                         .join("\n"),
                 );
@@ -287,7 +308,7 @@ fn main() {
                 println!("All examples passed!");
             } else {
                 println!("Failed examples:");
-                for example in failed_examples {
+                for (example, _) in failed_examples {
                     println!(
                         "  {} / {} ({})",
                         example.category, example.name, example.technical_name
