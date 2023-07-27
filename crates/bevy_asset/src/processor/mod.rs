@@ -179,6 +179,7 @@ impl AssetProcessor {
         loop {
             let mut started_processing = false;
             for event in self.data.source_event_receiver.try_iter() {
+                println!("{event:?}\n");
                 if !started_processing {
                     // TODO: re-enable this after resolving state change signaling issue
                     // self.set_state(ProcessorState::Processing).await;
@@ -194,16 +195,13 @@ impl AssetProcessor {
                     }
                     AssetSourceEvent::Removed(path) => {
                         debug!("Removing processed {:?} because source was removed", path);
-                        error!("remove is not implemented");
-                        // // TODO: clean up in memory
-                        // if let Err(err) = self.destination_writer().remove(&path).await {
-                        //     warn!("Failed to remove non-existent asset {path:?}: {err}");
-                        // }
+                        let asset_path = AssetPath::new(path, None);
+                        self.remove_processed_asset_transactional(&asset_path).await;
                     }
                     AssetSourceEvent::RemovedMeta(path) => {
                         // If meta was removed, we might need to regenerate it.
                         // Likewise, the user might be manually re-adding the asset.
-                        // Therefore, we shouldn't automatically delete meta ... that is a
+                        // Therefore, we shouldn't automatically delete the asset ... that is a
                         // user-initiated action.
                         debug!(
                             "Meta for asset {:?} was removed. Attempting to re-process",
@@ -224,18 +222,32 @@ impl AssetProcessor {
                     }
                     AssetSourceEvent::RemovedFolder(path) => {
                         debug!("Removing folder {:?} because source was removed", path);
-                        error!("remove folder is not implemented");
+                        error!("remove folder is not implemented {path:?}");
                         // TODO: clean up memory
                         // if let Err(err) = self.destination_writer().remove_directory(&path).await {
                         //     warn!("Failed to remove folder {path:?}: {err}");
                         // }
                     }
-                    AssetSourceEvent::Renamed { old, new } => error!("renamed not implemented"),
+                    AssetSourceEvent::Renamed { old, new } => {
+                        // If there was a rename event, but the path hasn't changed, this asset might need reprocessing.
+                        // Sometimes this event is returned when an asset is moved "back" into the asset folder
+                        if old == new {
+                            self.process_asset(&new).await;
+                        } else {
+                            error!("renamed not implemented {old:?} {new:?}")
+                        }
+                    }
                     AssetSourceEvent::RenamedMeta { old, new } => {
-                        error!("renamed meta not implemented")
+                        // If there was a rename event, but the path hasn't changed, this asset meta might need reprocessing.
+                        // Sometimes this event is returned when an asset meta is moved "back" into the asset folder
+                        if old == new {
+                            self.process_asset(&new).await;
+                        } else {
+                            error!("renamed meta not implemented {old:?} {new:?}")
+                        }
                     }
                     AssetSourceEvent::RenamedFolder { old, new } => {
-                        error!("renamed folder not implemented ")
+                        error!("renamed folder not implemented {old:?} {new:?}")
                     }
                 }
             }
@@ -244,6 +256,20 @@ impl AssetProcessor {
                 self.finish_processing_assets().await;
             }
         }
+    }
+
+    /// Removes the processed version of an asset and associated in-memory metadata. This will block until all existing reads/writes to the
+    /// asset have finished, thanks to the `file_transaction_lock`.
+    async fn remove_processed_asset_transactional(&self, asset_path: &AssetPath<'static>) {
+        let mut infos = self.data.asset_infos.write().await;
+        if let Some(info) = infos.get(&asset_path) {
+            // we must wait for uncontested write access to the asset source to ensure existing readers / writers
+            // can finish their operations
+            let _write_lock = info.file_transaction_lock.write();
+            self.remove_processed_asset_and_meta(asset_path.path())
+                .await;
+        }
+        infos.remove(&asset_path).await;
     }
 
     async fn finish_processing_assets(&self) {
@@ -391,18 +417,18 @@ impl AssetProcessor {
                             }
                             Err(err) => {
                                 debug!("Removing processed data for {path:?} because meta could not be parsed: {err}");
-                                self.remove_processed_asset(path).await;
+                                self.remove_processed_asset_and_meta(path).await;
                             }
                         }
                     }
                     Err(err) => {
                         debug!("Removing processed data for {path:?} because meta failed to load: {err}");
-                        self.remove_processed_asset(path).await;
+                        self.remove_processed_asset_and_meta(path).await;
                     }
                 }
             } else {
                 debug!("Removing processed data for non-existent asset {path:?}");
-                self.remove_processed_asset(path).await;
+                self.remove_processed_asset_and_meta(path).await;
             }
 
             for dependency in dependencies {
@@ -415,7 +441,9 @@ impl AssetProcessor {
         Ok(())
     }
 
-    async fn remove_processed_asset(&self, path: &Path) {
+    /// Removes the processed version of an asset and its metadata, if it exists. This _is not_ transactional like `remove_processed_asset_transactional`, nor
+    /// does it remove existing in-memory metadata.
+    async fn remove_processed_asset_and_meta(&self, path: &Path) {
         if let Err(err) = self.destination_writer().remove(path).await {
             warn!("Failed to remove non-existent asset {path:?}: {err}");
         }
@@ -677,8 +705,12 @@ impl AssetProcessorData {
         destination_reader: Box<dyn AssetReader>,
         destination_writer: Box<dyn AssetWriter>,
     ) -> Self {
-        let (finished_sender, finished_receiver) = async_broadcast::broadcast(1);
-        let (initialized_sender, initialized_receiver) = async_broadcast::broadcast(1);
+        let (mut finished_sender, finished_receiver) = async_broadcast::broadcast(1);
+        let (mut initialized_sender, initialized_receiver) = async_broadcast::broadcast(1);
+        // allow overflow on these "one slot" channels to allow receivers to retrieve the "latest" state, and to allow senders to
+        // not block if there was older state present.
+        finished_sender.set_overflow(true);
+        initialized_sender.set_overflow(true);
         let (source_event_sender, source_event_receiver) = crossbeam_channel::unbounded();
         // TODO: watching for changes could probably be entirely optional / we could just warn here
         let source_watcher = source_reader.watch_for_changes(source_event_sender);
@@ -795,7 +827,10 @@ pub(crate) struct ProcessorAssetInfo {
 
 impl Default for ProcessorAssetInfo {
     fn default() -> Self {
-        let (status_sender, status_receiver) = async_broadcast::broadcast(1);
+        let (mut status_sender, status_receiver) = async_broadcast::broadcast(1);
+        // allow overflow on these "one slot" channels to allow receivers to retrieve the "latest" state, and to allow senders to
+        // not block if there was older state present.
+        status_sender.set_overflow(true);
         Self {
             processed_info: Default::default(),
             dependants: Default::default(),

@@ -299,6 +299,7 @@ impl FileWatcher {
                 match result {
                     Ok(events) => {
                         for event in events.iter() {
+                            println!("raw {event:?}\n");
                             match event.kind {
                                 notify::EventKind::Create(CreateKind::File) => {
                                     let (path, is_meta) =
@@ -337,7 +338,15 @@ impl FileWatcher {
                                     }
                                 }
                                 notify::EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
-                                    error!("Dangling `RenameMode::To` event encountered for {:?}. This is unexpected.", &event.paths[0]);
+                                    let (path, is_meta) =
+                                        get_asset_path(&owned_root, &event.paths[0]);
+                                    if path.is_dir() {
+                                        sender.send(AssetSourceEvent::AddedFolder(path)).unwrap();
+                                    } else if is_meta {
+                                        sender.send(AssetSourceEvent::AddedMeta(path)).unwrap();
+                                    } else {
+                                        sender.send(AssetSourceEvent::Added(path)).unwrap();
+                                    }
                                 }
                                 notify::EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
                                     let (old_path, old_is_meta) =
