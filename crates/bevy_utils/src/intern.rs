@@ -22,10 +22,10 @@ use crate::HashSet;
 /// # Implementation details
 ///
 /// This is just a reference to a value with an `'static` lifetime.
-///
-/// This implements [`Copy`], [`Clone`], [`PartialEq`], [`Eq`] and [`Hash`] regardles of what `T`
-/// implements, because it only uses the pointer to the value and not the value itself.
-/// Therefore it MUST NEVER implement [`Borrow`](`std::borrow::Borrow`).
+//
+// This implements [`Copy`], [`Clone`], [`PartialEq`], [`Eq`] and [`Hash`] regardles of what `T`
+// implements, because it only uses the pointer to the value and not the value itself.
+// Therefore it MUST NEVER implement [`Borrow`](`std::borrow::Borrow`).
 pub struct Interned<T: ?Sized + 'static>(&'static T);
 
 impl<T: ?Sized> Deref for Interned<T> {
