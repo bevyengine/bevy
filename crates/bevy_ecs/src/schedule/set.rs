@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::define_label;
 use bevy_utils::intern::{Interned, Interner, Leak};
-use bevy_utils::label::DynHash;
+use bevy_utils::label::DynEq;
 
 use crate::system::{
     ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
@@ -25,7 +25,7 @@ pub type InternedSystemSet = Interned<dyn SystemSet>;
 pub type InternedScheduleLabel = Interned<dyn ScheduleLabel>;
 
 /// Types that identify logical groups of systems.
-pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
+pub trait SystemSet: Debug + Send + Sync + 'static {
     /// Returns `Some` if this system set is a [`SystemTypeSet`].
     fn system_type(&self) -> Option<TypeId> {
         None
@@ -38,6 +38,12 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
 
     /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
+
+    /// Casts this value to a form where it can be compared with other type-erased values.
+    fn as_dyn_eq(&self) -> &dyn DynEq;
+
+    /// Feeds this value into the given [`Hasher`].
+    fn dyn_hash(&self, state: &mut dyn Hasher);
 
     /// Returns a static reference to a value equal to `self`, if possible.
     /// This method is used to optimize [interning](bevy_utils::intern).
@@ -97,6 +103,14 @@ impl SystemSet for Interned<dyn SystemSet> {
         (**self).dyn_clone()
     }
 
+    fn as_dyn_eq(&self) -> &dyn DynEq {
+        (**self).as_dyn_eq()
+    }
+
+    fn dyn_hash(&self, state: &mut dyn Hasher) {
+        (**self).dyn_hash(state)
+    }
+
     fn dyn_static_ref(&self) -> Option<&'static dyn SystemSet> {
         Some(self.0)
     }
@@ -111,7 +125,7 @@ impl SystemSet for Interned<dyn SystemSet> {
 
 impl PartialEq for dyn SystemSet {
     fn eq(&self, other: &Self) -> bool {
-        self.dyn_eq(other.as_dyn_eq())
+        self.as_dyn_eq().dyn_eq(other.as_dyn_eq())
     }
 }
 
@@ -187,6 +201,15 @@ impl<T> SystemSet for SystemTypeSet<T> {
         Box::new(*self)
     }
 
+    fn as_dyn_eq(&self) -> &dyn DynEq {
+        self
+    }
+
+    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
+        std::any::TypeId::of::<Self>().hash(&mut state);
+        self.hash(&mut state);
+    }
+
     fn dyn_static_ref(&self) -> Option<&'static dyn SystemSet> {
         Some(&Self(PhantomData))
     }
@@ -206,6 +229,15 @@ impl AnonymousSet {
 impl SystemSet for AnonymousSet {
     fn is_anonymous(&self) -> bool {
         true
+    }
+
+    fn as_dyn_eq(&self) -> &dyn DynEq {
+        self
+    }
+
+    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
+        std::any::TypeId::of::<Self>().hash(&mut state);
+        self.hash(&mut state);
     }
 
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
