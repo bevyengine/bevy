@@ -39,18 +39,21 @@ pub struct NodeBundle {
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// Components managed automatically by bevy's internal systems
+    /// Any manual modification or initialization to non-default values of these components should be avoided, as it can lead to unpredictable behaviour.
+    pub internal_components: (
+        // The global transform of the node
+        GlobalTransform,
+        // Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+        ComputedVisibility,
+    ),
 }
+
+
 
 impl Default for NodeBundle {
     fn default() -> Self {
@@ -62,10 +65,9 @@ impl Default for NodeBundle {
             style: Default::default(),
             focus_policy: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
             visibility: Default::default(),
-            computed_visibility: Default::default(),
             z_index: Default::default(),
+            internal_components: Default::default()
         }
     }
 }
@@ -81,8 +83,6 @@ pub struct ImageBundle {
     /// Styles which control the layout (size and position) of the node and it's children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
-    /// The calculated size based on the given image
-    pub calculated_size: ContentSize,
     /// The background color, which serves as a "fill" for this node
     ///
     /// Combines with `UiImage` to tint the provided image.
@@ -100,17 +100,22 @@ pub struct ImageBundle {
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// Components managed automatically by bevy's internal systems.
+    /// Any manual modification or initialization to non-default values of these components should be avoided, as it can lead to unpredictable behaviour.
+    pub internal_components: (
+        // The global transform of the node
+        GlobalTransform,
+        // Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+        ComputedVisibility,
+        // The size of the image in pixels
+        UiImageSize,
+        // The calculated size based on the given image
+        ContentSize,
+    ),
 }
 
 /// A UI node that is a texture atlas sprite
@@ -124,8 +129,6 @@ pub struct AtlasImageBundle {
     /// Styles which control the layout (size and position) of the node and it's children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
-    /// The calculated size based on the given image
-    pub calculated_size: ContentSize,
     /// The background color, which serves as a "fill" for this node
     ///
     /// Combines with `UiImage` to tint the provided image.
@@ -136,26 +139,29 @@ pub struct AtlasImageBundle {
     pub texture_atlas_image: UiTextureAtlasImage,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
-    /// The size of the image in pixels
-    ///
-    /// This field is set automatically
-    pub image_size: UiImageSize,
     /// The transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// Components managed automatically by bevy's internal systems.
+    /// Any manual modification or initialization to non-default values of these components should be avoided, as it can lead to unpredictable behaviour.
+    pub internal_components: (
+        // The global transform of the node
+        GlobalTransform,
+        // Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+        ComputedVisibility,
+        // The size of the image in pixels
+        UiImageSize,
+        // The calculated size based on the given image
+        ContentSize,
+    ),
 }
 
 #[cfg(feature = "bevy_text")]
@@ -169,12 +175,6 @@ pub struct TextBundle {
     pub style: Style,
     /// Contains the text of the node
     pub text: Text,
-    /// Text layout information
-    pub text_layout_info: TextLayoutInfo,
-    /// Text system flags
-    pub text_flags: TextFlags,
-    /// The calculated size based on the given image
-    pub calculated_size: ContentSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -182,19 +182,26 @@ pub struct TextBundle {
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
+    /// Components managed automatically by bevy's internal systems.
+    /// Any manual modification or initialization to non-default values of these components should be avoided, as it can lead to unpredictable behaviour.
+    pub internal_components: (
+        // The global transform of the node
+        GlobalTransform,
+        // Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+        ComputedVisibility,
+        // The calculated size based on the given image
+        ContentSize,
+        // Text layout information
+        TextLayoutInfo,
+        // Text system flags
+        TextFlags,
+    ),
 }
 
 #[cfg(feature = "bevy_text")]
@@ -202,19 +209,15 @@ impl Default for TextBundle {
     fn default() -> Self {
         Self {
             text: Default::default(),
-            text_layout_info: Default::default(),
-            text_flags: Default::default(),
-            calculated_size: Default::default(),
             // Transparent background
             background_color: BackgroundColor(Color::NONE),
             node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
             visibility: Default::default(),
-            computed_visibility: Default::default(),
             z_index: Default::default(),
+            internal_components: Default::default(),
         }
     }
 }
