@@ -5,7 +5,6 @@
 //! and make comparisons for any type as fast as integers.
 
 use std::{
-    borrow::Borrow,
     fmt::Debug,
     hash::Hash,
     ops::Deref,
@@ -155,13 +154,13 @@ impl<T: Leak + Hash + Eq + ?Sized> Interner<T> {
         let lock = self.0.get_or_init(Default::default);
         {
             let set = lock.read().unwrap_or_else(PoisonError::into_inner);
-            if let Some(value) = set.get(value.borrow()) {
+            if let Some(value) = set.get(value) {
                 return Interned(*value);
             }
         }
         {
             let mut set = lock.write().unwrap_or_else(PoisonError::into_inner);
-            if let Some(value) = set.get(value.borrow()) {
+            if let Some(value) = set.get(value) {
                 Interned(*value)
             } else {
                 let leaked = value.leak();
