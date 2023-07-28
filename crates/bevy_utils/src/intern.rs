@@ -28,7 +28,7 @@ use crate::HashSet;
 ///
 /// ```
 /// # use bevy_utils::intern::*;
-/// #[derive(PartialEq, Eq, Hash)]
+/// #[derive(PartialEq, Eq, Hash, Debug)]
 /// struct Value(i32);
 /// impl Leak for Value {
 ///     // ...
@@ -144,7 +144,7 @@ impl Leak for str {
 ///
 /// The implementation ensures that two equal values return two equal [`Interned<T>`] values.
 ///
-/// To use an [`Interner<T>`], `T` must implement [`StaticRef`], [`Hash`] and [`Eq`].
+/// To use an [`Interner<T>`], `T` must implement [`Leak`], [`Hash`] and [`Eq`].
 pub struct Interner<T: ?Sized + 'static>(OnceLock<RwLock<HashSet<&'static T>>>);
 
 impl<T: ?Sized> Interner<T> {
@@ -161,7 +161,7 @@ impl<T: Leak + Hash + Eq + ?Sized> Interner<T> {
     /// [`Interned<T>`] using the obtained static reference. Subsequent calls for the same `value`
     /// will return [`Interned<T>`] using the same static reference.
     ///
-    /// This uses [`StaticRef::static_ref`] to short-circuit the interning process.
+    /// This uses [`Leak::static_ref`] to short-circuit the interning process.
     pub fn intern(&self, value: &T) -> Interned<T> {
         if let Some(value) = value.static_ref() {
             return Interned(value);
