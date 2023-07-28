@@ -84,7 +84,7 @@ macro_rules! define_label {
         pub trait $label_trait_name: 'static + Send + Sync + ::std::fmt::Debug {
             /// Clones this `
             #[doc = stringify!($label_trait_name)]
-            /// `
+            ///`.
             fn dyn_clone(&self) -> Box<dyn $label_trait_name>;
 
             /// Casts this value to a form where it can be compared with other type-erased values.
@@ -131,7 +131,7 @@ macro_rules! define_label {
                 None
             }
 
-            /// Returns an `interned`(bevy_utils::intern::Interned) value corresponding to `self`.
+            /// Returns an [`Interned`](bevy_utils::intern::Interned) value corresponding to `self`.
             fn intern(&self) -> ::bevy_utils::intern::Interned<dyn $label_trait_name>
             where Self: Sized {
                 $interner_name.intern(self)
@@ -149,7 +149,7 @@ macro_rules! define_label {
             }
 
             fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher) {
-                (**self).dyn_hash(state)
+                (**self).dyn_hash(state);
             }
 
             fn dyn_static_ref(&self) -> Option<&'static dyn $label_trait_name> {

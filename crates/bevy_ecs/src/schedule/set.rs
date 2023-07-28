@@ -108,7 +108,7 @@ impl SystemSet for InternedSystemSet {
     }
 
     fn dyn_hash(&self, state: &mut dyn Hasher) {
-        (**self).dyn_hash(state)
+        (**self).dyn_hash(state);
     }
 
     fn dyn_static_ref(&self) -> Option<&'static dyn SystemSet> {
