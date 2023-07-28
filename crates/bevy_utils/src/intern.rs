@@ -18,13 +18,28 @@ use crate::HashSet;
 ///
 /// For details on interning, see [the module level docs](self).
 ///
-/// # Implementation details
+/// # Comparisons
+/// 
+/// Interned values use reference equality, meaning they implement [`Eq`]
+/// and [`Hash`] regardless of whether `T` implements these traits.
+/// Two interned values will only compare equal if they were interned using
+/// the same [`Interner`] instance.
+// NOTE: This type must NEVER implement Borrow since it does not obey that trait's invariants.
 ///
-/// This is just a reference to a value with an `'static` lifetime.
-//
-// This implements [`Copy`], [`Clone`], [`PartialEq`], [`Eq`] and [`Hash`] regardles of what `T`
-// implements, because it only uses the pointer to the value and not the value itself.
-// Therefore it MUST NEVER implement [`Borrow`](`std::borrow::Borrow`).
+/// ```
+/// # use bevy_utils::intern::*;
+/// #[derive(PartialEq, Eq, Hash)]
+/// struct Value(i32);
+/// impl Leak for Value {
+///     // ...
+/// # fn leak(&self) -> &'static Self { Box::leak(Box::new(Value(self.0))) }
+/// }
+/// let interner_1 = Interner::new();
+/// let interner_2 = Interner::new();
+/// // Even though both values are identical, their interned forms do not
+/// // compare equal as they use different interner instances.
+/// assert_ne!(interner_1.intern(&Value(42)), interner_2.intern(&Value(42)));
+/// ```
 pub struct Interned<T: ?Sized + 'static>(pub &'static T);
 
 impl<T: ?Sized> Deref for Interned<T> {
