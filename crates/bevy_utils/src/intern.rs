@@ -19,7 +19,7 @@ use crate::HashSet;
 /// For details on interning, see [the module level docs](self).
 ///
 /// # Comparisons
-/// 
+///
 /// Interned values use reference equality, meaning they implement [`Eq`]
 /// and [`Hash`] regardless of whether `T` implements these traits.
 /// Two interned values will only compare equal if they were interned using
