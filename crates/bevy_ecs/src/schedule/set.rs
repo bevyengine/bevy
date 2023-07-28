@@ -76,7 +76,10 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
     }
 
     /// Returns an [`InternedSystemSet`] corresponding to `self`.
-    fn intern(&self) -> InternedSystemSet where Self: Sized {
+    fn intern(&self) -> InternedSystemSet
+    where
+        Self: Sized,
+    {
         SYSTEM_SET_INTERNER.intern(self)
     }
 }
@@ -98,7 +101,10 @@ impl SystemSet for Interned<dyn SystemSet> {
         Some(self.0)
     }
 
-    fn intern(&self) -> InternedSystemSet where Self: Sized {
+    fn intern(&self) -> InternedSystemSet
+    where
+        Self: Sized,
+    {
         *self
     }
 }

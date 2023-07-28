@@ -486,10 +486,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
     }
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        ambiguous_with(
-            &mut self.graph_info,
-            set.into_system_set().intern(),
-        );
+        ambiguous_with(&mut self.graph_info, set.into_system_set().intern());
         self
     }
 

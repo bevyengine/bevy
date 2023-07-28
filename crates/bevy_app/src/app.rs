@@ -778,14 +778,12 @@ impl App {
 
     /// Inserts an existing sub app into the app
     pub fn insert_sub_app(&mut self, label: impl AppLabel, sub_app: SubApp) {
-        self.sub_apps
-            .insert(label.intern(), sub_app);
+        self.sub_apps.insert(label.intern(), sub_app);
     }
 
     /// Removes a sub app from the app. Returns [`None`] if the label doesn't exist.
     pub fn remove_sub_app(&mut self, label: impl AppLabel) -> Option<SubApp> {
-        self.sub_apps
-            .remove(&label.intern())
+        self.sub_apps.remove(&label.intern())
     }
 
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns

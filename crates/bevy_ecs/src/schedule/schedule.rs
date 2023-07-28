@@ -41,17 +41,13 @@ impl Schedules {
     ///
     /// If the map already had an entry for `label`, `schedule` is inserted,
     /// and the old schedule is returned. Otherwise, `None` is returned.
-    pub fn insert(
-        &mut self,
-        label: impl ScheduleLabel,
-        schedule: Schedule,
-    ) -> Option<Schedule> {
+    pub fn insert(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> Option<Schedule> {
         self.inner.insert(label.intern(), schedule)
     }
 
     /// Removes the schedule corresponding to the `label` from the map, returning it if it existed.
     pub fn remove(&mut self, label: impl ScheduleLabel) -> Option<Schedule> {
-        self.inner.remove(&label.intern ())
+        self.inner.remove(&label.intern())
     }
 
     /// Removes the (schedule, label) pair corresponding to the `label` from the map, returning it if it existed.
