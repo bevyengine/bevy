@@ -90,7 +90,7 @@ pub trait SystemSet: Debug + Send + Sync + 'static {
     }
 }
 
-impl SystemSet for Interned<dyn SystemSet> {
+impl SystemSet for InternedSystemSet {
     fn system_type(&self) -> Option<TypeId> {
         (**self).system_type()
     }
@@ -115,10 +115,7 @@ impl SystemSet for Interned<dyn SystemSet> {
         Some(self.0)
     }
 
-    fn intern(&self) -> InternedSystemSet
-    where
-        Self: Sized,
-    {
+    fn intern(&self) -> Self {
         *self
     }
 }

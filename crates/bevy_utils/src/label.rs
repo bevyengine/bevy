@@ -155,6 +155,10 @@ macro_rules! define_label {
             fn dyn_static_ref(&self) -> Option<&'static dyn $label_trait_name> {
                 Some(self.0)
             }
+
+            fn intern(&self) -> Self {
+                *self
+            }
         }
 
         impl PartialEq for dyn $label_trait_name {
