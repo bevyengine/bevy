@@ -53,8 +53,6 @@ pub struct NodeBundle {
     ),
 }
 
-
-
 impl Default for NodeBundle {
     fn default() -> Self {
         NodeBundle {
@@ -67,7 +65,7 @@ impl Default for NodeBundle {
             transform: Default::default(),
             visibility: Default::default(),
             z_index: Default::default(),
-            internal_components: Default::default()
+            internal_components: Default::default(),
         }
     }
 }
@@ -297,17 +295,18 @@ pub struct ButtonBundle {
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// Components managed automatically by bevy's internal systems.
+    /// Any manual modification or initialization to non-default values of these components should be avoided, as it can lead to unpredictable behaviour.
+    pub internal_components: (
+        // The global transform of the node
+        GlobalTransform,
+        // Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+        ComputedVisibility,
+    ),
 }
 
 impl Default for ButtonBundle {
@@ -322,10 +321,9 @@ impl Default for ButtonBundle {
             background_color: Default::default(),
             image: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
             visibility: Default::default(),
-            computed_visibility: Default::default(),
             z_index: Default::default(),
+            internal_components: Default::default(),
         }
     }
 }
