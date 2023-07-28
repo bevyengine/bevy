@@ -82,16 +82,6 @@ macro_rules! define_label {
 
         $(#[$label_attr])*
         pub trait $label_trait_name: 'static + Send + Sync + ::std::fmt::Debug {
-            /// Return's the [TypeId] of this label, or the the ID of the
-            /// wrappped label type for `Box<dyn
-            #[doc = stringify!($label_trait_name)]
-            /// >`
-            ///
-            /// [TypeId]: std::any::TypeId
-            fn inner_type_id(&self) -> ::std::any::TypeId {
-                std::any::TypeId::of::<Self>()
-            }
-
             /// Clones this `
             #[doc = stringify!($label_trait_name)]
             /// `
@@ -149,10 +139,6 @@ macro_rules! define_label {
         }
 
         impl $label_trait_name for ::bevy_utils::intern::Interned<dyn $label_trait_name> {
-            fn inner_type_id(&self) -> ::std::any::TypeId {
-                (**self).inner_type_id()
-            }
-
             fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
                 (**self).dyn_clone()
             }
