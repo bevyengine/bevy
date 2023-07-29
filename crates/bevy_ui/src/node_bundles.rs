@@ -38,7 +38,7 @@ pub struct NodeBundle {
     pub z_index: ZIndex,
     /// Components managed automatically by bevy's internal systems
     /// Any manual modification or initialization to non-default values of these components should be avoided, as it can lead to unpredictable behaviour.
-    /// 
+    ///
     /// * [`Node`]: Describes the logical size of the node
     /// * [`Transform`]: The transform of the node
     /// * [`GlobalTransform`]: The global transform of the node
@@ -85,7 +85,7 @@ pub struct ImageBundle {
     pub z_index: ZIndex,
     /// Components managed automatically by bevy's internal systems.
     /// Any manual modification or initialization to non-default values of these components should be avoided, as it can lead to unpredictable behaviour.
-    /// 
+    ///
     /// * [`Node`]: Describes the logical size of the node
     /// * [`Transform`]: The transform of the node
     /// * [`GlobalTransform`]: The global transform of the node
@@ -93,7 +93,7 @@ pub struct ImageBundle {
     /// * [`UiImageSize`]: The size of the image in pixels
     /// * [`ContentSize`]: Used by the layout algorithm to compute the space required for the node's content
     pub internal_components: (
-        Node, 
+        Node,
         Transform,
         GlobalTransform,
         ComputedVisibility,
@@ -161,7 +161,7 @@ pub struct TextBundle {
     pub background_color: BackgroundColor,
     /// Components managed automatically by bevy's internal systems.
     /// Any manual modification or initialization to non-default values of these components should be avoided, as it can lead to unpredictable behaviour.
-    /// 
+    ///
     /// * [`Node`]: Describes the logical size of the node
     /// * [`Transform`]: The transform of the node
     /// * [`GlobalTransform`]: The global transform of the node
@@ -270,7 +270,7 @@ pub struct ButtonBundle {
     pub z_index: ZIndex,
     /// Components managed automatically by bevy's internal systems.
     /// Any manual modification or initialization to non-default values of these components should be avoided, as it can lead to unpredictable behaviour.
-    /// 
+    ///
     /// * [`Node`]: Describes the logical size of the node
     /// * [`Transform`]: The transform of the node
     /// * [`GlobalTransform`]: The global transform of the node
