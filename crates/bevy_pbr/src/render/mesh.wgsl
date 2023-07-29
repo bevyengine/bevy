@@ -64,7 +64,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 #ifdef SKINNED
     var model = bevy_pbr::skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else
-    var model = mesh[vertex.instance_index].model;
+    var model = mesh[vertex_no_morph.instance_index].model;
 #endif
 
 #ifdef VERTEX_NORMALS
@@ -73,7 +73,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 #else
     out.world_normal = mesh_functions::mesh_normal_local_to_world(
         vertex.normal,
-        vertex.instance_index
+        vertex_no_morph.instance_index
     );
 #endif
 #endif
@@ -91,7 +91,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
     out.world_tangent = mesh_functions::mesh_tangent_local_to_world(
         model,
         vertex.tangent,
-        vertex.instance_index
+        vertex_no_morph.instance_index
     );
 #endif
 
@@ -100,7 +100,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 #endif
 
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
-    out.instance_index = vertex.instance_index;
+    out.instance_index = vertex_no_morph.instance_index;
 #endif
 
     return out;
