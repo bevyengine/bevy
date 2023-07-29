@@ -228,7 +228,12 @@ fn spawn_container(
                             left: Val::Px(transform.translation.y),
                             ..default()
                         },
-                        transform,
+                        internal_components:(
+                            Default::default(),
+                            transform,
+                            Default::default(),
+                            Default::default(),
+                        ),
                         ..default()
                     },
                     update_transform,
