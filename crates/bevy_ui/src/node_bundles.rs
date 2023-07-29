@@ -82,6 +82,9 @@ pub struct ImageBundle {
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
+    /// 
+    /// This field is set automatically by `measure_text_system`
+    /// and should ony be initialized with its default value.
     pub calculated_size: ContentSize,
     /// The background color, which serves as a "fill" for this node
     ///
@@ -113,6 +116,25 @@ pub struct ImageBundle {
     pub z_index: ZIndex,
 }
 
+impl Clone for ImageBundle {
+    fn clone(&self) -> Self {
+        Self {
+            node: self.node.clone(),
+            style: self.style.clone(),
+            calculated_size: Default::default(),
+            background_color: self.background_color.clone(),
+            image: self.image.clone(),
+            image_size: self.image_size.clone(),
+            focus_policy: self.focus_policy.clone(),
+            transform: self.transform.clone(),
+            global_transform: self.global_transform.clone(),
+            visibility: self.visibility.clone(),
+            computed_visibility: self.computed_visibility.clone(),
+            z_index: self.z_index.clone(),
+        }
+    }
+}
+
 /// A UI node that is a texture atlas sprite
 #[derive(Bundle, Debug, Default)]
 pub struct AtlasImageBundle {
@@ -125,6 +147,9 @@ pub struct AtlasImageBundle {
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
+    /// 
+    /// This field is set automatically by `update_atlas_content_size_system`
+    /// and should ony be initialized with its default value.
     pub calculated_size: ContentSize,
     /// The background color, which serves as a "fill" for this node
     ///
@@ -158,6 +183,26 @@ pub struct AtlasImageBundle {
     pub z_index: ZIndex,
 }
 
+impl Clone for AtlasImageBundle {
+    fn clone(&self) -> Self {
+        Self {
+            node: self.node.clone(),
+            style: self.style.clone(),
+            calculated_size: Default::default(),
+            background_color: self.background_color.clone(),
+            texture_atlas: self.texture_atlas.clone(),
+            texture_atlas_image: self.texture_atlas_image.clone(),
+            focus_policy: self.focus_policy.clone(),
+            image_size: self.image_size.clone(),
+            transform: self.transform.clone(),
+            global_transform: self.global_transform.clone(),
+            visibility: self.visibility.clone(),
+            computed_visibility: self.computed_visibility.clone(),
+            z_index: self.z_index.clone(),
+        }
+    }
+}
+
 #[cfg(feature = "bevy_text")]
 /// A UI node that is text
 #[derive(Bundle, Debug)]
@@ -174,6 +219,9 @@ pub struct TextBundle {
     /// Text system flags
     pub text_flags: TextFlags,
     /// The calculated size based on the given image
+    /// 
+    /// This field is set automatically by `measure_text_system`
+    /// and should ony be initialized with its default value.
     pub calculated_size: ContentSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
@@ -195,6 +243,26 @@ pub struct TextBundle {
     pub z_index: ZIndex,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
+}
+
+impl Clone for TextBundle {
+    fn clone(&self) -> Self {
+        Self {
+            node: self.node.clone(),
+            style: self.style.clone(),
+            text: self.text.clone(),
+            text_layout_info: self.text_layout_info.clone(),
+            text_flags: self.text_flags.clone(),
+            calculated_size: Default::default(),
+            focus_policy: self.focus_policy.clone(),
+            transform: self.transform.clone(),
+            global_transform: self.global_transform.clone(),
+            visibility: self.visibility.clone(),
+            computed_visibility: self.computed_visibility.clone(),
+            z_index: self.z_index.clone(),
+            background_color: self.background_color.clone(),
+        }
+    }
 }
 
 #[cfg(feature = "bevy_text")]
