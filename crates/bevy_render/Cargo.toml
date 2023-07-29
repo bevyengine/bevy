@@ -72,7 +72,7 @@ hexasphere = "9.0"
 ddsfile = { version = "0.5.0", optional = true }
 ktx2 = { version = "0.3.0", optional = true }
 # naga_oil = "0.8"
-naga_oil = { git = "https://github.com/VitalyAnkh/naga_oil.git", branch = "update-naga-to-0.13" }
+naga_oil = { git = "https://github.com/robtfm/naga_oil.git", branch = "0.13" }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.4.0", optional = true }
