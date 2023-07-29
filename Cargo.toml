@@ -1049,7 +1049,7 @@ path = "examples/audio/pitch.rs"
 
 [package.metadata.example.pitch]
 name = "Pitch"
-description = "Shows how to play a pitch"
+description = "Shows how to directly play a simple pitch"
 category = "Audio"
 wasm = true
 
