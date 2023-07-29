@@ -124,18 +124,18 @@ impl Clone for ImageBundle {
             "ImageBundle with non-default `ContentSize` is not cloneable"
         );
         Self {
-            node: self.node.clone(),
+            node: self.node,
             style: self.style.clone(),
             calculated_size: Default::default(),
-            background_color: self.background_color.clone(),
+            background_color: self.background_color,
             image: self.image.clone(),
-            image_size: self.image_size.clone(),
-            focus_policy: self.focus_policy.clone(),
-            transform: self.transform.clone(),
-            global_transform: self.global_transform.clone(),
-            visibility: self.visibility.clone(),
+            image_size: self.image_size,
+            focus_policy: self.focus_policy,
+            transform: self.transform,
+            global_transform: self.global_transform,
+            visibility: self.visibility,
             computed_visibility: self.computed_visibility.clone(),
-            z_index: self.z_index.clone(),
+            z_index: self.z_index,
         }
     }
 }
@@ -196,19 +196,19 @@ impl Clone for AtlasImageBundle {
             "AtlasImageBundle with non-default `ContentSize` is not cloneable"
         );
         Self {
-            node: self.node.clone(),
+            node: self.node,
             style: self.style.clone(),
             calculated_size: Default::default(),
-            background_color: self.background_color.clone(),
+            background_color: self.background_color,
             texture_atlas: self.texture_atlas.clone(),
             texture_atlas_image: self.texture_atlas_image.clone(),
-            focus_policy: self.focus_policy.clone(),
-            image_size: self.image_size.clone(),
-            transform: self.transform.clone(),
-            global_transform: self.global_transform.clone(),
-            visibility: self.visibility.clone(),
+            focus_policy: self.focus_policy,
+            image_size: self.image_size,
+            transform: self.transform,
+            global_transform: self.global_transform,
+            visibility: self.visibility,
             computed_visibility: self.computed_visibility.clone(),
-            z_index: self.z_index.clone(),
+            z_index: self.z_index,
         }
     }
 }
@@ -263,19 +263,19 @@ impl Clone for TextBundle {
             "TextBundle with non-default `ContentSize` is not cloneable"
         );
         Self {
-            node: self.node.clone(),
+            node: self.node,
             style: self.style.clone(),
             text: self.text.clone(),
             text_layout_info: self.text_layout_info.clone(),
             text_flags: self.text_flags.clone(),
             calculated_size: Default::default(),
-            focus_policy: self.focus_policy.clone(),
-            transform: self.transform.clone(),
-            global_transform: self.global_transform.clone(),
-            visibility: self.visibility.clone(),
+            focus_policy: self.focus_policy,
+            transform: self.transform,
+            global_transform: self.global_transform,
+            visibility: self.visibility,
             computed_visibility: self.computed_visibility.clone(),
-            z_index: self.z_index.clone(),
-            background_color: self.background_color.clone(),
+            z_index: self.z_index,
+            background_color: self.background_color,
         }
     }
 }
