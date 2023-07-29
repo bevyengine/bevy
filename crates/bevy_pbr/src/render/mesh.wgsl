@@ -64,6 +64,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 #ifdef SKINNED
     var model = bevy_pbr::skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     var model = mesh[vertex_no_morph.instance_index].model;
 #endif
 
@@ -73,6 +74,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 #else
     out.world_normal = mesh_functions::mesh_normal_local_to_world(
         vertex.normal,
+        // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         vertex_no_morph.instance_index
     );
 #endif
@@ -91,6 +93,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
     out.world_tangent = mesh_functions::mesh_tangent_local_to_world(
         model,
         vertex.tangent,
+        // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         vertex_no_morph.instance_index
     );
 #endif
@@ -100,6 +103,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 #endif
 
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     out.instance_index = vertex_no_morph.instance_index;
 #endif
 
