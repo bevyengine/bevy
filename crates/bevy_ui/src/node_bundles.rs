@@ -82,7 +82,7 @@ pub struct ImageBundle {
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
-    /// 
+    ///
     /// This field is set automatically by `measure_text_system`
     /// and should ony be initialized with its default value.
     pub calculated_size: ContentSize,
@@ -118,6 +118,11 @@ pub struct ImageBundle {
 
 impl Clone for ImageBundle {
     fn clone(&self) -> Self {
+        // A MeasureFunc is not cloneable.
+        assert!(
+            self.calculated_size.measure_func.is_none(),
+            "ImageBundle with non-default `ContentSize` is not cloneable"
+        );
         Self {
             node: self.node.clone(),
             style: self.style.clone(),
@@ -147,7 +152,7 @@ pub struct AtlasImageBundle {
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
-    /// 
+    ///
     /// This field is set automatically by `update_atlas_content_size_system`
     /// and should ony be initialized with its default value.
     pub calculated_size: ContentSize,
@@ -185,6 +190,11 @@ pub struct AtlasImageBundle {
 
 impl Clone for AtlasImageBundle {
     fn clone(&self) -> Self {
+        // A `MeasureFunc` is not cloneable.
+        assert!(
+            self.calculated_size.measure_func.is_none(),
+            "AtlasImageBundle with non-default `ContentSize` is not cloneable"
+        );
         Self {
             node: self.node.clone(),
             style: self.style.clone(),
@@ -219,7 +229,7 @@ pub struct TextBundle {
     /// Text system flags
     pub text_flags: TextFlags,
     /// The calculated size based on the given image
-    /// 
+    ///
     /// This field is set automatically by `measure_text_system`
     /// and should ony be initialized with its default value.
     pub calculated_size: ContentSize,
@@ -247,6 +257,11 @@ pub struct TextBundle {
 
 impl Clone for TextBundle {
     fn clone(&self) -> Self {
+        // A `MeasureFunc` is not cloneable.
+        assert!(
+            self.calculated_size.measure_func.is_none(),
+            "TextBundle with non-default `ContentSize` is not cloneable"
+        );
         Self {
             node: self.node.clone(),
             style: self.style.clone(),
