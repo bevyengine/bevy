@@ -91,7 +91,7 @@ fn setup(
         }),
     );
 
-    commands.spawn(TextBundle {
+    let mut metallic_label = TextBundle {
         text: Text::from_section(
             "Metallic",
             TextStyle {
@@ -106,12 +106,11 @@ fn setup(
             right: Val::Px(0.0),
             ..default()
         },
-        transform: Transform {
-            rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
-            ..default()
-        },
         ..default()
-    });
+    };
+    metallic_label.internal_components.1.rotation =
+        Quat::from_rotation_z(std::f32::consts::PI / 2.0);
+    commands.spawn(metallic_label);
 
     commands.spawn((
         TextBundle::from_section(
