@@ -1,4 +1,4 @@
-//! This example illustrates how to play a pitch
+//! This example illustrates how to play a single-frequency sound (aka a pitch)
 
 use bevy::prelude::*;
 use std::time::Duration;
