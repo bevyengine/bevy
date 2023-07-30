@@ -213,7 +213,6 @@ pub fn substitute_identifiers(input: &str, offset: usize, declared_imports: &Has
     
                         if let Some((module, item)) = full_path.rsplit_once("::") {
                             used_imports.entry(module.to_owned()).or_insert_with(|| {
-                                println!("setting import offset for {module} to {offset}+{token_pos} = {}", offset + token_pos);
                                 ImportDefWithOffset { definition: ImportDefinition { import: module.to_owned(), ..Default::default() }, offset: offset + token_pos }
                             }).definition.items.push(item.to_owned());
                             output.push_str(item);
