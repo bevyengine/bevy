@@ -1,6 +1,6 @@
-const _naga_oil_mod_ME_memberC: u32 = 1u;
+const CX_naga_oil_mod_XMEX: u32 = 1u;
 
 fn main() -> u32 {
-    return _naga_oil_mod_ME_memberC;
+    return CX_naga_oil_mod_XMEX;
 }
 

@@ -1,8 +1,8 @@
 error: required import 'missing' not found
-  ┌─ tests/error_test/include.wgsl:7:1
-  │
-7 │ #import missing
-  │ ^
-  │
-  = missing import 'missing'
+   ┌─ tests/error_test/include.wgsl:11:13
+   │
+11 │     let x = missing::y();
+   │             ^
+   │
+   = missing import 'missing'
 

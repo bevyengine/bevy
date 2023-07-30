@@ -1,6 +1,6 @@
 error: override is invalid as `outer` is not virtual (this error can be disabled with feature 'override_any')
-  ┌─ tests/overrides/top_invalid.wgsl:3:39
+  ┌─ tests/overrides/top_invalid.wgsl:3:13
   │
 3 │ override fn mod::outer() -> f32 {
-  │                                       ^
+  │             ^
 

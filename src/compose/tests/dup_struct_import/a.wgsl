@@ -2,7 +2,7 @@
 #import struct
 
 fn a() -> struct::MyStruct {
-    var s: struct::MyStruct;
-    s.value = 1.0;
-    return s;
+    var s_a: struct::MyStruct;
+    s_a.value = 1.0;
+    return s_a;
 }

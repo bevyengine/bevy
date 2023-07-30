@@ -288,32 +288,40 @@ impl Preprocessor {
                         line = lines.next().unwrap().0;
                     }
 
-                    declared_imports.extend(
-                        parse_imports(import_lines.as_str()).map_err(|(err, offset)| ComposerErrorInner::ImportParseError(err.to_owned(), offset))?
-                    );
+                    parse_imports(import_lines.as_str(), &mut declared_imports).map_err(|(err, offset)| ComposerErrorInner::ImportParseError(err.to_owned(), offset))?;
                     output = true;
                 } else {
-                    let mut line_with_defs = original_line.to_string();
-                    for capture in self.def_regex.captures_iter(&line) {
-                        let def = capture.get(1).unwrap();
-                        if let Some(def) = shader_defs.get(def.as_str()) {
-                            line_with_defs = self
-                                .def_regex
-                                .replace(&line_with_defs, def.value_as_string())
-                                .to_string();
+                    let replaced_lines = [original_line, &line].map(|input| {
+                        let mut output = input.to_string();
+                        for capture in self.def_regex.captures_iter(&input) {
+                            let def = capture.get(1).unwrap();
+                            if let Some(def) = shader_defs.get(def.as_str()) {
+                                output = self
+                                    .def_regex
+                                    .replace(&output, def.value_as_string())
+                                    .to_string();
+                            }
                         }
-                    }
-                    for capture in self.def_regex_delimited.captures_iter(&line) {
-                        let def = capture.get(1).unwrap();
-                        if let Some(def) = shader_defs.get(def.as_str()) {
-                            line_with_defs = self
-                                .def_regex_delimited
-                                .replace(&line_with_defs, def.value_as_string())
-                                .to_string();
+                        for capture in self.def_regex_delimited.captures_iter(&input) {
+                            let def = capture.get(1).unwrap();
+                            if let Some(def) = shader_defs.get(def.as_str()) {
+                                output = self
+                                    .def_regex_delimited
+                                    .replace(&output, def.value_as_string())
+                                    .to_string();
+                            }
                         }
-                    }
+                        output
+                    });
 
-                    let item_replaced_line = substitute_identifiers(line_with_defs.as_str(), offset, &declared_imports, &mut used_imports);
+                    let original_line = &replaced_lines[0];
+                    let decommented_line = &replaced_lines[1];
+
+                    // we don't want to capture imports from comments so we run using a dummy used_imports, and disregard any errors
+                    let item_replaced_line = substitute_identifiers(original_line, offset, &declared_imports, &mut Default::default(), true).unwrap();
+                    // we also run against the de-commented line to replace real imports, and throw an error if appropriate
+                    let _ = substitute_identifiers(decommented_line, offset, &declared_imports, &mut used_imports, false)
+                        .map_err(|pos| ComposerErrorInner::ImportParseError("Ambiguous import path for item".to_owned(), pos))?;
 
                     final_string.push_str(&item_replaced_line);
                     let diff = line.len().saturating_sub(item_replaced_line.len());
@@ -364,16 +372,17 @@ impl Preprocessor {
         let mut lines = lines.replace_comments().peekable();
 
         while let Some(mut line) = lines.next() {
-            if let Some(def) = self.check_scope(&HashMap::default(), &line, None, offset)?.1 {
-                effective_defs.insert(def.to_owned());
+            let (is_scope, def) = self.check_scope(&HashMap::default(), &line, None, offset)?;
+            
+            if is_scope {
+                if let Some(def) = def {
+                    effective_defs.insert(def.to_owned());
+                }
             } else if self.import_regex.is_match(&line) {
                 let mut import_lines = String::default();
                 let mut open_count = 0;
 
                 loop {
-                    // output spaces for removed lines to keep spans consistent (errors report against substituted_source, which is not preprocessed)
-                    offset += line.len() + 1;
-
                     open_count += line.match_indices('{').count();
                     open_count = open_count.saturating_sub(line.match_indices('}').count());
 
@@ -383,12 +392,13 @@ impl Preprocessor {
                         break;
                     }
 
+                    // output spaces for removed lines to keep spans consistent (errors report against substituted_source, which is not preprocessed)
+                    offset += line.len() + 1;
+
                     line = lines.next().unwrap();
                 }
 
-                declared_imports.extend(
-                    parse_imports(import_lines.as_str()).map_err(|(err, offset)| ComposerErrorInner::ImportParseError(err.to_owned(), offset))?
-                );
+                parse_imports(import_lines.as_str(), &mut declared_imports).map_err(|(err, offset)| ComposerErrorInner::ImportParseError(err.to_owned(), offset))?;
             } else if let Some(cap) = self.define_import_path_regex.captures(&line) {
                 name = Some(cap.get(1).unwrap().as_str().to_string());
             } else if let Some(cap) = self.define_shader_def_regex.captures(&line) {
@@ -415,7 +425,7 @@ impl Preprocessor {
                     return Err(ComposerErrorInner::DefineInModule(offset));
                 }
             } else {
-                substitute_identifiers(&line, offset, &declared_imports, &mut used_imports);
+                substitute_identifiers(&line, offset, &declared_imports, &mut used_imports, true).unwrap();
             }
 
             offset += line.len() + 1;

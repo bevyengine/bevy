@@ -339,7 +339,7 @@ impl Default for Composer {
             check_decoration_regex: Regex::new(format!("({}|{})", regex_syntax::escape(DECORATION_PRE), regex_syntax::escape(DECORATION_OVERRIDE_PRE)).as_str()).unwrap(),
             undecorate_regex: Regex::new(
                 format!(
-                    "{}([A-Z0-9]*){}",
+                    r"([\w\d_]+){}([A-Z0-9]*){}",
                     regex_syntax::escape(DECORATION_PRE),
                     regex_syntax::escape(DECORATION_POST)
                 )
@@ -349,7 +349,7 @@ impl Default for Composer {
             virtual_fn_regex: Regex::new(r"(?P<lead>[\s]*virtual\s+fn\s+)(?P<function>[^\s]+)(?P<trail>\s*)\(").unwrap(),
             override_fn_regex: Regex::new(
                 format!(
-                    r"(?P<lead>[\s]*override\s+fn\s*){}(?P<module>[^\s]+){}(?P<function>[^\s]+)(?P<trail>\s*)\(", 
+                    r"(override\s+fn\s+)([^\s]+){}([\w\d]+){}(\s*)\(", 
                     regex_syntax::escape(DECORATION_PRE),
                     regex_syntax::escape(DECORATION_POST)
                 )
@@ -370,11 +370,11 @@ impl Default for Composer {
     }
 }
 
-const DECORATION_PRE: &str = "_naga_oil_mod_";
-const DECORATION_POST: &str = "_member";
+const DECORATION_PRE: &str = "X_naga_oil_mod_X";
+const DECORATION_POST: &str = "X";
 
 // must be same length as DECORATION_PRE for spans to work
-const DECORATION_OVERRIDE_PRE: &str = "_naga_oil_vrt_";
+const DECORATION_OVERRIDE_PRE: &str = "X_naga_oil_vrt_X";
 
 struct IrBuildResult {
     module: naga::Module,
@@ -385,16 +385,16 @@ struct IrBuildResult {
 impl Composer {
     pub fn decorated_name(module_name: Option<&str>, item_name: &str) -> String {
         match module_name {
-            Some(module_name) => format!("{}{}", Self::decorate(module_name), item_name),
+            Some(module_name) => format!("{}{}", item_name, Self::decorate(module_name)),
             None => item_name.to_owned(),
         }
     }
 
-    fn decorate(as_name: &str) -> String {
-        let as_name = data_encoding::BASE32_NOPAD.encode(as_name.as_bytes());
-        format!("{DECORATION_PRE}{as_name}{DECORATION_POST}")
+    fn decorate(module: &str) -> String {
+        let encoded = data_encoding::BASE32_NOPAD.encode(module.as_bytes());
+        format!("{DECORATION_PRE}{encoded}{DECORATION_POST}")
     }
-
+    
     fn decode(from: &str) -> String {
         String::from_utf8(data_encoding::BASE32_NOPAD.decode(from.as_bytes()).unwrap()).unwrap()
     }
@@ -403,7 +403,7 @@ impl Composer {
         let undecor = self
             .undecorate_regex
             .replace_all(string, |caps: &regex::Captures| {
-                format!("{}::", Self::decode(caps.get(1).unwrap().as_str()))
+                format!("{}::{}", Self::decode(caps.get(2).unwrap().as_str()), caps.get(1).unwrap().as_str())
             });
 
         let undecor =
@@ -703,7 +703,7 @@ impl Composer {
             .collect();
         for (h, ty) in source_ir.types.iter() {
             if let Some(name) = &ty.name {
-                let decorated_type_name = format!("{module_decoration}{name}");
+                let decorated_type_name = format!("{name}{module_decoration}");
                 if !owned_types.contains(&decorated_type_name) {
                     continue;
                 }
@@ -740,11 +740,11 @@ impl Composer {
             .constants
             .iter()
             .flat_map(|(_, c)| c.name.as_deref())
-            .filter(|name| name.starts_with(module_decoration))
+            .filter(|name| name.ends_with(module_decoration))
             .collect();
         for (h, c) in source_ir.constants.iter() {
             if let Some(name) = &c.name {
-                if name.starts_with(module_decoration) && !recompiled_consts.contains(name.as_str())
+                if name.ends_with(module_decoration) && !recompiled_consts.contains(name.as_str())
                 {
                     return Err(ComposerErrorInner::InvalidIdentifier {
                         original: name.clone(),
@@ -758,11 +758,11 @@ impl Composer {
             .global_variables
             .iter()
             .flat_map(|(_, c)| c.name.as_deref())
-            .filter(|name| name.starts_with(module_decoration))
+            .filter(|name| name.ends_with(module_decoration))
             .collect();
         for (h, gv) in source_ir.global_variables.iter() {
             if let Some(name) = &gv.name {
-                if name.starts_with(module_decoration)
+                if name.ends_with(module_decoration)
                     && !recompiled_globals.contains(name.as_str())
                 {
                     return Err(ComposerErrorInner::InvalidIdentifier {
@@ -777,11 +777,11 @@ impl Composer {
             .functions
             .iter()
             .flat_map(|(_, c)| c.name.as_deref())
-            .filter(|name| name.starts_with(module_decoration))
+            .filter(|name| name.ends_with(module_decoration))
             .collect();
         for (h, f) in source_ir.functions.iter() {
             if let Some(name) = &f.name {
-                if name.starts_with(module_decoration) && !recompiled_fns.contains(name.as_str()) {
+                if name.ends_with(module_decoration) && !recompiled_fns.contains(name.as_str()) {
                     return Err(ComposerErrorInner::InvalidIdentifier {
                         original: name.clone(),
                         at: source_ir.functions.get_span(h),
@@ -868,8 +868,8 @@ impl Composer {
         let source =
             self.override_fn_regex
                 .replace_all(&source, |cap: &regex::Captures| {
-                    let target_module = cap.get(2).unwrap().as_str().to_owned();
-                    let target_function = cap.get(3).unwrap().as_str().to_owned();
+                    let target_module = cap.get(3).unwrap().as_str().to_owned();
+                    let target_function = cap.get(2).unwrap().as_str().to_owned();
 
                     #[cfg(not(feature = "override_any"))]
                     {
@@ -879,7 +879,8 @@ impl Composer {
 
                         match module_set {
                             None => {
-                                let pos = cap.get(2).unwrap().start();
+                                // TODO this should be unreachable?
+                                let pos = cap.get(3).unwrap().start();
                                 override_error = Some(wrap_err(
                                     ComposerErrorInner::ImportNotFound(raw_module_name, pos),
                                 ));
@@ -887,7 +888,7 @@ impl Composer {
                             Some(module_set) => {
                                 let module = module_set.get_module(shader_defs).unwrap();
                                 if !module.virtual_functions.contains(&target_function) {
-                                    let pos = cap.get(3).unwrap().start();
+                                    let pos = cap.get(2).unwrap().start();
                                     override_error =
                                         Some(wrap_err(ComposerErrorInner::OverrideNotVirtual {
                                             name: target_function.clone(),
@@ -900,17 +901,17 @@ impl Composer {
 
                     let base_name = format!(
                         "{}{}{}{}",
+                        target_function.as_str(),
                         DECORATION_PRE,
                         target_module.as_str(),
                         DECORATION_POST,
-                        target_function.as_str()
                     );
                     let rename = format!(
                         "{}{}{}{}",
+                        target_function.as_str(),
                         DECORATION_OVERRIDE_PRE,
                         target_module.as_str(),
                         DECORATION_POST,
-                        target_function.as_str()
                     );
 
                     let replacement_str = format!(
@@ -967,7 +968,7 @@ impl Composer {
             override_functions
                 .entry(base_name.clone())
                 .or_default()
-                .push(format!("{module_decoration}{rename}"));
+                .push(format!("{rename}{module_decoration}"));
         }
 
         // rename and record owned items (except types which can't be mutably accessed)
@@ -975,7 +976,7 @@ impl Composer {
         for (h, c) in source_ir.constants.iter_mut() {
             if let Some(name) = c.name.as_mut() {
                 if !name.contains(DECORATION_PRE) {
-                    *name = format!("{module_decoration}{name}");
+                    *name = format!("{name}{module_decoration}");
                     owned_constants.insert(name.clone(), h);
                 }
             }
@@ -985,7 +986,7 @@ impl Composer {
         for (h, gv) in source_ir.global_variables.iter_mut() {
             if let Some(name) = gv.name.as_mut() {
                 if !name.contains(DECORATION_PRE) {
-                    *name = format!("{module_decoration}{name}");
+                    *name = format!("{name}{module_decoration}");
 
                     owned_vars.insert(name.clone(), h);
                 }
@@ -996,7 +997,7 @@ impl Composer {
         for (h_f, f) in source_ir.functions.iter_mut() {
             if let Some(name) = f.name.as_mut() {
                 if !name.contains(DECORATION_PRE) {
-                    *name = format!("{module_decoration}{name}");
+                    *name = format!("{name}{module_decoration}");
 
                     // create dummy header function
                     let header_function = naga::Function {
@@ -1020,8 +1021,8 @@ impl Composer {
             for ep in &mut source_ir.entry_points {
                 ep.function.name = Some(format!(
                     "{}{}",
+                    ep.function.name.as_deref().unwrap_or("main"),
                     module_decoration,
-                    ep.function.name.as_deref().unwrap_or("main")
                 ));
                 let header_function = naga::Function {
                     name: ep.function.name.clone(),
@@ -1059,7 +1060,7 @@ impl Composer {
         for (h, ty) in source_ir.types.iter() {
             if let Some(name) = &ty.name {
                 if !name.contains(DECORATION_PRE) {
-                    let name = format!("{module_decoration}{name}");
+                    let name = format!("{name}{module_decoration}");
                     owned_types.insert(name.clone());
                     // copy and rename types
                     module_builder.rename_type(&h, Some(name.clone()));
@@ -1166,7 +1167,7 @@ impl Composer {
         let items: Option<HashSet<String>> = items.map(|items| {
             items
                 .iter()
-                .map(|item| format!("{}{}", composable.decorated_name, item))
+                .map(|item| format!("{}{}", item, composable.decorated_name))
                 .collect()
         });
         let items = items.as_ref();
@@ -1211,7 +1212,10 @@ impl Composer {
         for (h_f, f) in source_ir.functions.iter() {
             if let Some(name) = &f.name {
                 if composable.owned_functions.contains(name)
-                    && items.map_or(true, |items| items.contains(name))
+                    && (
+                        items.map_or(true, |items| items.contains(name)) ||
+                        composable.override_functions.values().any(|v| v.contains(name))
+                    )
                 {
                     let span = composable.module_ir.functions.get_span(h_f);
                     derived.import_function_if_new(f, span);

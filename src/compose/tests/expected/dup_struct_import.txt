@@ -1,26 +1,26 @@
-struct _naga_oil_mod_ON2HE5LDOQ_memberMyStruct {
+
+
+
+
+
+
+    let _e0: MyStructX_naga_oil_mod_XON2HE5LDOQX = aX_naga_oil_mod_XMEX();
+    let _e1: MyStructX_naga_oil_mod_XON2HE5LDOQX = bX_naga_oil_mod_XMIX();
+    let _e3: MyStructX_naga_oil_mod_XON2HE5LDOQX = s_a;
+    let _e3: MyStructX_naga_oil_mod_XON2HE5LDOQX = s_b;
+    return (_e0.value / _e1.value);
+    return _e3;
+    return _e3;
+    s_a.value = 1.0;
+    s_b.value = 2.0;
     value: f32,
-}
-
-fn _naga_oil_mod_ME_membera() -> _naga_oil_mod_ON2HE5LDOQ_memberMyStruct {
-    var s: _naga_oil_mod_ON2HE5LDOQ_memberMyStruct;
-
-    s.value = 1.0;
-    let _e3: _naga_oil_mod_ON2HE5LDOQ_memberMyStruct = s;
-    return _e3;
-}
-
-fn _naga_oil_mod_MI_memberb() -> _naga_oil_mod_ON2HE5LDOQ_memberMyStruct {
-    var s_1: _naga_oil_mod_ON2HE5LDOQ_memberMyStruct;
-
-    s_1.value = 2.0;
-    let _e3: _naga_oil_mod_ON2HE5LDOQ_memberMyStruct = s_1;
-    return _e3;
-}
-
+    var s_a: MyStructX_naga_oil_mod_XON2HE5LDOQX;
+    var s_b: MyStructX_naga_oil_mod_XON2HE5LDOQX;
+fn aX_naga_oil_mod_XMEX() -> MyStructX_naga_oil_mod_XON2HE5LDOQX {
+fn bX_naga_oil_mod_XMIX() -> MyStructX_naga_oil_mod_XON2HE5LDOQX {
 fn main() -> f32 {
-    let _e0: _naga_oil_mod_ON2HE5LDOQ_memberMyStruct = _naga_oil_mod_ME_membera();
-    let _e1: _naga_oil_mod_ON2HE5LDOQ_memberMyStruct = _naga_oil_mod_MI_memberb();
-    return (_e0.value + _e1.value);
+struct MyStructX_naga_oil_mod_XON2HE5LDOQX {
 }
-
+}
+}
+}
