@@ -143,6 +143,7 @@ pub mod comment_strip_iter;
 pub mod error;
 pub mod preprocess;
 mod test;
+pub mod ident_identifier;
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Default)]
 pub enum ShaderLanguage {
@@ -262,6 +263,8 @@ pub struct ComposableModuleDefinition {
     modules: HashMap<ModuleKey, ComposableModule>,
     // used in spans when this module is included
     module_index: usize,
+    // preprocessor meta data
+    // metadata: PreprocessorMetaData,
 }
 
 impl ComposableModuleDefinition {
@@ -291,14 +294,7 @@ impl ComposableModuleDefinition {
 #[derive(Debug, Clone, Default)]
 pub struct ImportDefinition {
     pub import: String,
-    pub as_name: Option<String>,
-    pub items: Option<Vec<String>>,
-}
-
-impl ImportDefinition {
-    fn as_name(&self) -> &str {
-        self.as_name.as_deref().unwrap_or(self.import.as_str())
-    }
+    pub items: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -448,99 +444,6 @@ impl Composer {
         );
 
         substituted_source.into_owned()
-    }
-
-    fn substitute_shader_string(
-        &self,
-        source: &str,
-        imports: &[ImportDefWithOffset],
-    ) -> Result<String, ComposerErrorInner> {
-        // sort imports by decreasing length so we don't accidentally replace substrings of a longer import
-        let mut imports = imports.to_vec();
-        imports.sort_by_key(|import| usize::MAX - import.definition.as_name().len());
-
-        let mut imported_items = HashMap::new();
-        let mut substituted_source = source.to_owned();
-
-        for import in imports {
-            match import.definition.items {
-                Some(items) => {
-                    // gather individual imported items
-                    for item in &items {
-                        imported_items.insert(
-                            item.clone(),
-                            format!("{}{}", Self::decorate(&import.definition.import), item),
-                        );
-                    }
-                }
-                None => {
-                    // replace the module name directly
-                    substituted_source = substituted_source.replace(
-                        format!("{}::", import.definition.as_name()).as_str(),
-                        &Self::decorate(&import.definition.import),
-                    );
-                }
-            }
-        }
-
-        // map individually imported items
-        let mut item_substituted_source = String::default();
-        let mut current_word = String::default();
-        let mut line_is_directive = None;
-        let mut is_valid_import_substitution_point = true;
-
-        for char in substituted_source.chars() {
-            if !current_word.is_empty() {
-                if unicode_ident::is_xid_continue(char) {
-                    current_word.push(char);
-                    continue;
-                }
-
-                let mut output = &current_word;
-
-                // substitute current word if we are not writing a directive (e.g. `#import xyz`)
-                if is_valid_import_substitution_point {
-                    if let Some(replacement) = imported_items.get(&current_word) {
-                        output = replacement;
-                    }
-                }
-
-                item_substituted_source += output;
-                current_word.clear();
-            }
-
-            // set current directive state
-            if char == '\r' || char == '\n' {
-                // new line -> could be
-                line_is_directive = None;
-            } else if line_is_directive.is_none() {
-                line_is_directive = match char {
-                    // first non-ws char is a #, this is a directive
-                    '#' => Some(true),
-                    // whitespace, still unknown
-                    ' ' | '\t' => None,
-                    // non-whitespace and not a '#', not a directive
-                    _ => Some(false),
-                }
-            }
-
-            if unicode_ident::is_xid_start(char) {
-                current_word.push(char);
-            } else {
-                item_substituted_source.push(char);
-                // we should only substitute global names
-                // '.' -> avoid substituting members with name == import item
-                // '@' -> avoid substituting annotations
-                if char == '.' || char == '@' {
-                    is_valid_import_substitution_point = false;
-                } else {
-                    is_valid_import_substitution_point = !line_is_directive.unwrap_or(false);
-                }
-            }
-        }
-        substituted_source = item_substituted_source;
-
-        Ok(substituted_source)
     }
 
     fn naga_to_string(
@@ -915,7 +818,7 @@ impl Composer {
 
         let PreprocessOutput {
             preprocessed_source: source,
-            meta: PreprocessorMetaData { imports, .. },
+            imports
         } = self
             .preprocessor
             .preprocess(
@@ -923,10 +826,6 @@ impl Composer {
                 shader_defs,
                 self.validate,
             )
-            .map_err(wrap_err)?;
-
-        let source = self
-            .substitute_shader_string(&source, &imports)
             .map_err(wrap_err)?;
 
         let mut imports: Vec<_> = imports
@@ -1337,10 +1236,6 @@ impl Composer {
             return;
         }
 
-        if import.items.is_none() {
-            already_added.insert(import.import.clone());
-        }
-
         let import_module_set = self.module_sets.get(&import.import).unwrap();
         let module = import_module_set.get_module(shader_defs).unwrap();
 
@@ -1351,7 +1246,7 @@ impl Composer {
         Self::add_composable_data(
             derived,
             module,
-            import.items.as_ref(),
+            Some(&import.items),
             import_module_set.module_index << SPAN_SHIFT,
             header,
         );
@@ -1373,7 +1268,6 @@ impl Composer {
                     defs: shader_defs.clone(),
                 },
             })?
-            .meta
             .imports;
 
         self.ensure_imports(imports.iter().map(|import| &import.definition), shader_defs)?;
@@ -1497,13 +1391,12 @@ impl Composer {
 
         let substituted_source = self.sanitize_and_set_auto_bindings(source);
 
-        let (
-            PreprocessorMetaData {
-                name: module_name,
-                mut imports,
-            },
-            _,
-        ) = self
+        let PreprocessorMetaData {
+            name: module_name,
+            mut imports,
+            mut effective_defs,
+            ..
+        } = self
             .preprocessor
             .get_preprocessor_metadata(&substituted_source, false)
             .map_err(|inner| ComposerError {
@@ -1544,7 +1437,6 @@ impl Composer {
                 }),
         );
 
-        let mut effective_defs = HashSet::new();
         for import in &imports {
             // we require modules already added so that we can capture the shader_defs that may impact us by impacting our dependencies
             let module_set = self
@@ -1569,9 +1461,6 @@ impl Composer {
                     .map(|def| (def.0.clone(), *def.1)),
             );
         }
-
-        // record our explicit effective shader_defs
-        effective_defs.extend(self.preprocessor.effective_defs(source));
 
         // remove defs that are already specified through our imports
         effective_defs.retain(|name| !shader_defs.contains_key(name));
@@ -1637,7 +1526,7 @@ impl Composer {
 
         let sanitized_source = self.sanitize_and_set_auto_bindings(source);
 
-        let (_, defines) = self
+        let PreprocessorMetaData { name, defines, imports, .. } = self
             .preprocessor
             .get_preprocessor_metadata(&sanitized_source, true)
             .map_err(|inner| ComposerError {
@@ -1650,32 +1539,7 @@ impl Composer {
             })?;
         shader_defs.extend(defines.into_iter());
 
-        let PreprocessOutput {
-            preprocessed_source,
-            meta: PreprocessorMetaData { name, imports },
-        } = self
-            .preprocessor
-            .preprocess(&sanitized_source, &shader_defs, false)
-            .map_err(|inner| ComposerError {
-                inner,
-                source: ErrSource::Constructing {
-                    path: file_path.to_owned(),
-                    source: sanitized_source.to_owned(),
-                    offset: 0,
-                },
-            })?;
-
         let name = name.unwrap_or_default();
-        let substituted_source = self
-            .substitute_shader_string(&sanitized_source, &imports)
-            .map_err(|inner| ComposerError {
-                inner,
-                source: ErrSource::Constructing {
-                    path: file_path.to_owned(),
-                    source: sanitized_source.to_owned(),
-                    offset: 0,
-                },
-            })?;
 
         // make sure imports have been added
         // and gather additional defs specified at module level
@@ -1720,7 +1584,7 @@ impl Composer {
 
         let definition = ComposableModuleDefinition {
             name,
-            sanitized_source: substituted_source,
+            sanitized_source: sanitized_source.clone(),
             language: shader_type.into(),
             file_path: file_path.to_owned(),
             module_index: 0,
@@ -1797,7 +1661,7 @@ impl Composer {
                             inner: e.into(),
                             source: ErrSource::Constructing {
                                 path: file_path.to_owned(),
-                                source: preprocessed_source.clone(),
+                                source: sanitized_source.clone(),
                                 offset: composable.start_offset,
                             },
                         })?;
@@ -1810,7 +1674,7 @@ impl Composer {
                 inner: e.into(),
                 source: ErrSource::Constructing {
                     path: file_path.to_owned(),
-                    source: preprocessed_source.clone(),
+                    source: sanitized_source.clone(),
                     offset: composable.start_offset,
                 },
             })?;
@@ -1854,7 +1718,7 @@ impl Composer {
                         }
                         None => ErrSource::Constructing {
                             path: file_path.to_owned(),
-                            source: preprocessed_source,
+                            source: sanitized_source,
                             offset: composable.start_offset,
                         },
                     };
@@ -1882,7 +1746,7 @@ pub fn get_preprocessor_data(
     Vec<ImportDefinition>,
     HashMap<String, ShaderDefValue>,
 ) {
-    let (PreprocessorMetaData { name, imports }, defines) = PREPROCESSOR
+    let PreprocessorMetaData { name, imports, defines, .. } = PREPROCESSOR
         .get_preprocessor_metadata(source, true)
         .unwrap();
     (
