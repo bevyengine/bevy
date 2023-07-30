@@ -104,7 +104,6 @@ impl<'a> Iterator for Tokenizer<'a> {
     type Item = Token<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let tok = self.tokens.pop_front();
-        tok
+        self.tokens.pop_front()
     }
 }

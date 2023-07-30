@@ -94,7 +94,7 @@ pub fn parse_imports<'a>(
         tokens.next();
     }
 
-    if !stack.is_empty() && !(is_deprecated_itemlist && stack.len() == 1) {
+    if !(stack.is_empty() || is_deprecated_itemlist && stack.len() == 1) {
         return Err(("missing close brace", input.len()));
     }
 

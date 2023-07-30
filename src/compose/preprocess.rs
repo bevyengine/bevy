@@ -258,11 +258,9 @@ impl Preprocessor {
             } else if self
                 .check_scope(shader_defs, &line, Some(&mut scope), offset)?
                 .0
+                || self.define_import_path_regex.captures(&line).is_some()
+                || self.define_shader_def_regex.captures(&line).is_some()
             {
-                // ignore
-            } else if self.define_import_path_regex.captures(&line).is_some() {
-                // ignore
-            } else if self.define_shader_def_regex.captures(&line).is_some() {
                 // ignore
             } else if scope.active() {
                 if self.import_regex.is_match(&line) {
@@ -295,7 +293,7 @@ impl Preprocessor {
                 } else {
                     let replaced_lines = [original_line, &line].map(|input| {
                         let mut output = input.to_string();
-                        for capture in self.def_regex.captures_iter(&input) {
+                        for capture in self.def_regex.captures_iter(input) {
                             let def = capture.get(1).unwrap();
                             if let Some(def) = shader_defs.get(def.as_str()) {
                                 output = self
@@ -304,7 +302,7 @@ impl Preprocessor {
                                     .to_string();
                             }
                         }
-                        for capture in self.def_regex_delimited.captures_iter(&input) {
+                        for capture in self.def_regex_delimited.captures_iter(input) {
                             let def = capture.get(1).unwrap();
                             if let Some(def) = shader_defs.get(def.as_str()) {
                                 output = self
@@ -345,7 +343,7 @@ impl Preprocessor {
 
                     final_string.push_str(&item_replaced_line);
                     let diff = line.len().saturating_sub(item_replaced_line.len());
-                    final_string.extend(std::iter::repeat(" ").take(diff as usize));
+                    final_string.extend(std::iter::repeat(" ").take(diff));
                     offset += original_line.len() + 1;
                     output = true;
                 }
