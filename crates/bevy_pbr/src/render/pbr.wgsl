@@ -138,7 +138,7 @@ fn fragment(
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
 
-        pbr_input.flags = mesh.flags;
+        pbr_input.flags = mesh[in.instance_index].flags;
 
         output_color = pbr_functions::pbr(pbr_input);
     } else {
