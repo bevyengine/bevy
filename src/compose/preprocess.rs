@@ -4,7 +4,7 @@ use regex::Regex;
 
 use super::{
     comment_strip_iter::CommentReplaceExt, ComposerErrorInner, ImportDefWithOffset,
-    ShaderDefValue, ident_identifier::{parse_imports, substitute_identifiers},
+    ShaderDefValue, parse_imports::{parse_imports, substitute_identifiers},
 };
 
 #[derive(Debug)]
