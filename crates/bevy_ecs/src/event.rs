@@ -88,6 +88,36 @@ struct EventInstance<E: Event> {
     pub event: E,
 }
 
+#[derive(Debug)]
+struct EventSequence<E: Event> {
+    events: Vec<EventInstance<E>>,
+    start_event_count: usize,
+}
+
+// Derived Default impl would incorrectly require E: Default
+impl<E: Event> Default for EventSequence<E> {
+    fn default() -> Self {
+        Self {
+            events: Default::default(),
+            start_event_count: Default::default(),
+        }
+    }
+}
+
+impl<E: Event> Deref for EventSequence<E> {
+    type Target = Vec<EventInstance<E>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.events
+    }
+}
+
+impl<E: Event> DerefMut for EventSequence<E> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.events
+    }
+}
+
 /// An event collection that represents the events that occurred within the last two
 /// [`Events::update`] calls.
 /// Events can be written to using an [`EventWriter`]
@@ -346,36 +376,6 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
         }
 
         self.event_count = event_count;
-    }
-}
-
-#[derive(Debug)]
-struct EventSequence<E: Event> {
-    events: Vec<EventInstance<E>>,
-    start_event_count: usize,
-}
-
-// Derived Default impl would incorrectly require E: Default
-impl<E: Event> Default for EventSequence<E> {
-    fn default() -> Self {
-        Self {
-            events: Default::default(),
-            start_event_count: Default::default(),
-        }
-    }
-}
-
-impl<E: Event> Deref for EventSequence<E> {
-    type Target = Vec<EventInstance<E>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.events
-    }
-}
-
-impl<E: Event> DerefMut for EventSequence<E> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.events
     }
 }
 
