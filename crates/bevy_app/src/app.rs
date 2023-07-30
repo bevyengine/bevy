@@ -686,6 +686,7 @@ impl App {
     /// Panics if one of the plugins was already added to the application.
     ///
     /// [`PluginGroup`]:super::PluginGroup
+    #[track_caller]
     pub fn add_plugins<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
         plugins.add_to_app(self);
         self

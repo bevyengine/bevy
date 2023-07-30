@@ -18,7 +18,7 @@ use winit::{
 
 use crate::{
     accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers},
-    converters::{convert_window_level, convert_window_theme},
+    converters::{convert_enabled_buttons, convert_window_level, convert_window_theme},
 };
 
 /// A resource which maps window entities to [`winit`] library windows.
@@ -94,6 +94,7 @@ impl WinitWindows {
             .with_window_level(convert_window_level(window.window_level))
             .with_theme(window.window_theme.map(convert_window_theme))
             .with_resizable(window.resizable)
+            .with_enabled_buttons(convert_enabled_buttons(window.enabled_buttons))
             .with_decorations(window.decorations)
             .with_transparent(window.transparent);
 

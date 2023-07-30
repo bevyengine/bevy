@@ -1,7 +1,7 @@
 use crate::{component::Tick, world::unsafe_world_cell::UnsafeWorldCell};
 use std::ops::Range;
 
-use super::{QueryItem, QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery};
+use super::{QueryItem, QueryState, ReadOnlyWorldQuery, WorldQuery};
 
 /// Dictates how a parallel query chunks up large tables/archetypes
 /// during iteration.
@@ -90,26 +90,6 @@ pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
-    /// Runs `func` on each query result in parallel.
-    ///
-    /// This can only be called for read-only queries, see [`Self::for_each_mut`] for
-    /// write-queries.
-    ///
-    /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
-    ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    #[inline]
-    pub fn for_each<FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(&self, func: FN) {
-        // SAFETY: query is read only
-        unsafe {
-            self.for_each_unchecked(func);
-        }
-    }
-}
-
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     /// Changes the batching strategy used when iterating.
     ///
@@ -123,59 +103,70 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     /// Runs `func` on each query result in parallel.
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&mut self, func: FN) {
-        // SAFETY: query has unique world access
-        unsafe {
-            self.for_each_unchecked(func);
-        }
-    }
-
-    /// Runs `func` on each query result in parallel.
-    ///
-    /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
-    ///
-    /// # Safety
-    ///
-    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
-    /// have unique access to the components they query.
-    ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    #[inline]
-    unsafe fn for_each_unchecked<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&self, func: FN) {
+    pub fn for_each<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
         #[cfg(any(target = "wasm32", not(feature = "multi-threaded")))]
         {
-            self.state
-                .for_each_unchecked_manual(self.world, func, self.last_run, self.this_run);
-        }
-        #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
-        {
-            let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
-            if thread_count <= 1 {
+            // SAFETY:
+            // This method can only be called once per instance of QueryParIter,
+            // which ensures that mutable queries cannot be executed multiple times at once.
+            // Mutable instances of QueryParIter can only be created via an exclusive borrow of a
+            // Query or a World, which ensures that multiple aliasing QueryParIters cannot exist
+            // at the same time.
+            unsafe {
                 self.state.for_each_unchecked_manual(
                     self.world,
                     func,
                     self.last_run,
                     self.this_run,
                 );
+            }
+        }
+        #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+        {
+            let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
+            if thread_count <= 1 {
+                // SAFETY: See the safety comment above.
+                unsafe {
+                    self.state.for_each_unchecked_manual(
+                        self.world,
+                        func,
+                        self.last_run,
+                        self.this_run,
+                    );
+                }
             } else {
                 // Need a batch size of at least 1.
                 let batch_size = self.get_batch_size(thread_count).max(1);
-                self.state.par_for_each_unchecked_manual(
-                    self.world,
-                    batch_size,
-                    func,
-                    self.last_run,
-                    self.this_run,
-                );
+                // SAFETY: See the safety comment above.
+                unsafe {
+                    self.state.par_for_each_unchecked_manual(
+                        self.world,
+                        batch_size,
+                        func,
+                        self.last_run,
+                        self.this_run,
+                    );
+                }
             }
         }
+    }
+
+    /// Runs `func` on each query result in parallel.
+    ///
+    /// # Panics
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[inline]
+    #[deprecated = "use `.for_each(...)` instead."]
+    pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
+        self.for_each(func);
     }
 
     #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]

@@ -1043,6 +1043,16 @@ description = "Shows how to play spatial audio, and moving the emitter in 3D"
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "pitch"
+path = "examples/audio/pitch.rs"
+
+[package.metadata.example.pitch]
+name = "Pitch"
+description = "Shows how to directly play a simple pitch"
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
