@@ -41,7 +41,6 @@ impl Plugin for ScenePlugin {
             .add_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
-            // Systems `*_bundle_spawner` must run before `scene_spawner_system`
             .add_systems(PostUpdate, (scene_spawner, scene_spawner_system).chain());
     }
 }
