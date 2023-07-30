@@ -131,7 +131,10 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    out.previous_world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(mesh[vertex_no_morph.instance_index].previous_model, vec4<f32>(vertex.position, 1.0));
+    out.previous_world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(
+        mesh[vertex_no_morph.instance_index].previous_model,
+        vec4<f32>(vertex.position, 1.0)
+    );
 #endif // MOTION_VECTOR_PREPASS
 
     return out;
