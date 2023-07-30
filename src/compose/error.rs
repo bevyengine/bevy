@@ -8,10 +8,7 @@ use codespan_reporting::{
 use thiserror::Error;
 use tracing::trace;
 
-use super::{
-    preprocess::PreprocessOutput,
-    Composer, ShaderDefValue,
-};
+use super::{preprocess::PreprocessOutput, Composer, ShaderDefValue};
 use crate::{compose::SPAN_SHIFT, redirect::RedirectError};
 
 #[derive(Debug)]

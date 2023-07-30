@@ -12,8 +12,8 @@ mod test {
     };
 
     use crate::compose::{
-        ComposableModuleDescriptor, Composer, ImportDefinition,
-        NagaModuleDescriptor, ShaderDefValue, ShaderLanguage, ShaderType,
+        ComposableModuleDescriptor, Composer, ImportDefinition, NagaModuleDescriptor,
+        ShaderDefValue, ShaderLanguage, ShaderType,
     };
 
     macro_rules! output_eq {
@@ -897,11 +897,13 @@ mod test {
                 ..Default::default()
             })
             .unwrap();
-        let module = composer.make_naga_module(NagaModuleDescriptor { 
-            source: include_str!("tests/invalid_identifiers/top_valid.wgsl"), 
-            file_path: "tests/invalid_identifiers/top_valid.wgsl", 
-            ..Default::default()
-        }).unwrap();
+        let module = composer
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/invalid_identifiers/top_valid.wgsl"),
+                file_path: "tests/invalid_identifiers/top_valid.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
 
         let info = naga::valid::Validator::new(
             naga::valid::ValidationFlags::all(),
@@ -925,11 +927,14 @@ mod test {
 
         output_eq!(wgsl, "tests/expected/bad_identifiers.txt");
 
-        composer.make_naga_module(NagaModuleDescriptor { 
-            source: include_str!("tests/invalid_identifiers/top_invalid.wgsl"), 
-            file_path: "tests/invalid_identifiers/top_invalid.wgsl", 
-            ..Default::default()
-        }).err().unwrap();
+        composer
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/invalid_identifiers/top_invalid.wgsl"),
+                file_path: "tests/invalid_identifiers/top_invalid.wgsl",
+                ..Default::default()
+            })
+            .err()
+            .unwrap();
     }
 
     #[test]

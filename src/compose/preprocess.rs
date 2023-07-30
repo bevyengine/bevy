@@ -3,8 +3,9 @@ use std::collections::{HashMap, HashSet};
 use regex::Regex;
 
 use super::{
-    comment_strip_iter::CommentReplaceExt, ComposerErrorInner, ImportDefWithOffset,
-    ShaderDefValue, parse_imports::{parse_imports, substitute_identifiers},
+    comment_strip_iter::CommentReplaceExt,
+    parse_imports::{parse_imports, substitute_identifiers},
+    ComposerErrorInner, ImportDefWithOffset, ShaderDefValue,
 };
 
 #[derive(Debug)]
@@ -132,7 +133,7 @@ pub struct PreprocessOutput {
 
 impl Preprocessor {
     fn check_scope<'a>(
-        &self, 
+        &self,
         shader_defs: &HashMap<String, ShaderDefValue>,
         line: &'a str,
         scope: Option<&mut Scope>,
@@ -181,21 +182,18 @@ impl Preprocessor {
                 }
             }
 
-            let def_value =
-                shader_defs
-                    .get(def)
-                    .ok_or(ComposerErrorInner::UnknownShaderDef {
-                        pos: offset,
-                        shader_def_name: def.to_string(),
-                    })?;
-            
-            let invalid_def = |ty: &str| {
-                ComposerErrorInner::InvalidShaderDefComparisonValue {
+            let def_value = shader_defs
+                .get(def)
+                .ok_or(ComposerErrorInner::UnknownShaderDef {
                     pos: offset,
                     shader_def_name: def.to_string(),
-                    value: val.as_str().to_string(),
-                    expected: ty.to_string(),
-                }
+                })?;
+
+            let invalid_def = |ty: &str| ComposerErrorInner::InvalidShaderDefComparisonValue {
+                pos: offset,
+                shader_def_name: def.to_string(),
+                value: val.as_str().to_string(),
+                expected: ty.to_string(),
             };
 
             let new_scope = match def_value {
@@ -247,10 +245,7 @@ impl Preprocessor {
 
         // this code broadly stolen from bevy_render::ShaderProcessor
         let mut lines = shader_str.lines();
-        let mut lines = lines
-            .replace_comments()
-            .zip(shader_str.lines())
-            .peekable();
+        let mut lines = lines.replace_comments().zip(shader_str.lines()).peekable();
 
         while let Some((mut line, original_line)) = lines.next() {
             let mut output = false;
@@ -260,7 +255,10 @@ impl Preprocessor {
                 if v != "440" && v != "450" {
                     return Err(ComposerErrorInner::GlslInvalidVersion(offset));
                 }
-            } else if self.check_scope(shader_defs, &line, Some(&mut scope), offset)?.0 {
+            } else if self
+                .check_scope(shader_defs, &line, Some(&mut scope), offset)?
+                .0
+            {
                 // ignore
             } else if self.define_import_path_regex.captures(&line).is_some() {
                 // ignore
@@ -288,7 +286,11 @@ impl Preprocessor {
                         line = lines.next().unwrap().0;
                     }
 
-                    parse_imports(import_lines.as_str(), &mut declared_imports).map_err(|(err, offset)| ComposerErrorInner::ImportParseError(err.to_owned(), offset))?;
+                    parse_imports(import_lines.as_str(), &mut declared_imports).map_err(
+                        |(err, offset)| {
+                            ComposerErrorInner::ImportParseError(err.to_owned(), offset)
+                        },
+                    )?;
                     output = true;
                 } else {
                     let replaced_lines = [original_line, &line].map(|input| {
@@ -318,10 +320,28 @@ impl Preprocessor {
                     let decommented_line = &replaced_lines[1];
 
                     // we don't want to capture imports from comments so we run using a dummy used_imports, and disregard any errors
-                    let item_replaced_line = substitute_identifiers(original_line, offset, &declared_imports, &mut Default::default(), true).unwrap();
+                    let item_replaced_line = substitute_identifiers(
+                        original_line,
+                        offset,
+                        &declared_imports,
+                        &mut Default::default(),
+                        true,
+                    )
+                    .unwrap();
                     // we also run against the de-commented line to replace real imports, and throw an error if appropriate
-                    let _ = substitute_identifiers(decommented_line, offset, &declared_imports, &mut used_imports, false)
-                        .map_err(|pos| ComposerErrorInner::ImportParseError("Ambiguous import path for item".to_owned(), pos))?;
+                    let _ = substitute_identifiers(
+                        decommented_line,
+                        offset,
+                        &declared_imports,
+                        &mut used_imports,
+                        false,
+                    )
+                    .map_err(|pos| {
+                        ComposerErrorInner::ImportParseError(
+                            "Ambiguous import path for item".to_owned(),
+                            pos,
+                        )
+                    })?;
 
                     final_string.push_str(&item_replaced_line);
                     let diff = line.len().saturating_sub(item_replaced_line.len());
@@ -351,7 +371,7 @@ impl Preprocessor {
 
         Ok(PreprocessOutput {
             preprocessed_source: final_string,
-            imports: used_imports.into_values().collect()
+            imports: used_imports.into_values().collect(),
         })
     }
 
@@ -373,7 +393,7 @@ impl Preprocessor {
 
         while let Some(mut line) = lines.next() {
             let (is_scope, def) = self.check_scope(&HashMap::default(), &line, None, offset)?;
-            
+
             if is_scope {
                 if let Some(def) = def {
                     effective_defs.insert(def.to_owned());
@@ -398,7 +418,9 @@ impl Preprocessor {
                     line = lines.next().unwrap();
                 }
 
-                parse_imports(import_lines.as_str(), &mut declared_imports).map_err(|(err, offset)| ComposerErrorInner::ImportParseError(err.to_owned(), offset))?;
+                parse_imports(import_lines.as_str(), &mut declared_imports).map_err(
+                    |(err, offset)| ComposerErrorInner::ImportParseError(err.to_owned(), offset),
+                )?;
             } else if let Some(cap) = self.define_import_path_regex.captures(&line) {
                 name = Some(cap.get(1).unwrap().as_str().to_string());
             } else if let Some(cap) = self.define_shader_def_regex.captures(&line) {
@@ -425,13 +447,19 @@ impl Preprocessor {
                     return Err(ComposerErrorInner::DefineInModule(offset));
                 }
             } else {
-                substitute_identifiers(&line, offset, &declared_imports, &mut used_imports, true).unwrap();
+                substitute_identifiers(&line, offset, &declared_imports, &mut used_imports, true)
+                    .unwrap();
             }
 
             offset += line.len() + 1;
         }
 
-        Ok(PreprocessorMetaData { name, imports: used_imports.into_values().collect(), defines, effective_defs })
+        Ok(PreprocessorMetaData {
+            name,
+            imports: used_imports.into_values().collect(),
+            defines,
+            effective_defs,
+        })
     }
 }
 
@@ -997,7 +1025,10 @@ defined
       
 ";
         let processor = Preprocessor::default();
-        let PreprocessorMetaData { defines: shader_defs, .. } = processor.get_preprocessor_metadata(&WGSL, true).unwrap();
+        let PreprocessorMetaData {
+            defines: shader_defs,
+            ..
+        } = processor.get_preprocessor_metadata(&WGSL, true).unwrap();
         println!("defines: {:?}", shader_defs);
         let result = processor.preprocess(&WGSL, &shader_defs, true).unwrap();
         assert_eq!(result.preprocessed_source, EXPECTED);
@@ -1037,7 +1068,10 @@ bool: false
       
 ";
         let processor = Preprocessor::default();
-        let PreprocessorMetaData { defines: shader_defs, .. } = processor.get_preprocessor_metadata(&WGSL, true).unwrap();
+        let PreprocessorMetaData {
+            defines: shader_defs,
+            ..
+        } = processor.get_preprocessor_metadata(&WGSL, true).unwrap();
         println!("defines: {:?}", shader_defs);
         let result = processor.preprocess(&WGSL, &shader_defs, true).unwrap();
         assert_eq!(result.preprocessed_source, EXPECTED);

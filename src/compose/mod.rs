@@ -141,9 +141,9 @@ use self::preprocess::Preprocessor;
 
 pub mod comment_strip_iter;
 pub mod error;
+pub mod parse_imports;
 pub mod preprocess;
 mod test;
-pub mod parse_imports;
 pub mod tokenizer;
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Default)]
@@ -337,7 +337,15 @@ impl Default for Composer {
             module_sets: Default::default(),
             module_index: Default::default(),
             preprocessor: Preprocessor::default(),
-            check_decoration_regex: Regex::new(format!("({}|{})", regex_syntax::escape(DECORATION_PRE), regex_syntax::escape(DECORATION_OVERRIDE_PRE)).as_str()).unwrap(),
+            check_decoration_regex: Regex::new(
+                format!(
+                    "({}|{})",
+                    regex_syntax::escape(DECORATION_PRE),
+                    regex_syntax::escape(DECORATION_OVERRIDE_PRE)
+                )
+                .as_str(),
+            )
+            .unwrap(),
             undecorate_regex: Regex::new(
                 format!(
                     r"([\w\d_]+){}([A-Z0-9]*){}",
@@ -347,15 +355,19 @@ impl Default for Composer {
                 .as_str(),
             )
             .unwrap(),
-            virtual_fn_regex: Regex::new(r"(?P<lead>[\s]*virtual\s+fn\s+)(?P<function>[^\s]+)(?P<trail>\s*)\(").unwrap(),
+            virtual_fn_regex: Regex::new(
+                r"(?P<lead>[\s]*virtual\s+fn\s+)(?P<function>[^\s]+)(?P<trail>\s*)\(",
+            )
+            .unwrap(),
             override_fn_regex: Regex::new(
                 format!(
-                    r"(override\s+fn\s+)([^\s]+){}([\w\d]+){}(\s*)\(", 
+                    r"(override\s+fn\s+)([^\s]+){}([\w\d]+){}(\s*)\(",
                     regex_syntax::escape(DECORATION_PRE),
                     regex_syntax::escape(DECORATION_POST)
                 )
-                .as_str()
-            ).unwrap(),
+                .as_str(),
+            )
+            .unwrap(),
             undecorate_override_regex: Regex::new(
                 format!(
                     "{}([A-Z0-9]*){}",
@@ -395,7 +407,7 @@ impl Composer {
         let encoded = data_encoding::BASE32_NOPAD.encode(module.as_bytes());
         format!("{DECORATION_PRE}{encoded}{DECORATION_POST}")
     }
-    
+
     fn decode(from: &str) -> String {
         String::from_utf8(data_encoding::BASE32_NOPAD.decode(from.as_bytes()).unwrap()).unwrap()
     }
@@ -404,7 +416,11 @@ impl Composer {
         let undecor = self
             .undecorate_regex
             .replace_all(string, |caps: &regex::Captures| {
-                format!("{}::{}", Self::decode(caps.get(2).unwrap().as_str()), caps.get(1).unwrap().as_str())
+                format!(
+                    "{}::{}",
+                    Self::decode(caps.get(2).unwrap().as_str()),
+                    caps.get(1).unwrap().as_str()
+                )
             });
 
         let undecor =
@@ -745,8 +761,7 @@ impl Composer {
             .collect();
         for (h, c) in source_ir.constants.iter() {
             if let Some(name) = &c.name {
-                if name.ends_with(module_decoration) && !recompiled_consts.contains(name.as_str())
-                {
+                if name.ends_with(module_decoration) && !recompiled_consts.contains(name.as_str()) {
                     return Err(ComposerErrorInner::InvalidIdentifier {
                         original: name.clone(),
                         at: source_ir.constants.get_span(h),
@@ -763,8 +778,7 @@ impl Composer {
             .collect();
         for (h, gv) in source_ir.global_variables.iter() {
             if let Some(name) = &gv.name {
-                if name.ends_with(module_decoration)
-                    && !recompiled_globals.contains(name.as_str())
+                if name.ends_with(module_decoration) && !recompiled_globals.contains(name.as_str())
                 {
                     return Err(ComposerErrorInner::InvalidIdentifier {
                         original: name.clone(),
@@ -819,7 +833,7 @@ impl Composer {
 
         let PreprocessOutput {
             preprocessed_source: source,
-            imports
+            imports,
         } = self
             .preprocessor
             .preprocess(
@@ -1213,10 +1227,11 @@ impl Composer {
         for (h_f, f) in source_ir.functions.iter() {
             if let Some(name) = &f.name {
                 if composable.owned_functions.contains(name)
-                    && (
-                        items.map_or(true, |items| items.contains(name)) ||
-                        composable.override_functions.values().any(|v| v.contains(name))
-                    )
+                    && (items.map_or(true, |items| items.contains(name))
+                        || composable
+                            .override_functions
+                            .values()
+                            .any(|v| v.contains(name)))
                 {
                     let span = composable.module_ir.functions.get_span(h_f);
                     derived.import_function_if_new(f, span);
@@ -1531,7 +1546,12 @@ impl Composer {
 
         let sanitized_source = self.sanitize_and_set_auto_bindings(source);
 
-        let PreprocessorMetaData { name, defines, imports, .. } = self
+        let PreprocessorMetaData {
+            name,
+            defines,
+            imports,
+            ..
+        } = self
             .preprocessor
             .get_preprocessor_metadata(&sanitized_source, true)
             .map_err(|inner| ComposerError {
@@ -1751,7 +1771,12 @@ pub fn get_preprocessor_data(
     Vec<ImportDefinition>,
     HashMap<String, ShaderDefValue>,
 ) {
-    let PreprocessorMetaData { name, imports, defines, .. } = PREPROCESSOR
+    let PreprocessorMetaData {
+        name,
+        imports,
+        defines,
+        ..
+    } = PREPROCESSOR
         .get_preprocessor_metadata(source, true)
         .unwrap();
     (

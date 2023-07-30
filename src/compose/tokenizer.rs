@@ -10,9 +10,7 @@ pub enum Token<'a> {
 impl<'a> Token<'a> {
     pub fn pos(&self) -> usize {
         match self {
-            Token::Identifier(_, pos) |
-            Token::Other(_, pos) |
-            Token::Whitespace(_, pos) => *pos
+            Token::Identifier(_, pos) | Token::Other(_, pos) | Token::Whitespace(_, pos) => *pos,
         }
     }
 
@@ -37,7 +35,7 @@ pub struct Tokenizer<'a> {
 }
 
 impl<'a> Tokenizer<'a> {
-    pub fn new(src: &'a str, emit_whitespace: bool) -> Self{
+    pub fn new(src: &'a str, emit_whitespace: bool) -> Self {
         let mut tokens = VecDeque::default();
         let mut current_token_start = 0;
         let mut current_token = None;
@@ -50,21 +48,27 @@ impl<'a> Tokenizer<'a> {
                         if unicode_ident::is_xid_continue(char) || char == '"' || char == ':' {
                             continue;
                         }
-                        tokens.push_back(Token::Identifier(&src[current_token_start..ix], current_token_start));
+                        tokens.push_back(Token::Identifier(
+                            &src[current_token_start..ix],
+                            current_token_start,
+                        ));
                     }
                     TokenKind::Whitespace => {
                         if char.is_whitespace() {
                             continue;
                         }
-                        tokens.push_back(Token::Whitespace(&src[current_token_start..ix], current_token_start));
+                        tokens.push_back(Token::Whitespace(
+                            &src[current_token_start..ix],
+                            current_token_start,
+                        ));
                     }
                 };
-                
+
                 current_token_start = ix;
                 current_token = None;
             }
 
-            if unicode_ident::is_xid_start(char) || char == '"' || char == ':'  {
+            if unicode_ident::is_xid_start(char) || char == '"' || char == ':' {
                 current_token = Some(TokenKind::Identifier);
                 current_token_start = ix;
             } else if !char.is_whitespace() {
@@ -78,17 +82,21 @@ impl<'a> Tokenizer<'a> {
         if let Some(tok) = current_token {
             match tok {
                 TokenKind::Identifier => {
-                    tokens.push_back(Token::Identifier(&src[current_token_start..src.len()], current_token_start));
+                    tokens.push_back(Token::Identifier(
+                        &src[current_token_start..src.len()],
+                        current_token_start,
+                    ));
                 }
                 TokenKind::Whitespace => {
-                    tokens.push_back(Token::Whitespace(&src[current_token_start..src.len()], current_token_start));
+                    tokens.push_back(Token::Whitespace(
+                        &src[current_token_start..src.len()],
+                        current_token_start,
+                    ));
                 }
             };
         }
 
-        Self {
-            tokens,
-        }
+        Self { tokens }
     }
 }
 

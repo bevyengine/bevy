@@ -1,9 +1,14 @@
 use std::collections::HashMap;
 
-use super::{tokenizer::{Tokenizer, Token}, ImportDefWithOffset, ImportDefinition, Composer};
+use super::{
+    tokenizer::{Token, Tokenizer},
+    Composer, ImportDefWithOffset, ImportDefinition,
+};
 
-
-pub fn parse_imports<'a>(input: &'a str, declared_imports: &mut HashMap<String, Vec<String>>) -> Result<(), (&'a str, usize)> { 
+pub fn parse_imports<'a>(
+    input: &'a str,
+    declared_imports: &mut HashMap<String, Vec<String>>,
+) -> Result<(), (&'a str, usize)> {
     let mut tokens = Tokenizer::new(input, false).peekable();
 
     match tokens.next() {
@@ -26,14 +31,14 @@ pub fn parse_imports<'a>(input: &'a str, declared_imports: &mut HashMap<String, 
         match tokens.peek() {
             Some(Token::Identifier(ident, _)) => {
                 current.push_str(ident);
-                tokens.next();        
+                tokens.next();
 
                 if tokens.peek().and_then(Token::identifier) == Some("as") {
                     let pos = tokens.next().unwrap().pos();
                     let Some(Token::Identifier(name, _)) = tokens.next() else {
                         return Err(("expected identifier after `as`", pos));
                     };
-        
+
                     as_name = Some(name);
                 }
 
@@ -55,12 +60,19 @@ pub fn parse_imports<'a>(input: &'a str, declared_imports: &mut HashMap<String, 
                 current = String::default();
                 as_name = None;
             }
-            Some(Token::Other(',', _)) |
-            Some(Token::Other('}', _)) |
-            None => {
+            Some(Token::Other(',', _)) | Some(Token::Other('}', _)) | None => {
                 if !current.is_empty() {
-                    let used_name = as_name.map(ToString::to_string).unwrap_or_else(|| current.rsplit_once("::").map(|(_, name)| name.to_owned()).unwrap_or(current.clone()));
-                    declared_imports.entry(used_name).or_default().push(format!("{}{}", stack.join(""), current));
+                    let used_name = as_name.map(ToString::to_string).unwrap_or_else(|| {
+                        current
+                            .rsplit_once("::")
+                            .map(|(_, name)| name.to_owned())
+                            .unwrap_or(current.clone())
+                    });
+                    declared_imports.entry(used_name).or_default().push(format!(
+                        "{}{}",
+                        stack.join(""),
+                        current
+                    ));
                     current = String::default();
                     as_name = None;
                 }
@@ -89,7 +101,13 @@ pub fn parse_imports<'a>(input: &'a str, declared_imports: &mut HashMap<String, 
     Ok(())
 }
 
-pub fn substitute_identifiers(input: &str, offset: usize, declared_imports: &HashMap<String, Vec<String>>, used_imports: &mut HashMap<String, ImportDefWithOffset>, allow_ambiguous: bool) -> Result<String, usize> {
+pub fn substitute_identifiers(
+    input: &str,
+    offset: usize,
+    declared_imports: &HashMap<String, Vec<String>>,
+    used_imports: &mut HashMap<String, ImportDefWithOffset>,
+    allow_ambiguous: bool,
+) -> Result<String, usize> {
     let tokens = Tokenizer::new(input, true);
     let mut output = String::with_capacity(input.len());
     let mut in_substitution_position = true;
@@ -99,7 +117,10 @@ pub fn substitute_identifiers(input: &str, offset: usize, declared_imports: &Has
             Token::Identifier(ident, token_pos) => {
                 if in_substitution_position {
                     let (first, residual) = ident.split_once("::").unwrap_or((ident, ""));
-                    let full_paths = declared_imports.get(first).cloned().unwrap_or(vec![first.to_owned()]);
+                    let full_paths = declared_imports
+                        .get(first)
+                        .cloned()
+                        .unwrap_or(vec![first.to_owned()]);
 
                     if !allow_ambiguous && full_paths.len() > 1 {
                         return Err(offset + token_pos);
@@ -110,21 +131,30 @@ pub fn substitute_identifiers(input: &str, offset: usize, declared_imports: &Has
                             full_path.push_str("::");
                             full_path.push_str(residual);
                         }
-    
+
                         if let Some((module, item)) = full_path.rsplit_once("::") {
-                            used_imports.entry(module.to_owned()).or_insert_with(|| {
-                                ImportDefWithOffset { definition: ImportDefinition { import: module.to_owned(), ..Default::default() }, offset: offset + token_pos }
-                            }).definition.items.push(item.to_owned());
+                            used_imports
+                                .entry(module.to_owned())
+                                .or_insert_with(|| ImportDefWithOffset {
+                                    definition: ImportDefinition {
+                                        import: module.to_owned(),
+                                        ..Default::default()
+                                    },
+                                    offset: offset + token_pos,
+                                })
+                                .definition
+                                .items
+                                .push(item.to_owned());
                             output.push_str(item);
                             output.push_str(&Composer::decorate(module));
                         } else {
                             output.push_str(&full_path);
                         }
-                    }    
+                    }
                 } else {
                     output.push_str(ident);
                 }
-            },
+            }
             Token::Other(other, _) => {
                 output.push(other);
                 if other == '.' || other == '@' {
@@ -153,75 +183,106 @@ fn import_tokens() {
     let input = r"
         #import a::b
     ";
-    assert_eq!(test_parse(input), Ok(HashMap::from_iter([("b".to_owned(), vec!("a::b".to_owned()))])));
-    
+    assert_eq!(
+        test_parse(input),
+        Ok(HashMap::from_iter([(
+            "b".to_owned(),
+            vec!("a::b".to_owned())
+        )]))
+    );
+
     let input = r"
         #import a::{b, c}
     ";
-    assert_eq!(test_parse(input), Ok(HashMap::from_iter([
-        ("b".to_owned(), vec!("a::b".to_owned())),
-        ("c".to_owned(), vec!("a::c".to_owned())),
-    ])));
+    assert_eq!(
+        test_parse(input),
+        Ok(HashMap::from_iter([
+            ("b".to_owned(), vec!("a::b".to_owned())),
+            ("c".to_owned(), vec!("a::c".to_owned())),
+        ]))
+    );
 
     let input = r"
         #import a::{b as d, c}
     ";
-    assert_eq!(test_parse(input), Ok(HashMap::from_iter([
-        ("d".to_owned(), vec!("a::b".to_owned())),
-        ("c".to_owned(), vec!("a::c".to_owned())),
-    ])));
+    assert_eq!(
+        test_parse(input),
+        Ok(HashMap::from_iter([
+            ("d".to_owned(), vec!("a::b".to_owned())),
+            ("c".to_owned(), vec!("a::c".to_owned())),
+        ]))
+    );
 
     let input = r"
         #import a::{b::{c, d}, e}
     ";
-    assert_eq!(test_parse(input), Ok(HashMap::from_iter([
-        ("c".to_owned(), vec!("a::b::c".to_owned())),
-        ("d".to_owned(), vec!("a::b::d".to_owned())),
-        ("e".to_owned(), vec!("a::e".to_owned())),
-    ])));
+    assert_eq!(
+        test_parse(input),
+        Ok(HashMap::from_iter([
+            ("c".to_owned(), vec!("a::b::c".to_owned())),
+            ("d".to_owned(), vec!("a::b::d".to_owned())),
+            ("e".to_owned(), vec!("a::e".to_owned())),
+        ]))
+    );
 
     let input = r"
         #import a::b::{c, d}, e
     ";
-    assert_eq!(test_parse(input), Ok(HashMap::from_iter([
-        ("c".to_owned(), vec!("a::b::c".to_owned())),
-        ("d".to_owned(), vec!("a::b::d".to_owned())),
-        ("e".to_owned(), vec!("e".to_owned())),
-    ])));
+    assert_eq!(
+        test_parse(input),
+        Ok(HashMap::from_iter([
+            ("c".to_owned(), vec!("a::b::c".to_owned())),
+            ("d".to_owned(), vec!("a::b::d".to_owned())),
+            ("e".to_owned(), vec!("e".to_owned())),
+        ]))
+    );
 
     let input = r"
         #import a, b
     ";
-    assert_eq!(test_parse(input), Ok(HashMap::from_iter([
-        ("a".to_owned(), vec!("a".to_owned())),
-        ("b".to_owned(), vec!("b".to_owned())),
-    ])));
+    assert_eq!(
+        test_parse(input),
+        Ok(HashMap::from_iter([
+            ("a".to_owned(), vec!("a".to_owned())),
+            ("b".to_owned(), vec!("b".to_owned())),
+        ]))
+    );
 
     let input = r"
         #import a::b c, d
     ";
-    assert_eq!(test_parse(input), Ok(HashMap::from_iter([
-        ("c".to_owned(), vec!("a::b::c".to_owned())),
-        ("d".to_owned(), vec!("a::b::d".to_owned())),
-    ])));
+    assert_eq!(
+        test_parse(input),
+        Ok(HashMap::from_iter([
+            ("c".to_owned(), vec!("a::b::c".to_owned())),
+            ("d".to_owned(), vec!("a::b::d".to_owned())),
+        ]))
+    );
 
     let input = r"
         #import a::b c
     ";
-    assert_eq!(test_parse(input), Ok(HashMap::from_iter([
-        ("c".to_owned(), vec!("a::b::c".to_owned())),
-    ])));
-    
+    assert_eq!(
+        test_parse(input),
+        Ok(HashMap::from_iter([(
+            "c".to_owned(),
+            vec!("a::b::c".to_owned())
+        ),]))
+    );
+
     let input = r"
         #import a::b::{c::{d, e}, f, g::{h as i, j}}
     ";
-    assert_eq!(test_parse(input), Ok(HashMap::from_iter([
-        ("d".to_owned(), vec!("a::b::c::d".to_owned())),
-        ("e".to_owned(), vec!("a::b::c::e".to_owned())),
-        ("f".to_owned(), vec!("a::b::f".to_owned())),
-        ("i".to_owned(), vec!("a::b::g::h".to_owned())),
-        ("j".to_owned(), vec!("a::b::g::j".to_owned())),
-    ])));
+    assert_eq!(
+        test_parse(input),
+        Ok(HashMap::from_iter([
+            ("d".to_owned(), vec!("a::b::c::d".to_owned())),
+            ("e".to_owned(), vec!("a::b::c::e".to_owned())),
+            ("f".to_owned(), vec!("a::b::f".to_owned())),
+            ("i".to_owned(), vec!("a::b::g::h".to_owned())),
+            ("j".to_owned(), vec!("a::b::g::j".to_owned())),
+        ]))
+    );
 
     let input = r"
         #import a::b::{
@@ -233,13 +294,16 @@ fn import_tokens() {
             }
         }
     ";
-    assert_eq!(test_parse(input), Ok(HashMap::from_iter([
-        ("d".to_owned(), vec!("a::b::c::d".to_owned())),
-        ("e".to_owned(), vec!("a::b::c::e".to_owned())),
-        ("f".to_owned(), vec!("a::b::f".to_owned())),
-        ("i".to_owned(), vec!("a::b::g::h".to_owned())),
-        ("m".to_owned(), vec!("a::b::g::j::k::l".to_owned())),
-    ])));
+    assert_eq!(
+        test_parse(input),
+        Ok(HashMap::from_iter([
+            ("d".to_owned(), vec!("a::b::c::d".to_owned())),
+            ("e".to_owned(), vec!("a::b::c::e".to_owned())),
+            ("f".to_owned(), vec!("a::b::f".to_owned())),
+            ("i".to_owned(), vec!("a::b::g::h".to_owned())),
+            ("m".to_owned(), vec!("a::b::g::j::k::l".to_owned())),
+        ]))
+    );
 
     let input = r"
         #import a::b::{
