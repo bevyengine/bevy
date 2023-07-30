@@ -13,7 +13,10 @@ It is based on [`async-executor`][async-executor], a lightweight executor that a
 
 ## Usage
 
-Tasks are spawned via thread pools, of which bevy_tasks provides three different ones for different kinds of tasks.
+In order to be able to optimize task execution in multi-threaded environments,
+bevy provides three different thread pools via which tasks of different kinds can be spawned.
+(The same API is used in single-threaded environments, even if execution is limited to a single thread.
+This currently applies to WASM targets.)
 The determining factor for what kind of work should go in each pool is latency requirements:
 
 * For CPU-intensive work (tasks that generally spin until completion) we have a standard
