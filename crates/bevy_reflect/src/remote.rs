@@ -42,7 +42,7 @@ use crate::Reflect;
 ///
 /// [reflectable]: Reflect
 /// [`transmute`]: core::mem::transmute
-/// [very unsafe]: https://doc.rust-lang.org/nomicon/transmutes.html
+/// [very unsafe]: https://doc.rust-lang.org/1.71.0/nomicon/transmutes.html
 /// [`FromReflect`]: crate::FromReflect
 pub trait ReflectRemote: Reflect {
     /// The remote type this type represents via reflection.
