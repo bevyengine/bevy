@@ -39,7 +39,7 @@ use crate::{
 pub(crate) fn create_windows<'a>(
     event_loop: &EventLoopWindowTarget<()>,
     mut commands: Commands,
-    windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
+    created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
     mut event_writer: EventWriter<WindowCreated>,
     mut winit_windows: NonSendMut<WinitWindows>,
     mut adapters: NonSendMut<AccessKitAdapters>,
@@ -47,7 +47,7 @@ pub(crate) fn create_windows<'a>(
     mut accessibility_requested: ResMut<AccessibilityRequested>,
     #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
 ) {
-    for (entity, mut window) in windows {
+    for (entity, mut window) in created_windows {
         if winit_windows.get_window(entity).is_some() {
             continue;
         }
@@ -134,6 +134,7 @@ pub struct CachedWindow {
 /// - [`Window::present_mode`] and [`Window::composite_alpha_mode`] changes are handled by the `bevy_render` crate.
 /// - [`Window::transparent`] cannot be changed after the window is created.
 /// - [`Window::canvas`] cannot be changed after the window is created.
+/// - [`Window::focused`] cannot be manually changed to `false` after the window is created.
 pub(crate) fn changed_windows(
     mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
     winit_windows: NonSendMut<WinitWindows>,

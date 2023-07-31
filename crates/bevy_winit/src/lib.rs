@@ -58,14 +58,17 @@ use crate::converters::convert_winit_theme;
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
-/// [`AndroidApp`] provides an interface to query the application state as well as monitor events (for example lifecycle and input events)
+/// [`AndroidApp`] provides an interface to query the application state as well as monitor events
+/// (for example lifecycle and input events).
 #[cfg(target_os = "android")]
 pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::new();
 
-/// A [`Plugin`] that integrates [`winit`], adding its window management and event loop
-/// capabilities to an [`App`].
+/// A [`Plugin`] that uses [`winit`] to create and manage windows, and receive window and input
+/// events.
 ///
-/// **NOTE:** This plugin will replace the existing application runner function.
+/// This plugin will add systems and resources that sync with the [`winit`] backend and also
+/// replace the exising [`App`] runner with one that constructs an [event loop](EventLoop) to
+/// receive window and input events from the OS.
 #[derive(Default)]
 pub struct WinitPlugin;
 
@@ -92,9 +95,9 @@ impl Plugin for WinitPlugin {
                     // `exit_on_all_closed` only checks if windows exist but doesn't access data,
                     // so we don't need to care about its ordering relative to `changed_windows`
                     changed_windows.ambiguous_with(exit_on_all_closed),
-                    // apply all changes first, then despawn windows
-                    despawn_windows.after(changed_windows),
-                ),
+                    despawn_windows,
+                )
+                    .chain(),
             );
 
         app.add_plugins(AccessibilityPlugin);
@@ -177,6 +180,8 @@ impl Plugin for WinitPlugin {
             create_window_system_state.apply(&mut app.world);
         }
 
+        // `winit`'s windows are bound to the event loop that created them, so the event loop must
+        // be inserted as a resource here to pass it onto the runner.
         app.insert_non_send_resource(event_loop);
     }
 }
@@ -223,7 +228,7 @@ where
 
 #[derive(SystemParam)]
 struct WindowAndInputEventWriters<'w> {
-    // window events
+    // `winit` `WindowEvent`s
     window_resized: EventWriter<'w, WindowResized>,
     window_close_requested: EventWriter<'w, WindowCloseRequested>,
     window_scale_factor_changed: EventWriter<'w, WindowScaleFactorChanged>,
@@ -232,7 +237,6 @@ struct WindowAndInputEventWriters<'w> {
     window_moved: EventWriter<'w, WindowMoved>,
     window_theme_changed: EventWriter<'w, WindowThemeChanged>,
     window_destroyed: EventWriter<'w, WindowDestroyed>,
-
     keyboard_input: EventWriter<'w, KeyboardInput>,
     character_input: EventWriter<'w, ReceivedCharacter>,
     mouse_button_input: EventWriter<'w, MouseButtonInput>,
@@ -242,12 +246,10 @@ struct WindowAndInputEventWriters<'w> {
     touch_input: EventWriter<'w, TouchInput>,
     ime_input: EventWriter<'w, Ime>,
     file_drag_and_drop: EventWriter<'w, FileDragAndDrop>,
-
     cursor_moved: EventWriter<'w, CursorMoved>,
     cursor_entered: EventWriter<'w, CursorEntered>,
     cursor_left: EventWriter<'w, CursorLeft>,
-
-    // device events
+    // `winit` `DeviceEvent`s
     mouse_motion: EventWriter<'w, MouseMotion>,
 }
 
@@ -256,10 +258,8 @@ struct WindowAndInputEventWriters<'w> {
 struct WinitAppRunnerState {
     /// Is `true` if the app is running and not suspended.
     is_active: bool,
-    /// Is `true` if a new window event has been received since the last update.
+    /// Is `true` if a new [`WindowEvent`] has been received since the last update.
     window_event_received: bool,
-    /// Is `true` if a new device event has been received since the last update.
-    device_event_received: bool,
     /// Is `true` if the app has requested a redraw since the last update.
     redraw_requested: bool,
     /// Is `true` if enough time has elapsed since `last_update` to run another update.
@@ -275,7 +275,6 @@ impl Default for WinitAppRunnerState {
         Self {
             is_active: false,
             window_event_received: false,
-            device_event_received: false,
             redraw_requested: false,
             wait_elapsed: false,
             last_update: Instant::now(),
@@ -317,7 +316,7 @@ pub fn winit_runner(mut app: App) {
     #[cfg(not(target_arch = "wasm32"))]
     let mut create_window_system_state: SystemState<(
         Commands,
-        Query<(Entity, &mut Window)>,
+        Query<(Entity, &mut Window), Added<Window>>,
         EventWriter<WindowCreated>,
         NonSendMut<WinitWindows>,
         NonSendMut<AccessKitAdapters>,
@@ -328,7 +327,7 @@ pub fn winit_runner(mut app: App) {
     #[cfg(target_arch = "wasm32")]
     let mut create_window_system_state: SystemState<(
         Commands,
-        Query<(Entity, &mut Window)>,
+        Query<(Entity, &mut Window), Added<Window>>,
         EventWriter<WindowCreated>,
         NonSendMut<WinitWindows>,
         NonSendMut<AccessKitAdapters>,
@@ -660,8 +659,6 @@ pub fn winit_runner(mut app: App) {
                 event_writers.mouse_motion.send(MouseMotion {
                     delta: Vec2::new(x as f32, y as f32),
                 });
-
-                runner_state.device_event_received = true;
             }
             event::Event::Suspended => {
                 runner_state.is_active = false;
@@ -685,10 +682,10 @@ pub fn winit_runner(mut app: App) {
                     let should_update = match config.update_mode(focused) {
                         UpdateMode::Continuous => true,
                         UpdateMode::Reactive { .. } => {
-                            runner_state.wait_elapsed
-                                || runner_state.redraw_requested
-                                || runner_state.window_event_received
-                                || runner_state.device_event_received
+                            // For `event_handler` to run, either we have received a window or raw
+                            // input event, the `wait` has elapsed, or a redraw has been requested
+                            // (by the app or the OS), so we can just return `true`.
+                            true
                         }
                         UpdateMode::ReactiveLowPower { .. } => {
                             runner_state.wait_elapsed
@@ -700,7 +697,6 @@ pub fn winit_runner(mut app: App) {
                     if finished_and_setup_done && should_update {
                         // reset these on each update
                         runner_state.wait_elapsed = false;
-                        runner_state.device_event_received = false;
                         runner_state.window_event_received = false;
                         runner_state.redraw_requested = false;
                         runner_state.last_update = Instant::now();

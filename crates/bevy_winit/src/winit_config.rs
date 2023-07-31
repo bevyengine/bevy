@@ -11,7 +11,7 @@ pub struct WinitSettings {
     /// - If this value is set to `true`, [`run_return`] is called, and exiting the loop will
     /// return control to the caller.
     ///
-    /// **NOTE:** This cannot be changed while the loop is running. `winit` discourages use of
+    /// **Note:** This cannot be changed while the loop is running. `winit` also discourages use of
     /// `run_return`.
     ///
     /// # Supported platforms
@@ -82,7 +82,7 @@ impl Default for WinitSettings {
 #[allow(clippy::doc_markdown)]
 /// Determines how frequently an [`App`](bevy_app::App) should update.
 ///
-/// **NOTE:** This setting is independent of VSync. VSync is controlled by a window's
+/// **Note:** This setting is independent of VSync. VSync is controlled by a window's
 /// [`PresentMode`](bevy_window::PresentMode) setting. If an app can update faster than the refresh
 /// rate, but VSync is enabled, the update rate will be indirectly limited by the renderer.
 #[derive(Debug, Clone, Copy)]
@@ -92,30 +92,32 @@ pub enum UpdateMode {
     Continuous,
     /// The [`App`](bevy_app::App) will update in response to the following, until an
     /// [`AppExit`](bevy_app::AppExit) event appears:
-    /// - enough time has elapsed since the previous update
-    /// - a redraw is requested
-    /// - new window or device events have appeared
+    /// - `wait` time has elapsed since the previous update
+    /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
+    /// - new [window](`winit::event::WindowEvent`) or [raw input](`winit::event::DeviceEvent`)
+    /// events have appeared
     Reactive {
         /// The minimum time from the start of one update to the next.
         ///
         /// **Note:** This has no upper limit.
-        /// The [`App`](bevy_app::App) will wait forever if you set this to [`Duration::MAX`].
+        /// The [`App`](bevy_app::App) will wait indefinitely if you set this to [`Duration::MAX`].
         wait: Duration,
     },
     /// The [`App`](bevy_app::App) will update in response to the following, until an
     /// [`AppExit`](bevy_app::AppExit) event appears:
-    /// - enough time has elapsed since the previous update
-    /// - a redraw is requested
-    /// - new window events have appeared
+    /// - `wait` time has elapsed since the previous update
+    /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
+    /// - new [window events](`winit::event::WindowEvent`) have appeared
     ///
-    /// **Note:** Unlike [`Reactive`](`UpdateMode::Reactive`), this mode ignores device events.
+    /// **Note:** Unlike [`Reactive`](`UpdateMode::Reactive`), this mode will ignore events that
+    /// don't come from interacting with a window, like [`MouseMotion`](winit::event::DeviceEvent::MouseMotion).
     /// Use this mode if, for example, you only want your app to update when the mouse cursor is
     /// moving over a window, not just moving in general. This can greatly reduce power consumption.
     ReactiveLowPower {
         /// The minimum time from the start of one update to the next.
         ///
         /// **Note:** This has no upper limit.
-        /// The [`App`](bevy_app::App) will wait forever if you set this to [`Duration::MAX`].
+        /// The [`App`](bevy_app::App) will wait indefinitely if you set this to [`Duration::MAX`].
         wait: Duration,
     },
 }
