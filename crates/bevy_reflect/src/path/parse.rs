@@ -40,8 +40,6 @@ impl<'a> PathParser<'a> {
     }
 
     fn next_token(&mut self) -> Option<Token<'a>> {
-        // TODO(perf): using get_unchecked SAFETY: self.offset is never larger than self.path
-        // & self.offset always splits on UTF-8 sequence boundaries
         let input = &self.path[self.offset..];
 
         // Return with `None` if empty.
