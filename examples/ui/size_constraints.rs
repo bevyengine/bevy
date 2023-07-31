@@ -94,13 +94,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..Default::default()
                         })
                         .with_children(|parent| {
-                            for constaint in [
+                            for constraint in [
                                 Constraint::MinWidth,
                                 Constraint::FlexBasis,
                                 Constraint::Width,
                                 Constraint::MaxWidth,
                             ] {
-                                spawn_button_row(parent, constaint, text_style.clone());
+                                spawn_button_row(parent, constraint, text_style.clone());
                             }
                         });
                 });

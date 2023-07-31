@@ -1,9 +1,10 @@
-use std::{
-    future::Future,
-    marker::PhantomData,
-    mem,
-    sync::{Arc, Mutex},
-};
+#[cfg(target_arch = "wasm32")]
+use std::sync::Arc;
+use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
+
+thread_local! {
+    static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
+}
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
@@ -76,7 +77,7 @@ impl TaskPool {
         1
     }
 
-    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
+    /// Allows spawning non-'static futures on the thread pool. The function takes a callback,
     /// passing a scope object into it. The scope object provided to the callback can be used
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
@@ -108,8 +109,9 @@ impl TaskPool {
         let executor: &'env async_executor::LocalExecutor<'env> =
             unsafe { mem::transmute(executor) };
 
-        let results: Mutex<Vec<Arc<Mutex<Option<T>>>>> = Mutex::new(Vec::new());
-        let results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>> = unsafe { mem::transmute(&results) };
+        let results: RefCell<Vec<Rc<RefCell<Option<T>>>>> = RefCell::new(Vec::new());
+        let results: &'env RefCell<Vec<Rc<RefCell<Option<T>>>>> =
+            unsafe { mem::transmute(&results) };
 
         let mut scope = Scope {
             executor,
@@ -125,29 +127,36 @@ impl TaskPool {
         // Loop until all tasks are done
         while executor.try_tick() {}
 
-        let results = scope.results.lock().unwrap();
+        let results = scope.results.borrow();
         results
             .iter()
-            .map(|result| result.lock().unwrap().take().unwrap())
+            .map(|result| result.borrow_mut().take().unwrap())
             .collect()
     }
 
-    /// Spawns a static future onto the JS event loop. For now it is returning FakeTask
-    /// instance with no-op detach method. Returning real Task is possible here, but tricky:
-    /// future is running on JS event loop, Task is running on async_executor::LocalExecutor
-    /// so some proxy future is needed. Moreover currently we don't have long-living
-    /// LocalExecutor here (above `spawn` implementation creates temporary one)
-    /// But for typical use cases it seems that current implementation should be sufficient:
-    /// caller can spawn long-running future writing results to some channel / event queue
-    /// and simply call detach on returned Task (like AssetServer does) - spawned future
-    /// can write results to some channel / event queue.
+    /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
+    /// cancelled and "detached" allowing it to continue running without having to be polled by the
+    /// end-user.
+    ///
+    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
     pub fn spawn<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
     where
         T: 'static,
     {
+        #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(async move {
             future.await;
         });
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            LOCAL_EXECUTOR.with(|executor| {
+                let _task = executor.spawn(future);
+                // Loop until all tasks are done
+                while executor.try_tick() {}
+            });
+        }
+
         FakeTask
     }
 
@@ -157,6 +166,24 @@ impl TaskPool {
         T: 'static,
     {
         self.spawn(future)
+    }
+
+    /// Runs a function with the local executor. Typically used to tick
+    /// the local executor on the main thread as it needs to share time with
+    /// other things.
+    ///
+    /// ```rust
+    /// use bevy_tasks::TaskPool;
+    ///
+    /// TaskPool::new().with_local_executor(|local_executor| {
+    ///     local_executor.try_tick();
+    /// });
+    /// ```
+    pub fn with_local_executor<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&async_executor::LocalExecutor) -> R,
+    {
+        LOCAL_EXECUTOR.with(f)
     }
 }
 
@@ -175,7 +202,7 @@ impl FakeTask {
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'env async_executor::LocalExecutor<'env>,
     // Vector to gather results of all futures spawned during scope run
-    results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>>,
+    results: &'env RefCell<Vec<Rc<RefCell<Option<T>>>>>,
 
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -211,10 +238,10 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
-        let result = Arc::new(Mutex::new(None));
-        self.results.lock().unwrap().push(result.clone());
+        let result = Rc::new(RefCell::new(None));
+        self.results.borrow_mut().push(result.clone());
         let f = async move {
-            result.lock().unwrap().replace(f.await);
+            result.borrow_mut().replace(f.await);
         };
         self.executor.spawn(f).detach();
     }

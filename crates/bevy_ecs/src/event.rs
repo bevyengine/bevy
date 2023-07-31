@@ -425,6 +425,7 @@ impl<E: Event> ManualEventReader<E> {
 }
 
 /// An iterator that yields any unread events from an [`EventReader`] or [`ManualEventReader`].
+#[derive(Debug)]
 pub struct ManualEventIterator<'a, E: Event> {
     iter: ManualEventIteratorWithId<'a, E>,
 }
@@ -1038,10 +1039,7 @@ mod tests {
         events.send_default();
 
         let mut reader = events.get_reader();
-        assert_eq!(
-            get_events(&events, &mut reader),
-            vec![EmptyTestEvent::default()]
-        );
+        assert_eq!(get_events(&events, &mut reader), vec![EmptyTestEvent]);
     }
 
     #[test]

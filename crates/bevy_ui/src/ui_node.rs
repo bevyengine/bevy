@@ -289,13 +289,13 @@ impl Val {
 /// ### Flexbox
 ///
 /// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
-/// - [A Complete Guide To Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) by CSS Tricks. This is detailed guide with illustrations and comphrehensive written explanation of the different Flexbox properties and how they work.
+/// - [A Complete Guide To Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
 /// - [Flexbox Froggy](https://flexboxfroggy.com/). An interactive tutorial/game that teaches the essential parts of Flebox in a fun engaging way.
 ///
 /// ### CSS Grid
 ///
 /// - [MDN: Basic Concepts of Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout/Basic_Concepts_of_Flexbox)
-/// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comphrehensive written explanation of the different CSS Grid properties and how they work.
+/// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
@@ -390,58 +390,46 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio>
     pub aspect_ratio: Option<f32>,
 
-    /// For Flexbox containers:
-    ///   - Sets default cross-axis alignment of the child items.
-    /// For CSS Grid containers:
-    ///   - Controls block (vertical) axis alignment of children of this grid container within their grid areas
+    /// - For Flexbox containers, sets default cross-axis alignment of the child items.
+    /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
     ///
-    /// This value is overriden [`JustifySelf`] on the child node is set.
+    /// This value is overridden [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
     pub align_items: AlignItems,
 
-    /// For Flexbox containers:
-    ///   - This property has no effect. See `justify_content` for main-axis alignment of flex items.
-    /// For CSS Grid containers:
-    ///   - Sets default inline (horizontal) axis alignment of child items within their grid areas
+    /// - For Flexbox containers, this property has no effect. See `justify_content` for main-axis alignment of flex items.
+    /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
     ///
-    /// This value is overriden [`JustifySelf`] on the child node is set.
+    /// This value is overridden [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_items: JustifyItems,
 
-    /// For Flexbox items:
-    ///   - Controls cross-axis alignment of the item.
-    /// For CSS Grid items:
-    ///   - Controls block (vertical) axis alignment of a grid item within it's grid area
+    /// - For Flexbox items, controls cross-axis alignment of the item.
+    /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within it's grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`AlignItems`] set on the parent node.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
     pub align_self: AlignSelf,
 
-    /// For Flexbox items:
-    ///   - This property has no effect. See `justify_content` for main-axis alignment of flex items.
-    /// For CSS Grid items:
-    ///   - Controls inline (horizontal) axis alignment of a grid item within it's grid area.
+    /// - For Flexbox items, this property has no effect. See `justify_content` for main-axis alignment of flex items.
+    /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within it's grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`JustifyItems`] set on the parent node.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_self: JustifySelf,
 
-    /// For Flexbox containers:
-    ///   - Controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items
-    /// For CSS Grid container:
-    ///   - Controls alignment of grid rows
+    /// - For Flexbox containers, controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+    /// - For CSS Grid containers, controls alignment of grid rows.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
     pub align_content: AlignContent,
 
-    /// For Flexbox containers:
-    ///   - Controls alignment of items in the main axis
-    /// For CSS Grid containers:
-    ///   - Controls alignment of grid columns
+    /// - For Flexbox containers, controls alignment of items in the main axis.
+    /// - For CSS Grid containers, controls alignment of grid columns.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
     pub justify_content: JustifyContent,
@@ -495,8 +483,6 @@ pub struct Style {
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
     ///
     /// The size of the node will be expanded if there are constraints that prevent the layout algorithm from placing the border within the existing node boundary.
-    ///
-    /// Rendering for borders is not yet implemented.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
     pub border: UiRect,
@@ -566,7 +552,7 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-rows>
     pub grid_auto_rows: Vec<GridTrack>,
     /// Defines the size of implicitly created columns. Columns are created implicitly when grid items are given explicit placements that are out of bounds
-    /// of the columns explicitly created using `grid_template_columms`.
+    /// of the columns explicitly created using `grid_template_columns`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-template-columns>
     pub grid_auto_columns: Vec<GridTrack>,
@@ -1435,7 +1421,7 @@ impl From<RepeatedGridTrack> for Vec<RepeatedGridTrack> {
 ///
 /// The default `span` is 1. If neither `start` or `end` is set then the item will be placed automatically.
 ///
-/// Generally, at most two fields should be set. If all three fields are specifed then `span` will be ignored. If `end` specifies an earlier
+/// Generally, at most two fields should be set. If all three fields are specified then `span` will be ignored. If `end` specifies an earlier
 /// grid line than `start` then `end` will be ignored and the item will have a span of 1.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Line-based_Placement_with_CSS_Grid>

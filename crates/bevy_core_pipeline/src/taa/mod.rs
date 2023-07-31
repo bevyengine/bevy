@@ -148,7 +148,7 @@ pub struct TemporalAntiAliasSettings {
     /// Set to true to delete the saved temporal history (past frames).
     ///
     /// Useful for preventing ghosting when the history is no longer
-    /// representive of the current frame, such as in sudden camera cuts.
+    /// representative of the current frame, such as in sudden camera cuts.
     ///
     /// After setting this to true, it will automatically be toggled
     /// back to false after one frame.

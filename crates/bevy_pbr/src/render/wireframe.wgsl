@@ -6,6 +6,7 @@
 #endif
 
 struct Vertex {
+    @builtin(instance_index) instance_index: u32,
     @location(0) position: vec3<f32>,
 #ifdef SKINNED
     @location(4) joint_indexes: vec4<u32>,
@@ -22,7 +23,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #ifdef SKINNED
     let model = bevy_pbr::skinning::skin_model(vertex.joint_indexes, vertex.joint_weights);
 #else
-    let model = mesh.model;
+    let model = mesh[vertex.instance_index].model;
 #endif
 
     var out: VertexOutput;

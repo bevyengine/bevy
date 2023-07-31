@@ -16,7 +16,7 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
@@ -58,6 +58,7 @@ pub const UI_SHADER_HANDLE: HandleUntyped =
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
     ExtractNode,
+    ExtractAtlasNode,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -81,10 +82,12 @@ pub fn build_ui_render(app: &mut App) {
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
-                extract_atlas_uinodes.after(RenderUiSystem::ExtractNode),
-                extract_uinode_borders.after(RenderUiSystem::ExtractNode),
+                extract_atlas_uinodes
+                    .in_set(RenderUiSystem::ExtractAtlasNode)
+                    .after(RenderUiSystem::ExtractNode),
+                extract_uinode_borders.after(RenderUiSystem::ExtractAtlasNode),
                 #[cfg(feature = "bevy_text")]
-                extract_text_uinodes.after(RenderUiSystem::ExtractNode),
+                extract_text_uinodes.after(RenderUiSystem::ExtractAtlasNode),
             ),
         )
         .add_systems(
@@ -281,7 +284,7 @@ pub fn extract_uinode_borders(
         .get_single()
         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
         .unwrap_or(Vec2::ZERO)
-        // The logical window resolutin returned by `Window` only takes into account the window scale factor and not `UiScale`,
+        // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.scale as f32;
 
@@ -391,8 +394,6 @@ pub fn extract_uinodes(
         >,
     >,
 ) {
-    extracted_uinodes.uinodes.clear();
-
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
@@ -455,7 +456,14 @@ pub fn extract_default_ui_camera_view<T: Component>(
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
         }
-        if let (Some(logical_size), Some((physical_origin, _)), Some(physical_size)) = (
+        if let (
+            Some(logical_size),
+            Some(URect {
+                min: physical_origin,
+                ..
+            }),
+            Some(physical_size),
+        ) = (
             camera.logical_viewport_size(),
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
@@ -636,7 +644,7 @@ pub fn prepare_uinodes(
         image.id() != DEFAULT_IMAGE_HANDLE.id()
     }
 
-    for extracted_uinode in &extracted_uinodes.uinodes {
+    for extracted_uinode in extracted_uinodes.uinodes.drain(..) {
         let mode = if is_textured(&extracted_uinode.image) {
             if current_batch_image.id() != extracted_uinode.image.id() {
                 if is_textured(&current_batch_image) && start != end {

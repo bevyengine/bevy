@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -44,6 +44,7 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "multi-threaded",
   "png",
   "hdr",
   "ktx2",
@@ -199,6 +200,9 @@ filesystem_watcher = ["bevy_internal/filesystem_watcher"]
 # Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
 
+# Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.
+multi-threaded = ["bevy_internal/multi-threaded"]
+
 # Wayland display server support
 wayland = ["bevy_internal/wayland"]
 
@@ -245,8 +249,8 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 webgl2 = ["bevy_internal/webgl"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.0-dev", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.11.0-dev", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0-dev", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.12.0-dev", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.4"
@@ -1036,6 +1040,16 @@ path = "examples/audio/spatial_audio_3d.rs"
 [package.metadata.example.spatial_audio_3d]
 name = "Spatial Audio 3D"
 description = "Shows how to play spatial audio, and moving the emitter in 3D"
+category = "Audio"
+wasm = true
+
+[[example]]
+name = "pitch"
+path = "examples/audio/pitch.rs"
+
+[package.metadata.example.pitch]
+name = "Pitch"
+description = "Shows how to directly play a simple pitch"
 category = "Audio"
 wasm = true
 

@@ -227,7 +227,7 @@ pub struct OrthographicProjection {
     pub viewport_origin: Vec2,
     /// How the projection will scale when the viewport is resized.
     ///
-    /// Defaults to `ScalingMode::WindowScale(1.0)`
+    /// Defaults to `ScalingMode::WindowSize(1.0)`
     pub scaling_mode: ScalingMode,
     /// Scales the projection in world units.
     ///

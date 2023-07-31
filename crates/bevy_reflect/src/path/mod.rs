@@ -1,50 +1,49 @@
+mod access;
+
 use std::fmt;
 use std::num::ParseIntError;
 
-use crate::{Reflect, ReflectMut, ReflectRef, VariantType};
+use crate::Reflect;
+use access::Access;
 use thiserror::Error;
+
+type ParseResult<T> = Result<T, ReflectPathParseError>;
+
+/// An error specific to accessing a field/index on a `Reflect`.
+#[derive(Debug, PartialEq, Eq, Error)]
+#[error(transparent)]
+pub struct AccessError<'a>(access::Error<'a>);
+
+/// A parse error for a path string.
+#[derive(Debug, PartialEq, Eq, Error)]
+pub enum ReflectPathParseError {
+    #[error("expected an identifier at offset {offset}")]
+    ExpectedIdent { offset: usize },
+
+    #[error("encountered an unexpected token `{token}`")]
+    UnexpectedToken { offset: usize, token: &'static str },
+
+    #[error("expected token `{token}`, but it wasn't there.")]
+    ExpectedToken { offset: usize, token: &'static str },
+
+    #[error("failed to parse a usize")]
+    IndexParseError(#[from] ParseIntError),
+}
 
 /// An error returned from a failed path string query.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ReflectPathError<'a> {
-    #[error("expected an identifier at index {index}")]
-    ExpectedIdent { index: usize },
-    #[error("the current struct doesn't have a field with the name `{field}`")]
-    InvalidField { index: usize, field: &'a str },
-    #[error("the current struct doesn't have a field at the given index")]
-    InvalidFieldIndex { index: usize, field_index: usize },
-    #[error("the current tuple struct doesn't have a field with the index {tuple_struct_index}")]
-    InvalidTupleStructIndex {
-        index: usize,
-        tuple_struct_index: usize,
+    #[error("{error}")]
+    InvalidAccess {
+        /// Position in the path string.
+        offset: usize,
+        error: AccessError<'a>,
     },
-    #[error("the current tuple doesn't have a field with the index {tuple_index}")]
-    InvalidTupleIndex { index: usize, tuple_index: usize },
-    #[error("the current struct variant doesn't have a field with the name `{field}`")]
-    InvalidStructVariantField { index: usize, field: &'a str },
-    #[error("the current tuple variant doesn't have a field with the index {tuple_variant_index}")]
-    InvalidTupleVariantIndex {
-        index: usize,
-        tuple_variant_index: usize,
-    },
-    #[error("the current list doesn't have a value at the index {list_index}")]
-    InvalidListIndex { index: usize, list_index: usize },
-    #[error("encountered an unexpected token `{token}`")]
-    UnexpectedToken { index: usize, token: &'a str },
-    #[error("expected token `{token}`, but it wasn't there.")]
-    ExpectedToken { index: usize, token: &'a str },
-    #[error("expected a struct, but found a different reflect value")]
-    ExpectedStruct { index: usize },
-    #[error("expected a list, but found a different reflect value")]
-    ExpectedList { index: usize },
-    #[error("expected a struct variant, but found a different reflect value")]
-    ExpectedStructVariant { index: usize },
-    #[error("expected a tuple variant, but found a different reflect value")]
-    ExpectedTupleVariant { index: usize },
-    #[error("failed to parse a usize")]
-    IndexParseError(#[from] ParseIntError),
     #[error("failed to downcast to the path result to the given type")]
     InvalidDowncast,
+
+    #[error(transparent)]
+    Parse(#[from] ReflectPathParseError),
 }
 
 /// A trait which allows nested [`Reflect`] values to be retrieved with path strings.
@@ -191,19 +190,16 @@ pub trait GetPath {
     ///
     /// To retrieve a statically typed reference, use
     /// [`path`][GetPath::path].
-    fn reflect_path<'r, 'p>(
-        &'r self,
-        path: &'p str,
-    ) -> Result<&'r dyn Reflect, ReflectPathError<'p>>;
+    fn reflect_path<'p>(&self, path: &'p str) -> Result<&dyn Reflect, ReflectPathError<'p>>;
 
     /// Returns a mutable reference to the value specified by `path`.
     ///
     /// To retrieve a statically typed mutable reference, use
     /// [`path_mut`][GetPath::path_mut].
-    fn reflect_path_mut<'r, 'p>(
-        &'r mut self,
+    fn reflect_path_mut<'p>(
+        &mut self,
         path: &'p str,
-    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>>;
+    ) -> Result<&mut dyn Reflect, ReflectPathError<'p>>;
 
     /// Returns a statically typed reference to the value specified by `path`.
     ///
@@ -212,7 +208,7 @@ pub trait GetPath {
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
     /// [`DynamicStruct`]: crate::DynamicStruct
-    fn path<'r, 'p, T: Reflect>(&'r self, path: &'p str) -> Result<&'r T, ReflectPathError<'p>> {
+    fn path<'p, T: Reflect>(&self, path: &'p str) -> Result<&T, ReflectPathError<'p>> {
         self.reflect_path(path).and_then(|p| {
             p.downcast_ref::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
@@ -226,10 +222,7 @@ pub trait GetPath {
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
     /// [`DynamicStruct`]: crate::DynamicStruct
-    fn path_mut<'r, 'p, T: Reflect>(
-        &'r mut self,
-        path: &'p str,
-    ) -> Result<&'r mut T, ReflectPathError<'p>> {
+    fn path_mut<'p, T: Reflect>(&mut self, path: &'p str) -> Result<&mut T, ReflectPathError<'p>> {
         self.reflect_path_mut(path).and_then(|p| {
             p.downcast_mut::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
@@ -238,40 +231,34 @@ pub trait GetPath {
 }
 
 impl<T: Reflect> GetPath for T {
-    fn reflect_path<'r, 'p>(
-        &'r self,
-        path: &'p str,
-    ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
+    fn reflect_path<'p>(&self, path: &'p str) -> Result<&dyn Reflect, ReflectPathError<'p>> {
         (self as &dyn Reflect).reflect_path(path)
     }
 
-    fn reflect_path_mut<'r, 'p>(
-        &'r mut self,
+    fn reflect_path_mut<'p>(
+        &mut self,
         path: &'p str,
-    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
+    ) -> Result<&mut dyn Reflect, ReflectPathError<'p>> {
         (self as &mut dyn Reflect).reflect_path_mut(path)
     }
 }
 
 impl GetPath for dyn Reflect {
-    fn reflect_path<'r, 'p>(
-        &'r self,
-        path: &'p str,
-    ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
+    fn reflect_path<'p>(&self, path: &'p str) -> Result<&dyn Reflect, ReflectPathError<'p>> {
         let mut current: &dyn Reflect = self;
-        for (access, current_index) in PathParser::new(path) {
-            current = access?.read_element(current, current_index)?;
+        for (access, offset) in PathParser::new(path) {
+            current = access?.element(current, offset)?;
         }
         Ok(current)
     }
 
-    fn reflect_path_mut<'r, 'p>(
-        &'r mut self,
+    fn reflect_path_mut<'p>(
+        &mut self,
         path: &'p str,
-    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
+    ) -> Result<&mut dyn Reflect, ReflectPathError<'p>> {
         let mut current: &mut dyn Reflect = self;
-        for (access, current_index) in PathParser::new(path) {
-            current = access?.read_element_mut(current, current_index)?;
+        for (access, offset) in PathParser::new(path) {
+            current = access?.element_mut(current, offset)?;
         }
         Ok(current)
     }
@@ -292,7 +279,7 @@ pub struct ParsedPath(
     /// index of the start of the access within the parsed path string.
     ///
     /// The index is mainly used for more helpful error reporting.
-    Box<[(Access, usize)]>,
+    Box<[(Access<'static>, usize)]>,
 );
 
 impl ParsedPath {
@@ -343,8 +330,18 @@ impl ParsedPath {
     ///
     pub fn parse(string: &str) -> Result<Self, ReflectPathError<'_>> {
         let mut parts = Vec::new();
-        for (access, idx) in PathParser::new(string) {
-            parts.push((access?.to_owned(), idx));
+        for (access, offset) in PathParser::new(string) {
+            parts.push((access?.into_owned(), offset));
+        }
+        Ok(Self(parts.into_boxed_slice()))
+    }
+
+    /// Similar to [`Self::parse`] but only works on `&'static str`
+    /// and does not allocate per named field.
+    pub fn parse_static(string: &'static str) -> Result<Self, ReflectPathError<'_>> {
+        let mut parts = Vec::new();
+        for (access, offset) in PathParser::new(string) {
+            parts.push((access?, offset));
         }
         Ok(Self(parts.into_boxed_slice()))
     }
@@ -359,8 +356,8 @@ impl ParsedPath {
         root: &'r dyn Reflect,
     ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
         let mut current = root;
-        for (access, current_index) in self.0.iter() {
-            current = access.to_ref().read_element(current, *current_index)?;
+        for (access, offset) in self.0.iter() {
+            current = access.element(current, *offset)?;
         }
         Ok(current)
     }
@@ -375,8 +372,8 @@ impl ParsedPath {
         root: &'r mut dyn Reflect,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
         let mut current = root;
-        for (access, current_index) in self.0.iter() {
-            current = access.to_ref().read_element_mut(current, *current_index)?;
+        for (access, offset) in self.0.iter() {
+            current = access.element_mut(current, *offset)?;
         }
         Ok(current)
     }
@@ -414,269 +411,10 @@ impl ParsedPath {
 
 impl fmt::Display for ParsedPath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (idx, (access, _)) in self.0.iter().enumerate() {
-            match access {
-                Access::Field(field) => {
-                    if idx != 0 {
-                        Token::DOT.fmt(f)?;
-                    }
-                    f.write_str(field.as_str())?;
-                }
-                Access::FieldIndex(index) => {
-                    Token::CROSSHATCH.fmt(f)?;
-                    index.fmt(f)?;
-                }
-                Access::TupleIndex(index) => {
-                    if idx != 0 {
-                        Token::DOT.fmt(f)?;
-                    }
-                    index.fmt(f)?;
-                }
-                Access::ListIndex(index) => {
-                    Token::OPEN_BRACKET.fmt(f)?;
-                    index.fmt(f)?;
-                    Token::CLOSE_BRACKET.fmt(f)?;
-                }
-            }
+        for (access, _) in self.0.iter() {
+            write!(f, "{access}")?;
         }
         Ok(())
-    }
-}
-
-/// A singular owned element access within a path.
-///
-/// Can be applied to a `dyn Reflect` to get a reference to the targeted element.
-///
-/// A path is composed of multiple accesses in sequence.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-enum Access {
-    Field(String),
-    FieldIndex(usize),
-    TupleIndex(usize),
-    ListIndex(usize),
-}
-
-impl Access {
-    fn to_ref(&self) -> AccessRef<'_> {
-        match self {
-            Self::Field(value) => AccessRef::Field(value),
-            Self::FieldIndex(value) => AccessRef::FieldIndex(*value),
-            Self::TupleIndex(value) => AccessRef::TupleIndex(*value),
-            Self::ListIndex(value) => AccessRef::ListIndex(*value),
-        }
-    }
-}
-
-/// A singular borrowed element access within a path.
-///
-/// Can be applied to a `dyn Reflect` to get a reference to the targeted element.
-///
-/// Does not own the backing store it's sourced from.
-/// For an owned version, you can convert one to an [`Access`].
-#[derive(Debug)]
-enum AccessRef<'a> {
-    Field(&'a str),
-    FieldIndex(usize),
-    TupleIndex(usize),
-    ListIndex(usize),
-}
-
-impl<'a> AccessRef<'a> {
-    fn to_owned(&self) -> Access {
-        match self {
-            Self::Field(value) => Access::Field(value.to_string()),
-            Self::FieldIndex(value) => Access::FieldIndex(*value),
-            Self::TupleIndex(value) => Access::TupleIndex(*value),
-            Self::ListIndex(value) => Access::ListIndex(*value),
-        }
-    }
-
-    fn read_element<'r>(
-        &self,
-        current: &'r dyn Reflect,
-        current_index: usize,
-    ) -> Result<&'r dyn Reflect, ReflectPathError<'a>> {
-        match (self, current.reflect_ref()) {
-            (Self::Field(field), ReflectRef::Struct(reflect_struct)) => reflect_struct
-                .field(field)
-                .ok_or(ReflectPathError::InvalidField {
-                    index: current_index,
-                    field,
-                }),
-            (Self::FieldIndex(field_index), ReflectRef::Struct(reflect_struct)) => reflect_struct
-                .field_at(*field_index)
-                .ok_or(ReflectPathError::InvalidFieldIndex {
-                    index: current_index,
-                    field_index: *field_index,
-                }),
-            (Self::TupleIndex(tuple_index), ReflectRef::TupleStruct(reflect_struct)) => {
-                reflect_struct.field(*tuple_index).ok_or(
-                    ReflectPathError::InvalidTupleStructIndex {
-                        index: current_index,
-                        tuple_struct_index: *tuple_index,
-                    },
-                )
-            }
-            (Self::TupleIndex(tuple_index), ReflectRef::Tuple(reflect_tuple)) => reflect_tuple
-                .field(*tuple_index)
-                .ok_or(ReflectPathError::InvalidTupleIndex {
-                    index: current_index,
-                    tuple_index: *tuple_index,
-                }),
-            (Self::ListIndex(list_index), ReflectRef::List(reflect_list)) => reflect_list
-                .get(*list_index)
-                .ok_or(ReflectPathError::InvalidListIndex {
-                    index: current_index,
-                    list_index: *list_index,
-                }),
-            (Self::ListIndex(list_index), ReflectRef::Array(reflect_list)) => reflect_list
-                .get(*list_index)
-                .ok_or(ReflectPathError::InvalidListIndex {
-                    index: current_index,
-                    list_index: *list_index,
-                }),
-            (Self::ListIndex(_), _) => Err(ReflectPathError::ExpectedList {
-                index: current_index,
-            }),
-            (Self::Field(field), ReflectRef::Enum(reflect_enum)) => {
-                match reflect_enum.variant_type() {
-                    VariantType::Struct => {
-                        reflect_enum
-                            .field(field)
-                            .ok_or(ReflectPathError::InvalidField {
-                                index: current_index,
-                                field,
-                            })
-                    }
-                    _ => Err(ReflectPathError::ExpectedStructVariant {
-                        index: current_index,
-                    }),
-                }
-            }
-            (Self::FieldIndex(field_index), ReflectRef::Enum(reflect_enum)) => {
-                match reflect_enum.variant_type() {
-                    VariantType::Struct => reflect_enum.field_at(*field_index).ok_or(
-                        ReflectPathError::InvalidFieldIndex {
-                            index: current_index,
-                            field_index: *field_index,
-                        },
-                    ),
-                    _ => Err(ReflectPathError::ExpectedStructVariant {
-                        index: current_index,
-                    }),
-                }
-            }
-            (Self::TupleIndex(tuple_variant_index), ReflectRef::Enum(reflect_enum)) => {
-                match reflect_enum.variant_type() {
-                    VariantType::Tuple => reflect_enum.field_at(*tuple_variant_index).ok_or(
-                        ReflectPathError::InvalidTupleVariantIndex {
-                            index: current_index,
-                            tuple_variant_index: *tuple_variant_index,
-                        },
-                    ),
-                    _ => Err(ReflectPathError::ExpectedTupleVariant {
-                        index: current_index,
-                    }),
-                }
-            }
-            _ => Err(ReflectPathError::ExpectedStruct {
-                index: current_index,
-            }),
-        }
-    }
-
-    fn read_element_mut<'r>(
-        &self,
-        current: &'r mut dyn Reflect,
-        current_index: usize,
-    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'a>> {
-        match (self, current.reflect_mut()) {
-            (Self::Field(field), ReflectMut::Struct(reflect_struct)) => reflect_struct
-                .field_mut(field)
-                .ok_or(ReflectPathError::InvalidField {
-                    index: current_index,
-                    field,
-                }),
-            (Self::FieldIndex(field_index), ReflectMut::Struct(reflect_struct)) => reflect_struct
-                .field_at_mut(*field_index)
-                .ok_or(ReflectPathError::InvalidFieldIndex {
-                    index: current_index,
-                    field_index: *field_index,
-                }),
-            (Self::TupleIndex(tuple_index), ReflectMut::TupleStruct(reflect_struct)) => {
-                reflect_struct.field_mut(*tuple_index).ok_or(
-                    ReflectPathError::InvalidTupleStructIndex {
-                        index: current_index,
-                        tuple_struct_index: *tuple_index,
-                    },
-                )
-            }
-            (Self::TupleIndex(tuple_index), ReflectMut::Tuple(reflect_tuple)) => reflect_tuple
-                .field_mut(*tuple_index)
-                .ok_or(ReflectPathError::InvalidTupleIndex {
-                    index: current_index,
-                    tuple_index: *tuple_index,
-                }),
-            (Self::ListIndex(list_index), ReflectMut::List(reflect_list)) => reflect_list
-                .get_mut(*list_index)
-                .ok_or(ReflectPathError::InvalidListIndex {
-                    index: current_index,
-                    list_index: *list_index,
-                }),
-            (Self::ListIndex(list_index), ReflectMut::Array(reflect_list)) => reflect_list
-                .get_mut(*list_index)
-                .ok_or(ReflectPathError::InvalidListIndex {
-                    index: current_index,
-                    list_index: *list_index,
-                }),
-            (Self::ListIndex(_), _) => Err(ReflectPathError::ExpectedList {
-                index: current_index,
-            }),
-            (Self::Field(field), ReflectMut::Enum(reflect_enum)) => {
-                match reflect_enum.variant_type() {
-                    VariantType::Struct => {
-                        reflect_enum
-                            .field_mut(field)
-                            .ok_or(ReflectPathError::InvalidField {
-                                index: current_index,
-                                field,
-                            })
-                    }
-                    _ => Err(ReflectPathError::ExpectedStructVariant {
-                        index: current_index,
-                    }),
-                }
-            }
-            (Self::FieldIndex(field_index), ReflectMut::Enum(reflect_enum)) => {
-                match reflect_enum.variant_type() {
-                    VariantType::Struct => reflect_enum.field_at_mut(*field_index).ok_or(
-                        ReflectPathError::InvalidFieldIndex {
-                            index: current_index,
-                            field_index: *field_index,
-                        },
-                    ),
-                    _ => Err(ReflectPathError::ExpectedStructVariant {
-                        index: current_index,
-                    }),
-                }
-            }
-            (Self::TupleIndex(tuple_variant_index), ReflectMut::Enum(reflect_enum)) => {
-                match reflect_enum.variant_type() {
-                    VariantType::Tuple => reflect_enum.field_at_mut(*tuple_variant_index).ok_or(
-                        ReflectPathError::InvalidTupleVariantIndex {
-                            index: current_index,
-                            tuple_variant_index: *tuple_variant_index,
-                        },
-                    ),
-                    _ => Err(ReflectPathError::ExpectedTupleVariant {
-                        index: current_index,
-                    }),
-                }
-            }
-            _ => Err(ReflectPathError::ExpectedStruct {
-                index: current_index,
-            }),
-        }
     }
 }
 
@@ -731,62 +469,62 @@ impl<'a> PathParser<'a> {
         Some(ident)
     }
 
-    fn token_to_access(&mut self, token: Token<'a>) -> Result<AccessRef<'a>, ReflectPathError<'a>> {
-        let current_index = self.index;
+    fn token_to_access(&mut self, token: Token<'a>) -> ParseResult<Access<'a>> {
+        let current_offset = self.index;
         match token {
             Token::Dot => {
                 if let Some(Token::Ident(value)) = self.next_token() {
                     value
                         .parse::<usize>()
-                        .map(AccessRef::TupleIndex)
-                        .or(Ok(AccessRef::Field(value)))
+                        .map(Access::TupleIndex)
+                        .or(Ok(Access::Field(value.into())))
                 } else {
-                    Err(ReflectPathError::ExpectedIdent {
-                        index: current_index,
+                    Err(ReflectPathParseError::ExpectedIdent {
+                        offset: current_offset,
                     })
                 }
             }
             Token::CrossHatch => {
                 if let Some(Token::Ident(value)) = self.next_token() {
-                    Ok(AccessRef::FieldIndex(value.parse::<usize>()?))
+                    Ok(Access::FieldIndex(value.parse::<usize>()?))
                 } else {
-                    Err(ReflectPathError::ExpectedIdent {
-                        index: current_index,
+                    Err(ReflectPathParseError::ExpectedIdent {
+                        offset: current_offset,
                     })
                 }
             }
             Token::OpenBracket => {
                 let access = if let Some(Token::Ident(value)) = self.next_token() {
-                    AccessRef::ListIndex(value.parse::<usize>()?)
+                    Access::ListIndex(value.parse::<usize>()?)
                 } else {
-                    return Err(ReflectPathError::ExpectedIdent {
-                        index: current_index,
+                    return Err(ReflectPathParseError::ExpectedIdent {
+                        offset: current_offset,
                     });
                 };
 
                 if !matches!(self.next_token(), Some(Token::CloseBracket)) {
-                    return Err(ReflectPathError::ExpectedToken {
-                        index: current_index,
+                    return Err(ReflectPathParseError::ExpectedToken {
+                        offset: current_offset,
                         token: Token::OPEN_BRACKET_STR,
                     });
                 }
 
                 Ok(access)
             }
-            Token::CloseBracket => Err(ReflectPathError::UnexpectedToken {
-                index: current_index,
+            Token::CloseBracket => Err(ReflectPathParseError::UnexpectedToken {
+                offset: current_offset,
                 token: Token::CLOSE_BRACKET_STR,
             }),
             Token::Ident(value) => value
                 .parse::<usize>()
-                .map(AccessRef::TupleIndex)
-                .or(Ok(AccessRef::Field(value))),
+                .map(Access::TupleIndex)
+                .or(Ok(Access::Field(value.into()))),
         }
     }
 }
 
 impl<'a> Iterator for PathParser<'a> {
-    type Item = (Result<AccessRef<'a>, ReflectPathError<'a>>, usize);
+    type Item = (ParseResult<Access<'a>>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         let token = self.next_token()?;
@@ -818,6 +556,7 @@ mod tests {
     use super::*;
     use crate as bevy_reflect;
     use crate::*;
+    use access::TypeShape;
 
     #[derive(Reflect)]
     struct A {
@@ -856,63 +595,8 @@ mod tests {
         Struct { value: char },
     }
 
-    #[test]
-    fn parsed_path_parse() {
-        assert_eq!(
-            &*ParsedPath::parse("w").unwrap().0,
-            &[(Access::Field("w".to_string()), 1)]
-        );
-        assert_eq!(
-            &*ParsedPath::parse("x.foo").unwrap().0,
-            &[
-                (Access::Field("x".to_string()), 1),
-                (Access::Field("foo".to_string()), 2)
-            ]
-        );
-        assert_eq!(
-            &*ParsedPath::parse("x.bar.baz").unwrap().0,
-            &[
-                (Access::Field("x".to_string()), 1),
-                (Access::Field("bar".to_string()), 2),
-                (Access::Field("baz".to_string()), 6)
-            ]
-        );
-        assert_eq!(
-            &*ParsedPath::parse("y[1].baz").unwrap().0,
-            &[
-                (Access::Field("y".to_string()), 1),
-                (Access::ListIndex(1), 2),
-                (Access::Field("baz".to_string()), 5)
-            ]
-        );
-        assert_eq!(
-            &*ParsedPath::parse("z.0.1").unwrap().0,
-            &[
-                (Access::Field("z".to_string()), 1),
-                (Access::TupleIndex(0), 2),
-                (Access::TupleIndex(1), 4),
-            ]
-        );
-        assert_eq!(
-            &*ParsedPath::parse("x#0").unwrap().0,
-            &[
-                (Access::Field("x".to_string()), 1),
-                (Access::FieldIndex(0), 2),
-            ]
-        );
-        assert_eq!(
-            &*ParsedPath::parse("x#0#1").unwrap().0,
-            &[
-                (Access::Field("x".to_string()), 1),
-                (Access::FieldIndex(0), 2),
-                (Access::FieldIndex(1), 4)
-            ]
-        );
-    }
-
-    #[test]
-    fn parsed_path_get_field() {
-        let a = A {
+    fn a_sample() -> A {
+        A {
             w: 1,
             x: B {
                 foo: 10,
@@ -925,7 +609,64 @@ mod tests {
             struct_variant: F::Struct { value: 'm' },
             array: [86, 75, 309],
             tuple: (true, 1.23),
-        };
+        }
+    }
+
+    fn access_field(field: &'static str) -> Access {
+        Access::Field(field.into())
+    }
+
+    #[test]
+    fn parsed_path_parse() {
+        assert_eq!(
+            &*ParsedPath::parse("w").unwrap().0,
+            &[(access_field("w"), 1)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("x.foo").unwrap().0,
+            &[(access_field("x"), 1), (access_field("foo"), 2)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("x.bar.baz").unwrap().0,
+            &[
+                (access_field("x"), 1),
+                (access_field("bar"), 2),
+                (access_field("baz"), 6)
+            ]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("y[1].baz").unwrap().0,
+            &[
+                (access_field("y"), 1),
+                (Access::ListIndex(1), 2),
+                (access_field("baz"), 5)
+            ]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("z.0.1").unwrap().0,
+            &[
+                (access_field("z"), 1),
+                (Access::TupleIndex(0), 2),
+                (Access::TupleIndex(1), 4),
+            ]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("x#0").unwrap().0,
+            &[(access_field("x"), 1), (Access::FieldIndex(0), 2)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("x#0#1").unwrap().0,
+            &[
+                (access_field("x"), 1),
+                (Access::FieldIndex(0), 2),
+                (Access::FieldIndex(1), 4)
+            ]
+        );
+    }
+
+    #[test]
+    fn parsed_path_get_field() {
+        let a = a_sample();
 
         let b = ParsedPath::parse("w").unwrap();
         let c = ParsedPath::parse("x.foo").unwrap();
@@ -1002,20 +743,7 @@ mod tests {
 
     #[test]
     fn reflect_path() {
-        let mut a = A {
-            w: 1,
-            x: B {
-                foo: 10,
-                bar: C { baz: 3.14 },
-            },
-            y: vec![C { baz: 1.0 }, C { baz: 2.0 }],
-            z: D(E(10.0, 42)),
-            unit_variant: F::Unit,
-            tuple_variant: F::Tuple(123, 321),
-            struct_variant: F::Struct { value: 'm' },
-            array: [86, 75, 309],
-            tuple: (true, 1.23),
-        };
+        let mut a = a_sample();
 
         assert_eq!(*a.path::<usize>("w").unwrap(), 1);
         assert_eq!(*a.path::<usize>("x.foo").unwrap(), 10);
@@ -1044,35 +772,78 @@ mod tests {
 
         assert_eq!(
             a.reflect_path("x.notreal").err().unwrap(),
-            ReflectPathError::InvalidField {
-                index: 2,
-                field: "notreal"
+            ReflectPathError::InvalidAccess {
+                offset: 2,
+                error: AccessError(access::Error::Access {
+                    ty: TypeShape::Struct,
+                    access: access_field("notreal"),
+                }),
             }
         );
 
         assert_eq!(
             a.reflect_path("unit_variant.0").err().unwrap(),
-            ReflectPathError::ExpectedTupleVariant { index: 13 }
+            ReflectPathError::InvalidAccess {
+                offset: 13,
+                error: AccessError(access::Error::Enum {
+                    actual: TypeShape::Unit,
+                    expected: TypeShape::Tuple
+                }),
+            }
         );
 
         assert_eq!(
             a.reflect_path("x..").err().unwrap(),
-            ReflectPathError::ExpectedIdent { index: 2 }
+            ReflectPathError::Parse(ReflectPathParseError::ExpectedIdent { offset: 2 })
         );
 
         assert_eq!(
             a.reflect_path("x[0]").err().unwrap(),
-            ReflectPathError::ExpectedList { index: 2 }
+            ReflectPathError::InvalidAccess {
+                offset: 2,
+                error: AccessError(access::Error::Type {
+                    actual: TypeShape::Struct,
+                    expected: TypeShape::List
+                }),
+            }
         );
 
         assert_eq!(
             a.reflect_path("y.x").err().unwrap(),
-            ReflectPathError::ExpectedStruct { index: 2 }
+            ReflectPathError::InvalidAccess {
+                offset: 2,
+                error: AccessError(access::Error::Type {
+                    actual: TypeShape::List,
+                    expected: TypeShape::Struct
+                }),
+            }
         );
 
         assert!(matches!(
             a.reflect_path("y[badindex]"),
-            Err(ReflectPathError::IndexParseError(_))
+            Err(ReflectPathError::Parse(
+                ReflectPathParseError::IndexParseError(_)
+            ))
         ));
+    }
+
+    #[test]
+    fn accept_leading_tokens() {
+        assert_eq!(
+            &*ParsedPath::parse(".w").unwrap().0,
+            &[(access_field("w"), 1)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("#0.foo").unwrap().0,
+            &[(Access::FieldIndex(0), 1), (access_field("foo"), 3)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse(".5").unwrap().0,
+            &[(Access::TupleIndex(5), 1)]
+        );
+        assert_eq!(
+            &*ParsedPath::parse("[0].bar").unwrap().0,
+            &[(Access::ListIndex(0), 1), (access_field("bar"), 4)]
+        );
     }
 }

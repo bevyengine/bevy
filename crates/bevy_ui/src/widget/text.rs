@@ -99,7 +99,7 @@ fn create_text_measure(
                 content_size.set(TextMeasure { info: measure });
             }
 
-            // Text measure func created succesfully, so set `TextFlags` to schedule a recompute
+            // Text measure func created successfully, so set `TextFlags` to schedule a recompute
             text_flags.needs_new_measure_func = false;
             text_flags.needs_recompute = true;
         }
