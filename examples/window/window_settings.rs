@@ -20,6 +20,10 @@ fn main() {
                     // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
                     prevent_default_event_handling: false,
                     window_theme: Some(WindowTheme::Dark),
+                    enabled_buttons: bevy::window::EnabledButtons {
+                        maximize: false,
+                        ..Default::default()
+                    },
                     ..default()
                 }),
                 ..default()
@@ -34,6 +38,7 @@ fn main() {
                 toggle_theme,
                 toggle_cursor,
                 toggle_vsync,
+                toggle_window_controls,
                 cycle_cursor_icon,
                 switch_level,
             ),
@@ -73,6 +78,31 @@ fn switch_level(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
             WindowLevel::AlwaysOnTop => WindowLevel::AlwaysOnBottom,
         };
         info!("WINDOW_LEVEL: {:?}", window.window_level);
+    }
+}
+
+/// This system toggles the window controls when pressing buttons 1, 2 and 3
+///
+/// This feature only works on some platforms. Please check the
+/// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.enabled_buttons)
+/// for more details.
+fn toggle_window_controls(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
+    let toggle_minimize = input.just_pressed(KeyCode::Key1);
+    let toggle_maximize = input.just_pressed(KeyCode::Key2);
+    let toggle_close = input.just_pressed(KeyCode::Key3);
+
+    if toggle_minimize || toggle_maximize || toggle_close {
+        let mut window = windows.single_mut();
+
+        if toggle_minimize {
+            window.enabled_buttons.minimize = !window.enabled_buttons.minimize;
+        }
+        if toggle_maximize {
+            window.enabled_buttons.maximize = !window.enabled_buttons.maximize;
+        }
+        if toggle_close {
+            window.enabled_buttons.close = !window.enabled_buttons.close;
+        }
     }
 }
 

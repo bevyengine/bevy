@@ -19,8 +19,12 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     let position = vertex.position * vertex.i_pos_scale.w + vertex.i_pos_scale.xyz;
     var out: VertexOutput;
+    // NOTE: The 0 index into the Mesh array is a hack for this example as the
+    // instance_index builtin would map to the wrong index in the Mesh array.
+    // This index could be passed in via another uniform instead but it's
+    // unnecessary for the example.
     out.clip_position = mesh_position_local_to_clip(
-        mesh.model, 
+        mesh[0].model,
         vec4<f32>(position, 1.0)
     );
     out.color = vertex.i_color;
