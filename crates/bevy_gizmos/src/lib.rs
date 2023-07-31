@@ -463,7 +463,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
         };
 
         if line_gizmo.vertex_count < 2 {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Success;
         }
 
         let instances = if line_gizmo.strip {
