@@ -276,7 +276,7 @@ pub fn extract_uinode_borders(
             Without<ContentSize>,
         >,
     >,
-    parent_node_query: Extract<Query<&Node, With<Parent>>>,
+    node_query: Extract<Query<&Node>>,
 ) {
     let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
 
@@ -304,7 +304,7 @@ pub fn extract_uinode_borders(
             // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
             // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
             let parent_width = parent
-                .and_then(|parent| parent_node_query.get(parent.get()).ok())
+                .and_then(|parent| node_query.get(parent.get()).ok())
                 .map(|parent_node| parent_node.size().x)
                 .unwrap_or(ui_logical_viewport_size.x);
             let left =
