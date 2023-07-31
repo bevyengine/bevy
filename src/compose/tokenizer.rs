@@ -29,44 +29,47 @@ enum TokenKind {
 }
 
 // a basic tokenizer that separates identifiers from non-identifiers, and optionally returns whitespace tokens
-// unicode XID rules apply, except that double quotes (`"`) are also allowed as identifier characters,
-// and colons (`:`) are allowed except in the initial and final positions
+// unicode XID rules apply, except that additional characters '"' and '::' (sequences of two colons) are allowed in identifiers.
+// quotes treat any further chars until the next quote as part of the identifier.
+// note we don't support non-USV identifiers like 👩‍👩‍👧‍👧 which is apparently in XID_continue
 pub struct Tokenizer<'a> {
     tokens: VecDeque<Token<'a>>,
 }
 
 impl<'a> Tokenizer<'a> {
-    pub fn new(src: &'a str, emit_whitespace: bool, allow_trailing_colons: bool) -> Self {
+    pub fn new(src: &'a str, emit_whitespace: bool) -> Self {
         let mut tokens = VecDeque::default();
         let mut current_token_start = 0;
         let mut current_token = None;
+        let mut quoted_token = false;
 
-        // note we don't support non-USV identifiers like 👩‍👩‍👧‍👧 which is apparently in XID_continue
-        for (ix, char) in src.char_indices() {
+        let mut chars = src.char_indices().peekable();
+
+        while let Some((ix, char)) = chars.next() {
+            if char == '"' {
+                quoted_token = !quoted_token;
+                if !quoted_token {
+                    continue;
+                }
+            }
+
             if let Some(tok) = current_token {
                 match tok {
                     TokenKind::Identifier => {
-                        if unicode_ident::is_xid_continue(char) || char == '"' || char == ':' {
+                        // accept anything within quotes, or XID_continues
+                        if quoted_token || unicode_ident::is_xid_continue(char) {
+                            continue;
+                        }
+                        // accept `::`
+                        if char == ':' && chars.peek() == Some(&(ix + 1, ':')) {
+                            chars.next();
                             continue;
                         }
 
-                        // separate trailing ':'s
-                        let mut actual_ix = ix;
-
-                        if !allow_trailing_colons {
-                            while src[current_token_start..actual_ix].ends_with(':') {
-                                actual_ix -= 1;
-                            }
-                        }
-
                         tokens.push_back(Token::Identifier(
-                            &src[current_token_start..actual_ix],
+                            &src[current_token_start..ix],
                             current_token_start,
                         ));
-
-                        for trailing_ix in actual_ix..ix {
-                            tokens.push_back(Token::Other(':', trailing_ix));
-                        }
                     }
                     TokenKind::Whitespace => {
                         if char.is_whitespace() {
@@ -83,7 +86,7 @@ impl<'a> Tokenizer<'a> {
                 current_token = None;
             }
 
-            if unicode_ident::is_xid_start(char) || char == '"' {
+            if quoted_token || unicode_ident::is_xid_start(char) {
                 current_token = Some(TokenKind::Identifier);
                 current_token_start = ix;
             } else if !char.is_whitespace() {

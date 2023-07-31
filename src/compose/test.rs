@@ -12,8 +12,8 @@ mod test {
     };
 
     use crate::compose::{
-        ComposableModuleDescriptor, Composer, ImportDefinition, NagaModuleDescriptor,
-        ShaderDefValue, ShaderLanguage, ShaderType,
+        get_preprocessor_data, ComposableModuleDescriptor, Composer, ImportDefinition,
+        NagaModuleDescriptor, ShaderDefValue, ShaderLanguage, ShaderType,
     };
 
     macro_rules! output_eq {
@@ -1142,6 +1142,61 @@ mod test {
             .unwrap();
 
         assert_eq!(test_shader(&mut composer), 36.0);
+    }
+
+    #[test]
+    fn test_bevy_path_imports() {
+        let (_, mut imports, _) =
+            get_preprocessor_data(include_str!("tests/bevy_path_imports/skill.wgsl"));
+        imports.iter_mut().for_each(|import| {
+            import.items.sort();
+        });
+        imports.sort_by(|a, b| a.import.cmp(&b.import));
+        assert_eq!(
+            imports,
+            vec![
+                ImportDefinition {
+                    import: "\"shaders/skills/hit.wgsl\"".to_owned(),
+                    items: vec!["frag".to_owned(), "vert".to_owned(),],
+                },
+                ImportDefinition {
+                    import: "\"shaders/skills/lightning.wgsl\"".to_owned(),
+                    items: vec!["frag".to_owned(), "vert".to_owned(),],
+                },
+                ImportDefinition {
+                    import: "\"shaders/skills/lightning_ring.wgsl\"".to_owned(),
+                    items: vec!["frag".to_owned(), "vert".to_owned(),],
+                },
+                ImportDefinition {
+                    import: "\"shaders/skills/magic_arrow.wgsl\"".to_owned(),
+                    items: vec!["frag".to_owned(), "vert".to_owned(),],
+                },
+                ImportDefinition {
+                    import: "\"shaders/skills/orb.wgsl\"".to_owned(),
+                    items: vec!["frag".to_owned(), "vert".to_owned(),],
+                },
+                ImportDefinition {
+                    import: "\"shaders/skills/railgun_trail.wgsl\"".to_owned(),
+                    items: vec!["frag".to_owned(), "vert".to_owned(),],
+                },
+                ImportDefinition {
+                    import: "\"shaders/skills/shared.wgsl\"".to_owned(),
+                    items: vec![
+                        "Vertex".to_owned(),
+                        "VertexOutput".to_owned(),
+                        "VertexOutput".to_owned(),
+                    ],
+                },
+                ImportDefinition {
+                    import: "\"shaders/skills/slash.wgsl\"".to_owned(),
+                    items: vec!["frag".to_owned(), "vert".to_owned(),],
+                },
+                ImportDefinition {
+                    import: "\"shaders/skills/sound.wgsl\"".to_owned(),
+                    items: vec!["frag".to_owned(), "vert".to_owned(),],
+                },
+            ]
+        );
     }
 
     // actually run a shader and extract the result

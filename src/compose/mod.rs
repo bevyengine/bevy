@@ -292,7 +292,7 @@ impl ComposableModuleDefinition {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ImportDefinition {
     pub import: String,
     pub items: Vec<String>,

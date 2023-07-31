@@ -9,7 +9,7 @@ pub fn parse_imports<'a>(
     input: &'a str,
     declared_imports: &mut HashMap<String, Vec<String>>,
 ) -> Result<(), (&'a str, usize)> {
-    let mut tokens = Tokenizer::new(input, false, true).peekable();
+    let mut tokens = Tokenizer::new(input, false).peekable();
 
     match tokens.next() {
         Some(Token::Other('#', _)) => (),
@@ -108,7 +108,7 @@ pub fn substitute_identifiers(
     used_imports: &mut HashMap<String, ImportDefWithOffset>,
     allow_ambiguous: bool,
 ) -> Result<String, usize> {
-    let tokens = Tokenizer::new(input, true, false);
+    let tokens = Tokenizer::new(input, true);
     let mut output = String::with_capacity(input.len());
     let mut in_substitution_position = true;
 
@@ -305,6 +305,23 @@ fn import_tokens() {
         ]))
     );
 
+    let input = r#"
+        #import "path//with\ all sorts of .stuff"::{a, b}
+    "#;
+    assert_eq!(
+        test_parse(input),
+        Ok(HashMap::from_iter([
+            (
+                "a".to_owned(),
+                vec!(r#""path//with\ all sorts of .stuff"::a"#.to_owned())
+            ),
+            (
+                "b".to_owned(),
+                vec!(r#""path//with\ all sorts of .stuff"::b"#.to_owned())
+            ),
+        ]))
+    );
+
     let input = r"
         #import a::b::{
     ";
@@ -322,6 +339,11 @@ fn import_tokens() {
 
     let input = r"
         #import a::b{{c,d}}
+    ";
+    assert!(test_parse(input).is_err());
+
+    let input = r"
+        #import a:b
     ";
     assert!(test_parse(input).is_err());
 }
