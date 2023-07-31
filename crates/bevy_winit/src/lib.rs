@@ -222,7 +222,7 @@ where
 }
 
 #[derive(SystemParam)]
-struct WinitEventWriters<'w> {
+struct WindowAndInputEventWriters<'w> {
     // window events
     window_resized: EventWriter<'w, WindowResized>,
     window_close_requested: EventWriter<'w, WindowCloseRequested>,
@@ -309,7 +309,7 @@ pub fn winit_runner(mut app: App) {
         SystemState::new(&mut app.world);
 
     let mut event_writer_system_state: SystemState<(
-        WinitEventWriters,
+        WindowAndInputEventWriters,
         NonSend<WinitWindows>,
         Query<(&mut Window, &mut CachedWindow)>,
     )> = SystemState::new(&mut app.world);

@@ -127,7 +127,7 @@ pub struct CachedWindow {
     pub window: Window,
 }
 
-/// Propagates changes from window entities to the [`winit`] backend.
+/// Propagates changes from [`Window`] entities to the [`winit`] backend.
 ///
 /// # Notes
 ///
