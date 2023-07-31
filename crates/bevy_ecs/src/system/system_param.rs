@@ -1417,9 +1417,9 @@ all_tuples!(impl_system_param_tuple, 0, 16, P);
 /// explicit lifetime annotations are required.
 ///
 /// Note that this is entirely safe and tracks lifetimes correctly.
-/// This purely exists for convinience.
+/// This purely exists for convenience.
 ///
-/// You can't instanciate a static `SystemParam`, you'll always end up with
+/// You can't instantiate a static `SystemParam`, you'll always end up with
 /// `Res<'w, T>`, `ResMut<'w, T>` or `&'w T` bound to the lifetime of the provided
 /// `&'w World`.
 ///
