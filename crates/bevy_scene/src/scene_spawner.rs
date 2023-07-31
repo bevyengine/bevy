@@ -16,7 +16,10 @@ use uuid::Uuid;
 ///
 /// See also [`SceneSpawner::instance_is_ready`].
 #[derive(Event)]
-pub struct SceneInstanceReady(pub Entity);
+pub struct SceneInstanceReady {
+    /// Entity to which the scene was spawned as a child.
+    pub parent: Entity,
+}
 
 /// Information about a scene instance.
 #[derive(Debug)]
@@ -291,7 +294,8 @@ impl SceneSpawner {
                             child: entity,
                         }
                         .apply(world);
-                        world.send_event(SceneInstanceReady(parent));
+
+                        world.send_event(SceneInstanceReady { parent });
                     }
                 }
             } else {
