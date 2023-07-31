@@ -59,6 +59,10 @@ enum Action {
         #[arg(long)]
         /// Report execution details in files
         report_details: bool,
+
+        #[arg(long)]
+        /// File containing the list of examples to run, incompatible with pagination
+        example_list: Option<String>,
     },
     /// Build the markdown files for the website
     BuildWebsiteList {
@@ -127,7 +131,23 @@ fn main() {
             in_ci,
             ignore_stress_tests,
             report_details,
+            example_list,
         } => {
+            if example_list.is_some() && cli.page.is_some() {
+                let mut cmd = Args::command();
+                cmd.error(
+                    ErrorKind::ArgumentConflict,
+                    "example-list can't be used with pagination",
+                )
+                .exit();
+            }
+            let example_filter = example_list
+                .map(|path| {
+                    let file = fs::read_to_string(path).unwrap();
+                    file.lines().map(|l| l.to_string()).collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+
             let mut examples_to_run = parse_examples();
 
             let mut failed_examples = vec![];
@@ -204,6 +224,10 @@ fn main() {
                 examples_to_run
                     .iter()
                     .filter(|example| example.category != "Stress Tests" || !ignore_stress_tests)
+                    .filter(|example| {
+                        example_filter.is_empty()
+                            || example_filter.contains(&example.technical_name)
+                    })
                     .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
                     .take(cli.per_page.unwrap_or(usize::MAX))
             };
