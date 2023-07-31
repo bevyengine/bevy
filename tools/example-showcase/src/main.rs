@@ -142,6 +142,7 @@ fn main() {
                 .exit();
             }
             let example_filter = example_list
+                .as_ref()
                 .map(|path| {
                     let file = fs::read_to_string(path).unwrap();
                     file.lines().map(|l| l.to_string()).collect::<Vec<_>>()
@@ -225,8 +226,7 @@ fn main() {
                     .iter()
                     .filter(|example| example.category != "Stress Tests" || !ignore_stress_tests)
                     .filter(|example| {
-                        example_filter.is_empty()
-                            || example_filter.contains(&example.technical_name)
+                        example_list.is_none() || example_filter.contains(&example.technical_name)
                     })
                     .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
                     .take(cli.per_page.unwrap_or(usize::MAX))
