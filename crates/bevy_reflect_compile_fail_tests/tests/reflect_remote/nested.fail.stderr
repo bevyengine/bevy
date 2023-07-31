@@ -42,137 +42,9 @@ note: required by a bound in `NamedField::new`
 help: consider further restricting this bound
    |
 25 |     struct MyOuter<T: Reflect + bevy_reflect::FromReflect> {
-   |                               +++++++++++++++++++++++++++
-
-error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
-  --> tests/reflect_remote/nested.fail.rs:24:5
-   |
-24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
-   |
-   = help: the following other types implement trait `Reflect`:
-             bool
-             char
-             isize
-             i8
-             i16
-             i32
-             i64
-             i128
-           and $N others
-   = note: required for the cast from `&TheirInner<T>` to `&dyn Reflect`
+61 |     fn as_wrapper_mut(remote: &mut Self::Remote) -> &mut Self;
+   |        ^^^^^^^^^^^^^^
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
-  --> tests/reflect_remote/nested.fail.rs:24:5
-   |
-24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
-   |
-   = help: the following other types implement trait `Reflect`:
-             bool
-             char
-             isize
-             i8
-             i16
-             i32
-             i64
-             i128
-           and $N others
-   = note: required for the cast from `&mut TheirInner<T>` to `&mut (dyn Reflect + 'static)`
-   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
-  --> tests/reflect_remote/nested.fail.rs:24:5
-   |
-24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
-   |
-   = help: the following other types implement trait `Reflect`:
-             bool
-             char
-             isize
-             i8
-             i16
-             i32
-             i64
-             i128
-           and $N others
-   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0277]: the trait bound `TheirInner<T>: TypePath` is not satisfied
-   --> tests/reflect_remote/nested.fail.rs:24:5
-    |
-24  |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `TypePath` is not implemented for `TheirInner<T>`
-    |
-    = help: the following other types implement trait `TypePath`:
-              bool
-              char
-              isize
-              i8
-              i16
-              i32
-              i64
-              i128
-            and $N others
-    = note: required for `TheirInner<T>` to implement `DynamicTypePath`
-note: required by a bound in `clone_value`
-   --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/reflect.rs:75:20
-    |
-75  | pub trait Reflect: DynamicTypePath + Any + Send + Sync {
-    |                    ^^^^^^^^^^^^^^^ required by this bound in `Reflect::clone_value`
-...
-205 |     fn clone_value(&self) -> Box<dyn Reflect>;
-    |        ----------- required by a bound in this associated function
-    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0308]: `?` operator has incompatible types
-  --> tests/reflect_remote/nested.fail.rs:24:5
-   |
-24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `MyInner<T>`
-   |
-   = note: `?` operator cannot convert from `incorrect_inner_type::MyInner<T>` to `TheirInner<T>`
-   = note: expected struct `TheirInner<T>`
-              found struct `incorrect_inner_type::MyInner<T>`
-   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0308]: mismatched types
-  --> tests/reflect_remote/nested.fail.rs:27:20
-   |
-24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     -------------------------------------------------------
-   |     |
-   |     expected due to the type of this binding
-   |     in this procedural macro expansion
-...
-27 |         pub inner: MyInner<T>,
-   |                    ^^^^^^^^^^ expected `TheirInner<T>`, found `MyInner<T>`
-   |
-   = note: expected struct `TheirInner<T>`
-              found struct `incorrect_inner_type::MyInner<T>`
-   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0308]: mismatched types
-  --> tests/reflect_remote/nested.fail.rs:40:28
-   |
-37 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ------------------------------------------------------- in this procedural macro expansion
-...
-40 |         #[reflect(remote = "MyOuter<T>")]
-   |                            ^^^^^^^^^^^^
-   |                            |
-   |                            expected `TheirOuter<T>`, found `TheirInner<T>`
-   |                            expected due to this
-   |
-   = note: expected struct `TheirOuter<T>`
-              found struct `TheirInner<T>`
-   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
-help: try wrapping the expression in `external_crate::TheirOuter`
-   |
-40 |         #[reflect(remote = external_crate::TheirOuter { inner: "MyOuter<T>" })]
-   |                            +++++++++++++++++++++++++++++++++++              +
 
 error[E0308]: `?` operator has incompatible types
   --> tests/reflect_remote/nested.fail.rs:51:5
@@ -199,7 +71,7 @@ error[E0308]: mismatched types
    |                    - this type parameter
 ...
 55 |         pub inner: super::external_crate::TheirInner<bool>,
-   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `TheirInner<bool>`
+   |                    ^^^^^ expected `TheirInner<T>`, found `TheirInner<bool>`
    |
    = note: expected struct `TheirInner<T>`
               found struct `TheirInner<bool>`
