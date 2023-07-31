@@ -6,7 +6,7 @@ index 46b3e3e19..81ffad2b5 100644
                      };
  
                  runner_state.window_event_received = true;
-+                window_events.window_resized.send(WindowResized {
++                event_writers.window_resized.send(WindowResized {
 +                    window: window_entity,
 +                    width: window.width(),
 +                    height: window.height(),
