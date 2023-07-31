@@ -9,7 +9,7 @@ pub fn parse_imports<'a>(
     input: &'a str,
     declared_imports: &mut HashMap<String, Vec<String>>,
 ) -> Result<(), (&'a str, usize)> {
-    let mut tokens = Tokenizer::new(input, false).peekable();
+    let mut tokens = Tokenizer::new(input, false, true).peekable();
 
     match tokens.next() {
         Some(Token::Other('#', _)) => (),
@@ -108,7 +108,7 @@ pub fn substitute_identifiers(
     used_imports: &mut HashMap<String, ImportDefWithOffset>,
     allow_ambiguous: bool,
 ) -> Result<String, usize> {
-    let tokens = Tokenizer::new(input, true);
+    let tokens = Tokenizer::new(input, true, false);
     let mut output = String::with_capacity(input.len());
     let mut in_substitution_position = true;
 

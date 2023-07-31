@@ -36,7 +36,7 @@ pub struct Tokenizer<'a> {
 }
 
 impl<'a> Tokenizer<'a> {
-    pub fn new(src: &'a str, emit_whitespace: bool) -> Self {
+    pub fn new(src: &'a str, emit_whitespace: bool, allow_trailing_colons: bool) -> Self {
         let mut tokens = VecDeque::default();
         let mut current_token_start = 0;
         let mut current_token = None;
@@ -52,8 +52,11 @@ impl<'a> Tokenizer<'a> {
 
                         // separate trailing ':'s
                         let mut actual_ix = ix;
-                        while src[current_token_start..actual_ix].ends_with(':') {
-                            actual_ix -= 1;
+
+                        if !allow_trailing_colons {
+                            while src[current_token_start..actual_ix].ends_with(':') {
+                                actual_ix -= 1;
+                            }
                         }
 
                         tokens.push_back(Token::Identifier(
