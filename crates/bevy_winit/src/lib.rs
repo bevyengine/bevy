@@ -680,11 +680,11 @@ pub fn winit_runner(mut app: App) {
                     let (config, windows) = focused_windows_state.get(&app.world);
                     let focused = windows.iter().any(|window| window.focused);
                     let should_update = match config.update_mode(focused) {
-                        UpdateMode::Continuous => true,
-                        UpdateMode::Reactive { .. } => {
-                            // For `event_handler` to run, either we have received a window or raw
-                            // input event, the `wait` has elapsed, or a redraw has been requested
-                            // (by the app or the OS), so we can just return `true`.
+                        UpdateMode::Continuous | UpdateMode::Reactive { .. } => {
+                            // `Reactive`: In order for `event_handler` to have been called, either
+                            // we received a window or raw input event, the `wait` elapsed, or a
+                            // redraw was requested (by the app or the OS). There are no other
+                            // conditions, so we can just return `true` here.
                             true
                         }
                         UpdateMode::ReactiveLowPower { .. } => {
