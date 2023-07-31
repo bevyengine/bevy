@@ -812,6 +812,7 @@ impl Composer {
     // - build the naga IR (against headers)
     // - record any types/vars/constants/functions that are defined within this module
     // - build headers for each supported language
+    #[allow(clippy::too_many_arguments)]
     fn create_composable_module(
         &mut self,
         module_definition: &ComposableModuleDefinition,
@@ -849,7 +850,7 @@ impl Composer {
         let mut virtual_functions: HashSet<String> = Default::default();
         let source = self
             .virtual_fn_regex
-            .replace_all(&source, |cap: &regex::Captures| {
+            .replace_all(source, |cap: &regex::Captures| {
                 let target_function = cap.get(2).unwrap().as_str().to_owned();
 
                 let replacement_str = format!(
