@@ -252,11 +252,17 @@ fn main() {
                 }
 
                 let before = Instant::now();
-                let result = cmd.run();
+                if report_details {
+                    cmd = cmd.ignore_status();
+                }
+                let result = cmd.output();
+
                 let duration = before.elapsed();
                 println!("took {duration:?}");
 
-                if result.is_ok() {
+                if (!report_details && result.is_ok())
+                    || (report_details && result.as_ref().unwrap().status.success())
+                {
                     if screenshot {
                         let _ = fs::create_dir_all(Path::new("screenshots").join(&to_run.category));
                         let renamed_screenshot = fs::rename(
@@ -274,6 +280,19 @@ fn main() {
                     }
                 } else {
                     failed_examples.push((to_run, duration));
+                }
+
+                if report_details {
+                    let result = result.unwrap();
+                    let stdout = String::from_utf8_lossy(&result.stdout);
+                    let stderr = String::from_utf8_lossy(&result.stderr);
+                    println!("{}", stdout);
+                    println!("{}", stderr);
+                    let mut file = File::create(format!("{}.log", example)).unwrap();
+                    file.write_all(b"==== stdout ====\n").unwrap();
+                    file.write_all(stdout.as_bytes()).unwrap();
+                    file.write_all(b"\n==== stderr ====\n").unwrap();
+                    file.write_all(stderr.as_bytes()).unwrap();
                 }
 
                 thread::sleep(Duration::from_secs(1));
