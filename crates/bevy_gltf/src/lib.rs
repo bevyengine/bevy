@@ -60,7 +60,8 @@ impl Plugin for GltfPlugin {
     }
 }
 
-/// Representation of a loaded glTF file.
+/// Representation of a loaded glTF file
+/// (file loaded via the `AssetServer` with the extension `.glb` or `.gltf`).
 #[derive(Debug, TypeUuid, TypePath)]
 #[uuid = "5c7d5f8a-f7b0-4e45-a09e-406c0372fea2"]
 pub struct Gltf {
