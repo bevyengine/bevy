@@ -39,6 +39,7 @@ impl Plugin for ScenePlugin {
         app.add_asset::<DynamicScene>()
             .add_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
+            .add_event::<SceneInstanceReady>()
             .init_resource::<SceneSpawner>()
             .add_systems(Update, scene_spawner_system)
             // Systems `*_bundle_spawner` must run before `scene_spawner_system`
