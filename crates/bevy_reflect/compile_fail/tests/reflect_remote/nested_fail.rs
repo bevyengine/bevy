@@ -41,6 +41,8 @@ mod mismatched_remote_type {
     use bevy_reflect::{reflect_remote, Reflect};
 
     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+    //~^ ERROR: mismatched types
+    //~| ERROR: mismatched types
     struct MyOuter<T: Reflect> {
         // Reason: Should be `MyInner<T>`
         #[reflect(remote = "MyOuter<T>")]
@@ -57,6 +59,8 @@ mod mismatched_remote_generic {
 
     #[reflect_remote(super::external_crate::TheirOuter<T>)]
     //~^ ERROR: `?` operator has incompatible types
+    //~| ERROR: mismatched types
+    //~| ERROR: mismatched types
     struct MyOuter<T: Reflect> {
         // Reason: `TheirOuter::inner` is not defined as `TheirInner<bool>`
         #[reflect(remote = "MyInner<bool>")]
