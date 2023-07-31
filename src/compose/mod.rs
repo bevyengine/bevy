@@ -819,6 +819,8 @@ impl Composer {
         shader_defs: &HashMap<String, ShaderDefValue>,
         create_headers: bool,
         demote_entrypoints: bool,
+        source: &str,
+        imports: Vec<ImportDefWithOffset>,
     ) -> Result<ComposableModule, ComposerError> {
         let wrap_err = |inner: ComposerErrorInner| -> ComposerError {
             ComposerError {
@@ -830,18 +832,6 @@ impl Composer {
                 },
             }
         };
-
-        let PreprocessOutput {
-            preprocessed_source: source,
-            imports,
-        } = self
-            .preprocessor
-            .preprocess(
-                &module_definition.sanitized_source,
-                shader_defs,
-                self.validate,
-            )
-            .map_err(wrap_err)?;
 
         let mut imports: Vec<_> = imports
             .into_iter()
@@ -1277,7 +1267,10 @@ impl Composer {
         module_set: &ComposableModuleDefinition,
         shader_defs: &HashMap<String, ShaderDefValue>,
     ) -> Result<ComposableModule, ComposerError> {
-        let imports = self
+        let PreprocessOutput {
+            preprocessed_source,
+            imports,
+        } = self
             .preprocessor
             .preprocess(&module_set.sanitized_source, shader_defs, self.validate)
             .map_err(|inner| ComposerError {
@@ -1287,8 +1280,7 @@ impl Composer {
                     offset: 0,
                     defs: shader_defs.clone(),
                 },
-            })?
-            .imports;
+            })?;
 
         self.ensure_imports(imports.iter().map(|import| &import.definition), shader_defs)?;
         self.ensure_imports(&module_set.additional_imports, shader_defs)?;
@@ -1299,6 +1291,8 @@ impl Composer {
             shader_defs,
             true,
             true,
+            &preprocessed_source,
+            imports,
         )
     }
 
@@ -1621,13 +1615,36 @@ impl Composer {
             modules: Default::default(),
         };
 
+        let PreprocessOutput {
+            preprocessed_source,
+            imports,
+        } = self
+            .preprocessor
+            .preprocess(&sanitized_source, &shader_defs, self.validate)
+            .map_err(|inner| ComposerError {
+                inner,
+                source: ErrSource::Constructing {
+                    path: file_path.to_owned(),
+                    source: sanitized_source,
+                    offset: 0,
+                },
+            })?;
+
         let composable = self
-            .create_composable_module(&definition, String::from(""), &shader_defs, false, false)
+            .create_composable_module(
+                &definition,
+                String::from(""),
+                &shader_defs,
+                false,
+                false,
+                &preprocessed_source,
+                imports,
+            )
             .map_err(|e| ComposerError {
                 inner: e.inner,
                 source: ErrSource::Constructing {
                     path: definition.file_path.to_owned(),
-                    source: definition.sanitized_source.to_owned(),
+                    source: preprocessed_source.clone(),
                     offset: e.source.offset(),
                 },
             })?;
@@ -1686,7 +1703,7 @@ impl Composer {
                             inner: e.into(),
                             source: ErrSource::Constructing {
                                 path: file_path.to_owned(),
-                                source: sanitized_source.clone(),
+                                source: preprocessed_source.clone(),
                                 offset: composable.start_offset,
                             },
                         })?;
@@ -1699,7 +1716,7 @@ impl Composer {
                 inner: e.into(),
                 source: ErrSource::Constructing {
                     path: file_path.to_owned(),
-                    source: sanitized_source.clone(),
+                    source: preprocessed_source.clone(),
                     offset: composable.start_offset,
                 },
             })?;
@@ -1720,7 +1737,7 @@ impl Composer {
                             match module_index {
                                 0 => ErrSource::Constructing {
                                     path: file_path.to_owned(),
-                                    source: definition.sanitized_source,
+                                    source: preprocessed_source.clone(),
                                     offset: composable.start_offset,
                                 },
                                 _ => {
@@ -1743,7 +1760,7 @@ impl Composer {
                         }
                         None => ErrSource::Constructing {
                             path: file_path.to_owned(),
-                            source: sanitized_source,
+                            source: preprocessed_source.clone(),
                             offset: composable.start_offset,
                         },
                     };
