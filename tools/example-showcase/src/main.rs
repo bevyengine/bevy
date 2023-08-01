@@ -277,6 +277,8 @@ fn main() {
                         } else {
                             successful_examples.push((to_run, duration));
                         }
+                    } else {
+                        successful_examples.push((to_run, duration));
                     }
                 } else {
                     failed_examples.push((to_run, duration));
@@ -331,21 +333,23 @@ fn main() {
                         .collect::<Vec<_>>()
                         .join("\n"),
                 );
-                let _ = fs::write(
-                    "no_screenshots",
-                    no_screenshot_examples
-                        .iter()
-                        .map(|(example, duration)| {
-                            format!(
-                                "{}/{} - {}",
-                                example.category,
-                                example.technical_name,
-                                duration.as_secs_f32()
-                            )
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n"),
-                );
+                if screenshot {
+                    let _ = fs::write(
+                        "no_screenshots",
+                        no_screenshot_examples
+                            .iter()
+                            .map(|(example, duration)| {
+                                format!(
+                                    "{}/{} - {}",
+                                    example.category,
+                                    example.technical_name,
+                                    duration.as_secs_f32()
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n"),
+                    );
+                }
             }
 
             println!(
