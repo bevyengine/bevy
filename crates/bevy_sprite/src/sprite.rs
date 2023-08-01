@@ -3,7 +3,7 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::color::Color;
 
-#[derive(Component, Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 #[repr(C)]
 pub struct Sprite {
@@ -25,7 +25,7 @@ pub struct Sprite {
 
 /// How a sprite is positioned relative to its [`Transform`](bevy_transform::components::Transform).
 /// It defaults to `Anchor::Center`.
-#[derive(Component, Debug, Clone, Default, Reflect)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[doc(alias = "pivot")]
 pub enum Anchor {
     #[default]
