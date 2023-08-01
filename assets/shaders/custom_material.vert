@@ -33,6 +33,6 @@ layout(set = 2, binding = 0) readonly buffer _Meshes {
 void main() {
     v_Uv = Vertex_Uv;
     gl_Position = ViewProj
-        * Meshes[gl_BaseInstance + gl_InstanceIndex].Model
+        * Meshes[gl_InstanceIndex].Model
         * vec4(Vertex_Position, 1.0);
 }
