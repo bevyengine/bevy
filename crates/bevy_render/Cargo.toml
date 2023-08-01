@@ -57,9 +57,9 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
 image = { version = "0.24", default-features = false }
 
 # misc
-wgpu = { version = "0.16.0", features=["naga"] }
+wgpu = { version = "0.17.0", features=["naga", "fragile-send-sync-non-atomic-wasm"] }
 codespan-reporting = "0.11.0"
-naga = { version = "0.12.0", features = ["wgsl-in"] }
+naga = { version = "0.13.0", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
 bytemuck = { version = "1.5", features = ["derive"] }
@@ -74,7 +74,7 @@ parking_lot = "0.12.1"
 regex = "1.5"
 ddsfile = { version = "0.5.0", optional = true }
 ktx2 = { version = "0.3.0", optional = true }
-naga_oil = "0.8"
+naga_oil = { git = "https://github.com/robtfm/naga_oil.git", branch = "0.13" }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.4.0", optional = true }
