@@ -7,7 +7,11 @@ use bevy_macro_utils::{
 };
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{spanned::Spanned, LitStr, Member, Path, TypeParam, WhereClause};
+use std::collections::HashSet;
+use syn::punctuated::Punctuated;
+use syn::{
+    spanned::Spanned, LitStr, Member, Path, Token, Type, TypeParam, WhereClause, WherePredicate,
+};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -76,6 +80,7 @@ pub(crate) struct WhereClauseOptions {
     ignored_types: Vec<Ident>,
     /// Trait bounds to add to the ignored types
     ignored_trait_bounds: Vec<proc_macro2::TokenStream>,
+    custom_where: Option<Punctuated<WherePredicate, Token![,]>>,
 }
 
 impl Default for WhereClauseOptions {
@@ -86,6 +91,7 @@ impl Default for WhereClauseOptions {
             ignored_types: Vec::new(),
             active_trait_bounds: Vec::new(),
             ignored_trait_bounds: Vec::new(),
+            custom_where: None,
         }
     }
 }
@@ -136,9 +142,24 @@ impl WhereClauseOptions {
     ) -> Self {
         let mut options = WhereClauseOptions::default();
 
+        let skip_params = if let Some(custom_where) = meta.traits().custom_where() {
+            custom_where
+                .iter()
+                .filter_map(|predicate| match predicate {
+                    WherePredicate::Type(predicate_ty) => match &predicate_ty.bounded_ty {
+                        Type::Path(ty_path) => ty_path.path.get_ident().cloned(),
+                        _ => None,
+                    },
+                    _ => None,
+                })
+                .collect()
+        } else {
+            HashSet::new()
+        };
+
         for param in meta.type_path().generics().type_params() {
             let ident = param.ident.clone();
-            let ignored = meta.traits().ignore_param(&ident);
+            let ignored = skip_params.contains(&ident);
 
             if ignored {
                 let bounds = ignored_bounds(param).unwrap_or_default();
@@ -152,6 +173,8 @@ impl WhereClauseOptions {
                 options.active_trait_bounds.push(bounds);
             }
         }
+
+        options.custom_where = meta.traits().custom_where().cloned();
 
         options
     }
@@ -204,9 +227,12 @@ pub(crate) fn extend_where_clause(
         quote!(where Self: 'static,)
     };
 
+    let custom_where = &where_clause_options.custom_where;
+
     generic_where_clause.extend(quote! {
         #(#active_types: #active_trait_bounds,)*
         #(#ignored_types: #ignored_trait_bounds,)*
+        #custom_where
     });
     generic_where_clause
 }

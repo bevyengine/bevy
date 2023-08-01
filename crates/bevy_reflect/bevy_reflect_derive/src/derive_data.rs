@@ -256,8 +256,6 @@ impl<'a> ReflectDerive<'a> {
             _ => (),
         }
 
-        traits.validate_ignored_params(&input.generics)?;
-
         let type_path = ReflectTypePath::Internal {
             ident: &input.ident,
             custom_path,

@@ -1864,9 +1864,9 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
-    fn should_allow_ignored_params() {
+    fn should_allow_custom_where() {
         #[derive(Reflect)]
-        #[reflect(ignore_params(T))]
+        #[reflect(custom_where(T: 'static))]
         struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
 
         #[derive(TypePath)]
@@ -1880,14 +1880,28 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
-    fn should_allow_ignored_params_wtih_assoc_type() {
+    fn should_allow_multiple_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(custom_where(T: Default + FromReflect))]
+        #[reflect(custom_where(U: std::ops::Add<T> + FromReflect))]
+        struct Foo<T, U>(T, U);
+
+        #[derive(Reflect)]
+        struct Baz {
+            a: Foo<i32, i32>,
+            b: Foo<u32, u32>,
+        }
+    }
+
+    #[test]
+    fn should_allow_custom_where_wtih_assoc_type() {
         trait Trait {
             type Assoc: FromReflect + TypePath;
         }
 
         // We don't need `T` to be `Reflect` since we only care about `T::Assoc`
         #[derive(Reflect)]
-        #[reflect(ignore_params(T))]
+        #[reflect(custom_where(T: 'static, T::Assoc: FromReflect))]
         struct Foo<T: Trait>(T::Assoc);
 
         #[derive(TypePath)]
@@ -1939,7 +1953,7 @@ bevy_reflect::tests::Test {
     fn can_opt_out_type_path() {
         #[derive(Reflect)]
         #[reflect(type_path = false)]
-        #[reflect(ignore_params(T))]
+        #[reflect(custom_where(T: 'static))]
         struct Foo<T> {
             #[reflect(ignore)]
             _marker: PhantomData<T>,

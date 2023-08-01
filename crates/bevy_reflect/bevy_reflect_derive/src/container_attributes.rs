@@ -9,12 +9,11 @@ use crate::utility;
 use bevy_macro_utils::fq_std::{FQAny, FQOption};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
-use std::collections::HashSet;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Expr, Generics, LitBool, Meta, Path};
+use syn::{Expr, LitBool, Meta, Path, Token, WherePredicate};
 
 // The "special" trait idents that are used internally for reflection.
 // Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
@@ -33,7 +32,7 @@ const FROM_REFLECT_ATTR: &str = "from_reflect";
 const TYPE_PATH_ATTR: &str = "type_path";
 
 // Attributes for `Reflect` implementation
-const IGNORE_PARAMS_ATTR: &str = "ignore_params";
+const CUSTOM_WHERE_ATTR: &str = "custom_where";
 
 // The error message to show when a trait/type is specified multiple times
 const CONFLICTING_TYPE_DATA_MESSAGE: &str = "conflicting type data registration";
@@ -215,7 +214,7 @@ pub(crate) struct ReflectTraits {
     partial_eq: TraitImpl,
     from_reflect_attrs: FromReflectAttrs,
     type_path_attrs: TypePathAttrs,
-    ignored_params: HashSet<Ident>,
+    custom_where: Option<Punctuated<WherePredicate, Token![,]>>,
     idents: Vec<Ident>,
 }
 
@@ -258,11 +257,11 @@ impl ReflectTraits {
                         }
                     }
                 }
-                // Handles `#[reflect(ignore_params(T, U))]`
-                Meta::List(list) if list.path.is_ident(IGNORE_PARAMS_ATTR) => {
-                    let params: Punctuated<Ident, Comma> =
+                // Handles `#[reflect(custom_where(T: Trait, U::Assoc: Trait))]`
+                Meta::List(list) if list.path.is_ident(CUSTOM_WHERE_ATTR) => {
+                    let predicate: Punctuated<WherePredicate, Token![,]> =
                         list.parse_args_with(Punctuated::parse_separated_nonempty)?;
-                    traits.ignored_params.extend(params);
+                    traits.merge_custom_where(Some(predicate));
                 }
                 // Handles `#[reflect( Debug(custom_debug_fn) )]`
                 Meta::List(list) if list.path.is_ident(DEBUG_ATTR) => {
@@ -291,7 +290,7 @@ impl ReflectTraits {
                 Meta::List(list) => {
                     return Err(syn::Error::new_spanned(
                         list,
-                        format!("expected one of [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}, {IGNORE_PARAMS_ATTR:?}]")
+                        format!("expected one of [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}, {CUSTOM_WHERE_ATTR:?}]")
                     ));
                 }
                 Meta::NameValue(pair) => {
@@ -409,8 +408,8 @@ impl ReflectTraits {
         }
     }
 
-    pub fn ignore_param(&self, param: &Ident) -> bool {
-        self.ignored_params.contains(param)
+    pub fn custom_where(&self) -> Option<&Punctuated<WherePredicate, Token![,]>> {
+        self.custom_where.as_ref()
     }
 
     /// Merges the trait implementations of this [`ReflectTraits`] with another one.
@@ -422,43 +421,25 @@ impl ReflectTraits {
         self.partial_eq.merge(other.partial_eq)?;
         self.from_reflect_attrs.merge(other.from_reflect_attrs)?;
         self.type_path_attrs.merge(other.type_path_attrs)?;
-        self.ignored_params.extend(other.ignored_params);
+
+        self.merge_custom_where(other.custom_where);
+
         for ident in other.idents {
             add_unique_ident(&mut self.idents, ident)?;
         }
         Ok(())
     }
 
-    /// Validates that any ignored type parameters are valid for the given set of generics.
-    pub fn validate_ignored_params(&self, generics: &Generics) -> Result<(), syn::Error> {
-        if self.ignored_params.is_empty() {
-            return Ok(());
-        }
-
-        let mut params = self.ignored_params.clone();
-
-        for param in generics.type_params() {
-            params.remove(&param.ident);
-        }
-
-        if params.is_empty() {
-            return Ok(());
-        }
-
-        let mut errors: Option<syn::Error> = None;
-        for param in params {
-            let err = syn::Error::new_spanned(
-                &param,
-                format!("`{}` is not a valid type parameter", param),
-            );
-            if let Some(error) = &mut errors {
-                error.combine(err);
-            } else {
-                errors = Some(err);
+    fn merge_custom_where(&mut self, other: Option<Punctuated<WherePredicate, Token![,]>>) {
+        match (&mut self.custom_where, other) {
+            (Some(this), Some(other)) => {
+                this.extend(other);
             }
+            (None, Some(other)) => {
+                self.custom_where = Some(other);
+            }
+            _ => {}
         }
-
-        Err(errors.unwrap())
     }
 }
 
