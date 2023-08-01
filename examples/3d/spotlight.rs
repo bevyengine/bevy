@@ -5,7 +5,7 @@ use bevy::{
     pbr::NotShadowCaster,
     prelude::*,
 };
-use rand::{thread_rng, Rng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::new()
@@ -40,10 +40,10 @@ fn setup(
     });
 
     // cubes
-    let mut rng = thread_rng();
-    for _ in 0..100 {
+    let mut rng = StdRng::seed_from_u64(19878367467713);
+    for _ in 0..40 {
         let x = rng.gen_range(-5.0..5.0);
-        let y = rng.gen_range(-5.0..5.0);
+        let y = rng.gen_range(0.0..3.0);
         let z = rng.gen_range(-5.0..5.0);
         commands.spawn((
             PbrBundle {
