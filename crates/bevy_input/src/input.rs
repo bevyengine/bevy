@@ -157,17 +157,17 @@ where
     }
 
     /// An iterator visiting every pressed input in arbitrary order.
-    pub fn get_pressed(&self) -> impl ExactSizeIterator<Item = &T> {
+    pub fn get_pressed(&self) -> std::collections::hash_set::Iter {
         self.pressed.iter()
     }
 
     /// An iterator visiting every just pressed input in arbitrary order.
-    pub fn get_just_pressed(&self) -> impl ExactSizeIterator<Item = &T> {
+    pub fn get_just_pressed(&self) -> std::collections::hash_set::Iter {
         self.just_pressed.iter()
     }
 
     /// An iterator visiting every just released input in arbitrary order.
-    pub fn get_just_released(&self) -> impl ExactSizeIterator<Item = &T> {
+    pub fn get_just_released(&self) -> std::collections::hash_set::Iter {
         self.just_released.iter()
     }
 }
