@@ -133,18 +133,22 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 ///
 /// ## `#[reflect(custom_where(T: Trait, U::Assoc: Trait, ...))]`
 ///
-/// By default, the derive macro will automatically add the necessary bounds to any generic type parameters
-/// in order to make them compatible with reflection.
+/// By default, the derive macro will automatically add certain trait bounds to all generic type parameters
+/// in order to make them compatible with reflection without the user needing to add them manually.
+/// This includes traits like `Reflect` and `FromReflect`.
 /// However, this may not always be desired, and some type paramaters can't or shouldn't require those bounds
 /// (i.e. their usages in fields are ignored or they're only used for their associated types).
 ///
 /// With this attribute, you can specify a custom `where` clause to be used instead of the default.
-/// Any parameter used in the attribute will not be given the default bounds,
-/// and use the ones defined in the attribute instead.
-/// Type parameters not used in the attribute will still receive the default bounds.
+/// If this attribute is present, none of the type parameters will receive the default bounds.
+/// Only the bounds specified by the type itself and by this attribute will be used.
+/// The only exceptions to this are the `Any`, `Send`, `Sync`, and `TypePath` bounds,
+/// which will always be added regardless of this attribute due to their necessity for reflection
+/// in general.
 ///
-/// Note that all type parameters will receive the bounds that are still considered absolutely necessary,
-/// such as `Send`, `Sync`, `Any`, and `TypePath`.
+/// This means that if you want to opt-out of the default bounds for _all_ type parameters,
+/// you can add `#[reflect(custom_where())]` to the container item to indicate
+/// that an empty `where` clause should be used.
 ///
 /// ### Example
 ///
@@ -154,12 +158,24 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// }
 ///
 /// #[derive(Reflect)]
-/// // Note: We add the `T: 'static` bound here to fully opt-out of the automatic bounds on `T`.
-/// // We could use almost any trait here, but `'static` is the easiest as it's always available.
-/// #[reflect(custom_where(T: 'static, T::Assoc: FromReflect))]
-/// struct Foo<T: Trait> {
+/// #[reflect(custom_where(T::Assoc: FromReflect))]
+/// struct Foo<T: Trait> where T::Assoc: Default {
 ///   value: T::Assoc,
 /// }
+///
+/// // Generates a where clause like the following
+/// // (notice that `T` does not have any `Reflect` or `FromReflect` bounds):
+/// //
+/// // impl<T: Trait> bevy_reflect::Reflect for Foo<T>
+/// // where
+/// //   Self: 'static,
+/// //   T::Assoc: Default,
+/// //   T: bevy_reflect::TypePath
+/// //     + ::core::any::Any
+/// //     + ::core::marker::Send
+/// //     + ::core::marker::Sync,
+/// //   T::Assoc: FromReflect,
+/// // {/* ... */}
 /// ```
 ///
 /// # Field Attributes
@@ -176,7 +192,7 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// or allowing the use of types that do not implement `Reflect` within the container.
 ///
 /// If the field contains a generic type parameter, you will likely need to add a
-/// [`#[reflect(custom_where(...))]`](#reflectcustom_wheret-trait-uassoc-trait-)
+/// [`#[reflect(custom_where())]`](#reflectcustom_wheret-trait-uassoc-trait-)
 /// attribute to the container in order to avoid the default bounds being applied to the type parameter.
 ///
 /// ## `#[reflect(skip_serializing)]`

@@ -7,11 +7,8 @@ use bevy_macro_utils::{
 };
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use std::collections::HashSet;
 use syn::punctuated::Punctuated;
-use syn::{
-    spanned::Spanned, LitStr, Member, Path, Token, Type, TypeParam, WhereClause, WherePredicate,
-};
+use syn::{spanned::Spanned, LitStr, Member, Path, Token, TypeParam, WhereClause, WherePredicate};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -142,26 +139,11 @@ impl WhereClauseOptions {
     ) -> Self {
         let mut options = WhereClauseOptions::default();
 
-        let skip_params = if let Some(custom_where) = meta.traits().custom_where() {
-            custom_where
-                .iter()
-                .filter_map(|predicate| match predicate {
-                    WherePredicate::Type(predicate_ty) => match &predicate_ty.bounded_ty {
-                        Type::Path(ty_path) => ty_path.path.get_ident().cloned(),
-                        _ => None,
-                    },
-                    _ => None,
-                })
-                .collect()
-        } else {
-            HashSet::new()
-        };
-
         for param in meta.type_path().generics().type_params() {
             let ident = param.ident.clone();
-            let ignored = skip_params.contains(&ident);
+            let override_bounds = meta.traits().custom_where().is_some();
 
-            if ignored {
+            if override_bounds {
                 let bounds = ignored_bounds(param).unwrap_or_default();
 
                 options.ignored_types.push(ident);

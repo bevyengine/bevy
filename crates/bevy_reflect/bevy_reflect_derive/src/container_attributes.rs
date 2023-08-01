@@ -260,7 +260,7 @@ impl ReflectTraits {
                 // Handles `#[reflect(custom_where(T: Trait, U::Assoc: Trait))]`
                 Meta::List(list) if list.path.is_ident(CUSTOM_WHERE_ATTR) => {
                     let predicate: Punctuated<WherePredicate, Token![,]> =
-                        list.parse_args_with(Punctuated::parse_separated_nonempty)?;
+                        list.parse_args_with(Punctuated::parse_terminated)?;
                     traits.merge_custom_where(Some(predicate));
                 }
                 // Handles `#[reflect( Debug(custom_debug_fn) )]`

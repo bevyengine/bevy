@@ -1866,7 +1866,23 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_allow_custom_where() {
         #[derive(Reflect)]
-        #[reflect(custom_where(T: 'static))]
+        #[reflect(custom_where(T: Default))]
+        struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
+
+        #[derive(Default, TypePath)]
+        struct Bar;
+
+        #[derive(Reflect)]
+        struct Baz {
+            a: Foo<Bar>,
+            b: Foo<usize>,
+        }
+    }
+
+    #[test]
+    fn should_allow_empty_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(custom_where())]
         struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
 
         #[derive(TypePath)]
@@ -1901,7 +1917,7 @@ bevy_reflect::tests::Test {
 
         // We don't need `T` to be `Reflect` since we only care about `T::Assoc`
         #[derive(Reflect)]
-        #[reflect(custom_where(T: 'static, T::Assoc: FromReflect))]
+        #[reflect(custom_where(T::Assoc: FromReflect))]
         struct Foo<T: Trait>(T::Assoc);
 
         #[derive(TypePath)]
