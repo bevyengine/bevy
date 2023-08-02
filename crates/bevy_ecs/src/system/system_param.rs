@@ -1413,8 +1413,15 @@ macro_rules! impl_system_param_tuple {
 all_tuples!(impl_system_param_tuple, 0, 16, P);
 
 /// Contains type aliases for built-in [`SystemParam`]s with `'static` lifetimes.
-/// This can make it more convenient to refer to these types in contexts where
+/// This makes it more convenient to refer to these types in contexts where
 /// explicit lifetime annotations are required.
+///
+/// Note that this is entirely safe and tracks lifetimes correctly.
+/// This purely exists for convenience.
+///
+/// You can't instantiate a static `SystemParam`, you'll always end up with
+/// `Res<'w, T>`, `ResMut<'w, T>` or `&'w T` bound to the lifetime of the provided
+/// `&'w World`.
 ///
 /// [`SystemParam`]: super::SystemParam
 pub mod lifetimeless {
