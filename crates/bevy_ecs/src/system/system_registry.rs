@@ -1,10 +1,10 @@
-use std::any::TypeId;
+use bevy_utils::HashMap;
 use std::marker::PhantomData;
 
 use crate::system::{BoxedSystem, Command, IntoSystem};
 use crate::world::{Mut, World};
 // Needed for derive(Component) macro
-use crate::{self as bevy_ecs, TypeIdMap};
+use crate::{self as bevy_ecs};
 use bevy_ecs_macros::Resource;
 
 /// Stores initialized [`System`]s, so they can be reused and run in an ad-hoc fashion.
@@ -75,13 +75,14 @@ use bevy_ecs_macros::Resource;
 /// ```
 #[derive(Resource, Default)]
 pub struct SystemRegistry {
-    systems: TypeIdMap<(bool, BoxedSystem)>,
+    last_id: u32,
+    systems: HashMap<u32, (bool, BoxedSystem)>,
 }
 
 /// A wrapper type for TypeId.
 /// It identifies a system that is registered in the [`SystemRegistry`].
-#[derive(Debug)]
-pub struct SystemId(TypeId);
+#[derive(Debug, Clone, Copy)]
+pub struct SystemId(u32);
 
 impl SystemRegistry {
     /// Registers a system in the [`SystemRegistry`], so it can be run later.
@@ -89,30 +90,43 @@ impl SystemRegistry {
     /// Repeatedly registering a system will have no effect.
     #[inline]
     fn register<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> SystemId {
-        let type_id = TypeId::of::<S>();
+        let id = self.last_id + 1;
+        self.last_id = id;
         self.systems
-            .entry(type_id)
-            .or_insert_with(|| (false, Box::new(IntoSystem::into_system(system))));
-        SystemId(type_id)
+            .insert(id, (false, Box::new(IntoSystem::into_system(system))));
+        SystemId(id)
+    }
+
+    /// Removes a registered system from the [`SystemRegistry`], if the [`SystemId`] is not
+    /// registered, this function does nothing.
+    #[inline]
+    pub fn remove(&mut self, id: SystemId) {
+        self.systems.remove(&id.0);
     }
 
     /// Runs the supplied system on the [`World`] a single time.
     ///
     /// You do not need to register systems before they are run in this way.
-    /// Instead, systems will be automatically registered according to their [`TypeId`] the first time this method is called on them.
+    /// Instead, systems will be automatically registered and removed when using this function.
     ///
-    /// System state will be reused between runs, ensuring that [`Local`](crate::system::Local) variables and change detection works correctly.
+    /// System state will not be reused between runs, so [`Local`](crate::system::Local) variables are not preserved between runs.
+    /// To preserve [`Local`](crate::system::Local) variables between runs, it's possible to register and run the system by id manually.
     pub fn run<M, S: IntoSystem<(), (), M> + 'static>(&mut self, world: &mut World, system: S) {
         let id = self.register(system);
         self.run_by_id(world, id)
             .expect("System was registered before running");
+        self.remove(id);
     }
 
     /// Run the system by its [`SystemId`]
     ///
     /// Systems must be registered before they can be run.
     #[inline]
-    fn run_by_id(&mut self, world: &mut World, id: SystemId) -> Result<(), SystemRegistryError> {
+    pub fn run_by_id(
+        &mut self,
+        world: &mut World,
+        id: SystemId,
+    ) -> Result<(), SystemRegistryError> {
         match self.systems.get_mut(&id.0) {
             Some((initialized, matching_system)) => {
                 if !*initialized {
@@ -129,6 +143,23 @@ impl SystemRegistry {
 }
 
 impl World {
+    /// Registers a system in the [`SystemRegistry`]/
+    ///
+    /// Calls [`SystemRegistry::register`].
+    #[inline]
+    pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(
+        &mut self,
+        system: S,
+    ) -> SystemId {
+        if !self.contains_resource::<SystemRegistry>() {
+            panic!(
+                "SystemRegistry not found: Nested and recursive one-shot systems are not supported"
+            );
+        }
+
+        self.resource_mut::<SystemRegistry>().register(system)
+    }
+
     /// Runs the supplied system on the [`World`] a single time.
     ///
     /// Calls [`SystemRegistry::run_system`].
@@ -143,6 +174,22 @@ impl World {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
             registry.run(world, system);
         });
+    }
+
+    /// Run the systems with the provided [`SystemId`].
+    ///
+    /// Calls [`SystemRegistry::run_by_id`].
+    #[inline]
+    pub fn run_system_by_id(&mut self, id: SystemId) -> Result<(), SystemRegistryError> {
+        if !self.contains_resource::<SystemRegistry>() {
+            panic!(
+                "SystemRegistry not found: Nested and recursive one-shot systems are not supported"
+            );
+        }
+
+        self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
+            registry.run_by_id(world, id)
+        })
     }
 }
 
@@ -171,6 +218,37 @@ impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
     #[inline]
     fn apply(self, world: &mut World) {
         world.run_system(self.system);
+    }
+}
+
+/// The [`Command`] type for [`SystemRegistry::run_by_id`].
+#[derive(Debug, Clone)]
+pub struct RunSystemById {
+    pub system_id: SystemId,
+}
+
+impl RunSystemById {
+    pub fn new(system_id: SystemId) -> Self {
+        Self { system_id }
+    }
+}
+
+impl Command for RunSystemById {
+    #[inline]
+    fn apply(self, world: &mut World) {
+        if !world.contains_resource::<SystemRegistry>() {
+            panic!(
+                "SystemRegistry not found: Nested and recursive one-shot systems are not supported"
+            );
+        }
+
+        world.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
+            registry
+                .run_by_id(world, self.system_id)
+                // Ideally this error should be handled more gracefully,
+                // but that's blocked on a full error handling solution for commands
+                .unwrap();
+        });
     }
 }
 
@@ -263,14 +341,15 @@ mod tests {
         world.init_resource::<Counter>();
         assert_eq!(*world.resource::<Counter>(), Counter(0));
         // Resources are changed when they are first added.
-        world.run_system(count_up_iff_changed);
+        let id = world.register_system(count_up_iff_changed);
+        let _ = world.run_system_by_id(id);
         assert_eq!(*world.resource::<Counter>(), Counter(1));
         // Nothing changed
-        world.run_system(count_up_iff_changed);
+        let _ = world.run_system_by_id(id);
         assert_eq!(*world.resource::<Counter>(), Counter(1));
         // Making a change
         world.resource_mut::<ChangeDetector>().set_changed();
-        world.run_system(count_up_iff_changed);
+        let _ = world.run_system_by_id(id);
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
@@ -285,13 +364,14 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Counter(1));
         assert_eq!(*world.resource::<Counter>(), Counter(1));
-        world.run_system(doubling);
+        let id = world.register_system(doubling);
+        let _ = world.run_system_by_id(id);
         assert_eq!(*world.resource::<Counter>(), Counter(1));
-        world.run_system(doubling);
+        let _ = world.run_system_by_id(id);
         assert_eq!(*world.resource::<Counter>(), Counter(2));
-        world.run_system(doubling);
+        let _ = world.run_system_by_id(id);
         assert_eq!(*world.resource::<Counter>(), Counter(4));
-        world.run_system(doubling);
+        let _ = world.run_system_by_id(id);
         assert_eq!(*world.resource::<Counter>(), Counter(8));
     }
 
