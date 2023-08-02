@@ -498,6 +498,13 @@ impl AssetProcessor {
         // TODO: check if already processing to protect against duplicate hot-reload events
         debug!("Processing asset {:?}", path);
         let server = &self.server;
+
+        // Note: we get the asset source reader first because we don't want to create meta files for assets that don't have source files
+        let mut reader = self.source_reader().read(path).await.map_err(|e| match e {
+            AssetReaderError::NotFound(_) => ProcessError::MissingAssetSource(path.to_owned()),
+            AssetReaderError::Io(err) => ProcessError::AssetSourceIoError(err),
+        })?;
+
         let (mut source_meta, meta_bytes, processor) = match self
             .source_reader()
             .read_meta_bytes(path)
@@ -556,12 +563,12 @@ impl AssetProcessor {
             Err(err) => return Err(ProcessError::ReadAssetMetaError(err)),
         };
 
-        // TODO:  check timestamp first for early-out
-        // TODO: error handling
-        // TODO: handle this unwrap. If the asset file no longer exists this indicates it was moved. This check should be done before creating missing meta files.
-        let mut reader = self.source_reader().read(path).await.unwrap();
         let mut asset_bytes = Vec::new();
-        reader.read_to_end(&mut asset_bytes).await.unwrap();
+        reader
+            .read_to_end(&mut asset_bytes)
+            .await
+            .map_err(|e| ProcessError::AssetSourceIoError(e))?;
+
         // PERF: in theory these hashes could be streamed if we want to avoid allocating the whole asset.
         // The downside is that reading assets would need to happen twice (once for the hash and once for the asset loader)
         // Hard to say which is worse
@@ -978,6 +985,13 @@ impl ProcessorAssetInfos {
             }
             Err(ProcessError::MissingAssetLoaderForExtension(_)) => {
                 trace!("No loader found for {:?}", asset_path);
+            }
+            Err(ProcessError::MissingAssetSource(_)) => {
+                // if there is no asset source, no processing can be done
+                trace!(
+                    "No need to process asset {:?} because it does not exist",
+                    asset_path
+                );
             }
             Err(err) => {
                 error!("Failed to process asset {:?}: {:?}", asset_path, err);

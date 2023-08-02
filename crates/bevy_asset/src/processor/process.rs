@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_utils::BoxedFuture;
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
+use std::{marker::PhantomData, path::PathBuf};
 use thiserror::Error;
 
 /// Asset "processor" logic that reads input asset bytes (stored on [`ProcessContext`]), processes the value in some way,
@@ -70,6 +70,10 @@ pub struct LoadAndSaveSettings<LoaderSettings, SaverSettings> {
 /// An error that is encountered during [`Process::process`].
 #[derive(Error, Debug)]
 pub enum ProcessError {
+    #[error("The asset source file for '{0}' does not exist")]
+    MissingAssetSource(PathBuf),
+    #[error(transparent)]
+    AssetSourceIoError(std::io::Error),
     #[error(transparent)]
     MissingAssetLoaderForExtension(#[from] MissingAssetLoaderForExtensionError),
     #[error(transparent)]
