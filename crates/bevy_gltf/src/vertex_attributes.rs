@@ -212,6 +212,9 @@ impl<'a> VertexAttributeIter<'a> {
             VertexAttributeIter::U8x4(it, Normalization(true)) => {
                 Ok(Values::Float32x4(ReadWeights::U8(it).into_f32().collect()))
             }
+            VertexAttributeIter::U16x4(it, Normalization(true)) => {
+                Ok(Values::Float32x4(ReadWeights::U16(it).into_f32().collect()))
+            }
             s => s.into_any_values(),
         }
     }
