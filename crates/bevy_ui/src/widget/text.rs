@@ -52,9 +52,6 @@ impl Measure for TextMeasure {
         available_width: AvailableSpace,
         _available_height: AvailableSpace,
     ) -> Vec2 {
-        println!("width: {width:?}");
-        println!("height: {height:?}");
-        println!("available_width: {available_width:?}");
         let x = width.unwrap_or_else(|| match available_width {
             AvailableSpace::Definite(x) => x.clamp(
                 self.info.min_width_content_size.x,

@@ -263,6 +263,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         width: Val::Percent(100.0),
                         position_type: PositionType::Absolute,
+                        top: Val::Percent(25.),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::FlexStart,
                         ..default()
@@ -284,6 +285,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 },
                                 // a `NodeBundle` is transparent by default, so to see the image we have to its color to `WHITE`
                                 background_color: Color::WHITE.into(),
+                                content_orientation: UiContentOrientation::FlippedWest,
                                 ..default()
                             },
                             UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
