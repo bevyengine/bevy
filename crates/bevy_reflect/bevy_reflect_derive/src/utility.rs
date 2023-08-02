@@ -7,8 +7,7 @@ use bevy_macro_utils::{
 };
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::punctuated::Punctuated;
-use syn::{spanned::Spanned, LitStr, Member, Path, Token, TypeParam, WhereClause, WherePredicate};
+use syn::{spanned::Spanned, LitStr, Member, Path, WhereClause};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -67,35 +66,16 @@ pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
     )
 }
 
-/// Options defining how to extend the `where` clause in reflection with any additional bounds needed.
-pub(crate) struct WhereClauseOptions {
-    /// Any types that will be reflected and need an extra trait bound
-    active_types: Vec<Ident>,
-    /// Trait bounds to add to the active types
-    active_trait_bounds: Vec<proc_macro2::TokenStream>,
-    /// Any types that won't be reflected and need an extra trait bound
-    ignored_types: Vec<Ident>,
-    /// Trait bounds to add to the ignored types
-    ignored_trait_bounds: Vec<proc_macro2::TokenStream>,
-    custom_where: Option<Punctuated<WherePredicate, Token![,]>>,
+/// Options defining how to extend the `where` clause for reflection.
+pub(crate) struct WhereClauseOptions<'a, 'b> {
+    meta: &'a ReflectMeta<'b>,
+    additional_bounds: proc_macro2::TokenStream,
+    required_bounds: proc_macro2::TokenStream,
 }
 
-impl Default for WhereClauseOptions {
-    /// By default, don't add any additional bounds to the `where` clause
-    fn default() -> Self {
-        Self {
-            active_types: Vec::new(),
-            ignored_types: Vec::new(),
-            active_trait_bounds: Vec::new(),
-            ignored_trait_bounds: Vec::new(),
-            custom_where: None,
-        }
-    }
-}
-
-impl WhereClauseOptions {
+impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     /// Create [`WhereClauseOptions`] for a reflected struct or enum type.
-    pub fn new(meta: &ReflectMeta) -> Self {
+    pub fn new(meta: &'a ReflectMeta<'b>) -> Self {
         let bevy_reflect_path = meta.bevy_reflect_path();
 
         let active_bound = if meta.from_reflect().should_auto_derive() {
@@ -110,113 +90,125 @@ impl WhereClauseOptions {
             None
         };
 
-        Self::new_with_bounds(
+        Self {
             meta,
-            |_| Some(quote!(#type_path_bound #active_bound)),
-            |_| Some(quote!(#type_path_bound #FQAny + #FQSend + #FQSync)),
-        )
+            additional_bounds: quote!(#type_path_bound #active_bound),
+            required_bounds: quote!(#type_path_bound #FQAny + #FQSend + #FQSync),
+        }
     }
 
     /// Create [`WhereClauseOptions`] with the minimum bounds needed to fulfill `TypePath`.
-    pub fn new_type_path(meta: &ReflectMeta) -> Self {
+    pub fn new_type_path(meta: &'a ReflectMeta<'b>) -> Self {
         let bevy_reflect_path = meta.bevy_reflect_path();
 
-        Self::new_with_bounds(
+        Self {
             meta,
-            |_| Some(quote!(#bevy_reflect_path::TypePath)),
-            |_| Some(quote!(#bevy_reflect_path::TypePath + #FQAny + #FQSend + #FQSync)),
-        )
-    }
-
-    /// Create [`WhereClauseOptions`] for a struct or enum type.
-    ///
-    /// Compared to [`WhereClauseOptions::new`], this version allows you to specify
-    /// custom trait bounds for each field.
-    fn new_with_bounds(
-        meta: &ReflectMeta,
-        active_bounds: impl Fn(&TypeParam) -> Option<proc_macro2::TokenStream>,
-        ignored_bounds: impl Fn(&TypeParam) -> Option<proc_macro2::TokenStream>,
-    ) -> Self {
-        let mut options = WhereClauseOptions::default();
-
-        for param in meta.type_path().generics().type_params() {
-            let ident = param.ident.clone();
-            let override_bounds = meta.traits().custom_where().is_some();
-
-            if override_bounds {
-                let bounds = ignored_bounds(param).unwrap_or_default();
-
-                options.ignored_types.push(ident);
-                options.ignored_trait_bounds.push(bounds);
-            } else {
-                let bounds = active_bounds(param).unwrap_or_default();
-
-                options.active_types.push(ident);
-                options.active_trait_bounds.push(bounds);
-            }
+            additional_bounds: quote!(#bevy_reflect_path::TypePath),
+            required_bounds: quote!(#bevy_reflect_path::TypePath + #FQAny + #FQSend + #FQSync),
         }
-
-        options.custom_where = meta.traits().custom_where().cloned();
-
-        options
     }
-}
 
-/// Extends the `where` clause in reflection with any additional bounds needed.
-///
-/// This is mostly used to add additional bounds to reflected objects with generic types.
-/// For reflection purposes, we usually have:
-/// * `active_trait_bounds`: `Reflect + TypePath` or `FromReflect + TypePath`
-/// * `ignored_trait_bounds`: `TypePath + Any + Send + Sync`
-///
-/// # Arguments
-///
-/// * `where_clause`: existing `where` clause present on the object to be derived
-/// * `where_clause_options`: additional parameters defining which trait bounds to add to the `where` clause
-///
-/// # Example
-///
-/// The struct:
-/// ```ignore (bevy_reflect is not accessible from this crate)
-/// #[derive(Reflect)]
-/// struct Foo<T, U> {
-///     a: T,
-///     #[reflect(ignore)]
-///     b: U
-/// }
-/// ```
-/// will have active types: `[T]` and ignored types: `[U]`
-///
-/// The `extend_where_clause` function will yield the following `where` clause:
-/// ```ignore (bevy_reflect is not accessible from this crate)
-/// where
-///     T: Reflect + TypePath,  // active_trait_bounds
-///     U: TypePath + Any + Send + Sync,  // ignored_trait_bounds
-/// ```
-pub(crate) fn extend_where_clause(
-    where_clause: Option<&WhereClause>,
-    where_clause_options: &WhereClauseOptions,
-) -> proc_macro2::TokenStream {
-    let active_types = &where_clause_options.active_types;
-    let ignored_types = &where_clause_options.ignored_types;
-    let active_trait_bounds = &where_clause_options.active_trait_bounds;
-    let ignored_trait_bounds = &where_clause_options.ignored_trait_bounds;
+    /// Extends the `where` clause in reflection with additional bounds needed for reflection.
+    ///
+    /// This will only add bounds for generic type parameters.
+    ///
+    /// If the container has a `#[reflect(custom_where(...))]` attribute,
+    /// this method will extend the type parameters with the _required_ bounds.
+    /// If the attribute is not present, it will extend the type parameters with the _additional_ bounds.
+    ///
+    /// The required bounds are the minimum bounds needed for a type to be reflected.
+    /// These include `TypePath`, `Any`, `Send`, and `Sync`.
+    ///
+    /// The additional bounds are added bounds used to enforce that a generic type parameter
+    /// is itself reflectable.
+    /// These include `Reflect` and `FromReflect`, as well as `TypePath`.
+    ///
+    /// # Example
+    ///
+    /// Take the following struct:
+    ///
+    /// ```ignore (bevy_reflect is not accessible from this crate)
+    /// #[derive(Reflect)]
+    /// struct Foo<T, U> {
+    ///   a: T,
+    ///   #[reflect(ignore)]
+    ///   b: U
+    /// }
+    /// ```
+    ///
+    /// It has type parameters `T` and `U`.
+    ///
+    /// Since there is no `#[reflect(custom_where(...))]` attribute, this method will extend the type parameters
+    /// with the additional bounds:
+    ///
+    /// ```ignore (bevy_reflect is not accessible from this crate)
+    /// where
+    ///   T: FromReflect + TypePath, // additional bounds
+    ///   U: FromReflect + TypePath, // additional bounds
+    /// ```
+    ///
+    /// If we had this struct:
+    /// ```ignore (bevy_reflect is not accessible from this crate)
+    /// #[derive(Reflect)]
+    /// #[reflect(custom_where(T: FromReflect + Default))]
+    /// struct Foo<T, U> {
+    ///   a: T,
+    ///   #[reflect(ignore)]
+    ///   b: U
+    /// }
+    /// ```
+    ///
+    /// Since there is a `#[reflect(custom_where(...))]` attribute, this method will extend the type parameters
+    /// with _just_ the required bounds along with the predicates specified in the attribute:
+    ///
+    /// ```ignore (bevy_reflect is not accessible from this crate)
+    /// where
+    ///   T: FromReflect + Default, // predicates from attribute
+    ///   T: TypePath + Any + Send + Sync, // required bounds
+    ///   U: TypePath + Any + Send + Sync, // required bounds
+    /// ```
+    pub fn extend_where_clause(
+        &self,
+        where_clause: Option<&WhereClause>,
+    ) -> proc_macro2::TokenStream {
+        // Maintain existing where clause, if any.
+        let mut generic_where_clause = if let Some(where_clause) = where_clause {
+            let predicates = where_clause.predicates.iter();
+            quote! {where Self: 'static, #(#predicates,)*}
+        } else {
+            quote!(where Self: 'static,)
+        };
 
-    let mut generic_where_clause = if let Some(where_clause) = where_clause {
-        let predicates = where_clause.predicates.iter();
-        quote! {where Self: 'static, #(#predicates,)*}
-    } else {
-        quote!(where Self: 'static,)
-    };
+        // Add additional reflection trait bounds
+        let types = self.type_param_idents();
+        let custom_where = self.meta.traits().custom_where();
+        let trait_bounds = self.trait_bounds();
 
-    let custom_where = &where_clause_options.custom_where;
+        generic_where_clause.extend(quote! {
+            #(#types: #trait_bounds,)*
+            #custom_where
+        });
 
-    generic_where_clause.extend(quote! {
-        #(#active_types: #active_trait_bounds,)*
-        #(#ignored_types: #ignored_trait_bounds,)*
-        #custom_where
-    });
-    generic_where_clause
+        generic_where_clause
+    }
+
+    /// Returns the trait bounds to use for all type parameters.
+    fn trait_bounds(&self) -> &proc_macro2::TokenStream {
+        if self.meta.traits().custom_where().is_some() {
+            &self.required_bounds
+        } else {
+            &self.additional_bounds
+        }
+    }
+
+    /// Returns an iterator of the type parameter idents for the reflected type.
+    fn type_param_idents(&self) -> impl Iterator<Item = &Ident> {
+        self.meta
+            .type_path()
+            .generics()
+            .type_params()
+            .map(|param| &param.ident)
+    }
 }
 
 impl<T> Default for ResultSifter<T> {

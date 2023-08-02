@@ -1969,7 +1969,7 @@ bevy_reflect::tests::Test {
     fn can_opt_out_type_path() {
         #[derive(Reflect)]
         #[reflect(type_path = false)]
-        #[reflect(custom_where(T: 'static))]
+        #[reflect(custom_where())]
         struct Foo<T> {
             #[reflect(ignore)]
             _marker: PhantomData<T>,

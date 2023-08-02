@@ -2,7 +2,7 @@ use crate::container_attributes::REFLECT_DEFAULT;
 use crate::derive_data::ReflectEnum;
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
-use crate::utility::{extend_where_clause, ident_or_index, WhereClauseOptions};
+use crate::utility::{ident_or_index, WhereClauseOptions};
 use crate::{ReflectMeta, ReflectStruct};
 use bevy_macro_utils::fq_std::{FQAny, FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
@@ -24,7 +24,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_from_reflect_clause =
-        extend_where_clause(where_clause, &WhereClauseOptions::new_type_path(meta));
+        WhereClauseOptions::new_type_path(meta).extend_where_clause(where_clause);
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
@@ -51,7 +51,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
     // Add FromReflect bound for each active field
     let where_from_reflect_clause =
-        extend_where_clause(where_clause, &WhereClauseOptions::new(reflect_enum.meta()));
+        WhereClauseOptions::new(reflect_enum.meta()).extend_where_clause(where_clause);
 
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #enum_path #ty_generics #where_from_reflect_clause  {
@@ -130,10 +130,8 @@ fn impl_struct_internal(
         .split_for_impl();
 
     // Add FromReflect bound for each active field
-    let where_from_reflect_clause = extend_where_clause(
-        where_clause,
-        &WhereClauseOptions::new(reflect_struct.meta()),
-    );
+    let where_from_reflect_clause =
+        WhereClauseOptions::new(reflect_struct.meta()).extend_where_clause(where_clause);
 
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_path #ty_generics #where_from_reflect_clause {
