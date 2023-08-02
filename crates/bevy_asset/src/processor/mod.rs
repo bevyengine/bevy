@@ -234,7 +234,7 @@ impl AssetProcessor {
                         if old == new {
                             self.process_asset(&new).await;
                         } else {
-                            error!("renamed not implemented {old:?} {new:?}")
+                            self.rename_processed_asset_transactional(old, new).await;
                         }
                     }
                     AssetSourceEvent::RenamedMeta { old, new } => {
@@ -243,10 +243,19 @@ impl AssetProcessor {
                         if old == new {
                             self.process_asset(&new).await;
                         } else {
-                            error!("renamed meta not implemented {old:?} {new:?}")
+                            debug!("Meta renamed from {old:?} to {new:?}");
+                            let mut infos = self.data.asset_infos.write().await;
+                            // Renaming meta should not assume that an asset has also been renamed. Check both old and new assets to see
+                            // if they should be re-imported (and/or have new meta generated)
+                            infos.check_reprocess_queue.push_back(old);
+                            infos.check_reprocess_queue.push_back(new);
                         }
                     }
                     AssetSourceEvent::RenamedFolder { old, new } => {
+                        // TODO: Check if this applies here
+                        // If there was a rename event, but the path hasn't changed, this asset meta might need reprocessing.
+                        // Sometimes this event is returned when an asset meta is moved "back" into the asset folder
+                        // if old == new {
                         error!("renamed folder not implemented {old:?} {new:?}")
                     }
                 }
@@ -270,6 +279,24 @@ impl AssetProcessor {
                 .await;
         }
         infos.remove(&asset_path).await;
+    }
+
+    async fn rename_processed_asset_transactional(&self, old: PathBuf, new: PathBuf) {
+        let mut infos = self.data.asset_infos.write().await;
+        let old_asset_path = AssetPath::new(old, None);
+        if let Some(info) = infos.get(&old_asset_path) {
+            // we must wait for uncontested write access to the asset source to ensure existing readers / writers
+            // can finish their operations
+            let _write_lock = info.file_transaction_lock.write();
+            let old = &old_asset_path.path;
+            self.destination_writer().rename(old, &new).await.unwrap();
+            self.destination_writer()
+                .rename_meta(old, &new)
+                .await
+                .unwrap();
+        }
+        let new_asset_path = AssetPath::new(new.clone(), None);
+        infos.rename(&old_asset_path, &new_asset_path).await;
     }
 
     async fn finish_processing_assets(&self) {
@@ -531,6 +558,7 @@ impl AssetProcessor {
 
         // TODO:  check timestamp first for early-out
         // TODO: error handling
+        // TODO: handle this unwrap. If the asset file no longer exists this indicates it was moved. This check should be done before creating missing meta files.
         let mut reader = self.source_reader().read(path).await.unwrap();
         let mut asset_bytes = Vec::new();
         reader.read_to_end(&mut asset_bytes).await.unwrap();
@@ -808,8 +836,11 @@ pub enum ProcessStatus {
     NonExistent,
 }
 
+// NOTE: if you add new fields to this struct, make sure they are propagated (when relevant) in ProcessorAssetInfos::rename
+#[derive(Debug)]
 pub(crate) struct ProcessorAssetInfo {
     processed_info: Option<ProcessedInfo>,
+    /// Paths of assets that depend on this asset when they are being processed.
     dependants: HashSet<AssetPath<'static>>,
     status: Option<ProcessStatus>,
     /// A lock that controls read/write access to processed asset files. The lock is shared for both the asset bytes and the meta bytes.
@@ -854,11 +885,12 @@ impl ProcessorAssetInfo {
 /// The "current" in memory view of the asset space. This is "eventually consistent". It does not directly
 /// represent the state of assets in storage, but rather a valid historical view that will gradually become more
 /// consistent as events are processed.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ProcessorAssetInfos {
     /// The "current" in memory view of the asset space. During processing, if path does not exist in this, it should
     /// be considered non-existent.
-    /// NOTE: YOU MUST USE `get_or_insert` TO ADD ITEMS TO THIS COLLECTION
+    /// NOTE: YOU MUST USE `Self::get_or_insert` or `Self::insert` TO ADD ITEMS TO THIS COLLECTION TO ENSURE
+    /// non_existent_dependents DATA IS CONSUMED
     infos: HashMap<AssetPath<'static>, ProcessorAssetInfo>,
     /// Dependents for assets that don't exist. This exists to track "dangling" asset references due to deleted / missing files.
     /// If the dependant asset is added, it can "resolve" these dependencies and re-compute those assets.
@@ -984,6 +1016,70 @@ impl ProcessorAssetInfos {
                 .broadcast(ProcessStatus::NonExistent)
                 .await
                 .unwrap();
+            if !info.dependants.is_empty() {
+                error!(
+                    "The asset at {asset_path} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}",
+                    info.dependants
+                );
+                self.non_existent_dependants
+                    .insert(asset_path.clone(), info.dependants);
+            }
+        }
+    }
+
+    /// Remove the info for the given path. This should only happen if an asset's source is removed / non-existent
+    async fn rename(&mut self, old: &AssetPath<'static>, new: &AssetPath<'static>) {
+        let info = self.infos.remove(old);
+        if let Some(mut info) = info {
+            if !info.dependants.is_empty() {
+                // TODO: We can't currently ensure "moved" folders with relative paths aren't broken because AssetPath
+                // doesn't distinguish between absolute and relative paths. We have "erased" relativeness. In the short term,
+                // we could do "remove everything in a folder and re-add", but that requires full rebuilds / destroying the cache.
+                // If processors / loaders could enumerate dependencies, we could check if the new deps line up with a rename.
+                // If deps encoded "relativeness" as part of loading, that would also work (this seems like the right call).
+                // TODO: it would be nice to log an error here for dependents that aren't also being moved + fixed.
+                // (see the remove impl).
+                error!(
+                    "The asset at {old} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}",
+                    info.dependants
+                );
+                self.non_existent_dependants
+                    .insert(old.clone(), std::mem::take(&mut info.dependants));
+            }
+            if let Some(processed_info) = &info.processed_info {
+                // Update "dependent" lists for this asset's "process dependencies" to use new path.
+                for dep in &processed_info.process_dependencies {
+                    if let Some(info) = self.infos.get_mut(&dep.path) {
+                        info.dependants.remove(old);
+                        info.dependants.insert(new.clone());
+                    } else if let Some(dependants) = self.non_existent_dependants.get_mut(&dep.path)
+                    {
+                        dependants.remove(old);
+                        dependants.insert(new.clone());
+                    }
+                }
+            }
+            // Tell all listeners this asset no longer exists
+            info.status_sender
+                .broadcast(ProcessStatus::NonExistent)
+                .await
+                .unwrap();
+            let dependents: Vec<AssetPath<'static>> = {
+                let new_info = self.get_or_insert(new.clone());
+                new_info.processed_info = info.processed_info;
+                new_info.status = info.status;
+                // Ensure things waiting on the new path are informed of the status of this asset
+                if let Some(status) = new_info.status {
+                    new_info.status_sender.broadcast(status).await.unwrap();
+                }
+                new_info.dependants.iter().map(|d| d.clone()).collect()
+            };
+            // Queue the asset for a reprocess check, in case it needs new meta.
+            self.check_reprocess_queue.push_back(new.path().to_owned());
+            for dependent in dependents {
+                // Queue dependents for reprocessing because they might have been waiting for this asset.
+                self.check_reprocess_queue.push_back(dependent.into());
+            }
         }
     }
 

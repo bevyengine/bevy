@@ -115,6 +115,16 @@ pub trait AssetWriter: Send + Sync + 'static {
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<Writer>, AssetWriterError>>;
     fn remove<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
+    fn rename<'a>(
+        &'a self,
+        old_path: &'a Path,
+        new_path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
+    fn rename_meta<'a>(
+        &'a self,
+        old_path: &'a Path,
+        new_path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     fn remove_directory<'a>(
         &'a self,
         path: &'a Path,

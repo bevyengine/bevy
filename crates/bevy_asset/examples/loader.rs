@@ -43,6 +43,8 @@ impl Plugin for TextPlugin {
             processor.register_processor::<LoadAndSave<CoolTextLoader, CoolTextSaver>>(
                 CoolTextSaver.into(),
             );
+            processor
+                .set_default_processor::<LoadAndSave<CoolTextLoader, CoolTextSaver>>("cool.ron");
         }
     }
 }

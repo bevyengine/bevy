@@ -151,3 +151,12 @@ impl<'a> From<PathBuf> for AssetPath<'a> {
         }
     }
 }
+
+impl<'a> From<AssetPath<'a>> for PathBuf {
+    fn from(path: AssetPath<'a>) -> Self {
+        match path.path {
+            Cow::Borrowed(borrowed) => borrowed.to_owned(),
+            Cow::Owned(owned) => owned,
+        }
+    }
+}

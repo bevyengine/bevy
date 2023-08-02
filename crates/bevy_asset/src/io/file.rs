@@ -279,6 +279,40 @@ impl AssetWriter for FileAssetWriter {
             Ok(())
         })
     }
+
+    fn rename<'a>(
+        &'a self,
+        old_path: &'a Path,
+        new_path: &'a Path,
+    ) -> BoxedFuture<'a, std::result::Result<(), AssetWriterError>> {
+        Box::pin(async move {
+            let full_old_path = self.root_path.join(old_path);
+            let full_new_path = self.root_path.join(new_path);
+            if let Some(parent) = full_new_path.parent() {
+                async_fs::create_dir_all(parent).await?;
+            }
+            async_fs::rename(full_old_path, full_new_path).await?;
+            Ok(())
+        })
+    }
+
+    fn rename_meta<'a>(
+        &'a self,
+        old_path: &'a Path,
+        new_path: &'a Path,
+    ) -> BoxedFuture<'a, std::result::Result<(), AssetWriterError>> {
+        Box::pin(async move {
+            let old_meta_path = get_meta_path(old_path);
+            let new_meta_path = get_meta_path(new_path);
+            let full_old_path = self.root_path.join(old_meta_path);
+            let full_new_path = self.root_path.join(new_meta_path);
+            if let Some(parent) = full_new_path.parent() {
+                async_fs::create_dir_all(parent).await?;
+            }
+            async_fs::rename(full_old_path, full_new_path).await?;
+            Ok(())
+        })
+    }
 }
 
 pub struct FileWatcher {
