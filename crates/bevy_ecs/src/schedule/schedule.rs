@@ -1570,3 +1570,29 @@ impl ScheduleBuildSettings {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        self as bevy_ecs,
+        schedule::{IntoSystemConfigs, IntoSystemSetConfig, Schedule, SystemSet},
+        world::World,
+    };
+
+    #[test]
+    fn ambiguous_with_not_breaking_run_conditions() {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        struct Set;
+
+        let mut world = World::new();
+        let mut schedule = Schedule::new();
+
+        schedule.configure_set(Set.run_if(|| false));
+        schedule.add_systems(
+            (|| panic!("This system must not run"))
+                .ambiguous_with(|| ())
+                .in_set(Set),
+        );
+        schedule.run(&mut world);
+    }
+}
