@@ -106,7 +106,7 @@ fn setup(
             right: Val::Px(50.0),
             ..default()
         },
-        content_orientation: UiContentOrientation::East,
+        content_transform: UiContentTransform::East,
         ..default()
     });
 

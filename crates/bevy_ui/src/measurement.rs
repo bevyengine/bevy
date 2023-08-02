@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::Component;
 use bevy_ecs::reflect::ReflectComponent;
-use bevy_math::Vec2;
+use bevy_math::{Vec2, Vec2Swizzles};
 use bevy_reflect::Reflect;
 use std::fmt::Formatter;
 pub use taffy::style::AvailableSpace;
@@ -41,6 +41,25 @@ impl Measure for FixedMeasure {
         _: AvailableSpace,
     ) -> Vec2 {
         self.size
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct SwappedMeasure<M: Measure> {
+    pub inner_measure: M,
+}
+
+impl<M: Measure> Measure for SwappedMeasure<M> {
+    fn measure(
+        &self,
+        width: Option<f32>,
+        height: Option<f32>,
+        available_width: AvailableSpace,
+        available_height: AvailableSpace,
+    ) -> Vec2 {
+        self.inner_measure
+            .measure(height, width, available_height, available_width)
+            .yx()
     }
 }
 

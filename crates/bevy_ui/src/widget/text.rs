@@ -1,4 +1,6 @@
-use crate::{ContentSize, FixedMeasure, Measure, Node, UiContentTransform, UiScale};
+use crate::{
+    ContentSize, FixedMeasure, Measure, Node, SwappedMeasure, UiContentTransform, UiScale,
+};
 use bevy_asset::Assets;
 use bevy_ecs::{
     prelude::{Component, DetectChanges},
@@ -82,6 +84,7 @@ fn create_text_measure(
     text: Ref<Text>,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
+    rotated: bool,
 ) {
     match text_pipeline.create_text_measure(
         fonts,
@@ -92,8 +95,15 @@ fn create_text_measure(
     ) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
-                content_size.set(FixedMeasure {
-                    size: measure.max_width_content_size,
+                let size = if rotated {
+                    measure.max_width_content_size.yx()
+                } else {
+                    measure.max_width_content_size
+                };
+                content_size.set(FixedMeasure { size });
+            } else if rotated {
+                content_size.set(SwappedMeasure {
+                    inner_measure: TextMeasure { info: measure },
                 });
             } else {
                 content_size.set(TextMeasure { info: measure });
@@ -121,7 +131,15 @@ pub fn measure_text_system(
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
+    mut text_query: Query<
+        (
+            Ref<Text>,
+            &mut ContentSize,
+            &mut TextFlags,
+            Ref<UiContentTransform>,
+        ),
+        With<Node>,
+    >,
 ) {
     let window_scale_factor = windows
         .get_single()
@@ -133,8 +151,12 @@ pub fn measure_text_system(
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measure funcs for modified text
-        for (text, content_size, text_flags) in text_query.iter_mut() {
-            if text.is_changed() || text_flags.needs_new_measure_func {
+        for (text, content_size, text_flags, content_transform) in text_query.iter_mut() {
+            if text.is_changed()
+                || text_flags.needs_new_measure_func
+                || content_transform.is_changed()
+            {
+                let rotated = content_transform.is_sideways();
                 create_text_measure(
                     &fonts,
                     &mut text_pipeline,
@@ -142,6 +164,7 @@ pub fn measure_text_system(
                     text,
                     content_size,
                     text_flags,
+                    rotated,
                 );
             }
         }
@@ -149,7 +172,8 @@ pub fn measure_text_system(
         // scale factor changed, create new measure funcs for all text
         *last_scale_factor = scale_factor;
 
-        for (text, content_size, text_flags) in text_query.iter_mut() {
+        for (text, content_size, text_flags, content_transform) in text_query.iter_mut() {
+            let rotated = content_transform.is_sideways();
             create_text_measure(
                 &fonts,
                 &mut text_pipeline,
@@ -157,6 +181,7 @@ pub fn measure_text_system(
                 text,
                 content_size,
                 text_flags,
+                rotated,
             );
         }
     }
@@ -265,7 +290,7 @@ pub fn text_system(
                 let mut node_size = node.size();
                 if let Some(orientation) = orientation.as_deref() {
                     if orientation.is_sideways() {
-                        node_size = node_size.yx()
+                        node_size = node_size.yx();
                     }
                 }
                 queue_text(
@@ -292,7 +317,7 @@ pub fn text_system(
             let mut node_size = node.size();
             if let Some(orientation) = orientation.as_deref() {
                 if orientation.is_sideways() {
-                    node_size = node_size.yx()
+                    node_size = node_size.yx();
                 }
             }
             queue_text(

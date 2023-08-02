@@ -1,3 +1,4 @@
+use crate::UiContentTransform;
 use crate::{
     measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiScale, UiTextureAtlasImage,
 };
@@ -10,7 +11,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
-use bevy_math::Vec2;
+use bevy_math::{Vec2, Vec2Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
@@ -81,7 +82,15 @@ pub fn update_image_content_size_system(
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
-    mut query: Query<(&mut ContentSize, &UiImage, &mut UiImageSize), UpdateImageFilter>,
+    mut query: Query<
+        (
+            &mut ContentSize,
+            &UiImage,
+            &mut UiImageSize,
+            Option<&UiContentTransform>,
+        ),
+        UpdateImageFilter,
+    >,
 ) {
     let combined_scale_factor = windows
         .get_single()
@@ -89,12 +98,17 @@ pub fn update_image_content_size_system(
         .unwrap_or(1.)
         * ui_scale.scale;
 
-    for (mut content_size, image, mut image_size) in &mut query {
+    for (mut content_size, image, mut image_size, content_transform) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
-            let size = Vec2::new(
+            let mut size = Vec2::new(
                 texture.texture_descriptor.size.width as f32,
                 texture.texture_descriptor.size.height as f32,
             );
+            if let Some(content_transform) = content_transform {
+                if content_transform.is_sideways() {
+                    size = size.yx();
+                }
+            }
             // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size || combined_scale_factor != *previous_combined_scale_factor {
                 image_size.size = size;
@@ -121,6 +135,7 @@ pub fn update_atlas_content_size_system(
             &Handle<TextureAtlas>,
             &UiTextureAtlasImage,
             &mut UiImageSize,
+            Option<&UiContentTransform>,
         ),
         (UpdateImageFilter, Without<UiImage>),
     >,
@@ -131,9 +146,16 @@ pub fn update_atlas_content_size_system(
         .unwrap_or(1.)
         * ui_scale.scale;
 
-    for (mut content_size, atlas, atlas_image, mut image_size) in &mut atlas_query {
+    for (mut content_size, atlas, atlas_image, mut image_size, content_transform) in
+        &mut atlas_query
+    {
         if let Some(atlas) = atlases.get(atlas) {
-            let size = atlas.textures[atlas_image.index].size();
+            let mut size = atlas.textures[atlas_image.index].size();
+            if let Some(content_transform) = content_transform {
+                if content_transform.is_sideways() {
+                    size = size.yx();
+                }
+            }
             // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size || combined_scale_factor != *previous_combined_scale_factor {
                 image_size.size = size;

@@ -51,7 +51,7 @@ pub struct NodeBundle {
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
     /// Controls the orientation of a node's content
-    pub content_orientation: UiContentTransform,
+    pub content_transform: UiContentTransform,
 }
 
 impl Default for NodeBundle {
@@ -68,7 +68,7 @@ impl Default for NodeBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
-            content_orientation: Default::default(),
+            content_transform: Default::default(),
         }
     }
 }
@@ -203,7 +203,7 @@ pub struct TextBundle {
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
     /// Controls the orientation of a node's content
-    pub content_orientation: UiContentTransform,
+    pub content_transform: UiContentTransform,
 }
 
 #[cfg(feature = "bevy_text")]
@@ -224,7 +224,7 @@ impl Default for TextBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
-            content_orientation: Default::default(),
+            content_transform: Default::default(),
         }
     }
 }
@@ -273,6 +273,12 @@ impl TextBundle {
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
     pub const fn with_no_wrap(mut self) -> Self {
         self.text.linebreak_behavior = BreakLineOn::NoWrap;
+        self
+    }
+
+    /// Returns this [`TextBundle`] with a new [`UiContentTransform`].
+    pub const fn with_content_transform(mut self, content_transform: UiContentTransform) -> Self {
+        self.content_transform = content_transform;
         self
     }
 }

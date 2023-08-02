@@ -1936,6 +1936,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_transformed"
+path = "examples/ui/text_transformed.rs"
+
+[package.metadata.example.text_transformed]
+name = "Text Transformed"
+description = "Demonstrates flipped and rotated text."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "grid"
 path = "examples/ui/grid.rs"
 

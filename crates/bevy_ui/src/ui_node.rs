@@ -186,16 +186,17 @@ impl From<UiContentTransform> for Mat4 {
     fn from(orientation: UiContentTransform) -> Self {
         use std::f32::consts::*;
         use UiContentTransform::*;
-        let flip = || Mat4::from_scale(Vec3::new(-1., 1., 1.));
+        let flip_x = || Mat4::from_scale(Vec3::new(-1., 1., 1.));
+        let flip_y = || Mat4::from_scale(Vec3::new(1., -1., 1.));
         match orientation {
             North => Mat4::IDENTITY,
             East => Mat4::from_rotation_z(FRAC_PI_2),
             South => Mat4::from_rotation_z(PI),
             West => Mat4::from_rotation_z(3. * FRAC_PI_2),
-            FlippedNorth => flip(),
-            FlippedEast => flip() * Mat4::from_rotation_z(FRAC_PI_2),
-            FlippedSouth => flip() * Mat4::from_rotation_z(PI),
-            FlippedWest => flip() * Mat4::from_rotation_z(3. * FRAC_PI_2),
+            FlippedNorth => flip_x(),
+            FlippedEast => flip_y() * Mat4::from_rotation_z(FRAC_PI_2),
+            FlippedSouth => flip_x() * Mat4::from_rotation_z(PI),
+            FlippedWest => flip_y() * Mat4::from_rotation_z(3. * FRAC_PI_2),
         }
     }
 }
@@ -1722,10 +1723,7 @@ impl Default for UiImage {
 
 impl UiImage {
     pub fn new(texture: Handle<Image>) -> Self {
-        Self {
-            texture,
-            ..Default::default()
-        }
+        Self { texture }
     }
 }
 

@@ -233,15 +233,20 @@ pub fn extract_atlas_uinodes(
                 continue;
             }
 
-            let mut transform = transform.compute_matrix();
-            if let Some(orientation) = orientation {
-                transform *= Mat4::from(*orientation);
-            }
-
             let scale = uinode.size() / atlas_rect.size();
             atlas_rect.min *= scale;
             atlas_rect.max *= scale;
             atlas_size *= scale;
+
+            let mut transform = transform.compute_matrix();
+            if let Some(orientation) = orientation {
+                transform *= Mat4::from(*orientation);
+
+                if orientation.is_sideways() {
+                    let aspect = uinode.size().y / uinode.size().x;
+                    transform *= Mat4::from_scale(Vec3::new(aspect, aspect.recip(), 1.));
+                }
+            }
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
@@ -413,20 +418,26 @@ pub fn extract_uinodes(
                 continue;
             }
 
+            let mut transform = transform.compute_matrix();
+            let size = uinode.calculated_size;
+
             let image = if let Some(image) = maybe_image {
                 // Skip loading images
                 if !images.contains(&image.texture) {
                     continue;
                 }
+                if let Some(orientation) = orientation {
+                    transform *= Mat4::from(*orientation);
+
+                    if orientation.is_sideways() {
+                        let aspect = uinode.size().y / uinode.size().x;
+                        transform *= Mat4::from_scale(Vec3::new(aspect, aspect.recip(), 1.));
+                    }
+                }
                 image.texture.clone_weak()
             } else {
                 DEFAULT_IMAGE_HANDLE.typed()
             };
-
-            let mut transform = transform.compute_matrix();
-            if let Some(orientation) = orientation {
-                transform *= Mat4::from(*orientation);
-            }
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
@@ -434,7 +445,7 @@ pub fn extract_uinodes(
                 color: color.0,
                 rect: Rect {
                     min: Vec2::ZERO,
-                    max: uinode.calculated_size,
+                    max: size,
                 },
                 clip: clip.map(|clip| clip.clip),
                 image,
@@ -562,13 +573,13 @@ pub fn extract_text_uinodes(
             }
             let mut transform = global_transform.compute_matrix();
 
-            if orientation
-                .as_deref()
-                .map(|orientation| orientation.is_sideways())
-                .unwrap_or(false)
-            {
-                transform *= Mat4::from_rotation_z(std::f32::consts::FRAC_PI_2)
-                    * Mat4::from_translation(-0.5 * uinode.size().yx().extend(0.));
+            if let Some(orientation) = orientation {
+                let mut size = uinode.size();
+                if orientation.is_sideways() {
+                    size = size.yx();
+                }
+                transform *=
+                    Mat4::from(*orientation) * Mat4::from_translation(-0.5 * size.extend(0.));
             } else {
                 transform *= Mat4::from_translation(-0.5 * uinode.size().extend(0.));
             }
@@ -733,7 +744,10 @@ pub fn prepare_uinodes(
             positions[3] + positions_diff[3].extend(0.),
         ];
 
-        let transformed_rect_size = extracted_uinode.transform.transform_vector3(rect_size).abs();
+        let transformed_rect_size = extracted_uinode
+            .transform
+            .transform_vector3(rect_size)
+            .abs();
 
         // Don't try to cull nodes that have a rotation
         // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
