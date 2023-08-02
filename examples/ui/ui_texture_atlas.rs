@@ -87,7 +87,7 @@ fn increment_atlas_index(
 
 fn update_orientation(
     input: Res<Input<KeyCode>>,
-    mut orientation_query: Query<&mut UiContentOrientation, With<UiTextureAtlasImage>>,
+    mut orientation_query: Query<&mut UiContentTransform, With<UiTextureAtlasImage>>,
 ) {
     let mut orientation = orientation_query.single_mut();
     if input.just_pressed(KeyCode::Z) {

@@ -81,7 +81,7 @@ impl Default for Node {
 #[derive(Component, Default, Clone, Copy, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(Component, Default)]
 /// Controls the orientation of a node's content
-pub enum UiContentOrientation {
+pub enum UiContentTransform {
     #[default]
     /// Not flipped or rotated
     North,
@@ -101,11 +101,11 @@ pub enum UiContentOrientation {
     FlippedWest,
 }
 
-impl UiContentOrientation {
+impl UiContentTransform {
     /// Rotate the content to the left by 90 degrees
     #[inline]
     pub const fn rotate_left(self) -> Self {
-        use UiContentOrientation::*;
+        use UiContentTransform::*;
         match self {
             North => East,
             East => South,
@@ -121,7 +121,7 @@ impl UiContentOrientation {
     /// Rotate The content to the right by 90 degrees
     #[inline]
     pub const fn rotate_right(self) -> Self {
-        use UiContentOrientation::*;
+        use UiContentTransform::*;
         match self {
             North => West,
             East => North,
@@ -142,7 +142,7 @@ impl UiContentOrientation {
     /// Flip the content along its x-axis
     #[inline]
     pub const fn flip_x(self) -> Self {
-        use UiContentOrientation::*;
+        use UiContentTransform::*;
         match self {
             North => FlippedNorth,
             East => FlippedWest,
@@ -158,7 +158,7 @@ impl UiContentOrientation {
     /// Flip the content along its x-axis
     #[inline]
     pub const fn flip_y(self) -> Self {
-        use UiContentOrientation::*;
+        use UiContentTransform::*;
         match self {
             North => FlippedSouth,
             East => FlippedEast,
@@ -177,15 +177,15 @@ impl UiContentOrientation {
     }
 
     pub const fn is_sideways(self) -> bool {
-        use UiContentOrientation::*;
+        use UiContentTransform::*;
         matches!(self, East | West | FlippedEast | FlippedWest)
     }
 }
 
-impl From<UiContentOrientation> for Mat4 {
-    fn from(orientation: UiContentOrientation) -> Self {
+impl From<UiContentTransform> for Mat4 {
+    fn from(orientation: UiContentTransform) -> Self {
         use std::f32::consts::*;
-        use UiContentOrientation::*;
+        use UiContentTransform::*;
         let flip = || Mat4::from_scale(Vec3::new(-1., 1., 1.));
         match orientation {
             North => Mat4::IDENTITY,

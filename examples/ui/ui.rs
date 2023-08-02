@@ -285,7 +285,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 },
                                 // a `NodeBundle` is transparent by default, so to see the image we have to its color to `WHITE`
                                 background_color: Color::WHITE.into(),
-                                content_orientation: UiContentOrientation::FlippedWest,
+                                content_orientation: UiContentTransform::FlippedWest,
                                 ..default()
                             },
                             UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),

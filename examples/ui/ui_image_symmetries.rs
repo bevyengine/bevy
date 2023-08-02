@@ -40,7 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..Default::default()
                     },
                     text: Text::from_section(
-                        format!("{:?}", UiContentOrientation::default()),
+                        format!("{:?}", UiContentTransform::default()),
                         text_style.clone(),
                     ),
                     ..Default::default()
@@ -60,7 +60,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn update_orientation(
     input: Res<Input<KeyCode>>,
-    mut orientation_query: Query<&mut UiContentOrientation, With<UiImage>>,
+    mut orientation_query: Query<&mut UiContentTransform, With<UiImage>>,
 ) {
     let mut orientation = orientation_query.single_mut();
     if input.just_pressed(KeyCode::Z) {
@@ -78,7 +78,7 @@ fn update_orientation(
 }
 
 fn update_text(
-    orientation_query: Query<&UiContentOrientation, (With<UiImage>, Changed<UiContentOrientation>)>,
+    orientation_query: Query<&UiContentTransform, (With<UiImage>, Changed<UiContentTransform>)>,
     mut text_query: Query<&mut Text, With<OrientationText>>,
 ) {
     if let Ok(orientation) = orientation_query.get_single() {

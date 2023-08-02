@@ -13,7 +13,7 @@ use crate::{
     Style, UiImage, UiScale, UiStack, UiTextureAtlasImage, Val,
 };
 
-use crate::UiContentOrientation;
+use crate::UiContentTransform;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -183,7 +183,7 @@ pub fn extract_atlas_uinodes(
                 Option<&CalculatedClip>,
                 &Handle<TextureAtlas>,
                 &UiTextureAtlasImage,
-                Option<&UiContentOrientation>,
+                Option<&UiContentTransform>,
             ),
             Without<UiImage>,
         >,
@@ -398,7 +398,7 @@ pub fn extract_uinodes(
                 Option<&UiImage>,
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
-                Option<&UiContentOrientation>,
+                Option<&UiContentTransform>,
             ),
             Without<UiTextureAtlasImage>,
         >,
@@ -532,7 +532,7 @@ pub fn extract_text_uinodes(
             &TextLayoutInfo,
             &ComputedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiContentOrientation>,
+            Option<&UiContentTransform>,
         )>,
     >,
 ) {

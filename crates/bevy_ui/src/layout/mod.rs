@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style, UiContentOrientation, UiScale};
+use crate::{ContentSize, Node, Style, UiContentTransform, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -97,11 +97,11 @@ impl UiSurface {
         &mut self,
         entity: Entity,
         measure_func: taffy::node::MeasureFunc,
-        orientation: UiContentOrientation,
+        orientation: UiContentTransform,
     ) {
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
         match orientation {
-            UiContentOrientation::North => {
+            UiContentTransform::North => {
                 self.taffy.set_measure(*taffy_node, Some(measure_func)).ok();
             }
             _ => {
@@ -257,7 +257,7 @@ pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     style_query: Query<(Entity, Ref<Style>), With<Node>>,
-    mut measure_query: Query<(Entity, &mut ContentSize, Option<&UiContentOrientation>)>,
+    mut measure_query: Query<(Entity, &mut ContentSize, Option<&UiContentTransform>)>,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
     mut removed_children: RemovedComponents<Children>,
@@ -315,7 +315,7 @@ pub fn ui_layout_system(
                 measure_func,
                 orientation
                     .cloned()
-                    .unwrap_or(UiContentOrientation::default()),
+                    .unwrap_or(UiContentTransform::default()),
             );
         }
     }

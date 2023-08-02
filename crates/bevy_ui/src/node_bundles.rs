@@ -5,7 +5,7 @@ use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style,
-    UiContentOrientation, UiImage, UiTextureAtlasImage, ZIndex,
+    UiContentTransform, UiImage, UiTextureAtlasImage, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -51,7 +51,7 @@ pub struct NodeBundle {
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
     /// Controls the orientation of a node's content
-    pub content_orientation: UiContentOrientation,
+    pub content_orientation: UiContentTransform,
 }
 
 impl Default for NodeBundle {
@@ -115,7 +115,7 @@ pub struct ImageBundle {
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
     /// Controls the orientation of a node's content
-    pub content_orientation: UiContentOrientation,
+    pub content_orientation: UiContentTransform,
 }
 
 /// A UI node that is a texture atlas sprite
@@ -162,7 +162,7 @@ pub struct AtlasImageBundle {
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
     /// Controls the orientation of a node's content
-    pub content_orientation: UiContentOrientation,
+    pub content_orientation: UiContentTransform,
 }
 
 #[cfg(feature = "bevy_text")]
@@ -203,7 +203,7 @@ pub struct TextBundle {
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
     /// Controls the orientation of a node's content
-    pub content_orientation: UiContentOrientation,
+    pub content_orientation: UiContentTransform,
 }
 
 #[cfg(feature = "bevy_text")]
@@ -316,7 +316,7 @@ pub struct ButtonBundle {
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
     /// Controls the orientation of a node's content
-    pub content_orientation: UiContentOrientation,
+    pub content_orientation: UiContentTransform,
 }
 
 impl Default for ButtonBundle {

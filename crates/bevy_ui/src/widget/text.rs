@@ -1,4 +1,4 @@
-use crate::{ContentSize, FixedMeasure, Measure, Node, UiContentOrientation, UiScale};
+use crate::{ContentSize, FixedMeasure, Measure, Node, UiContentTransform, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
     prelude::{Component, DetectChanges},
@@ -238,7 +238,7 @@ pub fn text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Ref<Node>,
-        Option<Ref<UiContentOrientation>>,
+        Option<Ref<UiContentTransform>>,
         &Text,
         &mut TextLayoutInfo,
         &mut TextFlags,
