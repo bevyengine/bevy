@@ -1997,6 +1997,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_image_symmetries"
+path = "examples/ui/ui_image_symmetries.rs"
+
+[package.metadata.example.ui_image_symmetries]
+name = "UI Image Symmetries"
+description = "Demonstrates how to rotate and flip UI images"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 

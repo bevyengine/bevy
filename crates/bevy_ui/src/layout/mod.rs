@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style, UiScale};
+use crate::{ContentSize, Node, Style, UiContentOrientation, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -93,9 +93,43 @@ impl UiSurface {
     }
 
     /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`].
-    pub fn update_measure(&mut self, entity: Entity, measure_func: taffy::node::MeasureFunc) {
+    pub fn update_measure(
+        &mut self,
+        entity: Entity,
+        measure_func: taffy::node::MeasureFunc,
+        orientation: UiContentOrientation,
+    ) {
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
-        self.taffy.set_measure(*taffy_node, Some(measure_func)).ok();
+        match orientation {
+            UiContentOrientation::North => {
+                self.taffy.set_measure(*taffy_node, Some(measure_func)).ok();
+            }
+            _ => {
+                use std::mem::swap;
+                let measure =
+                    match measure_func {
+                        taffy::node::MeasureFunc::Raw(f) => {
+                            taffy::node::MeasureFunc::Boxed(Box::new(move |mut size: Size<Option<f32>>, mut space: Size<taffy::style::AvailableSpace>| {
+                                swap(&mut size.width, &mut size.height);
+                                swap(&mut space.width, &mut space.height);
+                                let mut out = f(size, space);
+                                swap(&mut out.width, &mut out.height);
+                                out
+                            }))
+                        },
+                        taffy::node::MeasureFunc::Boxed(f) =>{
+                            taffy::node::MeasureFunc::Boxed(Box::new(move |mut size: Size<Option<f32>>, mut space: Size<taffy::style::AvailableSpace>| {
+                                swap(&mut size.width, &mut size.height);
+                                swap(&mut space.width, &mut space.height);
+                                let mut out = f(size, space);
+                                swap(&mut out.width, &mut out.height);
+                                out
+                            }))
+                        },
+                    };
+                self.taffy.set_measure(*taffy_node, Some(measure)).ok();
+            }
+        };
     }
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
@@ -223,7 +257,7 @@ pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     style_query: Query<(Entity, Ref<Style>), With<Node>>,
-    mut measure_query: Query<(Entity, &mut ContentSize)>,
+    mut measure_query: Query<(Entity, &mut ContentSize, Option<&UiContentOrientation>)>,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
     mut removed_children: RemovedComponents<Children>,
@@ -274,9 +308,15 @@ pub fn ui_layout_system(
         }
     }
 
-    for (entity, mut content_size) in measure_query.iter_mut() {
+    for (entity, mut content_size, orientation) in measure_query.iter_mut() {
         if let Some(measure_func) = content_size.measure_func.take() {
-            ui_surface.update_measure(entity, measure_func);
+            ui_surface.update_measure(
+                entity,
+                measure_func,
+                orientation
+                    .cloned()
+                    .unwrap_or(UiContentOrientation::default()),
+            );
         }
     }
 

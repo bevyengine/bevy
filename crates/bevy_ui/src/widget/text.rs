@@ -1,4 +1,4 @@
-use crate::{ContentSize, FixedMeasure, Measure, Node, UiScale};
+use crate::{ContentSize, FixedMeasure, Measure, Node, UiContentOrientation, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
     prelude::{Component, DetectChanges},
@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{Local, Query, Res, ResMut},
     world::{Mut, Ref},
 };
-use bevy_math::Vec2;
+use bevy_math::{Vec2, Vec2Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
@@ -52,6 +52,9 @@ impl Measure for TextMeasure {
         available_width: AvailableSpace,
         _available_height: AvailableSpace,
     ) -> Vec2 {
+        println!("width: {width:?}");
+        println!("height: {height:?}");
+        println!("available_width: {available_width:?}");
         let x = width.unwrap_or_else(|| match available_width {
             AvailableSpace::Definite(x) => x.clamp(
                 self.info.min_width_content_size.x,
@@ -174,7 +177,7 @@ fn queue_text(
     text_settings: &TextSettings,
     scale_factor: f64,
     text: &Text,
-    node: Ref<Node>,
+    node_size: Vec2,
     mut text_flags: Mut<TextFlags>,
     mut text_layout_info: Mut<TextLayoutInfo>,
 ) {
@@ -185,7 +188,7 @@ fn queue_text(
             Vec2::splat(f32::INFINITY)
         } else {
             // `scale_factor` is already multiplied by `UiScale`
-            node.physical_size(scale_factor, 1.)
+            node_size * scale_factor as f32
         };
 
         match text_pipeline.queue_text(
@@ -236,7 +239,13 @@ pub fn text_system(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(Ref<Node>, &Text, &mut TextLayoutInfo, &mut TextFlags)>,
+    mut text_query: Query<(
+        Ref<Node>,
+        Option<Ref<UiContentOrientation>>,
+        &Text,
+        &mut TextLayoutInfo,
+        &mut TextFlags,
+    )>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let window_scale_factor = windows
@@ -248,8 +257,20 @@ pub fn text_system(
 
     if *last_scale_factor == scale_factor {
         // Scale factor unchanged, only recompute text for modified text nodes
-        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
-            if node.is_changed() || text_flags.needs_recompute {
+        for (node, orientation, text, text_layout_info, text_flags) in text_query.iter_mut() {
+            if node.is_changed()
+                || orientation
+                    .as_ref()
+                    .map(|o| o.is_changed())
+                    .unwrap_or(false)
+                || text_flags.needs_recompute
+            {
+                let mut node_size = node.size();
+                if let Some(orientation) = orientation.as_deref() {
+                    if orientation.is_sideways() {
+                        node_size = node_size.yx()
+                    }
+                }
                 queue_text(
                     &fonts,
                     &mut text_pipeline,
@@ -260,7 +281,7 @@ pub fn text_system(
                     &text_settings,
                     scale_factor,
                     text,
-                    node,
+                    node_size,
                     text_flags,
                     text_layout_info,
                 );
@@ -270,7 +291,13 @@ pub fn text_system(
         // Scale factor changed, recompute text for all text nodes
         *last_scale_factor = scale_factor;
 
-        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
+        for (node, orientation, text, text_layout_info, text_flags) in text_query.iter_mut() {
+            let mut node_size = node.size();
+            if let Some(orientation) = orientation.as_deref() {
+                if orientation.is_sideways() {
+                    node_size = node_size.yx()
+                }
+            }
             queue_text(
                 &fonts,
                 &mut text_pipeline,
@@ -281,7 +308,7 @@ pub fn text_system(
                 &text_settings,
                 scale_factor,
                 text,
-                node,
+                node_size,
                 text_flags,
                 text_layout_info,
             );

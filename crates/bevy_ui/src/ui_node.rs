@@ -1,7 +1,7 @@
 use crate::UiRect;
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Rect, Vec2};
+use bevy_math::{Mat4, Rect, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     color::Color,
@@ -75,6 +75,128 @@ impl Node {
 impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+#[derive(Component, Default, Clone, Copy, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect(Component, Default)]
+/// Controls the orientation of a node's content
+pub enum UiContentOrientation {
+    #[default]
+    /// Not flipped or rotated
+    North,
+    /// The content is rotated left by 90 degrees
+    East,
+    /// The content is rotated by 180 degrees
+    South,
+    /// The content is rotated right by 90 degrees
+    West,
+    /// The content is flipped along its x-axis
+    FlippedNorth,
+    /// The content is flipped along its x-axis and then rotated left by 90 degrees
+    FlippedEast,
+    /// The content is flipped along its x-axis and then rotated 180 degrees
+    FlippedSouth,
+    /// The content is flipped along its x-axis and then rotated right by 90 degrees
+    FlippedWest,
+}
+
+impl UiContentOrientation {
+    /// Rotate the content to the left by 90 degrees
+    #[inline]
+    pub const fn rotate_left(self) -> Self {
+        use UiContentOrientation::*;
+        match self {
+            North => East,
+            East => South,
+            South => West,
+            West => North,
+            FlippedNorth => FlippedEast,
+            FlippedEast => FlippedSouth,
+            FlippedSouth => FlippedWest,
+            FlippedWest => FlippedNorth,
+        }
+    }
+
+    /// Rotate The content to the right by 90 degrees
+    #[inline]
+    pub const fn rotate_right(self) -> Self {
+        use UiContentOrientation::*;
+        match self {
+            North => West,
+            East => North,
+            South => East,
+            West => South,
+            FlippedNorth => FlippedWest,
+            FlippedEast => FlippedNorth,
+            FlippedSouth => FlippedEast,
+            FlippedWest => FlippedSouth,
+        }
+    }
+
+    /// Rotate the content to the right by 90 degrees
+    pub const fn rotate_180(self) -> Self {
+        self.rotate_left().rotate_left()
+    }
+
+    /// Flip the content along its x-axis
+    #[inline]
+    pub const fn flip_x(self) -> Self {
+        use UiContentOrientation::*;
+        match self {
+            North => FlippedNorth,
+            East => FlippedWest,
+            South => FlippedSouth,
+            West => FlippedEast,
+            FlippedNorth => North,
+            FlippedEast => West,
+            FlippedSouth => South,
+            FlippedWest => East,
+        }
+    }
+
+    /// Flip the content along its x-axis
+    #[inline]
+    pub const fn flip_y(self) -> Self {
+        use UiContentOrientation::*;
+        match self {
+            North => FlippedSouth,
+            East => FlippedEast,
+            South => FlippedNorth,
+            West => FlippedWest,
+            FlippedNorth => South,
+            FlippedEast => East,
+            FlippedSouth => North,
+            FlippedWest => West,
+        }
+    }
+
+    /// The original orientation of the content, not flipped or rotated.
+    pub const fn identity() -> Self {
+        Self::North
+    }
+
+    pub const fn is_sideways(self) -> bool {
+        use UiContentOrientation::*;
+        matches!(self, East | West | FlippedEast | FlippedWest)
+    }
+}
+
+impl From<UiContentOrientation> for Mat4 {
+    fn from(orientation: UiContentOrientation) -> Self {
+        use std::f32::consts::*;
+        use UiContentOrientation::*;
+        let flip = || Mat4::from_scale(Vec3::new(-1., 1., 1.));
+        match orientation {
+            North => Mat4::IDENTITY,
+            East => Mat4::from_rotation_z(FRAC_PI_2),
+            South => Mat4::from_rotation_z(PI),
+            West => Mat4::from_rotation_z(3. * FRAC_PI_2),
+            FlippedNorth => flip(),
+            FlippedEast => flip() * Mat4::from_rotation_z(FRAC_PI_2),
+            FlippedSouth => flip() * Mat4::from_rotation_z(PI),
+            FlippedWest => flip() * Mat4::from_rotation_z(3. * FRAC_PI_2),
+        }
     }
 }
 
@@ -1559,10 +1681,6 @@ impl From<Color> for BackgroundColor {
 pub struct UiTextureAtlasImage {
     /// Texture index in the TextureAtlas
     pub index: usize,
-    /// Whether to flip the sprite in the X axis
-    pub flip_x: bool,
-    /// Whether to flip the sprite in the Y axis
-    pub flip_y: bool,
 }
 
 /// The border color of the UI node.
@@ -1592,18 +1710,12 @@ impl Default for BorderColor {
 pub struct UiImage {
     /// Handle to the texture
     pub texture: Handle<Image>,
-    /// Whether the image should be flipped along its x-axis
-    pub flip_x: bool,
-    /// Whether the image should be flipped along its y-axis
-    pub flip_y: bool,
 }
 
 impl Default for UiImage {
     fn default() -> UiImage {
         UiImage {
             texture: DEFAULT_IMAGE_HANDLE.typed(),
-            flip_x: false,
-            flip_y: false,
         }
     }
 }
@@ -1614,20 +1726,6 @@ impl UiImage {
             texture,
             ..Default::default()
         }
-    }
-
-    /// flip the image along its x-axis
-    #[must_use]
-    pub const fn with_flip_x(mut self) -> Self {
-        self.flip_x = true;
-        self
-    }
-
-    /// flip the image along its y-axis
-    #[must_use]
-    pub const fn with_flip_y(mut self) -> Self {
-        self.flip_y = true;
-        self
     }
 }
 

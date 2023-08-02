@@ -13,7 +13,7 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_systems(Update, increment_atlas_index)
+        .add_systems(Update, (increment_atlas_index, update_orientation))
         .run();
 }
 
@@ -82,5 +82,24 @@ fn increment_atlas_index(
         for mut atlas_image in &mut atlas_images {
             atlas_image.index = (atlas_image.index + 1) % 6;
         }
+    }
+}
+
+fn update_orientation(
+    input: Res<Input<KeyCode>>,
+    mut orientation_query: Query<&mut UiContentOrientation, With<UiTextureAtlasImage>>,
+) {
+    let mut orientation = orientation_query.single_mut();
+    if input.just_pressed(KeyCode::Z) {
+        *orientation = orientation.rotate_left();
+    }
+    if input.just_pressed(KeyCode::X) {
+        *orientation = orientation.rotate_right();
+    }
+    if input.just_pressed(KeyCode::C) {
+        *orientation = orientation.flip_x();
+    }
+    if input.just_pressed(KeyCode::V) {
+        *orientation = orientation.flip_y();
     }
 }

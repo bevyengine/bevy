@@ -102,14 +102,11 @@ fn setup(
         ),
         style: Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(130.0),
-            right: Val::Px(0.0),
+            top: Val::Px(70.0),
+            right: Val::Px(50.0),
             ..default()
         },
-        transform: Transform {
-            rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
-            ..default()
-        },
+        content_orientation: UiContentOrientation::East,
         ..default()
     });
 
