@@ -116,14 +116,14 @@ pub struct ImageBundle {
     pub z_index: ZIndex,
 }
 
-impl Clone for ImageBundle {
-    fn clone(&self) -> Self {
-        // A MeasureFunc is not cloneable.
-        assert!(
-            self.calculated_size.measure_func.is_none(),
-            "ImageBundle with non-default `ContentSize` is not cloneable"
-        );
-        Self {
+impl ImageBundle {
+    pub fn try_clone(&self) -> Result<Self, UiNodeBundleError> {
+        // A `MeasureFunc` is not cloneable.
+        if self.calculated_size.measure_func.is_some() {
+            return Err(UiNodeBundleError::MeasureFuncNotCloneable);
+        }
+
+        Ok(Self {
             node: self.node,
             style: self.style.clone(),
             calculated_size: Default::default(),
@@ -136,7 +136,7 @@ impl Clone for ImageBundle {
             visibility: self.visibility,
             computed_visibility: self.computed_visibility.clone(),
             z_index: self.z_index,
-        }
+        })
     }
 }
 
@@ -188,14 +188,14 @@ pub struct AtlasImageBundle {
     pub z_index: ZIndex,
 }
 
-impl Clone for AtlasImageBundle {
-    fn clone(&self) -> Self {
+impl AtlasImageBundle {
+    pub fn try_clone(&self) -> Result<Self, UiNodeBundleError> {
         // A `MeasureFunc` is not cloneable.
-        assert!(
-            self.calculated_size.measure_func.is_none(),
-            "AtlasImageBundle with non-default `ContentSize` is not cloneable"
-        );
-        Self {
+        if self.calculated_size.measure_func.is_some() {
+            return Err(UiNodeBundleError::MeasureFuncNotCloneable);
+        }
+
+        Ok(Self {
             node: self.node,
             style: self.style.clone(),
             calculated_size: Default::default(),
@@ -209,7 +209,7 @@ impl Clone for AtlasImageBundle {
             visibility: self.visibility,
             computed_visibility: self.computed_visibility.clone(),
             z_index: self.z_index,
-        }
+        })
     }
 }
 
@@ -255,14 +255,14 @@ pub struct TextBundle {
     pub background_color: BackgroundColor,
 }
 
-impl Clone for TextBundle {
-    fn clone(&self) -> Self {
+impl TextBundle {
+    pub fn try_clone(&self) -> Result<Self, UiNodeBundleError> {
         // A `MeasureFunc` is not cloneable.
-        assert!(
-            self.calculated_size.measure_func.is_none(),
-            "TextBundle with non-default `ContentSize` is not cloneable"
-        );
-        Self {
+        if self.calculated_size.measure_func.is_some() {
+            return Err(UiNodeBundleError::MeasureFuncNotCloneable);
+        }
+
+        Ok(Self {
             node: self.node,
             style: self.style.clone(),
             text: self.text.clone(),
@@ -276,7 +276,7 @@ impl Clone for TextBundle {
             computed_visibility: self.computed_visibility.clone(),
             z_index: self.z_index,
             background_color: self.background_color,
-        }
+        })
     }
 }
 
@@ -408,4 +408,8 @@ impl Default for ButtonBundle {
             z_index: Default::default(),
         }
     }
+}
+
+pub enum UiNodeBundleError {
+    MeasureFuncNotCloneable,
 }
