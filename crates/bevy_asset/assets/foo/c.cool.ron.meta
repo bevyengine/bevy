@@ -1,7 +1,7 @@
 (
     meta_format_version: "1.0",
     asset: Process(
-        processor: "bevy_asset::processor::process_plan::LoadAndSave<loader::CoolTextLoader, loader::CoolTextSaver>",
+        processor: "bevy_asset::processor::process::LoadAndSave<loader::CoolTextLoader, loader::CoolTextSaver>",
         settings: (
             loader_settings: (),
             saver_settings: (
