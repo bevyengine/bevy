@@ -132,7 +132,7 @@ impl WhereClauseOptions {
     ///
     /// Compared to [`WhereClauseOptions::new`], this version allows you to specify
     /// custom trait bounds for each field.
-    pub fn new_with_bounds(
+    fn new_with_bounds(
         meta: &ReflectMeta,
         active_bounds: impl Fn(&TypeParam) -> Option<proc_macro2::TokenStream>,
         ignored_bounds: impl Fn(&TypeParam) -> Option<proc_macro2::TokenStream>,
