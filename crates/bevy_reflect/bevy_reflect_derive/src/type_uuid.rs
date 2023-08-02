@@ -2,7 +2,8 @@ use bevy_macro_utils::BevyManifest;
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
-use syn::{DeriveInput, Expr, ExprLit, Generics, Ident, Lit, LitInt, LitStr, Meta, Token};
+use syn::token::Comma;
+use syn::{DeriveInput, Expr, ExprLit, Generics, Ident, Lit, LitInt, LitStr, Meta};
 use uuid::Uuid;
 
 pub(crate) fn type_uuid_derive(input: DeriveInput) -> syn::Result<TokenStream> {
@@ -92,7 +93,7 @@ impl Parse for TypeUuidDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let type_ident = input.parse::<Ident>()?;
         let generics = input.parse::<Generics>()?;
-        input.parse::<Token![,]>()?;
+        input.parse::<Comma>()?;
         let uuid = input.parse::<LitStr>()?.value();
         let uuid = Uuid::parse_str(&uuid).map_err(|err| input.error(format!("{err}")))?;
 
